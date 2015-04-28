@@ -221,6 +221,9 @@ struct wayland_input {
 	struct wayland_output *keyboard_focus;
 
 	struct weston_pointer_axis_event vert, horiz;
+
+	bool seat_initialized;
+	enum wl_seat_capability caps;
 };
 
 struct gl_renderer_interface *gl_renderer;
@@ -2284,13 +2287,10 @@ create_touch_device(struct wayland_input *input)
 }
 
 static void
-input_handle_capabilities(void *data, struct wl_seat *seat,
-		          enum wl_seat_capability caps)
+input_update_capabilities(struct wayland_input *input, enum wl_seat_capability caps)
 {
-	struct wayland_input *input = data;
-
 	if ((caps & WL_SEAT_CAPABILITY_POINTER) && !input->parent.pointer) {
-		input->parent.pointer = wl_seat_get_pointer(seat);
+		input->parent.pointer = wl_seat_get_pointer(input->parent.seat);
 		wl_pointer_set_user_data(input->parent.pointer, input);
 		wl_pointer_add_listener(input->parent.pointer,
 					&pointer_listener, input);
@@ -2305,7 +2305,7 @@ input_handle_capabilities(void *data, struct wl_seat *seat,
 	}
 
 	if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !input->parent.keyboard) {
-		input->parent.keyboard = wl_seat_get_keyboard(seat);
+		input->parent.keyboard = wl_seat_get_keyboard(input->parent.seat);
 		wl_keyboard_set_user_data(input->parent.keyboard, input);
 		wl_keyboard_add_listener(input->parent.keyboard,
 					 &keyboard_listener, input);
@@ -2319,7 +2319,7 @@ input_handle_capabilities(void *data, struct wl_seat *seat,
 	}
 
 	if ((caps & WL_SEAT_CAPABILITY_TOUCH) && !input->parent.touch) {
-		input->parent.touch = wl_seat_get_touch(seat);
+		input->parent.touch = wl_seat_get_touch(input->parent.seat);
 		wl_touch_set_user_data(input->parent.touch, input);
 		wl_touch_add_listener(input->parent.touch,
 				      &touch_listener, input);
@@ -2338,9 +2338,26 @@ input_handle_capabilities(void *data, struct wl_seat *seat,
 }
 
 static void
+input_handle_capabilities(void *data, struct wl_seat *seat,
+		          enum wl_seat_capability caps)
+{
+	struct wayland_input *input = data;
+
+	if (input->seat_initialized)
+		input_update_capabilities(input, caps);
+	else
+		input->caps = caps;
+}
+
+static void
 input_handle_name(void *data, struct wl_seat *seat,
 		  const char *name)
 {
+	struct wayland_input *input = data;
+	struct wayland_backend *b = input->backend;
+
+	weston_seat_init(&input->base, b->compositor, name);
+	input->seat_initialized = true;
 }
 
 static const struct wl_seat_listener seat_listener = {
@@ -2358,7 +2375,6 @@ display_add_seat(struct wayland_backend *b, uint32_t id, uint32_t available_vers
 	if (input == NULL)
 		return;
 
-	weston_seat_init(&input->base, b->compositor, "default");
 	input->backend = b;
 	input->parent.seat = wl_registry_bind(b->parent.registry, id,
 					      &wl_seat_interface, version);
@@ -2367,6 +2383,13 @@ display_add_seat(struct wayland_backend *b, uint32_t id, uint32_t available_vers
 
 	wl_seat_add_listener(input->parent.seat, &seat_listener, input);
 	wl_seat_set_user_data(input->parent.seat, input);
+
+	wl_display_roundtrip(b->parent.wl_display);
+	if (!input->seat_initialized) {
+		weston_seat_init(&input->base, b->compositor, "default");
+		input->seat_initialized = true;
+	}
+	input_update_capabilities(input, input->caps);
 
 	input->parent.cursor.surface =
 		wl_compositor_create_surface(b->parent.compositor);
