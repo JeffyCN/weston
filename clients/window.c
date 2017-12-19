@@ -2415,6 +2415,54 @@ frame_touch_up_handler(struct widget *widget,
 	frame_handle_status(frame, input, time, THEME_LOCATION_CLIENT_AREA);
 }
 
+static int
+frame_tablet_tool_motion_handler(struct widget *widget,
+				 struct tablet_tool *tool,
+				 float x, float y,
+				 void *data)
+{
+	struct window_frame *frame = data;
+	enum theme_location location;
+
+	location = frame_tablet_tool_motion(frame->frame, tool, x, y);
+	if (frame_status(frame->frame) & FRAME_STATUS_REPAINT)
+		widget_schedule_redraw(frame->widget);
+
+	frame_get_pointer_image_for_location(data, location);
+
+	return CURSOR_LEFT_PTR;
+}
+
+static void
+frame_tablet_tool_down_handler(struct widget *widget,
+			       struct tablet_tool *tool,
+			       void *data)
+{
+	struct window_frame *frame = data;
+	enum theme_location location;
+	uint32_t time = 0; /* FIXME: we should be doing this in the frame
+			      handler where we have the timestamp  */
+
+	/* Map a stylus touch to the left mouse button */
+	location = frame_pointer_button(frame->frame, tool, BTN_LEFT, 1);
+	frame_handle_status(frame, tool->input, time, location);
+}
+
+static void
+frame_tablet_tool_up_handler(struct widget *widget, struct tablet_tool *tool,
+			     void *data)
+{
+	struct window_frame *frame = data;
+	enum theme_location location;
+	uint32_t time = 0; /* FIXME: we should be doing this in the frame
+			      handler where we have the timestamp  */
+
+	/* Map the stylus leaving contact with the tablet as releasing the left
+	 * mouse button */
+	location = frame_pointer_button(frame->frame, tool, BTN_LEFT, 0);
+	frame_handle_status(frame, tool->input, time, location);
+}
+
 struct widget *
 window_frame_create(struct window *window, void *data)
 {
@@ -2446,6 +2494,12 @@ window_frame_create(struct window *window, void *data)
 	widget_set_button_handler(frame->widget, frame_button_handler);
 	widget_set_touch_down_handler(frame->widget, frame_touch_down_handler);
 	widget_set_touch_up_handler(frame->widget, frame_touch_up_handler);
+	widget_set_tablet_tool_axis_handlers(frame->widget,
+					     frame_tablet_tool_motion_handler,
+					     NULL, NULL, NULL,
+					     NULL, NULL, NULL);
+	widget_set_tablet_tool_down_handler(frame->widget, frame_tablet_tool_down_handler);
+	widget_set_tablet_tool_up_handler(frame->widget, frame_tablet_tool_up_handler);
 
 	window->frame = frame;
 

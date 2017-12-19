@@ -914,6 +914,10 @@ struct weston_tablet_tool {
 	struct wl_listener sprite_destroy_listener;
 
 	struct weston_coord_global pos;
+	struct weston_coord_global grab_pos;
+
+	struct wl_signal focus_signal;
+	struct wl_signal removed_signal;
 };
 
 struct weston_tablet {
@@ -1176,6 +1180,7 @@ struct weston_seat {
 	struct wl_list tablet_list;
 	struct wl_list tablet_tool_list;
 	struct wl_list tablet_seat_resource_list;
+	struct wl_signal tablet_tool_added_signal;
 };
 
 enum {

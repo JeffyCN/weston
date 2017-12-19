@@ -161,6 +161,13 @@ struct shell_touch_grab {
 	struct weston_touch *touch;
 };
 
+struct shell_tablet_tool_grab {
+	struct weston_tablet_tool_grab grab;
+	struct shell_surface *shsurf;
+	struct wl_listener shsurf_destroy_listener;
+	struct weston_tablet_tool *tool;
+};
+
 struct weston_move_grab {
 	struct shell_grab base;
 	wl_fixed_t dx, dy;
@@ -170,6 +177,11 @@ struct weston_move_grab {
 struct weston_touch_move_grab {
 	struct shell_touch_grab base;
 	int active;
+	wl_fixed_t dx, dy;
+};
+
+struct weston_tablet_tool_move_grab {
+	struct shell_tablet_tool_grab base;
 	wl_fixed_t dx, dy;
 };
 
@@ -190,10 +202,15 @@ struct shell_seat {
 	struct wl_listener caps_changed_listener;
 	struct wl_listener pointer_focus_listener;
 	struct wl_listener keyboard_focus_listener;
+	struct wl_listener tablet_tool_added_listener;
 
 	struct wl_list link;	/** shell::seat_list */
 };
 
+struct tablet_tool_listener {
+	struct wl_listener base;
+	struct wl_listener removed_listener;
+};
 
 static struct weston_view *
 shell_fade_create_fade_out_view(struct shell_surface *shsurf,
@@ -444,6 +461,42 @@ shell_touch_grab_end(struct shell_touch_grab *grab)
 	}
 
 	weston_touch_end_grab(grab->touch);
+}
+
+static void
+shell_tablet_tool_grab_start(struct shell_tablet_tool_grab *grab,
+			     const struct weston_tablet_tool_grab_interface *interface,
+			     struct shell_surface *shsurf,
+			     struct weston_tablet_tool *tool)
+{
+	struct desktop_shell *shell = shsurf->shell;
+
+	weston_seat_break_desktop_grabs(tool->seat);
+
+	grab->grab.interface = interface;
+	grab->shsurf = shsurf;
+	grab->shsurf_destroy_listener.notify = destroy_shell_grab_shsurf;
+	wl_signal_add(&shsurf->destroy_signal, &grab->shsurf_destroy_listener);
+
+	grab->tool = tool;
+	shsurf->grabbed = 1;
+
+	weston_tablet_tool_start_grab(tool, &grab->grab);
+	if (shell->child.desktop_shell)
+		weston_tablet_tool_set_focus(tool,
+					     get_default_view(shell->grab_surface),
+					     0);
+}
+
+static void
+shell_tablet_tool_grab_end(struct shell_tablet_tool_grab *grab)
+{
+	if (grab->shsurf) {
+		wl_list_remove(&grab->shsurf_destroy_listener.link);
+		grab->shsurf->grabbed = 0;
+	}
+
+	weston_tablet_tool_end_grab(grab->tool);
 }
 
 static enum animation_type
@@ -1144,6 +1197,148 @@ struct weston_resize_grab {
 };
 
 static void
+tablet_tool_noop_grab_proximity_in(struct weston_tablet_tool_grab *grab,
+				   const struct timespec *time,
+				   struct weston_tablet *tablet)
+{
+}
+
+static void
+tablet_tool_move_grab_proximity_out(struct weston_tablet_tool_grab *grab,
+				    const struct timespec *time)
+{
+	struct weston_tablet_tool_move_grab *move =
+		(struct weston_tablet_tool_move_grab *)grab;
+
+	shell_tablet_tool_grab_end(&move->base);
+	free(grab);
+}
+
+static void
+tablet_tool_move_grab_up(struct weston_tablet_tool_grab *grab,
+			 const struct timespec *time)
+{
+	struct weston_tablet_tool_move_grab *move =
+		(struct weston_tablet_tool_move_grab *)grab;
+
+	shell_tablet_tool_grab_end(&move->base);
+	free(grab);
+}
+
+static void
+tablet_tool_noop_grab_down(struct weston_tablet_tool_grab *grab,
+			   const struct timespec *time)
+{
+}
+
+static void
+tablet_tool_move_grab_motion(struct weston_tablet_tool_grab *grab,
+			     const struct timespec *time,
+			     struct weston_coord_global pos)
+{
+	struct weston_tablet_tool_move_grab *move =
+		(struct weston_tablet_tool_move_grab *)grab;
+	struct shell_surface *shsurf = move->base.shsurf;
+	struct weston_surface *es;
+
+	weston_tablet_tool_cursor_move(grab->tool, pos);
+
+	if (!shsurf)
+		return;
+
+	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
+	weston_view_set_position(shsurf->view,
+				 pos.c.x + wl_fixed_to_double(move->dx),
+				 pos.c.y + wl_fixed_to_double(move->dy));
+	weston_compositor_schedule_repaint(es->compositor);
+}
+
+static void
+tablet_tool_noop_grab_pressure(struct weston_tablet_tool_grab *grab,
+			       const struct timespec *time,
+			       uint32_t pressure)
+{
+}
+
+static void
+tablet_tool_noop_grab_distance(struct weston_tablet_tool_grab *grab,
+			       const struct timespec *time,
+			       uint32_t distance)
+{
+}
+
+static void
+tablet_tool_noop_grab_tilt(struct weston_tablet_tool_grab *grab,
+			   const struct timespec *time,
+			   int32_t tilt_x, int32_t tilt_y)
+{
+}
+
+static void tablet_tool_noop_grab_button(struct weston_tablet_tool_grab *grab,
+					 const struct timespec *time, uint32_t button,
+					 uint32_t state)
+{
+}
+
+static void
+tablet_tool_noop_grab_frame(struct weston_tablet_tool_grab *grab,
+			    const struct timespec *time)
+{
+}
+
+static void
+tablet_tool_move_grab_cancel(struct weston_tablet_tool_grab *grab)
+{
+	struct weston_tablet_tool_move_grab *move =
+		(struct weston_tablet_tool_move_grab *)grab;
+
+	shell_tablet_tool_grab_end(&move->base);
+	free(grab);
+}
+
+static struct weston_tablet_tool_grab_interface tablet_tool_move_grab_interface = {
+	tablet_tool_noop_grab_proximity_in,
+	tablet_tool_move_grab_proximity_out,
+	tablet_tool_move_grab_motion,
+	tablet_tool_noop_grab_down,
+	tablet_tool_move_grab_up,
+	tablet_tool_noop_grab_pressure,
+	tablet_tool_noop_grab_distance,
+	tablet_tool_noop_grab_tilt,
+	tablet_tool_noop_grab_button,
+	tablet_tool_noop_grab_frame,
+	tablet_tool_move_grab_cancel,
+};
+
+static int
+surface_tablet_tool_move(struct shell_surface *shsurf, struct weston_tablet_tool *tool)
+{
+	struct weston_tablet_tool_move_grab *move;
+	struct weston_coord offset;
+
+	if (!shsurf)
+		return -1;
+
+	if (shsurf->state.fullscreen || shsurf->state.maximized)
+		return 0;
+
+	move = malloc(sizeof(*move));
+	if (!move)
+		return -1;
+
+	offset = weston_coord_sub(shsurf->view->geometry.pos_offset,
+				  tool->grab_pos.c);
+	move->dx = wl_fixed_from_double(offset.x);
+	move->dy = wl_fixed_from_double(offset.y);
+
+	shell_tablet_tool_grab_start(&move->base, &tablet_tool_move_grab_interface,
+				     shsurf, tool);
+
+	return 0;
+}
+
+
+static void
 resize_grab_motion(struct weston_pointer_grab *grab,
 		   const struct timespec *time,
 		   struct weston_pointer_motion_event *event)
@@ -1441,6 +1636,26 @@ sync_surface_activated_state(struct shell_surface *shsurf)
 		weston_desktop_surface_set_activated(surface, true);
 	else
 		weston_desktop_surface_set_activated(surface, false);
+}
+
+static void
+handle_tablet_tool_focus(struct wl_listener *listener, void *data)
+{
+	struct weston_tablet_tool *tool = data;
+	struct weston_view *view = tool->focus;
+	struct shell_surface *shsurf;
+	struct weston_desktop_client *client;
+
+	if (!view)
+		return;
+
+	shsurf = get_shell_surface(view->surface);
+	if (!shsurf)
+		return;
+
+	client = weston_desktop_surface_get_client(shsurf->desktop_surface);
+
+	weston_desktop_client_ping(client);
 }
 
 static void
@@ -1779,9 +1994,41 @@ desktop_shell_destroy_seat(struct shell_seat *shseat)
 	wl_list_remove(&shseat->caps_changed_listener.link);
 	wl_list_remove(&shseat->pointer_focus_listener.link);
 	wl_list_remove(&shseat->seat_destroy_listener.link);
+	wl_list_remove(&shseat->tablet_tool_added_listener.link);
 
 	wl_list_remove(&shseat->link);
 	free(shseat);
+}
+
+static void
+destroy_tablet_tool_listener(struct wl_listener *listener, void *data)
+{
+	struct tablet_tool_listener *tool_listener =
+		container_of(listener, struct tablet_tool_listener, removed_listener);
+
+	wl_list_remove(&tool_listener->removed_listener.link);
+	wl_list_remove(&tool_listener->base.link);
+	free(tool_listener);
+}
+
+static void
+handle_tablet_tool_added(struct wl_listener *listener, void *data)
+{
+	struct weston_tablet_tool *tool = data;
+	struct tablet_tool_listener *tool_listener;
+
+	tool_listener = malloc(sizeof *tool_listener);
+	if (!tool_listener) {
+		weston_log("no memory to allocate to shell seat tablet listener\n");
+		return;
+	}
+
+	tool_listener->removed_listener.notify = destroy_tablet_tool_listener;
+	wl_signal_add(&tool->removed_signal,
+		      &tool_listener->removed_listener);
+
+	tool_listener->base.notify = handle_tablet_tool_focus;
+	wl_signal_add(&tool->focus_signal, &tool_listener->base);
 }
 
 static void
@@ -1817,6 +2064,7 @@ static struct shell_seat *
 create_shell_seat(struct desktop_shell *shell, struct weston_seat *seat)
 {
 	struct shell_seat *shseat;
+	struct weston_tablet_tool *tool;
 
 	shseat = calloc(1, sizeof *shseat);
 	if (!shseat) {
@@ -1834,6 +2082,25 @@ create_shell_seat(struct desktop_shell *shell, struct weston_seat *seat)
 
 	shseat->pointer_focus_listener.notify = handle_pointer_focus;
 	wl_list_init(&shseat->pointer_focus_listener.link);
+
+	shseat->tablet_tool_added_listener.notify = handle_tablet_tool_added;
+	wl_list_init(&shseat->tablet_tool_added_listener.link);
+
+	wl_list_for_each(tool, &seat->tablet_tool_list, link) {
+		struct tablet_tool_listener *listener = malloc(sizeof *listener);
+
+		if (!listener) {
+			weston_log("no memory to allocate to shell seat tablet listener\n");
+			break;
+		}
+
+		listener->removed_listener.notify = destroy_tablet_tool_listener;
+		wl_signal_add(&tool->removed_signal,
+			      &listener->removed_listener);
+
+		listener->base.notify = handle_tablet_tool_focus;
+		wl_signal_add(&tool->focus_signal, &listener->base);
+	}
 
 	shseat->caps_changed_listener.notify = shell_seat_caps_changed;
 	wl_signal_add(&seat->updated_caps_signal,
@@ -2303,6 +2570,18 @@ desktop_surface_move(struct weston_desktop_surface *desktop_surface,
 		if ((focus == surface) &&
 		    (surface_touch_move(shsurf, touch) < 0))
 			wl_resource_post_no_memory(resource);
+	} else if (!wl_list_empty(&seat->tablet_tool_list)) {
+		struct weston_tablet_tool *tool;
+
+		wl_list_for_each(tool, &seat->tablet_tool_list, link) {
+			if (tool->focus && tool->grab_serial == serial) {
+				focus = weston_surface_get_main_surface(
+							  tool->focus->surface);
+				if (focus == surface &&
+				    surface_tablet_tool_move(shsurf, tool) < 0)
+					wl_resource_post_no_memory(resource);
+			}
+		}
 	}
 }
 

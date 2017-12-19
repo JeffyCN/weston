@@ -241,6 +241,10 @@ frame_double_touch_down(struct frame *frame, void *data, int32_t id,
 void
 frame_double_touch_up(struct frame *frame, void *data, int32_t id);
 
+/* May set FRAME_STATUS_REPAINT */
+enum theme_location
+frame_tablet_tool_motion(struct frame *frame, void *pointer, int x, int y);
+
 void
 frame_repaint(struct frame *frame, cairo_t *cr);
 
