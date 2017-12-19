@@ -375,6 +375,8 @@ if get_option('shell-desktop')
 		'desktop-shell.c',
 		weston_desktop_shell_client_protocol_h,
 		weston_desktop_shell_protocol_c,
+		tablet_unstable_v2_client_protocol_h,
+		tablet_unstable_v2_protocol_c,
 		include_directories: common_inc,
 		dependencies: dep_toytoolkit,
 		install_dir: get_option('libexecdir'),

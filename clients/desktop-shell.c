@@ -53,6 +53,7 @@
 
 #include "window.h"
 
+#include "tablet-unstable-v2-client-protocol.h"
 #include "weston-desktop-shell-client-protocol.h"
 
 #define DEFAULT_CLOCK_FORMAT CLOCK_FORMAT_MINUTES
@@ -372,6 +373,56 @@ panel_launcher_touch_up_handler(struct widget *widget, struct input *input,
 	launcher->focused = 0;
 	widget_schedule_redraw(widget);
 	panel_launcher_activate(launcher);
+}
+
+static void
+panel_launcher_tablet_tool_proximity_in_handler(struct widget *widget,
+						struct tablet_tool *tool,
+						struct tablet *tablet, void *data)
+{
+	struct panel_launcher *launcher;
+
+	launcher = widget_get_user_data(widget);
+	launcher->focused = 1;
+	widget_schedule_redraw(widget);
+}
+
+static void
+panel_launcher_tablet_tool_proximity_out_handler(struct widget *widget,
+						 struct tablet_tool *tool, void *data)
+{
+	struct panel_launcher *launcher;
+
+	launcher = widget_get_user_data(widget);
+	launcher->focused = 0;
+	widget_schedule_redraw(widget);
+}
+
+static void
+panel_launcher_tablet_tool_up_handler(struct widget *widget,
+				      struct tablet_tool *tool,
+				      void *data)
+{
+	struct panel_launcher *launcher;
+
+	launcher = widget_get_user_data(widget);
+	panel_launcher_activate(launcher);
+}
+
+static void
+panel_launcher_tablet_tool_button_handler(struct widget *widget,
+					  struct tablet_tool *tool,
+					  uint32_t button,
+					  uint32_t state_w,
+					  void *data)
+{
+	struct panel_launcher *launcher;
+	enum zwp_tablet_tool_v2_button_state state = state_w;
+
+	launcher = widget_get_user_data(widget);
+
+	if (state == ZWP_TABLET_TOOL_V2_BUTTON_STATE_RELEASED)
+		panel_launcher_activate(launcher);
 }
 
 static void
@@ -706,6 +757,13 @@ panel_add_launcher(struct panel *panel, const char *icon, const char *path, cons
 				      panel_launcher_touch_down_handler);
 	widget_set_touch_up_handler(launcher->widget,
 				    panel_launcher_touch_up_handler);
+	widget_set_tablet_tool_up_handler(launcher->widget,
+				panel_launcher_tablet_tool_up_handler);
+	widget_set_tablet_tool_proximity_handlers(launcher->widget,
+				panel_launcher_tablet_tool_proximity_in_handler,
+				panel_launcher_tablet_tool_proximity_out_handler);
+	widget_set_tablet_tool_button_handler(launcher->widget,
+				panel_launcher_tablet_tool_button_handler);
 	widget_set_redraw_handler(launcher->widget,
 				  panel_launcher_redraw_handler);
 	widget_set_motion_handler(launcher->widget,
