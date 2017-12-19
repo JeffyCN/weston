@@ -149,6 +149,12 @@ struct tablet_tool {
 	struct tablet *current_tablet;
 	struct window *focus;
 	struct widget *focus_widget;
+	uint32_t enter_serial;
+	uint32_t cursor_serial;
+	int current_cursor;
+	struct wl_surface *cursor_surface;
+	uint32_t cursor_anim_start;
+	struct wl_callback *cursor_frame_cb;
 
 	enum zwp_tablet_tool_v2_type type;
 	uint64_t serial;
@@ -325,6 +331,7 @@ struct widget {
 	int opaque;
 	int tooltip_count;
 	int default_cursor;
+	int default_tablet_cursor;
 	/* If this is set to false then no cairo surface will be
 	 * created before redrawing the surface. This is useful if the
 	 * redraw handler is going to do completely custom rendering
@@ -1524,6 +1531,7 @@ widget_create(struct window *window, struct surface *surface, void *data)
 	widget->tooltip = NULL;
 	widget->tooltip_count = 0;
 	widget->default_cursor = CURSOR_LEFT_PTR;
+	widget->default_tablet_cursor = CURSOR_LEFT_PTR;
 	widget->use_cairo = 1;
 	widget->viewport_dest_width = -1;
 	widget->viewport_dest_height = -1;
@@ -1581,6 +1589,12 @@ void
 widget_set_default_cursor(struct widget *widget, int cursor)
 {
 	widget->default_cursor = cursor;
+}
+
+void
+widget_set_default_tablet_cursor(struct widget *widget, int cursor)
+{
+	widget->default_tablet_cursor = cursor;
 }
 
 void
@@ -6014,6 +6028,117 @@ tablet_tool_handle_removed(void *data, struct zwp_tablet_tool_v2 *zwp_tablet_too
 	free(tool);
 }
 
+static const struct wl_callback_listener tablet_tool_cursor_surface_listener;
+
+static void
+tablet_tool_set_cursor_image_index(struct tablet_tool *tool, int index)
+{
+	struct wl_buffer *buffer;
+	struct wl_cursor *cursor;
+	struct wl_cursor_image *image;
+
+	cursor = tool->input->display->cursors[tool->current_cursor];
+	if (index >= (int)cursor->image_count) {
+		fprintf(stderr, "cursor index out of range\n");
+		return;
+	}
+
+	image = cursor->images[index];
+	buffer = wl_cursor_image_get_buffer(image);
+	if (!buffer)
+		return;
+
+	wl_surface_attach(tool->cursor_surface, buffer, 0, 0);
+	wl_surface_damage(tool->cursor_surface, 0, 0,
+			  image->width, image->height);
+	wl_surface_commit(tool->cursor_surface);
+	zwp_tablet_tool_v2_set_cursor(tool->tool, tool->enter_serial,
+				      tool->cursor_surface,
+				      image->hotspot_x, image->hotspot_y);
+}
+
+static void
+tablet_tool_surface_frame_callback(void *data, struct wl_callback *callback,
+				   uint32_t time)
+{
+	struct tablet_tool *tool = data;
+	struct wl_cursor *cursor;
+	int i;
+
+	if (callback) {
+		assert(callback == tool->cursor_frame_cb);
+		wl_callback_destroy(callback);
+		tool->cursor_frame_cb = NULL;
+	}
+
+	if (tool->current_cursor == CURSOR_BLANK) {
+		zwp_tablet_tool_v2_set_cursor(tool->tool, tool->enter_serial,
+					      NULL, 0, 0);
+		return;
+	}
+
+	if (tool->current_cursor == CURSOR_UNSET)
+		return;
+
+	cursor = tool->input->display->cursors[tool->current_cursor];
+	if (!cursor)
+		return;
+
+	/* FIXME We don't have the current time on the first call so we set
+	 * the animation start to the time of the first frame callback. */
+	if (time == 0)
+		tool->cursor_anim_start = 0;
+	else if (tool->cursor_anim_start == 0)
+		tool->cursor_anim_start = time;
+
+	if (time == 0 || tool->cursor_anim_start == 0)
+		i = 0;
+	else
+		i = wl_cursor_frame(cursor, time - tool->cursor_anim_start);
+
+	if (cursor->image_count > 1) {
+		tool->cursor_frame_cb =
+			wl_surface_frame(tool->cursor_surface);
+		wl_callback_add_listener(tool->cursor_frame_cb,
+					 &tablet_tool_cursor_surface_listener,
+					 tool);
+	}
+
+	tablet_tool_set_cursor_image_index(tool, i);
+}
+
+static const struct wl_callback_listener tablet_tool_cursor_surface_listener =  {
+	tablet_tool_surface_frame_callback,
+};
+
+void
+tablet_tool_set_cursor_image(struct tablet_tool *tool, int cursor)
+{
+	bool force = false;
+
+	if (tool->enter_serial > tool->cursor_serial)
+		force = true;
+
+	if (!force && cursor == tool->current_cursor)
+		return;
+
+	tool->current_cursor = cursor;
+	tool->cursor_serial = tool->enter_serial;
+
+	if (!tool->cursor_frame_cb) {
+		tablet_tool_surface_frame_callback(tool, NULL, 0);
+	} else if (force) {
+		/* The current frame callback may be stuck if, for instance,
+		 * the set cursor request was processed by the server after
+		 * this client lost the focus. In this case the cursor surface
+		 * might not be mapped and the frame callback wouldn't ever
+		 * complete. Send a set_cursor and attach to try to map the
+		 * cursor surface again so that the callback will finish
+		 */
+		tablet_tool_set_cursor_image_index(tool, 0);
+	}
+}
+
 static void
 tablet_tool_set_focus_widget(struct tablet_tool *tool, struct window *window,
 			     wl_fixed_t sx, wl_fixed_t sy)
@@ -6058,6 +6183,9 @@ tablet_tool_handle_proximity_in(void *data,
 
 	tool->focus = window;
 	tool->current_tablet = tablet;
+	tool->enter_serial = serial;
+
+	tablet_tool_set_cursor_image(tool, window->main_surface->widget->default_tablet_cursor);
 }
 
 static void
@@ -6102,6 +6230,7 @@ tablet_tool_handle_motion(void *data, struct zwp_tablet_tool_v2 *zwp_tablet_tool
 	double sy = wl_fixed_to_double(y);
 	struct window *window = tool->focus;
 	struct widget *widget;
+	int cursor;
 
 	if (!window)
 		return;
@@ -6116,9 +6245,14 @@ tablet_tool_handle_motion(void *data, struct zwp_tablet_tool_v2 *zwp_tablet_tool
 	tablet_tool_set_focus_widget(tool, window, sx, sy);
 	widget = tool->focus_widget;
 	if (widget && widget->tablet_tool_motion_handler) {
-		widget->tablet_tool_motion_handler(widget, tool, sx, sy,
-						   widget->user_data);
+		cursor = widget->tablet_tool_motion_handler(widget, tool,
+							    sx, sy,
+							    widget->user_data);
+	} else {
+		cursor = widget->default_tablet_cursor;
 	}
+
+	tablet_tool_set_cursor_image(tool, cursor);
 }
 
 static void
@@ -6259,6 +6393,8 @@ tablet_tool_added(void *data, struct zwp_tablet_seat_v2 *zwp_tablet_seat1,
 
 	tool->tool = id;
 	tool->input = input;
+	tool->cursor_surface =
+		wl_compositor_create_surface(input->display->compositor);
 }
 
 static const struct zwp_tablet_seat_v2_listener tablet_seat_listener = {
