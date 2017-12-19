@@ -330,6 +330,13 @@ demo_clients = [
 		'basename': 'subsurfaces',
 		'deps': [ 'egl', 'glesv2', 'wayland-egl' ]
 	},
+	{
+		'basename': 'tablet',
+		'add_sources': [
+			tablet_unstable_v2_client_protocol_h,
+			tablet_unstable_v2_protocol_c,
+		],
+	},
 	{ 'basename': 'transformed' },
 ]
 
