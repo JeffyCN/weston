@@ -115,6 +115,8 @@ struct ivi_layout {
 
 	struct ivi_layout_transition_set *transitions;
 	struct wl_list pending_transition_list;	/* transition_node::link */
+
+	struct wl_listener output_created;
 };
 
 struct ivi_layout *get_instance(void);

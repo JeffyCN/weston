@@ -260,6 +260,33 @@ ivi_layout_surface_destroy(struct ivi_layout_surface *ivisurf)
 	free(ivisurf);
 }
 
+static void
+add_screen(struct weston_output *output)
+{
+	struct ivi_layout *layout = get_instance();
+	struct ivi_layout_screen *iviscrn = NULL;
+
+	iviscrn = calloc(1, sizeof *iviscrn);
+	if (iviscrn == NULL) {
+		weston_log("fails to allocate memory\n");
+		return;
+	}
+
+	iviscrn->layout = layout;
+	iviscrn->output = output;
+
+	wl_list_init(&iviscrn->pending.layer_list);
+	wl_list_init(&iviscrn->order.layer_list);
+	wl_list_insert(&layout->screen_list, &iviscrn->link);
+}
+
+static void
+output_created_event(struct wl_listener *listener, void *data)
+{
+	struct weston_output *created_output = data;
+	add_screen(created_output);
+}
+
 /**
  * Internal API to initialize ivi_screens found from output_list of weston_compositor.
  * Called by ivi_layout_init_with_compositor.
@@ -267,27 +294,10 @@ ivi_layout_surface_destroy(struct ivi_layout_surface *ivisurf)
 static void
 create_screen(struct weston_compositor *ec)
 {
-	struct ivi_layout *layout = get_instance();
-	struct ivi_layout_screen *iviscrn = NULL;
 	struct weston_output *output = NULL;
 
-	wl_list_for_each(output, &ec->output_list, link) {
-		iviscrn = calloc(1, sizeof *iviscrn);
-		if (iviscrn == NULL) {
-			weston_log("fails to allocate memory\n");
-			continue;
-		}
-
-		iviscrn->layout = layout;
-
-		iviscrn->output = output;
-
-		wl_list_init(&iviscrn->pending.layer_list);
-
-		wl_list_init(&iviscrn->order.layer_list);
-
-		wl_list_insert(&layout->screen_list, &iviscrn->link);
-	}
+	wl_list_for_each(output, &ec->output_list, link)
+		add_screen(output);
 }
 
 /**
@@ -2045,6 +2055,9 @@ ivi_layout_init_with_compositor(struct weston_compositor *ec)
 
 	create_screen(ec);
 
+	layout->output_created.notify = output_created_event;
+	wl_signal_add(&ec->output_created_signal, &layout->output_created);
+
 	layout->transitions = ivi_layout_transition_set_create(ec);
 	wl_list_init(&layout->pending_transition_list);
 
@@ -2061,6 +2074,7 @@ ivi_layout_fini(void)
 	weston_layer_fini(&layout->layout_layer);
 
 	/* XXX: tear down everything else */
+	wl_list_remove(&layout->output_created.link);
 }
 
 static struct ivi_layout_interface ivi_layout_interface = {
