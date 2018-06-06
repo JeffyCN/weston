@@ -261,6 +261,44 @@ ivi_layout_surface_destroy(struct ivi_layout_surface *ivisurf)
 }
 
 static void
+destroy_screen(struct ivi_layout_screen *iviscrn)
+{
+	struct ivi_layout_layer *ivilayer, *layer_next;
+
+	wl_list_for_each_safe(ivilayer, layer_next,
+			      &iviscrn->pending.layer_list, pending.link) {
+		wl_list_remove(&ivilayer->pending.link);
+		wl_list_init(&ivilayer->pending.link);
+	}
+
+	assert(wl_list_empty(&iviscrn->pending.layer_list));
+
+	wl_list_for_each_safe(ivilayer, layer_next,
+			      &iviscrn->order.layer_list, order.link) {
+		wl_list_remove(&ivilayer->order.link);
+		wl_list_init(&ivilayer->order.link);
+		ivilayer->on_screen = NULL;
+	}
+
+	assert(wl_list_empty(&iviscrn->order.layer_list));
+
+	wl_list_remove(&iviscrn->link);
+	free(iviscrn);
+}
+
+static void
+output_destroyed_event(struct wl_listener *listener, void *data)
+{
+	struct weston_output *destroyed_output = data;
+	struct ivi_layout_screen *iviscrn;
+
+	iviscrn = get_screen_from_output(destroyed_output);
+	assert(iviscrn != NULL);
+	destroy_screen(iviscrn);
+
+}
+
+static void
 add_screen(struct weston_output *output)
 {
 	struct ivi_layout *layout = get_instance();
@@ -2058,6 +2096,9 @@ ivi_layout_init_with_compositor(struct weston_compositor *ec)
 	layout->output_created.notify = output_created_event;
 	wl_signal_add(&ec->output_created_signal, &layout->output_created);
 
+	layout->output_destroyed.notify = output_destroyed_event;
+	wl_signal_add(&ec->output_destroyed_signal, &layout->output_destroyed);
+
 	layout->transitions = ivi_layout_transition_set_create(ec);
 	wl_list_init(&layout->pending_transition_list);
 
@@ -2075,6 +2116,7 @@ ivi_layout_fini(void)
 
 	/* XXX: tear down everything else */
 	wl_list_remove(&layout->output_created.link);
+	wl_list_remove(&layout->output_destroyed.link);
 }
 
 static struct ivi_layout_interface ivi_layout_interface = {
