@@ -436,19 +436,19 @@ calc_inverse_matrix_transform(const struct weston_matrix *matrix,
 	weston_matrix_transform(&m, &bottom_right);
 
 	if (top_left.f[0] < bottom_right.f[0]) {
-		rect_output->x = top_left.f[0];
-		rect_output->width = bottom_right.f[0] - rect_output->x;
+		rect_output->x = floorf(top_left.f[0]);
+		rect_output->width = ceilf(bottom_right.f[0] - rect_output->x);
 	} else {
-		rect_output->x = bottom_right.f[0];
-		rect_output->width = top_left.f[0] - rect_output->x;
+		rect_output->x = floorf(bottom_right.f[0]);
+		rect_output->width = ceilf(top_left.f[0] - rect_output->x);
 	}
 
 	if (top_left.f[1] < bottom_right.f[1]) {
-		rect_output->y = top_left.f[1];
-		rect_output->height = bottom_right.f[1] - rect_output->y;
+		rect_output->y = floorf(top_left.f[1]);
+		rect_output->height = ceilf(bottom_right.f[1] - rect_output->y);
 	} else {
-		rect_output->y = bottom_right.f[1];
-		rect_output->height = top_left.f[1] - rect_output->y;
+		rect_output->y = floorf(bottom_right.f[1]);
+		rect_output->height = ceilf(top_left.f[1] - rect_output->y);
 	}
 
 	ivi_rectangle_intersect(rect_output, boundingbox, rect_output);
