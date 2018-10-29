@@ -135,8 +135,13 @@ device_added(struct udev_input *input, struct libinput_device *libinput_device)
 		evdev_device_set_output(device, output);
 	}
 
-	if (!input->suspended)
+	if (!input->suspended) {
 		weston_seat_repick(seat);
+
+		/* Sync device leds with the actual state */
+		if (seat->led_update && seat->keyboard_state)
+			seat->led_update(seat, seat->keyboard_state->xkb_state.leds);
+	}
 }
 
 static void
