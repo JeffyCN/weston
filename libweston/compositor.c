@@ -4272,6 +4272,9 @@ weston_output_should_freeze(struct weston_output *output)
 	if (timespec_sub_to_msec(&output->freeze_until, &now) > 0)
 		return true;
 
+	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK))
+		return true;
+
 	return false;
 }
 
