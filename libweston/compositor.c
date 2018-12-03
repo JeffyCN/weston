@@ -3282,6 +3282,12 @@ output_repaint_timer_handler(void *data)
 	struct timespec now;
 	int ret = 0;
 
+	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK)) {
+		usleep(DEFAULT_REPAINT_WINDOW * 1000);
+		weston_compositor_build_view_list(compositor, NULL);
+		goto out;
+	}
+
 	weston_compositor_read_presentation_clock(compositor, &now);
 	compositor->last_repaint_start = now;
 
@@ -3316,6 +3322,7 @@ output_repaint_timer_handler(void *data)
 	wl_list_for_each(output, &compositor->output_list, link)
 		output->repainted = false;
 
+out:
 	output_repaint_timer_arm(compositor);
 
 	return 0;
