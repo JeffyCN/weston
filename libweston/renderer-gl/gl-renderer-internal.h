@@ -305,6 +305,8 @@ struct gl_renderer {
 	struct weston_log_scope *shader_scope;
 
 	struct dmabuf_allocator *allocator;
+
+	bool is_mali_egl;
 };
 
 static inline struct gl_renderer *
