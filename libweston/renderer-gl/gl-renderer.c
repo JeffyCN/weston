@@ -2668,6 +2668,14 @@ import_simple_dmabuf(struct gl_renderer *gr,
 	attribs[atti++] = EGL_IMAGE_PRESERVED_KHR;
 	attribs[atti++] = EGL_TRUE;
 
+	/* Old mali needs extra attributes */
+	if (gr->is_mali_egl) {
+		attribs[atti++] = EGL_YUV_COLOR_SPACE_HINT_EXT;
+		attribs[atti++] = EGL_ITU_REC601_EXT;
+		attribs[atti++] = EGL_SAMPLE_RANGE_HINT_EXT;
+		attribs[atti++] = EGL_YUV_NARROW_RANGE_EXT;
+	}
+
 	if (attributes->modifier[0] != DRM_FORMAT_MOD_INVALID) {
 		if (!gr->has_dmabuf_import_modifiers)
 			return NULL;
@@ -2991,7 +2999,7 @@ gl_renderer_query_dmabuf_formats(struct weston_compositor *wc,
 
 	if (!gr->has_dmabuf_import_modifiers ||
 	    !gr->query_dmabuf_formats(gr->egl_display, 0, NULL, &num)) {
-		num = gr->has_gl_texture_rg ? ARRAY_LENGTH(fallback_formats) : 2;
+		num = (gr->has_gl_texture_rg || gr->is_mali_egl) ? ARRAY_LENGTH(fallback_formats) : 2;
 		fallback = true;
 	}
 
@@ -3608,6 +3616,9 @@ log_egl_info(struct gl_renderer *gr, EGLDisplay egldpy)
 
 	str = eglQueryString(egldpy, EGL_VENDOR);
 	weston_log("EGL vendor: %s\n", str ? str : "(null)");
+
+	if (!strcmp(str, "ARM"))
+		gr->is_mali_egl = 1;
 
 	str = eglQueryString(egldpy, EGL_CLIENT_APIS);
 	weston_log("EGL client APIs: %s\n", str ? str : "(null)");
