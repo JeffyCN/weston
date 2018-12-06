@@ -188,6 +188,8 @@ struct gl_renderer {
 	 */
 	struct wl_list shader_list;
 	struct weston_log_scope *shader_scope;
+
+	bool is_mali_egl;
 };
 
 static inline struct gl_renderer *
