@@ -4168,6 +4168,10 @@ gl_renderer_query_dmabuf_formats(struct weston_compositor *wc,
 			num = ARRAY_LENGTH(fallback_formats);
 		else
 			num = 2;
+
+		/* For old Mali GPUs (e.g. Utgard). */
+		num = ARRAY_LENGTH(fallback_formats);
+
 		fallback = true;
 	}
 
