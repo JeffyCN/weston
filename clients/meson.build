@@ -14,6 +14,8 @@ srcs_toytoolkit = [
 	pointer_constraints_unstable_v1_protocol_c,
 	ivi_application_client_protocol_h,
 	ivi_application_protocol_c,
+	viewporter_client_protocol_h,
+	viewporter_protocol_c,
 ]
 deps_toytoolkit = [
 	dep_wayland_client,
