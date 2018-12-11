@@ -849,6 +849,12 @@ background_configure(void *data,
 		return;
 	}
 
+	if (!background->image) {
+		widget_set_viewport_destination(background->widget, width, height);
+		width = 1;
+		height = 1;
+	}
+
 	widget_schedule_resize(background->widget, width, height);
 }
 
