@@ -47,6 +47,8 @@ struct weston_desktop_seat {
 		bool initial_up;
 		struct wl_client *client;
 		struct wl_list surfaces;
+		struct weston_desktop_surface *grab_surface;
+		struct wl_listener grab_surface_destroy_listener;
 	} popup_grab;
 };
 
@@ -293,8 +295,19 @@ weston_desktop_seat_popup_grab_get_topmost_surface(struct weston_desktop_seat *s
 	return weston_desktop_surface_from_grab_link(grab_link);
 }
 
+static void
+popup_grab_grab_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct weston_desktop_seat *seat =
+		wl_container_of(listener, seat,
+				popup_grab.grab_surface_destroy_listener);
+
+	seat->popup_grab.grab_surface = NULL;
+}
+
 bool
 weston_desktop_seat_popup_grab_start(struct weston_desktop_seat *seat,
+				     struct weston_desktop_surface *parent,
 				     struct wl_client *client, uint32_t serial)
 {
 	assert(seat == NULL || seat->popup_grab.client == NULL ||
@@ -317,8 +330,18 @@ weston_desktop_seat_popup_grab_start(struct weston_desktop_seat *seat,
 	seat->popup_grab.client = client;
 
 	if (keyboard != NULL &&
-	    keyboard->grab->interface != &weston_desktop_seat_keyboard_popup_grab_interface)
+	    keyboard->grab->interface != &weston_desktop_seat_keyboard_popup_grab_interface) {
+		struct weston_surface *parent_surface;
+
 		weston_keyboard_start_grab(keyboard, &seat->popup_grab.keyboard);
+		seat->popup_grab.grab_surface = parent;
+
+		parent_surface = weston_desktop_surface_get_surface(parent);
+		seat->popup_grab.grab_surface_destroy_listener.notify =
+			popup_grab_grab_surface_destroy;
+		wl_signal_add(&parent_surface->destroy_signal,
+			      &seat->popup_grab.grab_surface_destroy_listener);
+	}
 
 	if (pointer != NULL &&
 	    pointer->grab->interface != &weston_desktop_seat_pointer_popup_grab_interface)
@@ -349,8 +372,17 @@ weston_desktop_seat_popup_grab_end(struct weston_desktop_seat *seat)
 	}
 
 	if (keyboard != NULL &&
-	    keyboard->grab->interface == &weston_desktop_seat_keyboard_popup_grab_interface)
+	    keyboard->grab->interface == &weston_desktop_seat_keyboard_popup_grab_interface) {
+		struct weston_desktop_surface *grab_desktop_surface;
+		struct weston_surface *grab_surface;
+
 		weston_keyboard_end_grab(keyboard);
+
+		grab_desktop_surface = seat->popup_grab.grab_surface;
+		grab_surface =
+			weston_desktop_surface_get_surface(grab_desktop_surface);
+		weston_keyboard_set_focus(keyboard, grab_surface);
+	}
 
 	if (pointer != NULL &&
 	    pointer->grab->interface == &weston_desktop_seat_pointer_popup_grab_interface)
@@ -361,15 +393,27 @@ weston_desktop_seat_popup_grab_end(struct weston_desktop_seat *seat)
 		weston_touch_end_grab(touch);
 
 	seat->popup_grab.client = NULL;
+	if (seat->popup_grab.grab_surface) {
+		seat->popup_grab.grab_surface = NULL;
+		wl_list_remove(&seat->popup_grab.grab_surface_destroy_listener.link);
+	}
 }
 
 void
 weston_desktop_seat_popup_grab_add_surface(struct weston_desktop_seat *seat,
 					   struct wl_list *link)
 {
+	struct weston_desktop_surface *desktop_surface;
+	struct weston_surface *surface;
+
 	assert(seat->popup_grab.client != NULL);
 
 	wl_list_insert(&seat->popup_grab.surfaces, link);
+
+	desktop_surface =
+		weston_desktop_seat_popup_grab_get_topmost_surface(seat);
+	surface = weston_desktop_surface_get_surface(desktop_surface);
+	weston_keyboard_set_focus(seat->popup_grab.keyboard.keyboard, surface);
 }
 
 void
@@ -380,8 +424,18 @@ weston_desktop_seat_popup_grab_remove_surface(struct weston_desktop_seat *seat,
 
 	wl_list_remove(link);
 	wl_list_init(link);
-	if (wl_list_empty(&seat->popup_grab.surfaces))
+	if (wl_list_empty(&seat->popup_grab.surfaces)) {
 		weston_desktop_seat_popup_grab_end(seat);
+	} else {
+		struct weston_desktop_surface *desktop_surface;
+		struct weston_surface *surface;
+
+		desktop_surface =
+			weston_desktop_seat_popup_grab_get_topmost_surface(seat);
+		surface = weston_desktop_surface_get_surface(desktop_surface);
+		weston_keyboard_set_focus(seat->popup_grab.keyboard.keyboard,
+					  surface);
+	}
 }
 
 WL_EXPORT void

@@ -850,6 +850,7 @@ weston_desktop_xdg_popup_protocol_grab(struct wl_client *wl_client,
 
 	popup->seat = seat;
 	weston_desktop_surface_popup_grab(popup->base.desktop_surface,
+					  popup->parent->desktop_surface,
 					  popup->seat, serial);
 }
 

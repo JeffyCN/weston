@@ -849,12 +849,13 @@ weston_desktop_surface_unset_relative_to(struct weston_desktop_surface *surface)
 
 void
 weston_desktop_surface_popup_grab(struct weston_desktop_surface *surface,
+				  struct weston_desktop_surface *parent,
 				  struct weston_desktop_seat *seat,
 				  uint32_t serial)
 {
 	struct wl_client *wl_client =
 		weston_desktop_client_get_client(surface->client);
-	if (weston_desktop_seat_popup_grab_start(seat, wl_client, serial))
+	if (weston_desktop_seat_popup_grab_start(seat, parent, wl_client, serial))
 		weston_desktop_seat_popup_grab_add_surface(seat, &surface->grab_link);
 	else
 		weston_desktop_surface_popup_dismiss(surface);
