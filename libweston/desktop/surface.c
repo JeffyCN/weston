@@ -569,7 +569,7 @@ weston_desktop_surface_get_implementation_data(struct weston_desktop_surface *su
 	return surface->implementation_data;
 }
 
-struct weston_desktop_surface *
+WL_EXPORT struct weston_desktop_surface *
 weston_desktop_surface_get_parent(struct weston_desktop_surface *surface)
 {
 	return surface->parent;
@@ -877,4 +877,16 @@ weston_desktop_surface_popup_dismiss(struct weston_desktop_surface *surface)
 	wl_list_remove(&surface->grab_link);
 	wl_list_init(&surface->grab_link);
 	weston_desktop_surface_close(surface);
+}
+
+WL_EXPORT void
+weston_desktop_surface_foreach_child(struct weston_desktop_surface *surface,
+				     void (* callback)(struct weston_desktop_surface *child,
+						       void *user_data),
+				     void *user_data)
+{
+	struct weston_desktop_surface *child;
+
+	wl_list_for_each(child, &surface->children_list, children_link)
+		callback(child, user_data);
 }

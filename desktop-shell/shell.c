@@ -1387,17 +1387,74 @@ handle_pointer_focus(struct wl_listener *listener, void *data)
 }
 
 static void
+has_keyboard_focused_child_callback(struct weston_desktop_surface *surface,
+				    void *user_data);
+
+static void
+has_keyboard_focused_child_callback(struct weston_desktop_surface *surface,
+				    void *user_data)
+{
+	struct weston_surface *es = weston_desktop_surface_get_surface(surface);
+	struct shell_surface *shsurf = get_shell_surface(es);
+	bool *has_keyboard_focus = user_data;
+
+	if (shsurf->focus_count > 0) {
+		*has_keyboard_focus = true;
+		return;
+	}
+
+	weston_desktop_surface_foreach_child(shsurf->desktop_surface,
+					     has_keyboard_focused_child_callback,
+					     &has_keyboard_focus);
+}
+
+static bool
+has_keyboard_focused_child(struct shell_surface *shsurf)
+{
+	bool has_keyboard_focus = false;
+
+	if (shsurf->focus_count > 0)
+		return true;
+
+	weston_desktop_surface_foreach_child(shsurf->desktop_surface,
+					     has_keyboard_focused_child_callback,
+					     &has_keyboard_focus);
+
+	return has_keyboard_focus;
+}
+
+static void
+sync_surface_activated_state(struct shell_surface *shsurf)
+{
+	struct weston_desktop_surface *surface = shsurf->desktop_surface;
+	struct weston_desktop_surface *parent;
+	struct weston_surface *parent_surface;
+
+	parent = weston_desktop_surface_get_parent(surface);
+	if (parent) {
+		parent_surface = weston_desktop_surface_get_surface(parent);
+		sync_surface_activated_state(get_shell_surface(parent_surface));
+		return;
+	}
+
+	if (has_keyboard_focused_child(shsurf))
+		weston_desktop_surface_set_activated(surface, true);
+	else
+		weston_desktop_surface_set_activated(surface, false);
+}
+
+static void
 shell_surface_deactivate(struct shell_surface *shsurf)
 {
 	if (--shsurf->focus_count == 0)
-		weston_desktop_surface_set_activated(shsurf->desktop_surface, false);
+		sync_surface_activated_state(shsurf);
 }
 
 static void
 shell_surface_activate(struct shell_surface *shsurf)
 {
 	if (shsurf->focus_count++ == 0)
-		weston_desktop_surface_set_activated(shsurf->desktop_surface, true);
+		sync_surface_activated_state(shsurf);
 }
 
 /* The surface will be inserted into the list immediately after the link

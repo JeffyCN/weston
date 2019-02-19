@@ -195,8 +195,6 @@ const struct weston_desktop_surface_implementation *
 weston_desktop_surface_get_implementation(struct weston_desktop_surface *surface);
 void *
 weston_desktop_surface_get_implementation_data(struct weston_desktop_surface *surface);
-struct weston_desktop_surface *
-weston_desktop_surface_get_parent(struct weston_desktop_surface *surface);
 bool
 weston_desktop_surface_get_grab(struct weston_desktop_surface *surface);
 
