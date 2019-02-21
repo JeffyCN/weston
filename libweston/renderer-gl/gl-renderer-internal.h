@@ -95,6 +95,7 @@ struct gl_renderer {
 	struct gl_shader texture_shader_y_uv;
 	struct gl_shader texture_shader_y_u_v;
 	struct gl_shader texture_shader_y_xuxv;
+	struct gl_shader texture_shader_xyuv;
 	struct gl_shader invert_color_shader;
 	struct gl_shader solid_shader;
 	struct gl_shader *current_shader;

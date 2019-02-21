@@ -141,7 +141,8 @@ struct yuv_plane_descriptor {
 enum texture_type {
 	TEXTURE_Y_XUXV_WL,
 	TEXTURE_Y_UV_WL,
-	TEXTURE_Y_U_V_WL
+	TEXTURE_Y_U_V_WL,
+	TEXTURE_XYUV_WL
 };
 
 struct yuv_format_descriptor {
@@ -2031,6 +2032,10 @@ import_simple_dmabuf(struct gl_renderer *gr,
 #define DRM_FORMAT_GR88          fourcc_code('G', 'R', '8', '8') /* [15:0] G:R 8:8 little endian */
 #endif
 
+#ifndef DRM_FORMAT_XYUV8888
+#define DRM_FORMAT_XYUV8888      fourcc_code('X', 'Y', 'U', 'V') /* [31:0] X:Y:Cb:Cr 8:8:8:8 little endian */
+#endif
+
 struct yuv_format_descriptor yuv_formats[] = {
 	{
 		.format = DRM_FORMAT_YUYV,
@@ -2105,6 +2110,17 @@ struct yuv_format_descriptor yuv_formats[] = {
 			.height_divisor = 1,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 2
+		}}
+	}, {
+		.format = DRM_FORMAT_XYUV8888,
+		.input_planes = 1,
+		.output_planes = 1,
+		.texture_type = TEXTURE_XYUV_WL,
+		{{
+			.width_divisor = 1,
+			.height_divisor = 1,
+			.format = DRM_FORMAT_XBGR8888,
+			.plane_index = 0
 		}}
 	}
 };
@@ -2196,6 +2212,9 @@ import_yuv_dmabuf(struct gl_renderer *gr,
 	case TEXTURE_Y_U_V_WL:
 		image->shader = &gr->texture_shader_y_u_v;
 		break;
+	case TEXTURE_XYUV_WL:
+		image->shader = &gr->texture_shader_xyuv;
+		break;
 	default:
 		assert(false);
 	}
@@ -2215,6 +2234,7 @@ choose_texture_target(struct dmabuf_attributes *attributes)
 	case DRM_FORMAT_UYVY:
 	case DRM_FORMAT_VYUY:
 	case DRM_FORMAT_AYUV:
+	case DRM_FORMAT_XYUV8888:
 		return GL_TEXTURE_EXTERNAL_OES;
 	default:
 		return GL_TEXTURE_2D;
@@ -2269,6 +2289,7 @@ gl_renderer_query_dmabuf_formats(struct weston_compositor *wc,
 		DRM_FORMAT_NV12,
 		DRM_FORMAT_YUV420,
 		DRM_FORMAT_YUV444,
+		DRM_FORMAT_XYUV8888,
 	};
 	bool fallback = false;
 	EGLint num;
@@ -2895,6 +2916,18 @@ static const char texture_fragment_shader_y_xuxv[] =
 	"  float y = 1.16438356 * (texture2D(tex, v_texcoord).x - 0.0625);\n"
 	"  float u = texture2D(tex1, v_texcoord).g - 0.5;\n"
 	"  float v = texture2D(tex1, v_texcoord).a - 0.5;\n"
+	FRAGMENT_CONVERT_YUV
+	;
+
+static const char texture_fragment_shader_xyuv[] =
+	"precision mediump float;\n"
+	"uniform sampler2D tex;\n"
+	"varying vec2 v_texcoord;\n"
+	"uniform float alpha;\n"
+	"void main() {\n"
+	"  float y = 1.16438356 * (texture2D(tex, v_texcoord).b - 0.0625);\n"
+	"  float u = texture2D(tex, v_texcoord).g - 0.5;\n"
+	"  float v = texture2D(tex, v_texcoord).r - 0.5;\n"
 	FRAGMENT_CONVERT_YUV
 	;
 
@@ -3589,6 +3622,9 @@ compile_shaders(struct weston_compositor *ec)
 	gr->texture_shader_y_xuxv.fragment_source =
 		texture_fragment_shader_y_xuxv;
 
+	gr->texture_shader_xyuv.vertex_source = vertex_shader;
+	gr->texture_shader_xyuv.fragment_source = texture_fragment_shader_xyuv;
+
 	gr->solid_shader.vertex_source = vertex_shader;
 	gr->solid_shader.fragment_source = solid_fragment_shader;
 
@@ -3612,6 +3648,7 @@ fragment_debug_binding(struct weston_keyboard *keyboard,
 	shader_release(&gr->texture_shader_y_uv);
 	shader_release(&gr->texture_shader_y_u_v);
 	shader_release(&gr->texture_shader_y_xuxv);
+	shader_release(&gr->texture_shader_xyuv);
 	shader_release(&gr->solid_shader);
 
 	/* Force use_shader() to call glUseProgram(), since we need to use
