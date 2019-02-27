@@ -1863,6 +1863,8 @@ weston_view_set_position(struct weston_view *view,
 	assert(view->surface->committed != subsurface_committed);
 	assert(!view->geometry.parent);
 
+	view->has_position = true;
+
 	if (view->geometry.pos_offset.x == pos.c.x &&
 	    view->geometry.pos_offset.y == pos.c.y)
 		return;

@@ -1383,6 +1383,16 @@ weston_desktop_xdg_surface_protocol_set_window_geometry(struct wl_client *wl_cli
 	struct weston_desktop_xdg_surface *surface =
 		weston_desktop_surface_get_implementation_data(dsurface);
 
+	/* HACK: For setting window position */
+	if (!width && !height) {
+		struct weston_desktop_xdg_toplevel *toplevel =
+			weston_desktop_surface_get_implementation_data(dsurface);
+		if (!toplevel->current.state.fullscreen &&
+		    !toplevel->current.state.maximized)
+			weston_desktop_surface_set_position(dsurface, x, y);
+		return;
+	}
+
 	if (!weston_desktop_xdg_surface_check_role(surface))
 		return;
 
