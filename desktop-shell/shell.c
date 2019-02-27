@@ -4243,6 +4243,12 @@ weston_view_set_initial_position(struct weston_view *view,
 	struct weston_seat *seat;
 	pixman_rectangle32_t area;
 
+	if (view->has_position) {
+		weston_view_set_position(view,
+					 view->geometry.x, view->geometry.y);
+		return;
+	}
+
 	/* As a heuristic place the new window on the same output as the
 	 * pointer. Falling back to the output containing 0, 0.
 	 *
