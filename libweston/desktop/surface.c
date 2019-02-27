@@ -696,6 +696,16 @@ weston_desktop_surface_get_min_size(struct weston_desktop_surface *surface)
 }
 
 void
+weston_desktop_surface_set_position(struct weston_desktop_surface *surface,
+				    int32_t x, int32_t y)
+{
+	struct weston_desktop_view *view;
+
+	wl_list_for_each(view, &surface->view_list, link)
+		weston_view_set_position(view->view, x, y);
+}
+
+void
 weston_desktop_surface_set_title(struct weston_desktop_surface *surface,
 				 const char *title)
 {
