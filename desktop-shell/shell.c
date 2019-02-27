@@ -4053,6 +4053,13 @@ weston_view_set_initial_position(struct weston_view *view,
 	pixman_rectangle32_t area;
 	struct weston_coord_global pos;
 
+	if (view->has_position) {
+		pos.c = weston_coord(view->geometry.pos_offset.x,
+				     view->geometry.pos_offset.y);
+		weston_view_set_position(view, pos);
+		return;
+	}
+
 	/* As a heuristic place the new window on the same output as the
 	 * pointer. Falling back to the output containing 0, 0.
 	 *

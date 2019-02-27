@@ -177,6 +177,10 @@ weston_desktop_surface_set_size(struct weston_desktop_surface *surface,
 void
 weston_desktop_surface_set_orientation(struct weston_desktop_surface *surface,
 				       enum weston_top_level_tiled_orientation tile_orientation);
+
+void
+weston_desktop_surface_set_position(struct weston_desktop_surface *surface,
+				    int32_t x, int32_t y);
 void
 weston_desktop_surface_close(struct weston_desktop_surface *surface);
 void
