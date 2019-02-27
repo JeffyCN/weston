@@ -1792,6 +1792,8 @@ weston_surface_damage(struct weston_surface *surface)
 WL_EXPORT void
 weston_view_set_position(struct weston_view *view, float x, float y)
 {
+	view->has_position = true;
+
 	if (view->geometry.x == x && view->geometry.y == y)
 		return;
 
