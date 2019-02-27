@@ -1840,6 +1840,8 @@ struct weston_view {
 		pixman_region32_t scissor; /* always a simple rect */
 	} geometry;
 
+	bool has_position;
+
 	/* State derived from geometry state, read-only.
 	 * This is updated by weston_view_update_transform().
 	 */

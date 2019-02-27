@@ -772,6 +772,18 @@ weston_desktop_surface_make_label(struct weston_desktop_surface *surface)
 }
 
 void
+weston_desktop_surface_set_position(struct weston_desktop_surface *surface,
+				    int32_t x, int32_t y)
+{
+	struct weston_desktop_view *view;
+	struct weston_coord_global pos;
+
+	pos.c = weston_coord(x, y);
+	wl_list_for_each(view, &surface->view_list, link)
+		weston_view_set_position(view->view, pos);
+}
+
+void
 weston_desktop_surface_set_title(struct weston_desktop_surface *surface,
 				 const char *title)
 {
