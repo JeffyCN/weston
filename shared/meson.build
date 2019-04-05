@@ -76,3 +76,9 @@ dep_lib_cairo_shared = declare_dependency(
 	link_with: lib_cairo_shared,
 	dependencies: deps_cairo_shared
 )
+
+dep_matrix_c = declare_dependency(
+	sources: 'matrix.c',
+	include_directories: public_inc,
+	dependencies: dep_libm
+)

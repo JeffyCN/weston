@@ -163,11 +163,8 @@ tools_enabled = get_option('tools')
 tools_list = [
 	{
 		'name': 'calibrator',
-		'sources': [
-			'calibrator.c',
-			'../shared/matrix.c',
-		],
-		'deps': [ dep_toytoolkit ],
+		'sources': [ 'calibrator.c' ],
+		'deps': [ dep_toytoolkit, dep_matrix_c ],
 	},
 	{
 		'name': 'debug',
@@ -202,11 +199,10 @@ tools_list = [
 		'name': 'touch-calibrator',
 		'sources': [
 			'touch-calibrator.c',
-			'../shared/matrix.c',
 			weston_touch_calibration_client_protocol_h,
 			weston_touch_calibration_protocol_c,
 		],
-		'deps': [ dep_toytoolkit ],
+		'deps': [ dep_toytoolkit, dep_matrix_c ],
 	},
 ]
 

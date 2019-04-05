@@ -5,6 +5,7 @@ deps_libweston = [
 	dep_libdl,
 	dep_libdrm_headers,
 	dep_xkbcommon,
+	dep_matrix_c
 ]
 srcs_libweston = [
 	git_version_h,
@@ -31,7 +32,6 @@ srcs_libweston = [
 	'weston-log-flight-rec.c',
 	'weston-log.c',
 	'zoom.c',
-	'../shared/matrix.c',
 	linux_dmabuf_unstable_v1_protocol_c,
 	linux_dmabuf_unstable_v1_server_protocol_h,
 	linux_explicit_synchronization_unstable_v1_protocol_c,
