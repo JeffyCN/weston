@@ -7,7 +7,7 @@ if get_option('shell-fullscreen')
 	shared_library(
 		'fullscreen-shell',
 		srcs_shell_fullscreen,
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: dep_libweston,
 		name_prefix: '',
 		install: true,

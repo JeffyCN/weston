@@ -75,7 +75,7 @@ endif
 lib_weston = shared_library(
 	'weston-@0@'.format(libweston_major),
 	srcs_libweston,
-	include_directories: [ include_directories('..', '../shared'), public_inc ],
+	include_directories: common_inc,
 	install: true,
 	version: '0.0.@0@'.format(libweston_revision),
 	link_whole: lib_libshared,
@@ -167,7 +167,7 @@ endif
 lib_session_helper = static_library(
 	'session-helper',
 	srcs_session_helper,
-	include_directories: include_directories('..', '../shared'),
+	include_directories: common_inc,
 	dependencies: deps_session_helper,
 	install: false
 )
@@ -185,7 +185,7 @@ lib_libinput_backend = static_library(
 		dep_libinput,
 		dependency('libudev', version: '>= 136')
 	],
-	include_directories: include_directories('..'),
+	include_directories: common_inc,
 	install: false
 )
 dep_libinput_backend = declare_dependency(
@@ -209,7 +209,7 @@ if get_option('weston-launch')
 		'weston-launch',
 		'weston-launch.c',
 		dependencies: [dep_pam, systemd_dep, dep_libdrm],
-		include_directories: include_directories('..'),
+		include_directories: common_inc,
 		install: true
 	)
 

@@ -33,7 +33,7 @@ endif
 plugin_wlwl = shared_library(
 	'wayland-backend',
 	srcs_wlwl,
-	include_directories: include_directories('../..', '../../shared'),
+	include_directories: common_inc,
 	dependencies: deps_wlwl,
 	name_prefix: '',
 	install: true,

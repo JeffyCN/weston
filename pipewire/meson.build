@@ -20,7 +20,7 @@ if get_option('pipewire')
 	plugin_pipewire = shared_library(
 		'pipewire-plugin',
 		'pipewire-plugin.c',
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: deps_pipewire,
 		name_prefix: '',
 		install: true,

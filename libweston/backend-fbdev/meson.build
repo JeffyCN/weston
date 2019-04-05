@@ -19,7 +19,7 @@ deps_fbdev = [
 plugin_fbdev = shared_library(
 	'fbdev-backend',
 	srcs_fbdev,
-	include_directories: include_directories('../..', '../../shared'),
+	include_directories: common_inc,
 	dependencies: deps_fbdev,
 	name_prefix: '',
 	install: true,

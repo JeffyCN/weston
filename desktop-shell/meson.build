@@ -18,7 +18,7 @@ if get_option('shell-desktop')
 	plugin_shell_desktop = shared_library(
 		'desktop-shell',
 		srcs_shell_desktop,
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: deps_shell_desktop,
 		name_prefix: '',
 		install: true,

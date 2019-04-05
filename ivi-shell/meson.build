@@ -11,7 +11,7 @@ if get_option('shell-ivi')
 	plugin_shell_ivi = shared_library(
 		'ivi-shell',
 		srcs_shell_ivi,
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: [ dep_lib_desktop, dep_libweston ],
 		name_prefix: '',
 		install: true,
@@ -29,7 +29,7 @@ if get_option('shell-ivi')
 	plugin_ivi_hmi = shared_library(
 		'hmi-controller',
 		srcs_ivi_hmi,
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: [ dep_libweston, dep_libshared ],
 		name_prefix: '',
 		install: true,

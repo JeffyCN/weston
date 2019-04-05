@@ -42,6 +42,7 @@ dir_man = join_paths(dir_prefix, get_option('mandir'))
 dir_protocol_libweston = join_paths('libweston-@0@'.format(libweston_major), 'protocols')
 
 public_inc = include_directories('include')
+common_inc = [ include_directories('.'), public_inc ]
 
 pkgconfig = import('pkgconfig')
 

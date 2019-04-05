@@ -22,7 +22,7 @@ if get_option('remoting')
 	plugin_remoting = shared_library(
 		'remoting-plugin',
 		'remoting-plugin.c',
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: deps_remoting,
 		name_prefix: '',
 		install: true,

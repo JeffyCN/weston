@@ -46,7 +46,7 @@ endif
 plugin_x11 = shared_library(
 	'x11-backend',
 	srcs_x11,
-	include_directories: include_directories('../..', '../../shared'),
+	include_directories: common_inc,
 	dependencies: deps_x11,
 	name_prefix: '',
 	install: true,

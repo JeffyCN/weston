@@ -25,7 +25,7 @@ deps_toytoolkit = [
 lib_toytoolkit = static_library(
 	'toytoolkit',
 	srcs_toytoolkit,
-	include_directories: include_directories('..', '../shared'),
+	include_directories: common_inc,
 	dependencies: deps_toytoolkit,
 	install: false,
 )
@@ -132,7 +132,7 @@ foreach t : simple_clients
 
 		executable(
 			t_name, t.get('sources'),
-			include_directories: [ include_directories('..'), public_inc ],
+			include_directories: common_inc,
 			dependencies: t_deps,
 			install: true
 		)
@@ -146,7 +146,7 @@ if simple_build_all or simple_clients_enabled.contains('im')
 			input_method_unstable_v1_client_protocol_h,
 			input_method_unstable_v1_protocol_c,
 		],
-		include_directories: include_directories('..'),
+		include_directories: common_inc,
 		dependencies: [
 			dep_libshared,
 			dep_wayland_client,
@@ -211,7 +211,7 @@ foreach t : tools_list
 		executable(
 			'weston-@0@'.format(t.get('name')),
 			t.get('sources'),
-			include_directories: [ include_directories('..', '../shared'), public_inc ],
+			include_directories: common_inc,
 			dependencies: t.get('deps', []),
 			install: true
 		)
@@ -292,7 +292,7 @@ if get_option('demo-clients')
 
 		executable(
 			t_name, t_srcs,
-			include_directories: include_directories('..', '../shared'),
+			include_directories: common_inc,
 			dependencies: t_deps,
 			install: true
 		)
@@ -332,7 +332,7 @@ if simple_dmabuf_drm_deps.length() > 0
 		fullscreen_shell_unstable_v1_protocol_c,
 		linux_dmabuf_unstable_v1_client_protocol_h,
 		linux_dmabuf_unstable_v1_protocol_c,
-		include_directories: [ include_directories('..'), public_inc ],
+		include_directories: common_inc,
 		dependencies: [
 			dep_wayland_client,
 			dep_libdrm,
@@ -350,7 +350,7 @@ if get_option('shell-desktop')
 		text_input_unstable_v1_protocol_c,
 		input_method_unstable_v1_client_protocol_h,
 		input_method_unstable_v1_protocol_c,
-		include_directories: include_directories('..'),
+		include_directories: common_inc,
 		dependencies: dep_toytoolkit,
 		install_dir: get_option('libexecdir'),
 		install: true
@@ -362,7 +362,7 @@ if get_option('shell-desktop')
 		'screenshot.c',
 		weston_screenshooter_client_protocol_h,
 		weston_screenshooter_protocol_c,
-		include_directories: include_directories('..'),
+		include_directories: common_inc,
 		dependencies: dep_toytoolkit,
 		install_dir: get_option('bindir'),
 		install: true
@@ -374,7 +374,7 @@ if get_option('shell-desktop')
 		'desktop-shell.c',
 		weston_desktop_shell_client_protocol_h,
 		weston_desktop_shell_protocol_c,
-		include_directories: include_directories('..'),
+		include_directories: common_inc,
 		dependencies: dep_toytoolkit,
 		install_dir: get_option('libexecdir'),
 		install: true
@@ -391,7 +391,7 @@ if get_option('shell-ivi')
 		ivi_hmi_controller_protocol_c,
 		ivi_application_client_protocol_h,
 		ivi_application_protocol_c,
-		include_directories: include_directories('..'),
+		include_directories: common_inc,
 		dependencies: dep_toytoolkit,
 		install: true,
 		install_dir: get_option('libexecdir')

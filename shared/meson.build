@@ -10,7 +10,7 @@ deps_libshared = dep_wayland_client
 lib_libshared = static_library(
 	'shared',
 	srcs_libshared,
-	include_directories: [ include_directories('..'), public_inc ],
+	include_directories: common_inc,
 	dependencies: deps_libshared,
 	pic: true,
 	install: false
@@ -68,7 +68,7 @@ endif
 lib_cairo_shared = static_library(
 	'cairo-shared',
 	srcs_cairo_shared,
-	include_directories: include_directories('..'),
+	include_directories: common_inc,
 	dependencies: deps_cairo_shared,
 	install: false
 )

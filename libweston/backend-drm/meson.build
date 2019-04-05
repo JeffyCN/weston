@@ -9,7 +9,7 @@ lib_backlight = static_library(
 		dep_libdrm_headers,
 		dependency('libudev')
 	],
-	include_directories: include_directories('../..'),
+	include_directories: common_inc,
 	install: false
 )
 dep_backlight = declare_dependency(
@@ -84,7 +84,7 @@ endif
 plugin_drm = shared_library(
 	'drm-backend',
 	srcs_drm,
-	include_directories: include_directories('../..', '../../shared'),
+	include_directories: common_inc,
 	dependencies: deps_drm,
 	name_prefix: '',
 	install: true,

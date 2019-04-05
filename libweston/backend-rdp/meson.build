@@ -28,7 +28,7 @@ deps_rdp = [
 plugin_rdp = shared_library(
 	'rdp-backend',
 	'rdp.c',
-	include_directories: include_directories('../..', '../../shared'),
+	include_directories: common_inc,
 	dependencies: deps_rdp,
 	name_prefix: '',
 	install: true,

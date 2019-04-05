@@ -33,7 +33,7 @@ plugin_xwayland = shared_library(
 	'xwayland',
 	srcs_xwayland,
 	link_with: lib_cairo_shared,
-	include_directories: include_directories('..', '../shared'),
+	include_directories: common_inc,
 	dependencies: deps_xwayland,
 	name_prefix: '',
 	install: true,

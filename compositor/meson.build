@@ -29,7 +29,7 @@ endif
 exe_weston = executable(
 	'weston',
 	srcs_weston,
-	include_directories: include_directories('..', '../shared'),
+	include_directories: common_inc,
 	link_args: [ '-Wl,-export-dynamic' ],
 	dependencies: deps_weston,
 	install: true
@@ -68,7 +68,7 @@ if get_option('screenshare')
 	plugin_screenshare = shared_library(
 		'screen-share',
 		srcs_screenshare,
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: deps_screenshare,
 		name_prefix: '',
 		install: true,
@@ -93,7 +93,7 @@ if get_option('color-management-lcms')
 	plugin_lcms = shared_library(
 		'cms-static',
 		srcs_lcms,
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: [ dep_libweston, dep_lcms2 ],
 		name_prefix: '',
 		install: true,
@@ -130,7 +130,7 @@ if get_option('color-management-colord')
 	plugin_colord = shared_library(
 		'cms-colord',
 		srcs_colord,
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: plugin_colord_deps,
 		name_prefix: '',
 		install: true,
@@ -148,7 +148,7 @@ if get_option('systemd')
 	plugin_systemd_notify = shared_library(
 		'systemd-notify',
 		'systemd-notify.c',
-		include_directories: include_directories('..', '../shared'),
+		include_directories: common_inc,
 		dependencies: [ dep_libweston, dep_libsystemd ],
 		name_prefix: '',
 		install: true,

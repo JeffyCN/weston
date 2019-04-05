@@ -29,7 +29,7 @@ endforeach
 plugin_gl = shared_library(
 	'gl-renderer',
 	srcs_renderer_gl,
-	include_directories: include_directories('../..', '../../shared'),
+	include_directories: common_inc,
 	dependencies: deps_renderer_gl,
 	name_prefix: '',
 	install: true,
