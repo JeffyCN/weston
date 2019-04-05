@@ -57,7 +57,7 @@
 #include "shared/timespec-util.h"
 #include "shared/string-helpers.h"
 #include "renderer-gl/gl-renderer.h"
-#include "weston-egl-ext.h"
+#include "shared/weston-egl-ext.h"
 #include "pixman-renderer.h"
 #include "pixel-formats.h"
 #include "libbacklight.h"

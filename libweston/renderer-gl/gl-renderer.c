@@ -57,7 +57,7 @@
 #include "shared/helpers.h"
 #include "shared/platform.h"
 #include "shared/timespec-util.h"
-#include "weston-egl-ext.h"
+#include "shared/weston-egl-ext.h"
 
 #define GR_GL_VERSION(major, minor) \
 	(((uint32_t)(major) << 16) | (uint32_t)(minor))

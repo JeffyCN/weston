@@ -34,7 +34,7 @@
 #include <drm_fourcc.h>
 #include <wayland-client-protocol.h>
 
-#include "helpers.h"
+#include "shared/helpers.h"
 #include "wayland-util.h"
 #include "pixel-formats.h"
 
@@ -60,7 +60,7 @@
 	.bits.a = a_, \
 	.component_type = PIXEL_COMPONENT_TYPE_FIXED
 
-#include "weston-egl-ext.h"
+#include "shared/weston-egl-ext.h"
 
 /**
  * Table of DRM formats supported by Weston; RGB, ARGB and YUV formats are

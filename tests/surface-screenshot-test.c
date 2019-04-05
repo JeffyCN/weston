@@ -35,7 +35,7 @@
 
 #include <libweston/libweston.h>
 #include "compositor/weston.h"
-#include "file-util.h"
+#include "shared/file-util.h"
 #include "libweston-internal.h"
 
 static char *

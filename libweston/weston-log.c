@@ -27,7 +27,7 @@
 #include "config.h"
 
 #include <libweston/weston-log.h>
-#include "helpers.h"
+#include "shared/helpers.h"
 #include <libweston/libweston.h>
 
 #include "weston-log-internal.h"

@@ -34,7 +34,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#include "timespec-util.h"
+#include "shared/timespec-util.h"
 
 #include "shared/helpers.h"
 #include "zunitc/zunitc.h"

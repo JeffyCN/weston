@@ -51,7 +51,7 @@
 #include "shared/xalloc.h"
 #include "window.h"
 
-#include "weston-egl-ext.h"
+#include "shared/weston-egl-ext.h"
 
 
 static int option_blit;

@@ -34,7 +34,7 @@
 
 #include "timeline.h"
 #include <libweston/libweston.h>
-#include "file-util.h"
+#include "shared/file-util.h"
 
 struct timeline_log {
 	clock_t clk_id;
