@@ -154,6 +154,8 @@ struct gl_renderer {
 	bool has_wait_sync;
 	PFNEGLWAITSYNCKHRPROC wait_sync;
 
+	GLint gl_half_float_type;
+
 	/** struct gl_shader::link
 	 *
 	 * List constains cached shaders built from struct gl_shader_requirements

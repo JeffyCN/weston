@@ -29,6 +29,7 @@
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <GLES3/gl3.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -77,6 +78,13 @@ struct gl_border_image {
 	void *data;
 };
 
+struct gl_fbo_texture {
+	GLuint fbo;
+	GLuint tex;
+	int32_t width;
+	int32_t height;
+};
+
 struct gl_output_state {
 	EGLSurface egl_surface;
 	pixman_region32_t buffer_damage[BUFFER_DAMAGE_COUNT];
@@ -92,6 +100,8 @@ struct gl_output_state {
 
 	/* struct timeline_render_point::link */
 	struct wl_list timeline_render_point_list;
+
+	struct gl_fbo_texture shadow;
 };
 
 enum buffer_type {
@@ -257,6 +267,12 @@ get_surface_state(struct weston_surface *surface)
 		gl_renderer_create_surface(surface);
 
 	return (struct gl_surface_state *)surface->renderer_state;
+}
+
+static bool
+shadow_exists(const struct gl_output_state *go)
+{
+	return go->shadow.fbo != 0;
 }
 
 static void
@@ -623,6 +639,69 @@ texture_region(struct weston_view *ev, pixman_region32_t *region,
 	if (used_band_compression)
 		free(rects);
 	return nvtx;
+}
+
+/** Create a texture and a framebuffer object
+ *
+ * \param fbotex To be initialized.
+ * \param width Texture width in pixels.
+ * \param height Texture heigh in pixels.
+ * \param internal_format See glTexImage2D.
+ * \param format See glTexImage2D.
+ * \param type See glTexImage2D.
+ * \return True on success, false otherwise.
+ */
+static bool
+gl_fbo_texture_init(struct gl_fbo_texture *fbotex,
+			 int32_t width,
+			 int32_t height,
+			 GLint internal_format,
+			 GLenum format,
+			 GLenum type)
+{
+	int fb_status;
+	GLuint shadow_fbo;
+	GLuint shadow_tex;
+
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &shadow_tex);
+	glBindTexture(GL_TEXTURE_2D, shadow_tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0,
+		     format, type, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGenFramebuffers(1, &shadow_fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+			       GL_TEXTURE_2D, shadow_tex, 0);
+
+	fb_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	if (fb_status != GL_FRAMEBUFFER_COMPLETE) {
+		glDeleteFramebuffers(1, &shadow_fbo);
+		glDeleteTextures(1, &shadow_tex);
+		return false;
+	}
+
+	fbotex->fbo = shadow_fbo;
+	fbotex->tex = shadow_tex;
+	fbotex->width = width;
+	fbotex->height = height;
+
+	return true;
+}
+
+static void
+gl_fbo_texture_fini(struct gl_fbo_texture *fbotex)
+{
+	glDeleteFramebuffers(1, &fbotex->fbo);
+	fbotex->fbo = 0;
+	glDeleteTextures(1, &fbotex->tex);
+	fbotex->tex = 0;
 }
 
 static struct gl_shader *
@@ -1484,6 +1563,77 @@ pixman_region_to_egl_y_invert(struct weston_output *output,
 	pixman_region32_fini(&transformed);
 }
 
+static void
+blit_shadow_to_output(struct weston_output *output,
+		      pixman_region32_t *output_damage)
+{
+	const struct gl_shader_requirements blit_requirements = {
+		.variant = SHADER_VARIANT_RGBA,
+	};
+	struct gl_output_state *go = get_output_state(output);
+	struct gl_renderer *gr = get_renderer(output->compositor);
+	struct gl_shader *shader;
+	double width = output->current_mode->width;
+	double height = output->current_mode->height;
+	pixman_box32_t *rects;
+	int n_rects;
+	int i;
+	pixman_region32_t translated_damage;
+	GLfloat verts[4 * 2];
+	static const GLfloat proj[16] = { /* transpose */
+		2.0f,  0.0f, 0.0f, 0.0f,
+		0.0f,  2.0f, 0.0f, 0.0f,
+		0.0f,  0.0f, 1.0f, 0.0f,
+		-1.0f, -1.0f, 0.0f, 1.0f
+	};
+
+	pixman_region32_init(&translated_damage);
+
+	shader = gl_renderer_get_program(gr, &blit_requirements);
+	if (!gl_renderer_use_program(gr, &shader))
+		return;
+
+	glUniformMatrix4fv(shader->proj_uniform, 1, GL_FALSE, proj);
+	glUniform1f(shader->alpha_uniform, 1.0f);
+	glUniform1i(shader->tex_uniforms[0], 0);
+
+	glDisable(GL_BLEND);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, go->shadow.tex);
+
+	/* output_damage is in global coordinates */
+	pixman_region32_intersect(&translated_damage, output_damage,
+				  &output->region);
+	/* Convert to output pixel coordinates in-place */
+	weston_output_region_from_global(output, &translated_damage);
+
+	rects = pixman_region32_rectangles(&translated_damage, &n_rects);
+	for (i = 0; i < n_rects; i++) {
+
+		verts[0] = rects[i].x1 / width;
+		verts[1] = (height - rects[i].y1) / height;
+		verts[2] = rects[i].x2 / width;
+		verts[3] = (height - rects[i].y1) / height;
+
+		verts[4] = rects[i].x2 / width;
+		verts[5] = (height - rects[i].y2) / height;
+		verts[6] = rects[i].x1 / width;
+		verts[7] = (height - rects[i].y2) / height;
+
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
+		glEnableVertexAttribArray(0);
+
+		/* texcoord: */
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, verts);
+		glEnableVertexAttribArray(1);
+
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+	}
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	pixman_region32_fini(&translated_damage);
+}
+
 /* NOTE: We now allow falling back to ARGB gl visuals when XRGB is
  * unavailable, so we're assuming the background has no transparency
  * and that everything with a blend, like drop shadows, will have something
@@ -1528,12 +1678,6 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	go->begin_render_sync = create_render_sync(gr);
 
-	/* Calculate the viewport */
-	glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
-		   go->borders[GL_RENDERER_BORDER_BOTTOM].height,
-		   output->current_mode->width,
-		   output->current_mode->height);
-
 	/* Calculate the global GL matrix */
 	go->output_matrix = output->matrix;
 	weston_matrix_translate(&go->output_matrix,
@@ -1542,6 +1686,22 @@ gl_renderer_repaint_output(struct weston_output *output,
 	weston_matrix_scale(&go->output_matrix,
 			    2.0 / output->current_mode->width,
 			    -2.0 / output->current_mode->height, 1);
+
+	/* If using shadow, redirect all drawing to it first. */
+	if (shadow_exists(go)) {
+		/* XXX: Shadow code does not support resizing. */
+		assert(output->current_mode->width == go->shadow.width);
+		assert(output->current_mode->height == go->shadow.height);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, go->shadow.fbo);
+		glViewport(0, 0, go->shadow.width, go->shadow.height);
+	} else {
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
+			   go->borders[GL_RENDERER_BORDER_BOTTOM].height,
+			   output->current_mode->width,
+			   output->current_mode->height);
+	}
 
 	/* In fan debug mode, redraw everything to make sure that we clear any
 	 * fans left over from previous draws on this buffer.
@@ -1588,7 +1748,19 @@ gl_renderer_repaint_output(struct weston_output *output,
 		free(egl_rects);
 	}
 
-	repaint_views(output, &total_damage);
+	if (shadow_exists(go)) {
+		/* Repaint into shadow. */
+		repaint_views(output, output_damage);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
+			   go->borders[GL_RENDERER_BORDER_BOTTOM].height,
+			   output->current_mode->width,
+			   output->current_mode->height);
+		blit_shadow_to_output(output, &total_damage);
+	} else {
+		repaint_views(output, &total_damage);
+	}
 
 	pixman_region32_fini(&total_damage);
 	pixman_region32_fini(&previous_damage);
@@ -3143,6 +3315,9 @@ gl_renderer_output_create(struct weston_output *output,
 			  EGLSurface surface)
 {
 	struct gl_output_state *go;
+	struct gl_renderer *gr = get_renderer(output->compositor);
+	GLint internal_format;
+	bool ret;
 	int i;
 
 	go = zalloc(sizeof *go);
@@ -3158,6 +3333,31 @@ gl_renderer_output_create(struct weston_output *output,
 
 	go->begin_render_sync = EGL_NO_SYNC_KHR;
 	go->end_render_sync = EGL_NO_SYNC_KHR;
+
+	if (output->use_renderer_shadow_buffer) {
+		assert(gr->gl_half_float_type);
+
+		if (gr->gl_half_float_type == GL_HALF_FLOAT_OES)
+			internal_format = GL_RGBA;
+		else
+			internal_format = GL_RGBA16F;
+
+		ret = gl_fbo_texture_init(&go->shadow,
+					  output->current_mode->width,
+					  output->current_mode->height,
+					  internal_format,
+					  GL_RGBA,
+					  gr->gl_half_float_type);
+		if (ret) {
+			weston_log("Output %s uses 16F shadow.\n",
+				   output->name);
+		} else {
+			weston_log("Output %s failed to create 16F shadow.\n",
+				   output->name);
+			free(go);
+			return -1;
+		}
+	}
 
 	output->renderer_state = go;
 
@@ -3254,6 +3454,9 @@ gl_renderer_output_destroy(struct weston_output *output)
 
 	for (i = 0; i < 2; i++)
 		pixman_region32_fini(&go->buffer_damage[i]);
+
+	if (shadow_exists(go))
+		gl_fbo_texture_fini(&go->shadow);
 
 	eglMakeCurrent(gr->egl_display,
 		       EGL_NO_SURFACE, EGL_NO_SURFACE,
@@ -3488,6 +3691,9 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 	}
 
+	if (gr->gl_half_float_type != 0)
+		ec->capabilities |= WESTON_CAP_COLOR_OPS;
+
 	return 0;
 
 fail_with_error:
@@ -3651,6 +3857,13 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 
 	if (weston_check_egl_extension(extensions, "GL_OES_EGL_image_external"))
 		gr->has_egl_image_external = true;
+
+	if (weston_check_egl_extension(extensions, "GL_EXT_color_buffer_half_float")) {
+		if (gr->gl_version >= gr_gl_version(3, 0))
+			gr->gl_half_float_type = GL_HALF_FLOAT;
+		else if (weston_check_egl_extension(extensions, "GL_OES_texture_half_float"))
+			gr->gl_half_float_type = GL_HALF_FLOAT_OES;
+	}
 
 	glActiveTexture(GL_TEXTURE0);
 

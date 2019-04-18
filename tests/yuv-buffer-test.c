@@ -48,6 +48,7 @@ fixture_setup(struct weston_test_harness *harness)
 	setup.width = 324;
 	setup.height = 264;
 	setup.shell = SHELL_TEST_DESKTOP;
+	setup.logging_scopes = "log,gl-shader-generator";
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
