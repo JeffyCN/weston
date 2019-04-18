@@ -159,6 +159,7 @@ struct gl_renderer {
 	 * List constains cached shaders built from struct gl_shader_requirements
 	 */
 	struct wl_list shader_list;
+	struct weston_log_scope *shader_scope;
 };
 
 static inline struct gl_renderer *
@@ -201,5 +202,9 @@ gl_shader_create(struct gl_renderer *gr,
 int
 gl_shader_requirements_cmp(const struct gl_shader_requirements *a,
 			   const struct gl_shader_requirements *b);
+
+struct weston_log_scope *
+gl_shader_scope_create(struct weston_compositor *compositor,
+		       struct gl_renderer *gr);
 
 #endif /* GL_RENDERER_INTERNAL_H */

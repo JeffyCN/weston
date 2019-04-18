@@ -34,6 +34,7 @@
 #include <assert.h>
 
 #include <libweston/libweston.h>
+#include <libweston/weston-log.h>
 #include <GLES2/gl2.h>
 
 #include <string.h>
@@ -113,7 +114,7 @@ gl_shader_destroy(struct gl_shader *shader)
 	free(shader);
 }
 
-static int
+static GLuint
 compile_shader(GLenum type, int count, const char **sources)
 {
 	GLuint s;
@@ -136,6 +137,20 @@ compile_shader(GLenum type, int count, const char **sources)
 }
 
 static char *
+create_shader_description_string(const struct gl_shader_requirements *req)
+{
+	int size;
+	char *str;
+
+	size = asprintf(&str, "%s %cgreen",
+			gl_shader_texture_variant_to_string(req->variant),
+			req->green_tint ? '+' : '-');
+	if (size < 0)
+		return NULL;
+	return str;
+}
+
+static char *
 create_shader_config_string(const struct gl_shader_requirements *req)
 {
 	int size;
@@ -155,6 +170,7 @@ struct gl_shader *
 gl_shader_create(struct gl_renderer *gr,
 		 const struct gl_shader_requirements *requirements)
 {
+	bool verbose = weston_log_scope_is_enabled(gr->shader_scope);
 	struct gl_shader *shader = NULL;
 	char msg[512];
 	GLint status;
@@ -169,6 +185,16 @@ gl_shader_create(struct gl_renderer *gr,
 
 	wl_list_init(&shader->link);
 	shader->key = *requirements;
+
+	if (verbose) {
+		char *desc;
+
+		desc = create_shader_description_string(requirements);
+		weston_log_scope_printf(gr->shader_scope,
+					"Compiling shader program for: %s\n",
+					desc);
+		free(desc);
+	}
 
 	sources[0] = vertex_shader;
 	shader->vertex_shader = compile_shader(GL_VERTEX_SHADER, 1, sources);
@@ -235,4 +261,46 @@ gl_shader_requirements_cmp(const struct gl_shader_requirements *a,
 			   const struct gl_shader_requirements *b)
 {
 	return memcmp(a, b, sizeof(*a));
+}
+
+static void
+gl_shader_scope_new_subscription(struct weston_log_subscription *subs,
+				 void *data)
+{
+	static const char bar[] = "-----------------------------------------------------------------------------";
+	struct gl_renderer *gr = data;
+	struct gl_shader *shader;
+	int count = 0;
+	char *desc;
+
+	weston_log_subscription_printf(subs,
+				       "Vertex shader body:\n"
+				       "%s\n%s\n"
+				       "Fragment shader body:\n"
+				       "%s\n%s\n%s\n",
+				       bar, vertex_shader,
+				       bar, fragment_shader, bar);
+
+	weston_log_subscription_printf(subs, "Cached GLSL programs:\n");
+	wl_list_for_each(shader, &gr->shader_list, link) {
+		count++;
+		desc = create_shader_description_string(&shader->key);
+		weston_log_subscription_printf(subs,
+					       "%6u: %s\n",
+					       shader->program, desc);
+	}
+	weston_log_subscription_printf(subs, "Total: %d programs.\n", count);
+}
+
+struct weston_log_scope *
+gl_shader_scope_create(struct weston_compositor *compositor,
+		       struct gl_renderer *gr)
+{
+
+	return weston_compositor_add_log_scope(compositor,
+		"gl-shader-generator",
+		"GL renderer shader compilation and cache.\n",
+		gl_shader_scope_new_subscription,
+		NULL,
+		gr);
 }

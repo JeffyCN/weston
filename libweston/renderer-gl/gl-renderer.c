@@ -3340,6 +3340,7 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	if (gr->fan_binding)
 		weston_binding_destroy(gr->fan_binding);
 
+	weston_log_scope_destroy(gr->shader_scope);
 	free(gr);
 }
 
@@ -3401,6 +3402,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	wl_list_init(&gr->shader_list);
 	gr->platform = options->egl_platform;
+
+	gr->shader_scope = gl_shader_scope_create(ec, gr);
+	if (!gr->shader_scope)
+		goto fail;
 
 	if (gl_renderer_setup_egl_client_extensions(gr) < 0)
 		goto fail;
@@ -3490,6 +3495,7 @@ fail_with_error:
 fail_terminate:
 	eglTerminate(gr->egl_display);
 fail:
+	weston_log_scope_destroy(gr->shader_scope);
 	free(gr);
 	ec->renderer = NULL;
 	return -1;
