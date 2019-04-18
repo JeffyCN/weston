@@ -28,7 +28,7 @@
 /* GLSL version 1.00 ES, defined in gl-shaders.c */
 
 /*
- * Enumeration of shader variants.
+ * Enumeration of shader variants, must match enum gl_shader_texture_variant.
  */
 #define SHADER_VARIANT_RGBX     1
 #define SHADER_VARIANT_RGBA     2

@@ -2,6 +2,8 @@
  * Copyright 2012 Intel Corporation
  * Copyright 2015,2019 Collabora, Ltd.
  * Copyright 2016 NVIDIA Corporation
+ * Copyright 2019 Harish Krupo
+ * Copyright 2019 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,18 +29,44 @@
 
 #include "config.h"
 
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+#include <libweston/libweston.h>
 #include <GLES2/gl2.h>
 
 #include <string.h>
 
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
+#include "shared/helpers.h"
 
 /* static const char vertex_shader[]; vertex.glsl */
 #include "vertex-shader.h"
 
 /* static const char fragment_shader[]; fragment.glsl */
 #include "fragment-shader.h"
+
+static const char *
+gl_shader_texture_variant_to_string(enum gl_shader_texture_variant v)
+{
+	switch (v) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_VARIANT_NONE)
+	CASERET(SHADER_VARIANT_RGBX)
+	CASERET(SHADER_VARIANT_RGBA)
+	CASERET(SHADER_VARIANT_Y_U_V)
+	CASERET(SHADER_VARIANT_Y_UV)
+	CASERET(SHADER_VARIANT_Y_XUXV)
+	CASERET(SHADER_VARIANT_XYUV)
+	CASERET(SHADER_VARIANT_SOLID)
+	CASERET(SHADER_VARIANT_EXTERNAL)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
 
 static void
 dump_program_with_line_numbers(int count, const char **sources)
@@ -77,6 +105,14 @@ dump_program_with_line_numbers(int count, const char **sources)
 	free(dumpstr);
 }
 
+void
+gl_shader_destroy(struct gl_shader *shader)
+{
+	glDeleteProgram(shader->program);
+	wl_list_remove(&shader->link);
+	free(shader);
+}
+
 static int
 compile_shader(GLenum type, int count, const char **sources)
 {
@@ -99,44 +135,57 @@ compile_shader(GLenum type, int count, const char **sources)
 	return s;
 }
 
-int
-shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
-		   const char *vertex_source, const char *fragment_variant)
+static char *
+create_shader_config_string(const struct gl_shader_requirements *req)
 {
-	static const char fragment_shader_attrs_fmt[] =
-		"#define DEF_GREEN_TINT %s\n"
-		"#define DEF_VARIANT %s\n"
-		;
+	int size;
+	char *str;
+
+	size = asprintf(&str,
+			"#define DEF_GREEN_TINT %s\n"
+			"#define DEF_VARIANT %s\n",
+			req->green_tint ? "true" : "false",
+			gl_shader_texture_variant_to_string(req->variant));
+	if (size < 0)
+		return NULL;
+	return str;
+}
+
+struct gl_shader *
+gl_shader_create(struct gl_renderer *gr,
+		 const struct gl_shader_requirements *requirements)
+{
+	struct gl_shader *shader = NULL;
 	char msg[512];
 	GLint status;
-	int ret;
 	const char *sources[3];
-	char *attrs;
-	const char *def_green_tint;
+	char *conf = NULL;
 
-	shader->vertex_shader =
-		compile_shader(GL_VERTEX_SHADER, 1, &vertex_source);
+	shader = zalloc(sizeof *shader);
+	if (!shader) {
+		weston_log("could not create shader\n");
+		goto error_vertex;
+	}
+
+	wl_list_init(&shader->link);
+	shader->key = *requirements;
+
+	sources[0] = vertex_shader;
+	shader->vertex_shader = compile_shader(GL_VERTEX_SHADER, 1, sources);
 	if (shader->vertex_shader == GL_NONE)
-		return -1;
+		goto error_vertex;
 
-	if (renderer->fragment_shader_debug)
-		def_green_tint = "true";
-	else
-		def_green_tint = "false";
-
-	ret = asprintf(&attrs, fragment_shader_attrs_fmt,
-		       def_green_tint, fragment_variant);
-	if (ret < 0)
-		return -1;
+	conf = create_shader_config_string(&shader->key);
+	if (!conf)
+		goto error_fragment;
 
 	sources[0] = "#version 100\n";
-	sources[1] = attrs;
+	sources[1] = conf;
 	sources[2] = fragment_shader;
 	shader->fragment_shader = compile_shader(GL_FRAGMENT_SHADER,
 						 3, sources);
-	free(attrs);
 	if (shader->fragment_shader == GL_NONE)
-		return -1;
+		goto error_fragment;
 
 	shader->program = glCreateProgram();
 	glAttachShader(shader->program, shader->vertex_shader);
@@ -149,8 +198,11 @@ shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
 	if (!status) {
 		glGetProgramInfoLog(shader->program, sizeof msg, NULL, msg);
 		weston_log("link info: %s\n", msg);
-		return -1;
+		goto error_link;
 	}
+
+	glDeleteShader(shader->vertex_shader);
+	glDeleteShader(shader->fragment_shader);
 
 	shader->proj_uniform = glGetUniformLocation(shader->program, "proj");
 	shader->tex_uniforms[0] = glGetUniformLocation(shader->program, "tex");
@@ -159,49 +211,28 @@ shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
 	shader->alpha_uniform = glGetUniformLocation(shader->program, "alpha");
 	shader->color_uniform = glGetUniformLocation(shader->program, "color");
 
-	return 0;
-}
+	free(conf);
 
-void
-shader_release(struct gl_shader *shader)
-{
-	glDeleteShader(shader->vertex_shader);
-	glDeleteShader(shader->fragment_shader);
+	wl_list_insert(&gr->shader_list, &shader->link);
+
+	return shader;
+
+error_link:
 	glDeleteProgram(shader->program);
+	glDeleteShader(shader->fragment_shader);
 
-	shader->vertex_shader = 0;
-	shader->fragment_shader = 0;
-	shader->program = 0;
+error_fragment:
+	glDeleteShader(shader->vertex_shader);
+
+error_vertex:
+	free(conf);
+	free(shader);
+	return NULL;
 }
 
 int
-compile_shaders(struct weston_compositor *ec)
+gl_shader_requirements_cmp(const struct gl_shader_requirements *a,
+			   const struct gl_shader_requirements *b)
 {
-	struct gl_renderer *gr = get_renderer(ec);
-
-	gr->texture_shader_rgba.vertex_source = vertex_shader;
-	gr->texture_shader_rgba.fragment_source = "SHADER_VARIANT_RGBA";
-
-	gr->texture_shader_rgbx.vertex_source = vertex_shader;
-	gr->texture_shader_rgbx.fragment_source = "SHADER_VARIANT_RGBX";
-
-	gr->texture_shader_egl_external.vertex_source = vertex_shader;
-	gr->texture_shader_egl_external.fragment_source = "SHADER_VARIANT_EXTERNAL";
-
-	gr->texture_shader_y_uv.vertex_source = vertex_shader;
-	gr->texture_shader_y_uv.fragment_source = "SHADER_VARIANT_Y_UV";
-
-	gr->texture_shader_y_u_v.vertex_source = vertex_shader;
-	gr->texture_shader_y_u_v.fragment_source = "SHADER_VARIANT_Y_U_V";
-
-	gr->texture_shader_y_xuxv.vertex_source = vertex_shader;
-	gr->texture_shader_y_xuxv.fragment_source = "SHADER_VARIANT_Y_XUXV";
-
-	gr->texture_shader_xyuv.vertex_source = vertex_shader;
-	gr->texture_shader_xyuv.fragment_source = "SHADER_VARIANT_XYUV";
-
-	gr->solid_shader.vertex_source = vertex_shader;
-	gr->solid_shader.fragment_source = "SHADER_VARIANT_SOLID";
-
-	return 0;
+	return memcmp(a, b, sizeof(*a));
 }

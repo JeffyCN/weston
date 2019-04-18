@@ -123,7 +123,7 @@ struct dmabuf_image {
 
 	enum import_type import_type;
 	GLenum target;
-	struct gl_shader *shader;
+	enum gl_shader_texture_variant shader_variant;
 };
 
 struct dmabuf_format {
@@ -159,7 +159,6 @@ struct yuv_format_descriptor {
 
 struct gl_surface_state {
 	GLfloat color[4];
-	struct gl_shader *shader;
 
 	GLuint textures[3];
 	int num_textures;
@@ -197,6 +196,7 @@ struct gl_surface_state {
 
 	struct wl_listener surface_destroy_listener;
 	struct wl_listener renderer_destroy_listener;
+	struct gl_shader_requirements shader_requirements;
 };
 
 enum timeline_render_point_type {
@@ -625,6 +625,55 @@ texture_region(struct weston_view *ev, pixman_region32_t *region,
 	return nvtx;
 }
 
+static struct gl_shader *
+gl_renderer_get_program(struct gl_renderer *gr,
+			const struct gl_shader_requirements *requirements)
+{
+	struct gl_shader_requirements reqs = *requirements;
+	struct gl_shader *shader;
+
+	assert(reqs.pad_bits_ == 0);
+
+	if (gr->fragment_shader_debug)
+		reqs.green_tint = true;
+
+	if (gr->current_shader &&
+	    gl_shader_requirements_cmp(&reqs, &gr->current_shader->key) == 0)
+		return gr->current_shader;
+
+	wl_list_for_each(shader, &gr->shader_list, link) {
+		if (gl_shader_requirements_cmp(&reqs, &shader->key) == 0)
+			return shader;
+	}
+
+	shader = gl_shader_create(gr, &reqs);
+	if (shader)
+		return shader;
+
+	weston_log("warning: failed to generate gl program\n");
+	return NULL;
+}
+
+static bool
+gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader *shader)
+{
+	if (!shader) {
+		weston_log("Error: trying to use NULL GL shader.\n");
+		return false;
+	}
+
+	if (gr->current_shader == shader)
+		return true;
+
+	glUseProgram(shader->program);
+	gr->current_shader = shader;
+	return true;
+}
+
+static const struct gl_shader_requirements requirements_triangle_fan = {
+	.variant = SHADER_VARIANT_SOLID,
+};
+
 static void
 triangle_fan_debug(struct weston_view *view, int first, int count)
 {
@@ -635,12 +684,18 @@ triangle_fan_debug(struct weston_view *view, int first, int count)
 	GLushort *index;
 	int nelems;
 	static int color_idx = 0;
+	struct gl_shader *shader;
+	struct gl_shader *prev_shader = gr->current_shader;
 	static const GLfloat color[][4] = {
 			{ 1.0, 0.0, 0.0, 1.0 },
 			{ 0.0, 1.0, 0.0, 1.0 },
 			{ 0.0, 0.0, 1.0, 1.0 },
 			{ 1.0, 1.0, 1.0, 1.0 },
 	};
+
+	shader = gl_renderer_get_program(gr, &requirements_triangle_fan);
+	if (!gl_renderer_use_program(gr, shader))
+		return;
 
 	nelems = (count - 1 + count - 2) * 2;
 
@@ -657,11 +712,11 @@ triangle_fan_debug(struct weston_view *view, int first, int count)
 		*index++ = first + i;
 	}
 
-	glUseProgram(gr->solid_shader.program);
-	glUniform4fv(gr->solid_shader.color_uniform, 1,
-			color[color_idx++ % ARRAY_LENGTH(color)]);
+	glUniform4fv(shader->color_uniform, 1,
+		     color[color_idx++ % ARRAY_LENGTH(color)]);
 	glDrawElements(GL_LINES, nelems, GL_UNSIGNED_SHORT, buffer);
-	glUseProgram(gr->current_shader->program);
+
+	gl_renderer_use_program(gr, prev_shader);
 	free(buffer);
 }
 
@@ -734,33 +789,17 @@ use_output(struct weston_output *output)
 }
 
 static void
-use_shader(struct gl_renderer *gr, struct gl_shader *shader)
-{
-	if (!shader->program) {
-		int ret;
-
-		ret =  shader_init(shader, gr,
-				   shader->vertex_source,
-				   shader->fragment_source);
-
-		if (ret < 0)
-			weston_log("warning: failed to compile shader\n");
-	}
-
-	if (gr->current_shader == shader)
-		return;
-	glUseProgram(shader->program);
-	gr->current_shader = shader;
-}
-
-static void
-shader_uniforms(struct gl_shader *shader,
-		struct weston_view *view,
-		struct weston_output *output)
+gl_renderer_use_program_with_view_uniforms(struct gl_renderer *gr,
+					   struct gl_shader *shader,
+					   struct weston_view *view,
+					   struct weston_output *output)
 {
 	int i;
 	struct gl_surface_state *gs = get_surface_state(view->surface);
 	struct gl_output_state *go = get_output_state(output);
+
+	if (!gl_renderer_use_program(gr, shader))
+		return;
 
 	glUniformMatrix4fv(shader->proj_uniform,
 			   1, GL_FALSE, go->output_matrix.d);
@@ -851,6 +890,9 @@ static struct gl_shader *
 maybe_censor_override(struct weston_output *output,
 		      struct weston_view *ev)
 {
+	const struct gl_shader_requirements requirements_censor = {
+		.variant = SHADER_VARIANT_SOLID,
+	};
 	struct weston_compositor *ec = ev->surface->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(ev->surface);
@@ -866,24 +908,24 @@ maybe_censor_override(struct weston_output *output,
 		gs->color[1] = 0.0;
 		gs->color[2] = 0.0;
 		gs->color[3] = 1.0;
-		return &gr->solid_shader;
+		return gl_renderer_get_program(gr, &requirements_censor);
 	}
 
 	/* When not in enforced mode, the client is notified of the protection */
 	/* change, so content censoring is not required */
 	if (ev->surface->protection_mode !=
 	    WESTON_SURFACE_PROTECTION_MODE_ENFORCED)
-		return gs->shader;
+		return gl_renderer_get_program(gr, &gs->shader_requirements);
 
 	if (recording_censor || unprotected_censor) {
 		gs->color[0] = 0.40;
 		gs->color[1] = 0.0;
 		gs->color[2] = 0.0;
 		gs->color[3] = 1.0;
-		return &gr->solid_shader;
+		return gl_renderer_get_program(gr, &requirements_censor);
 	}
 
-	return gs->shader;
+	return gl_renderer_get_program(gr, &gs->shader_requirements);
 }
 
 static void
@@ -906,7 +948,8 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	/* In case of a runtime switch of renderers, we may not have received
 	 * an attach for this surface since the switch. In that case we don't
 	 * have a valid buffer or a proper shader set up so skip rendering. */
-	if (!gs->shader && !gs->direct_display)
+	if (gs->shader_requirements.variant == SHADER_VARIANT_NONE &&
+	    !gs->direct_display)
 		return;
 
 	pixman_region32_init(&repaint);
@@ -920,17 +963,19 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	if (ensure_surface_buffer_is_ready(gr, gs) < 0)
 		goto out;
 
-	shader = maybe_censor_override(output, ev);
-
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
+	/* The built shader objects are cached in struct
+	 * gl_renderer::shader_list and retrieved when requested with the same
+	 * struct gl_shader_requirements. The triangle fan shader is generated
+	 * here so that the shader uniforms are cached when used later
+	 */
 	if (gr->fan_debug) {
-		use_shader(gr, &gr->solid_shader);
-		shader_uniforms(&gr->solid_shader, ev, output);
+		shader = gl_renderer_get_program(gr,
+						 &requirements_triangle_fan);
+		gl_renderer_use_program_with_view_uniforms(gr, shader,
+							   ev, output);
 	}
-
-	use_shader(gr, shader);
-	shader_uniforms(shader, ev, output);
 
 	if (ev->transform.enabled || output->zoom.active ||
 	    output->current_scale != ev->surface->buffer_viewport.buffer.scale)
@@ -963,15 +1008,25 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	else
 		pixman_region32_copy(&surface_opaque, &ev->surface->opaque);
 
+	shader = maybe_censor_override(output, ev);
+	gl_renderer_use_program_with_view_uniforms(gr, shader, ev, output);
+
 	if (pixman_region32_not_empty(&surface_opaque)) {
-		if (shader == &gr->texture_shader_rgba) {
+		if (shader->key.variant == SHADER_VARIANT_RGBA) {
+			struct gl_shader_requirements tmp_requirements;
+			struct gl_shader *tmp_shader;
+
 			/* Special case for RGBA textures with possibly
 			 * bad data in alpha channel: use the shader
 			 * that forces texture alpha = 1.0.
 			 * Xwayland surfaces need this.
 			 */
-			use_shader(gr, &gr->texture_shader_rgbx);
-			shader_uniforms(&gr->texture_shader_rgbx, ev, output);
+			tmp_requirements = shader->key;
+			tmp_requirements.variant = SHADER_VARIANT_RGBX;
+			tmp_shader = gl_renderer_get_program(gr, &tmp_requirements);
+			gl_renderer_use_program_with_view_uniforms(gr,
+								   tmp_shader,
+								   ev, output);
 		}
 
 		if (ev->alpha < 1.0)
@@ -984,7 +1039,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
-		use_shader(gr, shader);
+		gl_renderer_use_program(gr, shader);
 		glEnable(GL_BLEND);
 		repaint_region(ev, &repaint, &surface_blend);
 		gs->used_in_output_repaint = true;
@@ -1158,10 +1213,13 @@ static void
 draw_output_borders(struct weston_output *output,
 		    enum gl_border_status border_status)
 {
+	const struct gl_shader_requirements requirements_rgba = {
+		.variant = SHADER_VARIANT_RGBA,
+	};
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
-	struct gl_shader *shader = &gr->texture_shader_rgba;
 	struct gl_border_image *top, *bottom, *left, *right;
+	struct gl_shader *shader;
 	struct weston_matrix matrix;
 	int full_width, full_height;
 
@@ -1177,7 +1235,9 @@ draw_output_borders(struct weston_output *output,
 	full_height = output->current_mode->height + top->height + bottom->height;
 
 	glDisable(GL_BLEND);
-	use_shader(gr, shader);
+	shader = gl_renderer_get_program(gr, &requirements_rgba);
+	if (!gl_renderer_use_program(gr, shader))
+		return;
 
 	glViewport(0, 0, full_width, full_height);
 
@@ -1711,28 +1771,28 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 
 	switch (wl_shm_buffer_get_format(shm_buffer)) {
 	case WL_SHM_FORMAT_XRGB8888:
-		gs->shader = &gr->texture_shader_rgbx;
+		gs->shader_requirements.variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_ARGB8888:
-		gs->shader = &gr->texture_shader_rgba;
+		gs->shader_requirements.variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		es->is_opaque = false;
 		break;
 	case WL_SHM_FORMAT_RGB565:
-		gs->shader = &gr->texture_shader_rgbx;
+		gs->shader_requirements.variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_format[0] = GL_RGB;
 		gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
 		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_YUV420:
-		gs->shader = &gr->texture_shader_y_u_v;
+		gs->shader_requirements.variant = SHADER_VARIANT_Y_U_V;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 3;
@@ -1764,18 +1824,18 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		gs->hsub[1] = 2;
 		gs->vsub[1] = 2;
 		if (gr->has_gl_texture_rg) {
-			gs->shader = &gr->texture_shader_y_uv;
+			gs->shader_requirements.variant = SHADER_VARIANT_Y_UV;
 			gl_format[0] = GL_R8_EXT;
 			gl_format[1] = GL_RG8_EXT;
 		} else {
-			gs->shader = &gr->texture_shader_y_xuxv;
+			gs->shader_requirements.variant = SHADER_VARIANT_Y_XUXV;
 			gl_format[0] = GL_LUMINANCE;
 			gl_format[1] = GL_LUMINANCE_ALPHA;
 		}
 		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_YUYV:
-		gs->shader = &gr->texture_shader_y_xuxv;
+		gs->shader_requirements.variant = SHADER_VARIANT_Y_XUXV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 2;
@@ -1855,26 +1915,26 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 	case EGL_TEXTURE_RGBA:
 	default:
 		num_planes = 1;
-		gs->shader = &gr->texture_shader_rgba;
+		gs->shader_requirements.variant = SHADER_VARIANT_RGBA;
 		break;
 	case EGL_TEXTURE_EXTERNAL_WL:
 		num_planes = 1;
 		gs->target = GL_TEXTURE_EXTERNAL_OES;
-		gs->shader = &gr->texture_shader_egl_external;
+		gs->shader_requirements.variant = SHADER_VARIANT_EXTERNAL;
 		break;
 	case EGL_TEXTURE_Y_UV_WL:
 		num_planes = 2;
-		gs->shader = &gr->texture_shader_y_uv;
+		gs->shader_requirements.variant = SHADER_VARIANT_Y_UV;
 		es->is_opaque = true;
 		break;
 	case EGL_TEXTURE_Y_U_V_WL:
 		num_planes = 3;
-		gs->shader = &gr->texture_shader_y_u_v;
+		gs->shader_requirements.variant = SHADER_VARIANT_Y_U_V;
 		es->is_opaque = true;
 		break;
 	case EGL_TEXTURE_Y_XUXV_WL:
 		num_planes = 2;
-		gs->shader = &gr->texture_shader_y_xuxv;
+		gs->shader_requirements.variant = SHADER_VARIANT_Y_XUXV;
 		es->is_opaque = true;
 		break;
 	}
@@ -2198,16 +2258,16 @@ import_yuv_dmabuf(struct gl_renderer *gr,
 
 	switch (format->texture_type) {
 	case TEXTURE_Y_XUXV_WL:
-		image->shader = &gr->texture_shader_y_xuxv;
+		image->shader_variant = SHADER_VARIANT_Y_XUXV;
 		break;
 	case TEXTURE_Y_UV_WL:
-		image->shader = &gr->texture_shader_y_uv;
+		image->shader_variant = SHADER_VARIANT_Y_UV;
 		break;
 	case TEXTURE_Y_U_V_WL:
-		image->shader = &gr->texture_shader_y_u_v;
+		image->shader_variant = SHADER_VARIANT_Y_U_V;
 		break;
 	case TEXTURE_XYUV_WL:
-		image->shader = &gr->texture_shader_xyuv;
+		image->shader_variant = SHADER_VARIANT_XYUV;
 		break;
 	default:
 		assert(false);
@@ -2320,10 +2380,10 @@ import_dmabuf(struct gl_renderer *gr,
 
 		switch (image->target) {
 		case GL_TEXTURE_2D:
-			image->shader = &gr->texture_shader_rgba;
+			image->shader_variant = SHADER_VARIANT_RGBA;
 			break;
 		default:
-			image->shader = &gr->texture_shader_egl_external;
+			image->shader_variant = SHADER_VARIANT_EXTERNAL;
 		}
 	} else {
 		if (!import_yuv_dmabuf(gr, image)) {
@@ -2587,7 +2647,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 		gr->image_target_texture_2d(gs->target, gs->images[i]->image);
 	}
 
-	gs->shader = image->shader;
+	gs->shader_requirements.variant = image->shader_variant;
 }
 
 static void
@@ -2651,7 +2711,6 @@ gl_renderer_surface_set_color(struct weston_surface *surface,
 		 float red, float green, float blue, float alpha)
 {
 	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_renderer *gr = get_renderer(surface->compositor);
 
 	gs->color[0] = red;
 	gs->color[1] = green;
@@ -2661,7 +2720,7 @@ gl_renderer_surface_set_color(struct weston_surface *surface,
 	gs->pitch = 1;
 	gs->height = 1;
 
-	gs->shader = &gr->solid_shader;
+	gs->shader_requirements.variant = SHADER_VARIANT_SOLID;
 }
 
 static void
@@ -2725,6 +2784,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	const GLenum gl_format = GL_RGBA; /* PIXMAN_a8b8g8r8 little-endian */
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
+	struct gl_shader *shader;
 	int cw, ch;
 	GLuint fbo;
 	GLuint tex;
@@ -2747,6 +2807,10 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 		break;
 	}
 
+	shader = gl_renderer_get_program(gr, &gs->shader_requirements);
+	if (!gl_renderer_use_program(gr, shader))
+		return -1;
+
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cw, ch,
@@ -2768,17 +2832,16 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 
 	glViewport(0, 0, cw, ch);
 	glDisable(GL_BLEND);
-	use_shader(gr, gs->shader);
 	if (gs->y_inverted)
 		proj = projmat_normal;
 	else
 		proj = projmat_yinvert;
 
-	glUniformMatrix4fv(gs->shader->proj_uniform, 1, GL_FALSE, proj);
-	glUniform1f(gs->shader->alpha_uniform, 1.0f);
+	glUniformMatrix4fv(shader->proj_uniform, 1, GL_FALSE, proj);
+	glUniform1f(shader->alpha_uniform, 1.0f);
 
 	for (i = 0; i < gs->num_textures; i++) {
-		glUniform1i(gs->shader->tex_uniforms[i], i);
+		glUniform1i(shader->tex_uniforms[i], i);
 
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(gs->target, gs->textures[i]);
@@ -3181,17 +3244,20 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	struct gl_renderer *gr = get_renderer(ec);
 	struct dmabuf_image *image, *next;
 	struct dmabuf_format *format, *next_format;
+	struct gl_shader *shader, *next_shader;
 
 	wl_signal_emit(&gr->destroy_signal, gr);
 
 	if (gr->has_bind_display)
 		gr->unbind_display(gr->egl_display, ec->wl_display);
 
+	wl_list_for_each_safe(shader, next_shader, &gr->shader_list, link)
+		gl_shader_destroy(shader);
+
 	/* Work around crash in egl_dri2.c's dri2_make_current() - when does this apply? */
 	eglMakeCurrent(gr->egl_display,
 		       EGL_NO_SURFACE, EGL_NO_SURFACE,
 		       EGL_NO_CONTEXT);
-
 
 	wl_list_for_each_safe(image, next, &gr->dmabuf_images, link)
 		dmabuf_image_destroy(image);
@@ -3275,6 +3341,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gr == NULL)
 		return -1;
 
+	wl_list_init(&gr->shader_list);
 	gr->platform = options->egl_platform;
 
 	if (gl_renderer_setup_egl_client_extensions(gr) < 0)
@@ -3380,19 +3447,6 @@ fragment_debug_binding(struct weston_keyboard *keyboard,
 	struct weston_output *output;
 
 	gr->fragment_shader_debug = !gr->fragment_shader_debug;
-
-	shader_release(&gr->texture_shader_rgba);
-	shader_release(&gr->texture_shader_rgbx);
-	shader_release(&gr->texture_shader_egl_external);
-	shader_release(&gr->texture_shader_y_uv);
-	shader_release(&gr->texture_shader_y_u_v);
-	shader_release(&gr->texture_shader_y_xuxv);
-	shader_release(&gr->texture_shader_xyuv);
-	shader_release(&gr->solid_shader);
-
-	/* Force use_shader() to call glUseProgram(), since we need to use
-	 * the recompiled version of the shader. */
-	gr->current_shader = NULL;
 
 	wl_list_for_each(output, &ec->output_list, link)
 		weston_output_damage(output);
@@ -3535,9 +3589,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		gr->has_egl_image_external = true;
 
 	glActiveTexture(GL_TEXTURE0);
-
-	if (compile_shaders(ec))
-		return -1;
 
 	gr->fragment_binding =
 		weston_compositor_add_debug_binding(ec, KEY_S,

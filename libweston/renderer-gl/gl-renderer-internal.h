@@ -1,5 +1,7 @@
 /*
  * Copyright © 2019 Collabora, Ltd.
+ * Copyright © 2019 Harish Krupo
+ * Copyright © 2019 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,18 +28,60 @@
 #ifndef GL_RENDERER_INTERNAL_H
 #define GL_RENDERER_INTERNAL_H
 
+#include <stdbool.h>
+
+#include <wayland-util.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include "shared/weston-egl-ext.h"  /* for PFN* stuff */
+#include "shared/helpers.h"
+
+enum gl_shader_texture_variant {
+	SHADER_VARIANT_NONE = 0,
+/* Keep the following in sync with fragment.glsl. */
+	SHADER_VARIANT_RGBX,
+	SHADER_VARIANT_RGBA,
+	SHADER_VARIANT_Y_U_V,
+	SHADER_VARIANT_Y_UV,
+	SHADER_VARIANT_Y_XUXV,
+	SHADER_VARIANT_XYUV,
+	SHADER_VARIANT_SOLID,
+	SHADER_VARIANT_EXTERNAL,
+};
+
+/** GL shader requirements key
+ *
+ * This structure is used as a binary blob key for building and searching
+ * shaders. Therefore it must not contain any bytes or bits the C compiler
+ * would be free to leave undefined e.g. after struct initialization,
+ * struct assignment, or member operations.
+ *
+ * Use 'pahole' from package 'dwarves' to inspect this structure.
+ */
+struct gl_shader_requirements
+{
+	unsigned variant:4; /* enum gl_shader_texture_variant */
+	bool green_tint:1;
+
+	/*
+	 * The total size of all bitfields plus pad_bits_ must fill up exactly
+	 * how many bytes the compiler allocates for them together.
+	 */
+	unsigned pad_bits_:27;
+};
+static_assert(sizeof(struct gl_shader_requirements) ==
+	      4 /* total bitfield size in bytes */,
+	      "struct gl_shader_requirements must not contain implicit padding");
 
 struct gl_shader {
+	struct gl_shader_requirements key;
 	GLuint program;
 	GLuint vertex_shader, fragment_shader;
 	GLint proj_uniform;
 	GLint tex_uniforms[3];
 	GLint alpha_uniform;
 	GLint color_uniform;
-	const char *vertex_source, *fragment_source;
+	struct wl_list link; /* gl_renderer::shader_list */
 };
 
 struct gl_renderer {
@@ -91,15 +135,6 @@ struct gl_renderer {
 
 	bool has_gl_texture_rg;
 
-	struct gl_shader texture_shader_rgba;
-	struct gl_shader texture_shader_rgbx;
-	struct gl_shader texture_shader_egl_external;
-	struct gl_shader texture_shader_y_uv;
-	struct gl_shader texture_shader_y_u_v;
-	struct gl_shader texture_shader_y_xuxv;
-	struct gl_shader texture_shader_xyuv;
-	struct gl_shader invert_color_shader;
-	struct gl_shader solid_shader;
 	struct gl_shader *current_shader;
 
 	struct wl_signal destroy_signal;
@@ -117,6 +152,12 @@ struct gl_renderer {
 
 	bool has_wait_sync;
 	PFNEGLWAITSYNCKHRPROC wait_sync;
+
+	/** struct gl_shader::link
+	 *
+	 * List constains cached shaders built from struct gl_shader_requirements
+	 */
+	struct wl_list shader_list;
 };
 
 static inline struct gl_renderer *
@@ -149,14 +190,15 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr);
 int
 gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 
-int
-shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
-		   const char *vertex_source, const char *fragment_source);
-
 void
-shader_release(struct gl_shader *shader);
+gl_shader_destroy(struct gl_shader *shader);
+
+struct gl_shader *
+gl_shader_create(struct gl_renderer *gr,
+		 const struct gl_shader_requirements *requirements);
 
 int
-compile_shaders(struct weston_compositor *ec);
+gl_shader_requirements_cmp(const struct gl_shader_requirements *a,
+			   const struct gl_shader_requirements *b);
 
 #endif /* GL_RENDERER_INTERNAL_H */
