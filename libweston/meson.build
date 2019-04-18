@@ -82,17 +82,25 @@ lib_weston = shared_library(
 	dependencies: deps_libweston
 )
 
-dep_libweston = declare_dependency(
+# For external users, like Weston.
+dep_libweston_public = declare_dependency(
+	link_with: lib_weston,
+	include_directories: public_inc,
+	dependencies: deps_libweston
+)
+
+# For internal users, like the backends.
+dep_libweston_private = declare_dependency(
 	link_with: lib_weston,
 	include_directories: [ include_directories('.'), public_inc ],
 	dependencies: deps_libweston
 )
 
-# XXX: We should be able to use dep_libweston.partial_dependency() instead
+# XXX: We should be able to use dep_libweston_private.partial_dependency() instead
 # of this, but a Meson bug makes it not work. It will be fixed with
 # https://github.com/mesonbuild/meson/pull/5167
 # in hopefully Meson 0.51.
-dep_libweston_h = declare_dependency(
+dep_libweston_private_h = declare_dependency(
 	include_directories: [ include_directories('.'), public_inc ],
 	dependencies: [
 		dep_pixman.partial_dependency(compile_args: true),
@@ -128,7 +136,7 @@ srcs_session_helper = [
 	'launcher-util.c',
 	'launcher-weston-launch.c',
 ]
-deps_session_helper = [ dep_libweston_h ]
+deps_session_helper = [ dep_libweston_private_h ]
 
 if get_option('backend-drm')
 	deps_session_helper += dep_libdrm
@@ -181,7 +189,7 @@ lib_libinput_backend = static_library(
 		'libinput-seat.c'
 	],
 	dependencies: [
-		dep_libweston,
+		dep_libweston_private,
 		dep_libinput,
 		dependency('libudev', version: '>= 136')
 	],

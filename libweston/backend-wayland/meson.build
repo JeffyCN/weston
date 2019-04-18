@@ -18,7 +18,8 @@ deps_wlwl = [
 	dependency('wayland-client'),
 	dependency('wayland-cursor'),
 	dep_pixman,
-	dep_libweston,
+	dep_libweston_private,
+	dep_libdrm_headers,
 	dep_lib_cairo_shared,
 ]
 

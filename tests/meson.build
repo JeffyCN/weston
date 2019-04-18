@@ -2,7 +2,7 @@ plugin_test_shell_desktop = shared_library(
 	'weston-test-desktop-shell',
 	'weston-test-desktop-shell.c',
 	include_directories: common_inc,
-	dependencies: [ dep_lib_desktop, dep_libweston ],
+	dependencies: [ dep_lib_desktop, dep_libweston_public ],
 	name_prefix: '',
 	install: false
 )
@@ -45,7 +45,7 @@ exe_plugin_test = shared_library(
 	weston_test_server_protocol_h,
 	weston_test_protocol_c,
 	include_directories: common_inc,
-	dependencies: [ dep_libweston ],
+	dependencies: [ dep_libweston_private ],
 	name_prefix: '',
 	install: false,
 )
@@ -343,7 +343,7 @@ foreach t : tests_weston_plugin
 	endif
 
 	deps_t = [
-		dep_libweston,
+		dep_libweston_private,
 	]
 	if t.length() > 2
 		deps_t += t.get(2)

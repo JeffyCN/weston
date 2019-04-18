@@ -32,7 +32,7 @@ srcs_drm = [
 ]
 
 deps_drm = [
-	dep_libweston,
+	dep_libweston_private,
 	dep_session_helper,
 	dep_libdrm,
 	dep_libinput_backend,

@@ -13,7 +13,7 @@ srcs_renderer_gl = [
 
 deps_renderer_gl = [
 	dep_pixman,
-	dep_libweston,
+	dep_libweston_private,
 	dep_libdrm_headers,
 	dep_vertex_clipping
 ]

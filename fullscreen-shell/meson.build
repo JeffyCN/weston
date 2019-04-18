@@ -8,7 +8,7 @@ if get_option('shell-fullscreen')
 		'fullscreen-shell',
 		srcs_shell_fullscreen,
 		include_directories: common_inc,
-		dependencies: dep_libweston,
+		dependencies: dep_libweston_public,
 		name_prefix: '',
 		install: true,
 		install_dir: dir_module_weston

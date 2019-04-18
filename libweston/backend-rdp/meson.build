@@ -22,7 +22,7 @@ if cc.has_member(
 endif
 
 deps_rdp = [
-	dep_libweston,
+	dep_libweston_private,
 	dep_frdp,
 ]
 plugin_rdp = shared_library(

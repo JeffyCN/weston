@@ -12,7 +12,7 @@ if get_option('shell-ivi')
 		'ivi-shell',
 		srcs_shell_ivi,
 		include_directories: common_inc,
-		dependencies: [ dep_lib_desktop, dep_libweston ],
+		dependencies: [ dep_lib_desktop, dep_libweston_public ],
 		name_prefix: '',
 		install: true,
 		install_dir: dir_module_weston
@@ -30,7 +30,7 @@ if get_option('shell-ivi')
 		'hmi-controller',
 		srcs_ivi_hmi,
 		include_directories: common_inc,
-		dependencies: [ dep_libweston, dep_libshared ],
+		dependencies: [ dep_libweston_public, dep_libshared ],
 		name_prefix: '',
 		install: true,
 		install_dir: dir_module_weston

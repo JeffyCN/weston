@@ -13,7 +13,7 @@ if get_option('shell-desktop')
 	deps_shell_desktop = [
 		dep_libshared,
 		dep_lib_desktop,
-		dep_libweston,
+		dep_libweston_public,
 	]
 	plugin_shell_desktop = shared_library(
 		'desktop-shell',

@@ -16,7 +16,7 @@ if not dep_x11_xcb.found()
 endif
 
 deps_x11 = [
-	dep_libweston,
+	dep_libweston_private,
 	dep_x11_xcb,
 	dep_lib_cairo_shared,
 	dep_pixman,
