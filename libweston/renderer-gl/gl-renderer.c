@@ -138,11 +138,17 @@ struct yuv_plane_descriptor {
 	int plane_index;
 };
 
+enum texture_type {
+	TEXTURE_Y_XUXV_WL,
+	TEXTURE_Y_UV_WL,
+	TEXTURE_Y_U_V_WL
+};
+
 struct yuv_format_descriptor {
 	uint32_t format;
 	int input_planes;
 	int output_planes;
-	int texture_type;
+	enum texture_type texture_type;
 	struct yuv_plane_descriptor plane[4];
 };
 
@@ -2030,7 +2036,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_YUYV,
 		.input_planes = 1,
 		.output_planes = 2,
-		.texture_type = EGL_TEXTURE_Y_XUXV_WL,
+		.texture_type = TEXTURE_Y_XUXV_WL,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2046,7 +2052,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_NV12,
 		.input_planes = 2,
 		.output_planes = 2,
-		.texture_type = EGL_TEXTURE_Y_UV_WL,
+		.texture_type = TEXTURE_Y_UV_WL,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2062,7 +2068,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_YUV420,
 		.input_planes = 3,
 		.output_planes = 3,
-		.texture_type = EGL_TEXTURE_Y_U_V_WL,
+		.texture_type = TEXTURE_Y_U_V_WL,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2083,7 +2089,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_YUV444,
 		.input_planes = 3,
 		.output_planes = 3,
-		.texture_type = EGL_TEXTURE_Y_U_V_WL,
+		.texture_type = TEXTURE_Y_U_V_WL,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2181,13 +2187,13 @@ import_yuv_dmabuf(struct gl_renderer *gr,
 	image->num_images = format->output_planes;
 
 	switch (format->texture_type) {
-	case EGL_TEXTURE_Y_XUXV_WL:
+	case TEXTURE_Y_XUXV_WL:
 		image->shader = &gr->texture_shader_y_xuxv;
 		break;
-	case EGL_TEXTURE_Y_UV_WL:
+	case TEXTURE_Y_UV_WL:
 		image->shader = &gr->texture_shader_y_uv;
 		break;
-	case EGL_TEXTURE_Y_U_V_WL:
+	case TEXTURE_Y_U_V_WL:
 		image->shader = &gr->texture_shader_y_u_v;
 		break;
 	default:
