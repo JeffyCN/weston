@@ -572,6 +572,16 @@ drm_output_propose_state(struct weston_output *output_base,
 			force_renderer = true;
 		}
 
+		/* In case of enforced mode of content-protection do not
+		 * assign planes for a protected surface on an unsecured output.
+		 */
+		if (ev->surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_ENFORCED &&
+		    ev->surface->desired_protection > output_base->current_protection) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
+				     "(enforced protection mode on unsecured output)\n", ev);
+			force_renderer = true;
+		}
+
 		/* We do not control the stacking order of overlay planes;
 		 * the scanout plane is strictly stacked bottom and the cursor
 		 * plane top, but the ordering of overlay planes with respect

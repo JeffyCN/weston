@@ -94,6 +94,27 @@ struct drm_property_enum_info dpms_state_enums[] = {
 	},
 };
 
+struct drm_property_enum_info content_protection_enums[] = {
+	[WDRM_CONTENT_PROTECTION_UNDESIRED] = {
+		.name = "Undesired",
+	},
+	[WDRM_CONTENT_PROTECTION_DESIRED] = {
+		.name = "Desired",
+	},
+	[WDRM_CONTENT_PROTECTION_ENABLED] = {
+		.name = "Enabled",
+	},
+};
+
+struct drm_property_enum_info hdcp_content_type_enums[] = {
+	[WDRM_HDCP_CONTENT_TYPE0] = {
+		.name = "HDCP Type0",
+	},
+	[WDRM_HDCP_CONTENT_TYPE1] = {
+		.name = "HDCP Type1",
+	},
+};
+
 const struct drm_property_info connector_props[] = {
 	[WDRM_CONNECTOR_EDID] = { .name = "EDID" },
 	[WDRM_CONNECTOR_DPMS] = {
@@ -103,6 +124,16 @@ const struct drm_property_info connector_props[] = {
 	},
 	[WDRM_CONNECTOR_CRTC_ID] = { .name = "CRTC_ID", },
 	[WDRM_CONNECTOR_NON_DESKTOP] = { .name = "non-desktop", },
+	[WDRM_CONNECTOR_CONTENT_PROTECTION] = {
+		.name = "Content Protection",
+		.enum_values = content_protection_enums,
+		.num_enum_values = WDRM_CONTENT_PROTECTION__COUNT,
+	},
+	[WDRM_CONNECTOR_HDCP_CONTENT_TYPE] = {
+		.name = "HDCP Content Type",
+		.enum_values = hdcp_content_type_enums,
+		.num_enum_values = WDRM_HDCP_CONTENT_TYPE__COUNT,
+	},
 };
 
 const struct drm_property_info crtc_props[] = {
@@ -463,6 +494,7 @@ drm_output_assign_state(struct drm_output_state *state,
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct drm_plane_state *plane_state;
+	struct drm_head *head;
 
 	assert(!output->state_last);
 
@@ -481,6 +513,12 @@ drm_output_assign_state(struct drm_output_state *state,
 		drm_debug(b, "\t[CRTC:%u] setting pending flip\n", output->crtc_id);
 		output->atomic_complete_pending = 1;
 	}
+
+	if (b->atomic_modeset &&
+	    state->protection == WESTON_HDCP_DISABLE)
+		wl_list_for_each(head, &output->base.head_list, base.output_link)
+			weston_head_set_content_protection_status(&head->base,
+							   WESTON_HDCP_DISABLE);
 
 	/* Replace state_cur on each affected plane with the new state, being
 	 * careful to dispose of orphaned (but only orphaned) previous state.
@@ -793,6 +831,84 @@ plane_add_damage(drmModeAtomicReq *req, struct drm_backend *backend,
 	return 0;
 }
 
+static bool
+drm_head_has_prop(struct drm_head *head,
+		  enum wdrm_connector_property prop)
+{
+	if (head && head->props_conn[prop].prop_id != 0)
+		return true;
+
+	return false;
+}
+
+/*
+ * This function converts the protection requests from weston_hdcp_protection
+ * corresponding drm values. These values can be set in "Content Protection"
+ * & "HDCP Content Type" connector properties.
+ */
+static void
+get_drm_protection_from_weston(enum weston_hdcp_protection weston_protection,
+			       enum wdrm_content_protection_state *drm_protection,
+			       enum wdrm_hdcp_content_type *drm_cp_type)
+{
+
+	switch (weston_protection) {
+	case WESTON_HDCP_DISABLE:
+		*drm_protection = WDRM_CONTENT_PROTECTION_UNDESIRED;
+		*drm_cp_type = WDRM_HDCP_CONTENT_TYPE0;
+		break;
+	case WESTON_HDCP_ENABLE_TYPE_0:
+		*drm_protection = WDRM_CONTENT_PROTECTION_DESIRED;
+		*drm_cp_type = WDRM_HDCP_CONTENT_TYPE0;
+		break;
+	case WESTON_HDCP_ENABLE_TYPE_1:
+		*drm_protection = WDRM_CONTENT_PROTECTION_DESIRED;
+		*drm_cp_type = WDRM_HDCP_CONTENT_TYPE1;
+		break;
+	default:
+		assert(0 && "bad weston_hdcp_protection");
+	}
+}
+
+static void
+drm_head_set_hdcp_property(struct drm_head *head,
+			   enum weston_hdcp_protection protection,
+			   drmModeAtomicReq *req)
+{
+	int ret;
+	enum wdrm_content_protection_state drm_protection;
+	enum wdrm_hdcp_content_type drm_cp_type;
+	struct drm_property_enum_info *enum_info;
+	uint64_t prop_val;
+
+	get_drm_protection_from_weston(protection, &drm_protection,
+				       &drm_cp_type);
+
+	if (!drm_head_has_prop(head, WDRM_CONNECTOR_CONTENT_PROTECTION))
+		return;
+
+	/*
+	 * Content-type property is not exposed for platforms not supporting
+	 * HDCP2.2, therefore, type-1 cannot be supported. The type-0 content
+	 * still can be supported if the content-protection property is exposed.
+	 */
+	if (!drm_head_has_prop(head, WDRM_CONNECTOR_HDCP_CONTENT_TYPE) &&
+	    drm_cp_type != WDRM_HDCP_CONTENT_TYPE0)
+			return;
+
+	enum_info = head->props_conn[WDRM_CONNECTOR_CONTENT_PROTECTION].enum_values;
+	prop_val = enum_info[drm_protection].value;
+	ret = connector_add_prop(req, head, WDRM_CONNECTOR_CONTENT_PROTECTION,
+				 prop_val);
+	assert(ret == 0);
+
+	enum_info = head->props_conn[WDRM_CONNECTOR_HDCP_CONTENT_TYPE].enum_values;
+	prop_val = enum_info[drm_cp_type].value;
+	ret = connector_add_prop(req, head, WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
+				 prop_val);
+	assert(ret == 0);
+}
+
 static int
 drm_output_apply_state_atomic(struct drm_output_state *state,
 			      drmModeAtomicReq *req,
@@ -838,6 +954,9 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		wl_list_for_each(head, &output->base.head_list, base.output_link)
 			ret |= connector_add_prop(req, head, WDRM_CONNECTOR_CRTC_ID, 0);
 	}
+
+	wl_list_for_each(head, &output->base.head_list, base.output_link)
+		drm_head_set_hdcp_property(head, state->protection, req);
 
 	if (ret != 0) {
 		weston_log("couldn't set atomic CRTC/connector state\n");

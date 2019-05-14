@@ -293,6 +293,7 @@ drm_output_state_alloc(struct drm_output *output,
 	assert(state);
 	state->output = output;
 	state->dpms = WESTON_DPMS_OFF;
+	state->protection = WESTON_HDCP_DISABLE;
 	state->pending_state = pending_state;
 	if (pending_state)
 		wl_list_insert(&pending_state->output_list, &state->link);

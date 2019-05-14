@@ -55,6 +55,7 @@
 #include "drm-internal.h"
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
+#include "shared/string-helpers.h"
 #include "renderer-gl/gl-renderer.h"
 #include "weston-egl-ext.h"
 #include "pixman-renderer.h"
@@ -212,6 +213,8 @@ drm_output_get_disable_state(struct drm_pending_state *pending_state,
 						  pending_state,
 						  DRM_OUTPUT_STATE_CLEAR_PLANES);
 	output_state->dpms = WESTON_DPMS_OFF;
+
+	output_state->protection = WESTON_HDCP_DISABLE;
 
 	return output_state;
 }
@@ -424,6 +427,11 @@ drm_output_repaint(struct weston_output *output_base,
 						   pending_state,
 						   DRM_OUTPUT_STATE_CLEAR_PLANES);
 	state->dpms = WESTON_DPMS_ON;
+
+	if (output_base->allow_protection)
+		state->protection = output_base->desired_protection;
+	else
+		state->protection = WESTON_HDCP_DISABLE;
 
 	drm_output_render(state, damage);
 	scanout_state = drm_output_state_get_plane(state,
@@ -2124,6 +2132,85 @@ drm_backend_update_unused_outputs(struct drm_backend *b, drmModeRes *resources)
 	}
 }
 
+/*
+ * This function converts the protection status from drm values to
+ * weston_hdcp_protection status. The drm values as read from the connector
+ * properties "Content Protection" and "HDCP Content Type" need to be converted
+ * to appropriate weston values, that can be sent to a client application.
+ */
+static int
+get_weston_protection_from_drm(enum wdrm_content_protection_state protection,
+			       enum wdrm_hdcp_content_type type,
+			       enum weston_hdcp_protection *weston_protection)
+
+{
+	if (protection >= WDRM_CONTENT_PROTECTION__COUNT)
+		return -1;
+	if (protection == WDRM_CONTENT_PROTECTION_DESIRED ||
+	    protection == WDRM_CONTENT_PROTECTION_UNDESIRED) {
+		*weston_protection = WESTON_HDCP_DISABLE;
+		return 0;
+	}
+	if (type >= WDRM_HDCP_CONTENT_TYPE__COUNT)
+		return -1;
+	if (type == WDRM_HDCP_CONTENT_TYPE0) {
+		*weston_protection = WESTON_HDCP_ENABLE_TYPE_0;
+		return 0;
+	}
+	if (type == WDRM_HDCP_CONTENT_TYPE1) {
+		*weston_protection = WESTON_HDCP_ENABLE_TYPE_1;
+		return 0;
+	}
+	return -1;
+}
+
+/**
+ * Get current content-protection status for a given head.
+ *
+ * @param head drm_head, whose protection is to be retrieved
+ * @param props drm property object of the connector, related to the head
+ * @return protection status in case of success, -1 otherwise
+ */
+static enum weston_hdcp_protection
+drm_head_get_current_protection(struct drm_head *head,
+				drmModeObjectProperties *props)
+{
+	struct drm_property_info *info;
+	enum wdrm_content_protection_state protection;
+	enum wdrm_hdcp_content_type type;
+	enum weston_hdcp_protection weston_hdcp = WESTON_HDCP_DISABLE;
+
+	info = &head->props_conn[WDRM_CONNECTOR_CONTENT_PROTECTION];
+	protection = drm_property_get_value(info, props,
+					    WDRM_CONTENT_PROTECTION__COUNT);
+
+	if (protection == WDRM_CONTENT_PROTECTION__COUNT)
+		return WESTON_HDCP_DISABLE;
+
+	info = &head->props_conn[WDRM_CONNECTOR_HDCP_CONTENT_TYPE];
+	type = drm_property_get_value(info, props,
+				      WDRM_HDCP_CONTENT_TYPE__COUNT);
+
+	/*
+	 * In case of platforms supporting HDCP1.4, only property
+	 * 'Content Protection' is exposed and not the 'HDCP Content Type'
+	 * for such cases HDCP Type 0 should be considered as the content-type.
+	 */
+
+	if (type == WDRM_HDCP_CONTENT_TYPE__COUNT)
+		type = WDRM_HDCP_CONTENT_TYPE0;
+
+	if (get_weston_protection_from_drm(protection, type,
+					   &weston_hdcp) == -1) {
+		weston_log("Invalid drm protection:%d type:%d, for head:%s connector-id:%d\n",
+			   protection, type, head->base.name,
+			   head->connector_id);
+		return WESTON_HDCP_DISABLE;
+	}
+
+	return weston_hdcp;
+}
+
 /** Replace connector data and monitor information
  *
  * @param head The head to update.
@@ -2161,6 +2248,9 @@ drm_head_assign_connector_info(struct drm_head *head,
 				   head->props_conn,
 				   WDRM_CONNECTOR__COUNT, props);
 	update_head_from_connector(head, props);
+
+	weston_head_set_content_protection_status(&head->base,
+					 drm_head_get_current_protection(head, props));
 	drmModeFreeObjectProperties(props);
 
 	return 0;
@@ -2427,6 +2517,58 @@ drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
 	drmModeFreeResources(resources);
 }
 
+static enum wdrm_connector_property
+drm_head_find_property_by_id(struct drm_head *head, uint32_t property_id)
+{
+	int i;
+	enum wdrm_connector_property prop = WDRM_CONNECTOR__COUNT;
+
+	if (!head || !property_id)
+		return WDRM_CONNECTOR__COUNT;
+
+	for (i = 0; i < WDRM_CONNECTOR__COUNT; i++)
+		if (head->props_conn[i].prop_id == property_id) {
+			prop = (enum wdrm_connector_property) i;
+			break;
+		}
+	return prop;
+}
+
+static void
+drm_backend_update_conn_props(struct drm_backend *b,
+			      uint32_t	connector_id,
+			      uint32_t property_id)
+{
+	struct drm_head *head;
+	enum wdrm_connector_property conn_prop;
+	drmModeObjectProperties *props;
+
+	head = drm_head_find_by_connector(b, connector_id);
+	if (!head) {
+		weston_log("DRM: failed to find head for connector id: %d.\n",
+			   connector_id);
+		return;
+	}
+
+	conn_prop = drm_head_find_property_by_id(head, property_id);
+	if (conn_prop >= WDRM_CONNECTOR__COUNT)
+		return;
+
+	props = drmModeObjectGetProperties(b->drm.fd,
+					   connector_id,
+					   DRM_MODE_OBJECT_CONNECTOR);
+	if (!props) {
+		weston_log("Error: failed to get connector '%s' properties\n",
+			   head->base.name);
+		return;
+	}
+	if (conn_prop == WDRM_CONNECTOR_CONTENT_PROTECTION) {
+		weston_head_set_content_protection_status(&head->base,
+					     drm_head_get_current_protection(head, props));
+	}
+	drmModeFreeObjectProperties(props);
+}
+
 static int
 udev_event_is_hotplug(struct drm_backend *b, struct udev_device *device)
 {
@@ -2445,15 +2587,45 @@ udev_event_is_hotplug(struct drm_backend *b, struct udev_device *device)
 }
 
 static int
+udev_event_is_conn_prop_change(struct drm_backend *b,
+			       struct udev_device *device,
+			       uint32_t *connector_id,
+			       uint32_t *property_id)
+
+{
+	const char *val;
+	int id;
+
+	val = udev_device_get_property_value(device, "CONNECTOR");
+	if (!val || !safe_strtoint(val, &id))
+		return 0;
+	else
+		*connector_id = id;
+
+	val = udev_device_get_property_value(device, "PROPERTY");
+	if (!val || !safe_strtoint(val, &id))
+		return 0;
+	else
+		*property_id = id;
+
+	return 1;
+}
+
+static int
 udev_drm_event(int fd, uint32_t mask, void *data)
 {
 	struct drm_backend *b = data;
 	struct udev_device *event;
+	uint32_t conn_id, prop_id;
 
 	event = udev_monitor_receive_device(b->udev_monitor);
 
-	if (udev_event_is_hotplug(b, event))
-		drm_backend_update_heads(b, event);
+	if (udev_event_is_hotplug(b, event)) {
+		if (udev_event_is_conn_prop_change(b, event, &conn_id, &prop_id))
+			drm_backend_update_conn_props(b, conn_id, prop_id);
+		else
+			drm_backend_update_heads(b, event);
+	}
 
 	udev_device_unref(event);
 
@@ -3366,6 +3538,11 @@ drm_backend_create(struct weston_compositor *compositor,
 			weston_log("Error: initializing explicit "
 				   " synchronization support failed.\n");
 	}
+
+	if (b->atomic_modeset)
+		if (weston_compositor_enable_content_protection(compositor) < 0)
+			weston_log("Error: initializing content-protection "
+				   "support failed.\n");
 
 	ret = weston_plugin_api_register(compositor, WESTON_DRM_OUTPUT_API_NAME,
 					 &api, sizeof(api));

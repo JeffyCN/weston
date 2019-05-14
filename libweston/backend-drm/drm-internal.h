@@ -185,7 +185,22 @@ enum wdrm_connector_property {
 	WDRM_CONNECTOR_DPMS,
 	WDRM_CONNECTOR_CRTC_ID,
 	WDRM_CONNECTOR_NON_DESKTOP,
+	WDRM_CONNECTOR_CONTENT_PROTECTION,
+	WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
 	WDRM_CONNECTOR__COUNT
+};
+
+enum wdrm_content_protection_state {
+	WDRM_CONTENT_PROTECTION_UNDESIRED = 0,
+	WDRM_CONTENT_PROTECTION_DESIRED,
+	WDRM_CONTENT_PROTECTION_ENABLED,
+	WDRM_CONTENT_PROTECTION__COUNT
+};
+
+enum wdrm_hdcp_content_type {
+	WDRM_HDCP_CONTENT_TYPE0 = 0,
+	WDRM_HDCP_CONTENT_TYPE1,
+	WDRM_HDCP_CONTENT_TYPE__COUNT
 };
 
 enum wdrm_dpms_state {
@@ -340,6 +355,7 @@ struct drm_output_state {
 	struct drm_output *output;
 	struct wl_list link;
 	enum dpms_enum dpms;
+	enum weston_hdcp_protection protection;
 	struct wl_list plane_list;
 };
 
@@ -570,6 +586,8 @@ drm_property_info_free(struct drm_property_info *info, int num_props);
 extern struct drm_property_enum_info plane_type_enums[];
 extern const struct drm_property_info plane_props[];
 extern struct drm_property_enum_info dpms_state_enums[];
+extern struct drm_property_enum_info content_protection_enums[];
+extern struct drm_property_enum_info hdcp_content_type_enums[];
 extern const struct drm_property_info connector_props[];
 extern const struct drm_property_info crtc_props[];
 
