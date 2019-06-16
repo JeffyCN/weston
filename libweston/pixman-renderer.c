@@ -97,7 +97,6 @@ pixman_renderer_read_pixels(struct weston_output *output,
 			       uint32_t width, uint32_t height)
 {
 	struct pixman_output_state *po = get_output_state(output);
-	pixman_transform_t transform;
 	pixman_image_t *out_buf;
 
 	if (!po->hw_buffer) {
@@ -111,25 +110,15 @@ pixman_renderer_read_pixels(struct weston_output *output,
 		pixels,
 		(PIXMAN_FORMAT_BPP(format) / 8) * width);
 
-	/* Caller expects vflipped source image */
-	pixman_transform_init_translate(&transform,
-					pixman_int_to_fixed (x),
-					pixman_int_to_fixed (y - pixman_image_get_height (po->hw_buffer)));
-	pixman_transform_scale(&transform, NULL,
-			       pixman_fixed_1,
-			       pixman_fixed_minus_1);
-	pixman_image_set_transform(po->hw_buffer, &transform);
-
 	pixman_image_composite32(PIXMAN_OP_SRC,
 				 po->hw_buffer, /* src */
 				 NULL /* mask */,
 				 out_buf, /* dest */
-				 0, 0, /* src_x, src_y */
+				 x, y, /* src_x, src_y */
 				 0, 0, /* mask_x, mask_y */
 				 0, 0, /* dest_x, dest_y */
 				 pixman_image_get_width (po->hw_buffer), /* width */
 				 pixman_image_get_height (po->hw_buffer) /* height */);
-	pixman_image_set_transform(po->hw_buffer, NULL);
 
 	pixman_image_unref(out_buf);
 
@@ -883,7 +872,6 @@ pixman_renderer_init(struct weston_compositor *ec)
 		pixman_renderer_surface_copy_content;
 	ec->renderer = &renderer->base;
 	ec->capabilities |= WESTON_CAP_ROTATION_ANY;
-	ec->capabilities |= WESTON_CAP_CAPTURE_YFLIP;
 	ec->capabilities |= WESTON_CAP_VIEW_CLIP_MASK;
 
 	renderer->debug_binding =
