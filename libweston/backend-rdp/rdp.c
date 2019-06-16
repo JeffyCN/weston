@@ -484,7 +484,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	output->current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
 
 	pixman_renderer_output_destroy(output);
-	pixman_renderer_output_create(output, PIXMAN_RENDERER_OUTPUT_USE_SHADOW);
+	pixman_renderer_output_create(output, 0);
 
 	new_shadow_buffer = pixman_image_create_bits(PIXMAN_x8r8g8b8, target_mode->width,
 			target_mode->height, 0, target_mode->width * 4);
