@@ -818,7 +818,7 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	pixman_region32_t damage;
 	struct ss_shm_buffer *sb;
 	int32_t x, y, width, height, stride;
-	int i, nrects, do_yflip;
+	int i, nrects, do_yflip, y_orig;
 	pixman_box32_t *r;
 	uint32_t *cache_data;
 
@@ -876,19 +876,19 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 		width = r[i].x2 - r[i].x1;
 		height = r[i].y2 - r[i].y1;
 
-		if (do_yflip) {
-			so->output->compositor->renderer->read_pixels(
-				so->output, PIXMAN_a8r8g8b8, so->tmp_data,
-				x, so->output->current_mode->height - r[i].y2,
-				width, height);
+		if (do_yflip)
+			y_orig = so->output->current_mode->height - r[i].y2;
+		else
+			y_orig = y;
 
+		so->output->compositor->renderer->read_pixels(
+			so->output, PIXMAN_a8r8g8b8, so->tmp_data,
+			x, y_orig, width, height);
+
+		if (do_yflip) {
 			pixman_blt(so->tmp_data, cache_data, -width, stride,
 				   32, 32, 0, 1 - height, x, y, width, height);
 		} else {
-			so->output->compositor->renderer->read_pixels(
-				so->output, PIXMAN_a8r8g8b8, so->tmp_data,
-				x, y, width, height);
-
 			pixman_blt(so->tmp_data, cache_data, width, stride,
 				   32, 32, 0, 0, x, y, width, height);
 		}
