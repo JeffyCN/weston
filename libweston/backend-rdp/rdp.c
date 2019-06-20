@@ -665,14 +665,14 @@ rdp_destroy(struct weston_compositor *ec)
 	struct weston_head *base, *next;
 	int i;
 
+	for (i = 0; i < MAX_FREERDP_FDS; i++)
+		if (b->listener_events[i])
+			wl_event_source_remove(b->listener_events[i]);
+
 	weston_compositor_shutdown(ec);
 
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
 		rdp_head_destroy(to_rdp_head(base));
-
-	for (i = 0; i < MAX_FREERDP_FDS; i++)
-		if (b->listener_events[i])
-			wl_event_source_remove(b->listener_events[i]);
 
 	freerdp_listener_free(b->listener);
 
