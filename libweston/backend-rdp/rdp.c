@@ -663,7 +663,16 @@ rdp_destroy(struct weston_compositor *ec)
 {
 	struct rdp_backend *b = to_rdp_backend(ec);
 	struct weston_head *base, *next;
+	struct rdp_peers_item *rdp_peer, *tmp;
 	int i;
+
+	wl_list_for_each_safe(rdp_peer, tmp, &b->output->peers, link) {
+		freerdp_peer* client = rdp_peer->peer;
+
+		client->Disconnect(client);
+		freerdp_peer_context_free(client);
+		freerdp_peer_free(client);
+	}
 
 	for (i = 0; i < MAX_FREERDP_FDS; i++)
 		if (b->listener_events[i])
