@@ -1064,6 +1064,7 @@ xf_peer_activate(freerdp_peer* client)
 
 	weston_seat_init(peersItem->seat, b->compositor, seat_name);
 	weston_seat_init_keyboard(peersItem->seat, keymap);
+	xkb_keymap_unref(keymap);
 	weston_seat_init_pointer(peersItem->seat);
 
 	peersItem->flags |= RDP_PEER_ACTIVATED;
