@@ -822,22 +822,6 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	pixman_box32_t *r;
 	uint32_t *cache_data;
 
-	/* Damage in output coordinates */
-	pixman_region32_init(&damage);
-	pixman_region32_intersect(&damage, &so->output->region,
-				  &so->output->previous_damage);
-	pixman_region32_translate(&damage, -so->output->x, -so->output->y);
-
-	/* Apply damage to all buffers */
-	wl_list_for_each(sb, &so->shm.buffers, link)
-		pixman_region32_union(&sb->damage, &sb->damage, &damage);
-
-	/* Transform to buffer coordinates */
-	weston_transformed_region(so->output->width, so->output->height,
-				  so->output->transform,
-				  so->output->current_scale,
-				  &damage, &damage);
-
 	width = so->output->current_mode->width;
 	height = so->output->current_mode->height;
 	stride = width;
@@ -853,11 +837,26 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 						 width, height, NULL,
 						 stride);
 		if (!so->cache_image)
-			goto err_pixman_init;
+			goto err_shared_output;
 
-		pixman_region32_fini(&damage);
 		pixman_region32_init_rect(&damage, 0, 0, width, height);
+	} else {
+		/* Damage in output coordinates */
+		pixman_region32_init(&damage);
+		pixman_region32_intersect(&damage, &so->output->region,
+					  &so->output->previous_damage);
+		pixman_region32_translate(&damage, -so->output->x, -so->output->y);
 	}
+
+	/* Apply damage to all buffers */
+	wl_list_for_each(sb, &so->shm.buffers, link)
+		pixman_region32_union(&sb->damage, &sb->damage, &damage);
+
+	/* Transform to buffer coordinates */
+	weston_transformed_region(so->output->width, so->output->height,
+				  so->output->transform,
+				  so->output->current_scale,
+				  &damage, &damage);
 
 	if (shared_output_ensure_tmp_data(so, &damage) < 0)
 		goto err_pixman_init;
@@ -899,6 +898,7 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 
 err_pixman_init:
 	pixman_region32_fini(&damage);
+err_shared_output:
 	shared_output_destroy(so);
 }
 
