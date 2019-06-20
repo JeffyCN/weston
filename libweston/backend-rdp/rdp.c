@@ -828,7 +828,7 @@ struct rdp_to_xkb_keyboard_layout {
 
 /* table reversed from
 	https://github.com/awakecoding/FreeRDP/blob/master/libfreerdp/locale/xkb_layout_ids.c#L811 */
-static
+static const
 struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 	{KBD_ARABIC_101, "ara", 0},
 	{KBD_BULGARIAN, 0, 0},
@@ -943,7 +943,7 @@ struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 };
 
 /* taken from 2.2.7.1.6 Input Capability Set (TS_INPUT_CAPABILITYSET) */
-static char *rdp_keyboard_types[] = {
+static const char *rdp_keyboard_types[] = {
 	"",	/* 0: unused */
 	"", /* 1: IBM PC/XT or compatible (83-key) keyboard */
 	"", /* 2: Olivetti "ICO" (102-key) keyboard */
