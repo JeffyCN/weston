@@ -963,7 +963,6 @@ xf_peer_activate(freerdp_peer* client)
 	rdpSettings *settings;
 	rdpPointerUpdate *pointer;
 	struct rdp_peers_item *peersItem;
-	struct xkb_context *xkbContext;
 	struct xkb_rule_names xkbRuleNames;
 	struct xkb_keymap *keymap;
 	struct weston_output *weston_output;
@@ -1047,13 +1046,8 @@ xf_peer_activate(freerdp_peer* client)
 
 	keymap = NULL;
 	if (xkbRuleNames.layout) {
-		xkbContext = xkb_context_new(0);
-		if (!xkbContext) {
-			weston_log("unable to create a xkb_context\n");
-			return FALSE;
-		}
-
-		keymap = xkb_keymap_new_from_names(xkbContext, &xkbRuleNames, 0);
+		keymap = xkb_keymap_new_from_names(b->compositor->xkb_context,
+						   &xkbRuleNames, 0);
 	}
 
 	if (settings->ClientHostname)
