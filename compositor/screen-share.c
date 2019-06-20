@@ -820,7 +820,8 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	int32_t x, y, width, height, stride;
 	int i, nrects, do_yflip, y_orig;
 	pixman_box32_t *r;
-	uint32_t *cache_data;
+	pixman_image_t *damaged_image;
+	pixman_transform_t transform;
 
 	width = so->output->current_mode->width;
 	height = so->output->current_mode->height;
@@ -863,7 +864,6 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 
 	do_yflip = !!(so->output->compositor->capabilities & WESTON_CAP_CAPTURE_YFLIP);
 
-	cache_data = pixman_image_get_data(so->cache_image);
 	r = pixman_region32_rectangles(&damage, &nrects);
 	for (i = 0; i < nrects; ++i) {
 		x = r[i].x1;
@@ -880,13 +880,34 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 			so->output, PIXMAN_a8r8g8b8, so->tmp_data,
 			x, y_orig, width, height);
 
+		damaged_image = pixman_image_create_bits(PIXMAN_a8r8g8b8,
+							 width, height,
+							 so->tmp_data,
+				(PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8) * width);
+		if (!damaged_image)
+			goto err_pixman_init;
+
 		if (do_yflip) {
-			pixman_blt(so->tmp_data, cache_data, -width, stride,
-				   32, 32, 0, 1 - height, x, y, width, height);
-		} else {
-			pixman_blt(so->tmp_data, cache_data, width, stride,
-				   32, 32, 0, 0, x, y, width, height);
+			pixman_transform_init_scale(&transform,
+						    pixman_fixed_1,
+						    pixman_fixed_minus_1);
+
+			pixman_transform_translate(&transform, NULL,
+						   0,
+						   pixman_int_to_fixed(height));
+
+			pixman_image_set_transform(damaged_image, &transform);
 		}
+
+		pixman_image_composite32(PIXMAN_OP_SRC,
+					 damaged_image,
+					 NULL,
+					 so->cache_image,
+					 0, 0,
+					 0, 0,
+					 x, y,
+					 width, height);
+		pixman_image_unref(damaged_image);
 	}
 
 	so->cache_dirty = 1;
