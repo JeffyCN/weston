@@ -715,8 +715,8 @@ rdp_peer_context_free(freerdp_peer* client, RdpPeerContext* context)
 	if (context->item.flags & RDP_PEER_ACTIVATED) {
 		weston_seat_release_keyboard(context->item.seat);
 		weston_seat_release_pointer(context->item.seat);
-		/* XXX we should weston_seat_release(context->item.seat); here
-		 * but it would crash on reconnect */
+		weston_seat_release(context->item.seat);
+		free(context->item.seat);
 	}
 
 	Stream_Free(context->encode_stream, TRUE);
