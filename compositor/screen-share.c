@@ -852,19 +852,15 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 			pixman_image_create_bits(PIXMAN_a8r8g8b8,
 						 width, height, NULL,
 						 stride);
-		if (!so->cache_image) {
-			shared_output_destroy(so);
-			return;
-		}
+		if (!so->cache_image)
+			goto err_pixman_init;
 
 		pixman_region32_fini(&damage);
 		pixman_region32_init_rect(&damage, 0, 0, width, height);
 	}
 
-	if (shared_output_ensure_tmp_data(so, &damage) < 0) {
-		shared_output_destroy(so);
-		return;
-	}
+	if (shared_output_ensure_tmp_data(so, &damage) < 0)
+		goto err_pixman_init;
 
 	do_yflip = !!(so->output->compositor->capabilities & WESTON_CAP_CAPTURE_YFLIP);
 
@@ -894,11 +890,16 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 		}
 	}
 
-	pixman_region32_fini(&damage);
-
 	so->cache_dirty = 1;
 
+	pixman_region32_fini(&damage);
 	shared_output_update(so);
+
+	return;
+
+err_pixman_init:
+	pixman_region32_fini(&damage);
+	shared_output_destroy(so);
 }
 
 static struct shared_output *
