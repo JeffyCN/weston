@@ -940,6 +940,49 @@ ensure_surface_buffer_is_ready(struct gl_renderer *gr,
 	return (wait_ret == EGL_TRUE && destroy_ret == EGL_TRUE) ? 0 : -1;
 }
 
+
+ /* Checks if a view needs to be censored on an output
+  * Checks for 2 types of censor requirements
+  * - recording_censor: Censor protected view when a
+  *   protected view is captured.
+  * - unprotected_censor: Censor regions of protected views
+  *   when displayed on an output which has lower protection capability.
+  * Returns the originally stored gl_shader if content censoring is required,
+  * NULL otherwise.
+  */
+static struct gl_shader *
+setup_censor_overrides(struct weston_output *output,
+		       struct weston_view *ev)
+{
+	struct gl_shader *replaced_shader = NULL;
+	struct weston_compositor *ec = ev->surface->compositor;
+	struct gl_renderer *gr = get_renderer(ec);
+	struct gl_surface_state *gs = get_surface_state(ev->surface);
+	bool recording_censor =
+		(output->disable_planes > 0) &&
+		(ev->surface->desired_protection > WESTON_HDCP_DISABLE);
+
+	bool unprotected_censor =
+		(ev->surface->desired_protection > output->current_protection);
+
+	/* When not in enforced mode, the client is notified of the protection */
+	/* change, so content censoring is not required */
+	if (ev->surface->protection_mode !=
+	    WESTON_SURFACE_PROTECTION_MODE_ENFORCED)
+		return NULL;
+
+	if (recording_censor || unprotected_censor) {
+		replaced_shader = gs->shader;
+		gs->color[0] = 0.40;
+		gs->color[1] = 0.0;
+		gs->color[2] = 0.0;
+		gs->color[3] = 1.0;
+		gs->shader = &gr->solid_shader;
+	}
+
+	return replaced_shader;
+}
+
 static void
 draw_view(struct weston_view *ev, struct weston_output *output,
 	  pixman_region32_t *damage) /* in global coordinates */
@@ -955,8 +998,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	pixman_region32_t surface_blend;
 	GLint filter;
 	int i;
-	bool shader_replaced = false;
-	struct gl_shader *tmp_shader = NULL;
+	struct gl_shader *replaced_shader = NULL;
 
 	/* In case of a runtime switch of renderers, we may not have received
 	 * an attach for this surface since the switch. In that case we don't
@@ -975,16 +1017,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	if (ensure_surface_buffer_is_ready(gr, gs) < 0)
 		goto out;
 
-	if (ev->surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_ENFORCED &&
-	    ev->surface->desired_protection > output->current_protection) {
-		tmp_shader = gs->shader;
-		shader_replaced = true;
-		gs->color[0] = 0.40;
-		gs->color[1] = 0.0;
-		gs->color[2] = 0.0;
-		gs->color[3] = 1.0;
-		gs->shader = &gr->solid_shader;
-	}
+	replaced_shader = setup_censor_overrides(output, ev);
 
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -1060,8 +1093,8 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 out:
 	pixman_region32_fini(&repaint);
 
-	if (shader_replaced)
-		gs->shader = tmp_shader;
+	if (replaced_shader)
+		gs->shader = replaced_shader;
 }
 
 static void
