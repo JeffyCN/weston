@@ -148,6 +148,14 @@ weston_compositor_xkb_destroy(struct weston_compositor *ec);
 int
 weston_input_init(struct weston_compositor *compositor);
 
+/* weston_output */
+
+void
+weston_output_disable_planes_incr(struct weston_output *output);
+
+void
+weston_output_disable_planes_decr(struct weston_output *output);
+
 /* weston_plane */
 
 void

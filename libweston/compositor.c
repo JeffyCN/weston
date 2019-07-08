@@ -7752,3 +7752,15 @@ weston_buffer_send_server_error(struct weston_buffer *buffer,
 			       "server error with "
 			       "wl_buffer@%u: %s", id, msg);
 }
+
+WL_EXPORT void
+weston_output_disable_planes_incr(struct weston_output *output)
+{
+	output->disable_planes++;
+}
+
+WL_EXPORT void
+weston_output_disable_planes_decr(struct weston_output *output)
+{
+	output->disable_planes--;
+}

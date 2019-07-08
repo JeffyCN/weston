@@ -2942,7 +2942,7 @@ recorder_destroy(struct drm_output *output)
 	vaapi_recorder_destroy(output->recorder);
 	output->recorder = NULL;
 
-	output->base.disable_planes--;
+	weston_output_disable_planes_decr(&output->base);
 
 	wl_list_remove(&output->recorder_frame_listener.link);
 	weston_log("[libva recorder] done\n");
@@ -3024,7 +3024,7 @@ recorder_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 			return;
 		}
 
-		output->base.disable_planes++;
+		weston_output_disable_planes_incr(&output->base);
 
 		output->recorder_frame_listener.notify = recorder_frame_notify;
 		wl_signal_add(&output->base.frame_signal,

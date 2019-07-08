@@ -443,7 +443,7 @@ test_screenshot_frame_notify(struct wl_listener *listener, void *data)
 	int32_t stride;
 	uint8_t *pixels, *d, *s;
 
-	output->disable_planes--;
+	weston_output_disable_planes_decr(output);
 	wl_list_remove(&listener->link);
 	stride = l->buffer->width * (PIXMAN_FORMAT_BPP(compositor->read_format) / 8);
 	pixels = malloc(stride * l->buffer->height);
@@ -539,7 +539,7 @@ weston_test_screenshot_shoot(struct weston_output *output,
 	wl_signal_add(&output->frame_signal, &l->listener);
 
 	/* Fire off a repaint */
-	output->disable_planes++;
+	weston_output_disable_planes_incr(output);
 	weston_output_schedule_repaint(output);
 
 	return true;

@@ -1010,7 +1010,7 @@ shared_output_create(struct weston_output *output, int parent_fd)
 
 	so->frame_listener.notify = shared_output_repainted;
 	wl_signal_add(&output->frame_signal, &so->frame_listener);
-	output->disable_planes++;
+	weston_output_disable_planes_incr(output);
 	weston_output_damage(output);
 
 	return so;
@@ -1031,7 +1031,7 @@ shared_output_destroy(struct shared_output *so)
 {
 	struct ss_shm_buffer *buffer, *bnext;
 
-	so->output->disable_planes--;
+	weston_output_disable_planes_decr(so->output);
 
 	wl_list_for_each_safe(buffer, bnext, &so->shm.buffers, link)
 		ss_shm_buffer_destroy(buffer);

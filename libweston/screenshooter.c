@@ -124,7 +124,7 @@ screenshooter_frame_notify(struct wl_listener *listener, void *data)
 	int32_t stride;
 	uint8_t *pixels, *d, *s;
 
-	output->disable_planes--;
+	weston_output_disable_planes_decr(output);
 	wl_list_remove(&listener->link);
 	stride = l->buffer->width * (PIXMAN_FORMAT_BPP(compositor->read_format) / 8);
 	pixels = malloc(stride * l->buffer->height);
@@ -206,7 +206,7 @@ weston_screenshooter_shoot(struct weston_output *output,
 	l->data = data;
 	l->listener.notify = screenshooter_frame_notify;
 	wl_signal_add(&output->frame_signal, &l->listener);
-	output->disable_planes++;
+	weston_output_disable_planes_incr(output);
 	weston_output_damage(output);
 
 	return 0;
@@ -445,7 +445,7 @@ weston_recorder_create(struct weston_output *output, const char *filename)
 
 	recorder->frame_listener.notify = weston_recorder_frame_notify;
 	wl_signal_add(&output->frame_signal, &recorder->frame_listener);
-	output->disable_planes++;
+	weston_output_disable_planes_incr(output);
 	weston_output_damage(output);
 
 	return recorder;
@@ -460,7 +460,7 @@ weston_recorder_destroy(struct weston_recorder *recorder)
 {
 	wl_list_remove(&recorder->frame_listener.link);
 	close(recorder->fd);
-	recorder->output->disable_planes--;
+	weston_output_disable_planes_decr(recorder->output);
 	weston_recorder_free(recorder);
 }
 
