@@ -95,6 +95,9 @@ text_backend_init(struct weston_compositor *ec);
 void
 text_backend_destroy(struct text_backend *text_backend);
 
+int
+wet_main(int argc, char *argv[]);
+
 #ifdef  __cplusplus
 }
 #endif

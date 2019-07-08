@@ -3101,7 +3101,8 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
 	}
 }
 
-int main(int argc, char *argv[])
+WL_EXPORT int
+wet_main(int argc, char *argv[])
 {
 	int ret = EXIT_FAILURE;
 	char *cmdline;

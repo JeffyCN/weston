@@ -26,12 +26,27 @@ if get_option('xwayland')
 	config_h.set_quoted('XSERVER_PATH', get_option('xwayland-path'))
 endif
 
+libexec_weston = shared_library(
+	'exec_weston',
+	sources: srcs_weston,
+	include_directories: common_inc,
+	dependencies: deps_weston,
+	install_dir: dir_module_weston,
+	install: true,
+	version: '0.0.0',
+	soversion: 0
+)
+dep_libexec_weston = declare_dependency(
+	link_with: libexec_weston,
+	include_directories: [ include_directories('.'), public_inc ],
+	dependencies: dep_libweston_public
+)
 exe_weston = executable(
 	'weston',
-	srcs_weston,
+	'executable.c',
 	include_directories: common_inc,
-	link_args: [ '-Wl,-export-dynamic' ],
-	dependencies: deps_weston,
+	dependencies: dep_libexec_weston,
+	install_rpath: dir_module_weston,
 	install: true
 )
 install_headers('weston.h', subdir: 'weston')
