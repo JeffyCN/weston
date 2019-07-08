@@ -692,3 +692,28 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data);
 
 bool
 drm_plane_is_available(struct drm_plane *plane, struct drm_output *output);
+
+void
+drm_output_render(struct drm_output_state *state, pixman_region32_t *damage);
+
+int
+parse_gbm_format(const char *s, uint32_t default_value, uint32_t *gbm_format);
+
+extern struct gl_renderer_interface *gl_renderer;
+
+#ifdef BUILD_DRM_VIRTUAL
+extern int
+drm_backend_init_virtual_output_api(struct weston_compositor *compositor);
+#else
+inline static int
+drm_backend_init_virtual_output_api(struct weston_compositor *compositor)
+{
+	return 0;
+}
+#endif
+
+int
+drm_output_init_egl(struct drm_output *output, struct drm_backend *b);
+void
+drm_output_fini_egl(struct drm_output *output);
+

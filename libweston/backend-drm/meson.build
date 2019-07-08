@@ -70,6 +70,11 @@ if get_option('backend-drm-screencast-vaapi')
 	config_h.set('BUILD_VAAPI_RECORDER', '1')
 endif
 
+if get_option('remoting')
+	srcs_drm += 'drm-virtual.c'
+	config_h.set('BUILD_DRM_VIRTUAL', '1')
+endif
+
 if dep_libdrm.version().version_compare('>= 2.4.71')
 	config_h.set('HAVE_DRM_ADDFB2_MODIFIERS', '1')
 endif
