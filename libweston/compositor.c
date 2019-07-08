@@ -1046,6 +1046,25 @@ weston_surface_compute_protection(struct protected_surface *psurface)
 
 	wl_list_for_each(output, &surface->compositor->output_list, link)
 		if (surface->output_mask & (1u << output->id)) {
+			/*
+			 * If the content-protection is enabled with protection
+			 * mode as RELAXED for a surface, and if
+			 * content-recording features like: screen-shooter,
+			 * recorder, screen-sharing, etc are on, then notify the
+			 * client, that the protection is disabled.
+			 *
+			 * Note: If the protection mode is ENFORCED then there
+			 * is no need to bother the client as the renderer takes
+			 * care of censoring the visibility of the protected
+			 * content.
+			 */
+
+			if (output->disable_planes > 0 &&
+			    surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_RELAXED) {
+				min_protection = WESTON_HDCP_DISABLE;
+				min_protection_valid = true;
+				break;
+			}
 			if (!min_protection_valid) {
 				min_protection = output->current_protection;
 				min_protection_valid = true;
@@ -1057,8 +1076,8 @@ weston_surface_compute_protection(struct protected_surface *psurface)
 		min_protection = WESTON_HDCP_DISABLE;
 
 	surface->current_protection = min_protection;
-	weston_protected_surface_send_event(psurface,
-					    surface->current_protection);
+
+	weston_protected_surface_send_event(psurface, surface->current_protection);
 }
 
 static void
@@ -7758,10 +7777,26 @@ WL_EXPORT void
 weston_output_disable_planes_incr(struct weston_output *output)
 {
 	output->disable_planes++;
+	/*
+	 * If disable_planes changes from 0 to non-zero, it means some type of
+	 * recording of content has started, and therefore protection level of
+	 * the protected surfaces must be updated to avoid the recording of
+	 * the protected content.
+	 */
+	if (output->disable_planes == 1)
+		weston_schedule_surface_protection_update(output->compositor);
 }
 
 WL_EXPORT void
 weston_output_disable_planes_decr(struct weston_output *output)
 {
 	output->disable_planes--;
+	/*
+	 * If disable_planes changes from non-zero to 0, it means no content
+	 * recording is going on any more, and the protected and surfaces can be
+	 * shown without any apprehensions about content being recorded.
+	 */
+	if (output->disable_planes == 0)
+		weston_schedule_surface_protection_update(output->compositor);
+
 }
