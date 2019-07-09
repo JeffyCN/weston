@@ -184,7 +184,7 @@ tests_weston_plugin = [
 	['plugin-registry'],
 	['surface'],
 	['surface-global'],
-	['surface-screenshot'],
+	['surface-screenshot', 'surface-screenshot-test.c', dep_libshared],
 ]
 
 if get_option('shell-ivi')
