@@ -214,6 +214,7 @@ out:
 	return state;
 }
 
+#ifdef BUILD_DRM_GBM
 /**
  * Update the image for the current cursor surface
  *
@@ -361,6 +362,14 @@ err:
 	drm_plane_state_put_back(plane_state);
 	return NULL;
 }
+#else
+static struct drm_plane_state *
+drm_output_prepare_cursor_view(struct drm_output_state *output_state,
+			       struct weston_view *ev)
+{
+	return NULL;
+}
+#endif
 
 static struct drm_plane_state *
 drm_output_prepare_scanout_view(struct drm_output_state *output_state,

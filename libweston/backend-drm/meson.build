@@ -41,11 +41,10 @@ deps_drm = [
 	dep_backlight
 ]
 
-# XXX: Actually let DRM-backend build without GBM, it really should
-if true # get_option('renderer-gl')
+if get_option('renderer-gl')
 	dep_gbm = dependency('gbm', required: false)
 	if not dep_gbm.found()
-		error('drm-backend requires gbm which was not found. Or, you can use \'-Dbackend-drm=false\'.')
+		error('drm-backend with GL renderer requires gbm which was not found. Or, you can use \'-Drenderer-gl=false\'.')
 	endif
 	if dep_gbm.version().version_compare('>= 17.1')
 		config_h.set('HAVE_GBM_MODIFIERS', '1')
@@ -54,6 +53,8 @@ if true # get_option('renderer-gl')
 		config_h.set('HAVE_GBM_FD_IMPORT', '1')
 	endif
 	deps_drm += dep_gbm
+	srcs_drm += 'drm-gbm.c'
+	config_h.set('BUILD_DRM_GBM', '1')
 endif
 
 if get_option('backend-drm-screencast-vaapi')
@@ -71,6 +72,9 @@ if get_option('backend-drm-screencast-vaapi')
 endif
 
 if get_option('remoting')
+	if not get_option('renderer-gl')
+		warning('DRM virtual requires renderer-gl.')
+	endif
 	srcs_drm += 'drm-virtual.c'
 	config_h.set('BUILD_DRM_VIRTUAL', '1')
 endif

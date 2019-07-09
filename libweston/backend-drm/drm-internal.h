@@ -47,7 +47,9 @@
 #include <xf86drmMode.h>
 #include <drm_fourcc.h>
 
+#ifdef BUILD_DRM_GBM
 #include <gbm.h>
+#endif
 #include <libudev.h>
 
 #include <libweston/libweston.h>
@@ -634,9 +636,17 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 struct drm_fb *
 drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 		   bool is_opaque, enum drm_fb_type type);
-struct drm_fb *
-drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev);
 
+#ifdef BUILD_DRM_GBM
+extern struct drm_fb *
+drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev);
+#else
+static inline struct drm_fb *
+drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
+{
+	return NULL;
+}
+#endif
 
 struct drm_pending_state *
 drm_pending_state_alloc(struct drm_backend *backend);
@@ -712,8 +722,51 @@ drm_backend_init_virtual_output_api(struct weston_compositor *compositor)
 }
 #endif
 
+#ifdef BUILD_DRM_GBM
+int
+init_egl(struct drm_backend *b);
+
 int
 drm_output_init_egl(struct drm_output *output, struct drm_backend *b);
+
 void
 drm_output_fini_egl(struct drm_output *output);
 
+struct drm_fb *
+drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage);
+
+void
+renderer_switch_binding(struct weston_keyboard *keyboard,
+			const struct timespec *time, uint32_t key, void *data);
+#else
+inline static int
+init_egl(struct drm_backend *b)
+{
+	weston_log("Compiled without GBM/EGL support\n");
+	return -1;
+}
+
+inline static int
+drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
+{
+	return -1;
+}
+
+inline static void
+drm_output_fini_egl(struct drm_output *output)
+{
+}
+
+inline static struct drm_fb *
+drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
+{
+	return NULL;
+}
+
+inline static void
+renderer_switch_binding(struct weston_keyboard *keyboard,
+			const struct timespec *time, uint32_t key, void *data)
+{
+	weston_log("Compiled without GBM/EGL support\n");
+}
+#endif

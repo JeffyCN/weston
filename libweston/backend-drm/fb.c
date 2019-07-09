@@ -70,16 +70,6 @@ drm_fb_destroy_dumb(struct drm_fb *fb)
 	drm_fb_destroy(fb);
 }
 
-static void
-drm_fb_destroy_gbm(struct gbm_bo *bo, void *data)
-{
-	struct drm_fb *fb = data;
-
-	assert(fb->type == BUFFER_GBM_SURFACE || fb->type == BUFFER_CLIENT ||
-	       fb->type == BUFFER_CURSOR);
-	drm_fb_destroy(fb);
-}
-
 static int
 drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 {
@@ -209,6 +199,17 @@ drm_fb_ref(struct drm_fb *fb)
 {
 	fb->refcnt++;
 	return fb;
+}
+
+#ifdef BUILD_DRM_GBM
+static void
+drm_fb_destroy_gbm(struct gbm_bo *bo, void *data)
+{
+	struct drm_fb *fb = data;
+
+	assert(fb->type == BUFFER_GBM_SURFACE || fb->type == BUFFER_CLIENT ||
+	       fb->type == BUFFER_CURSOR);
+	drm_fb_destroy(fb);
 }
 
 static void
@@ -450,6 +451,7 @@ drm_fb_set_buffer(struct drm_fb *fb, struct weston_buffer *buffer,
 	weston_buffer_release_reference(&fb->buffer_release_ref,
 					buffer_release);
 }
+#endif
 
 void
 drm_fb_unref(struct drm_fb *fb)
@@ -465,6 +467,7 @@ drm_fb_unref(struct drm_fb *fb)
 	case BUFFER_PIXMAN_DUMB:
 		drm_fb_destroy_dumb(fb);
 		break;
+#ifdef BUILD_DRM_GBM
 	case BUFFER_CURSOR:
 	case BUFFER_CLIENT:
 		gbm_bo_destroy(fb->bo);
@@ -475,12 +478,14 @@ drm_fb_unref(struct drm_fb *fb)
 	case BUFFER_DMABUF:
 		drm_fb_destroy_dmabuf(fb);
 		break;
+#endif
 	default:
 		assert(NULL);
 		break;
 	}
 }
 
+#ifdef BUILD_DRM_GBM
 struct drm_fb *
 drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
 {
@@ -537,3 +542,4 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
 			  ev->surface->buffer_release_ref.buffer_release);
 	return fb;
 }
+#endif
