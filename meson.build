@@ -4,7 +4,7 @@ project('weston',
 	default_options: [
 		'warning_level=3',
 		'c_std=gnu99',
-		'b_lundef=false',
+		'b_lundef=true',
 	],
 	meson_version: '>= 0.47',
 	license: 'MIT/Expat',
