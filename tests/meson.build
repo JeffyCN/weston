@@ -45,7 +45,7 @@ exe_plugin_test = shared_library(
 	weston_test_server_protocol_h,
 	weston_test_protocol_c,
 	include_directories: common_inc,
-	dependencies: [ dep_libweston_private ],
+	dependencies: [ dep_libexec_weston, dep_libweston_private ],
 	name_prefix: '',
 	install: false,
 )
@@ -205,7 +205,8 @@ if get_option('shell-ivi')
 				'ivi-layout-test-plugin.c',
 				weston_test_server_protocol_h,
 				weston_test_protocol_c,
-			]
+			],
+			[ dep_libexec_weston ]
 		],
 	]
 

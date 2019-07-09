@@ -76,6 +76,7 @@ if get_option('screenshare')
 		fullscreen_shell_unstable_v1_protocol_c,
 	]
 	deps_screenshare = [
+		dep_libexec_weston,
 		dep_libshared,
 		dep_libweston_public,
 		dep_libweston_private_h, # XXX: https://gitlab.freedesktop.org/wayland/weston/issues/292
@@ -110,7 +111,7 @@ if get_option('color-management-lcms')
 		'cms-static',
 		srcs_lcms,
 		include_directories: common_inc,
-		dependencies: [ dep_libweston_public, dep_lcms2 ],
+		dependencies: [ dep_libexec_weston, dep_libweston_public, dep_lcms2 ],
 		name_prefix: '',
 		install: true,
 		install_dir: dir_module_weston

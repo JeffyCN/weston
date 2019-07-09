@@ -12,6 +12,7 @@ if get_option('shell-desktop')
 	]
 	deps_shell_desktop = [
 		dep_libm,
+		dep_libexec_weston,
 		dep_libshared,
 		dep_lib_desktop,
 		dep_libweston_public,
