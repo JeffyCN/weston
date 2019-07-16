@@ -172,13 +172,6 @@ option(
 	description: 'List of accessory clients to build and install'
 )
 option(
-	'simple-dmabuf-drm',
-	type: 'array',
-	choices: [ 'auto', 'intel', 'freedreno', 'etnaviv' ],
-	value: [ 'intel', 'freedreno', 'etnaviv' ],
-	description: 'List of DRM drivers to be supported by weston-simple-dmabuf-drm'
-)
-option(
 	'demo-clients',
 	type: 'boolean',
 	value: true,

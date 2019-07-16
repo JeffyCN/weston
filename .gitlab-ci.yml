@@ -67,7 +67,6 @@ container_prep:
 build-native-meson-default-options:
   variables:
     MESON_OPTIONS: >
-      -Dsimple-dmabuf-drm=intel
       -Dwerror=true
       -Ddoc=true
   extends: .build-native-meson
@@ -75,7 +74,6 @@ build-native-meson-default-options:
 build-native-meson-no-gl-renderer:
   variables:
     MESON_OPTIONS: >
-      -Dsimple-dmabuf-drm=intel
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
       -Drenderer-gl=false
       -Dremoting=false

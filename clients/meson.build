@@ -311,51 +311,6 @@ if get_option('demo-clients')
 	endforeach
 endif
 
-simple_dmabuf_drm_opts = get_option('simple-dmabuf-drm')
-simple_dmabuf_drm_deps = []
-foreach driver : [ 'etnaviv', 'intel', 'freedreno' ]
-	if simple_dmabuf_drm_opts.contains(driver)
-		required = true
-		enabled = true
-	elif simple_dmabuf_drm_opts.contains('auto')
-		required = get_option('auto_features').enabled()
-		enabled = not get_option('auto_features').disabled()
-	else
-		enabled = false
-	endif
-
-	if enabled
-		dep = dependency('libdrm_' + driver, required: false)
-		if dep.found()
-			simple_dmabuf_drm_deps += dep
-			config_h.set('HAVE_LIBDRM_' + driver.to_upper(), 1)
-		elif required
-			error('simple-dmabuf-drm is configured to use @0@ but it was not found. Or, you can remove @1@ from \'-Dsimple-dmabuf-drm\' list.'.format('libdrm_' + driver, driver))
-		endif
-	endif
-endforeach
-if simple_dmabuf_drm_deps.length() > 0
-	executable(
-		'weston-simple-dmabuf-drm',
-		'simple-dmabuf-drm.c',
-		xdg_shell_client_protocol_h,
-		xdg_shell_protocol_c,
-		fullscreen_shell_unstable_v1_client_protocol_h,
-		fullscreen_shell_unstable_v1_protocol_c,
-		linux_dmabuf_unstable_v1_client_protocol_h,
-		linux_dmabuf_unstable_v1_protocol_c,
-		weston_direct_display_client_protocol_h,
-		weston_direct_display_protocol_c,
-		include_directories: common_inc,
-		dependencies: [
-			dep_wayland_client,
-			dep_libdrm,
-			simple_dmabuf_drm_deps
-		],
-		install: true
-	)
-endif
-
 if get_option('shell-desktop')
 	exe_keyboard = executable(
 		'weston-keyboard',
