@@ -126,6 +126,9 @@ struct weston_log_subscription *
 weston_log_subscription_iterate(struct weston_log_scope *scope,
 				struct weston_log_subscription *sub_iter);
 
+void
+weston_log_flight_recorder_display_buffer(FILE *file);
+
 #ifdef  __cplusplus
 }
 #endif
