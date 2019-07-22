@@ -26,10 +26,103 @@
 
 #include "config.h"
 
+#include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "shared/os-compatibility.h"
 #include "weston-test-client-helper.h"
+
+/* These three functions are copied from shared/os-compatibility.c in order to
+ * behave like older clients, and allow ftruncate() to shrink the file’s size,
+ * so SIGBUS can still happen.
+ *
+ * There is no reason not to use os_create_anonymous_file() otherwise. */
+
+#ifndef HAVE_MKOSTEMP
+static int
+set_cloexec_or_close(int fd)
+{
+	if (os_fd_set_cloexec(fd) != 0) {
+		close(fd);
+		return -1;
+	}
+	return fd;
+}
+#endif
+
+static int
+create_tmpfile_cloexec(char *tmpname)
+{
+	int fd;
+
+#ifdef HAVE_MKOSTEMP
+	fd = mkostemp(tmpname, O_CLOEXEC);
+	if (fd >= 0)
+		unlink(tmpname);
+#else
+	fd = mkstemp(tmpname);
+	if (fd >= 0) {
+		fd = set_cloexec_or_close(fd);
+		unlink(tmpname);
+	}
+#endif
+
+	return fd;
+}
+
+static int
+create_anonymous_file_without_seals(off_t size)
+{
+	static const char template[] = "/weston-test-XXXXXX";
+	const char *path;
+	char *name;
+	int fd;
+	int ret;
+
+	path = getenv("XDG_RUNTIME_DIR");
+	if (!path) {
+		errno = ENOENT;
+		return -1;
+	}
+
+	name = malloc(strlen(path) + sizeof(template));
+	if (!name)
+		return -1;
+
+	strcpy(name, path);
+	strcat(name, template);
+
+	fd = create_tmpfile_cloexec(name);
+
+	free(name);
+
+	if (fd < 0)
+		return -1;
+
+#ifdef HAVE_POSIX_FALLOCATE
+	do {
+		ret = posix_fallocate(fd, 0, size);
+	} while (ret == EINTR);
+	if (ret != 0) {
+		close(fd);
+		errno = ret;
+		return -1;
+	}
+#else
+	do {
+		ret = ftruncate(fd, size);
+	} while (ret < 0 && errno == EINTR);
+	if (ret < 0) {
+		close(fd);
+		return -1;
+	}
+#endif
+
+	return fd;
+}
 
 /* tests, that attempt to crash the compositor on purpose */
 
@@ -43,7 +136,7 @@ create_bad_shm_buffer(struct client *client, int width, int height)
 	struct wl_buffer *buffer;
 	int fd;
 
-	fd = os_create_anonymous_file(size);
+	fd = create_anonymous_file_without_seals(size);
 	assert(fd >= 0);
 
 	pool = wl_shm_create_pool(shm, fd, size);

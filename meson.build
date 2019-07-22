@@ -78,7 +78,7 @@ elif cc.has_header_symbol('sys/mkdev.h', 'major')
 endif
 
 optional_libc_funcs = [
-	'mkostemp', 'strchrnul', 'initgroups', 'posix_fallocate'
+	'mkostemp', 'strchrnul', 'initgroups', 'posix_fallocate', 'memfd_create'
 ]
 foreach func : optional_libc_funcs
 	if cc.has_function(func)
