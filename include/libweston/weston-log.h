@@ -53,7 +53,7 @@ struct weston_debug_stream;
 
 /** weston_log_scope callback
  *
- * @param scope The log scope.
+ * @param sub The subscription.
  * @param user_data The \c user_data argument given to
  * weston_compositor_add_log_scope()
  *
