@@ -81,7 +81,7 @@ struct weston_log_context {
 struct weston_log_scope {
 	char *name;
 	char *desc;
-	weston_log_scope_cb new_subscriber;
+	weston_log_scope_cb new_subscription;
 	void *user_data;
 	struct wl_list compositor_link;
 	struct wl_list subscription_list;  /**< weston_log_subscription::source_link */
@@ -246,7 +246,7 @@ weston_log_subscription_create(struct weston_log_subscriber *owner,
 	wl_list_insert(&sub->owner->subscription_list, &sub->owner_link);
 
 	weston_log_subscription_add(scope, sub);
-	weston_log_run_cb_new_subscriber(sub);
+	weston_log_run_cb_new_subscription(sub);
 }
 
 /** Destroys the subscription
@@ -349,16 +349,16 @@ weston_log_get_scope(struct weston_log_context *log_ctx, const char *name)
 	return NULL;
 }
 
-/** Wrapper to invoke the weston_log_scope_cb. Allows to call the cb new_subscriber of
- * a log scope.
+/** Wrapper to invoke the weston_log_scope_cb. Allows to call the cb
+ * new_subscription of a log scope.
  *
  * @ingroup internal-log
  */
 void
-weston_log_run_cb_new_subscriber(struct weston_log_subscription *sub)
+weston_log_run_cb_new_subscription(struct weston_log_subscription *sub)
 {
-	if (sub->source->new_subscriber)
-		sub->source->new_subscriber(sub, sub->source->user_data);
+	if (sub->source->new_subscription)
+		sub->source->new_subscription(sub, sub->source->user_data);
 }
 
 /** Advertise the log scope name and the log scope description
@@ -516,7 +516,7 @@ weston_compositor_is_debug_protocol_enabled(struct weston_compositor *wc)
  * @param log_ctx The weston_log_context where to add.
  * @param name The debug stream/scope name; must not be NULL.
  * @param description The log scope description for humans; must not be NULL.
- * @param new_subscriber Optional callback when a client subscribes to this
+ * @param new_subscription Optional callback when a client subscribes to this
  * scope.
  * @param user_data Optional user data pointer for the callback.
  * @returns A valid pointer on success, NULL on failure.
@@ -533,13 +533,13 @@ weston_compositor_is_debug_protocol_enabled(struct weston_compositor *wc)
  * protocol, the description is printed when a client asks for a list of
  * supported log scopes.
  *
- * \p new_subscriber, if not NULL, is called when a client subscribes to the log
+ * \p new_subscription, if not NULL, is called when a client subscribes to the log
  * scope creating a debug stream. This is for log scopes that need to print
  * messages as a response to a client appearing, e.g. printing a list of
  * windows on demand or a static preamble. The argument \p user_data is
  * passed in to the callback and is otherwise unused.
  *
- * For one-shot debug streams, \c new_subscriber should finally call
+ * For one-shot debug streams, \c new_subscription should finally call
  * weston_log_subscription_complete() to close the stream and tell the client
  * the printing is complete. Otherwise the client expects more data to be
  * written.  The complete callback in weston_log_subscriber should be installed
@@ -560,7 +560,7 @@ WL_EXPORT struct weston_log_scope *
 weston_compositor_add_log_scope(struct weston_log_context *log_ctx,
 				const char *name,
 				const char *description,
-				weston_log_scope_cb new_subscriber,
+				weston_log_scope_cb new_subscription,
 				void *user_data)
 {
 	struct weston_log_scope *scope;
@@ -592,7 +592,7 @@ weston_compositor_add_log_scope(struct weston_log_context *log_ctx,
 
 	scope->name = strdup(name);
 	scope->desc = strdup(description);
-	scope->new_subscriber = new_subscriber;
+	scope->new_subscription = new_subscription;
 	scope->user_data = user_data;
 	wl_list_init(&scope->subscription_list);
 

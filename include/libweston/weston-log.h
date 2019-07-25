@@ -66,7 +66,7 @@ struct weston_log_scope *
 weston_compositor_add_log_scope(struct weston_log_context *compositor,
 				  const char *name,
 				  const char *description,
-				  weston_log_scope_cb new_subscriber,
+				  weston_log_scope_cb new_subscription,
 				  void *user_data);
 
 void
