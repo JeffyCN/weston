@@ -113,6 +113,8 @@ struct weston_log_subscription {
 	struct weston_log_scope *source;
 	struct wl_list source_link;     /**< weston_log_scope::subscription_list  or
 					  weston_log_context::pending_subscription_list */
+
+	void *data;
 };
 
 static struct weston_log_subscription *
@@ -206,6 +208,20 @@ weston_log_subscription_vprintf(struct weston_log_subscription *sub,
 	} else {
 		weston_log_subscription_write(sub, oom, sizeof oom - 1);
 	}
+}
+
+void
+weston_log_subscription_set_data(struct weston_log_subscription *sub, void *data)
+{
+	/* don't allow data to already be set */
+	assert(!sub->data);
+	sub->data = data;
+}
+
+void *
+weston_log_subscription_get_data(struct weston_log_subscription *sub)
+{
+	return sub->data;
 }
 
 /** Creates a new subscription using the subscriber by \c owner.

@@ -102,4 +102,10 @@ weston_vlog(const char *fmt, va_list ap);
 int
 weston_vlog_continue(const char *fmt, va_list ap);
 
+void *
+weston_log_subscription_get_data(struct weston_log_subscription *sub);
+
+void
+weston_log_subscription_set_data(struct weston_log_subscription *sub, void *data);
+
 #endif /* WESTON_LOG_INTERNAL_H */
