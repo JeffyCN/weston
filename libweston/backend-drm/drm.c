@@ -3408,7 +3408,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	b->debug = weston_compositor_add_log_scope(compositor->weston_log_ctx,
 						   "drm-backend",
 						   "Debug messages from DRM/KMS backend\n",
-						    NULL, NULL);
+						    NULL, NULL, NULL);
 
 	compositor->backend = &b->base;
 

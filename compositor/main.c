@@ -3187,7 +3187,7 @@ int main(int argc, char *argv[])
 	}
 
 	log_scope = weston_compositor_add_log_scope(log_ctx, "log",
-			"Weston and Wayland log\n", NULL, NULL);
+			"Weston and Wayland log\n", NULL, NULL, NULL);
 
 	weston_log_file_open(log);
 	weston_log_set_handler(vlog, vlog_continue);
@@ -3274,7 +3274,7 @@ int main(int argc, char *argv[])
 		weston_compositor_add_log_scope(log_ctx,
 						"proto",
 						"Wayland protocol dump for all clients.\n",
-						 NULL, NULL);
+						 NULL, NULL, NULL);
 
 	if (debug_protocol) {
 		protologger = wl_display_add_protocol_logger(display,

@@ -343,6 +343,6 @@ weston_compositor_enable_content_protection(struct weston_compositor *compositor
 	cp->debug = weston_compositor_add_log_scope(compositor->weston_log_ctx,
 						    "content-protection-debug",
 						    "debug-logs for content-protection",
-						    NULL, NULL);
+						    NULL, NULL, NULL);
 	return 0;
 }

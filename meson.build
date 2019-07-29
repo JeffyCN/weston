@@ -10,7 +10,7 @@ project('weston',
 	license: 'MIT/Expat',
 )
 
-libweston_major = 7
+libweston_major = 8
 
 # libweston_revision is manufactured to follow the autotools build's
 # library file naming, thanks to libtool

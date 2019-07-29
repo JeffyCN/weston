@@ -7309,7 +7309,7 @@ weston_compositor_create(struct wl_display *display,
 	ec->debug_scene =
 		weston_compositor_add_log_scope(ec->weston_log_ctx, "scene-graph",
 						"Scene graph details\n",
-						debug_scene_graph_cb,
+						debug_scene_graph_cb, NULL,
 						ec);
 
 	return ec;

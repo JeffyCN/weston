@@ -819,7 +819,7 @@ weston_module_init(struct weston_compositor *compositor)
 			compositor->weston_log_ctx,
 			"pipewire",
 			"Debug messages from pipewire plugin\n",
-			NULL, NULL);
+			NULL, NULL, NULL);
 
 	pipewire->destroy_listener.notify = weston_pipewire_destroy;
 	wl_signal_add(&compositor->destroy_signal, &pipewire->destroy_listener);

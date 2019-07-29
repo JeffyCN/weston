@@ -82,6 +82,7 @@ struct weston_log_scope {
 	char *name;
 	char *desc;
 	weston_log_scope_cb new_subscription;
+	weston_log_scope_cb destroy_subscription;
 	void *user_data;
 	struct wl_list compositor_link;
 	struct wl_list subscription_list;  /**< weston_log_subscription::source_link */
@@ -260,6 +261,10 @@ void
 weston_log_subscription_destroy(struct weston_log_subscription *sub)
 {
 	assert(sub);
+
+	if (sub->source->destroy_subscription)
+		sub->source->destroy_subscription(sub, sub->source->user_data);
+
 	if (sub->owner)
 		wl_list_remove(&sub->owner_link);
 
@@ -518,6 +523,8 @@ weston_compositor_is_debug_protocol_enabled(struct weston_compositor *wc)
  * @param description The log scope description for humans; must not be NULL.
  * @param new_subscription Optional callback when a client subscribes to this
  * scope.
+ * @param destroy_subscription Optional callback when a client destroys the
+ * subscription.
  * @param user_data Optional user data pointer for the callback.
  * @returns A valid pointer on success, NULL on failure.
  *
@@ -561,6 +568,7 @@ weston_compositor_add_log_scope(struct weston_log_context *log_ctx,
 				const char *name,
 				const char *description,
 				weston_log_scope_cb new_subscription,
+				weston_log_scope_cb destroy_subscription,
 				void *user_data)
 {
 	struct weston_log_scope *scope;
@@ -593,6 +601,7 @@ weston_compositor_add_log_scope(struct weston_log_context *log_ctx,
 	scope->name = strdup(name);
 	scope->desc = strdup(description);
 	scope->new_subscription = new_subscription;
+	scope->destroy_subscription = destroy_subscription;
 	scope->user_data = user_data;
 	wl_list_init(&scope->subscription_list);
 
