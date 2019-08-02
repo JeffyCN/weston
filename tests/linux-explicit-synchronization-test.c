@@ -56,11 +56,11 @@ get_linux_explicit_synchronization(struct client *client)
 	}
 
 	assert(global_sync);
-	assert(global_sync->version == 1);
+	assert(global_sync->version == 2);
 
 	sync = wl_registry_bind(
 			client->wl_registry, global_sync->name,
-			&zwp_linux_explicit_synchronization_v1_interface, 1);
+			&zwp_linux_explicit_synchronization_v1_interface, 2);
 	assert(sync);
 
 	return sync;
