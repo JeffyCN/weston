@@ -552,8 +552,7 @@ content-protection, provided by the backends, on this output. By
 default, HDCP support is always allowed for an output. The
 content-protection can actually be realized, only if the hardware
 (source and sink) support HDCP, and the backend has the implementation
-of content-protection protocol. Currently, no backend actually
-implements HDCP yet.
+of content-protection protocol. Currently, HDCP is supported by drm-backend.
 .RE
 .SH "INPUT-METHOD SECTION"
 .TP 7
