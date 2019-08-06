@@ -129,28 +129,35 @@ static struct weston_log_scope *log_scope;
 static struct weston_log_scope *protocol_scope;
 static int cached_tm_mday = -1;
 
-int weston_log_timestamp(void)
+static char *
+weston_log_timestamp(char *buf, size_t len)
 {
 	struct timeval tv;
 	struct tm *brokendown_time;
-	char string[128];
+	char datestr[128];
+	char timestr[128];
 
 	gettimeofday(&tv, NULL);
 
 	brokendown_time = localtime(&tv.tv_sec);
-	if (brokendown_time == NULL)
-		return fprintf(weston_logfile, "[(NULL)localtime] ");
+	if (brokendown_time == NULL) {
+		snprintf(buf, len, "%s", "[(NULL)localtime] ");
+		return buf;
+	}
 
+	memset(datestr, 0, sizeof(datestr));
 	if (brokendown_time->tm_mday != cached_tm_mday) {
-		strftime(string, sizeof string, "%Y-%m-%d %Z", brokendown_time);
-		fprintf(weston_logfile, "Date: %s\n", string);
-
+		strftime(datestr, sizeof(datestr), "Date: %Y-%m-%d %Z\n",
+			 brokendown_time);
 		cached_tm_mday = brokendown_time->tm_mday;
 	}
 
-	strftime(string, sizeof string, "%H:%M:%S", brokendown_time);
+	strftime(timestr, sizeof(timestr), "%H:%M:%S", brokendown_time);
+	/* if datestr is empty it prints only timestr*/
+	snprintf(buf, len, "%s[%s.%03li]", datestr,
+		 timestr, (tv.tv_usec / 1000));
 
-	return fprintf(weston_logfile, "[%s.%03li] ", string, tv.tv_usec/1000);
+	return buf;
 }
 
 static void
@@ -159,8 +166,8 @@ custom_handler(const char *fmt, va_list arg)
 	char timestr[128];
 
 	weston_log_scope_printf(log_scope, "%s libwayland: ",
-			weston_log_scope_timestamp(log_scope,
-			timestr, sizeof timestr));
+				weston_log_timestamp(timestr,
+				sizeof(timestr)));
 	weston_log_scope_vprintf(log_scope, fmt, arg);
 }
 
@@ -196,8 +203,8 @@ vlog(const char *fmt, va_list ap)
 
 	if (weston_log_scope_is_enabled(log_scope)) {
 		weston_log_scope_printf(log_scope, "%s ",
-				weston_log_scope_timestamp(log_scope,
-				timestr, sizeof timestr));
+					weston_log_timestamp(timestr,
+					sizeof(timestr)));
 		weston_log_scope_vprintf(log_scope, fmt, ap);
 	}
 
