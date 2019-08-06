@@ -129,7 +129,7 @@ static struct weston_log_scope *log_scope;
 static struct weston_log_scope *protocol_scope;
 static int cached_tm_mday = -1;
 
-static int weston_log_timestamp(void)
+int weston_log_timestamp(void)
 {
 	struct timeval tv;
 	struct tm *brokendown_time;
@@ -157,13 +157,6 @@ static void
 custom_handler(const char *fmt, va_list arg)
 {
 	char timestr[128];
-	va_list arg2;
-
-	va_copy(arg2, arg);
-	weston_log_timestamp();
-	fprintf(weston_logfile, "libwayland: ");
-	vfprintf(weston_logfile, fmt, arg2);
-	va_end(arg2);
 
 	weston_log_scope_printf(log_scope, "%s libwayland: ",
 			weston_log_scope_timestamp(log_scope,
