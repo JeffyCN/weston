@@ -57,6 +57,7 @@ handle_option(const struct weston_option *option, char *value)
 		return true;
 	default:
 		assert(0);
+		return false;
 	}
 }
 
