@@ -200,22 +200,22 @@ static int
 vlog(const char *fmt, va_list ap)
 {
 	char timestr[128];
+	int len = 0;
 
 	if (weston_log_scope_is_enabled(log_scope)) {
-		weston_log_scope_printf(log_scope, "%s ",
-					weston_log_timestamp(timestr,
-					sizeof(timestr)));
-		weston_log_scope_vprintf(log_scope, fmt, ap);
+		len = weston_log_scope_printf(log_scope, "%s ",
+					      weston_log_timestamp(timestr,
+					      sizeof timestr));
+		len += weston_log_scope_vprintf(log_scope, fmt, ap);
 	}
 
-	return 0;
+	return len;
 }
 
 static int
 vlog_continue(const char *fmt, va_list argp)
 {
-	weston_log_scope_vprintf(log_scope, fmt, argp);
-	return 0;
+	return weston_log_scope_vprintf(log_scope, fmt, argp);
 }
 
 static const char *
