@@ -122,6 +122,10 @@ weston_log_subscriber_destroy_flight_rec(struct weston_log_subscriber *sub);
 void
 weston_log_subscriber_display_flight_rec(struct weston_log_subscriber *sub);
 
+struct weston_log_subscription *
+weston_log_subscription_iterate(struct weston_log_scope *scope,
+				struct weston_log_subscription *sub_iter);
+
 #ifdef  __cplusplus
 }
 #endif

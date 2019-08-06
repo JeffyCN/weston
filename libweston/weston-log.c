@@ -927,3 +927,36 @@ weston_log_subscribe(struct weston_log_context *log_ctx,
 		 */
 		weston_log_subscription_create_pending(subscriber, scope_name, log_ctx);
 }
+
+/** Iterate over all subscriptions in a scope
+ *
+ * @param scope the scope for which you want to iterate
+ * @param sub_iter the iterator, use NULL to start from the 'head'
+ * @returns the next subscription from the log scope
+ *
+ * This is (quite) useful when 'log_scope' and 'log_subscription' are opaque. Do note
+ * that \c sub_iter needs to be NULL-initialized before calling this function.
+ *
+ */
+WL_EXPORT struct weston_log_subscription *
+weston_log_subscription_iterate(struct weston_log_scope *scope,
+				struct weston_log_subscription *sub_iter)
+{
+	struct wl_list *list = &scope->subscription_list;
+	struct wl_list *node;
+
+	/* go to the next item in the list or if not set starts with the head */
+	if (sub_iter)
+		node = sub_iter->source_link.next;
+	else
+		node = list->next;
+
+	assert(node);
+	assert(!sub_iter || node != &sub_iter->source_link);
+
+	/* if we're at the end */
+	if (node == list)
+		return NULL;
+
+	return container_of(node, struct weston_log_subscription, source_link);
+}
