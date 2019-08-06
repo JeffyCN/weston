@@ -753,16 +753,16 @@ weston_log_scope_write(struct weston_log_scope *scope,
  *
  * \memberof weston_log_scope
  */
-WL_EXPORT void
+WL_EXPORT int
 weston_log_scope_vprintf(struct weston_log_scope *scope,
 			 const char *fmt, va_list ap)
 {
 	static const char oom[] = "Out of memory";
 	char *str;
-	int len;
+	int len = 0;
 
 	if (!weston_log_scope_is_enabled(scope))
-		return;
+		return len;
 
 	len = vasprintf(&str, fmt, ap);
 	if (len >= 0) {
@@ -771,6 +771,8 @@ weston_log_scope_vprintf(struct weston_log_scope *scope,
 	} else {
 		weston_log_scope_write(scope, oom, sizeof oom - 1);
 	}
+
+	return len;
 }
 
 /** Write a formatted string for a scope
@@ -786,15 +788,18 @@ weston_log_scope_vprintf(struct weston_log_scope *scope,
  *
  * \memberof weston_log_scope
  */
-WL_EXPORT void
+WL_EXPORT int
 weston_log_scope_printf(struct weston_log_scope *scope,
 			  const char *fmt, ...)
 {
 	va_list ap;
+	int len;
 
 	va_start(ap, fmt);
-	weston_log_scope_vprintf(scope, fmt, ap);
+	len = weston_log_scope_vprintf(scope, fmt, ap);
 	va_end(ap);
+
+	return len;
 }
 
 /** Write a formatted string for a subscription
