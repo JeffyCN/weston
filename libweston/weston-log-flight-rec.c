@@ -194,7 +194,7 @@ weston_log_subscriber_display_flight_rec_data(struct weston_ring_buffer *rb,
 	if (file)
 		file_d = file;
 
-	if (rb->append_pos <= rb->size && !rb->overlap) {
+	if (!rb->overlap) {
 		if (rb->append_pos)
 			fwrite(rb->buf, sizeof(char), rb->append_pos, file_d);
 		else
