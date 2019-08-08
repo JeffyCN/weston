@@ -866,9 +866,9 @@ main(int argc, char **argv)
 	 * queued up as a side effect. */
 	while (running && ret != -1) {
 		if (window.wait_for_configure) {
-			wl_display_dispatch(display.display);
+			ret = wl_display_dispatch(display.display);
 		} else {
-			wl_display_dispatch_pending(display.display);
+			ret = wl_display_dispatch_pending(display.display);
 			redraw(&window, NULL, 0);
 		}
 	}
