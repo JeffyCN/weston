@@ -7733,6 +7733,7 @@ weston_compositor_shutdown(struct weston_compositor *ec)
 	struct weston_output *output, *next;
 
 	wl_event_source_remove(ec->idle_source);
+	wl_event_source_remove(ec->repaint_timer);
 
 	/* Destroy all outputs associated with this compositor */
 	wl_list_for_each_safe(output, next, &ec->output_list, link)
