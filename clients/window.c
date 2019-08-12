@@ -5743,6 +5743,8 @@ output_destroy(struct output *output)
 
 	wl_output_destroy(output->output);
 	wl_list_remove(&output->link);
+	free(output->make);
+	free(output->model);
 	free(output);
 }
 
