@@ -497,6 +497,10 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
 	if (!drm_view_transform_supported(ev, &output->base))
 		return NULL;
 
+	if (ev->surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_ENFORCED &&
+	    ev->surface->desired_protection > output->base.current_protection)
+		return NULL;
+
 	if (!buffer)
 		return NULL;
 
