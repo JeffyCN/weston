@@ -1674,6 +1674,9 @@ weston_compositor_add_axis_binding(struct weston_compositor *compositor,
 				   void *data);
 
 void
+weston_binding_destroy(struct weston_binding *binding);
+
+void
 weston_install_debug_key_binding(struct weston_compositor *compositor,
 				 uint32_t mod);
 

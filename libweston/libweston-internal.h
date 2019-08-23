@@ -60,9 +60,6 @@ weston_buffer_release_reference(struct weston_buffer_release_reference *ref,
 
 /* weston_bindings */
 void
-weston_binding_destroy(struct weston_binding *binding);
-
-void
 weston_binding_list_destroy_all(struct wl_list *list);
 
 /* weston_compositor */
