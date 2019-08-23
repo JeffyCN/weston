@@ -6499,7 +6499,7 @@ weston_compositor_create_output_with_head(struct weston_compositor *compositor,
  * The heads attached to the given output are detached and become unused again.
  *
  * It is not necessary to explicitly destroy all outputs at compositor exit.
- * weston_compositor_destroy() will automatically destroy any remaining
+ * weston_compositor_tear_down() will automatically destroy any remaining
  * outputs.
  *
  * \ingroup ouput
