@@ -48,6 +48,7 @@ drm_plane_state_alloc(struct drm_output_state *state_output,
 	state->output_state = state_output;
 	state->plane = plane;
 	state->in_fence_fd = -1;
+	state->zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
 	pixman_region32_init(&state->damage);
 
 	/* Here we only add the plane state to the desired link, and not
@@ -80,6 +81,7 @@ drm_plane_state_free(struct drm_plane_state *state, bool force)
 	wl_list_init(&state->link);
 	state->output_state = NULL;
 	state->in_fence_fd = -1;
+	state->zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
 	pixman_region32_fini(&state->damage);
 
 	if (force || state != state->plane->state_cur) {

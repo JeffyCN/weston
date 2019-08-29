@@ -72,6 +72,10 @@
 #define GBM_BO_USE_LINEAR (1 << 4)
 #endif
 
+#ifndef DRM_PLANE_ZPOS_INVALID_PLANE
+#define DRM_PLANE_ZPOS_INVALID_PLANE	0xffffffffffffffffULL
+#endif
+
 /**
  * A small wrapper to print information into the 'drm-backend' debug scope.
  *
@@ -169,6 +173,7 @@ enum wdrm_plane_property {
 	WDRM_PLANE_IN_FORMATS,
 	WDRM_PLANE_IN_FENCE_FD,
 	WDRM_PLANE_FB_DAMAGE_CLIPS,
+	WDRM_PLANE_ZPOS,
 	WDRM_PLANE__COUNT
 };
 
@@ -385,6 +390,8 @@ struct drm_plane_state {
 	int32_t dest_x, dest_y;
 	uint32_t dest_w, dest_h;
 
+	uint64_t zpos;
+
 	bool complete;
 
 	/* We don't own the fd, so we shouldn't close it */
@@ -425,6 +432,9 @@ struct drm_plane {
 
 	/* The last state submitted to the kernel for this plane. */
 	struct drm_plane_state *state_cur;
+
+	uint64_t zpos_min;
+	uint64_t zpos_max;
 
 	struct wl_list link;
 

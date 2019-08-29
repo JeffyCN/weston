@@ -680,6 +680,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 {
 	struct drm_plane *plane;
 	drmModeObjectProperties *props;
+	uint64_t *zpos_range_values;
 	uint32_t num_formats = (kplane) ? kplane->count_formats : 1;
 
 	plane = zalloc(sizeof(*plane) +
@@ -711,6 +712,18 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 					       props,
 					       WDRM_PLANE_TYPE__COUNT);
 
+		zpos_range_values =
+			drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS], 
+						      props);
+
+		if (zpos_range_values) {
+			plane->zpos_min = zpos_range_values[0];
+			plane->zpos_max = zpos_range_values[1];
+		} else {
+			plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
+			plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
+		}
+
 		if (drm_plane_populate_formats(plane, kplane, props) < 0) {
 			drmModeFreeObjectProperties(props);
 			goto err;
@@ -724,6 +737,8 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 		plane->count_formats = 1;
 		plane->formats[0].format = format;
 		plane->type = type;
+		plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
+		plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
 	}
 
 	if (plane->type == WDRM_PLANE_TYPE__COUNT)

@@ -77,6 +77,7 @@ const struct drm_property_info plane_props[] = {
 	[WDRM_PLANE_IN_FORMATS] = { .name = "IN_FORMATS" },
 	[WDRM_PLANE_IN_FENCE_FD] = { .name = "IN_FENCE_FD" },
 	[WDRM_PLANE_FB_DAMAGE_CLIPS] = { .name = "FB_DAMAGE_CLIPS" },
+	[WDRM_PLANE_ZPOS] = { .name = "zpos" },
 };
 
 struct drm_property_enum_info dpms_state_enums[] = {
@@ -1049,6 +1050,13 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 					      WDRM_PLANE_IN_FENCE_FD,
 					      plane_state->in_fence_fd);
 		}
+
+		/* do note, that 'invented' zpos values are set as immutable */
+		if (plane_state->zpos != DRM_PLANE_ZPOS_INVALID_PLANE &&
+		    plane_state->plane->zpos_min != plane_state->plane->zpos_max)
+			ret |= plane_add_prop(req, plane,
+					      WDRM_PLANE_ZPOS,
+					      plane_state->zpos);
 
 		if (ret != 0) {
 			weston_log("couldn't set plane state\n");
