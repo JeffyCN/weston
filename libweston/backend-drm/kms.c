@@ -902,6 +902,9 @@ drm_head_set_hdcp_property(struct drm_head *head,
 				 prop_val);
 	assert(ret == 0);
 
+	if (!drm_head_has_prop(head, WDRM_CONNECTOR_HDCP_CONTENT_TYPE))
+		return;
+
 	enum_info = head->props_conn[WDRM_CONNECTOR_HDCP_CONTENT_TYPE].enum_values;
 	prop_val = enum_info[drm_cp_type].value;
 	ret = connector_add_prop(req, head, WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
