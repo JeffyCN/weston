@@ -3246,6 +3246,11 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
 	float sx = wl_fixed_to_double(x_w);
 	float sy = wl_fixed_to_double(y_w);
 
+	if (!surface) {
+		/* down event for a window we've just destroyed */
+		return;
+	}
+
 	input->display->serial = serial;
 	input->touch_focus = wl_surface_get_user_data(surface);
 	if (!input->touch_focus) {
@@ -3600,6 +3605,11 @@ data_device_enter(void *data, struct wl_data_device *data_device,
 	float x = wl_fixed_to_double(x_w);
 	float y = wl_fixed_to_double(y_w);
 	char **p;
+
+	if (!surface) {
+		/* enter event for a window we've just destroyed */
+		return;
+	}
 
 	window = wl_surface_get_user_data(surface);
 	input->drag_enter_serial = serial;
