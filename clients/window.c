@@ -1568,8 +1568,18 @@ window_destroy(struct window *window)
 	wl_list_remove(&window->redraw_task.link);
 
 	wl_list_for_each(input, &display->input_list, link) {
-		if (input->touch_focus == window)
+		if (input->touch_focus == window) {
+			struct touch_point *tp, *tmp;
+
+			wl_list_for_each_safe(tp, tmp,
+					      &input->touch_point_list,
+					      link) {
+				wl_list_remove(&tp->link);
+				free(tp);
+			}
+
 			input->touch_focus = NULL;
+		}
 		if (input->pointer_focus == window)
 			input->pointer_focus = NULL;
 		if (input->keyboard_focus == window)
