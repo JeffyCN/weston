@@ -2424,7 +2424,8 @@ gl_renderer_query_dmabuf_modifiers(struct weston_compositor *wc, int format,
 
 	if (!gr->has_dmabuf_import_modifiers ||
 		!gr->query_dmabuf_modifiers(gr->egl_display, format, 0, NULL,
-					    NULL, &num)) {
+					    NULL, &num) ||
+		num == 0) {
 		*num_modifiers = 0;
 		return;
 	}
