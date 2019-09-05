@@ -43,7 +43,6 @@ extern "C" {
 
 #include <libweston/matrix.h>
 #include <libweston/zalloc.h>
-#include <libweston/timeline-object.h>
 
 struct weston_geometry {
 	int32_t x, y;
@@ -319,8 +318,6 @@ struct weston_output {
 			  uint16_t *r,
 			  uint16_t *g,
 			  uint16_t *b);
-
-	struct weston_timeline_object timeline;
 
 	bool enabled; /**< is in the output_list, not pending list */
 	int scale;
@@ -1464,8 +1461,6 @@ struct weston_surface {
 	 * and replace role_name with configure.
 	 */
 	const char *role_name;
-
-	struct weston_timeline_object timeline;
 
 	bool is_mapped;
 	bool is_opaque;
