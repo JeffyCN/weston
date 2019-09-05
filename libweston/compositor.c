@@ -2368,8 +2368,7 @@ surface_flush_damage(struct weston_surface *surface)
 	    wl_shm_buffer_get(surface->buffer_ref.buffer->resource))
 		surface->compositor->renderer->flush_damage(surface);
 
-	if (weston_timeline_enabled_ &&
-	    pixman_region32_not_empty(&surface->damage))
+	if (pixman_region32_not_empty(&surface->damage))
 		TL_POINT("core_flush_damage", TLP_SURFACE(surface),
 			 TLP_OUTPUT(surface->output), TLP_END);
 
@@ -3528,9 +3527,8 @@ weston_surface_commit_state(struct weston_surface *surface,
 	state->buffer_viewport.changed = 0;
 
 	/* wl_surface.damage and wl_surface.damage_buffer */
-	if (weston_timeline_enabled_ &&
-	    (pixman_region32_not_empty(&state->damage_surface) ||
-	     pixman_region32_not_empty(&state->damage_buffer)))
+	if (pixman_region32_not_empty(&state->damage_surface) ||
+	     pixman_region32_not_empty(&state->damage_buffer))
 		TL_POINT("core_commit_damage", TLP_SURFACE(surface), TLP_END);
 
 	pixman_region32_union(&surface->damage, &surface->damage,
@@ -6919,19 +6917,6 @@ weston_environment_get_fd(const char *env)
 	return fd;
 }
 
-static void
-timeline_key_binding_handler(struct weston_keyboard *keyboard,
-			     const struct timespec *time, uint32_t key,
-			     void *data)
-{
-	struct weston_compositor *compositor = data;
-
-	if (weston_timeline_enabled_)
-		weston_timeline_close();
-	else
-		weston_timeline_open(compositor);
-}
-
 static const char *
 output_repaint_status_text(struct weston_output *output)
 {
@@ -7302,9 +7287,6 @@ weston_compositor_create(struct wl_display *display,
 	weston_layer_set_position(&ec->fade_layer, WESTON_LAYER_POSITION_FADE);
 	weston_layer_set_position(&ec->cursor_layer,
 				  WESTON_LAYER_POSITION_CURSOR);
-
-	weston_compositor_add_debug_binding(ec, KEY_T,
-					    timeline_key_binding_handler, ec);
 
 	ec->debug_scene =
 		weston_compositor_add_log_scope(ec->weston_log_ctx, "scene-graph",

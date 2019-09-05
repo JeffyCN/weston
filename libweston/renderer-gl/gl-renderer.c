@@ -287,8 +287,7 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 	int fd;
 	struct timeline_render_point *trp;
 
-	if (!weston_timeline_enabled_ ||
-	    !gr->has_native_fence_sync ||
+	if (!gr->has_native_fence_sync ||
 	    sync == EGL_NO_SYNC_KHR)
 		return;
 

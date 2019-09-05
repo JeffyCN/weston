@@ -1,6 +1,6 @@
 /*
  * Copyright © 2014 Pekka Paalanen <pq@iki.fi>
- * Copyright © 2014 Collabora, Ltd.
+ * Copyright © 2014, 2019 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,14 +29,6 @@
 
 extern int weston_timeline_enabled_;
 
-struct weston_compositor;
-
-void
-weston_timeline_open(struct weston_compositor *compositor);
-
-void
-weston_timeline_close(void);
-
 enum timeline_type {
 	TLT_END = 0,
 	TLT_OUTPUT,
@@ -45,7 +37,7 @@ enum timeline_type {
 	TLT_GPU,
 };
 
-#define TYPEVERIFY(type, arg) ({			\
+#define TYPEVERIFY(type, arg) ({		\
 	typeof(arg) tmp___ = (arg);		\
 	(void)((type)0 == tmp___);		\
 	tmp___; })

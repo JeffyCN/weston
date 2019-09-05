@@ -1,6 +1,6 @@
 /*
  * Copyright © 2014 Pekka Paalanen <pq@iki.fi>
- * Copyright © 2014 Collabora, Ltd.
+ * Copyright © 2014, 2019 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -34,87 +34,8 @@
 
 #include "timeline.h"
 #include <libweston/libweston.h>
-#include "shared/file-util.h"
-
-struct timeline_log {
-	clock_t clk_id;
-	FILE *file;
-	unsigned series;
-	struct wl_listener compositor_destroy_listener;
-};
 
 WL_EXPORT int weston_timeline_enabled_;
-static struct timeline_log timeline_ = { CLOCK_MONOTONIC, NULL, 0 };
-
-static int
-weston_timeline_do_open(void)
-{
-	const char *prefix = "weston-timeline-";
-	const char *suffix = ".log";
-	char fname[1000];
-
-	timeline_.file = file_create_dated(NULL, prefix, suffix,
-					   fname, sizeof(fname));
-	if (!timeline_.file) {
-		const char *msg;
-
-		switch (errno) {
-		case ETIME:
-			msg = "failure in datetime formatting";
-			break;
-		default:
-			msg = strerror(errno);
-		}
-
-		weston_log("Cannot open '%s*%s' for writing: %s\n",
-			   prefix, suffix, msg);
-		return -1;
-	}
-
-	weston_log("Opened timeline file '%s'\n", fname);
-
-	return 0;
-}
-
-static void
-timeline_notify_destroy(struct wl_listener *listener, void *data)
-{
-	weston_timeline_close();
-}
-
-void
-weston_timeline_open(struct weston_compositor *compositor)
-{
-	if (weston_timeline_enabled_)
-		return;
-
-	if (weston_timeline_do_open() < 0)
-		return;
-
-	timeline_.compositor_destroy_listener.notify = timeline_notify_destroy;
-	wl_signal_add(&compositor->destroy_signal,
-		      &timeline_.compositor_destroy_listener);
-
-	if (++timeline_.series == 0)
-		++timeline_.series;
-
-	weston_timeline_enabled_ = 1;
-}
-
-void
-weston_timeline_close(void)
-{
-	if (!weston_timeline_enabled_)
-		return;
-
-	weston_timeline_enabled_ = 0;
-
-	wl_list_remove(&timeline_.compositor_destroy_listener.link);
-
-	fclose(timeline_.file);
-	timeline_.file = NULL;
-	weston_log("Timeline log file closed.\n");
-}
 
 struct timeline_emit_context {
 	FILE *cur;
@@ -262,15 +183,12 @@ weston_timeline_point(const char *name, ...)
 	char buf[512];
 	struct timeline_emit_context ctx;
 
-	clock_gettime(timeline_.clk_id, &ts);
+	clock_gettime(CLOCK_MONOTONIC, &ts);
 
-	ctx.out = timeline_.file;
 	ctx.cur = fmemopen(buf, sizeof(buf), "w");
-	ctx.series = timeline_.series;
 
 	if (!ctx.cur) {
 		weston_log("Timeline error in fmemopen, closing.\n");
-		weston_timeline_close();
 		return;
 	}
 
@@ -295,7 +213,6 @@ weston_timeline_point(const char *name, ...)
 	fflush(ctx.cur);
 	if (ferror(ctx.cur)) {
 		weston_log("Timeline error in constructing entry, closing.\n");
-		weston_timeline_close();
 	} else {
 		fprintf(ctx.out, "%s", buf);
 	}
