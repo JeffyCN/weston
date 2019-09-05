@@ -27,6 +27,12 @@
 #ifndef WESTON_TIMELINE_H
 #define WESTON_TIMELINE_H
 
+#include <wayland-util.h>
+#include <stdbool.h>
+
+#include <libweston/weston-log.h>
+#include <wayland-server-core.h>
+
 extern int weston_timeline_enabled_;
 
 enum timeline_type {
@@ -35,6 +41,23 @@ enum timeline_type {
 	TLT_SURFACE,
 	TLT_VBLANK,
 	TLT_GPU,
+};
+
+struct weston_timeline_subscription {
+	unsigned int next_id;
+	struct wl_list objects; /**< weston_timeline_subscription_object::subscription_link */
+};
+
+/**
+ * Created when object is first seen for a particular timeline subscription
+ * Destroyed when the subscription got destroyed or object was destroyed
+ */
+struct weston_timeline_subscription_object {
+	void *object;                           /**< points to the object */
+	unsigned int id;
+	bool force_refresh;
+	struct wl_list subscription_link;       /**< weston_timeline_subscription::objects */
+	struct wl_listener destroy_listener;
 };
 
 #define TYPEVERIFY(type, arg) ({		\
