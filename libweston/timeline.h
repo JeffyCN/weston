@@ -33,8 +33,6 @@
 #include <libweston/weston-log.h>
 #include <wayland-server-core.h>
 
-extern int weston_timeline_enabled_;
-
 enum timeline_type {
 	TLT_END = 0,
 	TLT_OUTPUT,
@@ -71,12 +69,12 @@ struct weston_timeline_subscription_object {
 #define TLP_VBLANK(t) TLT_VBLANK, TYPEVERIFY(const struct timespec *, (t))
 #define TLP_GPU(t) TLT_GPU, TYPEVERIFY(const struct timespec *, (t))
 
-#define TL_POINT(...) do { \
-	if (weston_timeline_enabled_) \
-		weston_timeline_point(__VA_ARGS__); \
+#define TL_POINT(ec, ...) do { \
+	weston_timeline_point(ec->timeline, __VA_ARGS__); \
 } while (0)
 
 void
-weston_timeline_point(const char *name, ...);
+weston_timeline_point(struct weston_log_scope *timeline_scope,
+		      const char *name, ...);
 
 #endif /* WESTON_TIMELINE_H */

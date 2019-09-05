@@ -42,7 +42,6 @@
 #include <unistd.h>
 
 #include "linux-sync-file.h"
-
 #include "timeline.h"
 
 #include "gl-renderer.h"
@@ -253,7 +252,7 @@ timeline_render_point_handler(int fd, uint32_t mask, void *data)
 
 		if (weston_linux_sync_file_read_timestamp(trp->fd,
 							  &tspec) == 0) {
-			TL_POINT(tp_name, TLP_GPU(&tspec),
+			TL_POINT(trp->output->compositor, tp_name, TLP_GPU(&tspec),
 				 TLP_OUTPUT(trp->output), TLP_END);
 		}
 	}
@@ -287,7 +286,8 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 	int fd;
 	struct timeline_render_point *trp;
 
-	if (!gr->has_native_fence_sync ||
+	if (!weston_log_scope_is_enabled(ec->timeline) ||
+	    !gr->has_native_fence_sync ||
 	    sync == EGL_NO_SYNC_KHR)
 		return;
 

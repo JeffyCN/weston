@@ -37,8 +37,6 @@
 #include "timeline.h"
 #include "weston-log-internal.h"
 
-WL_EXPORT int weston_timeline_enabled_;
-
 struct timeline_emit_context {
 	FILE *cur;
 	struct weston_log_subscription *subscription;
@@ -320,48 +318,59 @@ static const type_func type_dispatch[] = {
 };
 
 WL_EXPORT void
-weston_timeline_point(const char *name, ...)
+weston_timeline_point(struct weston_log_scope *timeline_scope,
+		      const char *name, ...)
 {
-	va_list argp;
 	struct timespec ts;
 	enum timeline_type otype;
 	void *obj;
 	char buf[512];
-	struct timeline_emit_context ctx;
+	struct weston_log_subscription *sub = NULL;
+
+	if (!weston_log_scope_is_enabled(timeline_scope))
+		return;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
-	ctx.cur = fmemopen(buf, sizeof(buf), "w");
+	while ((sub = weston_log_subscription_iterate(timeline_scope, sub))) {
+		va_list argp;
+		struct timeline_emit_context ctx = {};
 
-	if (!ctx.cur) {
-		weston_log("Timeline error in fmemopen, closing.\n");
-		return;
-	}
+		memset(buf, 0, sizeof(buf));
+		ctx.cur = fmemopen(buf, sizeof(buf), "w");
+		ctx.subscription = sub;
 
-	fprintf(ctx.cur, "{ \"T\":[%" PRId64 ", %ld], \"N\":\"%s\"",
-		(int64_t)ts.tv_sec, ts.tv_nsec, name);
-
-	va_start(argp, name);
-	while (1) {
-		otype = va_arg(argp, enum timeline_type);
-		if (otype == TLT_END)
-			break;
-
-		obj = va_arg(argp, void *);
-		if (type_dispatch[otype]) {
-			fprintf(ctx.cur, ", ");
-			type_dispatch[otype](&ctx, obj);
+		if (!ctx.cur) {
+			weston_log("Timeline error in fmemopen, closing.\n");
+			return;
 		}
-	}
-	va_end(argp);
 
-	fprintf(ctx.cur, " }\n");
-	fflush(ctx.cur);
-	if (ferror(ctx.cur)) {
-		weston_log("Timeline error in constructing entry, closing.\n");
-	} else {
-		weston_log_subscription_printf(ctx.subscription, "%s", buf);
-	}
+		fprintf(ctx.cur, "{ \"T\":[%" PRId64 ", %ld], \"N\":\"%s\"",
+				(int64_t)ts.tv_sec, ts.tv_nsec, name);
 
-	fclose(ctx.cur);
+		va_start(argp, name);
+		while (1) {
+			otype = va_arg(argp, enum timeline_type);
+			if (otype == TLT_END)
+				break;
+
+			obj = va_arg(argp, void *);
+			if (type_dispatch[otype]) {
+				fprintf(ctx.cur, ", ");
+				type_dispatch[otype](&ctx, obj);
+			}
+		}
+		va_end(argp);
+
+		fprintf(ctx.cur, " }\n");
+		fflush(ctx.cur);
+		if (ferror(ctx.cur)) {
+			weston_log("Timeline error in constructing entry, closing.\n");
+		} else {
+			weston_log_subscription_printf(ctx.subscription, "%s", buf);
+		}
+
+		fclose(ctx.cur);
+
+	}
 }

@@ -2369,7 +2369,7 @@ surface_flush_damage(struct weston_surface *surface)
 		surface->compositor->renderer->flush_damage(surface);
 
 	if (pixman_region32_not_empty(&surface->damage))
-		TL_POINT("core_flush_damage", TLP_SURFACE(surface),
+		TL_POINT(surface->compositor, "core_flush_damage", TLP_SURFACE(surface),
 			 TLP_OUTPUT(surface->output), TLP_END);
 
 	pixman_region32_clear(&surface->damage);
@@ -2631,7 +2631,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 	if (output->destroying)
 		return 0;
 
-	TL_POINT("core_repaint_begin", TLP_OUTPUT(output), TLP_END);
+	TL_POINT(ec, "core_repaint_begin", TLP_OUTPUT(output), TLP_END);
 
 	/* Rebuild the surface list and update surface transforms up front. */
 	weston_compositor_build_view_list(ec);
@@ -2709,7 +2709,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 		animation->frame(animation, output, &output->frame_time);
 	}
 
-	TL_POINT("core_repaint_posted", TLP_OUTPUT(output), TLP_END);
+	TL_POINT(ec, "core_repaint_posted", TLP_OUTPUT(output), TLP_END);
 
 	return r;
 }
@@ -2718,7 +2718,8 @@ static void
 weston_output_schedule_repaint_reset(struct weston_output *output)
 {
 	output->repaint_status = REPAINT_NOT_SCHEDULED;
-	TL_POINT("core_repaint_exit_loop", TLP_OUTPUT(output), TLP_END);
+	TL_POINT(output->compositor, "core_repaint_exit_loop",
+		 TLP_OUTPUT(output), TLP_END);
 }
 
 static int
@@ -2877,7 +2878,7 @@ weston_output_finish_frame(struct weston_output *output,
 		goto out;
 	}
 
-	TL_POINT("core_repaint_finished", TLP_OUTPUT(output),
+	TL_POINT(compositor, "core_repaint_finished", TLP_OUTPUT(output),
 		 TLP_VBLANK(stamp), TLP_END);
 
 	refresh_nsec = millihz_to_nsec(output->current_mode->refresh);
@@ -3064,7 +3065,7 @@ weston_output_schedule_repaint(struct weston_output *output)
 		return;
 
 	if (!output->repaint_needed)
-		TL_POINT("core_repaint_req", TLP_OUTPUT(output), TLP_END);
+		TL_POINT(compositor, "core_repaint_req", TLP_OUTPUT(output), TLP_END);
 
 	loop = wl_display_get_event_loop(compositor->wl_display);
 	output->repaint_needed = true;
@@ -3080,7 +3081,7 @@ weston_output_schedule_repaint(struct weston_output *output)
 	assert(!output->idle_repaint_source);
 	output->idle_repaint_source = wl_event_loop_add_idle(loop, idle_repaint,
 							     output);
-	TL_POINT("core_repaint_enter_loop", TLP_OUTPUT(output), TLP_END);
+	TL_POINT(compositor, "core_repaint_enter_loop", TLP_OUTPUT(output), TLP_END);
 }
 
 /** weston_compositor_schedule_repaint
@@ -3529,7 +3530,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 	/* wl_surface.damage and wl_surface.damage_buffer */
 	if (pixman_region32_not_empty(&state->damage_surface) ||
 	     pixman_region32_not_empty(&state->damage_buffer))
-		TL_POINT("core_commit_damage", TLP_SURFACE(surface), TLP_END);
+		TL_POINT(surface->compositor, "core_commit_damage", TLP_SURFACE(surface), TLP_END);
 
 	pixman_region32_union(&surface->damage, &surface->damage,
 			      &state->damage_surface);
