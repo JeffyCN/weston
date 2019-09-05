@@ -37,6 +37,39 @@
 #include "timeline.h"
 #include "weston-log-internal.h"
 
+/**
+ * Timeline itself is not a subscriber but a scope (a producer of data), and it
+ * re-routes the data it produces to all the subscriptions (and implicitly
+ * to the subscribers) using a subscription iteration to go through all of them.
+ *
+ * Public API:
+ * * weston_timeline_refresh_subscription_objects() - allows outside parts of
+ * libweston notify/signal timeline code about the fact that underlying object
+ * has suffered some modifications and needs to re-emit the object ID.
+ * * weston_log_timeline_point() -  which will disseminate data to all
+ * subscriptions
+ *
+ * Do note that only weston_timeline_refresh_subscription_objects()
+ * is exported in libweston.
+ *
+ * Destruction of the objects assigned to each underlying objects happens in
+ * two places: one in the logging framework callback of the log scope
+ * ('destroy_subscription'), and secondly, when the object itself gets
+ * destroyed.
+ *
+ * timeline_emit_context - For each subscription this object will be created to
+ * store a buffer when the object itself will be written and a subscription,
+ * which will be used to force the object ID if there is a need to do so (the
+ * underlying object has been refreshed, or better said has suffered some
+ * modification). Data written to a subscription will be flushed before the
+ * data written to the FILE *.
+ *
+ * @param cur a FILE *
+ * @param subscription a pointer to an already created subscription
+ *
+ * @ingroup internal-log
+ * @sa weston_timeline_point
+ */
 struct timeline_emit_context {
 	FILE *cur;
 	struct weston_log_subscription *subscription;
@@ -321,6 +354,18 @@ weston_timeline_get_subscription_object(struct weston_log_subscription *sub,
 	return weston_timeline_subscription_search(tl_sub, object);
 }
 
+/** Sets (on) the timeline subscription object refresh status.
+ *
+ * This function 'notifies' timeline to print the object ID. The timeline code
+ * will reset it back, so there's no need for users to do anything about it.
+ *
+ * Can be used from outside libweston.
+ *
+ * @param wc a weston_compositor instance
+ * @param object the underyling object
+ *
+ * @ingroup log
+ */
 WL_EXPORT void
 weston_timeline_refresh_subscription_objects(struct weston_compositor *wc,
 					     void *object)
@@ -345,6 +390,18 @@ static const type_func type_dispatch[] = {
 	[TLT_GPU] = emit_gpu_timestamp,
 };
 
+/** Disseminates the message to all subscriptions of the scope \c
+ * timeline_scope
+ *
+ * The TL_POINT() is a wrapper over this function, but it  uses the weston_compositor
+ * instance to pass the timeline scope.
+ *
+ * @param timeline_scope the timeline scope
+ * @param name the name of the timeline point. Interpretable by the tool reading
+ * the output (wesgr).
+ *
+ * @ingroup log
+ */
 WL_EXPORT void
 weston_timeline_point(struct weston_log_scope *timeline_scope,
 		      const char *name, ...)

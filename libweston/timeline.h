@@ -41,6 +41,13 @@ enum timeline_type {
 	TLT_GPU,
 };
 
+/** Timeline subscription created for each subscription
+ *
+ * Created automatically by weston_log_scope::new_subscription and
+ * destroyed by weston_log_scope::destroy_subscription.
+ *
+ * @ingroup internal-log
+ */
 struct weston_timeline_subscription {
 	unsigned int next_id;
 	struct wl_list objects; /**< weston_timeline_subscription_object::subscription_link */
@@ -49,6 +56,8 @@ struct weston_timeline_subscription {
 /**
  * Created when object is first seen for a particular timeline subscription
  * Destroyed when the subscription got destroyed or object was destroyed
+ *
+ * @ingroup internal-log
  */
 struct weston_timeline_subscription_object {
 	void *object;                           /**< points to the object */
@@ -63,12 +72,26 @@ struct weston_timeline_subscription_object {
 	(void)((type)0 == tmp___);		\
 	tmp___; })
 
+/**
+ * Should be used as the last argument when using TL_POINT macro
+ *
+ * @ingroup log
+ */
 #define TLP_END TLT_END, NULL
+
 #define TLP_OUTPUT(o) TLT_OUTPUT, TYPEVERIFY(struct weston_output *, (o))
 #define TLP_SURFACE(s) TLT_SURFACE, TYPEVERIFY(struct weston_surface *, (s))
 #define TLP_VBLANK(t) TLT_VBLANK, TYPEVERIFY(const struct timespec *, (t))
 #define TLP_GPU(t) TLT_GPU, TYPEVERIFY(const struct timespec *, (t))
 
+/** This macro is used to add timeline points.
+ *
+ * Use TLP_END when done for the vargs.
+ *
+ * @param ec weston_compositor instance
+ *
+ * @ingroup log
+ */
 #define TL_POINT(ec, ...) do { \
 	weston_timeline_point(ec->timeline, __VA_ARGS__); \
 } while (0)

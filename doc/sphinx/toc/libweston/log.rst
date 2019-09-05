@@ -65,6 +65,7 @@ Weston has a few scopes worth mentioning:
 - **xwm-wm-x11** - a scope for the X11 window manager in Weston for supporting
   Xwayland, printing some X11 protocol actions.
 - **content-protection-debug** - scope for debugging HDCP issues.
+- **timeline** - see more at :ref:`timeline points`
 
 .. note::
 
@@ -155,6 +156,38 @@ connected and requested data from a log scope.  This means that each time a
 client connects a new subscriber will be created.  For each stream subscribed a
 subscription will be created.  Enabling the debug-protocol happens using the
 :samp:`--debug` command line.
+
+Timeline points
+---------------
+
+A special log scope is the 'timeline' scope which, together with
+`wesgr <https://github.com/ppaalanen/wesgr>`_ tool, helps diagnose latency issues.
+Timeline points write to this 'timeline' scope in different parts of the
+compositor, including the GL renderer.
+
+As with all other scopes this scope is available over the debug protocol, or by
+using the others :ref:`subscribers`. By far the easiest way to get data out
+of this scope would be to use the debug protocol.
+Then use `wesgr <https://github.com/ppaalanen/wesgr>`_ to process the data which
+will transform it into a SVG that can be rendered by any web browser.
+
+The following illustrates how to use it:
+
+.. code-block:: console
+
+   ./weston-debug timeline > log.json
+   ./wesgr -i log.json -o log.svg
+
+Inserting timeline points
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Timline points can be inserted using :c:macro:`TL_POINT` macro. The macro will
+take the :type:`weston_compositor` instance, followed by the name of the
+timeline point. What follows next is a variable number of arguments, which
+**must** end with the macro :c:macro:`TLP_END`.
+
+Debug protocol API
+------------------
 
 .. doxygengroup:: debug-protocol
    :content-only:
