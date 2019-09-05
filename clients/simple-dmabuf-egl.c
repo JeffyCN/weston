@@ -1232,24 +1232,30 @@ display_update_supported_modifiers_for_egl(struct display *d)
 	int num_egl_modifiers = 0;
 	EGLBoolean ret;
 	int i;
+	bool try_modifiers = d->egl.has_dma_buf_import_modifiers;
+
+	if (try_modifiers) {
+		ret = d->egl.query_dma_buf_modifiers(d->egl.display,
+						     BUFFER_FORMAT,
+						     0,    /* max_modifiers */
+						     NULL, /* modifiers */
+						     NULL, /* external_only */
+						     &num_egl_modifiers);
+		if (ret == EGL_FALSE) {
+			fprintf(stderr, "Failed to query num EGL modifiers for format\n");
+			goto error;
+		}
+	}
+
+	if (!num_egl_modifiers)
+		try_modifiers = false;
 
 	/* If EGL doesn't support modifiers, don't use them at all. */
-	if (!d->egl.has_dma_buf_import_modifiers) {
+	if (!try_modifiers) {
 		d->modifiers_count = 0;
 		free(d->modifiers);
 		d->modifiers = NULL;
 		return true;
-	}
-
-	ret = d->egl.query_dma_buf_modifiers(d->egl.display,
-				             BUFFER_FORMAT,
-				             0,    /* max_modifiers */
-				             NULL, /* modifiers */
-				             NULL, /* external_only */
-				             &num_egl_modifiers);
-	if (ret == EGL_FALSE || num_egl_modifiers == 0) {
-		fprintf(stderr, "Failed to query num EGL modifiers for format\n");
-		goto error;
 	}
 
 	egl_modifiers = zalloc(num_egl_modifiers * sizeof(*egl_modifiers));
