@@ -1118,6 +1118,7 @@ struct weston_compositor {
 
 	struct weston_log_context *weston_log_ctx;
 	struct weston_log_scope *debug_scene;
+	struct weston_log_scope *timeline;
 
 	struct content_protection *content_protection;
 };

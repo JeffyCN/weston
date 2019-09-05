@@ -7294,6 +7294,12 @@ weston_compositor_create(struct wl_display *display,
 						debug_scene_graph_cb, NULL,
 						ec);
 
+	ec->timeline =
+		weston_compositor_add_log_scope(ec->weston_log_ctx, "timeline",
+						"Timeline event points\n",
+						weston_timeline_create_subscription,
+						weston_timeline_destroy_subscription,
+						ec);
 	return ec;
 
 fail:
@@ -7618,6 +7624,9 @@ weston_compositor_tear_down(struct weston_compositor *compositor)
 
 	weston_compositor_log_scope_destroy(compositor->debug_scene);
 	compositor->debug_scene = NULL;
+
+	weston_compositor_log_scope_destroy(compositor->timeline);
+	compositor->timeline = NULL;
 }
 
 /** Destroys the compositor.

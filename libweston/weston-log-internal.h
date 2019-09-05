@@ -108,4 +108,12 @@ weston_log_subscription_get_data(struct weston_log_subscription *sub);
 void
 weston_log_subscription_set_data(struct weston_log_subscription *sub, void *data);
 
+void
+weston_timeline_create_subscription(struct weston_log_subscription *sub,
+				    void *user_data);
+
+void
+weston_timeline_destroy_subscription(struct weston_log_subscription *sub,
+				     void *user_data);
+
 #endif /* WESTON_LOG_INTERNAL_H */
