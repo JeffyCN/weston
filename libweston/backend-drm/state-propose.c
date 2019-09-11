@@ -713,7 +713,10 @@ drm_output_propose_state(struct weston_output *output_base,
 	struct drm_output_state *state;
 	struct drm_plane_state *scanout_state = NULL;
 	struct weston_view *ev;
-	pixman_region32_t surface_overlap, renderer_region, occluded_region;
+
+	pixman_region32_t surface_overlap, renderer_region, planes_region;
+	pixman_region32_t occluded_region;
+
 	bool renderer_ok = (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY);
 	int ret;
 	uint64_t current_lowest_zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
@@ -766,20 +769,19 @@ drm_output_propose_state(struct weston_output *output_base,
 			  (unsigned long) output->base.id);
 	}
 
-	/*
-	 * Find a surface for each sprite in the output using some heuristics:
-	 * 1) size
-	 * 2) frequency of update
-	 * 3) opacity (though some hw might support alpha blending)
-	 * 4) clipping (this can be fixed with color keys)
-	 *
-	 * The idea is to save on blitting since this should save power.
-	 * If we can get a large video surface on the sprite for example,
-	 * the main display surface may not need to update at all, and
-	 * the client buffer can be used directly for the sprite surface
-	 * as we do for flipping full screen surfaces.
+	/* - renderer_region contains the total region which which will be
+	 *   covered by the renderer
+	 * - planes_region contains the total region which has been covered by
+	 *   hardware planes
+	 * - occluded_region contains the total region which which will be
+	 *   covered by the renderer and hardware planes, where the view's
+	 *   visible-and-opaque region is added in both cases (the view's
+	 *   opaque region  accumulates there for each view); it is being used
+	 *   to skip the view, if it is completely occluded; includes the
+	 *   situation where occluded_region covers entire output's region.
 	 */
 	pixman_region32_init(&renderer_region);
+	pixman_region32_init(&planes_region);
 	pixman_region32_init(&occluded_region);
 
 	wl_list_for_each(ev, &output_base->compositor->view_list, link) {
@@ -824,6 +826,9 @@ drm_output_propose_state(struct weston_output *output_base,
 		pixman_region32_init(&surface_overlap);
 		pixman_region32_subtract(&surface_overlap, &clipped_view,
 					 &occluded_region);
+		/* if the view is completely occluded then ignore that
+		 * view; includes the case where occluded_region covers
+		 * the entire output */
 		totally_occluded = !pixman_region32_not_empty(&surface_overlap);
 		if (totally_occluded) {
 			drm_debug(b, "\t\t\t\t[view] ignoring view %p "
@@ -875,10 +880,22 @@ drm_output_propose_state(struct weston_output *output_base,
 			 * be added to the renderer region nor the occluded
 			 * region. */
 			if (ps->plane->type != WDRM_PLANE_TYPE_CURSOR) {
+				pixman_region32_union(&planes_region,
+						      &planes_region,
+						      &clipped_view);
+
+				if (!weston_view_is_opaque(ev, &clipped_view))
+					pixman_region32_intersect(&clipped_view,
+								  &clipped_view,
+								  &ev->transform.opaque);
+				/* the visible-and-opaque region of this view
+				 * will occlude views underneath it */
 				pixman_region32_union(&occluded_region,
 						      &occluded_region,
 						      &clipped_view);
+
 				pixman_region32_fini(&clipped_view);
+
 			}
 			continue;
 		}
@@ -897,9 +914,21 @@ drm_output_propose_state(struct weston_output *output_base,
 		pixman_region32_union(&renderer_region,
 				      &renderer_region,
 				      &clipped_view);
+
+		if (!weston_view_is_opaque(ev, &clipped_view))
+			pixman_region32_intersect(&clipped_view,
+						  &clipped_view,
+						  &ev->transform.opaque);
+
+		pixman_region32_union(&occluded_region,
+				      &occluded_region,
+				      &clipped_view);
+
 		pixman_region32_fini(&clipped_view);
 	}
+
 	pixman_region32_fini(&renderer_region);
+	pixman_region32_fini(&planes_region);
 	pixman_region32_fini(&occluded_region);
 
 	/* In renderer-only mode, we can't test the state as we don't have a
