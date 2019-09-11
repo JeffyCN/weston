@@ -278,7 +278,7 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	if (b->gbm == NULL)
 		return NULL;
 
-	if (ev->surface->buffer_ref.buffer == NULL) {
+	if (!weston_view_has_valid_buffer(ev)) {
 		drm_debug(b, "\t\t\t\t[cursor] not assigning view %p to cursor plane "
 			     "(no buffer available)\n", ev);
 		return NULL;
@@ -546,7 +546,7 @@ drm_output_propose_state(struct weston_output *output_base,
 			force_renderer = true;
 		}
 
-		if (!ev->surface->buffer_ref.buffer) {
+		if (!weston_view_has_valid_buffer(ev)) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 			             "(no buffer available)\n", ev);
 			force_renderer = true;
@@ -764,7 +764,7 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 		 * to the buffer anyway, there is no side effects.
 		 */
 		if (b->use_pixman ||
-		    (ev->surface->buffer_ref.buffer &&
+		    (weston_view_has_valid_buffer(ev) &&
 		    (!wl_shm_buffer_get(ev->surface->buffer_ref.buffer->resource) ||
 		     (ev->surface->width <= b->cursor_width &&
 		      ev->surface->height <= b->cursor_height))))

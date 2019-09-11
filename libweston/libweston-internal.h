@@ -287,6 +287,9 @@ weston_view_from_global_float(struct weston_view *view,
 bool
 weston_view_is_opaque(struct weston_view *ev, pixman_region32_t *region);
 
+bool
+weston_view_has_valid_buffer(struct weston_view *ev);
+
 void
 weston_view_move_to_plane(struct weston_view *view,
 			  struct weston_plane *plane);
