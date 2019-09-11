@@ -381,7 +381,6 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_plane_state *state;
 	struct drm_fb *fb;
-	pixman_box32_t *extents;
 
 	assert(!b->sprites_are_broken);
 	assert(b->atomic_modeset);
@@ -389,11 +388,7 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 
 	/* Check the view spans exactly the output size, calculated in the
 	 * logical co-ordinate space. */
-	extents = pixman_region32_extents(&ev->transform.boundingbox);
-	if (extents->x1 != output->base.x ||
-	    extents->y1 != output->base.y ||
-	    extents->x2 != output->base.x + output->base.width ||
-	    extents->y2 != output->base.y + output->base.height)
+	if (!weston_view_matches_output_entirely(ev, &output->base))
 		return NULL;
 
 	/* If the surface buffer has an in-fence fd, but the plane doesn't
