@@ -121,6 +121,14 @@ headless_output_repaint(struct weston_output *output_base,
 	return 0;
 }
 
+static void
+headless_output_disable_pixman(struct headless_output *output)
+{
+	pixman_renderer_output_destroy(&output->base);
+	pixman_image_unref(output->image);
+	free(output->image_buf);
+}
+
 static int
 headless_output_disable(struct weston_output *base)
 {
@@ -132,11 +140,8 @@ headless_output_disable(struct weston_output *base)
 
 	wl_event_source_remove(output->finish_frame_timer);
 
-	if (b->use_pixman) {
-		pixman_renderer_output_destroy(&output->base);
-		pixman_image_unref(output->image);
-		free(output->image_buf);
-	}
+	if (b->use_pixman)
+		headless_output_disable_pixman(output);
 
 	return 0;
 }
