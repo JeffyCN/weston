@@ -153,45 +153,55 @@ headless_output_destroy(struct weston_output *base)
 }
 
 static int
-headless_output_enable(struct weston_output *base)
+headless_output_enable_pixman(struct headless_output *output)
 {
-	struct headless_output *output = to_headless_output(base);
-	struct headless_backend *b = to_headless_backend(base->compositor);
-	struct wl_event_loop *loop;
+	output->image_buf = malloc(output->base.current_mode->width *
+				   output->base.current_mode->height * 4);
+	if (!output->image_buf)
+		return -1;
 
-	loop = wl_display_get_event_loop(b->compositor->wl_display);
-	output->finish_frame_timer =
-		wl_event_loop_add_timer(loop, finish_frame_handler, output);
+	output->image = pixman_image_create_bits(PIXMAN_x8r8g8b8,
+						 output->base.current_mode->width,
+						 output->base.current_mode->height,
+						 output->image_buf,
+						 output->base.current_mode->width * 4);
 
-	if (b->use_pixman) {
-		output->image_buf = malloc(output->base.current_mode->width *
-					   output->base.current_mode->height * 4);
-		if (!output->image_buf)
-			goto err_malloc;
+	if (pixman_renderer_output_create(&output->base,
+					  PIXMAN_RENDERER_OUTPUT_USE_SHADOW) < 0)
+		goto err_renderer;
 
-		output->image = pixman_image_create_bits(PIXMAN_x8r8g8b8,
-							 output->base.current_mode->width,
-							 output->base.current_mode->height,
-							 output->image_buf,
-							 output->base.current_mode->width * 4);
-
-		if (pixman_renderer_output_create(&output->base,
-					PIXMAN_RENDERER_OUTPUT_USE_SHADOW) < 0)
-			goto err_renderer;
-
-		pixman_renderer_output_set_buffer(&output->base,
-						  output->image);
-	}
+	pixman_renderer_output_set_buffer(&output->base, output->image);
 
 	return 0;
 
 err_renderer:
 	pixman_image_unref(output->image);
 	free(output->image_buf);
-err_malloc:
-	wl_event_source_remove(output->finish_frame_timer);
 
 	return -1;
+}
+
+static int
+headless_output_enable(struct weston_output *base)
+{
+	struct headless_output *output = to_headless_output(base);
+	struct headless_backend *b = to_headless_backend(base->compositor);
+	struct wl_event_loop *loop;
+	int ret = 0;
+
+	loop = wl_display_get_event_loop(b->compositor->wl_display);
+	output->finish_frame_timer =
+		wl_event_loop_add_timer(loop, finish_frame_handler, output);
+
+	if (b->use_pixman)
+		ret = headless_output_enable_pixman(output);
+
+	if (ret < 0) {
+		wl_event_source_remove(output->finish_frame_timer);
+		return -1;
+	}
+
+	return 0;
 }
 
 static int
