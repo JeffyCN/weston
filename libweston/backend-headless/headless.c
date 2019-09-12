@@ -41,12 +41,17 @@
 #include "presentation-time-server-protocol.h"
 #include <libweston/windowed-output-api.h>
 
+enum headless_renderer_type {
+	HEADLESS_NOOP,
+	HEADLESS_PIXMAN,
+};
+
 struct headless_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
 
 	struct weston_seat fake_seat;
-	bool use_pixman;
+	enum headless_renderer_type renderer_type;
 };
 
 struct headless_head {
@@ -140,8 +145,13 @@ headless_output_disable(struct weston_output *base)
 
 	wl_event_source_remove(output->finish_frame_timer);
 
-	if (b->use_pixman)
+	switch (b->renderer_type) {
+	case HEADLESS_PIXMAN:
 		headless_output_disable_pixman(output);
+		break;
+	case HEADLESS_NOOP:
+		break;
+	}
 
 	return 0;
 }
@@ -198,8 +208,13 @@ headless_output_enable(struct weston_output *base)
 	output->finish_frame_timer =
 		wl_event_loop_add_timer(loop, finish_frame_handler, output);
 
-	if (b->use_pixman)
+	switch (b->renderer_type) {
+	case HEADLESS_PIXMAN:
 		ret = headless_output_enable_pixman(output);
+		break;
+	case HEADLESS_NOOP:
+		break;
+	}
 
 	if (ret < 0) {
 		wl_event_source_remove(output->finish_frame_timer);
@@ -349,12 +364,21 @@ headless_backend_create(struct weston_compositor *compositor,
 	b->base.destroy = headless_destroy;
 	b->base.create_output = headless_output_create;
 
-	b->use_pixman = config->use_pixman;
-	if (b->use_pixman) {
-		pixman_renderer_init(compositor);
+	if (config->use_pixman)
+		b->renderer_type = HEADLESS_PIXMAN;
+	else
+		b->renderer_type = HEADLESS_NOOP;
+
+	switch (b->renderer_type) {
+	case HEADLESS_PIXMAN:
+		ret = pixman_renderer_init(compositor);
+		break;
+	case HEADLESS_NOOP:
+		ret = noop_renderer_init(compositor);
+		break;
 	}
 
-	if (!b->use_pixman && noop_renderer_init(compositor) < 0)
+	if (ret < 0)
 		goto err_input;
 
 	/* Support zwp_linux_explicit_synchronization_unstable_v1 to enable
