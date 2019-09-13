@@ -720,7 +720,7 @@ create_gbm_device(int fd)
  * This works around https://bugs.freedesktop.org/show_bug.cgi?id=89689
  * but it's entirely possible we'll see this again on other implementations.
  */
-static int
+static uint32_t
 fallback_format_for(uint32_t format)
 {
 	const struct pixel_format_info *pf;
@@ -1338,11 +1338,11 @@ err:
 static int
 drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 {
-	EGLint format[2] = {
+	uint32_t format[2] = {
 		output->gbm_format,
 		fallback_format_for(output->gbm_format),
 	};
-	int n_formats = 1;
+	unsigned n_formats = 1;
 	struct weston_mode *mode = output->base.current_mode;
 	struct drm_plane *plane = output->scanout_plane;
 	unsigned int i;

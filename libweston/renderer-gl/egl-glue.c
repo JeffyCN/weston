@@ -1,6 +1,6 @@
 /*
  * Copyright © 2012 Intel Corporation
- * Copyright © 2015 Collabora, Ltd.
+ * Copyright © 2015, 2019 Collabora, Ltd.
  * Copyright © 2016 NVIDIA Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -26,6 +26,8 @@
  */
 
 #include "config.h"
+
+#include <assert.h>
 
 #include "shared/helpers.h"
 #include "shared/platform.h"
@@ -165,6 +167,46 @@ out:
 			   " 0x%x, succeeded with alternate id 0x%x.\n",
 			   visual_id[0], visual_id[i - 1]);
 	return 0;
+}
+
+EGLConfig
+gl_renderer_get_egl_config(struct gl_renderer *gr,
+			   const EGLint *config_attribs,
+			   const uint32_t *drm_formats,
+			   unsigned drm_formats_count)
+{
+	EGLConfig egl_config;
+	EGLint visual_id[16];
+	int id_count;
+	int i;
+
+	assert(drm_formats_count < ARRAY_LENGTH(visual_id));
+	id_count = MIN(drm_formats_count, ARRAY_LENGTH(visual_id));
+
+	for (i = 0; i < id_count; i++)
+		visual_id[i] = drm_formats[i];
+
+	if (egl_choose_config(gr, config_attribs, visual_id,
+			      id_count, &egl_config) < 0) {
+		weston_log("No EGLConfig matches.\n");
+		return EGL_NO_CONFIG_KHR;
+	}
+
+	/*
+	 * If we do not have configless context support, all EGLConfigs must
+	 * be the one and the same, because we use just one GL context for
+	 * everything.
+	 */
+	if (gr->egl_config != EGL_NO_CONFIG_KHR &&
+	    egl_config != gr->egl_config &&
+	    !gr->has_configless_context) {
+		weston_log("Found an EGLConfig but it is not usable because "
+			   "neither EGL_KHR_no_config_context nor "
+			   "EGL_MESA_configless_context are supported by EGL.\n");
+		return EGL_NO_CONFIG_KHR;
+	}
+
+	return egl_config;
 }
 
 static void

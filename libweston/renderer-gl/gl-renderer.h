@@ -71,8 +71,8 @@ struct gl_renderer_interface {
 				    EGLNativeWindowType window_for_legacy,
 				    void *window_for_platform,
 				    const EGLint *config_attribs,
-				    const EGLint *visual_id,
-				    const int n_ids);
+				    const uint32_t *drm_formats,
+				    unsigned drm_formats_count);
 
 	void (*output_destroy)(struct weston_output *output);
 

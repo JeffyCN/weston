@@ -1,6 +1,6 @@
 /*
  * Copyright © 2012 Intel Corporation
- * Copyright © 2015 Collabora, Ltd.
+ * Copyright © 2015,2019 Collabora, Ltd.
  * Copyright © 2016 NVIDIA Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -3062,25 +3062,16 @@ gl_renderer_create_window_surface(struct gl_renderer *gr,
 				  EGLNativeWindowType window_for_legacy,
 				  void *window_for_platform,
 				  const EGLint *config_attribs,
-				  const EGLint *visual_id,
-				  int n_ids)
+				  const uint32_t *drm_formats,
+				  unsigned drm_formats_count)
 {
 	EGLSurface egl_surface = EGL_NO_SURFACE;
 	EGLConfig egl_config;
 
-	if (egl_choose_config(gr, config_attribs, visual_id,
-			      n_ids, &egl_config) == -1) {
-		weston_log("failed to choose EGL config for output\n");
+	egl_config = gl_renderer_get_egl_config(gr, config_attribs,
+						drm_formats, drm_formats_count);
+	if (egl_config == EGL_NO_CONFIG_KHR)
 		return EGL_NO_SURFACE;
-	}
-
-	if (egl_config != gr->egl_config &&
-	    !gr->has_configless_context) {
-		weston_log("attempted to use a different EGL config for an "
-			   "output but EGL_KHR_no_config_context or "
-			   "EGL_MESA_configless_context is not supported\n");
-		return EGL_NO_SURFACE;
-	}
 
 	log_egl_config_info(gr->egl_display, egl_config);
 
@@ -3128,8 +3119,8 @@ gl_renderer_output_window_create(struct weston_output *output,
 				 EGLNativeWindowType window_for_legacy,
 				 void *window_for_platform,
 				 const EGLint *config_attribs,
-				 const EGLint *visual_id,
-				 int n_ids)
+				 const uint32_t *drm_formats,
+				 unsigned drm_formats_count)
 {
 	struct weston_compositor *ec = output->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
@@ -3140,7 +3131,8 @@ gl_renderer_output_window_create(struct weston_output *output,
 							window_for_legacy,
 							window_for_platform,
 							config_attribs,
-							visual_id, n_ids);
+							drm_formats,
+							drm_formats_count);
 	if (egl_surface == EGL_NO_SURFACE) {
 		weston_log("failed to create egl surface\n");
 		return -1;

@@ -131,6 +131,12 @@ egl_choose_config(struct gl_renderer *gr, const EGLint *attribs,
 		  const EGLint *visual_id, const int n_ids,
 		  EGLConfig *config_out);
 
+EGLConfig
+gl_renderer_get_egl_config(struct gl_renderer *gr,
+			   const EGLint *config_attribs,
+			   const uint32_t *drm_formats,
+			   unsigned drm_formats_count);
+
 int
 gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 
