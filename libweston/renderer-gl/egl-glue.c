@@ -132,7 +132,7 @@ egl_config_pixel_format_matches(struct gl_renderer *gr,
 	return true;
 }
 
-int
+static int
 egl_choose_config(struct gl_renderer *gr,
 		  const EGLint *attribs,
 		  const struct pixel_format_info *const *pinfo,
@@ -187,6 +187,7 @@ out:
 
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
+			   EGLint egl_surface_type,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count)
 {
@@ -195,7 +196,7 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	unsigned pinfo_count;
 	unsigned i;
 	EGLint config_attribs[] = {
-		EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
+		EGL_SURFACE_TYPE,    egl_surface_type,
 		EGL_RED_SIZE,        1,
 		EGL_GREEN_SIZE,      1,
 		EGL_BLUE_SIZE,       1,

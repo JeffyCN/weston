@@ -127,17 +127,9 @@ gl_renderer_print_egl_error_state(void);
 void
 log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig);
 
-struct pixel_format_info;
-
-int
-egl_choose_config(struct gl_renderer *gr,
-		  const EGLint *attribs,
-		  const struct pixel_format_info *const *pinfo,
-		  unsigned pinfo_count,
-		  EGLConfig *config_out);
-
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
+			   EGLint egl_surface_type,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count);
 

@@ -3067,7 +3067,7 @@ gl_renderer_create_window_surface(struct gl_renderer *gr,
 	EGLSurface egl_surface = EGL_NO_SURFACE;
 	EGLConfig egl_config;
 
-	egl_config = gl_renderer_get_egl_config(gr,
+	egl_config = gl_renderer_get_egl_config(gr, EGL_WINDOW_BIT,
 						drm_formats, drm_formats_count);
 	if (egl_config == EGL_NO_CONFIG_KHR)
 		return EGL_NO_SURFACE;
@@ -3325,24 +3325,15 @@ output_handle_destroy(struct wl_listener *listener, void *data)
 static int
 gl_renderer_create_pbuffer_surface(struct gl_renderer *gr) {
 	EGLConfig pbuffer_config;
-
-	static const EGLint pbuffer_config_attribs[] = {
-		EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
-		EGL_RED_SIZE, 1,
-		EGL_GREEN_SIZE, 1,
-		EGL_BLUE_SIZE, 1,
-		EGL_ALPHA_SIZE, 0,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		EGL_NONE
-	};
-
 	static const EGLint pbuffer_attribs[] = {
 		EGL_WIDTH, 10,
 		EGL_HEIGHT, 10,
 		EGL_NONE
 	};
 
-	if (egl_choose_config(gr, pbuffer_config_attribs, NULL, 0, &pbuffer_config) < 0) {
+	pbuffer_config = gl_renderer_get_egl_config(gr, EGL_PBUFFER_BIT,
+						    NULL, 0);
+	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
 		weston_log("failed to choose EGL config for PbufferSurface\n");
 		return -1;
 	}
@@ -3436,7 +3427,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 
 	if (!gr->has_configless_context) {
-		gr->egl_config = gl_renderer_get_egl_config(gr,
+		gr->egl_config = gl_renderer_get_egl_config(gr, EGL_WINDOW_BIT,
 							    drm_formats,
 							    drm_formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
