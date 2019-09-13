@@ -192,6 +192,23 @@ const struct pixel_format_info *
 pixel_format_get_opaque_substitute(const struct pixel_format_info *format);
 
 /**
+ * For an opaque format, get the equivalent format with alpha instead of an
+ * ignored channel
+ *
+ * This is the opposite lookup from pixel_format_get_opaque_substitute().
+ * Finds the format whose opaque substitute is the given format.
+ *
+ * If the input format is not opaque or does not have ignored (X) bits, then
+ * the search cannot find a match.
+ *
+ * @param format DRM format code to search for
+ * @returns A pixel format info structure for the pixel format whose opaque
+ * substitute is the argument, or NULL if no match.
+ */
+const struct pixel_format_info *
+pixel_format_get_info_by_opaque_substitute(uint32_t format);
+
+/**
  * Return the effective sampling width for a given plane
  *
  * When horizontal subsampling is effective, a sampler bound to a secondary

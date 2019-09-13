@@ -436,6 +436,19 @@ pixel_format_get_opaque_substitute(const struct pixel_format_info *info)
 		return pixel_format_get_info(info->opaque_substitute);
 }
 
+WL_EXPORT const struct pixel_format_info *
+pixel_format_get_info_by_opaque_substitute(uint32_t format)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_LENGTH(pixel_format_table); i++) {
+		if (pixel_format_table[i].opaque_substitute == format)
+			return &pixel_format_table[i];
+	}
+
+	return NULL;
+}
+
 WL_EXPORT unsigned int
 pixel_format_width_for_plane(const struct pixel_format_info *info,
 			     unsigned int plane,

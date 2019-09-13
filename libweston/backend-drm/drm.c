@@ -723,14 +723,13 @@ create_gbm_device(int fd)
 static int
 fallback_format_for(uint32_t format)
 {
-	switch (format) {
-	case GBM_FORMAT_XRGB8888:
-		return GBM_FORMAT_ARGB8888;
-	case GBM_FORMAT_XRGB2101010:
-		return GBM_FORMAT_ARGB2101010;
-	default:
+	const struct pixel_format_info *pf;
+
+	pf = pixel_format_get_info_by_opaque_substitute(format);
+	if (!pf)
 		return 0;
-	}
+
+	return pf->format;
 }
 
 static int
