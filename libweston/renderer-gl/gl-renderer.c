@@ -3427,7 +3427,13 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 
 	if (!gr->has_configless_context) {
-		gr->egl_config = gl_renderer_get_egl_config(gr, EGL_WINDOW_BIT,
+		EGLint surface_type = EGL_WINDOW_BIT;
+
+		if (!gr->has_surfaceless_context)
+			surface_type |= EGL_PBUFFER_BIT;
+
+		gr->egl_config = gl_renderer_get_egl_config(gr,
+							    surface_type,
 							    drm_formats,
 							    drm_formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
