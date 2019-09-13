@@ -3454,18 +3454,20 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	log_egl_info(gr->egl_display);
 
-	gr->egl_config = gl_renderer_get_egl_config(gr, config_attribs,
-						    drm_formats,
-						    drm_formats_count);
-	if (gr->egl_config == EGL_NO_CONFIG_KHR) {
-		weston_log("failed to choose EGL config\n");
-		goto fail_terminate;
-	}
-
 	ec->renderer = &gr->base;
 
 	if (gl_renderer_setup_egl_extensions(ec) < 0)
 		goto fail_with_error;
+
+	if (!gr->has_configless_context) {
+		gr->egl_config = gl_renderer_get_egl_config(gr, config_attribs,
+							    drm_formats,
+							    drm_formats_count);
+		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
+			weston_log("failed to choose EGL config\n");
+			goto fail_terminate;
+		}
+	}
 
 	ec->capabilities |= WESTON_CAP_ROTATION_ANY;
 	ec->capabilities |= WESTON_CAP_CAPTURE_YFLIP;
@@ -3610,7 +3612,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 {
 	struct gl_renderer *gr = get_renderer(ec);
 	const char *extensions;
-	EGLConfig context_config;
 	EGLBoolean ret;
 
 	EGLint context_attribs[16] = {
@@ -3639,20 +3640,15 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	assert(nattr < ARRAY_LENGTH(context_attribs));
 	context_attribs[nattr] = EGL_NONE;
 
-	context_config = gr->egl_config;
-
-	if (gr->has_configless_context)
-		context_config = EGL_NO_CONFIG_KHR;
-
 	/* try to create an OpenGLES 3 context first */
 	context_attribs[1] = 3;
-	gr->egl_context = eglCreateContext(gr->egl_display, context_config,
+	gr->egl_context = eglCreateContext(gr->egl_display, gr->egl_config,
 					   EGL_NO_CONTEXT, context_attribs);
 	if (gr->egl_context == NULL) {
 		/* and then fallback to OpenGLES 2 */
 		context_attribs[1] = 2;
 		gr->egl_context = eglCreateContext(gr->egl_display,
-						   context_config,
+						   gr->egl_config,
 						   EGL_NO_CONTEXT,
 						   context_attribs);
 		if (gr->egl_context == NULL) {

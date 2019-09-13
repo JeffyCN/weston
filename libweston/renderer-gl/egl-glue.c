@@ -198,8 +198,7 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	 * everything.
 	 */
 	if (gr->egl_config != EGL_NO_CONFIG_KHR &&
-	    egl_config != gr->egl_config &&
-	    !gr->has_configless_context) {
+	    egl_config != gr->egl_config) {
 		weston_log("Found an EGLConfig but it is not usable because "
 			   "neither EGL_KHR_no_config_context nor "
 			   "EGL_MESA_configless_context are supported by EGL.\n");
