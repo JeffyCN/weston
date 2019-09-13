@@ -3388,8 +3388,8 @@ gl_renderer_display_create(struct weston_compositor *ec,
 			   EGLenum platform,
 			   void *native_display,
 			   const EGLint *config_attribs,
-			   const EGLint *visual_id,
-			   int n_ids)
+			   const uint32_t *drm_formats,
+			   unsigned drm_formats_count)
 {
 	struct gl_renderer *gr;
 	EGLint major, minor;
@@ -3454,8 +3454,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	log_egl_info(gr->egl_display);
 
-	if (egl_choose_config(gr, config_attribs, visual_id,
-			      n_ids, &gr->egl_config) < 0) {
+	gr->egl_config = gl_renderer_get_egl_config(gr, config_attribs,
+						    drm_formats,
+						    drm_formats_count);
+	if (gr->egl_config == EGL_NO_CONFIG_KHR) {
 		weston_log("failed to choose EGL config\n");
 		goto fail_terminate;
 	}

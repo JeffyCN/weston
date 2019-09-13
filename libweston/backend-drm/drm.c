@@ -735,12 +735,12 @@ fallback_format_for(uint32_t format)
 static int
 drm_backend_create_gl_renderer(struct drm_backend *b)
 {
-	EGLint format[3] = {
+	uint32_t format[3] = {
 		b->gbm_format,
 		fallback_format_for(b->gbm_format),
 		0,
 	};
-	int n_formats = 2;
+	unsigned n_formats = 2;
 
 	if (format[1])
 		n_formats = 3;
