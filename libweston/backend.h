@@ -136,9 +136,6 @@ void
 weston_output_damage(struct weston_output *output);
 
 void
-weston_output_move(struct weston_output *output, int x, int y);
-
-void
 weston_output_release(struct weston_output *output);
 
 void

@@ -2013,6 +2013,9 @@ weston_output_init(struct weston_output *output,
 		   struct weston_compositor *compositor,
 		   const char *name);
 
+void
+weston_output_move(struct weston_output *output, int x, int y);
+
 int
 weston_output_enable(struct weston_output *output);
 
