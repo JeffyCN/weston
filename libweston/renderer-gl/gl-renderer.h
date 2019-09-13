@@ -49,8 +49,6 @@ typedef intptr_t EGLNativeWindowType;
 
 #endif /* ENABLE_EGL */
 
-#define NO_EGL_PLATFORM 0
-
 enum gl_renderer_border_side {
 	GL_RENDERER_BORDER_TOP = 0,
 	GL_RENDERER_BORDER_LEFT = 1,
