@@ -2569,14 +2569,17 @@ view_list_add(struct weston_compositor *compositor,
 static void
 weston_compositor_build_view_list(struct weston_compositor *compositor)
 {
-	struct weston_view *view;
+	struct weston_view *view, *tmp;
 	struct weston_layer *layer;
 
 	wl_list_for_each(layer, &compositor->layer_list, link)
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link)
 			surface_stash_subsurface_views(view->surface);
 
+	wl_list_for_each_safe(view, tmp, &compositor->view_list, link)
+		wl_list_init(&view->link);
 	wl_list_init(&compositor->view_list);
+
 	wl_list_for_each(layer, &compositor->layer_list, link) {
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
 			view_list_add(compositor, view);
