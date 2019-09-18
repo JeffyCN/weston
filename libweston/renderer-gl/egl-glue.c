@@ -185,6 +185,32 @@ out:
 	return 0;
 }
 
+static bool
+egl_config_is_compatible(struct gl_renderer *gr,
+			 EGLConfig config,
+			 EGLint egl_surface_type,
+			 const struct pixel_format_info *const *pinfo,
+			 unsigned pinfo_count)
+{
+	EGLint value;
+	unsigned i;
+
+	if (config == EGL_NO_CONFIG_KHR)
+		return false;
+
+	if (!eglGetConfigAttrib(gr->egl_display, config,
+				EGL_SURFACE_TYPE, &value))
+		return false;
+	if ((value & egl_surface_type) != egl_surface_type)
+		return false;
+
+	for (i = 0; i < pinfo_count; i++) {
+		if (egl_config_pixel_format_matches(gr, config, pinfo[i]))
+			return true;
+	}
+	return false;
+}
+
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   EGLint egl_surface_type,
@@ -216,6 +242,10 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 		}
 		pinfo_count++;
 	}
+
+	if (egl_config_is_compatible(gr, gr->egl_config, egl_surface_type,
+				     pinfo, pinfo_count))
+		return gr->egl_config;
 
 	if (egl_choose_config(gr, config_attribs, pinfo, pinfo_count,
 			      &egl_config) < 0) {
