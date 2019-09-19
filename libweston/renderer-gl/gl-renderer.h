@@ -114,7 +114,4 @@ struct gl_renderer_interface {
 	 * EGL_ANDROID_native_fence_sync extension.
 	 */
 	int (*create_fence_fd)(struct weston_output *output);
-
-	void (*print_egl_error_state)(void);
 };
-
