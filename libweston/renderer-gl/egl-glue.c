@@ -75,6 +75,31 @@ gl_renderer_print_egl_error_state(void)
 		egl_error_string(code), (long)code);
 }
 
+static void
+print_egl_surface_type_bits(FILE *fp, EGLint egl_surface_type)
+{
+	const char *sep = "";
+	unsigned i;
+
+	static const struct {
+		EGLint bit;
+		const char *str;
+	} egl_surf_bits[] = {
+		{ EGL_WINDOW_BIT, "win" },
+		{ EGL_PIXMAP_BIT, "pix" },
+		{ EGL_PBUFFER_BIT, "pbf" },
+		{ EGL_MULTISAMPLE_RESOLVE_BOX_BIT, "ms_resolve_box" },
+		{ EGL_SWAP_BEHAVIOR_PRESERVED_BIT, "swap_preserved" },
+	};
+
+	for (i = 0; i < ARRAY_LENGTH(egl_surf_bits); i++) {
+		if (egl_surface_type & egl_surf_bits[i].bit) {
+			fprintf(fp, "%s%s", sep, egl_surf_bits[i].str);
+			sep = "|";
+		}
+	}
+}
+
 void
 log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig)
 {
@@ -211,6 +236,40 @@ egl_config_is_compatible(struct gl_renderer *gr,
 	return false;
 }
 
+/* The caller must free() the string */
+static char *
+explain_egl_config_criteria(EGLint egl_surface_type,
+			    const struct pixel_format_info *const *pinfo,
+			    unsigned pinfo_count)
+{
+	FILE *fp;
+	char *str = NULL;
+	size_t size = 0;
+	const char *sep;
+	unsigned i;
+
+	fp = open_memstream(&str, &size);
+	if (!fp)
+		return NULL;
+
+	fputs("{ ", fp);
+
+	print_egl_surface_type_bits(fp, egl_surface_type);
+	fputs("; ", fp);
+
+	sep = "";
+	for (i = 0; i < pinfo_count; i++) {
+		fprintf(fp, "%s%s", sep, pinfo[i]->drm_format_name);
+		sep = ", ";
+	}
+
+	fputs(" }", fp);
+
+	fclose(fp);
+
+	return str;
+}
+
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   EGLint egl_surface_type,
@@ -221,6 +280,7 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	const struct pixel_format_info *pinfo[16];
 	unsigned pinfo_count;
 	unsigned i;
+	char *what;
 	EGLint config_attribs[] = {
 		EGL_SURFACE_TYPE,    egl_surface_type,
 		EGL_RED_SIZE,        1,
@@ -249,7 +309,10 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 
 	if (egl_choose_config(gr, config_attribs, pinfo, pinfo_count,
 			      &egl_config) < 0) {
-		weston_log("No EGLConfig matches.\n");
+		what = explain_egl_config_criteria(egl_surface_type,
+						   pinfo, pinfo_count);
+		weston_log("No EGLConfig matches %s.\n", what);
+		free(what);
 		return EGL_NO_CONFIG_KHR;
 	}
 
@@ -260,9 +323,13 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	 */
 	if (gr->egl_config != EGL_NO_CONFIG_KHR &&
 	    egl_config != gr->egl_config) {
-		weston_log("Found an EGLConfig but it is not usable because "
-			   "neither EGL_KHR_no_config_context nor "
-			   "EGL_MESA_configless_context are supported by EGL.\n");
+		what = explain_egl_config_criteria(egl_surface_type,
+						   pinfo, pinfo_count);
+		weston_log("Found an EGLConfig matching %s but it is not usable"
+			   " because neither EGL_KHR_no_config_context nor "
+			   "EGL_MESA_configless_context are supported by EGL.\n",
+			   what);
+		free(what);
 		return EGL_NO_CONFIG_KHR;
 	}
 
