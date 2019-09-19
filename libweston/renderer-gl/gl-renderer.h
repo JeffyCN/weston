@@ -102,6 +102,33 @@ struct gl_renderer_interface {
 			      const uint32_t *drm_formats,
 			      unsigned drm_formats_count);
 
+	/**
+	 * Attach GL-renderer to the output with a native window
+	 *
+	 * \param output The output to create a rendering surface for.
+	 * \param window_for_legacy Native window handle for
+	 * eglCreateWindowSurface().
+	 * \param window_for_platform Native window handle for
+	 * eglCreatePlatformWindowSurface().
+	 * \param drm_formats Array of DRM pixel formats that are acceptable.
+	 * \param drm_formats_count The drm_formats array length.
+	 * \return 0 on success, -1 on failure.
+	 *
+	 * This function creates the renderer data structures needed to repaint
+	 * the output. The repaint results will be directed to the given native
+	 * window.
+	 *
+	 * If EGL_EXT_platform_base is supported then \c window_for_platform is
+	 * used, otherwise \c window_for_legacy is used. This is because the
+	 * handle on X11 platform is different between the two.
+	 *
+	 * The first format in drm_formats that matches any EGLConfig
+	 * determines which EGLConfig is chosen. See \c display_create about
+	 * how the matching works and the possible limitations.
+	 *
+	 * This function should be used only if \c display_create was called
+	 * with \c EGL_WINDOW_BIT in \c egl_surface_type.
+	 */
 	int (*output_window_create)(struct weston_output *output,
 				    EGLNativeWindowType window_for_legacy,
 				    void *window_for_platform,
