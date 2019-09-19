@@ -3752,7 +3752,6 @@ static int
 gl_renderer_display_create(struct weston_compositor *ec,
 			   EGLenum platform,
 			   void *native_display,
-			   const EGLint *platform_attribs,
 			   const EGLint *config_attribs,
 			   const EGLint *visual_id,
 			   int n_ids)
@@ -3797,7 +3796,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		if (get_platform_display && platform) {
 			gr->egl_display = get_platform_display(platform,
 							       native_display,
-							       platform_attribs);
+							       NULL);
 		}
 	}
 
