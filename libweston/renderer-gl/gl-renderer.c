@@ -3749,9 +3749,13 @@ gl_renderer_create_pbuffer_surface(struct gl_renderer *gr) {
 }
 
 static int
-gl_renderer_display_create(struct weston_compositor *ec, EGLenum platform,
-	void *native_window, const EGLint *platform_attribs,
-	const EGLint *config_attribs, const EGLint *visual_id, int n_ids)
+gl_renderer_display_create(struct weston_compositor *ec,
+			   EGLenum platform,
+			   void *native_display,
+			   const EGLint *platform_attribs,
+			   const EGLint *config_attribs,
+			   const EGLint *visual_id,
+			   int n_ids)
 {
 	struct gl_renderer *gr;
 	EGLint major, minor;
@@ -3792,7 +3796,7 @@ gl_renderer_display_create(struct weston_compositor *ec, EGLenum platform,
 		 * appropriate extension checks have been done. */
 		if (get_platform_display && platform) {
 			gr->egl_display = get_platform_display(platform,
-							       native_window,
+							       native_display,
 							       platform_attribs);
 		}
 	}
@@ -3801,7 +3805,7 @@ gl_renderer_display_create(struct weston_compositor *ec, EGLenum platform,
 		weston_log("warning: either no EGL_EXT_platform_base "
 			   "support or specific platform support; "
 			   "falling back to eglGetDisplay.\n");
-		gr->egl_display = eglGetDisplay(native_window);
+		gr->egl_display = eglGetDisplay(native_display);
 	}
 
 	if (gr->egl_display == EGL_NO_DISPLAY) {
