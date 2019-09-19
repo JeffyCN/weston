@@ -76,8 +76,6 @@ struct gl_renderer_interface {
 
 	void (*output_destroy)(struct weston_output *output);
 
-	EGLSurface (*output_surface)(struct weston_output *output);
-
 	/* Sets the output border.
 	 *
 	 * The side specifies the side for which we are setting the border.

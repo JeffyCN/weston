@@ -3405,12 +3405,6 @@ gl_renderer_output_destroy(struct weston_output *output)
 	free(go);
 }
 
-static EGLSurface
-gl_renderer_output_surface(struct weston_output *output)
-{
-	return get_output_state(output)->egl_surface;
-}
-
 static int
 gl_renderer_create_fence_fd(struct weston_output *output)
 {
@@ -4121,7 +4115,6 @@ WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.display_create = gl_renderer_display_create,
 	.output_window_create = gl_renderer_output_window_create,
 	.output_destroy = gl_renderer_output_destroy,
-	.output_surface = gl_renderer_output_surface,
 	.output_set_border = gl_renderer_output_set_border,
 	.create_fence_fd = gl_renderer_create_fence_fd,
 	.print_egl_error_state = gl_renderer_print_egl_error_state
