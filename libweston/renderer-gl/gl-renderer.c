@@ -3354,6 +3354,7 @@ static int
 gl_renderer_display_create(struct weston_compositor *ec,
 			   EGLenum platform,
 			   void *native_display,
+			   EGLint egl_surface_type,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count)
 {
@@ -3427,13 +3428,11 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 
 	if (!gr->has_configless_context) {
-		EGLint surface_type = EGL_WINDOW_BIT;
-
 		if (!gr->has_surfaceless_context)
-			surface_type |= EGL_PBUFFER_BIT;
+			egl_surface_type |= EGL_PBUFFER_BIT;
 
 		gr->egl_config = gl_renderer_get_egl_config(gr,
-							    surface_type,
+							    egl_surface_type,
 							    drm_formats,
 							    drm_formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {

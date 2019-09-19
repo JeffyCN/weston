@@ -46,6 +46,8 @@ typedef void *EGLConfig;
 typedef intptr_t EGLNativeDisplayType;
 typedef intptr_t EGLNativeWindowType;
 #define EGL_DEFAULT_DISPLAY ((EGLNativeDisplayType)0)
+#define EGL_PBUFFER_BIT                   0x0001
+#define EGL_WINDOW_BIT                    0x0004
 
 #endif /* ENABLE_EGL */
 
@@ -60,6 +62,7 @@ struct gl_renderer_interface {
 	int (*display_create)(struct weston_compositor *ec,
 			      EGLenum platform,
 			      void *native_display,
+			      EGLint egl_surface_type,
 			      const uint32_t *drm_formats,
 			      unsigned drm_formats_count);
 

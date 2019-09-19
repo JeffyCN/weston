@@ -1813,6 +1813,7 @@ init_gl_renderer(struct x11_backend *b)
 
 	ret = gl_renderer->display_create(b->compositor, EGL_PLATFORM_X11_KHR,
 					  (void *) b->dpy,
+					  EGL_WINDOW_BIT,
 					  x11_formats,
 					  ARRAY_LENGTH(x11_formats));
 
