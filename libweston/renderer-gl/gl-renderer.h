@@ -59,6 +59,42 @@ enum gl_renderer_border_side {
 };
 
 struct gl_renderer_interface {
+	/**
+	 * Initialize GL-renderer with the given EGL platform and native display
+	 *
+	 * \param ec The weston_compositor where to initialize.
+	 * \param platform The EGL platform identifier.
+	 * \param native_display The native display corresponding to the given
+	 * EGL platform.
+	 * \param egl_surface_type EGL_SURFACE_TYPE bits for the base EGLConfig.
+	 * \param drm_formats Array of DRM pixel formats that are acceptable
+	 * for the base EGLConfig.
+	 * \param drm_formats_count The drm_formats array length.
+	 * \return 0 on success, -1 on failure.
+	 *
+	 * This function creates an EGLDisplay and initializes it. It also
+	 * creates the GL ES context and sets it up. It attempts GL ES 3.0
+	 * and falls back to GL ES 2.0 if 3.0 is not supported.
+	 *
+	 * If \c platform is zero or EGL_EXT_platform_base is not supported,
+	 * choosing the platform is left for the EGL implementation. Otherwise
+	 * the given platform is used explicitly if the EGL implementation
+	 * advertises it. Without the advertisement this function fails.
+	 *
+	 * If neither EGL_KHR_no_config_context or EGL_MESA_configless_context
+	 * are supported, the arguments egl_surface_type, drm_formats, and
+	 * drm_formats_count are used to find a so called base EGLConfig. The
+	 * GL context is created with the base EGLConfig, and outputs will be
+	 * required to use the same config as well. If one or both of the
+	 * extensions are supported, these arguments are unused, and each
+	 * output can use a different EGLConfig (pixel format).
+	 *
+	 * The first format in drm_formats that matches any EGLConfig
+	 * determines which EGLConfig is chosen. On EGL GBM platform, the
+	 * pixel format must match exactly. On other platforms, it is enough
+	 * that each R, G, B, A channel has the same number of bits as in the
+	 * DRM format.
+	 */
 	int (*display_create)(struct weston_compositor *ec,
 			      EGLenum platform,
 			      void *native_display,
