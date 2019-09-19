@@ -3881,12 +3881,6 @@ fail:
 	return -1;
 }
 
-static EGLDisplay
-gl_renderer_display(struct weston_compositor *ec)
-{
-	return get_renderer(ec)->egl_display;
-}
-
 static int
 compile_shaders(struct weston_compositor *ec)
 {
@@ -4125,7 +4119,6 @@ WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.alpha_attribs = gl_renderer_alpha_attribs,
 
 	.display_create = gl_renderer_display_create,
-	.display = gl_renderer_display,
 	.output_window_create = gl_renderer_output_window_create,
 	.output_destroy = gl_renderer_output_destroy,
 	.output_surface = gl_renderer_output_surface,
