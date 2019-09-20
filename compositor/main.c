@@ -680,6 +680,7 @@ usage(int error_code)
 		"  --transform=TR\tThe output transformation, TR is one of:\n"
 		"\tnormal 90 180 270 flipped flipped-90 flipped-180 flipped-270\n"
 		"  --use-pixman\t\tUse the pixman (CPU) renderer (default: no rendering)\n"
+		"  --use-gl\t\tUse the GL renderer (default: no rendering)\n"
 		"  --no-outputs\t\tDo not create any virtual outputs\n"
 		"\n");
 #endif
@@ -2554,6 +2555,8 @@ load_headless_backend(struct weston_compositor *c,
 	char *transform = NULL;
 	int32_t use_pixman_config_ = 0;
 	int use_pixman_ = 0;
+	int32_t use_gl_config_ = 0;
+	int use_gl_ = 0;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
 	if (!parsed_options)
@@ -2563,17 +2566,22 @@ load_headless_backend(struct weston_compositor *c,
 	weston_config_section_get_bool(section, "use-pixman", &use_pixman_config_,
 				       use_pixman_config_);
 	use_pixman_ = use_pixman_config_;
+	weston_config_section_get_bool(section, "use-gl", &use_gl_config_,
+				       use_gl_config_);
+	use_gl_ = use_gl_config_;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &use_pixman_ },
+		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &use_gl_ },
 		{ WESTON_OPTION_STRING, "transform", 0, &transform },
 		{ WESTON_OPTION_BOOLEAN, "no-outputs", 0, &no_outputs },
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
 	config.use_pixman = use_pixman_;
+	config.use_gl = use_gl_;
 
 	if (transform) {
 		if (weston_parse_transform(transform, &parsed_options->transform) < 0) {
