@@ -135,6 +135,33 @@ struct gl_renderer_interface {
 				    const uint32_t *drm_formats,
 				    unsigned drm_formats_count);
 
+	/**
+	 * Attach GL-renderer to the output with internal pixel storage
+	 *
+	 * \param output The output to create a rendering surface for.
+	 * \param width Width of the rendering surface in pixels.
+	 * \param height Height of the rendering surface in pixels.
+	 * \param drm_formats Array of DRM pixel formats that are acceptable.
+	 * \param drm_formats_count The drm_formats array length.
+	 * \return 0 on success, -1 on failure.
+	 *
+	 * This function creates the renderer data structures needed to repaint
+	 * the output. The repaint results will be kept internal and can only
+	 * be accessed through e.g. screen capture.
+	 *
+	 * The first format in drm_formats that matches any EGLConfig
+	 * determines which EGLConfig is chosen. See \c display_create about
+	 * how the matching works and the possible limitations.
+	 *
+	 * This function should be used only if \c display_create was called
+	 * with \c EGL_PBUFFER_BIT in \c egl_surface_type.
+	 */
+	int (*output_pbuffer_create)(struct weston_output *output,
+				     int width,
+				     int height,
+				     const uint32_t *drm_formats,
+				     unsigned drm_formats_count);
+
 	void (*output_destroy)(struct weston_output *output);
 
 	/* Sets the output border.

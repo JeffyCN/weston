@@ -3142,6 +3142,48 @@ gl_renderer_output_window_create(struct weston_output *output,
 	return ret;
 }
 
+static int
+gl_renderer_output_pbuffer_create(struct weston_output *output,
+				  int width,
+				  int height,
+				  const uint32_t *drm_formats,
+				  unsigned drm_formats_count)
+{
+	struct gl_renderer *gr = get_renderer(output->compositor);
+	EGLConfig pbuffer_config;
+	EGLSurface egl_surface;
+	int ret;
+	EGLint pbuffer_attribs[] = {
+		EGL_WIDTH, width,
+		EGL_HEIGHT, height,
+		EGL_NONE
+	};
+
+	pbuffer_config = gl_renderer_get_egl_config(gr, EGL_PBUFFER_BIT,
+						    drm_formats,
+						    drm_formats_count);
+	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
+		weston_log("failed to choose EGL config for PbufferSurface\n");
+		return -1;
+	}
+
+	log_egl_config_info(gr->egl_display, pbuffer_config);
+
+	egl_surface = eglCreatePbufferSurface(gr->egl_display, pbuffer_config,
+					      pbuffer_attribs);
+	if (egl_surface == EGL_NO_SURFACE) {
+		weston_log("failed to create egl surface\n");
+		gl_renderer_print_egl_error_state();
+		return -1;
+	}
+
+	ret = gl_renderer_output_create(output, egl_surface);
+	if (ret < 0)
+		eglDestroySurface(gr->egl_display, egl_surface);
+
+	return ret;
+}
+
 static void
 gl_renderer_output_destroy(struct weston_output *output)
 {
@@ -3728,6 +3770,7 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.display_create = gl_renderer_display_create,
 	.output_window_create = gl_renderer_output_window_create,
+	.output_pbuffer_create = gl_renderer_output_pbuffer_create,
 	.output_destroy = gl_renderer_output_destroy,
 	.output_set_border = gl_renderer_output_set_border,
 	.create_fence_fd = gl_renderer_create_fence_fd,

@@ -32,18 +32,22 @@
 #include <string.h>
 #include <sys/time.h>
 #include <stdbool.h>
+#include <drm_fourcc.h>
 
 #include <libweston/libweston.h>
 #include <libweston/backend-headless.h>
 #include "shared/helpers.h"
 #include "linux-explicit-synchronization.h"
 #include "pixman-renderer.h"
+#include "renderer-gl/gl-renderer.h"
+#include "linux-dmabuf.h"
 #include "presentation-time-server-protocol.h"
 #include <libweston/windowed-output-api.h>
 
 enum headless_renderer_type {
 	HEADLESS_NOOP,
 	HEADLESS_PIXMAN,
+	HEADLESS_GL,
 };
 
 struct headless_backend {
@@ -52,6 +56,8 @@ struct headless_backend {
 
 	struct weston_seat fake_seat;
 	enum headless_renderer_type renderer_type;
+
+	struct gl_renderer_interface *glri;
 };
 
 struct headless_head {
@@ -65,6 +71,11 @@ struct headless_output {
 	struct wl_event_source *finish_frame_timer;
 	uint32_t *image_buf;
 	pixman_image_t *image;
+};
+
+static const uint32_t headless_formats[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
 };
 
 static inline struct headless_head *
@@ -127,6 +138,15 @@ headless_output_repaint(struct weston_output *output_base,
 }
 
 static void
+headless_output_disable_gl(struct headless_output *output)
+{
+	struct weston_compositor *compositor = output->base.compositor;
+	struct headless_backend *b = to_headless_backend(compositor);
+
+	b->glri->output_destroy(&output->base);
+}
+
+static void
 headless_output_disable_pixman(struct headless_output *output)
 {
 	pixman_renderer_output_destroy(&output->base);
@@ -146,6 +166,9 @@ headless_output_disable(struct weston_output *base)
 	wl_event_source_remove(output->finish_frame_timer);
 
 	switch (b->renderer_type) {
+	case HEADLESS_GL:
+		headless_output_disable_gl(output);
+		break;
 	case HEADLESS_PIXMAN:
 		headless_output_disable_pixman(output);
 		break;
@@ -165,6 +188,24 @@ headless_output_destroy(struct weston_output *base)
 	weston_output_release(&output->base);
 
 	free(output);
+}
+
+static int
+headless_output_enable_gl(struct headless_output *output)
+{
+	struct weston_compositor *compositor = output->base.compositor;
+	struct headless_backend *b = to_headless_backend(compositor);
+
+	if (b->glri->output_pbuffer_create(&output->base,
+					   output->base.current_mode->width,
+					   output->base.current_mode->height,
+					   headless_formats,
+					   ARRAY_LENGTH(headless_formats)) < 0) {
+		weston_log("failed to create gl renderer output state\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 static int
@@ -209,6 +250,9 @@ headless_output_enable(struct weston_output *base)
 		wl_event_loop_add_timer(loop, finish_frame_handler, output);
 
 	switch (b->renderer_type) {
+	case HEADLESS_GL:
+		ret = headless_output_enable_gl(output);
+		break;
 	case HEADLESS_PIXMAN:
 		ret = headless_output_enable_pixman(output);
 		break;
@@ -339,6 +383,25 @@ headless_destroy(struct weston_compositor *ec)
 	free(b);
 }
 
+static int
+headless_gl_renderer_init(struct headless_backend *b)
+{
+	b->glri = weston_load_module("gl-renderer.so", "gl_renderer_interface");
+	if (!b->glri)
+		return -1;
+
+	if (b->glri->display_create(b->compositor,
+				    EGL_PLATFORM_SURFACELESS_MESA,
+				    EGL_DEFAULT_DISPLAY,
+				    EGL_PBUFFER_BIT,
+				    headless_formats,
+				    ARRAY_LENGTH(headless_formats)) < 0) {
+		return -1;
+	}
+
+	return 0;
+}
+
 static const struct weston_windowed_output_api api = {
 	headless_output_set_size,
 	headless_head_create,
@@ -364,12 +427,22 @@ headless_backend_create(struct weston_compositor *compositor,
 	b->base.destroy = headless_destroy;
 	b->base.create_output = headless_output_create;
 
-	if (config->use_pixman)
+	if (config->use_pixman && config->use_gl) {
+		weston_log("Error: cannot use both Pixman *and* GL renderers.\n");
+		goto err_free;
+	}
+
+	if (config->use_gl)
+		b->renderer_type = HEADLESS_GL;
+	else if (config->use_pixman)
 		b->renderer_type = HEADLESS_PIXMAN;
 	else
 		b->renderer_type = HEADLESS_NOOP;
 
 	switch (b->renderer_type) {
+	case HEADLESS_GL:
+		ret = headless_gl_renderer_init(b);
+		break;
 	case HEADLESS_PIXMAN:
 		ret = pixman_renderer_init(compositor);
 		break;
@@ -380,6 +453,13 @@ headless_backend_create(struct weston_compositor *compositor,
 
 	if (ret < 0)
 		goto err_input;
+
+	if (compositor->renderer->import_dmabuf) {
+		if (linux_dmabuf_setup(compositor) < 0) {
+			weston_log("Error: dmabuf protocol setup failed.\n");
+			goto err_input;
+		}
+	}
 
 	/* Support zwp_linux_explicit_synchronization_unstable_v1 to enable
 	 * testing. */
