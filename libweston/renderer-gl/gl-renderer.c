@@ -3303,6 +3303,8 @@ platform_to_extension(EGLenum platform)
 		return "wayland";
 	case EGL_PLATFORM_X11_KHR:
 		return "x11";
+	case EGL_PLATFORM_SURFACELESS_MESA:
+		return "surfaceless";
 	default:
 		assert(0 && "bad EGL platform enum");
 	}
@@ -3368,6 +3370,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		if (supports < 0)
 			return -1;
 	}
+
+	/* Surfaceless is unusable without platform_base extension */
+	if (supports == 0 && platform == EGL_PLATFORM_SURFACELESS_MESA)
+		return -1;
 
 	gr = zalloc(sizeof *gr);
 	if (gr == NULL)
