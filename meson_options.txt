@@ -33,6 +33,12 @@ option(
 	description: 'Compositor: RDP screen-sharing support'
 )
 option(
+	'backend-vnc',
+	type: 'boolean',
+	value: true,
+	description: 'Weston backend: VNC remote screensharing'
+)
+option(
 	'backend-wayland',
 	type: 'boolean',
 	value: true,
