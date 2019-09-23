@@ -5,6 +5,7 @@ endif
 config_h.set('ENABLE_EGL', '1')
 
 srcs_renderer_gl = [
+	'egl-glue.c',
 	'gl-renderer.c',
 	linux_dmabuf_unstable_v1_protocol_c,
 	linux_dmabuf_unstable_v1_server_protocol_h,

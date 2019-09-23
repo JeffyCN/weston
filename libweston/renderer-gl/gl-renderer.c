@@ -46,6 +46,7 @@
 #include "timeline.h"
 
 #include "gl-renderer.h"
+#include "gl-renderer-internal.h"
 #include "vertex-clipping.h"
 #include "linux-dmabuf.h"
 #include "linux-dmabuf-unstable-v1-server-protocol.h"
@@ -63,16 +64,6 @@
 
 #define GR_GL_VERSION_INVALID \
 	GR_GL_VERSION(0, 0)
-
-struct gl_shader {
-	GLuint program;
-	GLuint vertex_shader, fragment_shader;
-	GLint proj_uniform;
-	GLint tex_uniforms[3];
-	GLint alpha_uniform;
-	GLint color_uniform;
-	const char *vertex_source, *fragment_source;
-};
 
 #define BUFFER_DAMAGE_COUNT 2
 
@@ -197,81 +188,6 @@ struct gl_surface_state {
 	struct wl_listener renderer_destroy_listener;
 };
 
-struct gl_renderer {
-	struct weston_renderer base;
-	bool fragment_shader_debug;
-	bool fan_debug;
-	struct weston_binding *fragment_binding;
-	struct weston_binding *fan_binding;
-
-	EGLDisplay egl_display;
-	EGLContext egl_context;
-	EGLConfig egl_config;
-
-	EGLSurface dummy_surface;
-
-	uint32_t gl_version;
-
-	struct wl_array vertices;
-	struct wl_array vtxcnt;
-
-	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
-	PFNEGLCREATEIMAGEKHRPROC create_image;
-	PFNEGLDESTROYIMAGEKHRPROC destroy_image;
-	PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC swap_buffers_with_damage;
-	PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC create_platform_window;
-
-	bool has_unpack_subimage;
-
-	PFNEGLBINDWAYLANDDISPLAYWL bind_display;
-	PFNEGLUNBINDWAYLANDDISPLAYWL unbind_display;
-	PFNEGLQUERYWAYLANDBUFFERWL query_buffer;
-	bool has_bind_display;
-
-	bool has_context_priority;
-
-	bool has_egl_image_external;
-
-	bool has_egl_buffer_age;
-	bool has_egl_partial_update;
-	PFNEGLSETDAMAGEREGIONKHRPROC set_damage_region;
-
-	bool has_configless_context;
-
-	bool has_surfaceless_context;
-
-	bool has_dmabuf_import;
-	struct wl_list dmabuf_images;
-
-	bool has_gl_texture_rg;
-
-	struct gl_shader texture_shader_rgba;
-	struct gl_shader texture_shader_rgbx;
-	struct gl_shader texture_shader_egl_external;
-	struct gl_shader texture_shader_y_uv;
-	struct gl_shader texture_shader_y_u_v;
-	struct gl_shader texture_shader_y_xuxv;
-	struct gl_shader invert_color_shader;
-	struct gl_shader solid_shader;
-	struct gl_shader *current_shader;
-
-	struct wl_signal destroy_signal;
-
-	struct wl_listener output_destroy_listener;
-
-	bool has_dmabuf_import_modifiers;
-	PFNEGLQUERYDMABUFFORMATSEXTPROC query_dmabuf_formats;
-	PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_dmabuf_modifiers;
-
-	bool has_native_fence_sync;
-	PFNEGLCREATESYNCKHRPROC create_sync;
-	PFNEGLDESTROYSYNCKHRPROC destroy_sync;
-	PFNEGLDUPNATIVEFENCEFDANDROIDPROC dup_native_fence_fd;
-
-	bool has_wait_sync;
-	PFNEGLWAITSYNCKHRPROC wait_sync;
-};
-
 enum timeline_render_point_type {
 	TIMELINE_RENDER_POINT_TYPE_BEGIN,
 	TIMELINE_RENDER_POINT_TYPE_END
@@ -314,12 +230,6 @@ get_surface_state(struct weston_surface *surface)
 		gl_renderer_create_surface(surface);
 
 	return (struct gl_surface_state *)surface->renderer_state;
-}
-
-static inline struct gl_renderer *
-get_renderer(struct weston_compositor *ec)
-{
-	return (struct gl_renderer *)ec->renderer;
 }
 
 static void
@@ -475,42 +385,6 @@ dmabuf_image_destroy(struct dmabuf_image *image)
 
 	wl_list_remove(&image->link);
 	free(image);
-}
-
-static const char *
-egl_error_string(EGLint code)
-{
-#define MYERRCODE(x) case x: return #x;
-	switch (code) {
-	MYERRCODE(EGL_SUCCESS)
-	MYERRCODE(EGL_NOT_INITIALIZED)
-	MYERRCODE(EGL_BAD_ACCESS)
-	MYERRCODE(EGL_BAD_ALLOC)
-	MYERRCODE(EGL_BAD_ATTRIBUTE)
-	MYERRCODE(EGL_BAD_CONTEXT)
-	MYERRCODE(EGL_BAD_CONFIG)
-	MYERRCODE(EGL_BAD_CURRENT_SURFACE)
-	MYERRCODE(EGL_BAD_DISPLAY)
-	MYERRCODE(EGL_BAD_SURFACE)
-	MYERRCODE(EGL_BAD_MATCH)
-	MYERRCODE(EGL_BAD_PARAMETER)
-	MYERRCODE(EGL_BAD_NATIVE_PIXMAP)
-	MYERRCODE(EGL_BAD_NATIVE_WINDOW)
-	MYERRCODE(EGL_CONTEXT_LOST)
-	default:
-		return "unknown";
-	}
-#undef MYERRCODE
-}
-
-static void
-gl_renderer_print_egl_error_state(void)
-{
-	EGLint code;
-
-	code = eglGetError();
-	weston_log("EGL error state: %s (0x%04lx)\n",
-		egl_error_string(code), (long)code);
 }
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -3155,101 +3029,6 @@ log_gl_info(void)
 }
 
 static void
-log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig)
-{
-	EGLint r, g, b, a;
-
-	weston_log("Chosen EGL config details:\n");
-
-	weston_log_continue(STAMP_SPACE "RGBA bits");
-	if (eglGetConfigAttrib(egldpy, eglconfig, EGL_RED_SIZE, &r) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_GREEN_SIZE, &g) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_BLUE_SIZE, &b) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_ALPHA_SIZE, &a))
-		weston_log_continue(": %d %d %d %d\n", r, g, b, a);
-	else
-		weston_log_continue(" unknown\n");
-
-	weston_log_continue(STAMP_SPACE "swap interval range");
-	if (eglGetConfigAttrib(egldpy, eglconfig, EGL_MIN_SWAP_INTERVAL, &a) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_MAX_SWAP_INTERVAL, &b))
-		weston_log_continue(": %d - %d\n", a, b);
-	else
-		weston_log_continue(" unknown\n");
-}
-
-static int
-match_config_to_visual(EGLDisplay egl_display,
-		       EGLint visual_id,
-		       EGLConfig *configs,
-		       int count)
-{
-	int i;
-
-	for (i = 0; i < count; ++i) {
-		EGLint id;
-
-		if (!eglGetConfigAttrib(egl_display,
-				configs[i], EGL_NATIVE_VISUAL_ID,
-				&id))
-			continue;
-
-		if (id == visual_id)
-			return i;
-	}
-
-	return -1;
-}
-
-static int
-egl_choose_config(struct gl_renderer *gr, const EGLint *attribs,
-		  const EGLint *visual_id, const int n_ids,
-		  EGLConfig *config_out)
-{
-	EGLint count = 0;
-	EGLint matched = 0;
-	EGLConfig *configs;
-	int i, config_index = -1;
-
-	if (!eglGetConfigs(gr->egl_display, NULL, 0, &count) || count < 1) {
-		weston_log("No EGL configs to choose from.\n");
-		return -1;
-	}
-	configs = calloc(count, sizeof *configs);
-	if (!configs)
-		return -1;
-
-	if (!eglChooseConfig(gr->egl_display, attribs, configs,
-			      count, &matched) || !matched) {
-		weston_log("No EGL configs with appropriate attributes.\n");
-		goto out;
-	}
-
-	if (!visual_id || n_ids == 0)
-		config_index = 0;
-
-	for (i = 0; config_index == -1 && i < n_ids; i++)
-		config_index = match_config_to_visual(gr->egl_display,
-						      visual_id[i],
-						      configs,
-						      matched);
-
-	if (config_index != -1)
-		*config_out = configs[config_index];
-
-out:
-	free(configs);
-	if (config_index == -1)
-		return -1;
-
-	if (i > 1)
-		weston_log("Unable to use first choice EGL config with id"
-			   " 0x%x, succeeded with alternate id 0x%x.\n",
-			   visual_id[0], visual_id[i - 1]);
-	return 0;
-}
-
-static void
 gl_renderer_output_set_border(struct weston_output *output,
 			      enum gl_renderer_border_side side,
 			      int32_t width, int32_t height,
@@ -3461,149 +3240,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 		weston_binding_destroy(gr->fan_binding);
 
 	free(gr);
-}
-
-static void
-renderer_setup_egl_client_extensions(struct gl_renderer *gr)
-{
-	const char *extensions;
-
-	extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
-	if (!extensions) {
-		weston_log("Retrieving EGL client extension string failed.\n");
-		return;
-	}
-
-	if (weston_check_egl_extension(extensions, "EGL_EXT_platform_base"))
-		gr->create_platform_window =
-			(void *) eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
-	else
-		weston_log("warning: EGL_EXT_platform_base not supported.\n");
-}
-
-static int
-gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
-{
-	static const struct {
-		char *extension, *entrypoint;
-	} swap_damage_ext_to_entrypoint[] = {
-		{
-			.extension = "EGL_EXT_swap_buffers_with_damage",
-			.entrypoint = "eglSwapBuffersWithDamageEXT",
-		},
-		{
-			.extension = "EGL_KHR_swap_buffers_with_damage",
-			.entrypoint = "eglSwapBuffersWithDamageKHR",
-		},
-	};
-	struct gl_renderer *gr = get_renderer(ec);
-	const char *extensions;
-	EGLBoolean ret;
-	unsigned i;
-
-	gr->create_image = (void *) eglGetProcAddress("eglCreateImageKHR");
-	gr->destroy_image = (void *) eglGetProcAddress("eglDestroyImageKHR");
-
-	gr->bind_display =
-		(void *) eglGetProcAddress("eglBindWaylandDisplayWL");
-	gr->unbind_display =
-		(void *) eglGetProcAddress("eglUnbindWaylandDisplayWL");
-	gr->query_buffer =
-		(void *) eglGetProcAddress("eglQueryWaylandBufferWL");
-	gr->set_damage_region =
-		(void *) eglGetProcAddress("eglSetDamageRegionKHR");
-
-	extensions =
-		(const char *) eglQueryString(gr->egl_display, EGL_EXTENSIONS);
-	if (!extensions) {
-		weston_log("Retrieving EGL extension string failed.\n");
-		return -1;
-	}
-
-	if (weston_check_egl_extension(extensions, "EGL_IMG_context_priority"))
-		gr->has_context_priority = true;
-
-	if (weston_check_egl_extension(extensions, "EGL_WL_bind_wayland_display"))
-		gr->has_bind_display = true;
-	if (gr->has_bind_display) {
-		assert(gr->bind_display);
-		assert(gr->unbind_display);
-		assert(gr->query_buffer);
-		ret = gr->bind_display(gr->egl_display, ec->wl_display);
-		if (!ret)
-			gr->has_bind_display = false;
-	}
-
-	if (weston_check_egl_extension(extensions, "EGL_EXT_buffer_age"))
-		gr->has_egl_buffer_age = true;
-
-	if (weston_check_egl_extension(extensions, "EGL_KHR_partial_update")) {
-		assert(gr->set_damage_region);
-		gr->has_egl_partial_update = true;
-	}
-
-	for (i = 0; i < ARRAY_LENGTH(swap_damage_ext_to_entrypoint); i++) {
-		if (weston_check_egl_extension(extensions,
-				swap_damage_ext_to_entrypoint[i].extension)) {
-			gr->swap_buffers_with_damage =
-				(void *) eglGetProcAddress(
-						swap_damage_ext_to_entrypoint[i].entrypoint);
-			assert(gr->swap_buffers_with_damage);
-			break;
-		}
-	}
-
-	if (weston_check_egl_extension(extensions, "EGL_KHR_no_config_context") ||
-	    weston_check_egl_extension(extensions, "EGL_MESA_configless_context"))
-		gr->has_configless_context = true;
-
-	if (weston_check_egl_extension(extensions, "EGL_KHR_surfaceless_context"))
-		gr->has_surfaceless_context = true;
-
-	if (weston_check_egl_extension(extensions, "EGL_EXT_image_dma_buf_import"))
-		gr->has_dmabuf_import = true;
-
-	if (weston_check_egl_extension(extensions,
-				"EGL_EXT_image_dma_buf_import_modifiers")) {
-		gr->query_dmabuf_formats =
-			(void *) eglGetProcAddress("eglQueryDmaBufFormatsEXT");
-		gr->query_dmabuf_modifiers =
-			(void *) eglGetProcAddress("eglQueryDmaBufModifiersEXT");
-		assert(gr->query_dmabuf_formats);
-		assert(gr->query_dmabuf_modifiers);
-		gr->has_dmabuf_import_modifiers = true;
-	}
-
-	if (weston_check_egl_extension(extensions, "EGL_KHR_fence_sync") &&
-	    weston_check_egl_extension(extensions, "EGL_ANDROID_native_fence_sync")) {
-		gr->create_sync =
-			(void *) eglGetProcAddress("eglCreateSyncKHR");
-		gr->destroy_sync =
-			(void *) eglGetProcAddress("eglDestroySyncKHR");
-		gr->dup_native_fence_fd =
-			(void *) eglGetProcAddress("eglDupNativeFenceFDANDROID");
-		assert(gr->create_sync);
-		assert(gr->destroy_sync);
-		assert(gr->dup_native_fence_fd);
-		gr->has_native_fence_sync = true;
-	} else {
-		weston_log("warning: Disabling render GPU timeline and explicit "
-			   "synchronization due to missing "
-			   "EGL_ANDROID_native_fence_sync extension\n");
-	}
-
-	if (weston_check_egl_extension(extensions, "EGL_KHR_wait_sync")) {
-		gr->wait_sync = (void *) eglGetProcAddress("eglWaitSyncKHR");
-		assert(gr->wait_sync);
-		gr->has_wait_sync = true;
-	} else {
-		weston_log("warning: Disabling explicit synchronization due"
-			   "to missing EGL_KHR_wait_sync extension\n");
-	}
-
-	renderer_setup_egl_client_extensions(gr);
-
-	return 0;
 }
 
 static const EGLint gl_renderer_opaque_attribs[] = {
