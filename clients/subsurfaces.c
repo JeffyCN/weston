@@ -296,7 +296,7 @@ create_shader(const char *source, GLenum shader_type)
 		char log[1000];
 		GLsizei len;
 		glGetShaderInfoLog(shader, 1000, &len, log);
-		fprintf(stderr, "Error: compiling %s: %*s\n",
+		fprintf(stderr, "Error: compiling %s: %.*s\n",
 			shader_type == GL_VERTEX_SHADER ? "vertex" : "fragment",
 			len, log);
 		exit(1);
@@ -325,7 +325,7 @@ triangle_init_gl(struct triangle_gl_state *trigl)
 		char log[1000];
 		GLsizei len;
 		glGetProgramInfoLog(program, 1000, &len, log);
-		fprintf(stderr, "Error: linking:\n%*s\n", len, log);
+		fprintf(stderr, "Error: linking:\n%.*s\n", len, log);
 		exit(1);
 	}
 
