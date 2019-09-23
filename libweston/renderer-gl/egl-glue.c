@@ -39,6 +39,14 @@
 
 #include <assert.h>
 
+struct egl_config_print_info {
+	const EGLint *attrs;
+	unsigned attrs_count;
+	const char *prefix;
+	const char *separator;
+	int field_width;
+};
+
 static const char *
 egl_error_string(EGLint code)
 {
@@ -98,6 +106,123 @@ print_egl_surface_type_bits(FILE *fp, EGLint egl_surface_type)
 			sep = "|";
 		}
 	}
+}
+
+static const struct egl_config_print_info config_info_ints[] = {
+#define ARRAY(...) ((const EGLint[]) { __VA_ARGS__ })
+
+	{ ARRAY(EGL_CONFIG_ID), 1, "id: ", "", 3 },
+	{ ARRAY(EGL_RED_SIZE, EGL_GREEN_SIZE, EGL_BLUE_SIZE, EGL_ALPHA_SIZE), 4,
+	  "rgba: ", " ", 1 },
+	{ ARRAY(EGL_BUFFER_SIZE), 1, "buf: ", "", 2 },
+	{ ARRAY(EGL_DEPTH_SIZE), 1, "dep: ", "", 2 },
+	{ ARRAY(EGL_STENCIL_SIZE), 1, "stcl: ", "", 1 },
+	{ ARRAY(EGL_MIN_SWAP_INTERVAL, EGL_MAX_SWAP_INTERVAL), 2,
+	  "int: ", "-", 1 },
+
+#undef ARRAY
+};
+
+static void
+print_egl_config_ints(FILE *fp, EGLDisplay egldpy, EGLConfig eglconfig)
+{
+	unsigned i;
+
+	for (i = 0; i < ARRAY_LENGTH(config_info_ints); i++) {
+		const struct egl_config_print_info *info = &config_info_ints[i];
+		unsigned j;
+		const char *sep = "";
+
+		fputs(info->prefix, fp);
+		for (j = 0; j < info->attrs_count; j++) {
+			EGLint value;
+
+			if (eglGetConfigAttrib(egldpy, eglconfig,
+					       info->attrs[j], &value)) {
+				fprintf(fp, "%s%*d",
+					sep, info->field_width, value);
+			} else {
+				fprintf(fp, "%s!", sep);
+			}
+			sep = info->separator;
+		}
+
+		fputs(" ", fp);
+	}
+}
+
+static void
+print_egl_config_info(FILE *fp, EGLDisplay egldpy, EGLConfig eglconfig)
+{
+	EGLint value;
+
+	print_egl_config_ints(fp, egldpy, eglconfig);
+
+	fputs("type: ", fp);
+	if (eglGetConfigAttrib(egldpy, eglconfig, EGL_SURFACE_TYPE, &value))
+		print_egl_surface_type_bits(fp, value);
+	else
+		fputs("-", fp);
+
+	fputs(" vis_id: ", fp);
+	if (eglGetConfigAttrib(egldpy, eglconfig, EGL_NATIVE_VISUAL_ID, &value)) {
+		if (value != 0) {
+			const struct pixel_format_info *p;
+
+			p = pixel_format_get_info(value);
+			if (p) {
+				fprintf(fp, "%s (0x%x)",
+					p->drm_format_name, (unsigned)value);
+			} else {
+				fprintf(fp, "0x%x", (unsigned)value);
+			}
+		} else {
+			fputs("0", fp);
+		}
+	} else {
+		fputs("-", fp);
+	}
+}
+
+static void
+log_all_egl_configs(EGLDisplay egldpy)
+{
+	EGLint count = 0;
+	EGLConfig *configs;
+	int i;
+	char *strbuf = NULL;
+	size_t strsize = 0;
+	FILE *fp;
+
+	weston_log("All available EGLConfigs:\n");
+
+	if (!eglGetConfigs(egldpy, NULL, 0, &count) || count < 1)
+		return;
+
+	configs = calloc(count, sizeof *configs);
+	if (!configs)
+		return;
+
+	if (!eglGetConfigs(egldpy, configs, count, &count))
+		return;
+
+	fp = open_memstream(&strbuf, &strsize);
+	if (!fp)
+		goto out;
+
+	for (i = 0; i < count; i++) {
+		print_egl_config_info(fp, egldpy, configs[i]);
+		fputc(0, fp);
+		fflush(fp);
+		weston_log_continue(STAMP_SPACE "%s\n", strbuf);
+		rewind(fp);
+	}
+
+	fclose(fp);
+	free(strbuf);
+
+out:
+	free(configs);
 }
 
 void
@@ -313,6 +438,7 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 						   pinfo, pinfo_count);
 		weston_log("No EGLConfig matches %s.\n", what);
 		free(what);
+		log_all_egl_configs(gr->egl_display);
 		return EGL_NO_CONFIG_KHR;
 	}
 
