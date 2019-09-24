@@ -228,25 +228,18 @@ out:
 void
 log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig)
 {
-	EGLint r, g, b, a;
+	char *strbuf = NULL;
+	size_t strsize = 0;
+	FILE *fp;
 
-	weston_log("Chosen EGL config details:\n");
+	fp = open_memstream(&strbuf, &strsize);
+	if (fp) {
+		print_egl_config_info(fp, egldpy, eglconfig);
+		fclose(fp);
+	}
 
-	weston_log_continue(STAMP_SPACE "RGBA bits");
-	if (eglGetConfigAttrib(egldpy, eglconfig, EGL_RED_SIZE, &r) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_GREEN_SIZE, &g) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_BLUE_SIZE, &b) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_ALPHA_SIZE, &a))
-		weston_log_continue(": %d %d %d %d\n", r, g, b, a);
-	else
-		weston_log_continue(" unknown\n");
-
-	weston_log_continue(STAMP_SPACE "swap interval range");
-	if (eglGetConfigAttrib(egldpy, eglconfig, EGL_MIN_SWAP_INTERVAL, &a) &&
-	    eglGetConfigAttrib(egldpy, eglconfig, EGL_MAX_SWAP_INTERVAL, &b))
-		weston_log_continue(": %d - %d\n", a, b);
-	else
-		weston_log_continue(" unknown\n");
+	weston_log("Chosen EGL config details: %s\n", strbuf ? strbuf : "?");
+	free(strbuf);
 }
 
 static bool
