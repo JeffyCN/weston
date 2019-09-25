@@ -1859,8 +1859,16 @@ wet_output_from_weston_output(struct weston_output *base)
 static void
 wet_output_destroy(struct wet_output *output)
 {
-	if (output->output)
-		weston_output_destroy(output->output);
+	if (output->output) {
+		/* output->output destruction may be deferred in some cases (see
+		 * drm_output_destroy()), so we need to forcibly trigger the
+		 * destruction callback now, or otherwise would later access
+		 * data that we are about to free
+		 */
+		struct weston_output *save = output->output;
+		wet_output_handle_destroy(&output->output_destroy_listener, save);
+		weston_output_destroy(save);
+	}
 
 	wl_list_remove(&output->link);
 	free(output);
