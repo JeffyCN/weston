@@ -521,7 +521,7 @@ static int
 focus_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 {
 	return snprintf(buf, len, "focus highlight effect for output %s",
-			surface->output->name);
+			(surface->output ? surface->output->name : "NULL"));
 }
 
 /* no-op func for checking focus surface */
@@ -2985,7 +2985,7 @@ static int
 background_get_label(struct weston_surface *surface, char *buf, size_t len)
 {
 	return snprintf(buf, len, "background for output %s",
-			surface->output->name);
+			(surface->output ? surface->output->name : "NULL"));
 }
 
 static void
@@ -3065,7 +3065,7 @@ static int
 panel_get_label(struct weston_surface *surface, char *buf, size_t len)
 {
 	return snprintf(buf, len, "panel for output %s",
-			surface->output->name);
+			(surface->output ? surface->output->name : "NULL"));
 }
 
 static void
