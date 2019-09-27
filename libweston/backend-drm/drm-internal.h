@@ -536,6 +536,22 @@ to_drm_mode(struct weston_mode *base)
 	return container_of(base, struct drm_mode, base);
 }
 
+static inline const char *
+drm_output_get_plane_type_name(struct drm_plane *p)
+{
+	switch (p->type) {
+	case WDRM_PLANE_TYPE_PRIMARY:
+		return "primary";
+	case WDRM_PLANE_TYPE_CURSOR:
+		return "cursor";
+	case WDRM_PLANE_TYPE_OVERLAY:
+		return "overlay";
+	default:
+		assert(0);
+		break;
+	}
+}
+
 struct drm_output *
 drm_output_find_by_crtc(struct drm_backend *b, uint32_t crtc_id);
 
