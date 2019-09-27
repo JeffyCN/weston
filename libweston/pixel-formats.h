@@ -1,5 +1,5 @@
 /*
- * Copyright © 2016 Collabora, Ltd.
+ * Copyright © 2016, 2019 Collabora, Ltd.
  * Copyright (c) 2018 DisplayLink (UK) Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -100,6 +100,20 @@ struct pixel_format_info {
 		ORDER_LUMA_CHROMA = 0,
 		ORDER_CHROMA_LUMA,
 	} luma_chroma_order;
+
+	/** How many significant bits each channel has, or zero if N/A. */
+	struct {
+		int r;
+		int g;
+		int b;
+		int a;
+	} bits;
+
+	/** How channel bits are interpreted, fixed (uint) or floating-point */
+	enum {
+		PIXEL_COMPONENT_TYPE_FIXED = 0,
+		PIXEL_COMPONENT_TYPE_FLOAT,
+	} component_type;
 };
 
 /**
