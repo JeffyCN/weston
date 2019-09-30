@@ -38,6 +38,7 @@
 #include <sys/mman.h>
 #include <linux/input.h>
 
+#include <drm_fourcc.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 
@@ -62,6 +63,10 @@
 #include <libweston/windowed-output-api.h>
 
 #define WINDOW_TITLE "Weston Compositor"
+
+static const uint32_t wayland_formats[] = {
+	DRM_FORMAT_ARGB8888,
+};
 
 struct wayland_backend {
 	struct weston_backend base;
@@ -775,8 +780,8 @@ wayland_output_init_gl_renderer(struct wayland_output *output)
 					      output->gl.egl_window,
 					      output->gl.egl_window,
 					      gl_renderer->alpha_attribs,
-					      NULL,
-					      0) < 0)
+					      wayland_formats,
+					      ARRAY_LENGTH(wayland_formats)) < 0)
 		goto cleanup_window;
 
 	return 0;
@@ -2770,8 +2775,8 @@ wayland_backend_create(struct weston_compositor *compositor,
 						EGL_PLATFORM_WAYLAND_KHR,
 						b->parent.wl_display,
 						gl_renderer->alpha_attribs,
-						NULL,
-						0) < 0) {
+						wayland_formats,
+						ARRAY_LENGTH(wayland_formats)) < 0) {
 			weston_log("Failed to initialize the GL renderer; "
 				   "falling back to pixman.\n");
 			b->use_pixman = true;
