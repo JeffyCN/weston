@@ -779,7 +779,6 @@ wayland_output_init_gl_renderer(struct wayland_output *output)
 	if (gl_renderer->output_window_create(&output->base,
 					      output->gl.egl_window,
 					      output->gl.egl_window,
-					      gl_renderer->alpha_attribs,
 					      wayland_formats,
 					      ARRAY_LENGTH(wayland_formats)) < 0)
 		goto cleanup_window;
@@ -2774,7 +2773,6 @@ wayland_backend_create(struct weston_compositor *compositor,
 		if (gl_renderer->display_create(compositor,
 						EGL_PLATFORM_WAYLAND_KHR,
 						b->parent.wl_display,
-						gl_renderer->alpha_attribs,
 						wayland_formats,
 						ARRAY_LENGTH(wayland_formats)) < 0) {
 			weston_log("Failed to initialize the GL renderer; "

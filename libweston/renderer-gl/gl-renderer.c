@@ -3061,14 +3061,13 @@ static EGLSurface
 gl_renderer_create_window_surface(struct gl_renderer *gr,
 				  EGLNativeWindowType window_for_legacy,
 				  void *window_for_platform,
-				  const EGLint *config_attribs,
 				  const uint32_t *drm_formats,
 				  unsigned drm_formats_count)
 {
 	EGLSurface egl_surface = EGL_NO_SURFACE;
 	EGLConfig egl_config;
 
-	egl_config = gl_renderer_get_egl_config(gr, config_attribs,
+	egl_config = gl_renderer_get_egl_config(gr,
 						drm_formats, drm_formats_count);
 	if (egl_config == EGL_NO_CONFIG_KHR)
 		return EGL_NO_SURFACE;
@@ -3118,7 +3117,6 @@ static int
 gl_renderer_output_window_create(struct weston_output *output,
 				 EGLNativeWindowType window_for_legacy,
 				 void *window_for_platform,
-				 const EGLint *config_attribs,
 				 const uint32_t *drm_formats,
 				 unsigned drm_formats_count)
 {
@@ -3130,7 +3128,6 @@ gl_renderer_output_window_create(struct weston_output *output,
 	egl_surface = gl_renderer_create_window_surface(gr,
 							window_for_legacy,
 							window_for_platform,
-							config_attribs,
 							drm_formats,
 							drm_formats_count);
 	if (egl_surface == EGL_NO_SURFACE) {
@@ -3233,27 +3230,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 
 	free(gr);
 }
-
-static const EGLint gl_renderer_opaque_attribs[] = {
-	EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-	EGL_RED_SIZE, 1,
-	EGL_GREEN_SIZE, 1,
-	EGL_BLUE_SIZE, 1,
-	EGL_ALPHA_SIZE, 0,
-	EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-	EGL_NONE
-};
-
-static const EGLint gl_renderer_alpha_attribs[] = {
-	EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-	EGL_RED_SIZE, 1,
-	EGL_GREEN_SIZE, 1,
-	EGL_BLUE_SIZE, 1,
-	EGL_ALPHA_SIZE, 1,
-	EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-	EGL_NONE
-};
-
 
 /** Checks whether a platform EGL client extension is supported
  *
@@ -3387,7 +3363,6 @@ static int
 gl_renderer_display_create(struct weston_compositor *ec,
 			   EGLenum platform,
 			   void *native_display,
-			   const EGLint *config_attribs,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count)
 {
@@ -3461,7 +3436,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 
 	if (!gr->has_configless_context) {
-		gr->egl_config = gl_renderer_get_egl_config(gr, config_attribs,
+		gr->egl_config = gl_renderer_get_egl_config(gr,
 							    drm_formats,
 							    drm_formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
@@ -3749,9 +3724,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 }
 
 WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
-	.opaque_attribs = gl_renderer_opaque_attribs,
-	.alpha_attribs = gl_renderer_alpha_attribs,
-
 	.display_create = gl_renderer_display_create,
 	.output_window_create = gl_renderer_output_window_create,
 	.output_destroy = gl_renderer_output_destroy,

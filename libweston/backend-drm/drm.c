@@ -747,7 +747,6 @@ drm_backend_create_gl_renderer(struct drm_backend *b)
 	if (gl_renderer->display_create(b->compositor,
 					EGL_PLATFORM_GBM_KHR,
 					(void *)b->gbm,
-					gl_renderer->opaque_attribs,
 					format,
 					n_formats) < 0) {
 		return -1;
@@ -1393,7 +1392,6 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 	if (gl_renderer->output_window_create(&output->base,
 					      (EGLNativeWindowType)output->gbm_surface,
 					      output->gbm_surface,
-					      gl_renderer->opaque_attribs,
 					      format,
 					      n_formats) < 0) {
 		weston_log("failed to create gl renderer output state\n");

@@ -187,7 +187,6 @@ out:
 
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
-			   const EGLint *config_attribs,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count)
 {
@@ -195,6 +194,14 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	const struct pixel_format_info *pinfo[16];
 	unsigned pinfo_count;
 	unsigned i;
+	EGLint config_attribs[] = {
+		EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
+		EGL_RED_SIZE,        1,
+		EGL_GREEN_SIZE,      1,
+		EGL_BLUE_SIZE,       1,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		EGL_NONE
+	};
 
 	assert(drm_formats_count < ARRAY_LENGTH(pinfo));
 	drm_formats_count = MIN(drm_formats_count, ARRAY_LENGTH(pinfo));

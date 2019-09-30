@@ -57,20 +57,15 @@ enum gl_renderer_border_side {
 };
 
 struct gl_renderer_interface {
-	const EGLint *opaque_attribs;
-	const EGLint *alpha_attribs;
-
 	int (*display_create)(struct weston_compositor *ec,
 			      EGLenum platform,
 			      void *native_display,
-			      const EGLint *config_attribs,
 			      const uint32_t *drm_formats,
 			      unsigned drm_formats_count);
 
 	int (*output_window_create)(struct weston_output *output,
 				    EGLNativeWindowType window_for_legacy,
 				    void *window_for_platform,
-				    const EGLint *config_attribs,
 				    const uint32_t *drm_formats,
 				    unsigned drm_formats_count);
 

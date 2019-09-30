@@ -870,7 +870,6 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 		ret = gl_renderer->output_window_create(&output->base,
 						        (EGLNativeWindowType) output->window,
 						        &xid,
-						        gl_renderer->opaque_attribs,
 						        x11_formats,
 						        ARRAY_LENGTH(x11_formats));
 		if (ret < 0)
@@ -1046,7 +1045,6 @@ x11_output_enable(struct weston_output *base)
 					&output->base,
 					(EGLNativeWindowType) output->window,
 					&xid,
-					gl_renderer->opaque_attribs,
 					x11_formats,
 					ARRAY_LENGTH(x11_formats));
 		if (ret < 0)
@@ -1815,7 +1813,6 @@ init_gl_renderer(struct x11_backend *b)
 
 	ret = gl_renderer->display_create(b->compositor, EGL_PLATFORM_X11_KHR,
 					  (void *) b->dpy,
-					  gl_renderer->opaque_attribs,
 					  x11_formats,
 					  ARRAY_LENGTH(x11_formats));
 

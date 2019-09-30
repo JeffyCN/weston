@@ -138,7 +138,6 @@ egl_choose_config(struct gl_renderer *gr,
 
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
-			   const EGLint *config_attribs,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count);
 
