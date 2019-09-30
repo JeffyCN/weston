@@ -39,6 +39,7 @@
 #include <sys/shm.h>
 #include <linux/input.h>
 
+#include <drm_fourcc.h>
 #include <xcb/xcb.h>
 #include <xcb/shm.h>
 #ifdef HAVE_XCB_XKB
@@ -71,6 +72,10 @@
 
 #define WINDOW_MAX_WIDTH 8192
 #define WINDOW_MAX_HEIGHT 8192
+
+static const uint32_t x11_formats[] = {
+	DRM_FORMAT_XRGB8888,
+};
 
 struct x11_backend {
 	struct weston_backend	 base;
@@ -866,8 +871,8 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 						        (EGLNativeWindowType) output->window,
 						        &xid,
 						        gl_renderer->opaque_attribs,
-						        NULL,
-						        0);
+						        x11_formats,
+						        ARRAY_LENGTH(x11_formats));
 		if (ret < 0)
 			return -1;
 	}
@@ -1042,8 +1047,8 @@ x11_output_enable(struct weston_output *base)
 					(EGLNativeWindowType) output->window,
 					&xid,
 					gl_renderer->opaque_attribs,
-					NULL,
-					0);
+					x11_formats,
+					ARRAY_LENGTH(x11_formats));
 		if (ret < 0)
 			goto err;
 
@@ -1810,7 +1815,9 @@ init_gl_renderer(struct x11_backend *b)
 
 	ret = gl_renderer->display_create(b->compositor, EGL_PLATFORM_X11_KHR,
 					  (void *) b->dpy,
-					  gl_renderer->opaque_attribs, NULL, 0);
+					  gl_renderer->opaque_attribs,
+					  x11_formats,
+					  ARRAY_LENGTH(x11_formats));
 
 	return ret;
 }
