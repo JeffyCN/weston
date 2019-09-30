@@ -34,6 +34,7 @@
 
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
+#include "pixel-formats.h"
 #include "weston-egl-ext.h"
 
 #include <assert.h>
@@ -122,14 +123,17 @@ match_config_to_visual(EGLDisplay egl_display,
 }
 
 int
-egl_choose_config(struct gl_renderer *gr, const EGLint *attribs,
-		  const EGLint *visual_id, const int n_ids,
+egl_choose_config(struct gl_renderer *gr,
+		  const EGLint *attribs,
+		  const struct pixel_format_info *const *pinfo,
+		  unsigned pinfo_count,
 		  EGLConfig *config_out)
 {
 	EGLint count = 0;
 	EGLint matched = 0;
 	EGLConfig *configs;
-	int i, config_index = -1;
+	unsigned i;
+	int config_index = -1;
 
 	if (!eglGetConfigs(gr->egl_display, NULL, 0, &count) || count < 1) {
 		weston_log("No EGL configs to choose from.\n");
@@ -145,12 +149,12 @@ egl_choose_config(struct gl_renderer *gr, const EGLint *attribs,
 		goto out;
 	}
 
-	if (!visual_id || n_ids == 0)
+	if (pinfo_count == 0)
 		config_index = 0;
 
-	for (i = 0; config_index == -1 && i < n_ids; i++)
+	for (i = 0; config_index == -1 && i < pinfo_count; i++)
 		config_index = match_config_to_visual(gr->egl_display,
-						      visual_id[i],
+						      pinfo[i]->format,
 						      configs,
 						      matched);
 
@@ -163,9 +167,10 @@ out:
 		return -1;
 
 	if (i > 1)
-		weston_log("Unable to use first choice EGL config with id"
-			   " 0x%x, succeeded with alternate id 0x%x.\n",
-			   visual_id[0], visual_id[i - 1]);
+		weston_log("Unable to use first choice EGL config with"
+			   " %s, succeeded with alternate %s.\n",
+			   pinfo[0]->drm_format_name,
+			   pinfo[i - 1]->drm_format_name);
 	return 0;
 }
 
@@ -176,18 +181,25 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   unsigned drm_formats_count)
 {
 	EGLConfig egl_config;
-	EGLint visual_id[16];
-	int id_count;
-	int i;
+	const struct pixel_format_info *pinfo[16];
+	unsigned pinfo_count;
+	unsigned i;
 
-	assert(drm_formats_count < ARRAY_LENGTH(visual_id));
-	id_count = MIN(drm_formats_count, ARRAY_LENGTH(visual_id));
+	assert(drm_formats_count < ARRAY_LENGTH(pinfo));
+	drm_formats_count = MIN(drm_formats_count, ARRAY_LENGTH(pinfo));
 
-	for (i = 0; i < id_count; i++)
-		visual_id[i] = drm_formats[i];
+	for (pinfo_count = 0, i = 0; i < drm_formats_count; i++) {
+		pinfo[pinfo_count] = pixel_format_get_info(drm_formats[i]);
+		if (!pinfo[pinfo_count]) {
+			weston_log("Bad/unknown DRM format code 0x%08x.\n",
+				   drm_formats[i]);
+			continue;
+		}
+		pinfo_count++;
+	}
 
-	if (egl_choose_config(gr, config_attribs, visual_id,
-			      id_count, &egl_config) < 0) {
+	if (egl_choose_config(gr, config_attribs, pinfo, pinfo_count,
+			      &egl_config) < 0) {
 		weston_log("No EGLConfig matches.\n");
 		return EGL_NO_CONFIG_KHR;
 	}

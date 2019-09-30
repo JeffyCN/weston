@@ -126,9 +126,13 @@ gl_renderer_print_egl_error_state(void);
 void
 log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig);
 
+struct pixel_format_info;
+
 int
-egl_choose_config(struct gl_renderer *gr, const EGLint *attribs,
-		  const EGLint *visual_id, const int n_ids,
+egl_choose_config(struct gl_renderer *gr,
+		  const EGLint *attribs,
+		  const struct pixel_format_info *const *pinfo,
+		  unsigned pinfo_count,
 		  EGLConfig *config_out);
 
 EGLConfig
