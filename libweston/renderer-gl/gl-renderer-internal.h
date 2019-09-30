@@ -46,6 +46,7 @@ struct gl_renderer {
 	struct weston_binding *fragment_binding;
 	struct weston_binding *fan_binding;
 
+	EGLenum platform;
 	EGLDisplay egl_display;
 	EGLContext egl_context;
 	EGLConfig egl_config;

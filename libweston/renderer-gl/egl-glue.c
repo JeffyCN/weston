@@ -99,27 +99,37 @@ log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig)
 		weston_log_continue(" unknown\n");
 }
 
-static int
-match_config_to_visual(EGLDisplay egl_display,
-		       EGLint visual_id,
-		       EGLConfig *configs,
-		       int count)
+static bool
+egl_config_pixel_format_matches(struct gl_renderer *gr,
+				EGLConfig config,
+				const struct pixel_format_info *pinfo)
 {
-	int i;
+	static const EGLint attribs[4] = {
+		EGL_ALPHA_SIZE, EGL_RED_SIZE, EGL_GREEN_SIZE, EGL_BLUE_SIZE
+	};
+	const int *argb[4] = {
+		&pinfo->bits.a, &pinfo->bits.r, &pinfo->bits.g, &pinfo->bits.b
+	};
+	unsigned i;
+	EGLint value;
 
-	for (i = 0; i < count; ++i) {
-		EGLint id;
+	if (gr->platform == EGL_PLATFORM_GBM_KHR) {
+		if (!eglGetConfigAttrib(gr->egl_display, config,
+					EGL_NATIVE_VISUAL_ID, &value))
+			return false;
 
-		if (!eglGetConfigAttrib(egl_display,
-				configs[i], EGL_NATIVE_VISUAL_ID,
-				&id))
-			continue;
-
-		if (id == visual_id)
-			return i;
+		return ((uint32_t)value) == pinfo->format;
 	}
 
-	return -1;
+	for (i = 0; i < 4; i++) {
+		if (!eglGetConfigAttrib(gr->egl_display, config,
+					attribs[i], &value))
+			return false;
+		if (value != *argb[i])
+			return false;
+	}
+
+	return true;
 }
 
 int
@@ -133,6 +143,7 @@ egl_choose_config(struct gl_renderer *gr,
 	EGLint matched = 0;
 	EGLConfig *configs;
 	unsigned i;
+	EGLint j;
 	int config_index = -1;
 
 	if (!eglGetConfigs(gr->egl_display, NULL, 0, &count) || count < 1) {
@@ -153,10 +164,10 @@ egl_choose_config(struct gl_renderer *gr,
 		config_index = 0;
 
 	for (i = 0; config_index == -1 && i < pinfo_count; i++)
-		config_index = match_config_to_visual(gr->egl_display,
-						      pinfo[i]->format,
-						      configs,
-						      matched);
+		for (j = 0; config_index == -1 && j < matched; j++)
+			if (egl_config_pixel_format_matches(gr, configs[j],
+							    pinfo[i]))
+				config_index = j;
 
 	if (config_index != -1)
 		*config_out = configs[config_index];

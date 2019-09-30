@@ -3415,6 +3415,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.surface_get_content_size =
 		gl_renderer_surface_get_content_size;
 	gr->base.surface_copy_content = gl_renderer_surface_copy_content;
+	gr->platform = platform;
 	gr->egl_display = NULL;
 
 	/* extension_suffix is supported */
