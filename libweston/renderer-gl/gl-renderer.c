@@ -3526,6 +3526,9 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 	if (weston_check_egl_extension(extensions, "EGL_WL_bind_wayland_display"))
 		gr->has_bind_display = true;
 	if (gr->has_bind_display) {
+		assert(gr->bind_display);
+		assert(gr->unbind_display);
+		assert(gr->query_buffer);
 		ret = gr->bind_display(gr->egl_display, ec->wl_display);
 		if (!ret)
 			gr->has_bind_display = false;
@@ -3534,8 +3537,10 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 	if (weston_check_egl_extension(extensions, "EGL_EXT_buffer_age"))
 		gr->has_egl_buffer_age = true;
 
-	if (weston_check_egl_extension(extensions, "EGL_KHR_partial_update"))
+	if (weston_check_egl_extension(extensions, "EGL_KHR_partial_update")) {
+		assert(gr->set_damage_region);
 		gr->has_egl_partial_update = true;
+	}
 
 	for (i = 0; i < ARRAY_LENGTH(swap_damage_ext_to_entrypoint); i++) {
 		if (weston_check_egl_extension(extensions,
@@ -3543,6 +3548,7 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 			gr->swap_buffers_with_damage =
 				(void *) eglGetProcAddress(
 						swap_damage_ext_to_entrypoint[i].entrypoint);
+			assert(gr->swap_buffers_with_damage);
 			break;
 		}
 	}
@@ -3563,6 +3569,8 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 			(void *) eglGetProcAddress("eglQueryDmaBufFormatsEXT");
 		gr->query_dmabuf_modifiers =
 			(void *) eglGetProcAddress("eglQueryDmaBufModifiersEXT");
+		assert(gr->query_dmabuf_formats);
+		assert(gr->query_dmabuf_modifiers);
 		gr->has_dmabuf_import_modifiers = true;
 	}
 
@@ -3574,6 +3582,9 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 			(void *) eglGetProcAddress("eglDestroySyncKHR");
 		gr->dup_native_fence_fd =
 			(void *) eglGetProcAddress("eglDupNativeFenceFDANDROID");
+		assert(gr->create_sync);
+		assert(gr->destroy_sync);
+		assert(gr->dup_native_fence_fd);
 		gr->has_native_fence_sync = true;
 	} else {
 		weston_log("warning: Disabling render GPU timeline and explicit "
@@ -3583,6 +3594,7 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 
 	if (weston_check_egl_extension(extensions, "EGL_KHR_wait_sync")) {
 		gr->wait_sync = (void *) eglGetProcAddress("eglWaitSyncKHR");
+		assert(gr->wait_sync);
 		gr->has_wait_sync = true;
 	} else {
 		weston_log("warning: Disabling explicit synchronization due"
