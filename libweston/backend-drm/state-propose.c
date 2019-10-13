@@ -123,6 +123,35 @@ drm_output_check_plane_has_view_assigned(struct drm_plane *plane,
 	return false;
 }
 
+static bool
+drm_output_plane_has_valid_format(struct drm_plane *plane,
+				  struct drm_output_state *state,
+				  struct drm_fb *fb)
+{
+	unsigned int i;
+
+	if (!fb)
+		return false;
+
+	/* Check whether the format is supported */
+	for (i = 0; i < plane->count_formats; i++) {
+		unsigned int j;
+
+		if (plane->formats[i].format != fb->format->format)
+			continue;
+
+		if (fb->modifier == DRM_FORMAT_MOD_INVALID)
+			return true;
+
+		for (j = 0; j < plane->formats[i].count_modifiers; j++) {
+			if (plane->formats[i].modifiers[j] == fb->modifier)
+				return true;
+		}
+	}
+
+	return false;
+}
+
 static struct drm_plane_state *
 drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 				struct weston_view *ev,
@@ -135,7 +164,6 @@ drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 	struct drm_plane *p;
 	struct drm_plane_state *state = NULL;
 	struct drm_fb *fb;
-	unsigned int i;
 	int ret;
 	enum {
 		NO_PLANES,
@@ -170,31 +198,8 @@ drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 		if (availability == NO_PLANES)
 			availability = NO_PLANES_WITH_FORMAT;
 
-		/* Check whether the format is supported */
-		for (i = 0; i < p->count_formats; i++) {
-			unsigned int j;
-
-			if (p->formats[i].format != fb->format->format)
-				continue;
-
-			if (fb->modifier == DRM_FORMAT_MOD_INVALID)
-				break;
-
-			for (j = 0; j < p->formats[i].count_modifiers; j++) {
-				if (p->formats[i].modifiers[j] == fb->modifier)
-					break;
-			}
-			if (j != p->formats[i].count_modifiers)
-				break;
-		}
-		if (i == p->count_formats) {
-			drm_plane_state_put_back(state);
-			state = NULL;
+		if (!drm_output_plane_has_valid_format(p, output_state, fb))
 			continue;
-		}
-
-		if (availability == NO_PLANES_WITH_FORMAT)
-			availability = NO_PLANES_ACCEPTED;
 
 		state->ev = ev;
 		state->output = output;
