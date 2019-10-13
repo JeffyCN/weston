@@ -152,6 +152,18 @@ drm_output_plane_has_valid_format(struct drm_plane *plane,
 	return false;
 }
 
+static bool
+drm_output_plane_cursor_has_valid_format(struct weston_view *ev)
+{
+	struct wl_shm_buffer *shmbuf =
+		wl_shm_buffer_get(ev->surface->buffer_ref.buffer->resource);
+
+	if (shmbuf && wl_shm_buffer_get_format(shmbuf) == WL_SHM_FORMAT_ARGB8888)
+		return true;
+
+	return false;
+}
+
 static struct drm_plane_state *
 drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 				struct weston_view *ev,
@@ -327,7 +339,6 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct drm_plane *plane = output->cursor_plane;
 	struct drm_plane_state *plane_state;
-	struct wl_shm_buffer *shmbuf;
 	bool needs_update = false;
 
 	assert(!b->cursors_are_broken);
@@ -345,18 +356,8 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	if (b->gbm == NULL)
 		return NULL;
 
-	shmbuf = wl_shm_buffer_get(ev->surface->buffer_ref.buffer->resource);
-	if (!shmbuf) {
-		drm_debug(b, "\t\t\t\t[cursor] not assigning view %p to cursor plane "
-			     "(buffer isn't SHM)\n", ev);
+	if (!drm_output_plane_cursor_has_valid_format(ev))
 		return NULL;
-	}
-	if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888) {
-		drm_debug(b, "\t\t\t\t[cursor] not assigning view %p to cursor plane "
-			     "(format 0x%lx unsuitable)\n",
-			  ev, (unsigned long) wl_shm_buffer_get_format(shmbuf));
-		return NULL;
-	}
 
 	plane_state =
 		drm_output_state_get_plane(output_state, output->cursor_plane);
