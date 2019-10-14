@@ -165,7 +165,7 @@ drm_plane_state_put_back(struct drm_plane_state *state)
  */
 bool
 drm_plane_state_coords_for_view(struct drm_plane_state *state,
-				struct weston_view *ev)
+				struct weston_view *ev, uint64_t zpos)
 {
 	struct drm_output *output = state->output;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
@@ -244,6 +244,9 @@ drm_plane_state_coords_for_view(struct drm_plane_state *state,
 		state->src_w = (buffer->width << 16) - state->src_x;
 	if (state->src_h > (uint32_t) ((buffer->height << 16) - state->src_y))
 		state->src_h = (buffer->height << 16) - state->src_y;
+
+	/* apply zpos if available */
+	state->zpos = zpos;
 
 	return true;
 }

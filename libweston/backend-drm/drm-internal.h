@@ -370,6 +370,16 @@ struct drm_output_state {
 };
 
 /**
+ * An instance of this class is created each time we believe we have a plane
+ * suitable to be used by a view as a direct scan-out. The list is initalized
+ * and populated locally.
+ */
+struct drm_plane_zpos {
+	struct drm_plane *plane;
+	struct wl_list link;	/**< :candidate_plane_zpos_list */
+};
+
+/**
  * Plane state holds the dynamic state for a plane: where it is positioned,
  * and which buffer it is currently displaying.
  *
@@ -727,7 +737,7 @@ void
 drm_plane_state_put_back(struct drm_plane_state *state);
 bool
 drm_plane_state_coords_for_view(struct drm_plane_state *state,
-				struct weston_view *ev);
+				struct weston_view *ev, uint64_t zpos);
 
 void
 drm_assign_planes(struct weston_output *output_base, void *repaint_data);
