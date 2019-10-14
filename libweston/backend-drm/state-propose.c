@@ -944,6 +944,9 @@ drm_output_propose_state(struct weston_output *output_base,
 				      &clipped_view);
 
 		pixman_region32_fini(&clipped_view);
+
+		drm_debug(b, "\t\t\t\t[view] view %p will be placed "
+			     "on the renderer\n", ev);
 	}
 
 	pixman_region32_fini(&renderer_region);
