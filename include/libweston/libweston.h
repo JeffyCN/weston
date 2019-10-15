@@ -2049,6 +2049,10 @@ weston_log_ctx_compositor_destroy(struct weston_compositor *compositor);
 int
 weston_compositor_enable_content_protection(struct weston_compositor *compositor);
 
+void
+weston_timeline_refresh_subscription_objects(struct weston_compositor *wc,
+					     void *object);
+
 #ifdef  __cplusplus
 }
 #endif

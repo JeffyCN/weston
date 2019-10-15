@@ -4088,7 +4088,8 @@ weston_surface_set_label_func(struct weston_surface *surface,
 					  char *, size_t))
 {
 	surface->get_label = desc;
-	surface->timeline.force_refresh = 1;
+	weston_timeline_refresh_subscription_objects(surface->compositor,
+						     surface);
 }
 
 /** Get the size of surface contents

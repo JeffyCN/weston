@@ -42,14 +42,6 @@ struct weston_timeline_object {
 
 	/* Object id in the timeline JSON output. 0 is invalid. */
 	unsigned id;
-
-	/*
-	 * If non-zero, forces a re-emission of object description.
-	 * Should be set to non-zero, when changing long-lived
-	 * object state that is not emitted on normal timeline
-	 * events.
-	 */
-	unsigned force_refresh;
 };
 
 #endif /* WESTON_TIMELINE_OBJECT_H */

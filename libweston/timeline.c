@@ -308,6 +308,34 @@ emit_gpu_timestamp(struct timeline_emit_context *ctx, void *obj)
 	return 1;
 }
 
+static struct weston_timeline_subscription_object *
+weston_timeline_get_subscription_object(struct weston_log_subscription *sub,
+		void *object)
+{
+	struct weston_timeline_subscription *tl_sub;
+
+	tl_sub = weston_log_subscription_get_data(sub);
+	if (!tl_sub)
+		return NULL;
+
+	return weston_timeline_subscription_search(tl_sub, object);
+}
+
+WL_EXPORT void
+weston_timeline_refresh_subscription_objects(struct weston_compositor *wc,
+					     void *object)
+{
+	struct weston_log_subscription *sub = NULL;
+
+	while ((sub = weston_log_subscription_iterate(wc->timeline, sub))) {
+		struct weston_timeline_subscription_object *sub_obj;
+
+		sub_obj = weston_timeline_get_subscription_object(sub, object);
+		if (sub_obj)
+			sub_obj->force_refresh = true;
+	}
+}
+
 typedef int (*type_func)(struct timeline_emit_context *ctx, void *obj);
 
 static const type_func type_dispatch[] = {
