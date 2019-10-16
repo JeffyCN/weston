@@ -3030,8 +3030,16 @@ weston_layer_set_mask(struct weston_layer *layer,
 WL_EXPORT void
 weston_layer_set_mask_infinite(struct weston_layer *layer)
 {
-	weston_layer_set_mask(layer, INT32_MIN, INT32_MIN,
-				     UINT32_MAX, UINT32_MAX);
+	struct weston_view *view;
+
+	layer->mask.x1 = INT32_MIN;
+	layer->mask.x2 = INT32_MAX;
+	layer->mask.y1 = INT32_MIN;
+	layer->mask.y2 = INT32_MAX;
+
+	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+		weston_view_geometry_dirty(view);
+	}
 }
 
 WL_EXPORT bool
@@ -3039,8 +3047,8 @@ weston_layer_mask_is_infinite(struct weston_layer *layer)
 {
 	return layer->mask.x1 == INT32_MIN &&
 	       layer->mask.y1 == INT32_MIN &&
-	       layer->mask.x2 == INT32_MIN + UINT32_MAX &&
-	       layer->mask.y2 == INT32_MIN + UINT32_MAX;
+	       layer->mask.x2 == INT32_MAX &&
+	       layer->mask.y2 == INT32_MAX;
 }
 
 /**
@@ -7346,7 +7354,7 @@ weston_compositor_shutdown(struct weston_compositor *ec)
  * \ingroup compositor
  */
 WL_EXPORT void
-weston_compositor_exit_with_code(struct weston_compositor *compositor, 
+weston_compositor_exit_with_code(struct weston_compositor *compositor,
 				 int exit_code)
 {
 	if (compositor->exit_code == EXIT_SUCCESS)
