@@ -38,7 +38,7 @@ draw_stuff(pixman_image_t *image)
 	int w, h;
 	int stride; /* bytes */
 	int x, y;
-	uint8_t r, g, b;
+	uint32_t r, g, b;
 	uint32_t *pixels;
 	uint32_t *pixel;
 	pixman_format_code_t fmt;
@@ -57,7 +57,7 @@ draw_stuff(pixman_image_t *image)
 			g = x + y;
 			r = y;
 			pixel = pixels + (y * stride / 4) + x;
-			*pixel = (255 << 24) | (r << 16) | (g << 8) | b;
+			*pixel = (255U << 24) | (r << 16) | (g << 8) | b;
 		}
 }
 
