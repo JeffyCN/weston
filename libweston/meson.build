@@ -82,31 +82,37 @@ lib_weston = shared_library(
 	dependencies: deps_libweston
 )
 
+deps_for_libweston_users = [
+	dep_wayland_server,
+	dep_pixman,
+	dep_xkbcommon,
+]
+
 # For external users, like Weston.
 dep_libweston_public = declare_dependency(
 	link_with: lib_weston,
 	include_directories: public_inc,
-	dependencies: deps_libweston
+	dependencies: deps_for_libweston_users
 )
 
 # For internal users, like the backends.
 dep_libweston_private = declare_dependency(
 	link_with: lib_weston,
 	include_directories: [ include_directories('.'), public_inc ],
-	dependencies: deps_libweston
+	dependencies: deps_for_libweston_users
 )
 
 # XXX: We should be able to use dep_libweston_private.partial_dependency() instead
 # of this, but a Meson bug makes it not work. It will be fixed with
 # https://github.com/mesonbuild/meson/pull/5167
 # in hopefully Meson 0.51.
+dep_libweston_private_h_deps = []
+foreach d : deps_for_libweston_users
+	dep_libweston_private_h_deps += d.partial_dependency(compile_args: true)
+endforeach
 dep_libweston_private_h = declare_dependency(
 	include_directories: [ include_directories('.'), public_inc ],
-	dependencies: [
-		dep_pixman.partial_dependency(compile_args: true),
-		dep_xkbcommon.partial_dependency(compile_args: true),
-		dep_wayland_server.partial_dependency(compile_args: true)
-	]
+	dependencies: dep_libweston_private_h_deps
 )
 
 pkgconfig.generate(
@@ -115,7 +121,7 @@ pkgconfig.generate(
 	name: 'libweston API',
 	version: version_weston,
 	description: 'Header files for libweston compositors development',
-	requires_private: [ dep_wayland_server, dep_pixman, dep_xkbcommon ],
+	requires_private: deps_for_libweston_users,
 	subdirs: dir_include_libweston
 )
 
