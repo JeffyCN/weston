@@ -11,6 +11,7 @@ if get_option('shell-desktop')
 		input_method_unstable_v1_protocol_c,
 	]
 	deps_shell_desktop = [
+		dep_libm,
 		dep_libshared,
 		dep_lib_desktop,
 		dep_libweston_public,
