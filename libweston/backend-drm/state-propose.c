@@ -420,8 +420,12 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 
 	/* Check the view spans exactly the output size, calculated in the
 	 * logical co-ordinate space. */
-	if (!weston_view_matches_output_entirely(ev, &output->base))
+	if (!weston_view_matches_output_entirely(ev, &output->base)) {
+		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
+			     " view does not match output entirely\n",
+			     p_name, ev, p_name);
 		return NULL;
+	}
 
 	/* If the surface buffer has an in-fence fd, but the plane doesn't
 	 * support fences, we can't place the buffer on this plane. */
