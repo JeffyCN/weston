@@ -66,7 +66,8 @@ simple_clients = [
 			dep_libdrm,
 			dep_libm
 		],
-		'deps': [ 'egl', 'glesv2', 'gbm' ]
+		'deps': [ 'egl', 'glesv2', 'gbm' ],
+		'options': [ 'renderer-gl' ]
 	},
 	{
 		'name': 'dmabuf-v4l',
@@ -91,7 +92,8 @@ simple_clients = [
 			ivi_application_protocol_c,
 		],
 		'dep_objs': [ dep_wayland_client, dep_libshared, dep_libm ],
-		'deps': [ 'egl', 'wayland-egl', 'glesv2', 'wayland-cursor' ]
+		'deps': [ 'egl', 'wayland-egl', 'glesv2', 'wayland-cursor' ],
+		'options': [ 'renderer-gl' ]
 	},
 	# weston-simple-im is handled specially separately due to install_dir and odd window.h usage
 	{
@@ -128,6 +130,12 @@ foreach t : simple_clients
 				error('@0@ requires @1@ which was not found. If you rather not build this, drop "@2@" from simple-clients option.'.format(t_name, depname, t.get('name')))
 			endif
 			t_deps += dep
+		endforeach
+
+		foreach optname : t.get('options', [])
+			if not get_option(optname)
+				error('@0@ requires option @1@ which is not enabled. If you rather not build this, drop "@2@" from simple-clients option.'.format(t_name, optname, t.get('name')))
+			endif
 		endforeach
 
 		executable(
