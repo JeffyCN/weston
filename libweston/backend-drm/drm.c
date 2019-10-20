@@ -3005,7 +3005,7 @@ recorder_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 			      struct drm_output, base.link);
 
 	if (!output->recorder) {
-		if (output->gbm_format != GBM_FORMAT_XRGB8888) {
+		if (output->gbm_format != DRM_FORMAT_XRGB8888) {
 			weston_log("failed to start vaapi recorder: "
 				   "output format not supported\n");
 			return;
