@@ -51,6 +51,8 @@
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
 
+#include "shared/helpers.h"
+
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
 static void
@@ -696,17 +698,27 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 static void
-dmabuf_format(void *data, struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf,
-              uint32_t format)
+dmabuf_modifier(void *data, struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf,
+		 uint32_t format, uint32_t modifier_hi, uint32_t modifier_lo)
 {
 	struct display *d = data;
+	uint64_t modifier = ((uint64_t) modifier_hi << 32 ) | modifier_lo;
 
-	if (format == d->drm_format)
+	if (format == d->drm_format && modifier == DRM_FORMAT_MOD_LINEAR)
 		d->requested_format_found = true;
 }
 
+
+static void
+dmabuf_format(void *data, struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf,
+              uint32_t format)
+{
+	/* deprecated */
+}
+
 static const struct zwp_linux_dmabuf_v1_listener dmabuf_listener = {
-	dmabuf_format
+	dmabuf_format,
+	dmabuf_modifier
 };
 
 static void
@@ -813,8 +825,7 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		                             1);
 	} else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0) {
 		d->dmabuf = wl_registry_bind(registry,
-		                             id, &zwp_linux_dmabuf_v1_interface,
-		                             1);
+		                             id, &zwp_linux_dmabuf_v1_interface, 3);
 		zwp_linux_dmabuf_v1_add_listener(d->dmabuf, &dmabuf_listener,
 		                                 d);
 	}
@@ -857,11 +868,9 @@ create_display(uint32_t requested_format)
 
 	wl_display_roundtrip(display->display);
 
-	/* XXX: fake, because the compositor does not yet advertise anything */
-	display->requested_format_found = true;
-
 	if (!display->requested_format_found) {
-		fprintf(stderr, "DRM_FORMAT_YUYV not available\n");
+		fprintf(stderr, "0x%lx requested DRM format not available\n",
+				(unsigned long) requested_format);
 		exit(1);
 	}
 
