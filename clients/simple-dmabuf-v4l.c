@@ -54,6 +54,7 @@
 #include "shared/helpers.h"
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
+#define OPT_FLAG_INVERT (1 << 0)
 
 static void
 redraw(void *data, struct wl_callback *callback, uint32_t time);
@@ -106,6 +107,7 @@ struct display {
 	struct zwp_fullscreen_shell_v1 *fshell;
 	struct zwp_linux_dmabuf_v1 *dmabuf;
 	bool requested_format_found;
+	uint32_t opts;
 
 	int v4l_fd;
 	struct buffer_format format;
@@ -247,6 +249,8 @@ v4l_connect(struct display *display, const char *dev_name)
 {
 	struct v4l2_capability cap;
 	struct v4l2_requestbuffers req;
+	struct v4l2_input input;
+	int index_input = -1;
 	unsigned int num_planes;
 
 	display->v4l_fd = open(dev_name, O_RDWR);
@@ -262,6 +266,16 @@ v4l_connect(struct display *display, const char *dev_name)
 			perror("VIDIOC_QUERYCAP");
 		}
 		return 0;
+	}
+
+	if (xioctl(display->v4l_fd, VIDIOC_G_INPUT, &index_input) == 0) {
+		input.index = index_input;
+		if (xioctl(display->v4l_fd, VIDIOC_ENUMINPUT, &input) == 0) {
+			if (input.status & V4L2_IN_ST_VFLIP) {
+				fprintf(stdout, "Found camera sensor y-flipped\n");
+				display->opts |= OPT_FLAG_INVERT;
+			}
+		}
 	}
 
 	if (cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)
@@ -367,10 +381,8 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer)
 	modifier = 0;
 	flags = 0;
 
-	/* XXX: apparently some webcams may actually provide y-inverted images,
-	 * in which case we should set
-	 * flags = ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT
-	 */
+	if (display->opts & OPT_FLAG_INVERT)
+		flags |= ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
 
 	params = zwp_linux_dmabuf_v1_create_params(display->dmabuf);
 	for (i = 0; i < display->format.num_planes; ++i)
@@ -847,7 +859,7 @@ create_display(uint32_t requested_format)
 {
 	struct display *display;
 
-	display = malloc(sizeof *display);
+	display = zalloc(sizeof *display);
 	if (display == NULL) {
 		fprintf(stderr, "out of memory\n");
 		exit(1);
