@@ -128,6 +128,7 @@ drm_output_plane_has_valid_format(struct drm_plane *plane,
 				  struct drm_output_state *state,
 				  struct drm_fb *fb)
 {
+	struct drm_backend *b = plane->backend;
 	unsigned int i;
 
 	if (!fb)
@@ -148,6 +149,16 @@ drm_output_plane_has_valid_format(struct drm_plane *plane,
 				return true;
 		}
 	}
+
+	drm_debug(b, "\t\t\t\t[%s] not placing view on %s: "
+		  "no free %s planes matching format %s (0x%lx) "
+		  "modifier 0x%llx\n",
+		  drm_output_get_plane_type_name(plane),
+		  drm_output_get_plane_type_name(plane),
+		  drm_output_get_plane_type_name(plane),
+		  fb->format->drm_format_name,
+		  (unsigned long) fb->format,
+		  (unsigned long long) fb->modifier);
 
 	return false;
 }
@@ -179,7 +190,6 @@ drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 	int ret;
 	enum {
 		NO_PLANES,
-		NO_PLANES_WITH_FORMAT,
 		NO_PLANES_ACCEPTED,
 		PLACED_ON_PLANE,
 	} availability = NO_PLANES;
@@ -206,12 +216,6 @@ drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 			state = NULL;
 			continue;
 		}
-
-		if (availability == NO_PLANES)
-			availability = NO_PLANES_WITH_FORMAT;
-
-		if (!drm_output_plane_has_valid_format(p, output_state, fb))
-			continue;
 
 		state->ev = ev;
 		state->output = output;
@@ -274,14 +278,6 @@ drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 	case NO_PLANES:
 		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
 			     "no free overlay planes\n", ev);
-		break;
-	case NO_PLANES_WITH_FORMAT:
-		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
-			     "no free overlay planes matching format %s (0x%lx) "
-			     "modifier 0x%llx\n",
-			  ev, fb->format->drm_format_name,
-			  (unsigned long) fb->format,
-			  (unsigned long long) fb->modifier);
 		break;
 	case NO_PLANES_ACCEPTED:
 	case PLACED_ON_PLANE:
@@ -354,9 +350,6 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 
 	/* We use GBM to import SHM buffers. */
 	if (b->gbm == NULL)
-		return NULL;
-
-	if (!drm_output_plane_cursor_has_valid_format(ev))
 		return NULL;
 
 	plane_state =
@@ -498,6 +491,28 @@ err:
 	return NULL;
 }
 
+static bool
+drm_output_plane_view_has_valid_format(struct drm_plane *plane,
+				       struct drm_output_state *state,
+				       struct weston_view *ev,
+				       struct drm_fb *fb)
+{
+	/* depending on the type of the plane we have different requirements */
+	switch (plane->type) {
+	case WDRM_PLANE_TYPE_CURSOR:
+		return drm_output_plane_cursor_has_valid_format(ev);
+	case WDRM_PLANE_TYPE_OVERLAY:
+		return drm_output_plane_has_valid_format(plane, state, fb);
+	case WDRM_PLANE_TYPE_PRIMARY:
+		return drm_output_plane_has_valid_format(plane, state, fb);
+	default:
+		assert(0);
+		return false;
+	}
+
+	return false;
+}
+
 static struct drm_plane_state *
 drm_output_try_view_on_plane(struct drm_plane *plane,
 			     struct drm_output_state *state,
@@ -608,11 +623,15 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	struct drm_plane_zpos *p_zpos, *p_zpos_next;
 	struct wl_list zpos_candidate_list;
 
+	struct drm_fb *fb;
+
 	wl_list_init(&zpos_candidate_list);
 
 	/* check view for valid buffer, doesn't make sense to even try */
 	if (!weston_view_has_valid_buffer(ev))
 		return ps;
+
+	fb = drm_fb_get_from_view(state, ev);
 
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
@@ -632,6 +651,13 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 				     "plane's above current lowest zpos "
 				     "(%"PRIu64")\n", plane->plane_id,
 				     plane->zpos_min, current_lowest_zpos);
+			continue;
+		}
+
+		if (!drm_output_plane_view_has_valid_format(plane, state, ev, fb)) {
+			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
+				     "candidate list: invalid pixel format\n",
+				     plane->plane_id);
 			continue;
 		}
 
@@ -673,6 +699,7 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	wl_list_for_each_safe(p_zpos, p_zpos_next, &zpos_candidate_list, link)
 		drm_output_destroy_zpos_plane(p_zpos);
 
+	drm_fb_unref(fb);
 	return ps;
 }
 
