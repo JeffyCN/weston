@@ -87,7 +87,7 @@ pages:
   dependencies:
     - build-native-meson-default-options
   script:
-  - export PREFIX=$(pwd)/prefix-weston-build-native-meson
+  - export PREFIX=$(pwd)/prefix-weston-build-native-meson-default-options
   - mkdir public
   - cp -R $PREFIX/share/doc/weston/* public/
   artifacts:
