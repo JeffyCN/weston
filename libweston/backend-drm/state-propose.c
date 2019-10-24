@@ -176,7 +176,8 @@ drm_output_plane_cursor_has_valid_format(struct weston_view *ev)
 }
 
 static struct drm_plane_state *
-drm_output_prepare_overlay_view(struct drm_output_state *output_state,
+drm_output_prepare_overlay_view(struct drm_plane *plane,
+				struct drm_output_state *output_state,
 				struct weston_view *ev,
 				enum drm_output_propose_state_mode mode,
 				uint64_t zpos)
@@ -184,7 +185,6 @@ drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 	struct drm_output *output = output_state->output;
 	struct weston_compositor *ec = output->base.compositor;
 	struct drm_backend *b = to_drm_backend(ec);
-	struct drm_plane *p;
 	struct drm_plane_state *state = NULL;
 	struct drm_fb *fb;
 	int ret;
@@ -204,75 +204,67 @@ drm_output_prepare_overlay_view(struct drm_output_state *output_state,
 		return NULL;
 	}
 
-	wl_list_for_each(p, &b->plane_list, link) {
-		if (p->type != WDRM_PLANE_TYPE_OVERLAY)
-			continue;
+	state = drm_output_state_get_plane(output_state, plane);
+	if (state->fb) {
+		state = NULL;
+		goto out;
+	}
 
-		if (!drm_plane_is_available(p, output))
-			continue;
-
-		state = drm_output_state_get_plane(output_state, p);
-		if (state->fb) {
-			state = NULL;
-			continue;
-		}
-
-		state->ev = ev;
-		state->output = output;
-		if (!drm_plane_state_coords_for_view(state, ev, zpos)) {
-			drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
-				     "unsuitable transform\n", ev);
-			drm_plane_state_put_back(state);
-			state = NULL;
-			continue;
-		}
-
-		/* If the surface buffer has an in-fence fd, but the plane
-		 * doesn't support fences, we can't place the buffer on this
-		 * plane. */
-		if (ev->surface->acquire_fence_fd >= 0 &&
-		     p->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0) {
-			drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
-				     "no in-fence support\n", ev);
-			drm_plane_state_put_back(state);
-			state = NULL;
-			continue;
-		}
-
-		/* We hold one reference for the lifetime of this function;
-		 * from calling drm_fb_get_from_view, to the out label where
-		 * we unconditionally drop the reference. So, we take another
-		 * reference here to live within the state. */
-		state->fb = drm_fb_ref(fb);
-
-		state->in_fence_fd = ev->surface->acquire_fence_fd;
-
-		/* In planes-only mode, we don't have an incremental state to
-		 * test against, so we just hope it'll work. */
-		if (mode == DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY) {
-			drm_debug(b, "\t\t\t\t[overlay] provisionally placing "
-				     "view %p on overlay %lu in planes-only mode\n",
-				  ev, (unsigned long) p->plane_id);
-			availability = PLACED_ON_PLANE;
-			goto out;
-		}
-
-		ret = drm_pending_state_test(output_state->pending_state);
-		if (ret == 0) {
-			drm_debug(b, "\t\t\t\t[overlay] provisionally placing "
-				     "view %p on overlay %d in mixed mode\n",
-				  ev, p->plane_id);
-			availability = PLACED_ON_PLANE;
-			goto out;
-		}
-
-		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay %lu "
-			     "in mixed mode: kernel test failed\n",
-			  ev, (unsigned long) p->plane_id);
-
+	state->ev = ev;
+	state->output = output;
+	if (!drm_plane_state_coords_for_view(state, ev, zpos)) {
+		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
+			     "unsuitable transform\n", ev);
 		drm_plane_state_put_back(state);
 		state = NULL;
+		goto out;
 	}
+
+	/* If the surface buffer has an in-fence fd, but the plane
+	 * doesn't support fences, we can't place the buffer on this
+	 * plane. */
+	if (ev->surface->acquire_fence_fd >= 0 &&
+	     plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0) {
+		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
+			     "no in-fence support\n", ev);
+		drm_plane_state_put_back(state);
+		state = NULL;
+		goto out;
+	}
+
+	/* We hold one reference for the lifetime of this function;
+	 * from calling drm_fb_get_from_view, to the out label where
+	 * we unconditionally drop the reference. So, we take another
+	 * reference here to live within the state. */
+	state->fb = drm_fb_ref(fb);
+
+	state->in_fence_fd = ev->surface->acquire_fence_fd;
+
+	/* In planes-only mode, we don't have an incremental state to
+	 * test against, so we just hope it'll work. */
+	if (mode == DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY) {
+		drm_debug(b, "\t\t\t[overlay] provisionally placing "
+			     "view %p on overlay %lu in planes-only mode\n",
+			  ev, (unsigned long) plane->plane_id);
+		availability = PLACED_ON_PLANE;
+		goto out;
+	}
+
+	ret = drm_pending_state_test(output_state->pending_state);
+	if (ret == 0) {
+		drm_debug(b, "\t\t\t[overlay] provisionally placing "
+			     "view %p on overlay %d in mixed mode\n",
+			  ev, plane->plane_id);
+		availability = PLACED_ON_PLANE;
+		goto out;
+	}
+
+	drm_debug(b, "\t\t\t[overlay] not placing view %p on overlay %lu "
+		     "in mixed mode: kernel test failed\n",
+		  ev, (unsigned long) plane->plane_id);
+
+	drm_plane_state_put_back(state);
+	state = NULL;
 
 	switch (availability) {
 	case NO_PLANES:
@@ -555,7 +547,7 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 				     plane->plane_id, ev);
 			return NULL;
 		}
-		return drm_output_prepare_overlay_view(state, ev, mode, zpos);
+		return drm_output_prepare_overlay_view(plane, state, ev, mode, zpos);
 	case WDRM_PLANE_TYPE_PRIMARY:
 		if (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY) {
 			drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
