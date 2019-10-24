@@ -17,6 +17,7 @@ endif
 
 deps_x11 = [
 	dep_libweston_private,
+	dep_libdrm_headers,
 	dep_x11_xcb,
 	dep_lib_cairo_shared,
 	dep_pixman,
