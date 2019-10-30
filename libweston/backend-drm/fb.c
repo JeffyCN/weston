@@ -226,7 +226,6 @@ static struct drm_fb *
 drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		       struct drm_backend *backend, bool is_opaque)
 {
-#ifdef HAVE_GBM_FD_IMPORT
 	struct drm_fb *fb;
 	struct gbm_import_fd_data import_legacy = {
 		.width = dmabuf->attributes.width,
@@ -235,6 +234,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		.stride = dmabuf->attributes.stride[0],
 		.fd = dmabuf->attributes.fd[0],
 	};
+#ifdef HAVE_GBM_FD_IMPORT
 	struct gbm_import_fd_modifier_data import_mod = {
 		.width = dmabuf->attributes.width,
 		.height = dmabuf->attributes.height,
@@ -242,6 +242,8 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		.num_fds = dmabuf->attributes.n_planes,
 		.modifier = dmabuf->attributes.modifier[0],
 	};
+#endif /* HAVE_GBM_FD_IMPORT */
+
 	int i;
 
 	/* XXX: TODO:
@@ -263,6 +265,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	fb->refcnt = 1;
 	fb->type = BUFFER_DMABUF;
 
+#ifdef HAVE_GBM_FD_IMPORT
 	static_assert(ARRAY_LENGTH(import_mod.fds) ==
 		      ARRAY_LENGTH(dmabuf->attributes.fd),
 		      "GBM and linux_dmabuf FD size must match");
@@ -287,15 +290,21 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		      "GBM and linux_dmabuf offset size must match");
 	memcpy(import_mod.offsets, dmabuf->attributes.offset,
 	       sizeof(import_mod.offsets));
+#endif /* NOT HAVE_GBM_FD_IMPORT */
 
 	/* The legacy FD-import path does not allow us to supply modifiers,
 	 * multiple planes, or buffer offsets. */
 	if (dmabuf->attributes.modifier[0] != DRM_FORMAT_MOD_INVALID ||
-	    import_mod.num_fds > 1 ||
-	    import_mod.offsets[0] > 0) {
+	    dmabuf->attributes.n_planes > 1 ||
+	    dmabuf->attributes.offset[0] > 0) {
+#ifdef HAVE_GBM_FD_IMPORT
 		fb->bo = gbm_bo_import(backend->gbm, GBM_BO_IMPORT_FD_MODIFIER,
 				       &import_mod,
 				       GBM_BO_USE_SCANOUT);
+#else /* NOT HAVE_GBM_FD_IMPORT */
+		drm_debug(backend, "\t\t\t[dmabuf] Unsupported use of modifiers.\n");
+		goto err_free;
+#endif /* NOT HAVE_GBM_FD_IMPORT */
 	} else {
 		fb->bo = gbm_bo_import(backend->gbm, GBM_BO_IMPORT_FD,
 				       &import_legacy,
@@ -374,7 +383,6 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 
 err_free:
 	drm_fb_destroy_dmabuf(fb);
-#endif
 	return NULL;
 }
 
