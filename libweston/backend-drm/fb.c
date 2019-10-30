@@ -342,6 +342,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		goto err_free;
 	}
 
+#ifdef HAVE_GBM_MODIFIERS
 	fb->num_planes = dmabuf->attributes.n_planes;
 	for (i = 0; i < dmabuf->attributes.n_planes; i++) {
 		union gbm_bo_handle handle;
@@ -351,6 +352,20 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 			goto err_free;
 		fb->handles[i] = handle.u32;
 	}
+#else /* NOT HAVE_GBM_MODIFIERS */
+	{
+		union gbm_bo_handle handle;
+
+		fb->num_planes = 1;
+
+	        handle = gbm_bo_get_handle(fb->bo);
+
+		if (handle.s32 == -1)
+			goto err_free;
+		fb->handles[0] = handle.u32;
+	}
+#endif /* NOT HAVE_GBM_MODIFIERS */
+
 
 	if (drm_fb_addfb(backend, fb) != 0)
 		goto err_free;
