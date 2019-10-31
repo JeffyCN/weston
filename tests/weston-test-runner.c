@@ -85,7 +85,6 @@ run_test(const struct weston_test_entry *t, void *data, int iteration)
 	}
 
 	t->run(data);
-	exit(EXIT_SUCCESS);
 }
 
 static void
@@ -111,8 +110,10 @@ exec_and_report_test(const struct weston_test_entry *t,
 	pid_t pid = fork();
 	assert(pid >= 0);
 
-	if (pid == 0)
-		run_test(t, test_data, iteration); /* never returns */
+	if (pid == 0) {
+		run_test(t, test_data, iteration);
+		exit(EXIT_SUCCESS);
+	}
 
 	if (waitid(P_ALL, 0, &info, WEXITED)) {
 		fprintf(stderr, "waitid failed: %s\n", strerror(errno));
