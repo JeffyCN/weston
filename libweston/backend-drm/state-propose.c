@@ -180,13 +180,12 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 				struct drm_output_state *output_state,
 				struct weston_view *ev,
 				enum drm_output_propose_state_mode mode,
-				uint64_t zpos)
+				struct drm_fb *fb, uint64_t zpos)
 {
 	struct drm_output *output = output_state->output;
 	struct weston_compositor *ec = output->base.compositor;
 	struct drm_backend *b = to_drm_backend(ec);
 	struct drm_plane_state *state = NULL;
-	struct drm_fb *fb;
 	int ret;
 	enum {
 		NO_PLANES,
@@ -197,7 +196,6 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 	assert(!b->sprites_are_broken);
 	assert(b->atomic_modeset);
 
-	fb = drm_fb_get_from_view(output_state, ev);
 	if (!fb) {
 		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
 			     " couldn't get fb\n", ev);
@@ -205,13 +203,12 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 	}
 
 	state = drm_output_state_get_plane(output_state, plane);
-	if (state->fb) {
-		state = NULL;
-		goto out;
-	}
+	/* we can't have a 'pending' framebuffer as never set one before reaching here */
+	assert(!state->fb);
 
 	state->ev = ev;
 	state->output = output;
+
 	if (!drm_plane_state_coords_for_view(state, ev, zpos)) {
 		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
 			     "unsuitable transform\n", ev);
@@ -232,10 +229,9 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 		goto out;
 	}
 
-	/* We hold one reference for the lifetime of this function;
-	 * from calling drm_fb_get_from_view, to the out label where
-	 * we unconditionally drop the reference. So, we take another
-	 * reference here to live within the state. */
+	/* We hold one reference for the lifetime of this function; from
+	 * calling drm_fb_get_from_view() in drm_output_prepare_plane_view(),
+	 * so, we take another reference here to live within the state. */
 	state->fb = drm_fb_ref(fb);
 
 	state->in_fence_fd = ev->surface->acquire_fence_fd;
@@ -277,7 +273,6 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 	}
 
 out:
-	drm_fb_unref(fb);
 	return state;
 }
 
@@ -423,13 +418,12 @@ static struct drm_plane_state *
 drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 				struct weston_view *ev,
 				enum drm_output_propose_state_mode mode,
-				uint64_t zpos)
+				struct drm_fb *fb, uint64_t zpos)
 {
 	struct drm_output *output = output_state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_plane_state *state;
-	struct drm_fb *fb;
 
 	assert(!b->sprites_are_broken);
 	assert(b->atomic_modeset);
@@ -446,7 +440,6 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	    scanout_plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0)
 		return NULL;
 
-	fb = drm_fb_get_from_view(output_state, ev);
 	if (!fb) {
 		drm_debug(b, "\t\t\t\t[scanout] not placing view %p on scanout: "
 			     " couldn't get fb\n", ev);
@@ -461,7 +454,9 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	 * and in the latter case, the view must have been marked as occluded,
 	 * meaning we should never have ended up here. */
 	assert(!state->fb);
-	state->fb = fb;
+
+	/* take another reference here to live within the state */
+	state->fb = drm_fb_ref(fb);
 	state->ev = ev;
 	state->output = output;
 	if (!drm_plane_state_coords_for_view(state, ev, zpos))
@@ -510,7 +505,7 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 			     struct drm_output_state *state,
 			     struct weston_view *ev,
 			     enum drm_output_propose_state_mode mode,
-			     uint64_t zpos)
+			     struct drm_fb *fb, uint64_t zpos)
 {
 	struct drm_backend *b = state->pending_state->backend;
 	struct weston_output *wet_output = &state->output->base;
@@ -547,7 +542,8 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 				     plane->plane_id, ev);
 			return NULL;
 		}
-		return drm_output_prepare_overlay_view(plane, state, ev, mode, zpos);
+		return drm_output_prepare_overlay_view(plane, state, ev,
+						       mode, fb, zpos);
 	case WDRM_PLANE_TYPE_PRIMARY:
 		if (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY) {
 			drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
@@ -555,7 +551,8 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 				     plane->plane_id, ev);
 			return NULL;
 		}
-		return drm_output_prepare_scanout_view(state, ev, mode, zpos);
+		return drm_output_prepare_scanout_view(state, ev, mode,
+						       fb, zpos);
 	default:
 		assert(0);
 		break;
@@ -677,9 +674,9 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			     "from candidate list, type: %s\n",
 			     plane->plane_id, p_name);
 
-		ps = drm_output_try_view_on_plane(plane, state, ev, mode, zpos);
+		ps = drm_output_try_view_on_plane(plane, state, ev,
+						  mode, fb, zpos);
 		drm_output_destroy_zpos_plane(head_p_zpos);
-
 		if (ps) {
 			drm_debug(b, "\t\t\t\t[view] view %p has been placed to "
 				     "%s plane with computed zpos %"PRIu64"\n",
