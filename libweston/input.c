@@ -3441,7 +3441,7 @@ weston_seat_init(struct weston_seat *seat, struct weston_compositor *ec,
 	wl_signal_init(&seat->destroy_signal);
 	wl_signal_init(&seat->updated_caps_signal);
 
-	seat->global = wl_global_create(ec->wl_display, &wl_seat_interface, 6,
+	seat->global = wl_global_create(ec->wl_display, &wl_seat_interface, 7,
 					seat, bind_seat);
 
 	seat->compositor = ec;
