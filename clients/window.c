@@ -2956,7 +2956,7 @@ keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
 		return;
 	}
 
-	map_str = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+	map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (map_str == MAP_FAILED) {
 		close(fd);
 		return;
@@ -5807,7 +5807,7 @@ static void
 display_add_input(struct display *d, uint32_t id, int display_seat_version)
 {
 	struct input *input;
-	int seat_version = MIN(display_seat_version, 6);
+	int seat_version = MIN(display_seat_version, 7);
 
 	input = xzalloc(sizeof *input);
 	input->display = d;
