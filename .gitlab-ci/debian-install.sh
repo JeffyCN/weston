@@ -12,5 +12,15 @@ pip3 install sphinx==2.1.0 --user
 pip3 install breathe==4.13.0.post0 --user
 pip3 install sphinx_rtd_theme==0.4.3 --user
 
+git clone --branch 1.17.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayland
+export MAKEFLAGS="-j4"
+cd wayland
+git show -s HEAD
+mkdir build
+cd build
+../autogen.sh --disable-documentation
+make install
+cd ../../
+
 mkdir -p /tmp/.X11-unix
 chmod 777 /tmp/.X11-unix
