@@ -144,8 +144,11 @@ struct drm_property_enum_info {
 struct drm_property_info {
 	const char *name; /**< name as string (static, not freed) */
 	uint32_t prop_id; /**< KMS property object ID */
+	uint32_t flags;
 	unsigned int num_enum_values; /**< number of enum values */
 	struct drm_property_enum_info *enum_values; /**< array of enum values */
+	unsigned int num_range_values;
+	uint64_t range_values[2];
 };
 
 /**
@@ -579,6 +582,9 @@ uint64_t
 drm_property_get_value(struct drm_property_info *info,
 		       const drmModeObjectProperties *props,
 		       uint64_t def);
+uint64_t *
+drm_property_get_range_values(struct drm_property_info *info,
+			      const drmModeObjectProperties *props);
 int
 drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const drmModeObjectProperties *props);
