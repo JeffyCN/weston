@@ -31,9 +31,32 @@
 #include <sys/mman.h>
 
 #include "weston-test-client-helper.h"
+#include "weston-test-fixture-compositor.h"
 
-char *server_parameters = "--use-pixman --width=320 --height=240"
-	" --shell=weston-test-desktop-shell.so";
+static const enum renderer_type renderers[] = {
+	RENDERER_PIXMAN,
+	RENDERER_GL,
+};
+
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness, const enum renderer_type *arg)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+	setup.renderer = *arg;
+	setup.width = 320;
+	setup.height = 240;
+	setup.shell = SHELL_TEST_DESKTOP;
+	setup.logging_scopes = "log,test-harness-plugin";
+
+	/* This test fails due to color rounding on GL */
+	if (setup.renderer == RENDERER_GL)
+		return RESULT_SKIP;
+
+	return weston_test_harness_execute_as_client(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, renderers);
 
 static struct wl_subcompositor *
 get_subcompositor(struct client *client)

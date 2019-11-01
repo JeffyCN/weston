@@ -32,12 +32,17 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <pthread.h>
 
 #include <libweston/libweston.h>
+#include <libweston/weston-log.h>
 #include "backend.h"
 #include "libweston-internal.h"
 #include "compositor/weston.h"
 #include "weston-test-server-protocol.h"
+#include "weston.h"
+#include "weston-testsuite-data.h"
 
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
@@ -46,15 +51,19 @@
 
 struct weston_test {
 	struct weston_compositor *compositor;
-	/* XXX: missing compositor destroy listener
-	 * https://gitlab.freedesktop.org/wayland/weston/issues/300
-	 */
+	struct wl_listener destroy_listener;
+
+	struct weston_log_scope *log;
+
 	struct weston_layer layer;
 	struct weston_process process;
 	struct weston_seat seat;
 	struct weston_touch_device *touch_device[MAX_TOUCH_DEVICES];
 	int nr_touch_devices;
 	bool is_seat_initialized;
+
+	pthread_t client_thread;
+	struct wl_event_source *client_source;
 };
 
 struct weston_test_surface {
@@ -667,6 +676,174 @@ idle_launch_client(void *data)
 	weston_watch_process(&test->process);
 }
 
+static void
+client_thread_cleanup(void *data_)
+{
+	struct wet_testsuite_data *data = data_;
+
+	close(data->thread_event_pipe);
+	data->thread_event_pipe = -1;
+}
+
+static void *
+client_thread_routine(void *data_)
+{
+	struct wet_testsuite_data *data = data_;
+
+	pthread_setname_np(pthread_self(), "client");
+	pthread_cleanup_push(client_thread_cleanup, data);
+	data->run(data);
+	pthread_cleanup_pop(true);
+
+	return NULL;
+}
+
+static void
+client_thread_join(struct weston_test *test)
+{
+	assert(test->client_source);
+
+	pthread_join(test->client_thread, NULL);
+	wl_event_source_remove(test->client_source);
+	test->client_source = NULL;
+
+	weston_log_scope_printf(test->log, "Test thread reaped.\n");
+}
+
+static int
+handle_client_thread_event(int fd, uint32_t mask, void *data_)
+{
+	struct weston_test *test = data_;
+
+	weston_log_scope_printf(test->log,
+				"Received thread event mask 0x%x\n", mask);
+
+	if (mask != WL_EVENT_HANGUP)
+		weston_log("%s: unexpected event %u\n", __func__, mask);
+
+	client_thread_join(test);
+	weston_compositor_exit(test->compositor);
+
+	return 0;
+}
+
+static int
+create_client_thread(struct weston_test *test, struct wet_testsuite_data *data)
+{
+	struct wl_event_loop *loop;
+	int pipefd[2] = { -1, -1 };
+	sigset_t saved;
+	sigset_t blocked;
+	int ret;
+
+	weston_log_scope_printf(test->log, "Creating a thread for running tests...\n");
+
+	if (pipe2(pipefd, O_CLOEXEC | O_NONBLOCK) < 0) {
+		weston_log("Creating pipe for a client thread failed: %s\n",
+			   strerror(errno));
+		return -1;
+	}
+
+	loop = wl_display_get_event_loop(test->compositor->wl_display);
+	test->client_source = wl_event_loop_add_fd(loop, pipefd[0],
+						   WL_EVENT_READABLE,
+						   handle_client_thread_event,
+						   test);
+	close(pipefd[0]);
+
+	if (!test->client_source) {
+		weston_log("Adding client thread fd to event loop failed.\n");
+		goto out_pipe;
+	}
+
+	data->thread_event_pipe = pipefd[1];
+
+	/* Ensure we don't accidentally get signals to the thread. */
+	sigfillset(&blocked);
+	sigdelset(&blocked, SIGSEGV);
+	sigdelset(&blocked, SIGFPE);
+	sigdelset(&blocked, SIGILL);
+	sigdelset(&blocked, SIGCONT);
+	sigdelset(&blocked, SIGSYS);
+	if (pthread_sigmask(SIG_BLOCK, &blocked, &saved) != 0)
+		goto out_source;
+
+	ret = pthread_create(&test->client_thread, NULL,
+			     client_thread_routine, data);
+
+	pthread_sigmask(SIG_SETMASK, &saved, NULL);
+
+	if (ret != 0) {
+		weston_log("Creating client thread failed: %s (%d)\n",
+			   strerror(ret), ret);
+		goto out_source;
+	}
+
+	return 0;
+
+out_source:
+	data->thread_event_pipe = -1;
+	wl_event_source_remove(test->client_source);
+	test->client_source = NULL;
+
+out_pipe:
+	close(pipefd[1]);
+
+	return -1;
+}
+
+static void
+idle_launch_testsuite(void *test_)
+{
+	struct weston_test *test = test_;
+	struct wet_testsuite_data *data = wet_testsuite_data_get();
+
+	if (!data)
+		return;
+
+	switch (data->type) {
+	case TEST_TYPE_CLIENT:
+		if (create_client_thread(test, data) < 0) {
+			weston_log("Error: creating client thread for test suite failed.\n");
+			weston_compositor_exit_with_code(test->compositor,
+							 RESULT_HARD_ERROR);
+		}
+		break;
+
+	case TEST_TYPE_PLUGIN:
+		data->compositor = test->compositor;
+		weston_log_scope_printf(test->log,
+					"Running tests from idle handler...\n");
+		data->run(data);
+		weston_compositor_exit(test->compositor);
+		break;
+
+	case TEST_TYPE_STANDALONE:
+		weston_log("Error: unknown test internal type %d.\n",
+			   data->type);
+		weston_compositor_exit_with_code(test->compositor,
+						 RESULT_HARD_ERROR);
+	}
+}
+
+static void
+handle_compositor_destroy(struct wl_listener *listener,
+			  void *weston_compositor)
+{
+	struct weston_test *test;
+
+	test = wl_container_of(listener, test, destroy_listener);
+
+	if (test->client_source) {
+		weston_log_scope_printf(test->log, "Cancelling client thread...\n");
+		pthread_cancel(test->client_thread);
+		client_thread_join(test);
+	}
+
+	weston_log_scope_destroy(test->log);
+	test->log = NULL;
+}
+
 WL_EXPORT int
 wet_module_init(struct weston_compositor *ec,
 		int *argc, char *argv[])
@@ -678,19 +855,36 @@ wet_module_init(struct weston_compositor *ec,
 	if (test == NULL)
 		return -1;
 
+	if (!weston_compositor_add_destroy_listener_once(ec,
+							 &test->destroy_listener,
+							 handle_compositor_destroy)) {
+		free(test);
+		return 0;
+	}
+
 	test->compositor = ec;
 	weston_layer_init(&test->layer, ec);
 	weston_layer_set_position(&test->layer, WESTON_LAYER_POSITION_CURSOR - 1);
 
+	test->log = weston_compositor_add_log_scope(ec, "test-harness-plugin",
+					"weston-test plugin's own actions",
+					NULL, NULL, NULL);
+
 	if (wl_global_create(ec->wl_display, &weston_test_interface, 1,
 			     test, bind_test) == NULL)
-		return -1;
+		goto out_free;
 
 	if (test_seat_init(test) == -1)
-		return -1;
+		goto out_free;
 
 	loop = wl_display_get_event_loop(ec->wl_display);
 	wl_event_loop_add_idle(loop, idle_launch_client, test);
+	wl_event_loop_add_idle(loop, idle_launch_testsuite, test);
 
 	return 0;
+
+out_free:
+	wl_list_remove(&test->destroy_listener.link);
+	free(test);
+	return -1;
 }

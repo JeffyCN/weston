@@ -31,6 +31,20 @@
 #include "compositor/weston.h"
 #include <libweston/plugin-registry.h>
 
+#include "weston-test-runner.h"
+#include "weston-test-fixture-compositor.h"
+
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+
+	return weston_test_harness_execute_as_plugin(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
+
 static void
 dummy_func(void)
 {
@@ -67,12 +81,13 @@ init_tests(struct weston_compositor *compositor)
 					  sizeof(my_test_api)) == 0);
 }
 
-static void
-runtime_tests(void *data)
+PLUGIN_TEST(plugin_registry_test)
 {
-	struct weston_compositor *compositor = data;
+	/* struct weston_compositor *compositor; */
 	const struct my_api *api;
 	size_t sz = sizeof(struct my_api);
+
+	init_tests(compositor);
 
 	assert(weston_plugin_api_get(compositor, MY_API_NAME, sz) ==
 				     &my_test_api);
@@ -84,20 +99,4 @@ runtime_tests(void *data)
 
 	api = weston_plugin_api_get(compositor, MY_API_NAME, sz);
 	assert(api && api->func2 == dummy_func);
-
-	weston_compositor_exit(compositor);
-}
-
-WL_EXPORT int
-wet_module_init(struct weston_compositor *compositor,
-		int *argc, char *argv[])
-{
-	struct wl_event_loop *loop;
-
-	init_tests(compositor);
-
-	loop = wl_display_get_event_loop(compositor->wl_display);
-	wl_event_loop_add_idle(loop, runtime_tests, compositor);
-
-	return 0;
 }

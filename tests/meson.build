@@ -11,7 +11,10 @@ env_modmap += 'weston-test-desktop-shell.so=@0@;'.format(plugin_test_shell_deskt
 lib_test_runner = static_library(
 	'test-runner',
 	'weston-test-runner.c',
-	dependencies: dep_wayland_client,
+	dependencies: [
+		dep_libweston_private_h_deps,
+		dep_wayland_client,
+	],
 	include_directories: common_inc,
 	install: false,
 )
@@ -22,13 +25,17 @@ dep_test_runner = declare_dependency(
 
 lib_test_client = static_library(
 	'test-client',
-	'weston-test-client-helper.c',
-	weston_test_client_protocol_h,
-	weston_test_protocol_c,
+	[
+		'weston-test-client-helper.c',
+		'weston-test-fixture-compositor.c',
+		weston_test_client_protocol_h,
+		weston_test_protocol_c,
+	],
 	include_directories: common_inc,
 	dependencies: [
 		dep_libshared,
 		dep_wayland_client,
+		dep_libexec_weston,
 		dep_pixman,
 		dependency('cairo'),
 	],
@@ -49,10 +56,15 @@ exe_plugin_test = shared_library(
 	weston_test_server_protocol_h,
 	weston_test_protocol_c,
 	include_directories: common_inc,
-	dependencies: [ dep_libexec_weston, dep_libweston_private ],
+	dependencies: [
+		dep_libexec_weston,
+		dep_libweston_private,
+		dep_threads
+	],
 	name_prefix: '',
 	install: false,
 )
+config_h.set_quoted('TESTSUITE_PLUGIN_PATH', exe_plugin_test.full_path())
 
 deps_zuc = [ dep_libshared ]
 if get_option('test-junit-xml')
@@ -98,6 +110,12 @@ dep_zucmain = declare_dependency(
 	link_with: lib_zucmain,
 	dependencies: dep_zuc
 )
+
+tests = [
+	{	'name': 'plugin-registry', },
+	{	'name': 'roles', },
+	{	'name': 'subsurface-shot', },
+]
 
 tests_standalone = [
 	['config-parser', [], [ dep_zucmain ]],
@@ -149,9 +167,7 @@ tests_weston = [
 			input_timestamps_unstable_v1_protocol_c,
 		]
 	],
-	['roles'],
 	['subsurface'],
-	['subsurface-shot'],
 	[
 		'text',
 		[
@@ -185,7 +201,6 @@ if get_option('xwayland')
 endif
 
 tests_weston_plugin = [
-	['plugin-registry'],
 	['surface'],
 	['surface-global'],
 	['surface-screenshot', 'surface-screenshot-test.c', dep_libshared],
@@ -234,6 +249,30 @@ env_test_weston = [
 	'WESTON_MODULE_MAP=@0@'.format(env_modmap),
 	'WESTON_DATA_DIR=' + join_paths(meson.current_source_dir(), '..', 'data'),
 ]
+
+foreach t : tests
+	t_name = 'test-' + t.get('name')
+	t_sources = t.get('sources', [t.get('name') + '-test.c'])
+	t_sources += weston_test_client_protocol_h
+
+	t_deps = [ dep_test_client, dep_libweston_private_h ]
+	t_deps += t.get('dep_objs', [])
+
+	t_exe = executable(
+		t_name,
+		t_sources,
+		c_args: [
+			'-DUNIT_TEST',
+			'-DTHIS_TEST_NAME="' + t_name + '"',
+		],
+		build_by_default: true,
+		include_directories: common_inc,
+		dependencies: t_deps,
+		install: false,
+	)
+
+	test(t.get('name'), t_exe, depends: t.get('test_deps', []), env: env_test_weston)
+endforeach
 
 # FIXME: the multiple loops is lame. rethink this.
 foreach t : tests_standalone
