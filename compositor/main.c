@@ -3277,12 +3277,11 @@ wet_main(int argc, char *argv[])
 						"Wayland protocol dump for all clients.\n",
 						 NULL, NULL, NULL);
 
-	if (debug_protocol) {
-		protologger = wl_display_add_protocol_logger(display,
-							     protocol_log_fn,
-							     NULL);
+	protologger = wl_display_add_protocol_logger(display,
+						     protocol_log_fn,
+						     NULL);
+	if (debug_protocol)
 		weston_compositor_enable_debug_protocol(wet.compositor);
-	}
 
 	weston_compositor_add_debug_binding(wet.compositor, KEY_D,
 					    flight_rec_key_binding_handler,
