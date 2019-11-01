@@ -3374,12 +3374,24 @@ touch_handle_cancel(void *data, struct wl_touch *wl_touch)
 	}
 }
 
+void touch_handle_shape(void *data, struct wl_touch *wl_touch, int32_t id,
+			 wl_fixed_t major, wl_fixed_t minor)
+{
+}
+
+void touch_handle_orientation(void *data, struct wl_touch *wl_touch, int32_t id,
+			       wl_fixed_t orientation)
+{
+}
+
 static const struct wl_touch_listener touch_listener = {
 	touch_handle_down,
 	touch_handle_up,
 	touch_handle_motion,
 	touch_handle_frame,
 	touch_handle_cancel,
+	touch_handle_shape,
+	touch_handle_orientation,
 };
 
 static void
@@ -5795,7 +5807,7 @@ static void
 display_add_input(struct display *d, uint32_t id, int display_seat_version)
 {
 	struct input *input;
-	int seat_version = MIN(display_seat_version, 5);
+	int seat_version = MIN(display_seat_version, 6);
 
 	input = xzalloc(sizeof *input);
 	input->display = d;
