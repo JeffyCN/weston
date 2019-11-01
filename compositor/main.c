@@ -199,14 +199,24 @@ weston_log_file_close(void)
 static int
 vlog(const char *fmt, va_list ap)
 {
+	const char *oom = "Out of memory";
 	char timestr[128];
 	int len = 0;
+	char *str;
 
 	if (weston_log_scope_is_enabled(log_scope)) {
-		len = weston_log_scope_printf(log_scope, "%s ",
-					      weston_log_timestamp(timestr,
-					      sizeof timestr));
-		len += weston_log_scope_vprintf(log_scope, fmt, ap);
+		int len_va;
+		char *log_timestamp = weston_log_timestamp(timestr,
+							   sizeof(timestr));
+		len_va = vasprintf(&str, fmt, ap);
+		if (len_va >= 0) {
+			len = weston_log_scope_printf(log_scope, "%s %s",
+						      log_timestamp, str);
+			free(str);
+		} else {
+			len = weston_log_scope_printf(log_scope, "%s %s",
+						      log_timestamp, oom);
+		}
 	}
 
 	return len;
