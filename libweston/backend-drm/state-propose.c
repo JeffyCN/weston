@@ -187,11 +187,6 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 	struct drm_backend *b = to_drm_backend(ec);
 	struct drm_plane_state *state = NULL;
 	int ret;
-	enum {
-		NO_PLANES,
-		NO_PLANES_ACCEPTED,
-		PLACED_ON_PLANE,
-	} availability = NO_PLANES;
 
 	assert(!b->sprites_are_broken);
 	assert(b->atomic_modeset);
@@ -242,7 +237,6 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 		drm_debug(b, "\t\t\t[overlay] provisionally placing "
 			     "view %p on overlay %lu in planes-only mode\n",
 			  ev, (unsigned long) plane->plane_id);
-		availability = PLACED_ON_PLANE;
 		goto out;
 	}
 
@@ -251,7 +245,6 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 		drm_debug(b, "\t\t\t[overlay] provisionally placing "
 			     "view %p on overlay %d in mixed mode\n",
 			  ev, plane->plane_id);
-		availability = PLACED_ON_PLANE;
 		goto out;
 	}
 
@@ -261,16 +254,6 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 
 	drm_plane_state_put_back(state);
 	state = NULL;
-
-	switch (availability) {
-	case NO_PLANES:
-		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
-			     "no free overlay planes\n", ev);
-		break;
-	case NO_PLANES_ACCEPTED:
-	case PLACED_ON_PLANE:
-		break;
-	}
 
 out:
 	return state;
@@ -323,6 +306,7 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	struct drm_plane *plane = output->cursor_plane;
 	struct drm_plane_state *plane_state;
 	bool needs_update = false;
+	const char *p_name = drm_output_get_plane_type_name(plane);
 
 	assert(!b->cursors_are_broken);
 
@@ -348,16 +332,20 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	/* We can't scale with the legacy API, and we don't try to account for
 	 * simple cropping/translation in cursor_bo_update. */
 	plane_state->output = output;
-	if (!drm_plane_state_coords_for_view(plane_state, ev, zpos))
+	if (!drm_plane_state_coords_for_view(plane_state, ev, zpos)) {
+		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
+			     "unsuitable transform\n", p_name, ev, p_name);
 		goto err;
+	}
 
 	if (plane_state->src_x != 0 || plane_state->src_y != 0 ||
 	    plane_state->src_w > (unsigned) b->cursor_width << 16 ||
 	    plane_state->src_h > (unsigned) b->cursor_height << 16 ||
 	    plane_state->src_w != plane_state->dest_w << 16 ||
 	    plane_state->src_h != plane_state->dest_h << 16) {
-		drm_debug(b, "\t\t\t\t[cursor] not assigning view %p to cursor plane "
-			     "(positioning requires cropping or scaling)\n", ev);
+		drm_debug(b, "\t\t\t\t[%s] not assigning view %p to %s plane "
+			     "(positioning requires cropping or scaling)\n",
+			     p_name, ev, p_name);
 		goto err;
 	}
 
@@ -383,7 +371,7 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 		drm_fb_ref(output->gbm_cursor_fb[output->current_cursor]);
 
 	if (needs_update) {
-		drm_debug(b, "\t\t\t\t[cursor] copying new content to cursor BO\n");
+		drm_debug(b, "\t\t\t\t[%s] copying new content to cursor BO\n", p_name);
 		cursor_bo_update(plane_state, ev);
 	}
 
@@ -396,8 +384,8 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	plane_state->dest_w = b->cursor_width;
 	plane_state->dest_h = b->cursor_height;
 
-	drm_debug(b, "\t\t\t\t[cursor] provisionally assigned view %p to cursor\n",
-		  ev);
+	drm_debug(b, "\t\t\t\t[%s] provisionally assigned view %p to cursor\n",
+		  p_name, ev);
 
 	return plane_state;
 
@@ -424,6 +412,7 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_plane_state *state;
+	const char *p_name = drm_output_get_plane_type_name(scanout_plane);
 
 	assert(!b->sprites_are_broken);
 	assert(b->atomic_modeset);
@@ -437,12 +426,15 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	/* If the surface buffer has an in-fence fd, but the plane doesn't
 	 * support fences, we can't place the buffer on this plane. */
 	if (ev->surface->acquire_fence_fd >= 0 &&
-	    scanout_plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0)
+	    scanout_plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0) {
+		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
+			     "no in-fence support\n", p_name, ev, p_name);
 		return NULL;
+	}
 
 	if (!fb) {
-		drm_debug(b, "\t\t\t\t[scanout] not placing view %p on scanout: "
-			     " couldn't get fb\n", ev);
+		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
+			     " couldn't get fb\n", p_name, ev, p_name);
 		return NULL;
 	}
 
@@ -459,13 +451,19 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	state->fb = drm_fb_ref(fb);
 	state->ev = ev;
 	state->output = output;
-	if (!drm_plane_state_coords_for_view(state, ev, zpos))
+	if (!drm_plane_state_coords_for_view(state, ev, zpos)) {
+		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
+			     "unsuitable transform\n", p_name, ev, p_name);
 		goto err;
+	}
 
 	if (state->dest_x != 0 || state->dest_y != 0 ||
 	    state->dest_w != (unsigned) output->base.current_mode->width ||
-	    state->dest_h != (unsigned) output->base.current_mode->height)
+	    state->dest_h != (unsigned) output->base.current_mode->height) {
+		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
+			     " invalid plane state\n", p_name, ev, p_name);
 		goto err;
+	}
 
 	state->in_fence_fd = ev->surface->acquire_fence_fd;
 
@@ -511,6 +509,13 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	struct weston_output *wet_output = &state->output->base;
 	bool view_matches_entire_output, scanout_has_view_assigned;
 	struct drm_plane *scanout_plane = state->output->scanout_plane;
+	struct drm_plane_state *ps = NULL;
+	const char *p_name = drm_output_get_plane_type_name(plane);
+	enum {
+		NO_PLANES,	/* generic err-handle */
+		NO_PLANES_ACCEPTED,
+		PLACED_ON_PLANE,
+	} availability = NO_PLANES;
 
 	/* sanity checks in case we over/underflow zpos or pass incorrect
 	 * values */
@@ -520,12 +525,14 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	switch (plane->type) {
 	case WDRM_PLANE_TYPE_CURSOR:
 		if (b->cursors_are_broken) {
-			drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
-				     "place view %p in cursor\n",
-				     plane->plane_id, ev);
-			return NULL;
+			availability = NO_PLANES_ACCEPTED;
+			goto out;
 		}
-		return drm_output_prepare_cursor_view(state, ev, zpos);
+
+		ps = drm_output_prepare_cursor_view(state, ev, zpos);
+		if (ps)
+			availability = PLACED_ON_PLANE;
+		break;
 	case WDRM_PLANE_TYPE_OVERLAY:
 		/* do not attempt to place it in the overlay if we don't have
 		 * anything in the scanout/primary and the view doesn't cover
@@ -537,26 +544,49 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 								 state);
 
 		if (view_matches_entire_output && !scanout_has_view_assigned) {
-			drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
-				     "place view %p in overlay\n",
-				     plane->plane_id, ev);
-			return NULL;
+			availability = NO_PLANES_ACCEPTED;
+			goto out;
 		}
-		return drm_output_prepare_overlay_view(plane, state, ev,
-						       mode, fb, zpos);
+
+		ps = drm_output_prepare_overlay_view(plane, state, ev, mode,
+						     fb, zpos);
+		if (ps)
+			availability = PLACED_ON_PLANE;
+		break;
 	case WDRM_PLANE_TYPE_PRIMARY:
 		if (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY) {
-			drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
-				     "place view %p in scanout\n",
-				     plane->plane_id, ev);
-			return NULL;
+			availability = NO_PLANES_ACCEPTED;
+			goto out;
 		}
-		return drm_output_prepare_scanout_view(state, ev, mode,
-						       fb, zpos);
+
+		ps = drm_output_prepare_scanout_view(state, ev, mode,
+						     fb, zpos);
+		if (ps)
+			availability = PLACED_ON_PLANE;
+		break;
 	default:
 		assert(0);
 		break;
 	}
+
+out:
+	switch (availability) {
+	case NO_PLANES:
+		/* set initial to this catch-all case, such that
+		 * prepare_cursor/overlay/scanout() should have/contain the
+		 * reason for failling */
+		break;
+	case NO_PLANES_ACCEPTED:
+		drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
+			     "place view %p in %s\n",
+			     plane->plane_id, ev, p_name);
+		break;
+	case PLACED_ON_PLANE:
+		break;
+	}
+
+
+	return ps;
 }
 
 static int
