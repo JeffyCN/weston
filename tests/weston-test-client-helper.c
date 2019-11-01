@@ -1010,7 +1010,7 @@ output_path(void)
 	char *path = getenv("WESTON_TEST_OUTPUT_PATH");
 
 	if (!path)
-		return "./logs";
+		return ".";
 
 	return path;
 }
