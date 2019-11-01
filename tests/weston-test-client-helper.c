@@ -34,6 +34,7 @@
 #include <sys/mman.h>
 #include <cairo.h>
 
+#include "test-config.h"
 #include "shared/os-compatibility.h"
 #include "shared/xalloc.h"
 #include <libweston/zalloc.h>
@@ -1025,7 +1026,7 @@ reference_path(void)
 	char *path = getenv("WESTON_TEST_REFERENCE_PATH");
 
 	if (!path)
-		return "./tests/reference";
+		return WESTON_TEST_REFERENCE_PATH;
 	return path;
 }
 

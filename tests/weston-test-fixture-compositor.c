@@ -31,6 +31,7 @@
 #include "shared/helpers.h"
 #include "weston-test-fixture-compositor.h"
 #include "weston.h"
+#include "test-config.h"
 
 struct prog_args {
 	int argc;
@@ -179,6 +180,12 @@ execute_compositor(const struct compositor_setup *setup,
 	char *tmp;
 	const char *ctmp;
 	int ret;
+
+	if (setenv("WESTON_MODULE_MAP", WESTON_MODULE_MAP, 0) < 0 ||
+	    setenv("WESTON_DATA_DIR", WESTON_DATA_DIR, 0) < 0) {
+		fprintf(stderr, "Error: environment setup failed.\n");
+		return RESULT_HARD_ERROR;
+	}
 
 #ifndef BUILD_DRM_COMPOSITOR
 	if (setup->backend == WESTON_BACKEND_DRM) {

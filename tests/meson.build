@@ -64,7 +64,6 @@ exe_plugin_test = shared_library(
 	name_prefix: '',
 	install: false,
 )
-config_h.set_quoted('TESTSUITE_PLUGIN_PATH', exe_plugin_test.full_path())
 
 deps_zuc = [ dep_libshared ]
 if get_option('test-junit-xml')
@@ -250,6 +249,13 @@ env_test_weston = [
 	'WESTON_DATA_DIR=' + join_paths(meson.current_source_dir(), '..', 'data'),
 ]
 
+test_config_h = configuration_data()
+test_config_h.set_quoted('WESTON_TEST_REFERENCE_PATH', meson.current_source_dir() + '/reference')
+test_config_h.set_quoted('WESTON_MODULE_MAP', env_modmap)
+test_config_h.set_quoted('WESTON_DATA_DIR', join_paths(meson.current_source_dir(), '..', 'data'))
+test_config_h.set_quoted('TESTSUITE_PLUGIN_PATH', exe_plugin_test.full_path())
+configure_file(output: 'test-config.h', configuration: test_config_h)
+
 foreach t : tests
 	t_name = 'test-' + t.get('name')
 	t_sources = t.get('sources', [t.get('name') + '-test.c'])
@@ -271,7 +277,7 @@ foreach t : tests
 		install: false,
 	)
 
-	test(t.get('name'), t_exe, depends: t.get('test_deps', []), env: env_test_weston)
+	test(t.get('name'), t_exe, depends: t.get('test_deps', []))
 endforeach
 
 # FIXME: the multiple loops is lame. rethink this.
