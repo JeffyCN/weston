@@ -6225,14 +6225,15 @@ weston_output_enable(struct weston_output *output)
 	output->dirty = 1;
 	output->original_scale = output->scale;
 
+	wl_signal_init(&output->frame_signal);
+	wl_signal_init(&output->destroy_signal);
+
 	weston_output_transform_scale_init(output, output->transform, output->scale);
 	weston_output_init_zoom(output);
 
 	weston_output_init_geometry(output, x, y);
 	weston_output_damage(output);
 
-	wl_signal_init(&output->frame_signal);
-	wl_signal_init(&output->destroy_signal);
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->feedback_list);
 
