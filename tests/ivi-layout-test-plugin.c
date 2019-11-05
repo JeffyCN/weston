@@ -76,13 +76,6 @@ find_runner_test(const char *name)
 	return NULL;
 }
 
-struct test_launcher {
-	struct weston_compositor *compositor;
-	char exe[2048];
-	struct weston_process process;
-	const struct ivi_layout_interface *layout_interface;
-};
-
 struct test_context {
 	const struct ivi_layout_interface *layout_interface;
 	struct wl_resource *runner_resource;
@@ -94,16 +87,25 @@ struct test_context {
 	struct wl_listener surface_configured;
 };
 
-static struct test_context static_context;
+struct test_launcher {
+	struct weston_compositor *compositor;
+	struct test_context context;
+	char exe[2048];
+	struct weston_process process;
+	const struct ivi_layout_interface *layout_interface;
+};
 
 static void
 destroy_runner(struct wl_resource *resource)
 {
-	assert(static_context.runner_resource == NULL ||
-	       static_context.runner_resource == resource);
+	struct test_launcher *launcher = wl_resource_get_user_data(resource);
+	struct test_context *ctx = &launcher->context;
 
-	static_context.layout_interface = NULL;
-	static_context.runner_resource = NULL;
+	assert(ctx->runner_resource == NULL ||
+	       ctx->runner_resource == resource);
+
+	ctx->layout_interface = NULL;
+	ctx->runner_resource = NULL;
 }
 
 static void
@@ -118,13 +120,16 @@ runner_run_handler(struct wl_client *client, struct wl_resource *resource,
 {
 	struct test_launcher *launcher;
 	const struct runner_test *t;
-
-	assert(static_context.runner_resource == NULL ||
-	       static_context.runner_resource == resource);
+	struct test_context *ctx;
 
 	launcher = wl_resource_get_user_data(resource);
-	static_context.layout_interface = launcher->layout_interface;
-	static_context.runner_resource = resource;
+	ctx = &launcher->context;
+
+	assert(ctx->runner_resource == NULL ||
+	       ctx->runner_resource == resource);
+
+	ctx->layout_interface = launcher->layout_interface;
+	ctx->runner_resource = resource;
 
 	t = find_runner_test(test_name);
 	if (!t) {
@@ -139,7 +144,7 @@ runner_run_handler(struct wl_client *client, struct wl_resource *resource,
 
 	weston_log("weston_test_runner.run(\"%s\")\n", test_name);
 
-	t->run(&static_context);
+	t->run(ctx);
 
 	weston_test_runner_send_finished(resource);
 }
@@ -166,7 +171,7 @@ bind_runner(struct wl_client *client, void *data,
 	wl_resource_set_implementation(resource, &runner_implementation,
 				       launcher, destroy_runner);
 
-	if (static_context.runner_resource != NULL) {
+	if (launcher->context.runner_resource != NULL) {
 		weston_log("test FATAL: "
 			   "attempting to run several tests in parallel.\n");
 		wl_resource_post_error(resource,
