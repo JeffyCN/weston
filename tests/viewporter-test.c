@@ -41,10 +41,7 @@ get_viewporter(struct client *client)
 {
 	struct global *g;
 	struct global *global_wpr = NULL;
-	static struct wp_viewporter *wpr;
-
-	if (wpr)
-		return wpr;
+	struct wp_viewporter *wpr;
 
 	wl_list_for_each(g, &client->global_list, link) {
 		if (strcmp(g->interface, wp_viewporter_interface.name))
