@@ -124,7 +124,7 @@ find_pending_subscription(struct weston_log_context *log_ctx,
 	struct weston_log_subscription *sub;
 
 	wl_list_for_each(sub, &log_ctx->pending_subscription_list, source_link)
-		if (!strncmp(sub->scope_name, scope_name, strlen(scope_name)))
+		if (!strcmp(sub->scope_name, scope_name))
 			return sub;
 
 	return NULL;
