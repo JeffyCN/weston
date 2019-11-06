@@ -649,6 +649,7 @@ err_desktop:
 	weston_desktop_destroy(shell->desktop);
 
 err_shell:
+	wl_list_remove(&shell->destroy_listener.link);
 	free(shell);
 
 	return IVI_FAILED;
