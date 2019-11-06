@@ -1773,6 +1773,11 @@ struct weston_compositor *
 weston_compositor_create(struct wl_display *display,
 			 struct weston_log_context *log_ctx, void *user_data);
 
+bool
+weston_compositor_add_destroy_listener_once(struct weston_compositor *compositor,
+					    struct wl_listener *listener,
+					    wl_notify_func_t destroy_handler);
+
 enum weston_compositor_backend {
 	WESTON_BACKEND_DRM,
 	WESTON_BACKEND_FBDEV,

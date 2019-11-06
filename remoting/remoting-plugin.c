@@ -913,6 +913,13 @@ weston_module_init(struct weston_compositor *compositor)
 	if (!remoting)
 		return -1;
 
+	if (!weston_compositor_add_destroy_listener_once(compositor,
+							 &remoting->destroy_listener,
+							 weston_remoting_destroy)) {
+		free(remoting);
+		return 0;
+	}
+
 	remoting->virtual_output_api = api;
 	remoting->compositor = compositor;
 	wl_list_init(&remoting->output_list);
@@ -932,11 +939,10 @@ weston_module_init(struct weston_compositor *compositor)
 		goto failed;
 	}
 
-	remoting->destroy_listener.notify = weston_remoting_destroy;
-	wl_signal_add(&compositor->destroy_signal, &remoting->destroy_listener);
 	return 0;
 
 failed:
+	wl_list_remove(&remoting->destroy_listener.link);
 	free(remoting);
 	return -1;
 }

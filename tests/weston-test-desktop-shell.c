@@ -181,8 +181,12 @@ wet_shell_init(struct weston_compositor *ec,
 	if (!dts)
 		return -1;
 
-	dts->compositor_destroy_listener.notify = shell_destroy;
-	wl_signal_add(&ec->destroy_signal, &dts->compositor_destroy_listener);
+	if (!weston_compositor_add_destroy_listener_once(ec,
+							 &dts->compositor_destroy_listener,
+							 shell_destroy)) {
+		free(dts);
+		return 0;
+	}
 
 	weston_layer_init(&dts->layer, ec);
 	weston_layer_init(&dts->background_layer, ec);

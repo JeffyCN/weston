@@ -42,6 +42,9 @@ struct fullscreen_shell {
 	struct wl_client *client;
 	struct wl_listener client_destroyed;
 	struct weston_compositor *compositor;
+	/* XXX: missing compositor destroy listener
+	 * https://gitlab.freedesktop.org/wayland/weston/issues/299
+	 */
 
 	struct weston_layer layer;
 	struct wl_list output_list;

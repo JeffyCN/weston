@@ -114,6 +114,9 @@ struct ss_shm_buffer {
 
 struct screen_share {
 	struct weston_compositor *compositor;
+	/* XXX: missing compositor destroy listener
+	 * https://gitlab.freedesktop.org/wayland/weston/issues/298
+	 */
 	char *command;
 };
 

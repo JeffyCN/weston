@@ -623,10 +623,14 @@ wet_shell_init(struct weston_compositor *compositor,
 	if (shell == NULL)
 		return -1;
 
-	init_ivi_shell(compositor, shell);
+	if (!weston_compositor_add_destroy_listener_once(compositor,
+							 &shell->destroy_listener,
+							 shell_destroy)) {
+		free(shell);
+		return 0;
+	}
 
-	shell->destroy_listener.notify = shell_destroy;
-	wl_signal_add(&compositor->destroy_signal, &shell->destroy_listener);
+	init_ivi_shell(compositor, shell);
 
 	shell->wake_listener.notify = wake_handler;
 	wl_signal_add(&compositor->wake_signal, &shell->wake_listener);

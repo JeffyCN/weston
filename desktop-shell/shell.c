@@ -5090,8 +5090,13 @@ wet_shell_init(struct weston_compositor *ec,
 
 	shell->compositor = ec;
 
-	shell->destroy_listener.notify = shell_destroy;
-	wl_signal_add(&ec->destroy_signal, &shell->destroy_listener);
+	if (!weston_compositor_add_destroy_listener_once(ec,
+							 &shell->destroy_listener,
+							 shell_destroy)) {
+		free(shell);
+		return 0;
+	}
+
 	shell->idle_listener.notify = idle_handler;
 	wl_signal_add(&ec->idle_signal, &shell->idle_listener);
 	shell->wake_listener.notify = wake_handler;

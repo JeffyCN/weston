@@ -46,6 +46,9 @@
 
 struct weston_test {
 	struct weston_compositor *compositor;
+	/* XXX: missing compositor destroy listener
+	 * https://gitlab.freedesktop.org/wayland/weston/issues/300
+	 */
 	struct weston_layer layer;
 	struct weston_process process;
 	struct weston_seat seat;

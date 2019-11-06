@@ -7639,6 +7639,41 @@ weston_load_module(const char *name, const char *entrypoint)
 	return init;
 }
 
+/** Add a compositor destroy listener only once
+ *
+ * \param compositor The compositor whose destroy to watch for.
+ * \param listener The listener struct to initialize.
+ * \param destroy_handler The callback when compositor is destroyed.
+ * \return True if listener is added, or false if there already is a listener
+ * with the given \c destroy_handler.
+ *
+ * This function does nothing and returns false if the given callback function
+ * is already present in the weston_compositor destroy callbacks list.
+ * Otherwise, this function initializes the given listener with the given
+ * callback pointer and adds it to the compositor's destroy callbacks list.
+ *
+ * This can be used to ensure that plugin initialization is done only once
+ * in case the same plugin is loaded multiple times. If this function returns
+ * false, the plugin should be already initialized successfully.
+ *
+ * All plugins should register a destroy listener for cleaning up. Note, that
+ * the plugin destruction order is not guaranteed: plugins that depend on other
+ * plugins must be able to be torn down in arbitrary order.
+ *
+ * \sa weston_compositor_tear_down, weston_compositor_destroy
+ */
+WL_EXPORT bool
+weston_compositor_add_destroy_listener_once(struct weston_compositor *compositor,
+					    struct wl_listener *listener,
+					    wl_notify_func_t destroy_handler)
+{
+	if (wl_signal_get(&compositor->destroy_signal, destroy_handler))
+		return false;
+
+	listener->notify = destroy_handler;
+	wl_signal_add(&compositor->destroy_signal, listener);
+	return true;
+}
 
 /** Tear down the compositor.
  *
