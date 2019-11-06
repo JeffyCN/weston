@@ -224,6 +224,7 @@ out_surface:
 	weston_surface_destroy(dts->background_surface);
 
 out_free:
+	wl_list_remove(&dts->compositor_destroy_listener.link);
 	free(dts);
 
 	return -1;
