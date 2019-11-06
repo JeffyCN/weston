@@ -99,7 +99,7 @@ runner_destroy(struct runner *runner)
 static void
 runner_run(struct runner *runner, const char *test_name)
 {
-	fprintf(stderr, "weston_test_runner.run(\"%s\")\n", test_name);
+	testlog("weston_test_runner.run(\"%s\")\n", test_name);
 
 	runner->done = 0;
 	weston_test_runner_run(runner->test_runner, test_name);

@@ -79,7 +79,7 @@ input_timestamp(void *data,
 	timespec_from_proto(timestamp, tv_sec_hi, tv_sec_lo,
 			    tv_nsec);
 
-	fprintf(stderr, "test-client: got input timestamp %ld.%ld\n",
+	testlog("test-client: got input timestamp %ld.%ld\n",
 		timestamp->tv_sec, timestamp->tv_nsec);
 }
 

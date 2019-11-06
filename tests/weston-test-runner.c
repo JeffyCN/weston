@@ -50,6 +50,16 @@ get_test_name(void)
 	return test_name_;
 }
 
+void
+testlog(const char *fmt, ...)
+{
+	va_list argp;
+
+	va_start(argp, fmt);
+	vfprintf(stderr, fmt, argp);
+	va_end(argp);
+}
+
 static const struct weston_test *
 find_test(const char *name)
 {

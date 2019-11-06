@@ -68,5 +68,5 @@ TEST(ivi_application_exists)
 	iviapp = get_ivi_application(client);
 	client_roundtrip(client);
 
-	printf("Successful bind: %p\n", iviapp);
+	testlog("Successful bind: %p\n", iviapp);
 }

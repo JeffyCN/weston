@@ -130,7 +130,7 @@ pointer_handle_enter(void *data, struct wl_pointer *wl_pointer,
 	pointer->x = wl_fixed_to_int(x);
 	pointer->y = wl_fixed_to_int(y);
 
-	fprintf(stderr, "test-client: got pointer enter %d %d, surface %p\n",
+	testlog("test-client: got pointer enter %d %d, surface %p\n",
 		pointer->x, pointer->y, pointer->focus);
 }
 
@@ -142,7 +142,7 @@ pointer_handle_leave(void *data, struct wl_pointer *wl_pointer,
 
 	pointer->focus = NULL;
 
-	fprintf(stderr, "test-client: got pointer leave, surface %p\n",
+	testlog("test-client: got pointer leave, surface %p\n",
 		wl_surface ? wl_surface_get_user_data(wl_surface) : NULL);
 }
 
@@ -158,7 +158,7 @@ pointer_handle_motion(void *data, struct wl_pointer *wl_pointer,
 	pointer->motion_time_timespec = pointer->input_timestamp;
 	pointer->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got pointer motion %d %d\n",
+	testlog("test-client: got pointer motion %d %d\n",
 		pointer->x, pointer->y);
 }
 
@@ -175,8 +175,7 @@ pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
 	pointer->button_time_timespec = pointer->input_timestamp;
 	pointer->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got pointer button %u %u\n",
-		button, state);
+	testlog("test-client: got pointer button %u %u\n", button, state);
 }
 
 static void
@@ -191,21 +190,21 @@ pointer_handle_axis(void *data, struct wl_pointer *wl_pointer,
 	pointer->axis_time_timespec = pointer->input_timestamp;
 	pointer->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got pointer axis %u %f\n",
+	testlog("test-client: got pointer axis %u %f\n",
 		axis, wl_fixed_to_double(value));
 }
 
 static void
 pointer_handle_frame(void *data, struct wl_pointer *wl_pointer)
 {
-	fprintf(stderr, "test-client: got pointer frame\n");
+	testlog("test-client: got pointer frame\n");
 }
 
 static void
 pointer_handle_axis_source(void *data, struct wl_pointer *wl_pointer,
 			     uint32_t source)
 {
-	fprintf(stderr, "test-client: got pointer axis source %u\n", source);
+	testlog("test-client: got pointer axis source %u\n", source);
 }
 
 static void
@@ -219,15 +218,14 @@ pointer_handle_axis_stop(void *data, struct wl_pointer *wl_pointer,
 	pointer->axis_stop_time_timespec = pointer->input_timestamp;
 	pointer->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got pointer axis stop %u\n", axis);
+	testlog("test-client: got pointer axis stop %u\n", axis);
 }
 
 static void
 pointer_handle_axis_discrete(void *data, struct wl_pointer *wl_pointer,
 			     uint32_t axis, int32_t value)
 {
-	fprintf(stderr, "test-client: got pointer axis discrete %u %d\n",
-		axis, value);
+	testlog("test-client: got pointer axis discrete %u %d\n", axis, value);
 }
 
 static const struct wl_pointer_listener pointer_listener = {
@@ -248,7 +246,7 @@ keyboard_handle_keymap(void *data, struct wl_keyboard *wl_keyboard,
 {
 	close(fd);
 
-	fprintf(stderr, "test-client: got keyboard keymap\n");
+	testlog("test-client: got keyboard keymap\n");
 }
 
 static void
@@ -263,7 +261,7 @@ keyboard_handle_enter(void *data, struct wl_keyboard *wl_keyboard,
 	else
 		keyboard->focus = NULL;
 
-	fprintf(stderr, "test-client: got keyboard enter, surface %p\n",
+	testlog("test-client: got keyboard enter, surface %p\n",
 		keyboard->focus);
 }
 
@@ -275,7 +273,7 @@ keyboard_handle_leave(void *data, struct wl_keyboard *wl_keyboard,
 
 	keyboard->focus = NULL;
 
-	fprintf(stderr, "test-client: got keyboard leave, surface %p\n",
+	testlog("test-client: got keyboard leave, surface %p\n",
 		wl_surface ? wl_surface_get_user_data(wl_surface) : NULL);
 }
 
@@ -292,7 +290,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *wl_keyboard,
 	keyboard->key_time_timespec = keyboard->input_timestamp;
 	keyboard->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got keyboard key %u %u\n", key, state);
+	testlog("test-client: got keyboard key %u %u\n", key, state);
 }
 
 static void
@@ -308,7 +306,7 @@ keyboard_handle_modifiers(void *data, struct wl_keyboard *wl_keyboard,
 	keyboard->mods_locked = mods_locked;
 	keyboard->group = group;
 
-	fprintf(stderr, "test-client: got keyboard modifiers %u %u %u %u\n",
+	testlog("test-client: got keyboard modifiers %u %u %u %u\n",
 		mods_depressed, mods_latched, mods_locked, group);
 }
 
@@ -321,8 +319,7 @@ keyboard_handle_repeat_info(void *data, struct wl_keyboard *wl_keyboard,
 	keyboard->repeat_info.rate = rate;
 	keyboard->repeat_info.delay = delay;
 
-	fprintf(stderr, "test-client: got keyboard repeat_info %d %d\n",
-		rate, delay);
+	testlog("test-client: got keyboard repeat_info %d %d\n", rate, delay);
 }
 
 static const struct wl_keyboard_listener keyboard_listener = {
@@ -349,7 +346,7 @@ touch_handle_down(void *data, struct wl_touch *wl_touch,
 	touch->down_time_timespec = touch->input_timestamp;
 	touch->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got touch down %d %d, surf: %p, id: %d\n",
+	testlog("test-client: got touch down %d %d, surf: %p, id: %d\n",
 		touch->down_x, touch->down_y, surface, id);
 }
 
@@ -363,7 +360,7 @@ touch_handle_up(void *data, struct wl_touch *wl_touch,
 	touch->up_time_timespec = touch->input_timestamp;
 	touch->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got touch up, id: %d\n", id);
+	testlog("test-client: got touch up, id: %d\n", id);
 }
 
 static void
@@ -378,7 +375,7 @@ touch_handle_motion(void *data, struct wl_touch *wl_touch,
 	touch->motion_time_timespec = touch->input_timestamp;
 	touch->input_timestamp = (struct timespec) { 0 };
 
-	fprintf(stderr, "test-client: got touch motion, %d %d, id: %d\n",
+	testlog("test-client: got touch motion, %d %d, id: %d\n",
 		touch->x, touch->y, id);
 }
 
@@ -389,7 +386,7 @@ touch_handle_frame(void *data, struct wl_touch *wl_touch)
 
 	++touch->frame_no;
 
-	fprintf(stderr, "test-client: got touch frame (%d)\n", touch->frame_no);
+	testlog("test-client: got touch frame (%d)\n", touch->frame_no);
 }
 
 static void
@@ -399,7 +396,7 @@ touch_handle_cancel(void *data, struct wl_touch *wl_touch)
 
 	++touch->cancel_no;
 
-	fprintf(stderr, "test-client: got touch cancel (%d)\n", touch->cancel_no);
+	testlog("test-client: got touch cancel (%d)\n", touch->cancel_no);
 }
 
 static const struct wl_touch_listener touch_listener = {
@@ -418,8 +415,7 @@ surface_enter(void *data,
 
 	surface->output = wl_output_get_user_data(output);
 
-	fprintf(stderr, "test-client: got surface enter output %p\n",
-		surface->output);
+	testlog("test-client: got surface enter output %p\n", surface->output);
 }
 
 static void
@@ -430,7 +426,7 @@ surface_leave(void *data,
 
 	surface->output = NULL;
 
-	fprintf(stderr, "test-client: got surface leave output %p\n",
+	testlog("test-client: got surface leave output %p\n",
 		wl_output_get_user_data(output));
 }
 
@@ -536,7 +532,7 @@ test_handle_pointer_position(void *data, struct weston_test *weston_test,
 	test->pointer_x = wl_fixed_to_int(x);
 	test->pointer_y = wl_fixed_to_int(y);
 
-	fprintf(stderr, "test-client: got global pointer %d %d\n",
+	testlog("test-client: got global pointer %d %d\n",
 		test->pointer_x, test->pointer_y);
 }
 
@@ -545,7 +541,7 @@ test_handle_capture_screenshot_done(void *data, struct weston_test *weston_test)
 {
 	struct test *test = data;
 
-	printf("Screenshot has been captured\n");
+	testlog("Screenshot has been captured\n");
 	test->buffer_copy_done = 1;
 }
 
@@ -639,8 +635,7 @@ seat_handle_capabilities(void *data, struct wl_seat *seat,
 	if (input->seat_name && strcmp(input->seat_name, "test-seat") == 0)
 		input_update_devices(input);
 
-	fprintf(stderr, "test-client: got seat %p capabilities: %x\n",
-		input, caps);
+	testlog("test-client: got seat %p capabilities: %x\n", input, caps);
 }
 
 static void
@@ -660,8 +655,7 @@ seat_handle_name(void *data, struct wl_seat *seat, const char *name)
 		input->client->input = input;
 	}
 
-	fprintf(stderr, "test-client: got seat %p name: \'%s\'\n",
-		input, name);
+	testlog("test-client: got seat %p name: \'%s\'\n", input, name);
 }
 
 static const struct wl_seat_listener seat_listener = {
@@ -877,8 +871,7 @@ expect_protocol_error(struct client *client,
 
 	/* check error */
 	if (errcode != code) {
-		fprintf(stderr, "Should get error code %d but got %d\n",
-			code, errcode);
+		testlog("Should get error code %d but got %d\n", code, errcode);
 		failed = 1;
 	}
 
@@ -886,19 +879,19 @@ expect_protocol_error(struct client *client,
 	assert(interface);
 
 	if (strcmp(intf->name, interface->name) != 0) {
-		fprintf(stderr, "Should get interface '%s' but got '%s'\n",
+		testlog("Should get interface '%s' but got '%s'\n",
 			intf->name, interface->name);
 		failed = 1;
 	}
 
 	if (failed) {
-		fprintf(stderr, "Expected other protocol error\n");
+		testlog("Expected other protocol error\n");
 		abort();
 	}
 
 	/* all OK */
-	fprintf(stderr, "Got expected protocol error on '%s' (object id: %d) "
-			"with code %d\n", interface->name, id, errcode);
+	testlog("Got expected protocol error on '%s' (object id: %d) "
+		"with code %d\n", interface->name, id, errcode);
 }
 
 static void
@@ -1337,7 +1330,7 @@ write_image_as_png(pixman_image_t *image, const char *fname)
 
 	status = cairo_surface_write_to_png(cairo_surface, fname);
 	if (status != CAIRO_STATUS_SUCCESS) {
-		fprintf(stderr, "Failed to save image '%s': %s\n", fname,
+		testlog("Failed to save image '%s': %s\n", fname,
 			cairo_status_to_string(status));
 
 		return false;
@@ -1407,7 +1400,8 @@ load_image_from_png(const char *fname)
 	cairo_surface_flush(reference_cairo_surface);
 	status = cairo_surface_status(reference_cairo_surface);
 	if (status != CAIRO_STATUS_SUCCESS) {
-		printf("Could not open %s: %s\n", fname, cairo_status_to_string(status));
+		testlog("Could not open %s: %s\n", fname,
+			cairo_status_to_string(status));
 		cairo_surface_destroy(reference_cairo_surface);
 		return NULL;
 	}

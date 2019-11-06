@@ -144,8 +144,8 @@ check_screen(struct client *client,
 	assert(shot);
 
 	match = check_images_match(shot->image, ref, clip);
-	printf("ref %s vs. shot %s: %s\n", ref_fname, shot_fname,
-	       match ? "PASS" : "FAIL");
+	testlog("ref %s vs. shot %s: %s\n", ref_fname, shot_fname,
+		match ? "PASS" : "FAIL");
 
 	write_image_as_png(shot->image, shot_fname);
 	if (!match)

@@ -31,6 +31,7 @@
 
 #include <stdlib.h>
 
+#include <wayland-util.h>
 #include "shared/helpers.h"
 
 #ifdef NDEBUG
@@ -79,6 +80,9 @@ struct weston_test {
 #define FAIL_TEST(name) NO_ARG_TEST(name, 1)
 #define TEST_P(name, data) ARG_TEST(name, 0, data)
 #define FAIL_TEST_P(name, data) ARG_TEST(name, 1, data)
+
+void
+testlog(const char *fmt, ...) WL_PRINTF(1, 2);
 
 /**
  * Get the test name string with counter

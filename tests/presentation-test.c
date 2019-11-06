@@ -188,17 +188,17 @@ feedback_print(struct feedback *fb)
 
 	switch (fb->result) {
 	case FB_PENDING:
-		printf("pending");
+		testlog("pending");
 		return;
 	case FB_DISCARDED:
-		printf("discarded");
+		testlog("discarded");
 		return;
 	case FB_PRESENTED:
 		break;
 	}
 
 	pflags_to_str(fb->flags, str, sizeof str);
-	printf("presented %lld.%09lld, refresh %u us, [%s] seq %" PRIu64,
+	testlog("presented %lld.%09lld, refresh %u us, [%s] seq %" PRIu64,
 		(long long)fb->time.tv_sec, (long long)fb->time.tv_nsec,
 		fb->refresh_nsec / 1000, str, fb->seq);
 }
@@ -230,9 +230,9 @@ TEST(test_presentation_feedback_simple)
 
 	feedback_wait(fb);
 
-	printf("%s feedback:", __func__);
+	testlog("%s feedback:", __func__);
 	feedback_print(fb);
-	printf("\n");
+	testlog("\n");
 
 	feedback_destroy(fb);
 }

@@ -112,7 +112,7 @@ text_input_enter(void *data,
 {
 	struct text_input_state *state = data;
 
-	fprintf(stderr, "%s\n", __FUNCTION__);
+	testlog("%s\n", __FUNCTION__);
 
 	state->activated += 1;
 }

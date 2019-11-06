@@ -125,7 +125,7 @@ TEST_P(test_viewporter_bad_source_rect, bad_source_rect_args)
 
 	vp = create_viewport(client);
 
-	fprintf(stderr, "wp_viewport.set_source x=%d, y=%d, w=%d, h=%d\n",
+	testlog("wp_viewport.set_source x=%d, y=%d, w=%d, h=%d\n",
 		args->x, args->y, args->w, args->h);
 	set_source(vp, args->x, args->y, args->w, args->h);
 
@@ -170,8 +170,7 @@ TEST_P(test_viewporter_bad_destination_size, bad_destination_args)
 
 	vp = create_viewport(client);
 
-	fprintf(stderr, "wp_viewport.set_destination w=%d, h=%d\n",
-		args->w, args->h);
+	testlog("wp_viewport.set_destination w=%d, h=%d\n", args->w, args->h);
 	wp_viewport_set_destination(vp, args->w, args->h);
 
 	expect_protocol_error(client, &wp_viewport_interface,
@@ -216,7 +215,7 @@ TEST_P(test_viewporter_non_integer_destination_size, nonint_destination_args)
 
 	vp = create_viewport(client);
 
-	fprintf(stderr, "non-integer size w=%f, h=%f\n",
+	testlog("non-integer size w=%f, h=%f\n",
 		wl_fixed_to_double(args->w), wl_fixed_to_double(args->h));
 	wp_viewport_set_source(vp, 5, 6, args->w, args->h);
 	wp_viewport_set_destination(vp, -1, -1);
@@ -285,12 +284,12 @@ setup_source_vs_buffer(struct client *client,
 	surf = client->surface->wl_surface;
 	vp = create_viewport(client);
 
-	fprintf(stderr, "surface %dx%d\n",
+	testlog("surface %dx%d\n",
 		get_surface_width(client->surface,
 				  args->buffer_scale, args->buffer_transform),
 		get_surface_height(client->surface,
 				   args->buffer_scale, args->buffer_transform));
-	fprintf(stderr, "source x=%f, y=%f, w=%f, h=%f; "
+	testlog("source x=%f, y=%f, w=%f, h=%f; "
 		"buffer scale=%d, transform=%d\n",
 		wl_fixed_to_double(args->x), wl_fixed_to_double(args->y),
 		wl_fixed_to_double(args->w), wl_fixed_to_double(args->h),

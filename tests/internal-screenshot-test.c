@@ -76,7 +76,7 @@ TEST(internal_screenshot)
 	bool dump_all_images = true;
 
 	/* Create the client */
-	printf("Creating client for test\n");
+	testlog("Creating client for test\n");
 	client = create_client_and_test_surface(100, 100, 100, 100);
 	assert(client);
 	surface = client->surface->wl_surface;
@@ -106,19 +106,19 @@ TEST(internal_screenshot)
 	wl_surface_commit(surface);
 
 	/* Take a snapshot.  Result will be in screenshot->wl_buffer. */
-	printf("Taking a screenshot\n");
+	testlog("Taking a screenshot\n");
 	screenshot = capture_screenshot_of_output(client);
 	assert(screenshot);
 
 	/* Load good reference image */
 	fname = screenshot_reference_filename("internal-screenshot-good", 0);
-	printf("Loading good reference image %s\n", fname);
+	testlog("Loading good reference image %s\n", fname);
 	reference_good = load_image_from_png(fname);
 	assert(reference_good);
 
 	/* Load bad reference image */
 	fname = screenshot_reference_filename("internal-screenshot-bad", 0);
-	printf("Loading bad reference image %s\n", fname);
+	testlog("Loading bad reference image %s\n", fname);
 	reference_bad = load_image_from_png(fname);
 	assert(reference_bad);
 
@@ -126,7 +126,7 @@ TEST(internal_screenshot)
 	 * We expect this to fail since we use a bad reference image
 	 */
 	match = check_images_match(screenshot->image, reference_bad, NULL);
-	printf("Screenshot %s reference image\n", match? "equal to" : "different from");
+	testlog("Screenshot %s reference image\n", match? "equal to" : "different from");
 	assert(!match);
 	pixman_image_unref(reference_bad);
 
@@ -138,9 +138,9 @@ TEST(internal_screenshot)
 	clip.y = 100;
 	clip.width = 100;
 	clip.height = 100;
-	printf("Clip: %d,%d %d x %d\n", clip.x, clip.y, clip.width, clip.height);
+	testlog("Clip: %d,%d %d x %d\n", clip.x, clip.y, clip.width, clip.height);
 	match = check_images_match(screenshot->image, reference_good, &clip);
-	printf("Screenshot %s reference image in clipped area\n", match? "matches" : "doesn't match");
+	testlog("Screenshot %s reference image in clipped area\n", match? "matches" : "doesn't match");
 	if (!match) {
 		diffimg = visualize_image_difference(screenshot->image, reference_good, &clip);
 		fname = screenshot_output_filename("internal-screenshot-error", 0);
@@ -157,6 +157,6 @@ TEST(internal_screenshot)
 
 	buffer_destroy(screenshot);
 
-	printf("Test complete\n");
+	testlog("Test complete\n");
 	assert(match);
 }
