@@ -466,6 +466,7 @@ colord_module_destroy(struct cms_colord *cms)
 	g_free(cms->pnp_ids_data);
 	g_hash_table_unref(cms->pnp_ids);
 
+	wl_list_remove(&cms->destroy_listener.link);
 	free(cms);
 }
 
