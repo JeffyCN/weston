@@ -103,5 +103,4 @@ TEST(xwayland_client_test)
 	}
 
 	XCloseDisplay(display);
-	exit(EXIT_SUCCESS);
 }
