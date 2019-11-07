@@ -38,7 +38,7 @@
 #error "Tests must not be built with NDEBUG defined, they rely on assert()."
 #endif
 
-struct weston_test {
+struct weston_test_entry {
 	const char *name;
 	void (*run)(void *);
 	const void *table_data;
@@ -53,7 +53,7 @@ struct weston_test {
 #define TEST_COMMON(func, name, ret, data, size, n_elem)		\
 	static void func(void *);					\
 									\
-	const struct weston_test test##name				\
+	const struct weston_test_entry test##name			\
 		__attribute__ ((used, section ("test_section"))) =	\
 	{								\
 		#name, func, data, size, n_elem, ret			\
