@@ -113,14 +113,17 @@ dep_zucmain = declare_dependency(
 tests = [
 	{	'name': 'plugin-registry', },
 	{	'name': 'roles', },
+	{	'name': 'string', },
 	{	'name': 'subsurface-shot', },
+	{
+		'name': 'vertex-clip',
+		'dep_objs': dep_vertex_clipping,
+	},
 ]
 
 tests_standalone = [
 	['config-parser', [], [ dep_zucmain ]],
 	['matrix', [], [ dep_libm, dep_matrix_c ]],
-	['string'],
-	[ 'vertex-clip', [], [ dep_test_client, dep_vertex_clipping ]],
 	['timespec', [], [ dep_zucmain ]],
 	['zuc',
 		[
