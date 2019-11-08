@@ -682,7 +682,7 @@ setup_session(struct weston_launch *wl, char **child_argv)
 	child_argv[0] = "/bin/sh";
 	child_argv[1] = "-l";
 	child_argv[2] = "-c";
-	child_argv[3] = BINDIR "/weston \"$@\"";
+	child_argv[3] = "exec " BINDIR "/weston \"$@\"";
 	child_argv[4] = "weston";
 	return 5;
 }
