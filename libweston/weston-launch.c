@@ -510,8 +510,14 @@ handle_signal(struct weston_launch *wl)
 		break;
 	case SIGTERM:
 	case SIGINT:
-		if (wl->child)
-			kill(wl->child, sig.ssi_signo);
+		if (!wl->child)
+			break;
+
+		if (wl->verbose)
+			fprintf(stderr, "weston-launch: sending %s to pid %d\n",
+				strsignal(sig.ssi_signo), wl->child);
+
+		kill(wl->child, sig.ssi_signo);
 		break;
 	case SIGUSR1:
 		send_reply(wl, WESTON_LAUNCHER_DEACTIVATE);
