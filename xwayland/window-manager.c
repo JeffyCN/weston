@@ -175,6 +175,9 @@ struct weston_wm_window {
 	struct wl_list link;
 };
 
+static void
+weston_wm_window_set_allow_commits(struct weston_wm_window *window, bool allow);
+
 static struct weston_wm_window *
 get_wm_window(struct weston_surface *surface);
 
@@ -739,8 +742,10 @@ weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *ev
 	if (configure_request->value_mask & XCB_CONFIG_WINDOW_HEIGHT)
 		window->height = configure_request->height;
 
-	if (window->frame)
+	if (window->frame) {
+		weston_wm_window_set_allow_commits(window, false);
 		frame_resize_inside(window->frame, window->width, window->height);
+	}
 
 	weston_wm_window_get_child_position(window, &x, &y);
 	values[i++] = x;
@@ -958,6 +963,7 @@ weston_wm_window_set_allow_commits(struct weston_wm_window *window, bool allow)
 			    XCB_ATOM_CARDINAL,
 			    32, /* format */
 			    1, property);
+	xcb_flush(wm->conn);
 }
 
 #define ICCCM_WITHDRAWN_STATE	0
@@ -1306,10 +1312,12 @@ weston_wm_window_do_repaint(void *data)
 
 	window->repaint_source = NULL;
 
+	weston_wm_window_set_allow_commits(window, false);
 	weston_wm_window_read_properties(window);
 
 	weston_wm_window_draw_decoration(window);
 	weston_wm_window_set_pending_state(window);
+	weston_wm_window_set_allow_commits(window, true);
 }
 
 static void
@@ -2629,6 +2637,8 @@ weston_wm_window_configure(void *data)
 	struct weston_wm *wm = window->wm;
 	uint32_t values[4];
 	int x, y, width, height;
+
+	weston_wm_window_set_allow_commits(window, false);
 
 	weston_wm_window_get_child_position(window, &x, &y);
 	values[0] = x;
