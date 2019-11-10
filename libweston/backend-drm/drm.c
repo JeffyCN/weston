@@ -2893,6 +2893,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	b->base.repaint_cancel = drm_repaint_cancel;
 	b->base.create_output = drm_output_create;
 	b->base.device_changed = drm_device_changed;
+	b->base.can_scanout_dmabuf = drm_can_scanout_dmabuf;
 
 	weston_setup_vt_switch_bindings(compositor);
 

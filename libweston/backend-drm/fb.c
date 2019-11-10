@@ -509,6 +509,24 @@ drm_fb_unref(struct drm_fb *fb)
 }
 
 #ifdef BUILD_DRM_GBM
+bool
+drm_can_scanout_dmabuf(struct weston_compositor *ec,
+		       struct linux_dmabuf_buffer *dmabuf)
+{
+	struct drm_fb *fb;
+	struct drm_backend *b = to_drm_backend(ec);
+	bool ret = false;
+
+	fb = drm_fb_get_from_dmabuf(dmabuf, b, true);
+	if (fb)
+		ret = true;
+
+	drm_fb_unref(fb);
+	drm_debug(b, "[dmabuf] dmabuf %p, import test %s\n", dmabuf,
+		      ret ? "succeeded" : "failed");
+	return ret;
+}
+
 struct drm_fb *
 drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
 {

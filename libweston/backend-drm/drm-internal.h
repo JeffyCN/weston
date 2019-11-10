@@ -682,11 +682,20 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 #ifdef BUILD_DRM_GBM
 extern struct drm_fb *
 drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev);
+extern bool
+drm_can_scanout_dmabuf(struct weston_compositor *ec,
+		       struct linux_dmabuf_buffer *dmabuf);
 #else
 static inline struct drm_fb *
 drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
 {
 	return NULL;
+}
+static inline bool
+drm_can_scanout_dmabuf(struct weston_compositor *ec,
+		       struct linux_dmabuf_buffer *dmabuf)
+{
+	return false;
 }
 #endif
 
