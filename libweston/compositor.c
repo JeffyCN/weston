@@ -1852,41 +1852,6 @@ weston_view_is_opaque(struct weston_view *ev, pixman_region32_t *region)
 	return ret;
 }
 
-/** Check if the view has a valid buffer available
- *
- * @param ev The view to check if it has a valid buffer.
- *
- * Returns true if the view has a valid buffer or false otherwise.
- */
-WL_EXPORT bool
-weston_view_has_valid_buffer(struct weston_view *ev)
-{
-	return ev->surface->buffer_ref.buffer != NULL;
-}
-
-/** Check if the view matches the entire output
- *
- * @param ev The view to check.
- * @param output The output to check against.
- *
- * Returns true if the view does indeed matches the entire output.
- */
-WL_EXPORT bool
-weston_view_matches_output_entirely(struct weston_view *ev,
-				    struct weston_output *output)
-{
-	pixman_box32_t *extents =
-		pixman_region32_extents(&ev->transform.boundingbox);
-
-	if (extents->x1 != output->x ||
-	    extents->y1 != output->y ||
-	    extents->x2 != output->x + output->width ||
-	    extents->y2 != output->y + output->height)
-		return false;
-
-	return true;
-}
-
 /* Check if a surface has a view assigned to it
  *
  * The indicator is set manually when mapping
