@@ -111,6 +111,7 @@ dep_zucmain = declare_dependency(
 )
 
 tests = [
+	{	'name': 'internal-screenshot', },
 	{	'name': 'plugin-registry', },
 	{	'name': 'roles', },
 	{	'name': 'string', },
@@ -153,7 +154,6 @@ tests_weston = [
 			linux_explicit_synchronization_unstable_v1_protocol_c,
 		]
 	],
-	['internal-screenshot'],
 	[
 		'presentation',
 		[
@@ -257,6 +257,7 @@ test_config_h.set_quoted('WESTON_MODULE_MAP', env_modmap)
 test_config_h.set_quoted('WESTON_DATA_DIR', join_paths(meson.current_source_dir(), '..', 'data'))
 test_config_h.set_quoted('TESTSUITE_PLUGIN_PATH', exe_plugin_test.full_path())
 test_config_h.set_quoted('TESTSUITE_IVI_CONFIG_PATH', join_paths(meson.current_build_dir(), '../ivi-shell/weston-ivi-test.ini'))
+test_config_h.set_quoted('TESTSUITE_INTERNAL_SCREENSHOT_CONFIG_PATH', join_paths(meson.current_source_dir(), 'internal-screenshot.ini'))
 configure_file(output: 'test-config.h', configuration: test_config_h)
 
 foreach t : tests

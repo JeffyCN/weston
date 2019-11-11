@@ -29,8 +29,24 @@
 #include <stdio.h>
 
 #include "weston-test-client-helper.h"
+#include "weston-test-fixture-compositor.h"
+#include "test-config.h"
 
-char *server_parameters="--use-pixman --width=320 --height=240";
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+	setup.renderer = RENDERER_PIXMAN;
+	setup.width = 320;
+	setup.height = 240;
+	setup.shell = SHELL_DESKTOP;
+	setup.config_file = TESTSUITE_INTERNAL_SCREENSHOT_CONFIG_PATH;
+
+	return weston_test_harness_execute_as_client(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
 
 static void
 draw_stuff(pixman_image_t *image)
