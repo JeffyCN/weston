@@ -220,30 +220,33 @@ if get_option('shell-ivi')
 	]
 	tests_weston_plugin += [
 		['ivi-layout-internal'],
-		[
-			'ivi-layout',
-			[
-				'ivi-layout-test-plugin.c',
-				weston_test_server_protocol_h,
-				weston_test_protocol_c,
-			],
-			[ dep_libexec_weston ]
-		],
 	]
 
-	exe_ivi_layout_client = executable(
-		'ivi-layout-test-client',
-		'ivi-layout-test-client.c',
-		weston_test_client_protocol_h,
-		weston_test_protocol_c,
-		ivi_application_client_protocol_h,
-		ivi_application_protocol_c,
+	ivi_layout_test_plugin = shared_library(
+		'test-ivi-layout',
+		[
+			'ivi-layout-test-plugin.c',
+			weston_test_server_protocol_h,
+			weston_test_protocol_c,
+		],
 		include_directories: common_inc,
-		dependencies: dep_test_client,
-		install: false
+		dependencies: [ dep_libweston_private, dep_libexec_weston ],
+		name_prefix: '',
+		install: false,
 	)
+	env_modmap += 'test-ivi-layout.so=' + ivi_layout_test_plugin.full_path() + ';'
 
-	env_modmap += 'ivi-layout-test-client.ivi=@0@;'.format(exe_ivi_layout_client.full_path())
+	tests += [
+		{
+			'name': 'ivi-layout-client',
+			'sources': [
+				'ivi-layout-test-client.c',
+				ivi_application_client_protocol_h,
+				ivi_application_protocol_c,
+			],
+			'test_deps': [ ivi_layout_test_plugin ],
+		},
+	]
 endif
 
 env_test_weston = [

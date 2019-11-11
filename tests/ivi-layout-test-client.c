@@ -34,6 +34,20 @@
 #include "weston-test-client-helper.h"
 #include "ivi-application-client-protocol.h"
 #include "ivi-test.h"
+#include "weston-test-fixture-compositor.h"
+
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+	setup.shell = SHELL_IVI;
+	setup.extra_module = "test-ivi-layout.so";
+
+	return weston_test_harness_execute_as_client(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
 
 struct runner {
 	struct client *client;
@@ -171,9 +185,6 @@ ivi_window_destroy(struct ivi_window *wnd)
 /******************************** tests ********************************/
 
 /*
- * This is a test program, launched by ivi-layout-test-plugin.c. Each TEST()
- * is forked and exec'd as usual with the weston-test-runner framework.
- *
  * These tests make use of weston_test_runner global interface exposed by
  * ivi-layout-test-plugin.c. This allows these tests to trigger compositor-side
  * checks.
