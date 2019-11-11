@@ -77,6 +77,7 @@ const struct drm_property_info plane_props[] = {
 	[WDRM_PLANE_IN_FORMATS] = { .name = "IN_FORMATS" },
 	[WDRM_PLANE_IN_FENCE_FD] = { .name = "IN_FENCE_FD" },
 	[WDRM_PLANE_FB_DAMAGE_CLIPS] = { .name = "FB_DAMAGE_CLIPS" },
+	[WDRM_PLANE_ZPOS] = { .name = "zpos" },
 };
 
 struct drm_property_enum_info dpms_state_enums[] = {
@@ -203,6 +204,42 @@ drm_property_get_value(struct drm_property_info *info,
 }
 
 /**
+ * Get the current range values of a KMS property
+ *
+ * Given a drmModeObjectGetProperties return, as well as the drm_property_info
+ * for the target property, return the current range values of that property,
+ *
+ * If the property is not present, or there's no it is not a prop range then
+ * NULL will be returned.
+ *
+ * @param info Internal structure for property to look up
+ * @param props Raw KMS properties for the target object
+ */
+uint64_t *
+drm_property_get_range_values(struct drm_property_info *info,
+			      const drmModeObjectProperties *props)
+{
+	unsigned int i;
+
+	if (info->prop_id == 0)
+		return NULL;
+
+	for (i = 0; i < props->count_props; i++) {
+
+		if (props->props[i] != info->prop_id)
+			continue;
+
+		if (!(info->flags & DRM_MODE_PROP_RANGE) &&
+		    !(info->flags & DRM_MODE_PROP_SIGNED_RANGE))
+			continue;
+
+		return info->range_values;
+	}
+
+	return NULL;
+}
+
+/**
  * Cache DRM property values
  *
  * Update a per-object array of drm_property_info structures, given the
@@ -294,6 +331,15 @@ drm_property_info_populate(struct drm_backend *b,
 		}
 
 		info[j].prop_id = props->props[i];
+		info[j].flags = prop->flags;
+
+		if (prop->flags & DRM_MODE_PROP_RANGE ||
+		    prop->flags & DRM_MODE_PROP_SIGNED_RANGE) {
+			info[j].num_range_values = prop->count_values;
+			for (int i = 0; i < prop->count_values; i++)
+				info[j].range_values[i] = prop->values[i];
+		}
+
 
 		if (info[j].num_enum_values == 0) {
 			drmModeFreeProperty(prop);
@@ -1004,6 +1050,13 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 					      WDRM_PLANE_IN_FENCE_FD,
 					      plane_state->in_fence_fd);
 		}
+
+		/* do note, that 'invented' zpos values are set as immutable */
+		if (plane_state->zpos != DRM_PLANE_ZPOS_INVALID_PLANE &&
+		    plane_state->plane->zpos_min != plane_state->plane->zpos_max)
+			ret |= plane_add_prop(req, plane,
+					      WDRM_PLANE_ZPOS,
+					      plane_state->zpos);
 
 		if (ret != 0) {
 			weston_log("couldn't set plane state\n");

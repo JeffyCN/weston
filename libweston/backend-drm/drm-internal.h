@@ -72,6 +72,10 @@
 #define GBM_BO_USE_LINEAR (1 << 4)
 #endif
 
+#ifndef DRM_PLANE_ZPOS_INVALID_PLANE
+#define DRM_PLANE_ZPOS_INVALID_PLANE	0xffffffffffffffffULL
+#endif
+
 /**
  * A small wrapper to print information into the 'drm-backend' debug scope.
  *
@@ -144,8 +148,11 @@ struct drm_property_enum_info {
 struct drm_property_info {
 	const char *name; /**< name as string (static, not freed) */
 	uint32_t prop_id; /**< KMS property object ID */
+	uint32_t flags;
 	unsigned int num_enum_values; /**< number of enum values */
 	struct drm_property_enum_info *enum_values; /**< array of enum values */
+	unsigned int num_range_values;
+	uint64_t range_values[2];
 };
 
 /**
@@ -166,6 +173,7 @@ enum wdrm_plane_property {
 	WDRM_PLANE_IN_FORMATS,
 	WDRM_PLANE_IN_FENCE_FD,
 	WDRM_PLANE_FB_DAMAGE_CLIPS,
+	WDRM_PLANE_ZPOS,
 	WDRM_PLANE__COUNT
 };
 
@@ -362,6 +370,16 @@ struct drm_output_state {
 };
 
 /**
+ * An instance of this class is created each time we believe we have a plane
+ * suitable to be used by a view as a direct scan-out. The list is initalized
+ * and populated locally.
+ */
+struct drm_plane_zpos {
+	struct drm_plane *plane;
+	struct wl_list link;	/**< :candidate_plane_zpos_list */
+};
+
+/**
  * Plane state holds the dynamic state for a plane: where it is positioned,
  * and which buffer it is currently displaying.
  *
@@ -381,6 +399,8 @@ struct drm_plane_state {
 	uint32_t src_w, src_h;
 	int32_t dest_x, dest_y;
 	uint32_t dest_w, dest_h;
+
+	uint64_t zpos;
 
 	bool complete;
 
@@ -422,6 +442,9 @@ struct drm_plane {
 
 	/* The last state submitted to the kernel for this plane. */
 	struct drm_plane_state *state_cur;
+
+	uint64_t zpos_min;
+	uint64_t zpos_max;
 
 	struct wl_list link;
 
@@ -523,6 +546,22 @@ to_drm_mode(struct weston_mode *base)
 	return container_of(base, struct drm_mode, base);
 }
 
+static inline const char *
+drm_output_get_plane_type_name(struct drm_plane *p)
+{
+	switch (p->type) {
+	case WDRM_PLANE_TYPE_PRIMARY:
+		return "primary";
+	case WDRM_PLANE_TYPE_CURSOR:
+		return "cursor";
+	case WDRM_PLANE_TYPE_OVERLAY:
+		return "overlay";
+	default:
+		assert(0);
+		break;
+	}
+}
+
 struct drm_output *
 drm_output_find_by_crtc(struct drm_backend *b, uint32_t crtc_id);
 
@@ -579,6 +618,9 @@ uint64_t
 drm_property_get_value(struct drm_property_info *info,
 		       const drmModeObjectProperties *props,
 		       uint64_t def);
+uint64_t *
+drm_property_get_range_values(struct drm_property_info *info,
+			      const drmModeObjectProperties *props);
 int
 drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const drmModeObjectProperties *props);
@@ -695,7 +737,7 @@ void
 drm_plane_state_put_back(struct drm_plane_state *state);
 bool
 drm_plane_state_coords_for_view(struct drm_plane_state *state,
-				struct weston_view *ev);
+				struct weston_view *ev, uint64_t zpos);
 
 void
 drm_assign_planes(struct weston_output *output_base, void *repaint_data);

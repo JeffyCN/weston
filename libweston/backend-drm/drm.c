@@ -69,6 +69,61 @@
 static const char default_seat[] = "seat0";
 
 static void
+drm_backend_create_faked_zpos(struct drm_backend *b)
+{
+	struct drm_plane *plane;
+	uint64_t zpos = 0ULL;
+	uint64_t zpos_min_primary;
+	uint64_t zpos_min_overlay;
+	uint64_t zpos_min_cursor;
+
+	zpos_min_primary = zpos;
+	wl_list_for_each(plane, &b->plane_list, link) {
+		/* if the property is there, bail out sooner */
+		if (plane->props[WDRM_PLANE_ZPOS].prop_id != 0)
+			return;
+
+		if (plane->type != WDRM_PLANE_TYPE_PRIMARY)
+			continue;
+		zpos++;
+	}
+
+	zpos_min_overlay = zpos;
+	wl_list_for_each(plane, &b->plane_list, link) {
+		if (plane->type != WDRM_PLANE_TYPE_OVERLAY)
+			continue;
+		zpos++;
+	}
+
+	zpos_min_cursor = zpos;
+	wl_list_for_each(plane, &b->plane_list, link) {
+		if (plane->type != WDRM_PLANE_TYPE_CURSOR)
+			continue;
+		zpos++;
+	}
+
+	drm_debug(b, "[drm-backend] zpos property not found. "
+		     "Using invented immutable zpos values:\n");
+	/* assume that invented zpos values are immutable */
+	wl_list_for_each(plane, &b->plane_list, link) {
+		if (plane->type == WDRM_PLANE_TYPE_PRIMARY) {
+			plane->zpos_min = zpos_min_primary;
+			plane->zpos_max = zpos_min_primary;
+		} else if (plane->type == WDRM_PLANE_TYPE_OVERLAY) {
+			plane->zpos_min = zpos_min_overlay;
+			plane->zpos_max = zpos_min_overlay;
+		} else if (plane->type == WDRM_PLANE_TYPE_CURSOR) {
+			plane->zpos_min = zpos_min_cursor;
+			plane->zpos_max = zpos_min_cursor;
+		}
+		drm_debug(b, "\t[plane] %s plane %d, zpos_min %"PRIu64", "
+			      "zpos_max %"PRIu64"\n",
+			      drm_output_get_plane_type_name(plane),
+			      plane->plane_id, plane->zpos_min, plane->zpos_max);
+	}
+}
+
+static void
 wl_array_remove_uint32(struct wl_array *array, uint32_t elm)
 {
 	uint32_t *pos, *end;
@@ -680,6 +735,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 {
 	struct drm_plane *plane;
 	drmModeObjectProperties *props;
+	uint64_t *zpos_range_values;
 	uint32_t num_formats = (kplane) ? kplane->count_formats : 1;
 
 	plane = zalloc(sizeof(*plane) +
@@ -711,6 +767,18 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 					       props,
 					       WDRM_PLANE_TYPE__COUNT);
 
+		zpos_range_values =
+			drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS], 
+						      props);
+
+		if (zpos_range_values) {
+			plane->zpos_min = zpos_range_values[0];
+			plane->zpos_max = zpos_range_values[1];
+		} else {
+			plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
+			plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
+		}
+
 		if (drm_plane_populate_formats(plane, kplane, props) < 0) {
 			drmModeFreeObjectProperties(props);
 			goto err;
@@ -724,6 +792,8 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 		plane->count_formats = 1;
 		plane->formats[0].format = format;
 		plane->type = type;
+		plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
+		plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
 	}
 
 	if (plane->type == WDRM_PLANE_TYPE__COUNT)
@@ -2840,6 +2910,9 @@ drm_backend_create(struct weston_compositor *compositor,
 		weston_log("Failed to create heads for %s\n", b->drm.filename);
 		goto err_udev_input;
 	}
+
+	/* 'compute' faked zpos values in case HW doesn't expose any */
+	drm_backend_create_faked_zpos(b);
 
 	/* A this point we have some idea of whether or not we have a working
 	 * cursor plane. */
