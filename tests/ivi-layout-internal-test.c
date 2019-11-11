@@ -38,6 +38,20 @@
 #include "ivi-shell/ivi-layout-private.h"
 #include "ivi-test.h"
 #include "shared/helpers.h"
+#include "weston-test-runner.h"
+#include "weston-test-fixture-compositor.h"
+
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+	setup.shell = SHELL_IVI;
+
+	return weston_test_harness_execute_as_plugin(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
 
 struct test_context {
 	struct weston_compositor *compositor;
@@ -942,10 +956,8 @@ test_surface_bad_remove_notification(struct test_context *ctx)
 /************************ tests end ********************************/
 
 static void
-run_internal_tests(void *data)
+run_internal_tests(struct test_context *ctx)
 {
-	struct test_context *ctx = data;
-
 	test_surface_bad_visibility(ctx);
 	test_surface_bad_destination_rectangle(ctx);
 	test_surface_bad_source_rectangle(ctx);
@@ -987,35 +999,24 @@ run_internal_tests(void *data)
 	test_surface_bad_create_notification(ctx);
 	test_layer_bad_remove_notification(ctx);
 	test_surface_bad_remove_notification(ctx);
-
-	weston_compositor_exit_with_code(ctx->compositor, EXIT_SUCCESS);
-	free(ctx);
 }
 
-WL_EXPORT int
-wet_module_init(struct weston_compositor *compositor,
-		       int *argc, char *argv[])
+PLUGIN_TEST(ivi_layout_internal)
 {
-	struct wl_event_loop *loop;
-	struct test_context *ctx;
+	/* struct weston_compositor *compositor; */
+	struct test_context ctx = {};
 	const struct ivi_layout_interface *iface;
 
 	iface = ivi_layout_get_api(compositor);
 
 	if (!iface) {
 		weston_log("fatal: cannot use ivi_layout_interface.\n");
-		return -1;
+		weston_compositor_exit_with_code(compositor, RESULT_HARD_ERROR);
+		return;
 	}
 
-	ctx = zalloc(sizeof(*ctx));
-	if (!ctx)
-		return -1;
+	ctx.compositor = compositor;
+	ctx.layout_interface = iface;
 
-	ctx->compositor = compositor;
-	ctx->layout_interface = iface;
-
-	loop = wl_display_get_event_loop(compositor->wl_display);
-	wl_event_loop_add_idle(loop, run_internal_tests, ctx);
-
-	return 0;
+	run_internal_tests(&ctx);
 }

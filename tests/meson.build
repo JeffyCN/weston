@@ -218,9 +218,6 @@ if get_option('shell-ivi')
 			]
 		]
 	]
-	tests_weston_plugin += [
-		['ivi-layout-internal'],
-	]
 
 	ivi_layout_test_plugin = shared_library(
 		'test-ivi-layout',
@@ -246,6 +243,7 @@ if get_option('shell-ivi')
 			],
 			'test_deps': [ ivi_layout_test_plugin ],
 		},
+		{	'name': 'ivi-layout-internal', },
 	]
 endif
 
