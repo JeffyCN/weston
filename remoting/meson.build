@@ -10,7 +10,7 @@ if get_option('remoting')
 		'gstreamer-app-1.0', 'gstreamer-video-1.0',
 		'gobject-2.0', 'glib-2.0'
 	]
-	deps_remoting = [ dep_libweston_private ]
+	deps_remoting = [ dep_libweston_private, dep_libdrm_headers ]
 	foreach depname : depnames
 		dep = dependency(depname, required: false)
 		if not dep.found()
