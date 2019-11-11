@@ -53,22 +53,23 @@ struct runner_test {
 	static void runner_func_##name(struct test_context *);	\
 								\
 	const struct runner_test runner_test_##name		\
-		__attribute__ ((section ("test_section"))) =	\
+		__attribute__ ((section ("plugin_test_section"))) =	\
 	{							\
 		#name, runner_func_##name			\
 	};							\
 								\
 	static void runner_func_##name(struct test_context *ctx)
 
-extern const struct runner_test __start_test_section;
-extern const struct runner_test __stop_test_section;
+extern const struct runner_test __start_plugin_test_section;
+extern const struct runner_test __stop_plugin_test_section;
 
 static const struct runner_test *
 find_runner_test(const char *name)
 {
 	const struct runner_test *t;
 
-	for (t = &__start_test_section; t < &__stop_test_section; t++) {
+	for (t = &__start_plugin_test_section;
+	     t < &__stop_plugin_test_section; t++) {
 		if (strcmp(t->name, name) == 0)
 			return t;
 	}
