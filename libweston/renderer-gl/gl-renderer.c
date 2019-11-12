@@ -171,6 +171,7 @@ struct gl_surface_state {
 	int pitch; /* in pixels */
 	int height; /* in pixels */
 	bool y_inverted;
+	bool direct_display;
 
 	/* Extension needed for SHM YUV texture */
 	int offset[3]; /* offset per plane */
@@ -1804,6 +1805,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		gs->buffer_type = BUFFER_TYPE_SHM;
 		gs->needs_full_upload = true;
 		gs->y_inverted = true;
+		gs->direct_display = false;
 
 		gs->surface = es;
 
@@ -2425,6 +2427,13 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 		egl_image_unref(gs->images[i]);
 	gs->num_images = 0;
 
+	gs->pitch = buffer->width;
+	gs->height = buffer->height;
+	gs->buffer_type = BUFFER_TYPE_EGL;
+	gs->y_inverted = buffer->y_inverted;
+	gs->direct_display = dmabuf->direct_display;
+	surface->is_opaque = dmabuf_is_opaque(dmabuf);
+
 	/*
 	 * We try to always hold an imported EGLImage from the dmabuf
 	 * to prevent the client from preventing re-imports. But, we also
@@ -2433,6 +2442,9 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	 *
 	 * Here we release the cache reference which has to be final.
 	 */
+	if (dmabuf->direct_display)
+		return;
+
 	image = linux_dmabuf_buffer_get_user_data(dmabuf);
 
 	/* The dmabuf_image should have been created during the import */
@@ -2461,11 +2473,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	}
 
 	gs->shader = image->shader;
-	gs->pitch = buffer->width;
-	gs->height = buffer->height;
-	gs->buffer_type = BUFFER_TYPE_EGL;
-	gs->y_inverted = buffer->y_inverted;
-	surface->is_opaque = dmabuf_is_opaque(dmabuf);
 }
 
 static void
@@ -2493,6 +2500,7 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		gs->num_textures = 0;
 		gs->buffer_type = BUFFER_TYPE_NULL;
 		gs->y_inverted = true;
+		gs->direct_display = false;
 		es->is_opaque = false;
 		return;
 	}
@@ -2751,6 +2759,7 @@ gl_renderer_create_surface(struct weston_surface *surface)
 	 */
 	gs->pitch = 1;
 	gs->y_inverted = true;
+	gs->direct_display = false;
 
 	gs->surface = surface;
 
