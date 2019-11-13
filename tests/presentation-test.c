@@ -37,6 +37,18 @@
 #include "shared/timespec-util.h"
 #include "weston-test-client-helper.h"
 #include "presentation-time-client-protocol.h"
+#include "weston-test-fixture-compositor.h"
+
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+
+	return weston_test_harness_execute_as_client(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
 
 static struct wp_presentation *
 get_presentation(struct client *client)

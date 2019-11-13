@@ -30,6 +30,18 @@
 #include "input-timestamps-helper.h"
 #include "shared/timespec-util.h"
 #include "weston-test-client-helper.h"
+#include "weston-test-fixture-compositor.h"
+
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+
+	return weston_test_harness_execute_as_client(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
 
 static const struct timespec t1 = { .tv_sec = 1, .tv_nsec = 1000001 };
 static const struct timespec t2 = { .tv_sec = 2, .tv_nsec = 2000001 };

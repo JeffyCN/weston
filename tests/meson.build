@@ -111,17 +111,71 @@ dep_zucmain = declare_dependency(
 )
 
 tests = [
+	{	'name': 'bad-buffer', },
 	{	'name': 'devices', },
+	{	'name': 'event', },
 	{	'name': 'internal-screenshot', },
+	{
+		'name': 'keyboard',
+		'sources': [
+			'keyboard-test.c',
+			'input-timestamps-helper.c',
+			input_timestamps_unstable_v1_client_protocol_h,
+			input_timestamps_unstable_v1_protocol_c,
+		],
+	},
 	{	'name': 'plugin-registry', },
+	{
+		'name': 'pointer',
+		'sources': [
+			'pointer-test.c',
+			'input-timestamps-helper.c',
+			input_timestamps_unstable_v1_client_protocol_h,
+			input_timestamps_unstable_v1_protocol_c,
+		],
+	},
+	{
+		'name': 'presentation',
+		'sources': [
+			'presentation-test.c',
+			presentation_time_client_protocol_h,
+			presentation_time_protocol_c,
+		],
+	},
 	{	'name': 'roles', },
 	{	'name': 'string', },
+	{	'name': 'subsurface', },
 	{	'name': 'subsurface-shot', },
 	{	'name': 'surface', },
 	{	'name': 'surface-global', },
 	{
+		'name': 'text',
+		'sources': [
+			'text-test.c',
+			text_input_unstable_v1_client_protocol_h,
+			text_input_unstable_v1_protocol_c,
+		],
+	},
+	{
+		'name': 'touch',
+		'sources': [
+			'touch-test.c',
+			'input-timestamps-helper.c',
+			input_timestamps_unstable_v1_client_protocol_h,
+			input_timestamps_unstable_v1_protocol_c,
+		],
+	},
+	{
 		'name': 'vertex-clip',
 		'dep_objs': dep_vertex_clipping,
+	},
+	{
+		'name': 'viewporter',
+		'sources': [
+			'viewporter-test.c',
+			viewporter_client_protocol_h,
+			viewporter_protocol_c,
+		],
 	},
 ]
 
@@ -139,59 +193,11 @@ tests_standalone = [
 ]
 
 tests_weston = [
-	['bad-buffer'],
-	['event'],
-	[
-		'keyboard',
-		[
-			'input-timestamps-helper.c',
-			input_timestamps_unstable_v1_client_protocol_h,
-			input_timestamps_unstable_v1_protocol_c,
-		]
-	],
 	[
 		'linux-explicit-synchronization',
 		[
 			linux_explicit_synchronization_unstable_v1_client_protocol_h,
 			linux_explicit_synchronization_unstable_v1_protocol_c,
-		]
-	],
-	[
-		'presentation',
-		[
-			presentation_time_client_protocol_h,
-			presentation_time_protocol_c,
-		]
-	],
-	[
-		'pointer',
-		[
-			'input-timestamps-helper.c',
-			input_timestamps_unstable_v1_client_protocol_h,
-			input_timestamps_unstable_v1_protocol_c,
-		]
-	],
-	['subsurface'],
-	[
-		'text',
-		[
-			text_input_unstable_v1_client_protocol_h,
-			text_input_unstable_v1_protocol_c,
-		]
-	],
-	[
-		'touch',
-		[
-			'input-timestamps-helper.c',
-			input_timestamps_unstable_v1_client_protocol_h,
-			input_timestamps_unstable_v1_protocol_c,
-		]
-	],
-	[
-		'viewporter',
-		[
-			viewporter_client_protocol_h,
-			viewporter_protocol_c,
 		]
 	],
 ]
