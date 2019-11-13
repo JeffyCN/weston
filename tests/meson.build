@@ -124,6 +124,14 @@ tests = [
 			input_timestamps_unstable_v1_protocol_c,
 		],
 	},
+	{
+		'name': 'linux-explicit-synchronization',
+		'sources': [
+			'linux-explicit-synchronization-test.c',
+			linux_explicit_synchronization_unstable_v1_client_protocol_h,
+			linux_explicit_synchronization_unstable_v1_protocol_c,
+		],
+	},
 	{	'name': 'plugin-registry', },
 	{
 		'name': 'pointer',
@@ -193,13 +201,6 @@ tests_standalone = [
 ]
 
 tests_weston = [
-	[
-		'linux-explicit-synchronization',
-		[
-			linux_explicit_synchronization_unstable_v1_client_protocol_h,
-			linux_explicit_synchronization_unstable_v1_protocol_c,
-		]
-	],
 ]
 
 if get_option('xwayland')

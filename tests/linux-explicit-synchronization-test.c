@@ -31,11 +31,23 @@
 #include "linux-explicit-synchronization-unstable-v1-client-protocol.h"
 #include "weston-test-client-helper.h"
 #include "wayland-server-protocol.h"
+#include "weston-test-fixture-compositor.h"
 
-/* We need to use the pixman renderer, since a few of the tests depend
- * on the renderer holding onto a surface buffer until the next one
- * is committed, which the noop renderer doesn't do. */
-char *server_parameters = "--use-pixman";
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+
+	/* We need to use the pixman renderer, since a few of the tests depend
+	 * on the renderer holding onto a surface buffer until the next one
+	 * is committed, which the noop renderer doesn't do. */
+	setup.renderer = RENDERER_PIXMAN;
+
+	return weston_test_harness_execute_as_client(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
 
 static struct zwp_linux_explicit_synchronization_v1 *
 get_linux_explicit_synchronization(struct client *client)
