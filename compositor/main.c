@@ -163,7 +163,7 @@ weston_log_timestamp(char *buf, size_t len)
 static void
 custom_handler(const char *fmt, va_list arg)
 {
-	char timestr[128];
+	char timestr[512];
 
 	weston_log_scope_printf(log_scope, "%s libwayland: ",
 				weston_log_timestamp(timestr,
