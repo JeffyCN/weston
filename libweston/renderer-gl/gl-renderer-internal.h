@@ -28,6 +28,7 @@
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include "shared/weston-egl-ext.h"  /* for PFN* stuff */
 
 struct gl_shader {
 	GLuint program;
