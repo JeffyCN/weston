@@ -208,7 +208,10 @@ if get_option('xwayland')
 	if not d.found()
 		error('Xwayland tests require libX11 which was not found. Or, you can use \'-Dxwayland=false\'.')
 	endif
-	tests_weston += [ [ 'xwayland', [], d ] ]
+	tests += {
+		'name': 'xwayland',
+		'dep_objs': d,
+	}
 endif
 
 # Manual test plugin, not used in the automatic suite
