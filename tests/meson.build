@@ -204,9 +204,15 @@ if get_option('xwayland')
 	tests_weston += [ [ 'xwayland', [], d ] ]
 endif
 
-tests_weston_plugin = [
-	['surface-screenshot', 'surface-screenshot-test.c', dep_libshared],
-]
+# Manual test plugin, not used in the automatic suite
+surface_screenshot_test = shared_library(
+	'test-surface-screenshot',
+	'surface-screenshot-test.c',
+	include_directories: common_inc,
+	dependencies: [ dep_libweston_private, dep_libshared ],
+	name_prefix: '',
+	install: false,
+)
 
 if get_option('shell-ivi')
 	ivi_layout_test_plugin = shared_library(
@@ -385,53 +391,6 @@ foreach t : tests_weston
 	env_t += env_test_weston
 
 	test(t.get(0), exe_weston, env: env_t, args: args_t)
-endforeach
-
-foreach t : tests_weston_plugin
-	srcs_t = []
-
-	if t.length() > 1
-		srcs_t += t.get(1)
-	else
-		srcs_t += '@0@-test.c'.format(t.get(0))
-	endif
-
-	deps_t = [
-		dep_libweston_private,
-	]
-	if t.length() > 2
-		deps_t += t.get(2)
-	endif
-
-	exe_t = shared_library(
-		'test-@0@'.format(t.get(0)),
-		srcs_t,
-		include_directories: common_inc,
-		dependencies: deps_t,
-		name_prefix: '',
-		install: false,
-	)
-
-	args_t = [
-		'--backend=headless-backend.so',
-		'--socket=test-@0@'.format(t.get(0)),
-	]
-
-	# FIXME: Get this from the array ... ?
-	if t.get(0).startswith('ivi-')
-		args_t += [ '--no-config' ]
-		args_t += [ '--modules=@1@,@0@'.format(exe_plugin_test.full_path(),exe_t.full_path()) ]
-		args_t += [ '--shell=ivi-shell.so' ]
-	else
-		args_t += [ '--no-config' ]
-		args_t += [ '--shell=desktop-shell.so' ]
-		args_t += [ '--modules=@0@'.format(exe_t.full_path()) ]
-	endif
-
-	# surface-screenshot is a manual test
-	if t[0] != 'surface-screenshot'
-		test(t.get(0), exe_weston, env: env_test_weston, args: args_t)
-	endif
 endforeach
 
 if get_option('backend-drm')
