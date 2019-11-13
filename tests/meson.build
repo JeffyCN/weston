@@ -111,6 +111,7 @@ dep_zucmain = declare_dependency(
 )
 
 tests = [
+	{	'name': 'devices', },
 	{	'name': 'internal-screenshot', },
 	{	'name': 'plugin-registry', },
 	{	'name': 'roles', },
@@ -139,7 +140,6 @@ tests_standalone = [
 
 tests_weston = [
 	['bad-buffer'],
-	['devices'],
 	['event'],
 	[
 		'keyboard',

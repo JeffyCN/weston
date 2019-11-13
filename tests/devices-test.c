@@ -27,6 +27,18 @@
 
 #include <string.h>
 #include "weston-test-client-helper.h"
+#include "weston-test-fixture-compositor.h"
+
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
+{
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+
+	return weston_test_harness_execute_as_client(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
 
 /**
  * Test (un)plugging devices
@@ -39,8 +51,6 @@
 #define WL_SEAT_CAPABILITY_ALL (WL_SEAT_CAPABILITY_KEYBOARD |\
 				WL_SEAT_CAPABILITY_POINTER  |\
 				WL_SEAT_CAPABILITY_TOUCH)
-
-char *server_parameters = "--shell=weston-test-desktop-shell.so";
 
 /* simply test if weston sends the right capabilities when
  * some devices are removed */
