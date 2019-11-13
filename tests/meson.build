@@ -200,9 +200,6 @@ tests_standalone = [
 	],
 ]
 
-tests_weston = [
-]
-
 if get_option('xwayland')
 	d = dependency('x11', required: false)
 	if not d.found()
@@ -260,12 +257,6 @@ if get_option('shell-ivi')
 		},
 	]
 endif
-
-env_test_weston = [
-	'WESTON_TEST_REFERENCE_PATH=@0@/reference'.format(meson.current_source_dir()),
-	'WESTON_MODULE_MAP=@0@'.format(env_modmap),
-	'WESTON_DATA_DIR=' + join_paths(meson.current_source_dir(), '..', 'data'),
-]
 
 test_config_h = configuration_data()
 test_config_h.set_quoted('WESTON_TEST_REFERENCE_PATH', meson.current_source_dir() + '/reference')
@@ -335,72 +326,6 @@ foreach t : tests_standalone
 	if t[0] != 'matrix'
 		test(t.get(0), exe_t)
 	endif
-endforeach
-
-foreach t : tests_weston
-	srcs_t = [
-		'@0@-test.c'.format(t.get(0)),
-		weston_test_client_protocol_h,
-	]
-	if t.length() > 1
-		srcs_t += t.get(1)
-	endif
-
-	deps_t = [
-		dep_test_client
-	]
-	if t.length() > 2
-		deps_t += t.get(2)
-	endif
-
-	args_t = [
-		'--backend=headless-backend.so',
-		'--socket=test-@0@'.format(t.get(0)),
-		'--modules=@0@'.format(exe_plugin_test.full_path()),
-		'--width=320',
-		'--height=240',
-	]
-
-	if t.get(0) == 'xwayland'
-		args_t += '--xwayland'
-	endif
-
-	# FIXME: Get this from the array ... ?
-	if t.get(0) == 'internal-screenshot'
-		args_t += [ '--config=@0@/internal-screenshot.ini'.format(meson.current_source_dir()) ]
-		args_t += [ '--use-pixman' ]
-		args_t += [ '--shell=desktop-shell.so' ]
-	elif t[0] == 'subsurface-shot'
-		args_t += [ '--no-config' ]
-		args_t += [ '--use-pixman' ]
-		args_t += [ '--width=320' ]
-		args_t += [ '--height=240' ]
-		args_t += [ '--shell=weston-test-desktop-shell.so' ]
-	elif t.get(0) == 'linux-explicit-synchronization'
-		args_t += [ '--use-pixman' ]
-	elif t.get(0).startswith('ivi-')
-		args_t += [ '--config=@0@/../ivi-shell/weston-ivi-test.ini'.format(meson.current_build_dir()) ]
-		args_t += [ '--shell=ivi-shell.so' ]
-	else
-		args_t += [ '--no-config' ]
-		args_t += [ '--shell=desktop-shell.so' ]
-	endif
-
-	exe_t = executable(
-		'test-@0@'.format(t.get(0)),
-		srcs_t,
-		c_args: [ '-DUNIT_TEST' ],
-		include_directories: common_inc,
-		dependencies: deps_t,
-		install: false,
-	)
-
-	env_t = [
-		'WESTON_TEST_CLIENT_PATH=@0@'.format(exe_t.full_path())
-	]
-	env_t += env_test_weston
-
-	test(t.get(0), exe_weston, env: env_t, args: args_t)
 endforeach
 
 if get_option('backend-drm')

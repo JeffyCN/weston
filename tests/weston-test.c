@@ -56,7 +56,6 @@ struct weston_test {
 	struct weston_log_scope *log;
 
 	struct weston_layer layer;
-	struct weston_process process;
 	struct weston_seat seat;
 	struct weston_touch_device *touch_device[MAX_TOUCH_DEVICES];
 	int nr_touch_devices;
@@ -72,23 +71,6 @@ struct weston_test_surface {
 	int32_t x, y;
 	struct weston_test *test;
 };
-
-static void
-test_client_sigchld(struct weston_process *process, int status)
-{
-	struct weston_test *test =
-		container_of(process, struct weston_test, process);
-
-	/* Chain up from weston-test-runner's exit code so that ninja
-	 * knows the exit status and can report e.g. skipped tests. */
-	if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
-		exit(WEXITSTATUS(status));
-
-	/* In case the child aborted or segfaulted... */
-	assert(status == 0);
-
-	weston_compositor_exit(test->compositor);
-}
 
 static void
 touch_device_add(struct weston_test *test)
@@ -649,34 +631,6 @@ bind_test(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 }
 
 static void
-idle_launch_client(void *data)
-{
-	struct weston_test *test = data;
-	pid_t pid;
-	sigset_t allsigs;
-	char *path;
-
-	path = getenv("WESTON_TEST_CLIENT_PATH");
-	if (path == NULL)
-		return;
-	pid = fork();
-	if (pid == -1)
-		exit(EXIT_FAILURE);
-	if (pid == 0) {
-		sigfillset(&allsigs);
-		sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
-		execl(path, path, NULL);
-		weston_log("compositor: executing '%s' failed: %s\n", path,
-			   strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
-	test->process.pid = pid;
-	test->process.cleanup = test_client_sigchld;
-	weston_watch_process(&test->process);
-}
-
-static void
 client_thread_cleanup(void *data_)
 {
 	struct wet_testsuite_data *data = data_;
@@ -878,7 +832,6 @@ wet_module_init(struct weston_compositor *ec,
 		goto out_free;
 
 	loop = wl_display_get_event_loop(ec->wl_display);
-	wl_event_loop_add_idle(loop, idle_launch_client, test);
 	wl_event_loop_add_idle(loop, idle_launch_testsuite, test);
 
 	return 0;
