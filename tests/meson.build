@@ -116,6 +116,8 @@ tests = [
 	{	'name': 'roles', },
 	{	'name': 'string', },
 	{	'name': 'subsurface-shot', },
+	{	'name': 'surface', },
+	{	'name': 'surface-global', },
 	{
 		'name': 'vertex-clip',
 		'dep_objs': dep_vertex_clipping,
@@ -203,8 +205,6 @@ if get_option('xwayland')
 endif
 
 tests_weston_plugin = [
-	['surface'],
-	['surface-global'],
 	['surface-screenshot', 'surface-screenshot-test.c', dep_libshared],
 ]
 

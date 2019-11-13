@@ -31,11 +31,23 @@
 #include <libweston/libweston.h>
 #include "libweston-internal.h"
 #include "compositor/weston.h"
+#include "weston-test-runner.h"
+#include "weston-test-fixture-compositor.h"
 
-static void
-surface_to_from_global(void *data)
+static enum test_result_code
+fixture_setup(struct weston_test_harness *harness)
 {
-	struct weston_compositor *compositor = data;
+	struct compositor_setup setup;
+
+	compositor_setup_defaults(&setup);
+
+	return weston_test_harness_execute_as_plugin(harness, &setup);
+}
+DECLARE_FIXTURE_SETUP(fixture_setup);
+
+PLUGIN_TEST(surface_to_from_global)
+{
+	/* struct weston_compositor *compositor; */
 	struct weston_surface *surface;
 	struct weston_view *view;
 	float x, y;
@@ -76,19 +88,4 @@ surface_to_from_global(void *data)
 
 	weston_view_from_global(view, 5, 10, &ix, &iy);
 	assert(ix == 0 && iy == 0);
-
-	weston_compositor_exit(compositor);
-}
-
-WL_EXPORT int
-wet_module_init(struct weston_compositor *compositor,
-		int *argc, char *argv[])
-{
-	struct wl_event_loop *loop;
-
-	loop = wl_display_get_event_loop(compositor->wl_display);
-
-	wl_event_loop_add_idle(loop, surface_to_from_global, compositor);
-
-	return 0;
 }
