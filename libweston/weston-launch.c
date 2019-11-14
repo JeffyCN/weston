@@ -440,6 +440,7 @@ quit(struct weston_launch *wl, int status)
 {
 	struct vt_mode mode = { 0 };
 	int err;
+	int oldtty;
 
 	close(wl->signalfd);
 	close(wl->sock[0]);
@@ -451,6 +452,19 @@ quit(struct weston_launch *wl, int status)
 				err, pam_strerror(wl->ph, err));
 		pam_end(wl->ph, err);
 	}
+
+	/*
+	 * Get a fresh handle to the tty as the previous one is in
+	 * hang-up state since weston (the controlling process for
+	 * the tty) exit at this point. Reopen before closing the
+	 * file descriptor to avoid a potential race condition.
+	 *
+	 * A similar fix exists in logind, see:
+	 * https://github.com/systemd/systemd/pull/990
+	 */
+	oldtty = wl->tty;
+	wl->tty = open_tty_by_number(wl->ttynr);
+	close(oldtty);
 
 	if (ioctl(wl->tty, KDSKBMUTE, 0) &&
 	    ioctl(wl->tty, KDSKBMODE, wl->kb_mode))
