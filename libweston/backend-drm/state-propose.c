@@ -604,6 +604,12 @@ drm_output_check_zpos_plane_states(struct drm_output_state *state)
 		struct wl_list *next_node = ps->link.next;
 		bool found_dup = false;
 
+		/* skip any plane that is not enabled */
+		if (!ps->fb)
+			continue;
+
+		assert(ps->zpos != DRM_PLANE_ZPOS_INVALID_PLANE);
+
 		/* find another plane with the same zpos value */
 		if (next_node == &state->plane_list)
 			break;
