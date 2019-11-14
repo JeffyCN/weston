@@ -399,6 +399,22 @@ err0:
 	return 0;
 }
 
+static void
+close_input_fds(struct weston_launch *wl)
+{
+	struct stat s;
+	int fd;
+
+	for (fd = 3; fd <= wl->last_input_fd; fd++) {
+		if (fstat(fd, &s) == 0 && major(s.st_rdev) == INPUT_MAJOR) {
+			/* EVIOCREVOKE may fail if the kernel doesn't
+			 * support it, but all we can do is ignore it. */
+			ioctl(fd, EVIOCREVOKE, 0);
+			close(fd);
+		}
+	}
+}
+
 static int
 handle_socket_msg(struct weston_launch *wl)
 {
@@ -429,6 +445,11 @@ handle_socket_msg(struct weston_launch *wl)
 	switch (message->opcode) {
 	case WESTON_LAUNCHER_OPEN:
 		ret = handle_open(wl, &msg, len);
+		break;
+	case WESTON_LAUNCHER_DEACTIVATE_DONE:
+		close_input_fds(wl);
+		drmDropMaster(wl->drm_fd);
+		ioctl(wl->tty, VT_RELDISP, 1);
 		break;
 	}
 
@@ -490,22 +511,6 @@ quit(struct weston_launch *wl, int status)
 	exit(status);
 }
 
-static void
-close_input_fds(struct weston_launch *wl)
-{
-	struct stat s;
-	int fd;
-
-	for (fd = 3; fd <= wl->last_input_fd; fd++) {
-		if (fstat(fd, &s) == 0 && major(s.st_rdev) == INPUT_MAJOR) {
-			/* EVIOCREVOKE may fail if the kernel doesn't
-			 * support it, but all we can do is ignore it. */
-			ioctl(fd, EVIOCREVOKE, 0);
-			close(fd);
-		}
-	}
-}
-
 static int
 handle_signal(struct weston_launch *wl)
 {
@@ -551,9 +556,6 @@ handle_signal(struct weston_launch *wl)
 		break;
 	case SIGUSR1:
 		send_reply(wl, WESTON_LAUNCHER_DEACTIVATE);
-		close_input_fds(wl);
-		drmDropMaster(wl->drm_fd);
-		ioctl(wl->tty, VT_RELDISP, 1);
 		break;
 	case SIGUSR2:
 		ioctl(wl->tty, VT_RELDISP, VT_ACKACQ);

@@ -201,7 +201,7 @@ static int
 launcher_weston_launch_data(int fd, uint32_t mask, void *data)
 {
 	struct launcher_weston_launch *launcher = data;
-	int len, ret;
+	int len, ret, reply;
 
 	if (mask & (WL_EVENT_HANGUP | WL_EVENT_ERROR)) {
 		weston_log("launcher socket closed, exiting\n");
@@ -226,6 +226,10 @@ launcher_weston_launch_data(int fd, uint32_t mask, void *data)
 		launcher->compositor->session_active = false;
 		wl_signal_emit(&launcher->compositor->session_signal,
 			       launcher->compositor);
+
+		reply = WESTON_LAUNCHER_DEACTIVATE_DONE;
+		launcher_weston_launch_send(launcher->fd, &reply, sizeof reply);
+
 		break;
 	default:
 		weston_log("unexpected event from weston-launch\n");
