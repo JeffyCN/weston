@@ -605,6 +605,20 @@ setup_tty(struct weston_launch *wl, const char *tty)
 		wl->ttynr = minor(buf.st_rdev);
 	}
 
+	if (ioctl(wl->tty, VT_ACTIVATE, wl->ttynr) < 0) {
+		fprintf(stderr,
+			"weston: failed to activate VT: %s\n",
+			strerror(errno));
+		return -1;
+	}
+
+	if (ioctl(wl->tty, VT_WAITACTIVE, wl->ttynr) < 0) {
+		fprintf(stderr,
+			"weston: failed to wait for VT to be active: %s\n",
+			strerror(errno));
+		return -1;
+	}
+
 	if (ioctl(wl->tty, KDGKBMODE, &wl->kb_mode)) {
 		fprintf(stderr,
 			"weston: failed to get current keyboard mode: %s\n",
