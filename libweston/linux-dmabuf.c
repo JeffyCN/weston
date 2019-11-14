@@ -259,12 +259,6 @@ params_create_common(struct wl_client *client,
 		}
 	}
 
-	/* XXX: Some additional sanity checks could be done with respect
-	 * to the fourcc format. A centralized collection (kernel or
-	 * libdrm) would be useful to avoid code duplication for these
-	 * checks (e.g. drm_format_num_planes).
-	 */
-
 	if (!weston_compositor_import_dmabuf(buffer->compositor, buffer))
 		goto err_failed;
 
