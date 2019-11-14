@@ -457,6 +457,9 @@ quit(struct weston_launch *wl, int status)
 	if (ioctl(wl->tty, VT_SETMODE, &mode) < 0)
 		fprintf(stderr, "could not reset vt handling\n");
 
+	if (wl->tty != STDIN_FILENO)
+		close(wl->tty);
+
 	exit(status);
 }
 
@@ -847,8 +850,6 @@ main(int argc, char *argv[])
 		launch_compositor(&wl, argc - optind, argv + optind);
 
 	close(wl.sock[1]);
-	if (wl.tty != STDIN_FILENO)
-		close(wl.tty);
 
 	while (1) {
 		struct pollfd fds[2];
