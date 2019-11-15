@@ -89,7 +89,9 @@ struct display {
 	struct {
 		EGLDisplay display;
 		EGLContext context;
+		EGLConfig conf;
 		bool has_dma_buf_import_modifiers;
+		bool has_no_config_context;
 		PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_dma_buf_modifiers;
 		PFNEGLCREATEIMAGEKHRPROC create_image;
 		PFNEGLDESTROYIMAGEKHRPROC destroy_image;
@@ -1122,9 +1124,19 @@ display_set_up_egl(struct display *display)
 		EGL_CONTEXT_CLIENT_VERSION, 2,
 		EGL_NONE
 	};
-	EGLint major, minor;
+	EGLint major, minor, ret, count;
 	const char *egl_extensions = NULL;
 	const char *gl_extensions = NULL;
+
+	EGLint config_attribs[] = {
+		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		EGL_RED_SIZE, 1,
+		EGL_GREEN_SIZE, 1,
+		EGL_BLUE_SIZE, 1,
+		EGL_ALPHA_SIZE, 1,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		EGL_NONE
+	};
 
 	display->egl.display =
 		weston_platform_get_egl_display(EGL_PLATFORM_GBM_KHR,
@@ -1159,14 +1171,23 @@ display_set_up_egl(struct display *display)
 		goto error;
 	}
 
-	if (!weston_check_egl_extension(egl_extensions,
+	if (weston_check_egl_extension(egl_extensions,
 					"EGL_KHR_no_config_context")) {
-		fprintf(stderr, "EGL_KHR_no_config_context not supported\n");
-		goto error;
+		display->egl.has_no_config_context = true;
+	}
+
+	if (display->egl.has_no_config_context) {
+		display->egl.conf = EGL_NO_CONFIG_KHR;
+	} else {
+		fprintf(stderr,
+			"Warning: EGL_KHR_no_config_context not supported\n");
+		ret = eglChooseConfig(display->egl.display, config_attribs,
+			      &display->egl.conf, 1, &count);
+		assert(ret && count >= 1);
 	}
 
 	display->egl.context = eglCreateContext(display->egl.display,
-						EGL_NO_CONFIG_KHR,
+						display->egl.conf,
 						EGL_NO_CONTEXT,
 						context_attribs);
 	if (display->egl.context == EGL_NO_CONTEXT) {
