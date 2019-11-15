@@ -636,6 +636,7 @@ static struct drm_plane_state *
 drm_output_prepare_plane_view(struct drm_output_state *state,
 			      struct weston_view *ev,
 			      enum drm_output_propose_state_mode mode,
+			      struct drm_plane_state *scanout_state,
 			      uint64_t current_lowest_zpos)
 {
 	struct drm_output *output = state->output;
@@ -675,6 +676,19 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 				     "(%"PRIu64")\n", plane->plane_id,
 				     plane->zpos_min, current_lowest_zpos);
 			continue;
+		}
+
+		if (mode == DRM_OUTPUT_PROPOSE_STATE_MIXED) {
+			assert(scanout_state != NULL);
+			if (scanout_state->zpos >= plane->zpos_max) {
+				drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
+					     "candidate list: primary's zpos "
+					     "value (%"PRIu64") higher than "
+					     "plane's maximum value (%"PRIu64")\n",
+					     plane->plane_id, scanout_state->zpos,
+					     plane->zpos_max);
+				continue;
+			}
 		}
 
 		if (!drm_output_plane_view_has_valid_format(plane, state, ev, fb)) {
@@ -786,10 +800,14 @@ drm_output_propose_state(struct weston_output *output_base,
 
 		scanout_state = drm_plane_state_duplicate(state,
 							  plane->state_cur);
+		/* assign the primary primary the lowest zpos value */
+		scanout_state->zpos = plane->zpos_min;
 		drm_debug(b, "\t\t[state] using renderer FB ID %lu for mixed "
 			     "mode for output %s (%lu)\n",
 			  (unsigned long) scanout_fb->fb_id, output->base.name,
 			  (unsigned long) output->base.id);
+		drm_debug(b, "\t\t[state] scanout will use for zpos %"PRIu64"\n",
+				scanout_state->zpos);
 	}
 
 	/* - renderer_region contains the total region which which will be
@@ -887,6 +905,7 @@ drm_output_propose_state(struct weston_output *output_base,
 			drm_debug(b, "\t\t\t[plane] started with zpos %"PRIu64"\n",
 				      current_lowest_zpos);
 			ps = drm_output_prepare_plane_view(state, ev, mode,
+							   scanout_state,
 							   current_lowest_zpos);
 		}
 
