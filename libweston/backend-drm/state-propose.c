@@ -593,12 +593,10 @@ out:
 	return ps;
 }
 
-static int
+static void
 drm_output_check_zpos_plane_states(struct drm_output_state *state)
 {
-	struct drm_backend *b = state->pending_state->backend;
 	struct drm_plane_state *ps;
-	int ret = 0;
 
 	wl_list_for_each(ps, &state->plane_list, link) {
 		struct wl_list *next_node = ps->link.next;
@@ -628,14 +626,10 @@ drm_output_check_zpos_plane_states(struct drm_output_state *state)
 			next_node = next_node->next;
 		}
 
-		if (found_dup) {
-			ret = 1;
-			drm_debug(b, "\t\t\t[plane] found duplicate zpos values\n");
-			break;
-		}
+		/* this should never happen so exit hard in case
+		 * we screwed up that bad */
+		assert(!found_dup);
 	}
-
-	return ret;
 }
 
 static struct drm_plane_state *
@@ -988,12 +982,7 @@ drm_output_propose_state(struct weston_output *output_base,
 		return state;
 
 	/* check if we have invalid zpos values, like duplicate(s) */
-	ret = drm_output_check_zpos_plane_states(state);
-	if (ret != 0) {
-		drm_debug(b, "\t\t[view] failing state generation: "
-			     "zpos values are in-consistent\n");
-		goto err;
-	}
+	drm_output_check_zpos_plane_states(state);
 
 	/* Check to see if this state will actually work. */
 	ret = drm_pending_state_test(state->pending_state);
