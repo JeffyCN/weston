@@ -176,7 +176,6 @@ surface_commit_color(struct client *client, struct wl_surface *surface,
 
 TEST(subsurface_z_order)
 {
-	const char *test_name = get_test_name();
 	struct client *client;
 	struct wl_subcompositor *subco;
 	struct buffer *bufs[5] = { 0 };
@@ -207,7 +206,7 @@ TEST(subsurface_z_order)
 	bufs[0] = surface_commit_color(client, surf[0], &red, 100, 100);
 	/* sub[0] is not used */
 
-	fail += check_screen(client, test_name, 0, &clip, 0);
+	fail += check_screen(client, "subsurface_z_order", 0, &clip, 0);
 
 	/* create a blue sub-surface above red */
 	surf[1] = wl_compositor_create_surface(client->wl_compositor);
@@ -217,7 +216,7 @@ TEST(subsurface_z_order)
 	wl_subsurface_set_position(sub[1], 20, 20);
 	wl_surface_commit(surf[0]);
 
-	fail += check_screen(client, test_name, 1, &clip, 1);
+	fail += check_screen(client, "subsurface_z_order", 1, &clip, 1);
 
 	/* create a cyan sub-surface above blue */
 	surf[2] = wl_compositor_create_surface(client->wl_compositor);
@@ -228,7 +227,7 @@ TEST(subsurface_z_order)
 	wl_surface_commit(surf[1]);
 	wl_surface_commit(surf[0]);
 
-	fail += check_screen(client, test_name, 2, &clip, 2);
+	fail += check_screen(client, "subsurface_z_order", 2, &clip, 2);
 
 	/* create a green sub-surface above blue, sibling to cyan */
 	surf[3] = wl_compositor_create_surface(client->wl_compositor);
@@ -239,13 +238,13 @@ TEST(subsurface_z_order)
 	wl_surface_commit(surf[1]);
 	wl_surface_commit(surf[0]);
 
-	fail += check_screen(client, test_name, 3, &clip, 3);
+	fail += check_screen(client, "subsurface_z_order", 3, &clip, 3);
 
 	/* stack blue below red, which brings also cyan and green below red */
 	wl_subsurface_place_below(sub[1], surf[0]);
 	wl_surface_commit(surf[0]);
 
-	fail += check_screen(client, test_name, 4, &clip, 4);
+	fail += check_screen(client, "subsurface_z_order", 4, &clip, 4);
 
 	assert(fail == 0);
 
