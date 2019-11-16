@@ -50,6 +50,7 @@
 #include "xdg-shell-client-protocol.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
+#include "weston-direct-display-client-protocol.h"
 #include "linux-explicit-synchronization-unstable-v1-client-protocol.h"
 
 #include <EGL/egl.h>
@@ -67,6 +68,7 @@
 #define OPT_IMMEDIATE     (1 << 0)  /* create wl_buffer immediately */
 #define OPT_IMPLICIT_SYNC (1 << 1)  /* force implicit sync */
 #define OPT_MANDELBROT    (1 << 2)  /* render mandelbrot */
+#define OPT_DIRECT_DISPLAY     (1 << 3)  /* direct-display */
 
 #define BUFFER_FORMAT DRM_FORMAT_XRGB8888
 #define MAX_BUFFER_PLANES 4
@@ -78,6 +80,7 @@ struct display {
 	struct xdg_wm_base *wm_base;
 	struct zwp_fullscreen_shell_v1 *fshell;
 	struct zwp_linux_dmabuf_v1 *dmabuf;
+	struct weston_direct_display_v1 *direct_display;
 	struct zwp_linux_explicit_synchronization_v1 *explicit_sync;
 	uint64_t *modifiers;
 	int modifiers_count;
@@ -325,11 +328,11 @@ create_fbo_for_buffer(struct display *display, struct buffer *buffer)
 
 static int
 create_dmabuf_buffer(struct display *display, struct buffer *buffer,
-		     int width, int height)
+		     int width, int height, uint32_t opts)
 {
 	/* Y-Invert the buffer image, since we are going to renderer to the
 	 * buffer through a FBO. */
-	static const uint32_t flags = ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
+	static uint32_t flags = ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
 	struct zwp_linux_buffer_params_v1 *params;
 	int i;
 
@@ -398,6 +401,14 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 #endif
 
 	params = zwp_linux_dmabuf_v1_create_params(display->dmabuf);
+
+	if ((opts & OPT_DIRECT_DISPLAY) && display->direct_display) {
+		weston_direct_display_v1_enable(display->direct_display, params);
+		/* turn off Y_INVERT otherwise linux-dmabuf will reject it and
+		 * we need all dmabuf flags turned off */
+		flags &= ~ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
+	}
+
 	for (i = 0; i < buffer->plane_count; ++i) {
 		zwp_linux_buffer_params_v1_add(params,
 					       buffer->dmabuf_fds[i],
@@ -695,7 +706,7 @@ create_window(struct display *display, int width, int height, int opts)
 
 	for (i = 0; i < NUM_BUFFERS; ++i) {
 		ret = create_dmabuf_buffer(display, &window->buffers[i],
-		                           width, height);
+		                           width, height, opts);
 
 		if (ret < 0)
 			goto error;
@@ -1047,6 +1058,9 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->explicit_sync = wl_registry_bind(
 			registry, id,
 			&zwp_linux_explicit_synchronization_v1_interface, 1);
+	} else if (strcmp(interface, "weston_direct_display_v1") == 0) {
+		d->direct_display = wl_registry_bind(registry,
+						     id, &weston_direct_display_v1_interface, 1);
 	}
 }
 
@@ -1417,7 +1431,9 @@ print_usage_and_exit(void)
 		"\n\t\t0 to disable explicit sync, "
 		"\n\t\t1 to enable explicit sync (default: 1)\n"
 		"\t'-m,--mandelbrot'"
-		"\n\t\trender a mandelbrot set with multiple draw calls\n");
+		"\n\t\trender a mandelbrot set with multiple draw calls\n"
+		"\t'-g,--direct-display'"
+		"\n\t\tenables weston-direct-display extension to attempt direct scan-out\n");
 	exit(0);
 }
 
@@ -1451,11 +1467,12 @@ main(int argc, char **argv)
 		{"size",	     required_argument, 0,  's' },
 		{"explicit-sync",    required_argument, 0,  'e' },
 		{"mandelbrot",       no_argument,	0,  'm' },
+		{"direct-display",   no_argument,	0,  'g' },
 		{"help",             no_argument      , 0,  'h' },
 		{0, 0, 0, 0}
 	};
 
-	while ((c = getopt_long(argc, argv, "hi:d:s:e:m",
+	while ((c = getopt_long(argc, argv, "hi:d:s:e:mg",
 				long_options, &option_index)) != -1) {
 		switch (c) {
 		case 'i':
@@ -1474,6 +1491,9 @@ main(int argc, char **argv)
 			break;
 		case 'm':
 			opts |= OPT_MANDELBROT;
+			break;
+		case 'g':
+			opts |= OPT_DIRECT_DISPLAY;
 			break;
 		default:
 			print_usage_and_exit();
