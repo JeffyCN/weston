@@ -79,6 +79,9 @@ weston_compositor_add_pending_output(struct weston_output *output,
 bool
 weston_compositor_import_dmabuf(struct weston_compositor *compositor,
 				struct linux_dmabuf_buffer *buffer);
+bool
+weston_compositor_dmabuf_can_scanout(struct weston_compositor *compositor,
+					struct linux_dmabuf_buffer *buffer);
 void
 weston_compositor_offscreen(struct weston_compositor *compositor);
 

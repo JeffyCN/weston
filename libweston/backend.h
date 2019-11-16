@@ -95,6 +95,18 @@ struct weston_backend {
 	 */
 	void (*device_changed)(struct weston_compositor *compositor,
 			       dev_t device, bool added);
+
+	/** Verifies if the dmabuf can be used directly/scanned-out by the HW.
+	 *
+	 * @param compositor The compositor.
+	 * @param buffer The dmabuf to verify.
+	 *
+	 * Determines if the buffer can be imported directly by the display
+	 * controller/HW. Back-ends can use this to check if the supplied
+	 * buffer can be scanned-out, as to void importing it into the GPU.
+	 */
+	bool (*can_scanout_dmabuf)(struct weston_compositor *compositor,
+				   struct linux_dmabuf_buffer *buffer);
 };
 
 /* weston_head */

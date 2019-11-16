@@ -7519,6 +7519,18 @@ weston_compositor_import_dmabuf(struct weston_compositor *compositor,
 	return renderer->import_dmabuf(compositor, buffer);
 }
 
+WL_EXPORT bool
+weston_compositor_dmabuf_can_scanout(struct weston_compositor *compositor,
+		struct linux_dmabuf_buffer *buffer)
+{
+	struct weston_backend *backend = compositor->backend;
+
+	if (backend->can_scanout_dmabuf == NULL)
+		return false;
+
+	return backend->can_scanout_dmabuf(compositor, buffer);
+}
+
 WL_EXPORT void
 weston_version(int *major, int *minor, int *micro)
 {
