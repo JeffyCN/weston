@@ -2958,6 +2958,9 @@ drm_backend_create(struct weston_compositor *compositor,
 		if (linux_dmabuf_setup(compositor) < 0)
 			weston_log("Error: initializing dmabuf "
 				   "support failed.\n");
+		if (weston_direct_display_setup(compositor) < 0)
+			weston_log("Error: initializing direct-display "
+				   "support failed.\n");
 	}
 
 	if (compositor->capabilities & WESTON_CAP_EXPLICIT_SYNC) {
