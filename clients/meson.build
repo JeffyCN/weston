@@ -342,6 +342,8 @@ if simple_dmabuf_drm_deps.length() > 0
 		fullscreen_shell_unstable_v1_protocol_c,
 		linux_dmabuf_unstable_v1_client_protocol_h,
 		linux_dmabuf_unstable_v1_protocol_c,
+		weston_direct_display_client_protocol_h,
+		weston_direct_display_protocol_c,
 		include_directories: common_inc,
 		dependencies: [
 			dep_wayland_client,

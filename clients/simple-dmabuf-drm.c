@@ -60,6 +60,7 @@
 #include "xdg-shell-client-protocol.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
+#include "weston-direct-display-client-protocol.h"
 
 #ifndef DRM_FORMAT_MOD_LINEAR
 #define DRM_FORMAT_MOD_LINEAR 0
@@ -70,6 +71,8 @@ struct buffer;
 /* Possible options that affect the displayed image */
 #define OPT_Y_INVERTED 1  /* contents has y axis inverted */
 #define OPT_IMMEDIATE  2  /* create wl_buffer immediately */
+#define OPT_DIRECT_DISPLAY  4  /* attempt to pass the dmabuf
+				  directly to the display controller */
 
 #define ALIGN(v, a) ((v + a - 1) & ~(a - 1))
 
@@ -80,6 +83,7 @@ struct display {
 	struct xdg_wm_base *wm_base;
 	struct zwp_fullscreen_shell_v1 *fshell;
 	struct zwp_linux_dmabuf_v1 *dmabuf;
+	struct weston_direct_display_v1 *direct_display;
 	int xrgb8888_format_found;
 	int nv12_format_found;
 	uint64_t nv12_modifier;
@@ -547,6 +551,10 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 		flags |= ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
 
 	params = zwp_linux_dmabuf_v1_create_params(display->dmabuf);
+
+	if ((opts & OPT_DIRECT_DISPLAY) && display->direct_display)
+		weston_direct_display_v1_enable(display->direct_display, params);
+
 	zwp_linux_buffer_params_v1_add(params,
 				       buffer->dmabuf_fd,
 				       0, /* plane_idx */
@@ -828,6 +836,9 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->dmabuf = wl_registry_bind(registry,
 					     id, &zwp_linux_dmabuf_v1_interface, 3);
 		zwp_linux_dmabuf_v1_add_listener(d->dmabuf, &dmabuf_listener, d);
+	} else if (strcmp(interface, "weston_direct_display_v1") == 0) {
+		d->direct_display = wl_registry_bind(registry, id,
+						     &weston_direct_display_v1_interface, 1);
 	}
 }
 
@@ -912,7 +923,9 @@ print_usage_and_exit(void)
 		"\t'--y-inverted=<>'\n\t\t0 to not pass Y_INVERTED flag,"
 		"\n\t\t1 to pass Y_INVERTED flag\n"
 		"\t'--import-format=<>'\n\t\tXRGB to import dmabuf as XRGB8888,"
-		"\n\t\tNV12 to import as multi plane NV12\n");
+		"\n\t\tNV12 to import as multi plane NV12\n"
+		"\t'--direct-display=<>'\n\t\t0 not to enable direct-display,"
+		"\n\t\t1 to enable direct-display\n");
 	exit(0);
 }
 
@@ -956,11 +969,12 @@ main(int argc, char **argv)
 		{"import-format",    required_argument, 0,  'f' },
 		{"import-immediate", required_argument, 0,  'i' },
 		{"y-inverted",       required_argument, 0,  'y' },
+		{"direct-display",   required_argument, 0,  'g' },
 		{"help",             no_argument      , 0,  'h' },
 		{0, 0, 0, 0}
 	};
 
-	while ((c = getopt_long(argc, argv, "hf:i:y:",
+	while ((c = getopt_long(argc, argv, "g:hf:i:y:",
 				  long_options, &option_index)) != -1) {
 		switch (c) {
 		case 'f':
@@ -973,6 +987,10 @@ main(int argc, char **argv)
 		case 'y':
 			if (is_true(optarg))
 				opts |= OPT_Y_INVERTED;
+			break;
+		case 'g':
+			if (is_true(optarg))
+				opts |= OPT_DIRECT_DISPLAY;
 			break;
 		default:
 			print_usage_and_exit();
