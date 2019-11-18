@@ -5281,6 +5281,9 @@ subsurface_set_position(struct wl_client *client,
 	sub->position.offset = weston_coord_surface(x, y, sub->parent);
 	sub->position.changed = true;
 	sub->parent->pending.status |= WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG;
+
+	// HACK: Force applying position directly
+	weston_subsurface_parent_commit(sub, 0);
 }
 
 static struct weston_subsurface *
