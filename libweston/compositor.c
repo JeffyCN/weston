@@ -4563,6 +4563,9 @@ subsurface_set_position(struct wl_client *client,
 	sub->position.x = x;
 	sub->position.y = y;
 	sub->position.set = 1;
+
+	// HACK: Force applying position directly
+	weston_subsurface_parent_commit(sub, 0);
 }
 
 static struct weston_subsurface *
