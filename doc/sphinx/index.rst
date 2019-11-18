@@ -6,6 +6,7 @@ Welcome to Weston documentation!
    :caption: Contents:
 
    toc/libweston.rst
+   toc/test-suite.rst
 
 Weston
 ------
