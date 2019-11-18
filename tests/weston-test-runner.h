@@ -44,23 +44,22 @@ struct weston_test_entry {
 	const void *table_data;
 	size_t element_size;
 	int n_elements;
-	int must_fail;
 } __attribute__ ((aligned (32)));
 
 #define TEST_BEGIN(name, arg)						\
 	static void name(arg)
 
-#define TEST_COMMON(func, name, ret, data, size, n_elem)		\
+#define TEST_COMMON(func, name, data, size, n_elem)			\
 	static void func(void *);					\
 									\
 	const struct weston_test_entry test##name			\
 		__attribute__ ((used, section ("test_section"))) =	\
 	{								\
-		#name, func, data, size, n_elem, ret			\
+		#name, func, data, size, n_elem				\
 	};
 
-#define NO_ARG_TEST(name, ret)						\
-	TEST_COMMON(wrap##name, name, ret, NULL, 0, 1)			\
+#define NO_ARG_TEST(name)						\
+	TEST_COMMON(wrap##name, name, NULL, 0, 1)			\
 	static void name(void);						\
 	static void wrap##name(void *data)				\
 	{								\
@@ -70,16 +69,14 @@ struct weston_test_entry {
 									\
 	TEST_BEGIN(name, void)
 
-#define ARG_TEST(name, ret, test_data)					\
-	TEST_COMMON(name, name, ret, test_data,				\
+#define ARG_TEST(name, test_data)					\
+	TEST_COMMON(name, name, test_data,				\
 		    sizeof(test_data[0]),				\
 		    ARRAY_LENGTH(test_data))				\
 	TEST_BEGIN(name, void *data)					\
 
-#define TEST(name) NO_ARG_TEST(name, 0)
-#define FAIL_TEST(name) NO_ARG_TEST(name, 1)
-#define TEST_P(name, data) ARG_TEST(name, 0, data)
-#define FAIL_TEST_P(name, data) ARG_TEST(name, 1, data)
+#define TEST(name) NO_ARG_TEST(name)
+#define TEST_P(name, data) ARG_TEST(name, data)
 
 void
 testlog(const char *fmt, ...) WL_PRINTF(1, 2);

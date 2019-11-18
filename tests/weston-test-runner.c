@@ -140,9 +140,6 @@ exec_and_report_test(const struct weston_test_entry *t,
 		break;
 	}
 
-	if (t->must_fail)
-		success = !success;
-
 	if (success && !hardfail) {
 		fprintf(stderr, ", pass.\n");
 		return 1;
