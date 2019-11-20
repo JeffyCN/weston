@@ -51,11 +51,13 @@
 #include "xdg-shell-client-protocol.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
+#include "weston-direct-display-client-protocol.h"
 
 #include "shared/helpers.h"
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define OPT_FLAG_INVERT (1 << 0)
+#define OPT_FLAG_DIRECT_DISPLAY (1 << 1)
 
 static void
 redraw(void *data, struct wl_callback *callback, uint32_t time);
@@ -107,6 +109,7 @@ struct display {
 	struct xdg_wm_base *wm_base;
 	struct zwp_fullscreen_shell_v1 *fshell;
 	struct zwp_linux_dmabuf_v1 *dmabuf;
+	struct weston_direct_display_v1 *direct_display;
 	bool requested_format_found;
 	uint32_t opts;
 
@@ -386,6 +389,17 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer)
 		flags |= ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
 
 	params = zwp_linux_dmabuf_v1_create_params(display->dmabuf);
+
+	if ((display->opts & OPT_FLAG_DIRECT_DISPLAY) && display->direct_display) {
+		weston_direct_display_v1_enable(display->direct_display, params);
+
+		if (display->opts & OPT_FLAG_INVERT) {
+			flags &= ~ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
+			fprintf(stdout, "dmabuf y-inverted attribute flag was removed"
+					", as display-direct flag was set\n");
+		}
+	}
+
 	for (i = 0; i < display->format.num_planes; ++i)
 		zwp_linux_buffer_params_v1_add(params,
 		                               buffer->dmabuf_fds[i],
@@ -841,6 +855,9 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		                             id, &zwp_linux_dmabuf_v1_interface, 3);
 		zwp_linux_dmabuf_v1_add_listener(d->dmabuf, &dmabuf_listener,
 		                                 d);
+	} else if (strcmp(interface, "weston_direct_display_v1") == 0) {
+		d->direct_display = wl_registry_bind(registry,
+						     id, &weston_direct_display_v1_interface, 1);
 	}
 }
 
@@ -916,7 +933,7 @@ destroy_display(struct display *display)
 static void
 usage(const char *argv0)
 {
-	printf("Usage: %s [-v v4l2_device] [-f v4l2_format] [-d drm_format] [-i|--y-invert]\n"
+	printf("Usage: %s [-v v4l2_device] [-f v4l2_format] [-d drm_format] [-i|--y-invert] [-g|--d-display]\n"
 	       "\n"
 	       "The default V4L2 device is /dev/video0\n"
 	       "\n"
@@ -929,7 +946,10 @@ usage(const char *argv0)
 	       "Flags:\n"
 	       "- y-invert force the image to be y-flipped;\n  note will be "
 	       "automatically added if we detect if the camera sensor is "
-	       "y-flipped\n", argv0);
+	       "y-flipped\n"
+	       "- d-display skip importing dmabuf-based buffer into the GPU\n  "
+	       "and attempt pass the buffer straight to the display controller\n",
+	       argv0);
 
 	printf("\n"
 	       "How to set up Vivid the virtual video driver for testing:\n"
@@ -973,11 +993,12 @@ main(int argc, char **argv)
 		{ "v4l2-format", required_argument, NULL, 'f' },
 		{ "drm-format",	 required_argument, NULL, 'd' },
 		{ "y-invert",    no_argument, 	    NULL, 'i' },
+		{ "d-display",   no_argument, 	    NULL, 'g' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ 0,             0,                 NULL,  0  }
 	};
 
-	while ((c = getopt_long(argc, argv, "hiv:d:f:", long_options,
+	while ((c = getopt_long(argc, argv, "hiv:d:f:g", long_options,
 				&opt_index)) != -1) {
 		switch (c) {
 		case 'v':
@@ -991,6 +1012,9 @@ main(int argc, char **argv)
 			break;
 		case 'i':
 			opts_flags |= OPT_FLAG_INVERT;
+			break;
+		case 'g':
+			opts_flags |= OPT_FLAG_DIRECT_DISPLAY;
 			break;
 		default:
 		case 'h':
