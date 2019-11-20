@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <getopt.h>
 #include <assert.h>
 #include <unistd.h>
 #include <sys/mman.h>
@@ -913,7 +914,7 @@ destroy_display(struct display *display)
 static void
 usage(const char *argv0)
 {
-	printf("Usage: %s [V4L2 device] [V4L2 format] [DRM format]\n"
+	printf("Usage: %s [-v v4l2_device] [-f v4l2_format] [-d drm_format]\n"
 	       "\n"
 	       "The default V4L2 device is /dev/video0\n"
 	       "\n"
@@ -934,7 +935,7 @@ usage(const char *argv0)
 	       "- set the pixel format:\n"
 	       "    $ v4l2-ctl -d /dev/video0 --set-fmt-video=width=640,pixelformat=XR24\n"
 	       "- launch the demo:\n"
-	       "    $ %s /dev/video0 XR24 XR24\n"
+	       "    $ %s -v /dev/video0 -f XR24 -d XR24\n"
 	       "You should see a test pattern with color bars, and some text.\n"
 	       "\n"
 	       "More about vivid: https://www.kernel.org/doc/Documentation/video4linux/vivid.txt\n"
@@ -955,27 +956,46 @@ main(int argc, char **argv)
 	struct sigaction sigint;
 	struct display *display;
 	struct window *window;
-	const char *v4l_device;
-	uint32_t v4l_format, drm_format;
-	int ret = 0;
+	const char *v4l_device = NULL;
+	uint32_t v4l_format = 0x0;
+	uint32_t drm_format = 0x0;
+	int c, opt_index, ret = 0;
 
-	if (argc < 2) {
-		v4l_device = "/dev/video0";
-	} else if (!strcmp(argv[1], "--help")) {
-		usage(argv[0]);
-	} else {
-		v4l_device = argv[1];
+	static struct option long_options[] = {
+		{ "v4l2-device", required_argument, NULL, 'v' },
+		{ "v4l2-format", required_argument, NULL, 'f' },
+		{ "drm-format",	 required_argument, NULL, 'd' },
+		{ "help",        no_argument,       NULL, 'h' },
+		{ 0,             0,                 NULL,  0  }
+	};
+
+	while ((c = getopt_long(argc, argv, "hv:d:f:", long_options,
+				&opt_index)) != -1) {
+		switch (c) {
+		case 'v':
+			v4l_device = optarg;
+			break;
+		case 'f':
+			v4l_format = parse_format(optarg);
+			break;
+		case 'd':
+			drm_format = parse_format(optarg);
+			break;
+		default:
+		case 'h':
+			usage(argv[0]);
+			break;
+		}
 	}
 
-	if (argc < 3)
-		v4l_format = parse_format("YUYV");
-	else
-		v4l_format = parse_format(argv[2]);
+	if (!v4l_device)
+		v4l_device = "/dev/video0";
 
-	if (argc < 4)
+	if (v4l_format == 0x0)
+		v4l_format = parse_format("YUYV");
+
+	if (drm_format == 0x0)
 		drm_format = v4l_format;
-	else
-		drm_format = parse_format(argv[3]);
 
 	display = create_display(drm_format);
 	display->format.format = v4l_format;
