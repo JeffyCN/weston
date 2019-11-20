@@ -856,7 +856,7 @@ static const struct wl_registry_listener registry_listener = {
 };
 
 static struct display *
-create_display(uint32_t requested_format)
+create_display(uint32_t requested_format, uint32_t opt_flags)
 {
 	struct display *display;
 
@@ -887,6 +887,8 @@ create_display(uint32_t requested_format)
 		exit(1);
 	}
 
+	if (opt_flags)
+		display->opts = opt_flags;
 	return display;
 }
 
@@ -914,7 +916,7 @@ destroy_display(struct display *display)
 static void
 usage(const char *argv0)
 {
-	printf("Usage: %s [-v v4l2_device] [-f v4l2_format] [-d drm_format]\n"
+	printf("Usage: %s [-v v4l2_device] [-f v4l2_format] [-d drm_format] [-i|--y-invert]\n"
 	       "\n"
 	       "The default V4L2 device is /dev/video0\n"
 	       "\n"
@@ -923,7 +925,11 @@ usage(const char *argv0)
 	       "DRM formats are defined in <libdrm/drm_fourcc.h>\n"
 	       "The default for both formats is YUYV.\n"
 	       "If the V4L2 and DRM formats differ, the data is simply "
-	       "reinterpreted rather than converted.\n", argv0);
+	       "reinterpreted rather than converted.\n\n"
+	       "Flags:\n"
+	       "- y-invert force the image to be y-flipped;\n  note will be "
+	       "automatically added if we detect if the camera sensor is "
+	       "y-flipped\n", argv0);
 
 	printf("\n"
 	       "How to set up Vivid the virtual video driver for testing:\n"
@@ -959,17 +965,19 @@ main(int argc, char **argv)
 	const char *v4l_device = NULL;
 	uint32_t v4l_format = 0x0;
 	uint32_t drm_format = 0x0;
+	uint32_t opts_flags = 0x0;
 	int c, opt_index, ret = 0;
 
 	static struct option long_options[] = {
 		{ "v4l2-device", required_argument, NULL, 'v' },
 		{ "v4l2-format", required_argument, NULL, 'f' },
 		{ "drm-format",	 required_argument, NULL, 'd' },
+		{ "y-invert",    no_argument, 	    NULL, 'i' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ 0,             0,                 NULL,  0  }
 	};
 
-	while ((c = getopt_long(argc, argv, "hv:d:f:", long_options,
+	while ((c = getopt_long(argc, argv, "hiv:d:f:", long_options,
 				&opt_index)) != -1) {
 		switch (c) {
 		case 'v':
@@ -980,6 +988,9 @@ main(int argc, char **argv)
 			break;
 		case 'd':
 			drm_format = parse_format(optarg);
+			break;
+		case 'i':
+			opts_flags |= OPT_FLAG_INVERT;
 			break;
 		default:
 		case 'h':
@@ -997,7 +1008,7 @@ main(int argc, char **argv)
 	if (drm_format == 0x0)
 		drm_format = v4l_format;
 
-	display = create_display(drm_format);
+	display = create_display(drm_format, opts_flags);
 	display->format.format = v4l_format;
 
 	window = create_window(display);
