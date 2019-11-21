@@ -36,7 +36,9 @@ apt-get -y --no-install-recommends install \
 	build-essential \
 	curl \
 	doxygen \
+	gcovr \
 	git \
+	lcov \
 	libasound2-dev \
 	libbluetooth-dev \
 	libcairo2-dev \

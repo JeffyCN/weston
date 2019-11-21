@@ -20,7 +20,7 @@ stages:
   variables:
     FDO_DISTRIBUTION_VERSION: buster
     FDO_DISTRIBUTION_EXEC: 'bash .gitlab-ci/debian-install.sh'
-    FDO_DISTRIBUTION_TAG: '2021-02-25.1'
+    FDO_DISTRIBUTION_TAG: '2021-03-04.1'
 
 
 container_prep:
@@ -67,7 +67,6 @@ container_prep:
   - virtme-run --rw --pwd --kimg /weston-virtme/bzImage --script-dir ../.gitlab-ci/virtme-scripts
   - TEST_RES=$(cat $TESTS_RES_PATH)
   - rm $TESTS_RES_PATH
-  - ninja clean
   - cp -R /weston-virtme ./
   - rm weston-virtme/bzImage
   - exit $TEST_RES
@@ -103,8 +102,16 @@ container_prep:
 build-native-meson-default-options:
   variables:
     MESON_OPTIONS: >
+      -Doptimization=0
+      -Db_coverage=true
       -Dwerror=true
   extends: .build-native-meson
+  after_script:
+  - ninja -C build-* coverage-html
+  - ninja -C build-* coverage-xml
+  artifacts:
+    reports:
+      cobertura: build-*/meson-logs/coverage.xml
 
 build-docs:
   variables:
@@ -123,17 +130,20 @@ build-native-meson-no-gl-renderer:
       -Dwerror=true
   extends: .build-native-meson
 
-preview-docs:
+docs-and-coverage:
   stage: pages
   script:
   - mv prefix-weston-build-docs/share/doc/weston Documentation
+  - mv build-weston-build-native-meson-default-options/meson-logs/coveragereport Test_Coverage
   - rm -rf build-* prefix-*
   dependencies:
     - build-docs
+    - build-native-meson-default-options
   artifacts:
-    expose_as: 'Documentation preview'
+    expose_as: 'Documentation preview and test coverage report'
     paths:
     - Documentation/
+    - Test_Coverage/
 
 pages:
   stage: pages
