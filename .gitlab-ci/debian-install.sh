@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -o xtrace
+set -o xtrace -o errexit
 
 echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list
 apt-get update
