@@ -2102,6 +2102,25 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		}
 		es->is_opaque = true;
 		break;
+	case WL_SHM_FORMAT_NV16:
+		pitch = wl_shm_buffer_get_stride(shm_buffer);
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		num_planes = 2;
+		gs->offset[1] = gs->offset[0] + (pitch / gs->hsub[0]) *
+				(buffer->height / gs->vsub[0]);
+		gs->hsub[1] = 2;
+		gs->vsub[1] = 1;
+		if (gr->has_gl_texture_rg) {
+			gs->shader_variant = SHADER_VARIANT_Y_UV;
+			gl_format[0] = GL_R8_EXT;
+			gl_format[1] = GL_RG8_EXT;
+		} else {
+			gs->shader_variant = SHADER_VARIANT_Y_XUXV;
+			gl_format[0] = GL_LUMINANCE;
+			gl_format[1] = GL_LUMINANCE_ALPHA;
+		}
+		es->is_opaque = true;
+		break;
 	case WL_SHM_FORMAT_YUYV:
 		gs->shader_variant = SHADER_VARIANT_Y_XUXV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
@@ -2394,6 +2413,22 @@ struct yuv_format_descriptor yuv_formats[] = {
 		}, {
 			.width_divisor = 2,
 			.height_divisor = 2,
+			.format = DRM_FORMAT_GR88,
+			.plane_index = 1
+		}}
+	}, {
+		.format = DRM_FORMAT_NV16,
+		.input_planes = 2,
+		.output_planes = 2,
+		.texture_type = EGL_TEXTURE_Y_UV_WL,
+		{{
+			.width_divisor = 1,
+			.height_divisor = 1,
+			.format = DRM_FORMAT_R8,
+			.plane_index = 0
+		}, {
+			.width_divisor = 2,
+			.height_divisor = 1,
 			.format = DRM_FORMAT_GR88,
 			.plane_index = 1
 		}}
@@ -3800,6 +3835,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV16);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
 #if __BYTE_ORDER == __LITTLE_ENDIAN
