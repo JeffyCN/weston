@@ -282,6 +282,17 @@ struct yuv_format_descriptor yuv_formats[] = {
 			.plane_index = 1
 		}}
 	}, {
+		.format = DRM_FORMAT_NV16,
+		.output_planes = 2,
+		.shader_variant = SHADER_VARIANT_Y_UV,
+		{{
+			.format = DRM_FORMAT_R8,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_GR88,
+			.plane_index = 1
+		}}
+	}, {
 		.format = DRM_FORMAT_P010,
 		.output_planes = 2,
 		.shader_variant = SHADER_VARIANT_Y_UV,
@@ -4016,6 +4027,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV444);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV16);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR8888);
