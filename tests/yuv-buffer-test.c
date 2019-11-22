@@ -286,6 +286,72 @@ nv12_create_buffer(struct client *client,
 }
 
 /*
+ * 2 plane YCbCr
+ * plane 0 = Y plane, [7:0] Y
+ * plane 1 = Cr:Cb plane, [15:0] Cr:Cb little endian
+ * 2x1 subsampled Cr:Cb plane
+ */
+static struct yuv_buffer *
+nv16_create_buffer(struct client *client,
+		   uint32_t drm_format,
+		   pixman_image_t *rgb_image)
+{
+	struct image_header rgb = image_header_from(rgb_image);
+	struct yuv_buffer *buf;
+	size_t bytes;
+	int x, y;
+	uint32_t *rgb_row;
+	uint8_t *y_base;
+	uint16_t *uv_base;
+	uint8_t *y_row;
+	uint16_t *uv_row;
+	uint32_t argb;
+	uint8_t cr;
+	uint8_t cb;
+
+	assert(drm_format == DRM_FORMAT_NV16);
+
+	/* Full size Y, horizontally subsampled UV */
+	bytes = rgb.width * rgb.height +
+		(rgb.width / 2) * rgb.height * sizeof(uint16_t);
+	buf = yuv_buffer_create(client, bytes, rgb.width, rgb.height,
+				rgb.width, drm_format);
+
+	y_base = buf->data;
+	uv_base = (uint16_t *)(y_base + rgb.width * rgb.height);
+
+	for (y = 0; y < rgb.height; y++) {
+		rgb_row = image_header_get_row_u32(&rgb, y / 2 * 2);
+		y_row = y_base + y * rgb.width;
+		uv_row = uv_base + y * (rgb.width / 2);
+
+		for (x = 0; x < rgb.width; x++) {
+			/*
+			 * 2x2 sub-sample the source image to get the same
+			 * result as the other YUV variants, so we can use the
+			 * same reference image for checking.
+			 */
+			argb = *(rgb_row + x / 2 * 2);
+
+			/*
+			 * A stupid way of "sub-sampling" chroma. This does not
+			 * do the necessary filtering/averaging/siting.
+			 */
+			if ((x & 1) == 0) {
+				x8r8g8b8_to_ycbcr8_bt601(argb, y_row + x,
+							 &cb, &cr);
+				*(uv_row + x / 2) = ((uint16_t)cr << 8) | cb;
+			} else {
+				x8r8g8b8_to_ycbcr8_bt601(argb, y_row + x,
+							 NULL, NULL);
+			}
+		}
+	}
+
+	return buf;
+}
+
+/*
  * Packed YCbCr
  *
  * [31:0] Cr0:Y1:Cb0:Y0 8:8:8:8 little endian
@@ -416,6 +482,7 @@ static const struct yuv_case yuv_cases[] = {
 	{ FMT(YUV420), y_u_v_create_buffer },
 	{ FMT(YUV444), y_u_v_create_buffer },
 	{ FMT(NV12), nv12_create_buffer },
+	{ FMT(NV16), nv16_create_buffer },
 	{ FMT(YUYV), yuyv_create_buffer },
 	{ FMT(XYUV8888), xyuv8888_create_buffer },
 #undef FMT
