@@ -74,17 +74,14 @@ static int
 drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 {
 	int ret = -EINVAL;
-#ifdef HAVE_DRM_ADDFB2_MODIFIERS
 	uint64_t mods[4] = { };
 	size_t i;
-#endif
 
 	/* If we have a modifier set, we must only use the WithModifiers
 	 * entrypoint; we cannot import it through legacy ioctls. */
 	if (b->fb_modifiers && fb->modifier != DRM_FORMAT_MOD_INVALID) {
 		/* KMS demands that if a modifier is set, it must be the same
 		 * for all planes. */
-#ifdef HAVE_DRM_ADDFB2_MODIFIERS
 		for (i = 0; i < ARRAY_LENGTH(mods) && fb->handles[i]; i++)
 			mods[i] = fb->modifier;
 		ret = drmModeAddFB2WithModifiers(fb->fd, fb->width, fb->height,
@@ -92,7 +89,6 @@ drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 						 fb->handles, fb->strides,
 						 fb->offsets, mods, &fb->fb_id,
 						 DRM_MODE_FB_MODIFIERS);
-#endif
 		return ret;
 	}
 
