@@ -176,6 +176,11 @@ struct rectangle {
 	int height;
 };
 
+struct range {
+	int a;
+	int b;
+};
+
 struct client *
 create_client(void);
 
@@ -224,11 +229,13 @@ screenshot_reference_filename(const char *basename, uint32_t seq);
 
 bool
 check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
-		   const struct rectangle *clip);
+		   const struct rectangle *clip,
+		   const struct range *prec);
 
 pixman_image_t *
 visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
-			   const struct rectangle *clip_rect);
+			   const struct rectangle *clip_rect,
+			   const struct range *prec);
 
 bool
 write_image_as_png(pixman_image_t *image, const char *fname);

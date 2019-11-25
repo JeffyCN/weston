@@ -135,7 +135,7 @@ write_visual_diff(pixman_image_t *ref_image,
 	assert(ret >= 0);
 
 	fname = screenshot_output_filename(ext_test_name, seq_no);
-	diff = visualize_image_difference(shot->image, ref_image, clip);
+	diff = visualize_image_difference(shot->image, ref_image, clip, NULL);
 	write_image_as_png(diff, fname);
 
 	pixman_image_unref(diff);
@@ -166,7 +166,7 @@ check_screen(struct client *client,
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
 
-	match = check_images_match(shot->image, ref, clip);
+	match = check_images_match(shot->image, ref, clip, NULL);
 	testlog("ref %s vs. shot %s: %s\n", ref_fname, shot_fname,
 		match ? "PASS" : "FAIL");
 

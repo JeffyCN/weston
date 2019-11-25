@@ -1078,6 +1078,24 @@ format_pixman2cairo(pixman_format_code_t fmt)
 }
 
 /**
+ * Validate range
+ *
+ * \param r Range to validate or NULL.
+ * \return The given range, or {0, 0} for NULL.
+ *
+ * Will abort if range is invalid, that is a > b.
+ */
+static struct range
+range_get(const struct range *r)
+{
+	if (!r)
+		return (struct range){ 0, 0 };
+
+	assert(r->a <= r->b);
+	return *r;
+}
+
+/**
  * Compute the ROI for image comparisons
  *
  * \param img_a An image.
@@ -1157,8 +1175,25 @@ image_iter_get_row(struct image_iterator *it, int y)
 	return (uint32_t *)(it->data + y * it->stride);
 }
 
+static bool
+fuzzy_match_pixels(uint32_t pix_a, uint32_t pix_b, const struct range *fuzz)
+{
+	int shift;
+
+	for (shift = 0; shift < 32; shift += 8) {
+		int val_a = (pix_a >> shift) & 0xffu;
+		int val_b = (pix_b >> shift) & 0xffu;
+		int d = val_b - val_a;
+
+		if (d < fuzz->a || d > fuzz->b)
+			return false;
+	}
+
+	return true;
+}
+
 /**
- * Test if a given region within two images are pixel-identical.
+ * Test if a given region within two images are pixel-identical
  *
  * Returns true if the two images pixel-wise identical, and false otherwise.
  *
@@ -1166,15 +1201,23 @@ image_iter_get_row(struct image_iterator *it, int y)
  * \param img_b Second image.
  * \param clip_rect The region of interest, or NULL for comparing the whole
  * images.
+ * \param prec Per-channel allowed difference, or NULL for identical match
+ * required.
  *
  * This function hard-fails if clip_rect is not inside both images. If clip_rect
  * is given, the images do not have to match in size, otherwise size mismatch
  * will be a hard failure.
+ *
+ * The per-pixel, per-channel difference is computed as img_b - img_a which is
+ * required to be in the range [prec->a, prec->b] inclusive. The difference is
+ * signed. All four channels are compared the same way, without any special
+ * meaning on alpha channel.
  */
 bool
 check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
-		   const struct rectangle *clip_rect)
+		   const struct rectangle *clip_rect, const struct range *prec)
 {
+	struct range fuzz = range_get(prec);
 	struct image_iterator it_a;
 	struct image_iterator it_b;
 	pixman_box32_t box;
@@ -1192,7 +1235,7 @@ check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 		pix_b = image_iter_get_row(&it_b, y) + box.x1;
 
 		for (x = box.x1; x < box.x2; x++) {
-			if (*pix_a != *pix_b)
+			if (!fuzzy_match_pixels(*pix_a, *pix_b, &fuzz))
 				return false;
 
 			pix_a++;
@@ -1232,6 +1275,8 @@ tint(uint32_t src, uint32_t add)
  * \param img_b Second image.
  * \param clip_rect The region of interest, or NULL for comparing the whole
  * images.
+ * \param prec Per-channel allowed difference, or NULL for identical match
+ * required.
  * \return A new image with the differences highlighted.
  *
  * Regions outside of the region of interest are shaded with black, matching
@@ -1241,11 +1286,18 @@ tint(uint32_t src, uint32_t add)
  * This function hard-fails if clip_rect is not inside both images. If clip_rect
  * is given, the images do not have to match in size, otherwise size mismatch
  * will be a hard failure.
+ *
+ * The per-pixel, per-channel difference is computed as img_b - img_a which is
+ * required to be in the range [prec->a, prec->b] inclusive. The difference is
+ * signed. All four channels are compared the same way, without any special
+ * meaning on alpha channel.
  */
 pixman_image_t *
 visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
-			   const struct rectangle *clip_rect)
+			   const struct rectangle *clip_rect,
+			   const struct range *prec)
 {
+	struct range fuzz = range_get(prec);
 	pixman_image_t *diffimg;
 	pixman_image_t *shade;
 	struct image_iterator it_a;
@@ -1288,7 +1340,7 @@ visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
 		pix_d = image_iter_get_row(&it_d, y) + box.x1;
 
 		for (x = box.x1; x < box.x2; x++) {
-			if (*pix_a == *pix_b)
+			if (fuzzy_match_pixels(*pix_a, *pix_b, &fuzz))
 				*pix_d = tint(*pix_d, 0x00008000); /* green */
 			else
 				*pix_d = tint(*pix_d, 0x00c00000); /* red */
