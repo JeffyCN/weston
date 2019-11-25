@@ -50,10 +50,6 @@ fixture_setup(struct weston_test_harness *harness, const enum renderer_type *arg
 	setup.shell = SHELL_TEST_DESKTOP;
 	setup.logging_scopes = "log,test-harness-plugin";
 
-	/* This test fails due to color rounding on GL */
-	if (setup.renderer == RENDERER_GL)
-		return RESULT_SKIP;
-
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
 DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, renderers);
@@ -124,7 +120,8 @@ write_visual_diff(pixman_image_t *ref_image,
 		  struct buffer *shot,
 		  const struct rectangle *clip,
 		  const char *test_name,
-		  int seq_no)
+		  int seq_no,
+		  const struct range *fuzz)
 {
 	char *fname;
 	char *ext_test_name;
@@ -135,7 +132,7 @@ write_visual_diff(pixman_image_t *ref_image,
 	assert(ret >= 0);
 
 	fname = screenshot_output_filename(ext_test_name, seq_no);
-	diff = visualize_image_difference(shot->image, ref_image, clip, NULL);
+	diff = visualize_image_difference(ref_image, shot->image, clip, fuzz);
 	write_image_as_png(diff, fname);
 
 	pixman_image_unref(diff);
@@ -151,6 +148,7 @@ check_screen(struct client *client,
 	     int seq_no)
 {
 	const char *test_name = get_test_name();
+	const struct range gl_fuzz = { 0, 1 };
 	struct buffer *shot;
 	pixman_image_t *ref;
 	char *ref_fname;
@@ -166,13 +164,13 @@ check_screen(struct client *client,
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
 
-	match = check_images_match(shot->image, ref, clip, NULL);
+	match = check_images_match(ref, shot->image, clip, &gl_fuzz);
 	testlog("ref %s vs. shot %s: %s\n", ref_fname, shot_fname,
 		match ? "PASS" : "FAIL");
 
 	write_image_as_png(shot->image, shot_fname);
 	if (!match)
-		write_visual_diff(ref, shot, clip, test_name, seq_no);
+		write_visual_diff(ref, shot, clip, test_name, seq_no, &gl_fuzz);
 
 	buffer_destroy(shot);
 	pixman_image_unref(ref);
