@@ -470,6 +470,7 @@ weston_config_parse(const char *name)
 	return config;
 }
 
+WL_EXPORT
 const char *
 weston_config_get_full_path(struct weston_config *config)
 {
@@ -500,6 +501,7 @@ weston_config_next_section(struct weston_config *config,
 	return 1;
 }
 
+WL_EXPORT
 void
 weston_config_destroy(struct weston_config *config)
 {
