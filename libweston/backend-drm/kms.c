@@ -116,6 +116,13 @@ struct drm_property_enum_info hdcp_content_type_enums[] = {
 	},
 };
 
+struct drm_property_enum_info panel_orientation_enums[] = {
+	[WDRM_PANEL_ORIENTATION_NORMAL] = { .name = "Normal", },
+	[WDRM_PANEL_ORIENTATION_UPSIDE_DOWN] = { .name = "Upside Down", },
+	[WDRM_PANEL_ORIENTATION_LEFT_SIDE_UP] = { .name = "Left Side Up", },
+	[WDRM_PANEL_ORIENTATION_RIGHT_SIDE_UP] = { .name = "Right Side Up", },
+};
+
 const struct drm_property_info connector_props[] = {
 	[WDRM_CONNECTOR_EDID] = { .name = "EDID" },
 	[WDRM_CONNECTOR_DPMS] = {
@@ -134,6 +141,11 @@ const struct drm_property_info connector_props[] = {
 		.name = "HDCP Content Type",
 		.enum_values = hdcp_content_type_enums,
 		.num_enum_values = WDRM_HDCP_CONTENT_TYPE__COUNT,
+	},
+	[WDRM_CONNECTOR_PANEL_ORIENTATION] = {
+		.name = "panel orientation",
+		.enum_values = panel_orientation_enums,
+		.num_enum_values = WDRM_PANEL_ORIENTATION__COUNT,
 	},
 };
 

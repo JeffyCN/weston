@@ -128,6 +128,29 @@ check_non_desktop(struct drm_head *head, drmModeObjectPropertiesPtr props)
 	return drm_property_get_value(non_desktop_info, props, 0);
 }
 
+static uint32_t
+get_panel_orientation(struct drm_head *head, drmModeObjectPropertiesPtr props)
+{
+	struct drm_property_info *orientation =
+		&head->props_conn[WDRM_CONNECTOR_PANEL_ORIENTATION];
+	uint64_t kms_val =
+		drm_property_get_value(orientation, props,
+				       WDRM_PANEL_ORIENTATION_NORMAL);
+
+	switch (kms_val) {
+	case WDRM_PANEL_ORIENTATION_NORMAL:
+		return WL_OUTPUT_TRANSFORM_NORMAL;
+	case WDRM_PANEL_ORIENTATION_UPSIDE_DOWN:
+		return WL_OUTPUT_TRANSFORM_180;
+	case WDRM_PANEL_ORIENTATION_LEFT_SIDE_UP:
+		return WL_OUTPUT_TRANSFORM_90;
+	case WDRM_PANEL_ORIENTATION_RIGHT_SIDE_UP:
+		return WL_OUTPUT_TRANSFORM_270;
+	default:
+		assert(!"unknown property value in get_panel_orientation");
+	}
+}
+
 static int
 parse_modeline(const char *s, drmModeModeInfo *mode)
 {
@@ -499,6 +522,9 @@ update_head_from_connector(struct drm_head *head,
 
 	weston_head_set_physical_size(&head->base, head->connector->mmWidth,
 				      head->connector->mmHeight);
+
+	weston_head_set_transform(&head->base,
+				  get_panel_orientation(head, props));
 
 	/* Unknown connection status is assumed disconnected. */
 	weston_head_set_connection_status(&head->base,
