@@ -5422,6 +5422,28 @@ weston_head_set_non_desktop(struct weston_head *head, bool non_desktop)
 	weston_head_set_device_changed(head);
 }
 
+/** Store display transformation
+ *
+ * \param head The head to modify.
+ * \param transform The transformation to apply for this head
+ *
+ * This may set the device_changed flag.
+ *
+ * \ingroup head
+ * \internal
+ */
+WL_EXPORT void
+weston_head_set_transform(struct weston_head *head, uint32_t transform)
+{
+	if (head->transform == transform)
+		return;
+
+	head->transform = transform;
+
+	weston_head_set_device_changed(head);
+}
+
+
 /** Store physical image size
  *
  * \param head The head to modify.
@@ -5681,6 +5703,24 @@ WL_EXPORT struct weston_output *
 weston_head_get_output(struct weston_head *head)
 {
 	return head->output;
+}
+
+/** Get the head's native transformation
+ *
+ * \param head The head to query.
+ * \return The head's native transform, as a WL_OUTPUT_TRANSFORM_* value
+ *
+ * A weston_head may have a 'native' transform provided by the backend.
+ * Examples include panels which are physically rotated, where the rotation
+ * is recorded and described as part of the system configuration. This call
+ * will return any known native transform for the head.
+ *
+ * \ingroup head
+ */
+WL_EXPORT uint32_t
+weston_head_get_transform(struct weston_head *head)
+{
+	return head->transform;
 }
 
 /** Add destroy callback for a head

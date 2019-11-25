@@ -207,6 +207,10 @@ struct weston_head {
 
 	int32_t mm_width;		/**< physical image width in mm */
 	int32_t mm_height;		/**< physical image height in mm */
+
+	/** WL_OUTPUT_TRANSFORM enum to apply to match native orientation */
+	uint32_t transform;
+
 	char *make;			/**< monitor manufacturer (PNP ID) */
 	char *model;			/**< monitor model */
 	char *serial_number;		/**< monitor serial */
@@ -1953,6 +1957,9 @@ weston_head_get_name(struct weston_head *head);
 
 struct weston_output *
 weston_head_get_output(struct weston_head *head);
+
+uint32_t
+weston_head_get_transform(struct weston_head *head);
 
 void
 weston_head_detach(struct weston_head *head);
