@@ -1214,17 +1214,18 @@ wet_output_set_transform(struct weston_output *output,
 			 uint32_t default_transform,
 			 uint32_t parsed_transform)
 {
-	char *t;
+	char *t = NULL;
 	uint32_t transform = default_transform;
 
 	if (section) {
 		weston_config_section_get_string(section,
-						 "transform", &t, "normal");
+						 "transform", &t, NULL);
+	}
 
+	if (t) {
 		if (weston_parse_transform(t, &transform) < 0) {
 			weston_log("Invalid transform \"%s\" for output %s\n",
 				   t, output->name);
-			transform = default_transform;
 		}
 		free(t);
 	}
