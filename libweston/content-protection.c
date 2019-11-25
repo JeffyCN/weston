@@ -32,7 +32,6 @@
 #include <string.h>
 #include <libweston/libweston.h>
 #include <libweston/weston-log.h>
-#include "compositor/weston.h"
 #include "weston-content-protection-server-protocol.h"
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
