@@ -1700,6 +1700,7 @@ drm_backend_output_configure(struct weston_output *output,
 	const struct weston_drm_output_api *api;
 	enum weston_drm_backend_output_mode mode =
 		WESTON_DRM_BACKEND_OUTPUT_PREFERRED;
+	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
 	char *s;
 	char *modeline = NULL;
 	char *gbm_format = NULL;
@@ -1731,9 +1732,13 @@ drm_backend_output_configure(struct weston_output *output,
 	}
 	free(modeline);
 
+	if (count_remaining_heads(output, NULL) == 1) {
+		struct weston_head *head = weston_output_get_first_head(output);
+		transform = weston_head_get_transform(head);
+	}
+
 	wet_output_set_scale(output, section, 1, 0);
-	if (wet_output_set_transform(output, section,
-				     WL_OUTPUT_TRANSFORM_NORMAL,
+	if (wet_output_set_transform(output, section, transform,
 				     UINT32_MAX) < 0) {
 		return -1;
 	}
