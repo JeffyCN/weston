@@ -54,7 +54,7 @@
 #include "shared/weston-egl-ext.h"
 
 
-static int option_blit;
+static bool option_blit;
 
 struct nested {
 	struct display *display;

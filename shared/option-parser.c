@@ -76,7 +76,7 @@ long_option(const struct weston_option *options, int count, char *arg)
 
 		if (options[k].type == WESTON_OPTION_BOOLEAN) {
 			if (!arg[len + 2]) {
-				* (int32_t *) options[k].data = 1;
+				* (bool *) options[k].data = true;
 
 				return true;
 			}
@@ -127,7 +127,7 @@ short_option(const struct weston_option *options, int count, char *arg)
 
 		if (options[k].type == WESTON_OPTION_BOOLEAN) {
 			if (!arg[2]) {
-				* (int32_t *) options[k].data = 1;
+				* (bool *) options[k].data = true;
 
 				return true;
 			}

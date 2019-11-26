@@ -56,8 +56,8 @@
 
 static int32_t option_red_mode;
 static int32_t option_triangle_mode;
-static int32_t option_no_triangle;
-static int32_t option_help;
+static bool option_no_triangle;
+static bool option_help;
 
 static const struct weston_option options[] = {
 	{ WESTON_OPTION_INTEGER, "red-mode", 'r', &option_red_mode },

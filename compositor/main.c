@@ -945,7 +945,7 @@ wet_get_bindir_path(const char *name)
 
 static int
 load_modules(struct weston_compositor *ec, const char *modules,
-	     int *argc, char *argv[], int32_t *xwayland)
+	     int *argc, char *argv[], bool *xwayland)
 {
 	const char *p, *end;
 	char buffer[256];
@@ -963,7 +963,7 @@ load_modules(struct weston_compositor *ec, const char *modules,
 				   "Please use --xwayland command line option "
 				   "or set xwayland=true in the [core] section "
 				   "in weston.ini\n");
-			*xwayland = 1;
+			*xwayland = true;
 		} else {
 			if (wet_load_module(ec, buffer, argc, argv) < 0)
 				return -1;
@@ -2480,30 +2480,23 @@ load_drm_backend(struct weston_compositor *c,
 	struct weston_drm_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
 	struct wet_compositor *wet = to_wet_compositor(c);
-	bool use_shadow;
 	int ret = 0;
-	bool use_pixman_config_;
-	int drm_use_current_mode = 0;
-	int32_t use_pixman_;
 
 	wet->drm_use_current_mode = false;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &use_pixman_config_,
+	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
 				       false);
-	use_pixman_ = use_pixman_config_;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
 		{ WESTON_OPTION_INTEGER, "tty", 0, &config.tty },
 		{ WESTON_OPTION_STRING, "drm-device", 0, &config.specific_device },
-		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &drm_use_current_mode },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &use_pixman_ },
+		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &wet->drm_use_current_mode },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
-	wet->drm_use_current_mode = drm_use_current_mode;
-	config.use_pixman = use_pixman_;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
 	weston_config_section_get_string(section,
@@ -2511,8 +2504,8 @@ load_drm_backend(struct weston_compositor *c,
 					 NULL);
 	weston_config_section_get_uint(section, "pageflip-timeout",
 	                               &config.pageflip_timeout, 0);
-	weston_config_section_get_bool(section, "pixman-shadow", &use_shadow, true);
-	config.use_pixman_shadow = use_shadow;
+	weston_config_section_get_bool(section, "pixman-shadow",
+				       &config.use_pixman_shadow, true);
 
 	config.base.struct_version = WESTON_DRM_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_drm_backend_config);
@@ -2557,38 +2550,30 @@ load_headless_backend(struct weston_compositor *c,
 	const struct weston_windowed_output_api *api;
 	struct weston_headless_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
-	int no_outputs = 0;
+	bool no_outputs;
 	int ret = 0;
 	char *transform = NULL;
-	bool use_pixman_config_;
-	int use_pixman_;
-	bool use_gl_config_;
-	bool use_gl_;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
 	if (!parsed_options)
 		return -1;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &use_pixman_config_,
+	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
 				       false);
-	use_pixman_ = use_pixman_config_;
-	weston_config_section_get_bool(section, "use-gl", &use_gl_config_,
+	weston_config_section_get_bool(section, "use-gl", &config.use_gl,
 				       false);
-	use_gl_ = use_gl_config_;
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &use_pixman_ },
-		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &use_gl_ },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
+		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &config.use_gl },
 		{ WESTON_OPTION_STRING, "transform", 0, &transform },
 		{ WESTON_OPTION_BOOLEAN, "no-outputs", 0, &no_outputs },
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
-	config.use_pixman = use_pixman_;
-	config.use_gl = use_gl_;
 
 	if (transform) {
 		if (weston_parse_transform(transform, &parsed_options->transform) < 0) {
@@ -2785,34 +2770,26 @@ load_x11_backend(struct weston_compositor *c,
 	int output_count = 0;
 	char const *section_name;
 	int i;
-	bool use_pixman_config_;
-	int fullscreen = 0;
-	int no_input = 0;
-	int use_pixman_;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
 	if (!parsed_options)
 		return -1;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &use_pixman_config_,
+	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
 				       false);
-	use_pixman_ = use_pixman_config_;
 
 	const struct weston_option options[] = {
 	       { WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 	       { WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
 	       { WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
-	       { WESTON_OPTION_BOOLEAN, "fullscreen", 'f', &fullscreen },
+	       { WESTON_OPTION_BOOLEAN, "fullscreen", 'f', &config.fullscreen },
 	       { WESTON_OPTION_INTEGER, "output-count", 0, &option_count },
-	       { WESTON_OPTION_BOOLEAN, "no-input", 0, &no_input },
-	       { WESTON_OPTION_BOOLEAN, "use-pixman", 0, &use_pixman_ },
+	       { WESTON_OPTION_BOOLEAN, "no-input", 0, &config.no_input },
+	       { WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
-	config.fullscreen = fullscreen;
-	config.no_input = no_input;
-	config.use_pixman = use_pixman_;
 
 	config.base.struct_version = WESTON_X11_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_x11_backend_config);
@@ -2901,10 +2878,6 @@ load_wayland_backend(struct weston_compositor *c,
 	int count = 1;
 	int ret = 0;
 	int i;
-	int32_t use_pixman_;
-	int32_t sprawl_ = 0;
-	int32_t fullscreen_ = 0;
-	bool use_pixman_config_;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
 	if (!parsed_options)
@@ -2915,25 +2888,21 @@ load_wayland_backend(struct weston_compositor *c,
 	config.display_name = NULL;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &use_pixman_config_,
+	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
 				       false);
-	use_pixman_ = use_pixman_config_;
 
 	const struct weston_option wayland_options[] = {
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
 		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
 		{ WESTON_OPTION_STRING, "display", 0, &config.display_name },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &use_pixman_ },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
 		{ WESTON_OPTION_INTEGER, "output-count", 0, &count },
-		{ WESTON_OPTION_BOOLEAN, "fullscreen", 0, &fullscreen_ },
-		{ WESTON_OPTION_BOOLEAN, "sprawl", 0, &sprawl_ },
+		{ WESTON_OPTION_BOOLEAN, "fullscreen", 0, &config.fullscreen },
+		{ WESTON_OPTION_BOOLEAN, "sprawl", 0, &config.sprawl },
 	};
 
 	parse_options(wayland_options, ARRAY_LENGTH(wayland_options), argc, argv);
-	config.sprawl = sprawl_;
-	config.fullscreen = fullscreen_;
-	config.use_pixman = use_pixman_;
 
 	section = weston_config_get_section(wc, "shell", NULL, NULL);
 	weston_config_section_get_string(section, "cursor-theme",
@@ -3119,8 +3088,7 @@ wet_main(int argc, char *argv[])
 	int i, fd;
 	char *backend = NULL;
 	char *shell = NULL;
-	int32_t xwayland = 0;
-	bool xwayland_config_;
+	bool xwayland = false;
 	char *modules = NULL;
 	char *option_modules = NULL;
 	char *log = NULL;
@@ -3146,8 +3114,7 @@ wet_main(int argc, char *argv[])
 	struct weston_log_subscriber *flight_rec = NULL;
 	sigset_t mask;
 
-	int32_t wait_for_debugger = 0;
-	bool wait_for_debugger_config_;
+	bool wait_for_debugger = false;
 	struct wl_protocol_logger *protologger = NULL;
 
 	const struct weston_option core_options[] = {
@@ -3257,8 +3224,7 @@ wet_main(int argc, char *argv[])
 
 	if (!wait_for_debugger) {
 		weston_config_section_get_bool(section, "wait-for-debugger",
-					       &wait_for_debugger_config_, false);
-		wait_for_debugger = wait_for_debugger_config_;
+					       &wait_for_debugger, false);
 	}
 	if (wait_for_debugger) {
 		weston_log("Weston PID is %ld - "
@@ -3362,9 +3328,8 @@ wet_main(int argc, char *argv[])
 		goto out;
 
 	if (!xwayland) {
-		weston_config_section_get_bool(section, "xwayland",
-					       &xwayland_config_, false);
-		xwayland = xwayland_config_;
+		weston_config_section_get_bool(section, "xwayland", &xwayland,
+					       false);
 	}
 	if (xwayland) {
 		if (wet_load_xwayland(wet.compositor) < 0)

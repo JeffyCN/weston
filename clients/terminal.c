@@ -50,8 +50,8 @@
 #include "shared/xalloc.h"
 #include "window.h"
 
-static int option_fullscreen;
-static int option_maximize;
+static bool option_fullscreen;
+static bool option_maximize;
 static char *option_font;
 static int option_font_size;
 static char *option_term;
