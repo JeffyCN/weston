@@ -52,8 +52,19 @@ static const char *const aspect_ratio_as_string[] = {
 static enum weston_mode_aspect_ratio
 drm_to_weston_mode_aspect_ratio(uint32_t drm_mode_flags)
 {
-	return (drm_mode_flags & DRM_MODE_FLAG_PIC_AR_MASK) >>
-		DRM_MODE_FLAG_PIC_AR_BITS_POS;
+	switch (drm_mode_flags & DRM_MODE_FLAG_PIC_AR_MASK) {
+	case DRM_MODE_FLAG_PIC_AR_4_3:
+		return WESTON_MODE_PIC_AR_4_3;
+	case DRM_MODE_FLAG_PIC_AR_16_9:
+		return WESTON_MODE_PIC_AR_16_9;
+	case DRM_MODE_FLAG_PIC_AR_64_27:
+		return WESTON_MODE_PIC_AR_64_27;
+	case DRM_MODE_FLAG_PIC_AR_256_135:
+		return WESTON_MODE_PIC_AR_256_135;
+	case DRM_MODE_FLAG_PIC_AR_NONE:
+	default:
+		return WESTON_MODE_PIC_AR_NONE;
+	}
 }
 
 static const char *

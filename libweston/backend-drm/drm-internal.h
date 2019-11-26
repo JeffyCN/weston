@@ -115,15 +115,6 @@
 #define MAX_CLONED_CONNECTORS 4
 
 /**
- * aspect ratio info taken from the drmModeModeInfo flag bits 19-22,
- * which should be used to fill the aspect ratio field in weston_mode.
- */
-#define DRM_MODE_FLAG_PIC_AR_BITS_POS	19
-#ifndef DRM_MODE_FLAG_PIC_AR_MASK
-#define DRM_MODE_FLAG_PIC_AR_MASK (0xF << DRM_MODE_FLAG_PIC_AR_BITS_POS)
-#endif
-
-/**
  * Represents the values of an enum-type KMS property
  */
 struct drm_property_enum_info {
