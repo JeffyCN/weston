@@ -302,7 +302,7 @@ WL_EXPORT
 int
 weston_config_section_get_bool(struct weston_config_section *section,
 			       const char *key,
-			       int *value, int default_value)
+			       bool *value, bool default_value)
 {
 	struct weston_config_entry *entry;
 
@@ -314,9 +314,9 @@ weston_config_section_get_bool(struct weston_config_section *section,
 	}
 
 	if (strcmp(entry->value, "false") == 0)
-		*value = 0;
+		*value = false;
 	else if (strcmp(entry->value, "true") == 0)
-		*value = 1;
+		*value = true;
 	else {
 		*value = default_value;
 		errno = EINVAL;

@@ -379,7 +379,7 @@ init_ivi_shell(struct weston_compositor *compositor, struct ivi_shell *shell)
 {
 	struct weston_config *config = wet_get_config(compositor);
 	struct weston_config_section *section;
-	int developermode;
+	bool developermode;
 
 	shell->compositor = compositor;
 

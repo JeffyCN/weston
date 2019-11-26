@@ -464,7 +464,7 @@ shell_configuration(struct desktop_shell *shell)
 {
 	struct weston_config_section *section;
 	char *s, *client;
-	int allow_zap;
+	bool allow_zap;
 
 	section = weston_config_get_section(wet_get_config(shell->compositor),
 					    "shell", NULL, NULL);

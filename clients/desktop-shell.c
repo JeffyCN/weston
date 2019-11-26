@@ -77,7 +77,7 @@ struct desktop {
 	struct widget *grab_widget;
 
 	struct weston_config *config;
-	int locking;
+	bool locking;
 
 	enum cursor_type grab_cursor;
 
@@ -1518,7 +1518,7 @@ int main(int argc, char *argv[])
 	config_file = weston_config_get_name_from_env();
 	desktop.config = weston_config_parse(config_file);
 	s = weston_config_get_section(desktop.config, "shell", NULL, NULL);
-	weston_config_section_get_bool(s, "locking", &desktop.locking, 1);
+	weston_config_section_get_bool(s, "locking", &desktop.locking, true);
 	parse_panel_position(&desktop, s);
 	parse_clock_format(&desktop, s);
 

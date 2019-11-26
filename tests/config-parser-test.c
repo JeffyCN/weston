@@ -322,51 +322,55 @@ ZUC_TEST_F(config_test_t1, test009, data)
 
 ZUC_TEST_F(config_test_t1, test010, data)
 {
-	int r, b;
+	int r;
+	bool b;
 	struct weston_config_section *section;
 	struct weston_config *config = data;
 
 	section = weston_config_get_section(config, "bar", NULL, NULL);
-	r = weston_config_section_get_bool(section, "flag", &b, 600);
+	r = weston_config_section_get_bool(section, "flag", &b, true);
 	ZUC_ASSERT_EQ(0, r);
-	ZUC_ASSERT_EQ(0, b);
+	ZUC_ASSERT_EQ(false, b);
 }
 
 ZUC_TEST_F(config_test_t1, test011, data)
 {
-	int r, b;
+	int r;
+	bool b;
 	struct weston_config_section *section;
 	struct weston_config *config = data;
 
 	section = weston_config_get_section(config, "stuff", NULL, NULL);
-	r = weston_config_section_get_bool(section, "flag", &b, -1);
+	r = weston_config_section_get_bool(section, "flag", &b, false);
 	ZUC_ASSERT_EQ(0, r);
-	ZUC_ASSERT_EQ(1, b);
+	ZUC_ASSERT_EQ(true, b);
 }
 
 ZUC_TEST_F(config_test_t1, test012, data)
 {
-	int r, b;
+	int r;
+	bool b;
 	struct weston_config_section *section;
 	struct weston_config *config = data;
 
 	section = weston_config_get_section(config, "stuff", NULL, NULL);
-	r = weston_config_section_get_bool(section, "flag", &b, -1);
+	r = weston_config_section_get_bool(section, "flag", &b, false);
 	ZUC_ASSERT_EQ(0, r);
-	ZUC_ASSERT_EQ(1, b);
+	ZUC_ASSERT_EQ(true, b);
 }
 
 ZUC_TEST_F(config_test_t1, test013, data)
 {
-	int r, b;
+	int r;
+	bool b;
 	struct weston_config_section *section;
 	struct weston_config *config = data;
 
 	section = weston_config_get_section(config, "stuff", NULL, NULL);
-	r = weston_config_section_get_bool(section, "bonk", &b, -1);
+	r = weston_config_section_get_bool(section, "bonk", &b, false);
 	ZUC_ASSERT_EQ(-1, r);
 	ZUC_ASSERT_EQ(ENOENT, errno);
-	ZUC_ASSERT_EQ(-1, b);
+	ZUC_ASSERT_EQ(false, b);
 }
 
 ZUC_TEST_F(config_test_t1, test014, data)
