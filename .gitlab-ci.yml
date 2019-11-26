@@ -96,6 +96,18 @@ build-native-meson-no-gl-renderer:
       -Dwerror=true
   extends: .build-native-meson
 
+preview-docs:
+  stage: pages
+  script:
+  - mv prefix-weston-build-native-meson-default-options/share/doc/weston Documentation
+  - rm -rf build-* prefix-*
+  dependencies:
+    - build-native-meson-default-options
+  artifacts:
+    expose_as: 'Documentation preview'
+    paths:
+    - Documentation/
+
 pages:
   stage: pages
   dependencies:
