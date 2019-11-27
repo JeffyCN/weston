@@ -131,6 +131,15 @@ struct dmabuf_image {
 	struct gl_shader *shader;
 };
 
+struct dmabuf_format {
+	uint32_t format;
+	struct wl_list link;
+
+	uint64_t *modifiers;
+	unsigned *external_only;
+	int num_modifiers;
+};
+
 struct yuv_plane_descriptor {
 	int width_divisor;
 	int height_divisor;
@@ -2219,9 +2228,75 @@ import_yuv_dmabuf(struct gl_renderer *gr,
 	return true;
 }
 
-static GLenum
-choose_texture_target(struct dmabuf_attributes *attributes)
+static void
+gl_renderer_query_dmabuf_modifiers_full(struct gl_renderer *gr, int format,
+					uint64_t **modifiers,
+					unsigned **external_only,
+					int *num_modifiers);
+
+static struct dmabuf_format*
+dmabuf_format_create(struct gl_renderer *gr, uint32_t format)
 {
+	struct dmabuf_format *dmabuf_format;
+
+	dmabuf_format = calloc(1, sizeof(struct dmabuf_format));
+	if (!dmabuf_format)
+		return NULL;
+
+	dmabuf_format->format = format;
+
+	gl_renderer_query_dmabuf_modifiers_full(gr, format,
+			&dmabuf_format->modifiers,
+			&dmabuf_format->external_only,
+			&dmabuf_format->num_modifiers);
+
+	if (dmabuf_format->num_modifiers == 0) {
+		free(dmabuf_format);
+		return NULL;
+	}
+
+	wl_list_insert(&gr->dmabuf_formats, &dmabuf_format->link);
+	return dmabuf_format;
+}
+
+static void
+dmabuf_format_destroy(struct dmabuf_format *format)
+{
+	free(format->modifiers);
+	free(format->external_only);
+	wl_list_remove(&format->link);
+	free(format);
+}
+
+static GLenum
+choose_texture_target(struct gl_renderer *gr,
+		      struct dmabuf_attributes *attributes)
+{
+	struct dmabuf_format *tmp, *format = NULL;
+
+	wl_list_for_each(tmp, &gr->dmabuf_formats, link) {
+		if (tmp->format == attributes->format) {
+			format = tmp;
+			break;
+		}
+	}
+
+	if (!format)
+		format = dmabuf_format_create(gr, attributes->format);
+
+	if (format) {
+		int i;
+
+		for (i = 0; i < format->num_modifiers; ++i) {
+			if (format->modifiers[i] == attributes->modifier[0]) {
+				if(format->external_only[i])
+					return GL_TEXTURE_EXTERNAL_OES;
+				else
+					return GL_TEXTURE_2D;
+			}
+		}
+	}
+
 	if (attributes->n_planes > 1)
 		return GL_TEXTURE_EXTERNAL_OES;
 
@@ -2253,7 +2328,7 @@ import_dmabuf(struct gl_renderer *gr,
 		image->num_images = 1;
 		image->images[0] = egl_image;
 		image->import_type = IMPORT_TYPE_DIRECT;
-		image->target = choose_texture_target(&dmabuf->attributes);
+		image->target = choose_texture_target(gr, &dmabuf->attributes);
 
 		switch (image->target) {
 		case GL_TEXTURE_2D:
@@ -2321,11 +2396,11 @@ gl_renderer_query_dmabuf_formats(struct weston_compositor *wc,
 }
 
 static void
-gl_renderer_query_dmabuf_modifiers(struct weston_compositor *wc, int format,
+gl_renderer_query_dmabuf_modifiers_full(struct gl_renderer *gr, int format,
 					uint64_t **modifiers,
+					unsigned **external_only,
 					int *num_modifiers)
 {
-	struct gl_renderer *gr = get_renderer(wc);
 	int num;
 
 	assert(gr->has_dmabuf_import);
@@ -2343,14 +2418,36 @@ gl_renderer_query_dmabuf_modifiers(struct weston_compositor *wc, int format,
 		*num_modifiers = 0;
 		return;
 	}
+	if (external_only) {
+		*external_only = calloc(num, sizeof(unsigned));
+		if (*external_only == NULL) {
+			*num_modifiers = 0;
+			free(*modifiers);
+			return;
+		}
+	}
 	if (!gr->query_dmabuf_modifiers(gr->egl_display, format,
-				num, *modifiers, NULL, &num)) {
+				num, *modifiers, external_only ?
+				*external_only : NULL, &num)) {
 		*num_modifiers = 0;
 		free(*modifiers);
+		if (external_only)
+			free(*external_only);
 		return;
 	}
 
 	*num_modifiers = num;
+}
+
+static void
+gl_renderer_query_dmabuf_modifiers(struct weston_compositor *wc, int format,
+					uint64_t **modifiers,
+					int *num_modifiers)
+{
+	struct gl_renderer *gr = get_renderer(wc);
+
+	gl_renderer_query_dmabuf_modifiers_full(gr, format, modifiers, NULL,
+			num_modifiers);
 }
 
 static bool
@@ -3289,6 +3386,7 @@ gl_renderer_destroy(struct weston_compositor *ec)
 {
 	struct gl_renderer *gr = get_renderer(ec);
 	struct dmabuf_image *image, *next;
+	struct dmabuf_format *format, *next_format;
 
 	wl_signal_emit(&gr->destroy_signal, gr);
 
@@ -3303,6 +3401,9 @@ gl_renderer_destroy(struct weston_compositor *ec)
 
 	wl_list_for_each_safe(image, next, &gr->dmabuf_images, link)
 		dmabuf_image_destroy(image);
+
+	wl_list_for_each_safe(format, next_format, &gr->dmabuf_formats, link)
+		dmabuf_format_destroy(format);
 
 	if (gr->dummy_surface != EGL_NO_SURFACE)
 		weston_platform_destroy_egl_surface(gr->egl_display,
@@ -3432,6 +3533,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		gr->base.query_dmabuf_modifiers =
 			gl_renderer_query_dmabuf_modifiers;
 	}
+	wl_list_init(&gr->dmabuf_formats);
 
 	if (gr->has_surfaceless_context) {
 		weston_log("EGL_KHR_surfaceless_context available\n");

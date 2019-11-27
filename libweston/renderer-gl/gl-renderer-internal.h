@@ -89,6 +89,7 @@ struct gl_renderer {
 
 	bool has_dmabuf_import;
 	struct wl_list dmabuf_images;
+	struct wl_list dmabuf_formats;
 
 	bool has_gl_texture_rg;
 
