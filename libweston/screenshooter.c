@@ -46,6 +46,7 @@
 struct screenshooter_frame_listener {
 	struct wl_listener listener;
 	struct weston_buffer *buffer;
+	struct weston_output *output;
 	weston_screenshooter_done_func_t done;
 	void *data;
 };
@@ -119,7 +120,7 @@ screenshooter_frame_notify(struct wl_listener *listener, void *data)
 	struct screenshooter_frame_listener *l =
 		container_of(listener,
 			     struct screenshooter_frame_listener, listener);
-	struct weston_output *output = data;
+	struct weston_output *output = l->output;
 	struct weston_compositor *compositor = output->compositor;
 	int32_t stride;
 	uint8_t *pixels, *d, *s;
@@ -202,6 +203,7 @@ weston_screenshooter_shoot(struct weston_output *output,
 	}
 
 	l->buffer = buffer;
+	l->output = output;
 	l->done = done;
 	l->data = data;
 	l->listener.notify = screenshooter_frame_notify;
@@ -261,7 +263,7 @@ weston_recorder_frame_notify(struct wl_listener *listener, void *data)
 {
 	struct weston_recorder *recorder =
 		container_of(listener, struct weston_recorder, frame_listener);
-	struct weston_output *output = data;
+	struct weston_output *output = recorder->output;
 	struct weston_compositor *compositor = output->compositor;
 	uint32_t msecs = timespec_to_msec(&output->frame_time);
 	pixman_box32_t *r;
