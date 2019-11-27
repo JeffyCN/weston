@@ -367,6 +367,7 @@ struct test_screenshot {
 struct test_screenshot_frame_listener {
 	struct wl_listener listener;
 	struct weston_buffer *buffer;
+	struct weston_output *output;
 	weston_test_screenshot_done_func_t done;
 	void *data;
 };
@@ -441,7 +442,7 @@ test_screenshot_frame_notify(struct wl_listener *listener, void *data)
 	struct test_screenshot_frame_listener *l =
 		container_of(listener,
 			     struct test_screenshot_frame_listener, listener);
-	struct weston_output *output = data;
+	struct weston_output *output = l->output;
 	struct weston_compositor *compositor = output->compositor;
 	int32_t stride;
 	uint8_t *pixels, *d, *s;
@@ -536,6 +537,7 @@ weston_test_screenshot_shoot(struct weston_output *output,
 
 	/* Set up the listener */
 	l->buffer = buffer;
+	l->output = output;
 	l->done = done;
 	l->data = data;
 	l->listener.notify = test_screenshot_frame_notify;
