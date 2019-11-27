@@ -2723,7 +2723,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 		weston_output_update_matrix(output);
 
 	r = output->repaint(output, &output_damage, repaint_data);
-	wl_signal_emit(&output->frame_signal, output);
+	wl_signal_emit(&output->frame_signal, &output_damage);
 
 	pixman_region32_fini(&output_damage);
 
