@@ -579,7 +579,6 @@ pixman_renderer_repaint_output(struct weston_output *output,
 	}
 	pixman_region32_fini(&hw_damage);
 
-	pixman_region32_copy(&output->previous_damage, output_damage);
 	wl_signal_emit(&output->frame_signal, output);
 
 	/* Actual flip should be done by caller */

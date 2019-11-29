@@ -249,8 +249,6 @@ struct weston_output {
 	/** Output area in global coordinates, simple rect */
 	pixman_region32_t region;
 
-	pixman_region32_t previous_damage;
-
 	/** True if damage has occurred since the last repaint for this output;
 	 *  if set, a repaint will eventually occur. */
 	bool repaint_needed;

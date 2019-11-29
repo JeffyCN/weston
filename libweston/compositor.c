@@ -153,7 +153,6 @@ weston_mode_switch_finish(struct weston_output *output,
 	/* Update output region and transformation matrix */
 	weston_output_transform_scale_init(output, output->transform, output->current_scale);
 
-	pixman_region32_init(&output->previous_damage);
 	pixman_region32_init_rect(&output->region, output->x, output->y,
 				  output->width, output->height);
 
@@ -5779,9 +5778,6 @@ weston_output_init_geometry(struct weston_output *output, int x, int y)
 	output->x = x;
 	output->y = y;
 
-	pixman_region32_fini(&output->previous_damage);
-	pixman_region32_init(&output->previous_damage);
-
 	pixman_region32_fini(&output->region);
 	pixman_region32_init_rect(&output->region, x, y,
 				  output->width,
@@ -6122,7 +6118,6 @@ weston_output_init(struct weston_output *output,
 	/* Can't use -1 on uint32_t and 0 is valid enum value */
 	output->transform = UINT32_MAX;
 
-	pixman_region32_init(&output->previous_damage);
 	pixman_region32_init(&output->region);
 	wl_list_init(&output->mode_list);
 }
@@ -6434,7 +6429,6 @@ weston_output_release(struct weston_output *output)
 		weston_compositor_remove_output(output);
 
 	pixman_region32_fini(&output->region);
-	pixman_region32_fini(&output->previous_damage);
 	wl_list_remove(&output->link);
 
 	wl_list_for_each_safe(head, tmp, &output->head_list, output_link)

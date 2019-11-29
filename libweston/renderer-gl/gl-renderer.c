@@ -1473,7 +1473,6 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	draw_output_borders(output, border_status);
 
-	pixman_region32_copy(&output->previous_damage, output_damage);
 	wl_signal_emit(&output->frame_signal, output);
 
 	go->end_render_sync = create_render_sync(gr);
