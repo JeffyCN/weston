@@ -732,9 +732,10 @@ triangle_fan_debug(struct gl_renderer *gr,
 		   int first, int count)
 {
 	int i;
-	GLushort *buffer;
+	/* There can be at most eight vertices for a given view. */
+	GLushort buffer[(8 - 1 + 8 - 2) * 2];
 	GLushort *index;
-	int nelems;
+	GLsizei nelems;
 	static int color_idx = 0;
 	struct gl_shader_config alt;
 	const GLfloat *col;
@@ -766,8 +767,8 @@ triangle_fan_debug(struct gl_renderer *gr,
 	gl_renderer_use_program(gr, &alt);
 
 	nelems = (count - 1 + count - 2) * 2;
+	assert((unsigned long)nelems <= ARRAY_LENGTH(buffer));
 
-	buffer = malloc(sizeof(GLushort) * nelems);
 	index = buffer;
 
 	for (i = 1; i < count; i++) {
@@ -781,8 +782,6 @@ triangle_fan_debug(struct gl_renderer *gr,
 	}
 
 	glDrawElements(GL_LINES, nelems, GL_UNSIGNED_SHORT, buffer);
-
-	free(buffer);
 
 	gl_renderer_use_program(gr, sconf);
 }
