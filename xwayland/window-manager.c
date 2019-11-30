@@ -404,7 +404,6 @@ dump_cardinal_array(FILE *fp, xcb_get_property_reply_t *reply)
 {
 	unsigned i = 0;
 	void *arr;
-	char *str = NULL;
 
 	assert(reply->type == XCB_ATOM_CARDINAL);
 
@@ -415,8 +414,6 @@ dump_cardinal_array(FILE *fp, xcb_get_property_reply_t *reply)
 		i = dump_cardinal_array_elem(fp, reply->format,
 					     arr, reply->value_len, i);
 	fprintf(fp, "]");
-
-	free(str);
 }
 
 void
