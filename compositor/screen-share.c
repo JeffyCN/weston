@@ -819,6 +819,7 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	struct shared_output *so =
 		container_of(listener, struct shared_output, frame_listener);
 	pixman_region32_t damage;
+	pixman_region32_t *current_damage = data;
 	struct ss_shm_buffer *sb;
 	int32_t x, y, width, height, stride;
 	int i, nrects, do_yflip, y_orig;
@@ -847,7 +848,7 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	} else {
 		/* Damage in output coordinates */
 		pixman_region32_init(&damage);
-		pixman_region32_intersect(&damage, &so->output->region, data);
+		pixman_region32_intersect(&damage, &so->output->region, current_damage);
 		pixman_region32_translate(&damage, -so->output->x, -so->output->y);
 	}
 
