@@ -466,6 +466,7 @@ dump_property(FILE *fp, struct weston_wm *wm,
 		fprintf(fp, "\n");
 	} else if (reply->type == XCB_ATOM_CARDINAL) {
 		dump_cardinal_array(fp, reply);
+		fprintf(fp, "\n");
 	} else if (reply->type == XCB_ATOM_WINDOW && reply->format == 32) {
 		window_value = xcb_get_property_value(reply);
 		fprintf(fp, "win %u\n", *window_value);
