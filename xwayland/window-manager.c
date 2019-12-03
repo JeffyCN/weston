@@ -952,6 +952,9 @@ weston_wm_window_set_allow_commits(struct weston_wm_window *window, bool allow)
 
 	assert(window->frame_id != XCB_WINDOW_NONE);
 
+	wm_printf(wm, "XWM: window %d set _XWAYLAND_ALLOW_COMMITS = %s\n",
+		  window->id, allow ? "true" : "false");
+
 	property[0] = allow ? 1 : 0;
 
 	xcb_change_property(wm->conn,
