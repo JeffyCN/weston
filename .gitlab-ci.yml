@@ -11,7 +11,7 @@ variables:
 
 include:
   - project: 'wayland/ci-templates'
-    ref: c73dae8b84697ef18e2dbbf4fed7386d9652b0cd
+    ref: b4b098a707c8f39d18f1a98d4bcbe65372ff9e17
     file: '/templates/debian.yml'
 
 
