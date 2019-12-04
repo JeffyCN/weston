@@ -146,7 +146,6 @@ struct display {
 	cairo_surface_t *dummy_surface;
 	void *dummy_surface_data;
 
-	int has_rgb565;
 	int data_device_manager_version;
 	struct wp_viewporter *viewporter;
 };
@@ -248,8 +247,6 @@ struct window {
 
 	int fullscreen;
 	int maximized;
-
-	enum preferred_format preferred_format;
 
 	window_key_handler_t key_handler;
 	window_keyboard_focus_handler_t keyboard_focus_handler;
@@ -830,7 +827,6 @@ display_create_shm_surface_from_pool(struct display *display,
 	struct shm_surface_data *data;
 	uint32_t format;
 	cairo_surface_t *surface;
-	cairo_format_t cairo_format;
 	int stride, length, offset;
 	void *map;
 
@@ -838,12 +834,8 @@ display_create_shm_surface_from_pool(struct display *display,
 	if (data == NULL)
 		return NULL;
 
-	if (flags & SURFACE_HINT_RGB565 && display->has_rgb565)
-		cairo_format = CAIRO_FORMAT_RGB16_565;
-	else
-		cairo_format = CAIRO_FORMAT_ARGB32;
-
-	stride = cairo_format_stride_for_width (cairo_format, rectangle->width);
+	stride = cairo_format_stride_for_width (CAIRO_FORMAT_ARGB32,
+						rectangle->width);
 	length = stride * rectangle->height;
 	data->pool = NULL;
 	map = shm_pool_allocate(pool, length, &offset);
@@ -854,7 +846,7 @@ display_create_shm_surface_from_pool(struct display *display,
 	}
 
 	surface = cairo_image_surface_create_for_data (map,
-						       cairo_format,
+						       CAIRO_FORMAT_ARGB32,
 						       rectangle->width,
 						       rectangle->height,
 						       stride);
@@ -862,14 +854,10 @@ display_create_shm_surface_from_pool(struct display *display,
 	cairo_surface_set_user_data(surface, &shm_surface_data_key,
 				    data, shm_surface_data_destroy);
 
-	if (flags & SURFACE_HINT_RGB565 && display->has_rgb565)
-		format = WL_SHM_FORMAT_RGB565;
-	else {
-		if (flags & SURFACE_OPAQUE)
-			format = WL_SHM_FORMAT_XRGB8888;
-		else
-			format = WL_SHM_FORMAT_ARGB8888;
-	}
+	if (flags & SURFACE_OPAQUE)
+		format = WL_SHM_FORMAT_XRGB8888;
+	else
+		format = WL_SHM_FORMAT_ARGB8888;
 
 	data->buffer = wl_shm_pool_create_buffer(pool->pool, offset,
 						 rectangle->width,
@@ -902,8 +890,7 @@ display_create_shm_surface(struct display *display,
 		}
 	}
 
-	pool = shm_pool_create(display,
-			       data_length_for_shm_surface(rectangle));
+	pool = shm_pool_create(display, data_length_for_shm_surface(rectangle));
 	if (!pool)
 		return NULL;
 
@@ -1490,9 +1477,6 @@ window_create_main_surface(struct window *window)
 
 	if (window->resizing)
 		flags |= SURFACE_HINT_RESIZE;
-
-	if (window->preferred_format == WINDOW_PREFERRED_FORMAT_RGB565)
-		flags |= SURFACE_HINT_RGB565;
 
 	surface_create_surface(surface, flags);
 }
@@ -5260,7 +5244,6 @@ window_create_internal(struct display *display, int custom)
 	assert(custom || display->xdg_shell);
 
 	window->custom = custom;
-	window->preferred_format = WINDOW_PREFERRED_FORMAT_NONE;
 
 	surface->buffer_type = get_preferred_buffer_type(display);
 
@@ -5610,13 +5593,6 @@ enum window_buffer_type
 window_get_buffer_type(struct window *window)
 {
 	return window->main_surface->buffer_type;
-}
-
-void
-window_set_preferred_format(struct window *window,
-			    enum preferred_format format)
-{
-	window->preferred_format = format;
 }
 
 struct widget *
@@ -5996,19 +5972,6 @@ input_destroy(struct input *input)
 }
 
 static void
-shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
-{
-	struct display *d = data;
-
-	if (format == WL_SHM_FORMAT_RGB565)
-		d->has_rgb565 = 1;
-}
-
-struct wl_shm_listener shm_listener = {
-	shm_format
-};
-
-static void
 xdg_wm_base_ping(void *data, struct xdg_wm_base *shell, uint32_t serial)
 {
 	xdg_wm_base_pong(shell, serial);
@@ -6052,7 +6015,6 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 					 1);
 	} else if (strcmp(interface, "wl_shm") == 0) {
 		d->shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
-		wl_shm_add_listener(d->shm, &shm_listener, d);
 	} else if (strcmp(interface, "wl_data_device_manager") == 0) {
 		display_add_data_device(d, id, version);
 	} else if (strcmp(interface, "xdg_wm_base") == 0) {
