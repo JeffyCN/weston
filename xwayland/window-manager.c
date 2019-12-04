@@ -1226,8 +1226,7 @@ weston_wm_window_draw_decoration(struct weston_wm_window *window)
 {
 	cairo_t *cr;
 	int width, height;
-
-	wm_printf(window->wm, "XWM: draw decoration, win %d\n", window->id);
+	const char *how;
 
 	weston_wm_window_get_frame_size(window, &width, &height);
 
@@ -1235,11 +1234,14 @@ weston_wm_window_draw_decoration(struct weston_wm_window *window)
 	cr = cairo_create(window->cairo_surface);
 
 	if (window->fullscreen) {
+		how = "fullscreen";
 		/* nothing */
 	} else if (window->decorate) {
+		how = "decorate";
 		frame_set_title(window->frame, window->name);
 		frame_repaint(window->frame, cr);
 	} else {
+		how = "shadow";
 		cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
 		cairo_set_source_rgba(cr, 0, 0, 0, 0);
 		cairo_paint(cr);
@@ -1247,6 +1249,9 @@ weston_wm_window_draw_decoration(struct weston_wm_window *window)
 		render_shadow(cr, window->wm->theme->shadow,
 			      2, 2, width + 8, height + 8, 64, 64);
 	}
+
+	wm_printf(window->wm, "XWM: draw decoration, win %d, %s\n",
+		  window->id, how);
 
 	cairo_destroy(cr);
 	cairo_surface_flush(window->cairo_surface);
