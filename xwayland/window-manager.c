@@ -2925,7 +2925,6 @@ xserver_map_shell_surface(struct weston_wm_window *window,
 		window->saved_height = window->height;
 		xwayland_interface->set_fullscreen(window->shsurf,
 						   window->legacy_fullscreen_output.output);
-		return;
 	} else if (window->override_redirect) {
 		xwayland_interface->set_xwayland(window->shsurf,
 						 window->x, window->y);
