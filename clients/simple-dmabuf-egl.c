@@ -409,6 +409,9 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 		/* turn off Y_INVERT otherwise linux-dmabuf will reject it and
 		 * we need all dmabuf flags turned off */
 		flags &= ~ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
+
+		fprintf(stdout, "image is y-inverted as direct-display flag was set, "
+				"dmabuf y-inverted attribute flag was removed\n");
 	}
 
 	for (i = 0; i < buffer->plane_count; ++i) {
@@ -1454,7 +1457,10 @@ print_usage_and_exit(void)
 		"\t'-m,--mandelbrot'"
 		"\n\t\trender a mandelbrot set with multiple draw calls\n"
 		"\t'-g,--direct-display'"
-		"\n\t\tenables weston-direct-display extension to attempt direct scan-out\n");
+		"\n\t\tenables weston-direct-display extension to attempt "
+		"direct scan-out;\n\t\tnote this will cause the image to be "
+		"displayed inverted as GL uses a\n\t\tdifferent texture "
+		"coordinate system\n");
 	exit(0);
 }
 
