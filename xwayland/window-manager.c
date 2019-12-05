@@ -1514,6 +1514,8 @@ weston_wm_window_destroy(struct weston_wm_window *window)
 
 	weston_output_weak_ref_clear(&window->legacy_fullscreen_output);
 
+	if (window->configure_source)
+		wl_event_source_remove(window->configure_source);
 	if (window->repaint_source)
 		wl_event_source_remove(window->repaint_source);
 	if (window->cairo_surface)
