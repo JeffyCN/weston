@@ -755,6 +755,23 @@ weston_wm_configure_window(struct weston_wm *wm, xcb_window_t window_id,
 }
 
 static void
+weston_wm_window_configure_frame(struct weston_wm_window *window)
+{
+	uint16_t mask;
+	uint32_t values[2];
+	int width, height;
+
+	if (!window->frame_id)
+		return;
+
+	weston_wm_window_get_frame_size(window, &width, &height);
+	values[0] = width;
+	values[1] = height;
+	mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
+	weston_wm_configure_window(window->wm, window->frame_id, mask, values);
+}
+
+static void
 weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *event)
 {
 	xcb_configure_request_event_t *configure_request =
@@ -762,7 +779,8 @@ weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *ev
 	struct weston_wm_window *window;
 	uint32_t values[16];
 	uint16_t mask;
-	int x, y, width, height, i = 0;
+	int x, y;
+	int i = 0;
 
 	wm_printf(wm, "XCB_CONFIGURE_REQUEST (window %d) %d,%d @ %dx%d\n",
 		  configure_request->window,
@@ -806,13 +824,7 @@ weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *ev
 	}
 
 	weston_wm_configure_window(wm, window->id, mask, values);
-
-	weston_wm_window_get_frame_size(window, &width, &height);
-	values[0] = width;
-	values[1] = height;
-	mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-	weston_wm_configure_window(wm, window->frame_id, mask, values);
-
+	weston_wm_window_configure_frame(window);
 	weston_wm_window_schedule_repaint(window);
 }
 
@@ -2687,7 +2699,7 @@ weston_wm_window_configure(void *data)
 	struct weston_wm_window *window = data;
 	struct weston_wm *wm = window->wm;
 	uint32_t values[4];
-	int x, y, width, height;
+	int x, y;
 
 	if (window->configure_source) {
 		wl_event_source_remove(window->configure_source);
@@ -2708,14 +2720,7 @@ weston_wm_window_configure(void *data)
 				   XCB_CONFIG_WINDOW_HEIGHT,
 				   values);
 
-	weston_wm_window_get_frame_size(window, &width, &height);
-	values[0] = width;
-	values[1] = height;
-	weston_wm_configure_window(wm, window->frame_id,
-				   XCB_CONFIG_WINDOW_WIDTH |
-				   XCB_CONFIG_WINDOW_HEIGHT,
-				   values);
-
+	weston_wm_window_configure_frame(window);
 	weston_wm_window_schedule_repaint(window);
 }
 
