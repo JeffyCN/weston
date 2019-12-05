@@ -2687,6 +2687,11 @@ weston_wm_window_configure(void *data)
 	uint32_t values[4];
 	int x, y, width, height;
 
+	if (window->configure_source) {
+		wl_event_source_remove(window->configure_source);
+		window->configure_source = NULL;
+	}
+
 	weston_wm_window_set_allow_commits(window, false);
 
 	weston_wm_window_get_child_position(window, &x, &y);
@@ -2708,8 +2713,6 @@ weston_wm_window_configure(void *data)
 				   XCB_CONFIG_WINDOW_WIDTH |
 				   XCB_CONFIG_WINDOW_HEIGHT,
 				   values);
-
-	window->configure_source = NULL;
 
 	weston_wm_window_schedule_repaint(window);
 }
