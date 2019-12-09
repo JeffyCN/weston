@@ -2756,14 +2756,15 @@ send_configure(struct weston_surface *surface, int32_t width, int32_t height)
 	else
 		new_height = 1;
 
-	if (window->width == new_width && window->height == new_height)
-		return;
+	if (window->width != new_width || window->height != new_height) {
+		window->width = new_width;
+		window->height = new_height;
 
-	window->width = new_width;
-	window->height = new_height;
-
-	if (window->frame)
-		frame_resize_inside(window->frame, window->width, window->height);
+		if (window->frame) {
+			frame_resize_inside(window->frame,
+					    window->width, window->height);
+		}
+	}
 
 	if (window->configure_source)
 		return;
