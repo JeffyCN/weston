@@ -2669,9 +2669,6 @@ planes_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 		if (b->atomic_modeset)
 			b->sprites_are_broken ^= 1;
 		break;
-	case KEY_O:
-		b->sprites_hidden ^= 1;
-		break;
 	default:
 		break;
 	}

@@ -262,7 +262,6 @@ struct drm_backend {
 
 	struct wl_list plane_list;
 	int sprites_are_broken;
-	int sprites_hidden;
 
 	void *repaint_data;
 
