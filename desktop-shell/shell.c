@@ -3713,6 +3713,8 @@ transform_handler(struct wl_listener *listener, void *data)
 	if (!shsurf)
 		return;
 
+	shell_surface_set_output(shsurf, shsurf->view->output);
+
 	api = shsurf->shell->xwayland_surface_api;
 	if (!api) {
 		api = weston_xwayland_surface_get_api(shsurf->shell->compositor);
