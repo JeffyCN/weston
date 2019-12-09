@@ -261,7 +261,6 @@ struct drm_backend {
 	int min_height, max_height;
 
 	struct wl_list plane_list;
-	int sprites_are_broken;
 
 	void *repaint_data;
 
@@ -270,7 +269,8 @@ struct drm_backend {
 	/* CRTC IDs not used by any enabled output. */
 	struct wl_array unused_crtcs;
 
-	int cursors_are_broken;
+	bool sprites_are_broken;
+	bool cursors_are_broken;
 
 	bool universal_planes;
 	bool atomic_modeset;
@@ -484,11 +484,11 @@ struct drm_output {
 	/* Holds the properties for the CRTC */
 	struct drm_property_info props_crtc[WDRM_CRTC__COUNT];
 
-	int page_flip_pending;
-	int atomic_complete_pending;
-	int destroy_pending;
-	int disable_pending;
-	int dpms_off_pending;
+	bool page_flip_pending;
+	bool atomic_complete_pending;
+	bool destroy_pending;
+	bool disable_pending;
+	bool dpms_off_pending;
 
 	uint32_t gbm_cursor_handle[2];
 	struct drm_fb *gbm_cursor_fb[2];

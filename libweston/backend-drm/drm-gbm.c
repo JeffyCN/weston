@@ -171,7 +171,7 @@ drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
 
 err:
 	weston_log("cursor buffers unavailable, using gl cursors\n");
-	b->cursors_are_broken = 1;
+	b->cursors_are_broken = true;
 	drm_output_fini_cursor_egl(output);
 	return -1;
 }

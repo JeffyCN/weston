@@ -553,7 +553,7 @@ drm_output_assign_state(struct drm_output_state *state,
 
 	if (b->atomic_modeset && mode == DRM_STATE_APPLY_ASYNC) {
 		drm_debug(b, "\t[CRTC:%u] setting pending flip\n", output->crtc_id);
-		output->atomic_complete_pending = 1;
+		output->atomic_complete_pending = true;
 	}
 
 	if (b->atomic_modeset &&
@@ -583,7 +583,7 @@ drm_output_assign_state(struct drm_output_state *state,
 
 		assert(plane->type != WDRM_PLANE_TYPE_OVERLAY);
 		if (plane->type == WDRM_PLANE_TYPE_PRIMARY)
-			output->page_flip_pending = 1;
+			output->page_flip_pending = true;
 	}
 }
 
@@ -635,7 +635,7 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 	return;
 
 err:
-	b->cursors_are_broken = 1;
+	b->cursors_are_broken = true;
 	drmModeSetCursor(b->drm.fd, output->crtc_id, 0, 0, 0);
 }
 
@@ -1400,7 +1400,7 @@ page_flip_handler(int fd, unsigned int frame,
 
 	assert(!b->atomic_modeset);
 	assert(output->page_flip_pending);
-	output->page_flip_pending = 0;
+	output->page_flip_pending = false;
 
 	drm_output_update_complete(output, flags, sec, usec);
 }
@@ -1426,7 +1426,7 @@ atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 	drm_debug(b, "[atomic][CRTC:%u] flip processing started\n", crtc_id);
 	assert(b->atomic_modeset);
 	assert(output->atomic_complete_pending);
-	output->atomic_complete_pending = 0;
+	output->atomic_complete_pending = false;
 
 	drm_output_update_complete(output, flags, sec, usec);
 	drm_debug(b, "[atomic][CRTC:%u] flip processing completed\n", crtc_id);
@@ -1514,7 +1514,7 @@ init_kms_caps(struct drm_backend *b)
 	 * enabled.
 	 */
 	if (!b->atomic_modeset || getenv("WESTON_FORCE_RENDERER"))
-		b->sprites_are_broken = 1;
+		b->sprites_are_broken = true;
 
 	ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_ASPECT_RATIO, 1);
 	b->aspect_ratio_supported = (ret == 0);

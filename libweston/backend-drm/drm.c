@@ -291,19 +291,19 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 	output->state_last = NULL;
 
 	if (output->destroy_pending) {
-		output->destroy_pending = 0;
-		output->disable_pending = 0;
-		output->dpms_off_pending = 0;
+		output->destroy_pending = false;
+		output->disable_pending = false;
+		output->dpms_off_pending = false;
 		drm_output_destroy(&output->base);
 		return;
 	} else if (output->disable_pending) {
-		output->disable_pending = 0;
-		output->dpms_off_pending = 0;
+		output->disable_pending = false;
+		output->dpms_off_pending = false;
 		weston_output_disable(&output->base);
 		return;
 	} else if (output->dpms_off_pending) {
 		struct drm_pending_state *pending = drm_pending_state_alloc(b);
-		output->dpms_off_pending = 0;
+		output->dpms_off_pending = false;
 		drm_output_get_disable_state(pending, output);
 		drm_pending_state_apply_sync(pending);
 	} else if (output->state_cur->dpms == WESTON_DPMS_OFF &&
@@ -1101,7 +1101,7 @@ drm_set_dpms(struct weston_output *output_base, enum dpms_enum level)
 	 * a repaint cycle. */
 	if (level == WESTON_DPMS_ON) {
 		if (output->dpms_off_pending)
-			output->dpms_off_pending = 0;
+			output->dpms_off_pending = false;
 		weston_output_schedule_repaint(output_base);
 		return;
 	}
@@ -1109,7 +1109,7 @@ drm_set_dpms(struct weston_output *output_base, enum dpms_enum level)
 	/* If we've already got a request in the pipeline, then we need to
 	 * park our DPMS request until that request has quiesced. */
 	if (output->state_last) {
-		output->dpms_off_pending = 1;
+		output->dpms_off_pending = true;
 		return;
 	}
 
@@ -1738,7 +1738,7 @@ drm_output_enable(struct weston_output *base)
 					      &output->cursor_plane->base,
 					      NULL);
 	else
-		b->cursors_are_broken = 1;
+		b->cursors_are_broken = true;
 
 	weston_compositor_stack_plane(b->compositor,
 				      &output->scanout_plane->base,
@@ -1798,7 +1798,7 @@ drm_output_destroy(struct weston_output *base)
 	assert(!output->virtual);
 
 	if (output->page_flip_pending || output->atomic_complete_pending) {
-		output->destroy_pending = 1;
+		output->destroy_pending = true;
 		weston_log("destroy output while page flip pending\n");
 		return;
 	}
@@ -1827,7 +1827,7 @@ drm_output_disable(struct weston_output *base)
 	assert(!output->virtual);
 
 	if (output->page_flip_pending || output->atomic_complete_pending) {
-		output->disable_pending = 1;
+		output->disable_pending = true;
 		return -1;
 	}
 
@@ -1836,7 +1836,7 @@ drm_output_disable(struct weston_output *base)
 	if (output->base.enabled)
 		drm_output_deinit(&output->base);
 
-	output->disable_pending = 0;
+	output->disable_pending = false;
 
 	return 0;
 }
@@ -2156,8 +2156,8 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
 	output->base.attach_head = drm_output_attach_head;
 	output->base.detach_head = drm_output_detach_head;
 
-	output->destroy_pending = 0;
-	output->disable_pending = 0;
+	output->destroy_pending = false;
+	output->disable_pending = false;
 
 	output->state_cur = drm_output_state_alloc(output, NULL);
 
@@ -2662,12 +2662,12 @@ planes_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 
 	switch (key) {
 	case KEY_C:
-		b->cursors_are_broken ^= 1;
+		b->cursors_are_broken ^= true;
 		break;
 	case KEY_V:
 		/* We don't support overlay-plane usage with legacy KMS. */
 		if (b->atomic_modeset)
-			b->sprites_are_broken ^= 1;
+			b->sprites_are_broken ^= true;
 		break;
 	default:
 		break;
