@@ -114,6 +114,18 @@
 
 #define MAX_CLONED_CONNECTORS 4
 
+#ifndef DRM_MODE_PICTURE_ASPECT_64_27
+#define DRM_MODE_PICTURE_ASPECT_64_27		3
+#define  DRM_MODE_FLAG_PIC_AR_64_27 \
+			(DRM_MODE_PICTURE_ASPECT_64_27<<19)
+#endif
+#ifndef DRM_MODE_PICTURE_ASPECT_256_135
+#define DRM_MODE_PICTURE_ASPECT_256_135		4
+#define  DRM_MODE_FLAG_PIC_AR_256_135 \
+			(DRM_MODE_PICTURE_ASPECT_256_135<<19)
+#endif
+
+
 /**
  * Represents the values of an enum-type KMS property
  */
