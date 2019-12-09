@@ -722,6 +722,9 @@ wet_shell_init(struct weston_compositor *compositor,
 		goto err_desktop;
 
 	ivi_layout_init_with_compositor(compositor);
+
+	screenshooter_create(compositor);
+
 	shell_add_bindings(compositor, shell);
 
 	return IVI_SUCCEEDED;

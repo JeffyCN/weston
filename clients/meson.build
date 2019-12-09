@@ -374,7 +374,7 @@ if get_option('shell-desktop')
 	env_modmap += 'weston-desktop-shell=@0@;'.format(exe_shell_desktop.full_path())
 endif
 
-if get_option('shell-desktop') or get_option('shell-fullscreen') or get_option('shell-kiosk')
+if get_option('shell-desktop') or get_option('shell-fullscreen') or get_option('shell-kiosk') or get_option('shell-ivi')
 	exe_shooter = executable(
 		'weston-screenshooter',
 		'screenshot.c',
