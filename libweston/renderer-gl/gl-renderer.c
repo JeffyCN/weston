@@ -1473,7 +1473,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	draw_output_borders(output, border_status);
 
-	wl_signal_emit(&output->frame_signal, output);
+	wl_signal_emit(&output->frame_signal, output_damage);
 
 	go->end_render_sync = create_render_sync(gr);
 
