@@ -56,6 +56,7 @@ apt-get -y --no-install-recommends install \
 	pkg-config \
 	python3-pip \
 	python3-setuptools \
+	xwayland \
 
 
 pip3 install --user git+https://github.com/mesonbuild/meson.git@0.49
