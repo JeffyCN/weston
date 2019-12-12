@@ -719,7 +719,8 @@ weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *ev
 	xcb_configure_request_event_t *configure_request =
 		(xcb_configure_request_event_t *) event;
 	struct weston_wm_window *window;
-	uint32_t mask, values[16];
+	uint32_t values[16];
+	uint16_t mask;
 	int x, y, width, height, i = 0;
 
 	wm_printf(wm, "XCB_CONFIGURE_REQUEST (window %d) %d,%d @ %dx%d\n",
@@ -2727,7 +2728,8 @@ send_position(struct weston_surface *surface, int32_t x, int32_t y)
 {
 	struct weston_wm_window *window = get_wm_window(surface);
 	struct weston_wm *wm;
-	uint32_t mask, values[2];
+	uint32_t values[2];
+	uint16_t mask;
 
 	if (!window || !window->wm)
 		return;
