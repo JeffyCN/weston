@@ -526,8 +526,9 @@ rdp_output_set_size(struct weston_output *base,
 	wl_list_for_each(head, &output->base.head_list, output_link) {
 		weston_head_set_monitor_strings(head, "weston", "rdp", NULL);
 
-		/* XXX: Calculate proper size. */
-		weston_head_set_physical_size(head, width, height);
+		/* This is a virtual output, so report a zero physical size.
+		 * It's better to let frontends/clients use their defaults. */
+		weston_head_set_physical_size(head, 0, 0);
 	}
 
 	wl_list_init(&output->peers);
