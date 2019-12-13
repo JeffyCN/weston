@@ -265,11 +265,18 @@ weston_log_subscriber_create_flight_rec(size_t size)
  *
  * @param sub the weston_log_subscriber object
  *
+ * This also resets weston_primary_flight_recorder_ring_buffer to NULL if it
+ * is the destroyed subscriber.
  */
 WL_EXPORT void
 weston_log_subscriber_destroy_flight_rec(struct weston_log_subscriber *sub)
 {
-	struct weston_debug_log_flight_recorder *flight_rec = to_flight_recorder(sub);
+	struct weston_debug_log_flight_recorder *flight_rec;
+
+	flight_rec = to_flight_recorder(sub);
+	if (weston_primary_flight_recorder_ring_buffer == &flight_rec->rb)
+		weston_primary_flight_recorder_ring_buffer = NULL;
+
 	free(flight_rec->rb.buf);
 	free(flight_rec);
 }
