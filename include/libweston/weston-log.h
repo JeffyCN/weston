@@ -63,7 +63,7 @@ typedef void (*weston_log_scope_cb)(struct weston_log_subscription *sub,
 				    void *user_data);
 
 struct weston_log_scope *
-weston_compositor_add_log_scope(struct weston_log_context *compositor,
+weston_compositor_add_log_scope(struct weston_log_context *log_ctx,
 				  const char *name,
 				  const char *description,
 				  weston_log_scope_cb new_subscription,
