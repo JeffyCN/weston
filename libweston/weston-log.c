@@ -726,7 +726,8 @@ weston_log_subscription_complete(struct weston_log_subscription *sub)
  * stream. Particularly useful for the weston-debug protocol.
  *
  * @memberof weston_log_scope
- * @sa weston_log_ctx_add_log_scope, weston_log_scope_destroy
+ * @sa weston_log_ctx_add_log_scope, weston_compositor_add_log_scope,
+ * weston_log_scope_destroy
  */
 WL_EXPORT void
 weston_log_scope_complete(struct weston_log_scope *scope)
