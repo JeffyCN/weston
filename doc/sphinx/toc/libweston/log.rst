@@ -28,7 +28,7 @@ Log scopes
 
 A scope represents a source for a data stream (i.e., a producer). You'll require
 one as a way to generate data. Creating a log scope is done using
-:func:`weston_compositor_add_log_scope()`. You can customize the scope
+:func:`weston_log_ctx_add_log_scope()`. You can customize the scope
 behaviour and you'll require at least a name and a description for the
 scope.
 

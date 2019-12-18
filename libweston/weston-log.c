@@ -355,7 +355,7 @@ weston_log_subscription_remove(struct weston_log_subscription *sub)
  * matching against the \c name.
  *
  * @param log_ctx
- * @param name the scope name, see weston_compositor_add_log_scope()
+ * @param name the scope name, see weston_log_ctx_add_log_scope()
  * @returns NULL if none found, or a pointer to a weston_log_scope
  *
  * @ingroup internal-log
@@ -580,12 +580,12 @@ weston_compositor_is_debug_protocol_enabled(struct weston_compositor *wc)
  * @sa weston_log_scope_cb, weston_log_subscribe
  */
 WL_EXPORT struct weston_log_scope *
-weston_compositor_add_log_scope(struct weston_log_context *log_ctx,
-				const char *name,
-				const char *description,
-				weston_log_scope_cb new_subscription,
-				weston_log_scope_cb destroy_subscription,
-				void *user_data)
+weston_log_ctx_add_log_scope(struct weston_log_context *log_ctx,
+			     const char *name,
+			     const char *description,
+			     weston_log_scope_cb new_subscription,
+			     weston_log_scope_cb destroy_subscription,
+			     void *user_data)
 {
 	struct weston_log_scope *scope;
 	struct weston_log_subscription *pending_sub = NULL;
@@ -726,7 +726,7 @@ weston_log_subscription_complete(struct weston_log_subscription *sub)
  * stream. Particularly useful for the weston-debug protocol.
  *
  * @memberof weston_log_scope
- * @sa weston_compositor_add_log_scope, weston_compositor_log_scope_destroy
+ * @sa weston_log_ctx_add_log_scope, weston_compositor_log_scope_destroy
  */
 WL_EXPORT void
 weston_log_scope_complete(struct weston_log_scope *scope)
@@ -895,9 +895,9 @@ weston_log_scope_timestamp(struct weston_log_scope *scope,
  * to the scope \c scope_name.
  *
  * If \c scope_name has already been created (using
- * weston_compositor_add_log_scope) the subscription will take place
+ * weston_log_ctx_add_log_scope) the subscription will take place
  * immediately, otherwise we store the subscription into a pending list. See
- * also weston_compositor_add_log_scope().
+ * also weston_log_ctx_add_log_scope().
  *
  * @param log_ctx the log context, used for accessing pending list
  * @param subscriber the subscriber, which has to be created before

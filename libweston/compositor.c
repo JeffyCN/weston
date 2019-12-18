@@ -7321,17 +7321,17 @@ weston_compositor_create(struct wl_display *display,
 				  WESTON_LAYER_POSITION_CURSOR);
 
 	ec->debug_scene =
-		weston_compositor_add_log_scope(ec->weston_log_ctx, "scene-graph",
-						"Scene graph details\n",
-						debug_scene_graph_cb, NULL,
-						ec);
+		weston_log_ctx_add_log_scope(ec->weston_log_ctx, "scene-graph",
+					     "Scene graph details\n",
+					     debug_scene_graph_cb, NULL,
+					     ec);
 
 	ec->timeline =
-		weston_compositor_add_log_scope(ec->weston_log_ctx, "timeline",
-						"Timeline event points\n",
-						weston_timeline_create_subscription,
-						weston_timeline_destroy_subscription,
-						ec);
+		weston_log_ctx_add_log_scope(ec->weston_log_ctx, "timeline",
+					     "Timeline event points\n",
+					     weston_timeline_create_subscription,
+					     weston_timeline_destroy_subscription,
+					     ec);
 	return ec;
 
 fail:
