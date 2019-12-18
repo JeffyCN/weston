@@ -186,7 +186,7 @@ cp_destroy_listener(struct wl_listener *listener, void *data)
 			  destroy_listener);
 	wl_list_remove(&cp->destroy_listener.link);
 	wl_list_remove(&cp->protected_list);
-	weston_compositor_log_scope_destroy(cp->debug);
+	weston_log_scope_destroy(cp->debug);
 	cp->debug = NULL;
 	cp->surface_protection_update = NULL;
 	free(cp);

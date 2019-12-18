@@ -573,7 +573,7 @@ weston_compositor_is_debug_protocol_enabled(struct weston_compositor *wc)
  * against the scope being created and if found will be added to the scope's
  * subscription list.
  *
- * The log scope must be destroyed using weston_compositor_log_scope_destroy()
+ * The log scope must be destroyed using weston_log_scope_destroy()
  * before destroying the weston_compositor.
  *
  * @memberof weston_log_scope
@@ -654,7 +654,7 @@ weston_log_ctx_add_log_scope(struct weston_log_context *log_ctx,
  * @memberof weston_log_scope
  */
 WL_EXPORT void
-weston_compositor_log_scope_destroy(struct weston_log_scope *scope)
+weston_log_scope_destroy(struct weston_log_scope *scope)
 {
 	struct weston_log_subscription *sub, *sub_tmp;
 
@@ -726,7 +726,7 @@ weston_log_subscription_complete(struct weston_log_subscription *sub)
  * stream. Particularly useful for the weston-debug protocol.
  *
  * @memberof weston_log_scope
- * @sa weston_log_ctx_add_log_scope, weston_compositor_log_scope_destroy
+ * @sa weston_log_ctx_add_log_scope, weston_log_scope_destroy
  */
 WL_EXPORT void
 weston_log_scope_complete(struct weston_log_scope *scope)

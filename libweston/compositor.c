@@ -7699,10 +7699,10 @@ weston_compositor_tear_down(struct weston_compositor *compositor)
 	if (compositor->heads_changed_source)
 		wl_event_source_remove(compositor->heads_changed_source);
 
-	weston_compositor_log_scope_destroy(compositor->debug_scene);
+	weston_log_scope_destroy(compositor->debug_scene);
 	compositor->debug_scene = NULL;
 
-	weston_compositor_log_scope_destroy(compositor->timeline);
+	weston_log_scope_destroy(compositor->timeline);
 	compositor->timeline = NULL;
 }
 

@@ -71,7 +71,7 @@ weston_log_ctx_add_log_scope(struct weston_log_context *log_ctx,
 			     void *user_data);
 
 void
-weston_compositor_log_scope_destroy(struct weston_log_scope *scope);
+weston_log_scope_destroy(struct weston_log_scope *scope);
 
 bool
 weston_log_scope_is_enabled(struct weston_log_scope *scope);

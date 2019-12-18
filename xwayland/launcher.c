@@ -230,7 +230,7 @@ weston_xserver_destroy(struct wl_listener *l, void *data)
 	if (wxs->loop)
 		weston_xserver_shutdown(wxs);
 
-	weston_compositor_log_scope_destroy(wxs->wm_debug);
+	weston_log_scope_destroy(wxs->wm_debug);
 
 	free(wxs);
 }

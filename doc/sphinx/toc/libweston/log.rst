@@ -39,7 +39,7 @@ scope.
    important for the subscription part, detailed bit later.
 
 Log scopes are managed **explicitly**, and destroying the scope is done using
-:func:`weston_compositor_log_scope_destroy`.
+:func:`weston_log_scope_destroy`.
 
 Available scopes in weston
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

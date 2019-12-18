@@ -2387,7 +2387,7 @@ drm_destroy(struct weston_compositor *ec)
 
 	destroy_sprites(b);
 
-	weston_compositor_log_scope_destroy(b->debug);
+	weston_log_scope_destroy(b->debug);
 	b->debug = NULL;
 	weston_compositor_shutdown(ec);
 
