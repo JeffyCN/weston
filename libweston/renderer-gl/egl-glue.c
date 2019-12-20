@@ -455,8 +455,8 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	return egl_config;
 }
 
-static void
-renderer_setup_egl_client_extensions(struct gl_renderer *gr)
+void
+gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 {
 	const char *extensions;
 
@@ -592,8 +592,6 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 		weston_log("warning: Disabling explicit synchronization due"
 			   "to missing EGL_KHR_wait_sync extension\n");
 	}
-
-	renderer_setup_egl_client_extensions(gr);
 
 	return 0;
 }

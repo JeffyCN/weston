@@ -3480,6 +3480,8 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gr == NULL)
 		return -1;
 
+	gl_renderer_setup_egl_client_extensions(gr);
+
 	gr->base.read_pixels = gl_renderer_read_pixels;
 	gr->base.repaint_output = gl_renderer_repaint_output;
 	gr->base.flush_damage = gl_renderer_flush_damage;

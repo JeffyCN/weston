@@ -135,6 +135,9 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count);
 
+void
+gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr);
+
 int
 gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 
