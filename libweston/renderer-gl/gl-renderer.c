@@ -3381,7 +3381,6 @@ gl_renderer_display_create(struct weston_compositor *ec,
 			   unsigned drm_formats_count)
 {
 	struct gl_renderer *gr;
-	EGLint major, minor;
 
 	gr = zalloc(sizeof *gr);
 	if (gr == NULL)
@@ -3401,30 +3400,9 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.surface_get_content_size =
 		gl_renderer_surface_get_content_size;
 	gr->base.surface_copy_content = gl_renderer_surface_copy_content;
-	gr->egl_display = NULL;
 
-	/* extension_suffix is supported */
-	if (gr->has_platform_base)
-		gr->egl_display = gr->get_platform_display(platform,
-							   native_display,
-							   NULL);
-
-	if (!gr->egl_display) {
-		weston_log("warning: either no EGL_EXT_platform_base "
-			   "support or specific platform support; "
-			   "falling back to eglGetDisplay.\n");
-		gr->egl_display = eglGetDisplay(native_display);
-	}
-
-	if (!gr->egl_display) {
-		weston_log("failed to create display\n");
+	if (gl_renderer_setup_egl_display(gr, native_display) < 0)
 		goto fail;
-	}
-
-	if (!eglInitialize(gr->egl_display, &major, &minor)) {
-		weston_log("failed to initialize display\n");
-		goto fail_with_error;
-	}
 
 	log_egl_info(gr->egl_display);
 

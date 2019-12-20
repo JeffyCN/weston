@@ -455,6 +455,42 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	return egl_config;
 }
 
+int
+gl_renderer_setup_egl_display(struct gl_renderer *gr,
+			      void *native_display)
+{
+	gr->egl_display = NULL;
+
+	/* extension_suffix is supported */
+	if (gr->has_platform_base)
+		gr->egl_display = gr->get_platform_display(gr->platform,
+							   native_display,
+							   NULL);
+
+	if (!gr->egl_display) {
+		weston_log("warning: either no EGL_EXT_platform_base "
+			   "support or specific platform support; "
+			   "falling back to eglGetDisplay.\n");
+		gr->egl_display = eglGetDisplay(native_display);
+	}
+
+	if (!gr->egl_display) {
+		weston_log("failed to create display\n");
+		return -1;
+	}
+
+	if (!eglInitialize(gr->egl_display, NULL, NULL)) {
+		weston_log("failed to initialize display\n");
+		goto fail;
+	}
+
+	return 0;
+
+fail:
+	gl_renderer_print_egl_error_state();
+	return -1;
+}
+
 static const char *
 platform_to_extension(EGLenum platform)
 {

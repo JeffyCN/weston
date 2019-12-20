@@ -142,6 +142,9 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   unsigned drm_formats_count);
 
 int
+gl_renderer_setup_egl_display(struct gl_renderer *gr, void *native_display);
+
+int
 gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr);
 
 int
