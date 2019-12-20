@@ -209,8 +209,6 @@ struct timeline_render_point {
 	struct wl_event_source *event_source;
 };
 
-static PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display = NULL;
-
 static inline const char *
 dump_format(uint32_t format, char out[4])
 {
@@ -3495,22 +3493,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->egl_display = NULL;
 
 	/* extension_suffix is supported */
-	if (supports) {
-		if (!get_platform_display) {
-			get_platform_display = (void *) eglGetProcAddress(
-					"eglGetPlatformDisplayEXT");
-		}
-
-		/* also wrap this in the supports check because
-		 * eglGetProcAddress can return non-NULL and still not
-		 * support the feature at runtime, so ensure the
-		 * appropriate extension checks have been done. */
-		if (get_platform_display && platform) {
-			gr->egl_display = get_platform_display(platform,
-							       native_display,
-							       NULL);
-		}
-	}
+	if (gr->has_platform_base && supports)
+		gr->egl_display = gr->get_platform_display(platform,
+							   native_display,
+							   NULL);
 
 	if (!gr->egl_display) {
 		weston_log("warning: either no EGL_EXT_platform_base "
@@ -3519,7 +3505,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		gr->egl_display = eglGetDisplay(native_display);
 	}
 
-	if (gr->egl_display == EGL_NO_DISPLAY) {
+	if (!gr->egl_display) {
 		weston_log("failed to create display\n");
 		goto fail;
 	}

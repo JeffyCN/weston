@@ -63,7 +63,10 @@ struct gl_renderer {
 	PFNEGLCREATEIMAGEKHRPROC create_image;
 	PFNEGLDESTROYIMAGEKHRPROC destroy_image;
 	PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC swap_buffers_with_damage;
+
+	PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display;
 	PFNEGLCREATEPLATFORMWINDOWSURFACEEXTPROC create_platform_window;
+	bool has_platform_base;
 
 	bool has_unpack_subimage;
 

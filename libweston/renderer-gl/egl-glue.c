@@ -466,11 +466,15 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 		return;
 	}
 
-	if (weston_check_egl_extension(extensions, "EGL_EXT_platform_base"))
+	if (weston_check_egl_extension(extensions, "EGL_EXT_platform_base")) {
+		gr->get_platform_display =
+			(void *) eglGetProcAddress("eglGetPlatformDisplayEXT");
 		gr->create_platform_window =
 			(void *) eglGetProcAddress("eglCreatePlatformWindowSurfaceEXT");
-	else
+		gr->has_platform_base = true;
+	} else {
 		weston_log("warning: EGL_EXT_platform_base not supported.\n");
+	}
 }
 
 int
