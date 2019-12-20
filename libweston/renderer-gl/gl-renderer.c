@@ -3023,8 +3023,8 @@ shader_release(struct gl_shader *shader)
 	shader->program = 0;
 }
 
-static void
-log_extensions(const char *name, const char *extensions)
+void
+gl_renderer_log_extensions(const char *name, const char *extensions)
 {
 	const char *p, *end;
 	int l;
@@ -3061,7 +3061,7 @@ log_egl_info(EGLDisplay egldpy)
 	weston_log("EGL client APIs: %s\n", str ? str : "(null)");
 
 	str = eglQueryString(egldpy, EGL_EXTENSIONS);
-	log_extensions("EGL extensions", str ? str : "(null)");
+	gl_renderer_log_extensions("EGL extensions", str ? str : "(null)");
 }
 
 static void
@@ -3082,7 +3082,7 @@ log_gl_info(void)
 	weston_log("GL renderer: %s\n", str ? str : "(null)");
 
 	str = (char *)glGetString(GL_EXTENSIONS);
-	log_extensions("GL extensions", str ? str : "(null)");
+	gl_renderer_log_extensions("GL extensions", str ? str : "(null)");
 }
 
 static void
@@ -3330,85 +3330,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	free(gr);
 }
 
-/** Checks whether a platform EGL client extension is supported
- *
- * \param ec The weston compositor
- * \param extension_suffix The EGL client extension suffix
- * \return 1 if supported, 0 if using fallbacks, -1 unsupported
- *
- * This function checks whether a specific platform_* extension is supported
- * by EGL.
- *
- * The extension suffix should be the suffix of the platform extension (that
- * specifies a platform argument as defined in EGL_EXT_platform_base). For
- * example, passing "foo" will check whether either "EGL_KHR_platform_foo",
- * "EGL_EXT_platform_foo", or "EGL_MESA_platform_foo" is supported.
- *
- * The return value is 1:
- *   - if the supplied EGL client extension is supported.
- * The return value is 0:
- *   - if the platform_base client extension isn't supported so will
- *     fallback to eglGetDisplay and friends.
- * The return value is -1:
- *   - if the supplied EGL client extension is not supported.
- */
-static int
-gl_renderer_supports(struct weston_compositor *ec,
-		     const char *extension_suffix)
-{
-	static const char *extensions = NULL;
-	char s[64];
-
-	if (!extensions) {
-		extensions = (const char *) eglQueryString(
-			EGL_NO_DISPLAY, EGL_EXTENSIONS);
-
-		if (!extensions)
-			return 0;
-
-		log_extensions("EGL client extensions",
-			       extensions);
-	}
-
-	if (!weston_check_egl_extension(extensions, "EGL_EXT_platform_base"))
-		return 0;
-
-	snprintf(s, sizeof s, "EGL_KHR_platform_%s", extension_suffix);
-	if (weston_check_egl_extension(extensions, s))
-		return 1;
-
-	snprintf(s, sizeof s, "EGL_EXT_platform_%s", extension_suffix);
-	if (weston_check_egl_extension(extensions, s))
-		return 1;
-
-	snprintf(s, sizeof s, "EGL_MESA_platform_%s", extension_suffix);
-	if (weston_check_egl_extension(extensions, s))
-		return 1;
-
-	/* at this point we definitely have some platform extensions but
-	 * haven't found the supplied platform, so chances are it's
-	 * not supported. */
-
-	return -1;
-}
-
-static const char *
-platform_to_extension(EGLenum platform)
-{
-	switch (platform) {
-	case EGL_PLATFORM_GBM_KHR:
-		return "gbm";
-	case EGL_PLATFORM_WAYLAND_KHR:
-		return "wayland";
-	case EGL_PLATFORM_X11_KHR:
-		return "x11";
-	case EGL_PLATFORM_SURFACELESS_MESA:
-		return "surfaceless";
-	default:
-		assert(0 && "bad EGL platform enum");
-	}
-}
-
 static void
 output_handle_destroy(struct wl_listener *listener, void *data)
 {
@@ -3461,24 +3382,15 @@ gl_renderer_display_create(struct weston_compositor *ec,
 {
 	struct gl_renderer *gr;
 	EGLint major, minor;
-	int supports = 0;
-
-	if (platform) {
-		supports = gl_renderer_supports(
-			ec, platform_to_extension(platform));
-		if (supports < 0)
-			return -1;
-	}
-
-	/* Surfaceless is unusable without platform_base extension */
-	if (supports == 0 && platform == EGL_PLATFORM_SURFACELESS_MESA)
-		return -1;
 
 	gr = zalloc(sizeof *gr);
 	if (gr == NULL)
 		return -1;
 
-	gl_renderer_setup_egl_client_extensions(gr);
+	gr->platform = platform;
+
+	if (gl_renderer_setup_egl_client_extensions(gr) < 0)
+		goto fail;
 
 	gr->base.read_pixels = gl_renderer_read_pixels;
 	gr->base.repaint_output = gl_renderer_repaint_output;
@@ -3489,11 +3401,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.surface_get_content_size =
 		gl_renderer_surface_get_content_size;
 	gr->base.surface_copy_content = gl_renderer_surface_copy_content;
-	gr->platform = platform;
 	gr->egl_display = NULL;
 
 	/* extension_suffix is supported */
-	if (gr->has_platform_base && supports)
+	if (gr->has_platform_base)
 		gr->egl_display = gr->get_platform_display(platform,
 							   native_display,
 							   NULL);

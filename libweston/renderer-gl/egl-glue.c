@@ -455,16 +455,48 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	return egl_config;
 }
 
-void
+static const char *
+platform_to_extension(EGLenum platform)
+{
+	switch (platform) {
+	case EGL_PLATFORM_GBM_KHR:
+		return "gbm";
+	case EGL_PLATFORM_WAYLAND_KHR:
+		return "wayland";
+	case EGL_PLATFORM_X11_KHR:
+		return "x11";
+	case EGL_PLATFORM_SURFACELESS_MESA:
+		return "surfaceless";
+	default:
+		assert(0 && "bad EGL platform enum");
+	}
+}
+
+/** Checks for EGL client extensions (i.e. independent of EGL display),
+ * loads the function pointers, and checks if the platform is supported.
+ *
+ * \param gr The OpenGL renderer
+ * \return 0 for success, -1 if platform is unsupported
+ *
+ * This function checks whether a specific platform_* extension is supported
+ * by EGL by checking in order "EGL_KHR_platform_foo", "EGL_EXT_platform_foo",
+ * and "EGL_MESA_platform_foo" in order, for some platform "foo".
+ */
+int
 gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 {
 	const char *extensions;
+	const char *extension_suffix = platform_to_extension(gr->platform);
+	char s[64];
 
 	extensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
 	if (!extensions) {
 		weston_log("Retrieving EGL client extension string failed.\n");
-		return;
+		return 0;
 	}
+
+	gl_renderer_log_extensions("EGL client extensions",
+				   extensions);
 
 	if (weston_check_egl_extension(extensions, "EGL_EXT_platform_base")) {
 		gr->get_platform_display =
@@ -474,7 +506,31 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 		gr->has_platform_base = true;
 	} else {
 		weston_log("warning: EGL_EXT_platform_base not supported.\n");
+
+		/* Surfaceless is unusable without platform_base extension */
+		if (gr->platform == EGL_PLATFORM_SURFACELESS_MESA)
+			return -1;
+
+		return 0;
 	}
+
+	snprintf(s, sizeof s, "EGL_KHR_platform_%s", extension_suffix);
+	if (weston_check_egl_extension(extensions, s))
+		return 0;
+
+	snprintf(s, sizeof s, "EGL_EXT_platform_%s", extension_suffix);
+	if (weston_check_egl_extension(extensions, s))
+		return 0;
+
+	snprintf(s, sizeof s, "EGL_MESA_platform_%s", extension_suffix);
+	if (weston_check_egl_extension(extensions, s))
+		return 0;
+
+	/* at this point we definitely have some platform extensions but
+	 * haven't found the supplied platform, so chances are it's
+	 * not supported. */
+
+	return -1;
 }
 
 int

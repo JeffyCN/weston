@@ -130,6 +130,9 @@ void
 gl_renderer_print_egl_error_state(void);
 
 void
+gl_renderer_log_extensions(const char *name, const char *extensions);
+
+void
 log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig);
 
 EGLConfig
@@ -138,7 +141,7 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   const uint32_t *drm_formats,
 			   unsigned drm_formats_count);
 
-void
+int
 gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr);
 
 int
