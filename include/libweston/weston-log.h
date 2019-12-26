@@ -89,7 +89,7 @@ weston_log_scope_printf(struct weston_log_scope *scope,
 			  const char *fmt, ...)
 			  __attribute__ ((format (printf, 2, 3)));
 void
-weston_log_subscription_printf(struct weston_log_subscription *scope,
+weston_log_subscription_printf(struct weston_log_subscription *sub,
 				const char *fmt, ...)
 			  __attribute__ ((format (printf, 2, 3)));
 void
