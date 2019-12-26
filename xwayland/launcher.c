@@ -396,10 +396,9 @@ weston_module_init(struct weston_compositor *compositor)
 	}
 
 	wxs->wm_debug =
-		weston_log_ctx_add_log_scope(wxs->compositor->weston_log_ctx,
-					     "xwm-wm-x11",
-					     "XWM's window management X11 events\n",
-					     NULL, NULL, NULL);
+		weston_compositor_add_log_scope(wxs->compositor, "xwm-wm-x11",
+						"XWM's window management X11 events\n",
+						NULL, NULL, NULL);
 
 	return 0;
 
