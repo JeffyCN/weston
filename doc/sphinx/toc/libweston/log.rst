@@ -26,11 +26,11 @@ Instantiation of the :type:`weston_log_context` object takes place using
 Log scopes
 ----------
 
-A scope represents a source for a data stream (i.e., a producer). You'll require
-one as a way to generate data. Creating a log scope is done using
-:func:`weston_log_ctx_add_log_scope()`. You can customize the scope
-behaviour and you'll require at least a name and a description for the
-scope.
+A scope represents a source for a data stream (i.e., a producer). You'll
+require one as a way to generate data. Creating a log scope is done using
+:func:`weston_log_ctx_add_log_scope()` or
+:func:`weston_compositor_add_log_scope()`. You can customize the scope
+behaviour and you'll require at least a name and a description for the scope.
 
 .. note::
 

@@ -355,7 +355,8 @@ weston_log_subscription_remove(struct weston_log_subscription *sub)
  * matching against the \c name.
  *
  * @param log_ctx
- * @param name the scope name, see weston_log_ctx_add_log_scope()
+ * @param name the scope name, see weston_log_ctx_add_log_scope() and
+ * weston_compositor_add_log_scope()
  * @returns NULL if none found, or a pointer to a weston_log_scope
  *
  * @ingroup internal-log
@@ -644,6 +645,42 @@ weston_log_ctx_add_log_scope(struct weston_log_context *log_ctx,
 	return scope;
 }
 
+/** Register a new stream name, creating a log scope.
+ *
+ * @param compositor The compositor that contains the log context where the log
+ * scope will be linked.
+ * @param name The debug stream/scope name; must not be NULL.
+ * @param description The log scope description for humans; must not be NULL.
+ * @param new_subscription Optional callback when a client subscribes to this
+ * scope.
+ * @param destroy_subscription Optional callback when a client destroys the
+ * subscription.
+ * @param user_data Optional user data pointer for the callback.
+ * @returns A valid pointer on success, NULL on failure.
+ *
+ * This function works like weston_log_ctx_add_log_scope(), but the log scope
+ * created is linked to the log context of \c compositor.
+ *
+ * @memberof weston_compositor
+ * @sa weston_log_ctx_add_log_scope
+ */
+WL_EXPORT struct weston_log_scope *
+weston_compositor_add_log_scope(struct weston_compositor *compositor,
+				const char *name,
+				const char *description,
+				weston_log_scope_cb new_subscription,
+				weston_log_scope_cb destroy_subscription,
+				void *user_data)
+{
+	struct weston_log_scope *scope;
+	scope = weston_log_ctx_add_log_scope(compositor->weston_log_ctx,
+					     name, description,
+ 					     new_subscription,
+					     destroy_subscription,
+					     user_data);
+	return scope;
+}
+
 /** Destroy a log scope
  *
  * @param scope The log scope to destroy; may be NULL.
@@ -896,9 +933,10 @@ weston_log_scope_timestamp(struct weston_log_scope *scope,
  * to the scope \c scope_name.
  *
  * If \c scope_name has already been created (using
- * weston_log_ctx_add_log_scope) the subscription will take place
- * immediately, otherwise we store the subscription into a pending list. See
- * also weston_log_ctx_add_log_scope().
+ * weston_log_ctx_add_log_scope or weston_compositor_add_log_scope) the
+ * subscription will take place immediately, otherwise we store the
+ * subscription into a pending list. See also weston_log_ctx_add_log_scope()
+ * and weston_compositor_add_log_scope()
  *
  * @param log_ctx the log context, used for accessing pending list
  * @param subscriber the subscriber, which has to be created before
