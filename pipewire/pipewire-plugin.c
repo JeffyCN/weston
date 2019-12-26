@@ -823,10 +823,9 @@ weston_module_init(struct weston_compositor *compositor)
 	}
 
 	pipewire->debug =
-		weston_log_ctx_add_log_scope(compositor->weston_log_ctx,
-					     "pipewire",
-					     "Debug messages from pipewire plugin\n",
-					     NULL, NULL, NULL);
+		weston_compositor_add_log_scope(compositor, "pipewire",
+						"Debug messages from pipewire plugin\n",
+						NULL, NULL, NULL);
 
 	return 0;
 
