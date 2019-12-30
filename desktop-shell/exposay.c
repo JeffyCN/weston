@@ -219,6 +219,7 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	struct weston_view *view;
 	struct exposay_surface *esurface, *highlight = NULL;
 	int w, h;
+	int pad;
 	int i;
 	int last_row_removed = 0;
 
@@ -275,11 +276,10 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	if (eoutput->surface_size > (output->height / 2))
 		eoutput->surface_size = output->height / 2;
 
+	pad = eoutput->surface_size + eoutput->padding_inner;
+
 	i = 0;
 	wl_list_for_each(view, &workspace->layer.view_list.link, layer_link.link) {
-		int pad;
-
-		pad = eoutput->surface_size + eoutput->padding_inner;
 
 		if (!get_shell_surface(view->surface))
 			continue;
