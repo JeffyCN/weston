@@ -185,10 +185,10 @@ enum weston_hdcp_protection {
 	WESTON_HDCP_ENABLE_TYPE_1
 };
 
-/** Represents a monitor
+/** Represents a head, usually a display connector
  *
- * This object represents a monitor (hardware backends like DRM) or a window
- * (windowed nested backends).
+ * \rst
+ See :ref:`libweston-head`. \endrst
  *
  * \ingroup head
  */
@@ -222,7 +222,10 @@ struct weston_head {
 	enum weston_hdcp_protection current_protection;
 };
 
-/** Represents an output
+/** Content producer for heads
+ *
+ * \rst
+ See :ref:`libweston-output`. \endrst
  *
  * \ingroup output
  */
