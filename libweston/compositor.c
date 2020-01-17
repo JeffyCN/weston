@@ -7203,10 +7203,14 @@ weston_compositor_create(struct wl_display *display,
 	struct weston_compositor *ec;
 	struct wl_event_loop *loop;
 
+	if (!log_ctx)
+		return NULL;
+
 	ec = zalloc(sizeof *ec);
 	if (!ec)
 		return NULL;
 
+	ec->weston_log_ctx = log_ctx;
 	ec->wl_display = display;
 	ec->user_data = user_data;
 	wl_signal_init(&ec->destroy_signal);
@@ -7256,9 +7260,6 @@ weston_compositor_create(struct wl_display *display,
 
 	if (!wl_global_create(ec->wl_display, &wp_presentation_interface, 1,
 			      ec, bind_presentation))
-		goto fail;
-
-	if (weston_log_ctx_compositor_setup(ec, log_ctx) < 0)
 		goto fail;
 
 	if (weston_input_init(ec) != 0)

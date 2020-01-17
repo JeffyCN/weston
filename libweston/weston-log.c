@@ -398,28 +398,6 @@ weston_debug_protocol_advertise_scopes(struct weston_log_context *log_ctx,
 		weston_debug_v1_send_available(res, scope->name, scope->desc);
 }
 
-/**
- * Connect weston_compositor structure to weston_log_context structure.
- *
- * \param compositor
- * \param log_ctx
- * \return 0 on success, -1 on failure
- *
- * Sets weston_compositor::weston_log_ctx.
- *
- * @ingroup log
- */
-int
-weston_log_ctx_compositor_setup(struct weston_compositor *compositor,
-			      struct weston_log_context *log_ctx)
-{
-	assert(!compositor->weston_log_ctx);
-	assert(log_ctx);
-
-	compositor->weston_log_ctx = log_ctx;
-	return 0;
-}
-
 /** Creates  weston_log_context structure
  *
  * \return NULL in case of failure, or a weston_log_context object in case of

@@ -93,9 +93,6 @@ weston_log_run_cb_new_subscription(struct weston_log_subscription *sub);
 void
 weston_debug_protocol_advertise_scopes(struct weston_log_context *log_ctx,
 				       struct wl_resource *res);
-int
-weston_log_ctx_compositor_setup(struct weston_compositor *compositor,
-			      struct weston_log_context *log_ctx);
 
 int
 weston_vlog(const char *fmt, va_list ap);
