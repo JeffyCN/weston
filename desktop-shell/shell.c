@@ -2769,13 +2769,20 @@ desktop_surface_set_parent(struct weston_desktop_surface *desktop_surface,
 			   struct weston_desktop_surface *parent,
 			   void *shell)
 {
+	struct shell_surface *shsurf_parent;
 	struct shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(desktop_surface);
-	struct shell_surface *shsurf_parent =
-		weston_desktop_surface_get_user_data(parent);
 
-	wl_list_insert(shsurf_parent->children_list.prev,
-		       &shsurf->children_link);
+	/* unlink any potential child */
+	wl_list_remove(&shsurf->children_link);
+
+	if (parent) {
+		shsurf_parent = weston_desktop_surface_get_user_data(parent);
+		wl_list_insert(shsurf_parent->children_list.prev,
+			       &shsurf->children_link);
+	} else {
+		wl_list_init(&shsurf->children_link);
+	}
 }
 
 static void
