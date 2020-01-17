@@ -2042,7 +2042,7 @@ weston_compositor_enable_touch_calibrator(struct weston_compositor *compositor,
 				weston_touch_calibration_save_func save);
 
 struct weston_log_context *
-weston_log_ctx_compositor_create(void);
+weston_log_ctx_create(void);
 
 void
 weston_log_ctx_compositor_destroy(struct weston_compositor *compositor);

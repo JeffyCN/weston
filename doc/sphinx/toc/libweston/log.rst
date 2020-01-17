@@ -20,7 +20,7 @@ instance can be brought up much more later, but in the same time logging can
 take place much earlier without the need of a compositor instance.
 
 Instantiation of the :type:`weston_log_context` object takes place using
-:func:`weston_log_ctx_compositor_create()` and clean-up/destroy with
+:func:`weston_log_ctx_create()` and clean-up/destroy with
 :func:`weston_log_ctx_compositor_destroy()`.
 
 Log scopes

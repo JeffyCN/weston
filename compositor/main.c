@@ -3156,7 +3156,7 @@ wet_main(int argc, char *argv[])
 		return EXIT_SUCCESS;
 	}
 
-	log_ctx = weston_log_ctx_compositor_create();
+	log_ctx = weston_log_ctx_create();
 	if (!log_ctx) {
 		fprintf(stderr, "Failed to initialize weston debug framework.\n");
 		return EXIT_FAILURE;

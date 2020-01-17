@@ -408,7 +408,7 @@ weston_debug_protocol_advertise_scopes(struct weston_log_context *log_ctx,
  *
  */
 WL_EXPORT struct weston_log_context *
-weston_log_ctx_compositor_create(void)
+weston_log_ctx_create(void)
 {
 	struct weston_log_context *log_ctx;
 
