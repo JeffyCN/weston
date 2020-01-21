@@ -1866,8 +1866,11 @@ ensure_textures(struct gl_surface_state *gs, GLenum target, int num_textures)
 {
 	int i;
 
-	if (num_textures <= gs->num_textures)
+	if (num_textures <= gs->num_textures) {
+		glDeleteTextures(gs->num_textures - num_textures, &gs->textures[num_textures]);
+		gs->num_textures = num_textures;
 		return;
+	}
 
 	glActiveTexture(GL_TEXTURE0);
 
