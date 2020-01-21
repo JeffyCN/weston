@@ -235,6 +235,9 @@ screenshot_output_filename(const char *basename, uint32_t seq);
 char *
 screenshot_reference_filename(const char *basename, uint32_t seq);
 
+char *
+image_filename(const char *basename);
+
 bool
 check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 		   const struct rectangle *clip,
@@ -260,5 +263,10 @@ verify_screen_content(struct client *client,
 		      int ref_seq_no,
 		      const struct rectangle *clip,
 		      int seq_no);
+
+struct buffer *
+client_buffer_from_image_file(struct client *client,
+			      const char *basename,
+			      int scale);
 
 #endif

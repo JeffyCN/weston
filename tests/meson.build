@@ -132,6 +132,7 @@ tests = [
 			linux_explicit_synchronization_unstable_v1_protocol_c,
 		],
 	},
+	{	'name': 'output-transforms', },
 	{	'name': 'plugin-registry', },
 	{
 		'name': 'pointer',

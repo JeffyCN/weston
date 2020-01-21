@@ -1118,6 +1118,16 @@ screenshot_reference_filename(const char *basename, uint32_t seq)
 	return filename;
 }
 
+char *
+image_filename(const char *basename)
+{
+	char *filename;
+
+	if (asprintf(&filename, "%s/%s.png", reference_path(), basename) < 0)
+		assert(0);
+	return filename;
+}
+
 struct format_map_entry {
 	cairo_format_t cairo;
 	pixman_format_code_t pixman;
@@ -1693,4 +1703,56 @@ verify_screen_content(struct client *client,
 	free(shot_fname);
 
 	return match;
+}
+
+/**
+ * Create a wl_buffer from a PNG file
+ *
+ * Loads the named PNG file from the directory of reference images,
+ * creates a wl_buffer with scale times the image dimensions in pixels,
+ * and copies the image content into the buffer using nearest-neighbor filter.
+ *
+ * \param client The client, for the Wayland connection.
+ * \param basename The PNG file name without .png suffix.
+ * \param scale Upscaling factor >= 1.
+ */
+struct buffer *
+client_buffer_from_image_file(struct client *client,
+			      const char *basename,
+			      int scale)
+{
+	struct buffer *buf;
+	char *fname;
+	pixman_image_t *img;
+	int buf_w, buf_h;
+	pixman_transform_t scaling;
+
+	assert(scale >= 1);
+
+	fname = image_filename(basename);
+	img = load_image_from_png(fname);
+	free(fname);
+	assert(img);
+
+	buf_w = scale * pixman_image_get_width(img);
+	buf_h = scale * pixman_image_get_height(img);
+	buf = create_shm_buffer_a8r8g8b8(client, buf_w, buf_h);
+
+	pixman_transform_init_scale(&scaling,
+				    pixman_fixed_1 / scale,
+				    pixman_fixed_1 / scale);
+	pixman_image_set_transform(img, &scaling);
+	pixman_image_set_filter(img, PIXMAN_FILTER_NEAREST, NULL, 0);
+
+	pixman_image_composite32(PIXMAN_OP_SRC,
+				 img, /* src */
+				 NULL, /* mask */
+				 buf->image, /* dst */
+				 0, 0, /* src x,y */
+				 0, 0, /* mask x,y */
+				 0, 0, /* dst x,y */
+				 buf_w, buf_h);
+	pixman_image_unref(img);
+
+	return buf;
 }
