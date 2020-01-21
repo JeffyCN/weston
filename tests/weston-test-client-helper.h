@@ -246,11 +246,11 @@ load_image_from_png(const char *fname);
 struct buffer *
 capture_screenshot_of_output(struct client *client);
 
-int
-check_screen(struct client *client,
-	     const char *ref_image,
-	     int ref_seq_no,
-	     const struct rectangle *clip,
-	     int seq_no);
+bool
+verify_screen_content(struct client *client,
+		      const char *ref_image,
+		      int ref_seq_no,
+		      const struct rectangle *clip,
+		      int seq_no);
 
 #endif

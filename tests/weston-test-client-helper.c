@@ -1543,12 +1543,36 @@ write_visual_diff(pixman_image_t *ref_image,
 	free(ext_test_name);
 }
 
-int
-check_screen(struct client *client,
-	     const char *ref_image,
-	     int ref_seq_no,
-	     const struct rectangle *clip,
-	     int seq_no)
+/**
+ * Take a screenshot and verify its contents
+ *
+ * Takes a screenshot and writes the image into a PNG file named with
+ * get_test_name() and seq_no. Compares the contents to the given reference
+ * image over the given clip rectangle, reports whether they match to the
+ * test log, and if they do not match writes a visual diff into a PNG file.
+ *
+ * The compositor output size and the reference image size must both contain
+ * the clip rectangle.
+ *
+ * This function uses the pixel value allowed fuzz approriate for GL-renderer
+ * with 8 bits per channel data.
+ *
+ * \param client The client, for connecting to the compositor.
+ * \param ref_image The reference image file basename, without sequence number
+ * and .png suffix.
+ * \param ref_seq_no The reference image sequence number.
+ * \param clip The region of interest, or NULL for comparing the whole
+ * images.
+ * \param seq_no Test sequence number, for writing output files.
+ * \return True if the screen contents matches the reference image,
+ * false otherwise.
+ */
+bool
+verify_screen_content(struct client *client,
+		      const char *ref_image,
+		      int ref_seq_no,
+		      const struct rectangle *clip,
+		      int seq_no)
 {
 	const char *test_name = get_test_name();
 	const struct range gl_fuzz = { 0, 1 };
@@ -1568,7 +1592,7 @@ check_screen(struct client *client,
 	assert(shot);
 
 	match = check_images_match(ref, shot->image, clip, &gl_fuzz);
-	testlog("ref %s vs. shot %s: %s\n", ref_fname, shot_fname,
+	testlog("Verify reference image %s vs. shot %s: %s\n", ref_fname, shot_fname,
 		match ? "PASS" : "FAIL");
 
 	write_image_as_png(shot->image, shot_fname);
@@ -1580,5 +1604,5 @@ check_screen(struct client *client,
 	free(ref_fname);
 	free(shot_fname);
 
-	return match ? 0 : -1;
+	return match;
 }

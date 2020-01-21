@@ -115,6 +115,21 @@ color(pixman_color_t *tmp, uint8_t r, uint8_t g, uint8_t b)
 	return tmp;
 }
 
+static int
+check_screen(struct client *client,
+	     const char *ref_image,
+	     int ref_seq_no,
+	     const struct rectangle *clip,
+	     int seq_no)
+{
+	bool match;
+
+	match = verify_screen_content(client, ref_image, ref_seq_no, clip,
+				      seq_no);
+
+	return match ? 0 : -1;
+}
+
 static struct buffer *
 surface_commit_color(struct client *client, struct wl_surface *surface,
 		     pixman_color_t *color, int width, int height)
