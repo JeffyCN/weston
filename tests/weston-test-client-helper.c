@@ -1,5 +1,6 @@
 /*
  * Copyright © 2012 Intel Corporation
+ * Copyright 2017 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -1515,4 +1516,69 @@ capture_screenshot_of_output(struct client *client)
 	 */
 
 	return buffer;
+}
+
+static void
+write_visual_diff(pixman_image_t *ref_image,
+		  struct buffer *shot,
+		  const struct rectangle *clip,
+		  const char *test_name,
+		  int seq_no,
+		  const struct range *fuzz)
+{
+	char *fname;
+	char *ext_test_name;
+	pixman_image_t *diff;
+	int ret;
+
+	ret = asprintf(&ext_test_name, "%s-diff", test_name);
+	assert(ret >= 0);
+
+	fname = screenshot_output_filename(ext_test_name, seq_no);
+	diff = visualize_image_difference(ref_image, shot->image, clip, fuzz);
+	write_image_as_png(diff, fname);
+
+	pixman_image_unref(diff);
+	free(fname);
+	free(ext_test_name);
+}
+
+int
+check_screen(struct client *client,
+	     const char *ref_image,
+	     int ref_seq_no,
+	     const struct rectangle *clip,
+	     int seq_no)
+{
+	const char *test_name = get_test_name();
+	const struct range gl_fuzz = { 0, 1 };
+	struct buffer *shot;
+	pixman_image_t *ref;
+	char *ref_fname;
+	char *shot_fname;
+	bool match;
+
+	ref_fname = screenshot_reference_filename(ref_image, ref_seq_no);
+	shot_fname = screenshot_output_filename(test_name, seq_no);
+
+	ref = load_image_from_png(ref_fname);
+	assert(ref);
+
+	shot = capture_screenshot_of_output(client);
+	assert(shot);
+
+	match = check_images_match(ref, shot->image, clip, &gl_fuzz);
+	testlog("ref %s vs. shot %s: %s\n", ref_fname, shot_fname,
+		match ? "PASS" : "FAIL");
+
+	write_image_as_png(shot->image, shot_fname);
+	if (!match)
+		write_visual_diff(ref, shot, clip, test_name, seq_no, &gl_fuzz);
+
+	buffer_destroy(shot);
+	pixman_image_unref(ref);
+	free(ref_fname);
+	free(shot_fname);
+
+	return match ? 0 : -1;
 }
