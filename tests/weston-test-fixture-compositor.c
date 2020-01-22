@@ -107,6 +107,8 @@ compositor_setup_defaults_(struct compositor_setup *setup,
 		.xwayland = false,
 		.width = 320,
 		.height = 240,
+		.scale = 1,
+		.transform = WL_OUTPUT_TRANSFORM_NORMAL,
 		.config_file = NULL,
 		.extra_module = NULL,
 		.logging_scopes = NULL,
@@ -160,6 +162,24 @@ shell_to_str(enum shell_type t)
 		[SHELL_IVI] = "ivi-shell.so",
 	};
 	assert(t >= 0 && t < ARRAY_LENGTH(names));
+	return names[t];
+}
+
+static const char *
+transform_to_str(enum wl_output_transform t)
+{
+	static const char * const names[] = {
+		[WL_OUTPUT_TRANSFORM_NORMAL] = "normal",
+		[WL_OUTPUT_TRANSFORM_90] = "rotate-90",
+		[WL_OUTPUT_TRANSFORM_180] = "rotate-180",
+		[WL_OUTPUT_TRANSFORM_270] = "rotate-270",
+		[WL_OUTPUT_TRANSFORM_FLIPPED] = "flipped",
+		[WL_OUTPUT_TRANSFORM_FLIPPED_90] = "flipped-rotate-90",
+		[WL_OUTPUT_TRANSFORM_FLIPPED_180] = "flipped-rotate-180",
+		[WL_OUTPUT_TRANSFORM_FLIPPED_270] = "flipped-rotate-270",
+	};
+
+	assert(t < ARRAY_LENGTH(names) && names[t]);
 	return names[t];
 }
 
@@ -258,6 +278,17 @@ execute_compositor(const struct compositor_setup *setup,
 
 	asprintf(&tmp, "--height=%d", setup->height);
 	prog_args_take(&args, tmp);
+
+	if (setup->scale != 1) {
+		asprintf(&tmp, "--scale=%d", setup->scale);
+		prog_args_take(&args, tmp);
+	}
+
+	if (setup->transform != WL_OUTPUT_TRANSFORM_NORMAL) {
+		asprintf(&tmp, "--transform=%s",
+			 transform_to_str(setup->transform));
+		prog_args_take(&args, tmp);
+	}
 
 	if (setup->config_file) {
 		asprintf(&tmp, "--config=%s", setup->config_file);

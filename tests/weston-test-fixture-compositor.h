@@ -26,6 +26,7 @@
 #ifndef WESTON_TEST_FIXTURE_COMPOSITOR_H
 #define WESTON_TEST_FIXTURE_COMPOSITOR_H
 
+#include <wayland-client-protocol.h>
 #include <libweston/libweston.h>
 
 #include "weston-testsuite-data.h"
@@ -82,6 +83,10 @@ struct compositor_setup {
 	unsigned width;
 	/** Default output height. */
 	unsigned height;
+	/** Default output scale. */
+	int scale;
+	/** Default output transform, one of WL_OUTPUT_TRANSFORM_*. */
+	enum wl_output_transform transform;
 	/** The absolute path to \c weston.ini to use,
 	 * or NULL for \c --no-config . */
 	const char *config_file;
@@ -109,6 +114,8 @@ compositor_setup_defaults_(struct compositor_setup *setup,
  * - xwayland: no
  * - width: 320
  * - height: 240
+ * - scale: 1
+ * - transform: WL_OUTPUT_TRANSFORM_NORMAL
  * - config_file: none
  * - extra_module: none
  * - logging_scopes: compositor defaults
