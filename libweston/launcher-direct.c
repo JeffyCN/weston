@@ -160,7 +160,6 @@ setup_tty(struct launcher_direct *launcher, int tty)
 	if (kd_mode != KD_TEXT) {
 		weston_log("%s is already in graphics mode, "
 			   "is another display server running?\n", tty_device);
-		goto err_close;
 	}
 
 	ioctl(launcher->tty, VT_ACTIVATE, minor(buf.st_rdev));
