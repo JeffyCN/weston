@@ -607,7 +607,7 @@ setup_tty(struct weston_launch *wl, const char *tty)
 
 	if (ioctl(wl->tty, KDGKBMODE, &wl->kb_mode)) {
 		fprintf(stderr,
-			"weston: failed to get current keyboard mode: %s",
+			"weston: failed to get current keyboard mode: %s\n",
 			strerror(errno));
 		return -1;
 	}
