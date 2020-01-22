@@ -1566,6 +1566,10 @@ write_visual_diff(pixman_image_t *ref_image,
  * \param seq_no Test sequence number, for writing output files.
  * \return True if the screen contents matches the reference image,
  * false otherwise.
+ *
+ * For bootstrapping, ref_image can be NULL or the file can be missing.
+ * In that case the screenshot file is written but no comparison is performed,
+ * and false is returned.
  */
 bool
 verify_screen_content(struct client *client,
@@ -1577,31 +1581,39 @@ verify_screen_content(struct client *client,
 	const char *test_name = get_test_name();
 	const struct range gl_fuzz = { 0, 1 };
 	struct buffer *shot;
-	pixman_image_t *ref;
-	char *ref_fname;
+	pixman_image_t *ref = NULL;
+	char *ref_fname = NULL;
 	char *shot_fname;
 	bool match;
 
-	ref_fname = screenshot_reference_filename(ref_image, ref_seq_no);
-	shot_fname = screenshot_output_filename(test_name, seq_no);
-
-	ref = load_image_from_png(ref_fname);
-	assert(ref);
-
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
-
-	match = check_images_match(ref, shot->image, clip, &gl_fuzz);
-	testlog("Verify reference image %s vs. shot %s: %s\n", ref_fname, shot_fname,
-		match ? "PASS" : "FAIL");
-
+	shot_fname = screenshot_output_filename(test_name, seq_no);
 	write_image_as_png(shot->image, shot_fname);
-	if (!match)
-		write_visual_diff(ref, shot, clip, test_name, seq_no, &gl_fuzz);
 
-	buffer_destroy(shot);
-	pixman_image_unref(ref);
+	if (ref_image) {
+		ref_fname = screenshot_reference_filename(ref_image, ref_seq_no);
+		ref = load_image_from_png(ref_fname);
+	}
+
+	if (ref) {
+		match = check_images_match(ref, shot->image, clip, &gl_fuzz);
+		testlog("Verify reference image %s vs. shot %s: %s\n",
+			ref_fname, shot_fname, match ? "PASS" : "FAIL");
+
+		if (!match) {
+			write_visual_diff(ref, shot, clip,
+					  test_name, seq_no, &gl_fuzz);
+		}
+
+		pixman_image_unref(ref);
+	} else {
+		testlog("No reference image, shot %s: FAIL\n", shot_fname);
+		match = false;
+	}
+
 	free(ref_fname);
+	buffer_destroy(shot);
 	free(shot_fname);
 
 	return match;
