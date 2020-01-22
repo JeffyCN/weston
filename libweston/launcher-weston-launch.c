@@ -95,6 +95,18 @@ struct launcher_weston_launch {
 	int kb_mode, tty, drm_fd;
 };
 
+static ssize_t
+launcher_weston_launch_send(int sockfd, void *buf, size_t buflen)
+{
+	ssize_t len;
+
+	do {
+		len = send(sockfd, buf, buflen, 0);
+	} while (len < 0 && errno == EINTR);
+
+	return len;
+}
+
 static int
 launcher_weston_launch_open(struct weston_launcher *launcher_base,
 		     const char *path, int flags)
@@ -118,9 +130,7 @@ launcher_weston_launch_open(struct weston_launcher *launcher_base,
 	message->flags = flags;
 	strcpy(message->path, path);
 
-	do {
-		len = send(launcher->fd, message, n, 0);
-	} while (len < 0 && errno == EINTR);
+	launcher_weston_launch_send(launcher->fd, message, n);
 	free(message);
 
 	memset(&msg, 0, sizeof msg);
