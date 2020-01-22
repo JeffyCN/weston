@@ -143,6 +143,9 @@ testlog(const char *fmt, ...) WL_PRINTF(1, 2);
 const char *
 get_test_name(void);
 
+int
+get_test_fixture_index(void);
+
 /** Fixture setup array record
  *
  * Helper to store the attributes of the data array passed in to

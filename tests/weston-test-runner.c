@@ -46,7 +46,12 @@
 
 extern const struct weston_test_entry __start_test_section, __stop_test_section;
 
-static const char *test_name_;
+struct weston_test_run_info {
+	char name[512];
+	int fixture_nr;
+};
+
+static const struct weston_test_run_info *test_run_info_;
 
 /** Get the test name string with counter
  *
@@ -62,7 +67,23 @@ static const char *test_name_;
 const char *
 get_test_name(void)
 {
-	return test_name_;
+	return test_run_info_->name;
+}
+
+/** Get the current fixture index
+ *
+ * Returns the current fixture index which can be used directly as an index
+ * into the array passed as an argument to DECLARE_FIXTURE_SETUP_WITH_ARG().
+ *
+ * This is only usable from code paths inside TEST(), TEST_P(), PLUGIN_TEST()
+ * etc. defined functions.
+ *
+ * \ingroup testharness
+ */
+int
+get_test_fixture_index(void)
+{
+	return test_run_info_->fixture_nr - 1;
 }
 
 /** Print into test log
@@ -100,18 +121,20 @@ static enum test_result_code
 run_test(int fixture_nr, const struct weston_test_entry *t, void *data,
 	 int iteration)
 {
-	char str[512];
+	struct weston_test_run_info info;
 
 	if (data) {
-		snprintf(str, sizeof(str), "f%d-%s-e%d",
+		snprintf(info.name, sizeof(info.name), "f%d-%s-e%d",
 			 fixture_nr, t->name, iteration);
 	} else {
-		snprintf(str, sizeof(str), "f%d-%s", fixture_nr, t->name);
+		snprintf(info.name, sizeof(info.name), "f%d-%s",
+			 fixture_nr, t->name);
 	}
+	info.fixture_nr = fixture_nr;
 
-	test_name_ = str;
+	test_run_info_ = &info;
 	t->run(data);
-	test_name_ = NULL;
+	test_run_info_ = NULL;
 
 	/*
 	 * XXX: We should return t->run(data); but that requires changing
