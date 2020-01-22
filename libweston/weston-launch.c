@@ -295,6 +295,19 @@ setenv_fd(const char *env, int fd)
 }
 
 static int
+open_tty_by_number(int ttynr)
+{
+	int ret;
+	char filename[16];
+
+	ret = snprintf(filename, sizeof filename, "/dev/tty%d", ttynr);
+	if (ret < 0)
+		return -1;
+
+	return open(filename, O_RDWR | O_NOCTTY);
+}
+
+static int
 send_reply(struct weston_launch *wl, int reply)
 {
 	int len;
@@ -557,7 +570,6 @@ setup_tty(struct weston_launch *wl, const char *tty)
 			wl->tty = open(tty, O_RDWR | O_NOCTTY);
 	} else {
 		int tty0 = open("/dev/tty0", O_WRONLY | O_CLOEXEC);
-		char filename[16];
 
 		if (tty0 < 0) {
 			fprintf(stderr, "weston: could not open tty0: %s\n",
@@ -572,8 +584,7 @@ setup_tty(struct weston_launch *wl, const char *tty)
 			return -1;
 		}
 
-		snprintf(filename, sizeof filename, "/dev/tty%d", wl->ttynr);
-		wl->tty = open(filename, O_RDWR | O_NOCTTY);
+		wl->tty = open_tty_by_number(wl->ttynr);
 		close(tty0);
 	}
 
