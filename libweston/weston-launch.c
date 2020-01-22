@@ -589,7 +589,7 @@ setup_tty(struct weston_launch *wl, const char *tty)
 		return -1;
 	}
 
-	if (tty) {
+	if (!wl->new_user || tty) {
 		if (fstat(wl->tty, &buf) < 0) {
 			fprintf(stderr, "weston: stat %s failed: %s\n", tty,
 				strerror(errno));
