@@ -262,9 +262,9 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	struct exposay_surface *esurface, *highlight = NULL;
 	pixman_rectangle32_t exposay_area;
 	int pad, row_size, column_size, left_margin, top_margin;
+	int last_row_size, last_row_margin_increase;
 	int populated_rows;
 	int i;
-	int last_row_removed = 0;
 
 	eoutput->num_surfaces = 0;
 	wl_list_for_each(view, &workspace->layer.view_list.link, layer_link.link) {
@@ -292,7 +292,6 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	eoutput->grid_size = floor(sqrtf(eoutput->num_surfaces));
 	if (pow(eoutput->grid_size, 2) != eoutput->num_surfaces)
 		eoutput->grid_size++;
-	last_row_removed = pow(eoutput->grid_size, 2) - eoutput->num_surfaces;
 
 	/* Fixed outer padding of 10% the size of the screen */
 	eoutput->hpadding_outer = (exposay_area.width / 10);
@@ -308,6 +307,15 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	 * column size */
 	populated_rows = ceil(eoutput->num_surfaces / (float) eoutput->grid_size);
 	column_size = (pad * populated_rows) - eoutput->padding_inner;
+
+	/* The last row size can be different, since it may have less surfaces
+	 * than the grid size. Also, its margin may be increased to centralize
+	 * its surfaces, in the case where we don't have a perfect grid. */
+	last_row_size = ((eoutput->num_surfaces % eoutput->grid_size) * pad) - eoutput->padding_inner;
+	if (eoutput->num_surfaces % eoutput->grid_size)
+		last_row_margin_increase = (row_size - last_row_size) / 2;
+	else
+		last_row_margin_increase = 0;
 
 	/* Compute a top/left margin to centralize the exposay */
 	exposay_margin_size(shell, exposay_area, row_size, column_size, &left_margin, &top_margin);
@@ -338,8 +346,10 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 		esurface->x = left_margin + (pad * esurface->column);
 		esurface->y = top_margin + (pad * esurface->row);
 
-		if (esurface->row == eoutput->grid_size - 1)
-			esurface->x += (eoutput->surface_size + eoutput->padding_inner) * last_row_removed / 2;
+		/* If this is the last row, increase left margin (it sums 0 if
+		 * we have a perfect square) to centralize the surfaces */
+		if (eoutput->num_surfaces / eoutput->grid_size == esurface->row)
+			esurface->x += last_row_margin_increase;
 
 		if (view->surface->width > view->surface->height)
 			esurface->scale = eoutput->surface_size / (float) view->surface->width;
