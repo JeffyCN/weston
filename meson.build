@@ -99,6 +99,8 @@ env_modmap = ''
 
 config_h.set('_GNU_SOURCE', '1')
 config_h.set('_ALL_SOURCE', '1')
+config_h.set('EGL_NO_X11', '1')
+config_h.set('MESA_EGL_NO_X11_HEADERS', '1')
 
 config_h.set_quoted('PACKAGE_STRING', 'weston @0@'.format(version_weston))
 config_h.set_quoted('PACKAGE_VERSION', version_weston)
