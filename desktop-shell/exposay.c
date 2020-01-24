@@ -218,6 +218,7 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	struct exposay_output *eoutput = &shell_output->eoutput;
 	struct weston_view *view;
 	struct exposay_surface *esurface, *highlight = NULL;
+	pixman_rectangle32_t exposay_area;
 	int w, h;
 	int pad;
 	int i;
@@ -241,6 +242,10 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 		return EXPOSAY_LAYOUT_OVERVIEW;
 	}
 
+	/* Get exposay area and position, taking into account
+	 * the shell panel position and size */
+	get_output_work_area(shell, output, &exposay_area);
+
 	/* Lay the grid out as square as possible, losing surfaces from the
 	 * bottom row if required.  Start with fixed padding of a 10% margin
 	 * around the outside and 80px internal padding between surfaces, and
@@ -258,23 +263,23 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 		eoutput->grid_size++;
 	last_row_removed = pow(eoutput->grid_size, 2) - eoutput->num_surfaces;
 
-	eoutput->hpadding_outer = (output->width / 10);
-	eoutput->vpadding_outer = (output->height / 10);
+	eoutput->hpadding_outer = (exposay_area.width / 10);
+	eoutput->vpadding_outer = (exposay_area.height / 10);
 	eoutput->padding_inner = 80;
 
-	w = output->width - (eoutput->hpadding_outer * 2);
+	w = exposay_area.width - (eoutput->hpadding_outer * 2);
 	w -= eoutput->padding_inner * (eoutput->grid_size - 1);
 	w /= eoutput->grid_size;
 
-	h = output->height - (eoutput->vpadding_outer * 2);
+	h = exposay_area.height - (eoutput->vpadding_outer * 2);
 	h -= eoutput->padding_inner * (eoutput->grid_size - 1);
 	h /= eoutput->grid_size;
 
 	eoutput->surface_size = (w < h) ? w : h;
-	if (eoutput->surface_size > (output->width / 2))
-		eoutput->surface_size = output->width / 2;
-	if (eoutput->surface_size > (output->height / 2))
-		eoutput->surface_size = output->height / 2;
+	if ((uint32_t)eoutput->surface_size > (exposay_area.width / 2))
+		eoutput->surface_size = exposay_area.width / 2;
+	if ((uint32_t)eoutput->surface_size > (exposay_area.height / 2))
+		eoutput->surface_size = exposay_area.height / 2;
 
 	pad = eoutput->surface_size + eoutput->padding_inner;
 
@@ -301,9 +306,9 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 		esurface->row = i / eoutput->grid_size;
 		esurface->column = i % eoutput->grid_size;
 
-		esurface->x = output->x + eoutput->hpadding_outer;
+		esurface->x = exposay_area.x + eoutput->hpadding_outer;
 		esurface->x += pad * esurface->column;
-		esurface->y = output->y + eoutput->vpadding_outer;
+		esurface->y = exposay_area.y + eoutput->vpadding_outer;
 		esurface->y += pad * esurface->row;
 
 		if (esurface->row == eoutput->grid_size - 1)
