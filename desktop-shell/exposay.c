@@ -207,9 +207,42 @@ handle_view_destroy(struct wl_listener *listener, void *data)
 	exposay_surface_destroy(esurface);
 }
 
-/* Pretty lame layout for now; just tries to make a square.  Should take
+/* Compute each surface size and then inner pad (10% of surface size).
+ * After that, it's necessary to recompute surface size (90% of its
+ * original size). Also, each surface can't be bigger than half the
+ * exposay area width and height.
+ */
+static void
+exposay_surface_and_inner_pad_size(pixman_rectangle32_t exposay_area, struct exposay_output *eoutput)
+{
+	if (exposay_area.height < exposay_area.width)
+		eoutput->surface_size =
+			(exposay_area.height - (eoutput->vpadding_outer * 2)) / eoutput->grid_size;
+	else
+		eoutput->surface_size =
+			(exposay_area.width - (eoutput->hpadding_outer * 2)) / eoutput->grid_size;
+	eoutput->padding_inner = eoutput->surface_size / 10;
+	eoutput->surface_size -= eoutput->padding_inner;
+
+	if ((uint32_t)eoutput->surface_size > (exposay_area.width / 2))
+		eoutput->surface_size = exposay_area.width / 2;
+	if ((uint32_t)eoutput->surface_size > (exposay_area.height / 2))
+		eoutput->surface_size = exposay_area.height / 2;
+}
+
+/* Pretty lame layout for now; just tries to make a square. Should take
  * aspect ratio into account really.  Also needs to be notified of surface
- * addition and removal and adjust layout/animate accordingly. */
+ * addition and removal and adjust layout/animate accordingly.
+ *
+ * Lay the grid out as square as possible, losing surfaces from the
+ * bottom row if required. Start with fixed padding of a 10% margin
+ * around the outside, and maximise the area made available to surfaces
+ * after this. Also, add an inner padding between surfaces that varies
+ * with the surface size (10% of its size).
+ *
+ * If we can't make a square grid, add one extra row at the bottom which
+ * will have a smaller number of columns.
+ */
 static enum exposay_layout_state
 exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 {
@@ -219,7 +252,6 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	struct weston_view *view;
 	struct exposay_surface *esurface, *highlight = NULL;
 	pixman_rectangle32_t exposay_area;
-	int w, h;
 	int pad;
 	int i;
 	int last_row_removed = 0;
@@ -246,40 +278,18 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	 * the shell panel position and size */
 	get_output_work_area(shell, output, &exposay_area);
 
-	/* Lay the grid out as square as possible, losing surfaces from the
-	 * bottom row if required.  Start with fixed padding of a 10% margin
-	 * around the outside and 80px internal padding between surfaces, and
-	 * maximise the area made available to surfaces after this, but only
-	 * to a maximum of 1/3rd the total output size.
-	 *
-	 * If we can't make a square grid, add one extra row at the bottom
-	 * which will have a smaller number of columns.
-	 *
-	 * XXX: Surely there has to be a better way to express this maths,
-	 *      right?!
-	 */
+	/* Compute grid size */
 	eoutput->grid_size = floor(sqrtf(eoutput->num_surfaces));
 	if (pow(eoutput->grid_size, 2) != eoutput->num_surfaces)
 		eoutput->grid_size++;
 	last_row_removed = pow(eoutput->grid_size, 2) - eoutput->num_surfaces;
 
+	/* Fixed outer padding of 10% the size of the screen */
 	eoutput->hpadding_outer = (exposay_area.width / 10);
 	eoutput->vpadding_outer = (exposay_area.height / 10);
-	eoutput->padding_inner = 80;
 
-	w = exposay_area.width - (eoutput->hpadding_outer * 2);
-	w -= eoutput->padding_inner * (eoutput->grid_size - 1);
-	w /= eoutput->grid_size;
-
-	h = exposay_area.height - (eoutput->vpadding_outer * 2);
-	h -= eoutput->padding_inner * (eoutput->grid_size - 1);
-	h /= eoutput->grid_size;
-
-	eoutput->surface_size = (w < h) ? w : h;
-	if ((uint32_t)eoutput->surface_size > (exposay_area.width / 2))
-		eoutput->surface_size = exposay_area.width / 2;
-	if ((uint32_t)eoutput->surface_size > (exposay_area.height / 2))
-		eoutput->surface_size = exposay_area.height / 2;
+	/* Compute each surface size and the inner padding between them */
+	exposay_surface_and_inner_pad_size(exposay_area, eoutput);
 
 	pad = eoutput->surface_size + eoutput->padding_inner;
 
