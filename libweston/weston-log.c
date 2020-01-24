@@ -66,6 +66,7 @@
  */
 struct weston_log_context {
 	struct wl_global *global;
+	struct wl_listener compositor_destroy_listener;
 	struct wl_list scope_list; /**< weston_log_scope::compositor_link */
 	struct wl_list pending_subscription_list; /**< weston_log_subscription::source_link */
 };
@@ -398,6 +399,22 @@ weston_debug_protocol_advertise_scopes(struct weston_log_context *log_ctx,
 		weston_debug_v1_send_available(res, scope->name, scope->desc);
 }
 
+/** Disable debug-protocol
+ *
+ * @param log_ctx The log context where the debug-protocol is linked
+ *
+ * @ingroup internal-log
+ */
+static void
+weston_log_ctx_disable_debug_protocol(struct weston_log_context *log_ctx)
+{
+	if (!log_ctx->global)
+		return;
+
+	wl_global_destroy(log_ctx->global);
+	log_ctx->global = NULL;
+}
+
 /** Creates  weston_log_context structure
  *
  * \return NULL in case of failure, or a weston_log_context object in case of
@@ -418,27 +435,29 @@ weston_log_ctx_create(void)
 
 	wl_list_init(&log_ctx->scope_list);
 	wl_list_init(&log_ctx->pending_subscription_list);
+	wl_list_init(&log_ctx->compositor_destroy_listener.link);
 
 	return log_ctx;
 }
 
 /** Destroy weston_log_context structure
  *
- * \param compositor The libweston compositor whose weston-debug to tear down.
+ * \param log_ctx The log context to destroy.
  *
- * Clears weston_compositor::weston_log_ctx.
  * @ingroup log
  *
  */
 WL_EXPORT void
-weston_log_ctx_compositor_destroy(struct weston_compositor *compositor)
+weston_log_ctx_destroy(struct weston_log_context *log_ctx)
 {
-	struct weston_log_context *log_ctx = compositor->weston_log_ctx;
 	struct weston_log_scope *scope;
 	struct weston_log_subscription *pending_sub, *pending_sub_tmp;
 
-	if (log_ctx->global)
-		wl_global_destroy(log_ctx->global);
+	/* We can't destroy the log context if there's still a compositor
+	 * that depends on it. This is an user error */
+	 assert(wl_list_empty(&log_ctx->compositor_destroy_listener.link));
+
+	weston_log_ctx_disable_debug_protocol(log_ctx);
 
 	wl_list_for_each(scope, &log_ctx->scope_list, compositor_link)
 		fprintf(stderr, "Internal warning: debug scope '%s' has not been destroyed.\n",
@@ -456,8 +475,20 @@ weston_log_ctx_compositor_destroy(struct weston_compositor *compositor)
 	/* pending_subscription_list should be empty at this point */
 
 	free(log_ctx);
+}
 
-	compositor->weston_log_ctx = NULL;
+static void
+compositor_destroy_listener(struct wl_listener *listener, void *data)
+{
+	struct weston_log_context *log_ctx =
+		wl_container_of(listener, log_ctx, compositor_destroy_listener);
+
+	/* We have to keep this list initalized as weston_log_ctx_destroy() has
+	 * to check if there's any compositor destroy listener registered */
+	wl_list_remove(&log_ctx->compositor_destroy_listener.link);
+	wl_list_init(&log_ctx->compositor_destroy_listener.link);
+
+	weston_log_ctx_disable_debug_protocol(log_ctx);
 }
 
 /** Enable weston-debug protocol extension
@@ -492,6 +523,9 @@ weston_compositor_enable_debug_protocol(struct weston_compositor *compositor)
 				       log_ctx, weston_log_bind_weston_debug);
 	if (!log_ctx->global)
 		return;
+
+	log_ctx->compositor_destroy_listener.notify = compositor_destroy_listener;
+	wl_signal_add(&compositor->destroy_signal, &log_ctx->compositor_destroy_listener);
 
 	fprintf(stderr, "WARNING: debug protocol has been enabled. "
 		   "This is a potential denial-of-service attack vector and "

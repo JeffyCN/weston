@@ -2045,7 +2045,7 @@ struct weston_log_context *
 weston_log_ctx_create(void);
 
 void
-weston_log_ctx_compositor_destroy(struct weston_compositor *compositor);
+weston_log_ctx_destroy(struct weston_log_context *log_ctx);
 
 int
 weston_compositor_enable_content_protection(struct weston_compositor *compositor);

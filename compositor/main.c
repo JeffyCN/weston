@@ -3381,8 +3381,8 @@ out:
 
 	weston_log_scope_destroy(log_scope);
 	log_scope = NULL;
-	weston_log_ctx_compositor_destroy(wet.compositor);
 	weston_compositor_destroy(wet.compositor);
+	weston_log_ctx_destroy(log_ctx);
 	weston_log_subscriber_destroy_log(logger);
 	weston_log_subscriber_destroy_flight_rec(flight_rec);
 
