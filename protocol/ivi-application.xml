@@ -84,7 +84,7 @@
         E.g. a unique ID for Car Navigation application is used for implementing special
         logic of the application about where it shall be located.
         The server regards following cases as protocol errors and disconnects the client.
-         - wl_surface already has an nother role.
+         - wl_surface already has another role.
          - ivi_id is already assigned to an another wl_surface.
 
         If client destroys ivi_surface or wl_surface which is assigne to the ivi_surface,
