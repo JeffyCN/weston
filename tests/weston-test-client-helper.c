@@ -725,6 +725,15 @@ static const struct wl_output_listener output_listener = {
 };
 
 static void
+output_destroy(struct output *output)
+{
+	assert(wl_proxy_get_version((struct wl_proxy *)output->wl_output) >= 3);
+	wl_output_release(output->wl_output);
+	wl_list_remove(&output->link);
+	free(output);
+}
+
+static void
 handle_global(void *data, struct wl_registry *registry,
 	      uint32_t id, const char *interface, uint32_t version)
 {
@@ -740,6 +749,13 @@ handle_global(void *data, struct wl_registry *registry,
 	assert(interface);
 	global->version = version;
 	wl_list_insert(client->global_list.prev, &global->link);
+
+	/* We deliberately bind all globals with the maximum (advertised)
+	 * version, because this test suite must be kept up-to-date with
+	 * Weston. We must always implement at least the version advertised
+	 * by Weston. This is not ok for normal clients, but it is ok in
+	 * this test suite.
+	 */
 
 	if (strcmp(interface, "wl_compositor") == 0) {
 		client->wl_compositor =
@@ -766,6 +782,7 @@ handle_global(void *data, struct wl_registry *registry,
 					 &wl_output_interface, version);
 		wl_output_add_listener(output->wl_output,
 				       &output_listener, output);
+		wl_list_insert(&client->output_list, &output->link);
 		client->output = output;
 	} else if (strcmp(interface, "weston_test") == 0) {
 		test = xzalloc(sizeof *test);
@@ -806,6 +823,14 @@ client_find_input_with_name(struct client *client, uint32_t name)
 }
 
 static void
+global_destroy(struct global *global)
+{
+	wl_list_remove(&global->link);
+	free(global->interface);
+	free(global);
+}
+
+static void
 handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 {
 	struct client *client = data;
@@ -824,9 +849,9 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 		}
 	}
 
-	wl_list_remove(&global->link);
-	free(global->interface);
-	free(global);
+	/* XXX: handle wl_output */
+
+	global_destroy(global);
 }
 
 static const struct wl_registry_listener registry_listener = {
@@ -916,6 +941,7 @@ create_client(void)
 	assert(client->wl_display);
 	wl_list_init(&client->global_list);
 	wl_list_init(&client->inputs);
+	wl_list_init(&client->output_list);
 
 	/* setup registry so we can bind to interfaces */
 	client->wl_registry = wl_display_get_registry(client->wl_display);
@@ -965,6 +991,16 @@ create_test_surface(struct client *client)
 	return surface;
 }
 
+void
+surface_destroy(struct surface *surface)
+{
+	if (surface->wl_surface)
+		wl_surface_destroy(surface->wl_surface);
+	if (surface->buffer)
+		buffer_destroy(surface->buffer);
+	free(surface);
+}
+
 struct client *
 create_client_and_test_surface(int x, int y, int width, int height)
 {
@@ -997,6 +1033,46 @@ create_client_and_test_surface(int x, int y, int width, int height)
 	move_client(client, x, y);
 
 	return client;
+}
+
+void
+client_destroy(struct client *client)
+{
+	if (client->surface)
+		surface_destroy(client->surface);
+
+	while (!wl_list_empty(&client->inputs)) {
+		input_destroy(container_of(client->inputs.next,
+					   struct input, link));
+	}
+
+	while (!wl_list_empty(&client->output_list)) {
+		output_destroy(container_of(client->output_list.next,
+					    struct output, link));
+	}
+
+	while (!wl_list_empty(&client->global_list)) {
+		global_destroy(container_of(client->global_list.next,
+					    struct global, link));
+	}
+
+	if (client->test) {
+		weston_test_destroy(client->test->weston_test);
+		free(client->test);
+	}
+
+	if (client->wl_shm)
+		wl_shm_destroy(client->wl_shm);
+	if (client->wl_compositor)
+		wl_compositor_destroy(client->wl_compositor);
+	if (client->wl_registry)
+		wl_registry_destroy(client->wl_registry);
+
+	client_roundtrip(client);
+
+	if (client->wl_display)
+		wl_display_disconnect(client->wl_display);
+	free(client);
 }
 
 static const char*

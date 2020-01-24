@@ -57,6 +57,7 @@ struct client {
 	int has_argb;
 	struct wl_list global_list;
 	bool has_wl_drm;
+	struct wl_list output_list; /* struct output::link */
 };
 
 struct global {
@@ -145,6 +146,7 @@ struct touch {
 
 struct output {
 	struct wl_output *wl_output;
+	struct wl_list link; /* struct client::output_list */
 	int x;
 	int y;
 	int width;
@@ -161,7 +163,7 @@ struct buffer {
 
 struct surface {
 	struct wl_surface *wl_surface;
-	struct output *output;
+	struct output *output; /* not owned */
 	int x;
 	int y;
 	int width;
@@ -184,8 +186,14 @@ struct range {
 struct client *
 create_client(void);
 
+void
+client_destroy(struct client *client);
+
 struct surface *
 create_test_surface(struct client *client);
+
+void
+surface_destroy(struct surface *surface);
 
 struct client *
 create_client_and_test_surface(int x, int y, int width, int height);

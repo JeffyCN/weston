@@ -41,6 +41,7 @@ fixture_setup(struct weston_test_harness *harness)
 	compositor_setup_defaults(&setup);
 	setup.shell = SHELL_IVI;
 	setup.config_file = TESTSUITE_IVI_CONFIG_PATH;
+	setup.logging_scopes = "log,test-harness-plugin,proto";
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
@@ -84,4 +85,6 @@ TEST(ivi_application_exists)
 	client_roundtrip(client);
 
 	testlog("Successful bind: %p\n", iviapp);
+
+	client_destroy(client);
 }
