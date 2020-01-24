@@ -236,6 +236,11 @@ struct workspace *
 get_current_workspace(struct desktop_shell *shell);
 
 void
+get_output_work_area(struct desktop_shell *shell,
+		     struct weston_output *output,
+		     pixman_rectangle32_t *area);
+
+void
 lower_fullscreen_layer(struct desktop_shell *shell,
 		       struct weston_output *lowering_output);
 

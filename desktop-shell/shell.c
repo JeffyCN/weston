@@ -334,7 +334,7 @@ get_output_panel_size(struct desktop_shell *shell,
 	/* the correct view wasn't found */
 }
 
-static void
+void
 get_output_work_area(struct desktop_shell *shell,
 		     struct weston_output *output,
 		     pixman_rectangle32_t *area)
