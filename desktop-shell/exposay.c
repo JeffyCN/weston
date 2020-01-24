@@ -230,6 +230,15 @@ exposay_surface_and_inner_pad_size(pixman_rectangle32_t exposay_area, struct exp
 		eoutput->surface_size = exposay_area.height / 2;
 }
 
+/* Compute the exposay top/left margin in order to centralize it */
+static void
+exposay_margin_size(struct desktop_shell *shell, pixman_rectangle32_t exposay_area,
+		    int row_size, int column_size, int *left_margin, int *top_margin)
+{
+	(*left_margin) = exposay_area.x + (exposay_area.width - row_size) / 2;
+	(*top_margin) = exposay_area.y + (exposay_area.height - column_size) / 2;
+}
+
 /* Pretty lame layout for now; just tries to make a square. Should take
  * aspect ratio into account really.  Also needs to be notified of surface
  * addition and removal and adjust layout/animate accordingly.
@@ -252,7 +261,8 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	struct weston_view *view;
 	struct exposay_surface *esurface, *highlight = NULL;
 	pixman_rectangle32_t exposay_area;
-	int pad;
+	int pad, row_size, column_size, left_margin, top_margin;
+	int populated_rows;
 	int i;
 	int last_row_removed = 0;
 
@@ -291,7 +301,16 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	/* Compute each surface size and the inner padding between them */
 	exposay_surface_and_inner_pad_size(exposay_area, eoutput);
 
+	/* Compute each row/column size */
 	pad = eoutput->surface_size + eoutput->padding_inner;
+	row_size = (pad * eoutput->grid_size) - eoutput->padding_inner;
+	/* We may have empty rows that should be desconsidered to compute
+	 * column size */
+	populated_rows = ceil(eoutput->num_surfaces / (float) eoutput->grid_size);
+	column_size = (pad * populated_rows) - eoutput->padding_inner;
+
+	/* Compute a top/left margin to centralize the exposay */
+	exposay_margin_size(shell, exposay_area, row_size, column_size, &left_margin, &top_margin);
 
 	i = 0;
 	wl_list_for_each(view, &workspace->layer.view_list.link, layer_link.link) {
@@ -316,10 +335,8 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 		esurface->row = i / eoutput->grid_size;
 		esurface->column = i % eoutput->grid_size;
 
-		esurface->x = exposay_area.x + eoutput->hpadding_outer;
-		esurface->x += pad * esurface->column;
-		esurface->y = exposay_area.y + eoutput->vpadding_outer;
-		esurface->y += pad * esurface->row;
+		esurface->x = left_margin + (pad * esurface->column);
+		esurface->y = top_margin + (pad * esurface->row);
 
 		if (esurface->row == eoutput->grid_size - 1)
 			esurface->x += (eoutput->surface_size + eoutput->padding_inner) * last_row_removed / 2;
