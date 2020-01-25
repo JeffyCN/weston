@@ -348,6 +348,13 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 		esurface->width = view->surface->width * esurface->scale;
 		esurface->height = view->surface->height * esurface->scale;
 
+		/* Surfaces are usually rectangular, but their exposay surfaces
+		 * are square. centralize them in their own square */
+		if (esurface->width > esurface->height)
+			esurface->y += (esurface->width - esurface->height) / 2;
+		else
+			esurface->x += (esurface->height - esurface->width) / 2;
+
 		if (shell->exposay.focus_current == esurface->view)
 			highlight = esurface;
 
