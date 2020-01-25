@@ -62,9 +62,6 @@ struct exposay_output {
 	int num_surfaces;
 	int grid_size;
 	int surface_size;
-
-	int hpadding_outer;
-	int vpadding_outer;
 	int padding_inner;
 };
 

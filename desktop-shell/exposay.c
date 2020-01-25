@@ -216,11 +216,10 @@ static void
 exposay_surface_and_inner_pad_size(pixman_rectangle32_t exposay_area, struct exposay_output *eoutput)
 {
 	if (exposay_area.height < exposay_area.width)
-		eoutput->surface_size =
-			(exposay_area.height - (eoutput->vpadding_outer * 2)) / eoutput->grid_size;
+		eoutput->surface_size = exposay_area.height / eoutput->grid_size;
 	else
-		eoutput->surface_size =
-			(exposay_area.width - (eoutput->hpadding_outer * 2)) / eoutput->grid_size;
+		eoutput->surface_size = exposay_area.width / eoutput->grid_size;
+
 	eoutput->padding_inner = eoutput->surface_size / 10;
 	eoutput->surface_size -= eoutput->padding_inner;
 
@@ -277,8 +276,6 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 
 	if (eoutput->num_surfaces == 0) {
 		eoutput->grid_size = 0;
-		eoutput->hpadding_outer = 0;
-		eoutput->vpadding_outer = 0;
 		eoutput->padding_inner = 0;
 		eoutput->surface_size = 0;
 		return EXPOSAY_LAYOUT_OVERVIEW;
@@ -292,10 +289,6 @@ exposay_layout(struct desktop_shell *shell, struct shell_output *shell_output)
 	eoutput->grid_size = floor(sqrtf(eoutput->num_surfaces));
 	if (pow(eoutput->grid_size, 2) != eoutput->num_surfaces)
 		eoutput->grid_size++;
-
-	/* Fixed outer padding of 10% the size of the screen */
-	eoutput->hpadding_outer = (exposay_area.width / 10);
-	eoutput->vpadding_outer = (exposay_area.height / 10);
 
 	/* Compute each surface size and the inner padding between them */
 	exposay_surface_and_inner_pad_size(exposay_area, eoutput);
