@@ -58,6 +58,7 @@ cc = meson.get_compiler('c')
 
 global_args = []
 global_args_maybe = [
+	'-Wmissing-prototypes',
 	'-Wno-unused-parameter',
 	'-Wno-shift-negative-value', # required due to Pixman
 	'-Wno-missing-field-initializers',
