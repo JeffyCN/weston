@@ -11,10 +11,14 @@ env_modmap += 'weston-test-desktop-shell.so=@0@;'.format(plugin_test_shell_deskt
 lib_test_runner = static_library(
 	'test-runner',
 	'weston-test-runner.c',
+	dependencies: dep_wayland_client,
 	include_directories: common_inc,
 	install: false,
 )
-dep_test_runner = declare_dependency(link_with: lib_test_runner)
+dep_test_runner = declare_dependency(
+	dependencies: dep_wayland_client,
+	link_with: lib_test_runner
+)
 
 lib_test_client = static_library(
 	'test-client',
