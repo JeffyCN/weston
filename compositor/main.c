@@ -3375,13 +3375,11 @@ out:
 	if (protologger)
 		wl_protocol_logger_destroy(protologger);
 
+	weston_compositor_destroy(wet.compositor);
 	weston_log_scope_destroy(protocol_scope);
 	protocol_scope = NULL;
-	weston_compositor_tear_down(wet.compositor);
-
 	weston_log_scope_destroy(log_scope);
 	log_scope = NULL;
-	weston_compositor_destroy(wet.compositor);
 	weston_log_ctx_destroy(log_ctx);
 	weston_log_subscriber_destroy_log(logger);
 	weston_log_subscriber_destroy_flight_rec(flight_rec);

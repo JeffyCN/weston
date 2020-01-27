@@ -6529,7 +6529,7 @@ weston_compositor_create_output_with_head(struct weston_compositor *compositor,
  * The heads attached to the given output are detached and become unused again.
  *
  * It is not necessary to explicitly destroy all outputs at compositor exit.
- * weston_compositor_tear_down() will automatically destroy any remaining
+ * weston_compositor_destroy() will automatically destroy any remaining
  * outputs.
  *
  * \ingroup ouput
@@ -7633,7 +7633,7 @@ weston_load_module(const char *name, const char *entrypoint)
  * the plugin destruction order is not guaranteed: plugins that depend on other
  * plugins must be able to be torn down in arbitrary order.
  *
- * \sa weston_compositor_tear_down, weston_compositor_destroy
+ * \sa weston_compositor_destroy
  */
 WL_EXPORT bool
 weston_compositor_add_destroy_listener_once(struct weston_compositor *compositor,
@@ -7648,19 +7648,16 @@ weston_compositor_add_destroy_listener_once(struct weston_compositor *compositor
 	return true;
 }
 
-/** Tear down the compositor.
+/** Destroys the compositor.
  *
- * This function cleans up the compositor state. While the compositor state has
- * been cleaned do note that **only** weston_compositor_destroy() can be called
- * afterwards, in order to destroy the compositor instance.
+ * This function cleans up the compositor state and then destroys it.
  *
- * @param compositor The compositor to be tear-down/cleaned.
+ * @param compositor The compositor to be destroyed.
  *
  * @ingroup compositor
- * @sa weston_compositor_destroy
  */
 WL_EXPORT void
-weston_compositor_tear_down(struct weston_compositor *compositor)
+weston_compositor_destroy(struct weston_compositor *compositor)
 {
 	/* prevent further rendering while shutting down */
 	compositor->state = WESTON_COMPOSITOR_OFFSCREEN;
@@ -7685,20 +7682,7 @@ weston_compositor_tear_down(struct weston_compositor *compositor)
 
 	weston_log_scope_destroy(compositor->timeline);
 	compositor->timeline = NULL;
-}
 
-/** Destroys the compositor.
- *
- * This function destroys the compositor. **Do not** call this before
- * calling weston_compositor_tear_down()
- *
- * @param compositor The compositor to be destroyed.
- * @ingroup compositor
- * @sa weston_compositor_tear_down()
- */
-WL_EXPORT void
-weston_compositor_destroy(struct weston_compositor *compositor)
-{
 	free(compositor);
 }
 

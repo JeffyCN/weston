@@ -1766,8 +1766,6 @@ void
 weston_compositor_get_time(struct timespec *time);
 
 void
-weston_compositor_tear_down(struct weston_compositor *ec);
-void
 weston_compositor_destroy(struct weston_compositor *ec);
 
 struct weston_compositor *
