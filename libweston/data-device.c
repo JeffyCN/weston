@@ -33,6 +33,7 @@
 #include <assert.h>
 
 #include <libweston/libweston.h>
+#include "libweston-internal.h"
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
 
