@@ -6929,26 +6929,6 @@ compositor_bind(struct wl_client *client,
 				       compositor, NULL);
 }
 
-WL_EXPORT int
-weston_environment_get_fd(const char *env)
-{
-	char *e;
-	int fd, flags;
-
-	e = getenv(env);
-	if (!e || !safe_strtoint(e, &fd))
-		return -1;
-
-	flags = fcntl(fd, F_GETFD);
-	if (flags == -1)
-		return -1;
-
-	fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
-	unsetenv(env);
-
-	return fd;
-}
-
 static const char *
 output_repaint_status_text(struct weston_output *output)
 {

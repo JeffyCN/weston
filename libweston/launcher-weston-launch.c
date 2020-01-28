@@ -47,6 +47,7 @@
 #include <libweston/libweston.h>
 #include "weston-launch.h"
 #include "launcher-impl.h"
+#include "shared/string-helpers.h"
 
 #define DRM_MAJOR 226
 
@@ -232,6 +233,27 @@ launcher_weston_launch_activate_vt(struct weston_launcher *launcher_base, int vt
 }
 
 static int
+launcher_weston_environment_get_fd(const char *env)
+{
+	char *e;
+	int fd, flags;
+
+	e = getenv(env);
+	if (!e || !safe_strtoint(e, &fd))
+		return -1;
+
+	flags = fcntl(fd, F_GETFD);
+	if (flags == -1)
+		return -1;
+
+	fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+	unsetenv(env);
+
+	return fd;
+}
+
+
+static int
 launcher_weston_launch_connect(struct weston_launcher **out, struct weston_compositor *compositor,
 			       int tty, const char *seat_id, bool sync_drm)
 {
@@ -246,9 +268,9 @@ launcher_weston_launch_connect(struct weston_launcher **out, struct weston_compo
 	* (struct launcher_weston_launch **) out = launcher;
 	launcher->compositor = compositor;
 	launcher->drm_fd = -1;
-	launcher->fd = weston_environment_get_fd("WESTON_LAUNCHER_SOCK");
+	launcher->fd = launcher_weston_environment_get_fd("WESTON_LAUNCHER_SOCK");
 	if (launcher->fd != -1) {
-		launcher->tty = weston_environment_get_fd("WESTON_TTY_FD");
+		launcher->tty = launcher_weston_environment_get_fd("WESTON_TTY_FD");
 		/* We don't get a chance to read out the original kb
 		 * mode for the tty, so just hard code K_UNICODE here
 		 * in case we have to clean if weston-launch dies. */
