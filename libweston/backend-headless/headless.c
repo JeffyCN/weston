@@ -450,6 +450,9 @@ headless_backend_create(struct weston_compositor *compositor,
 	case HEADLESS_NOOP:
 		ret = noop_renderer_init(compositor);
 		break;
+	default:
+		assert(0 && "invalid renderer type");
+		ret = -1;
 	}
 
 	if (ret < 0)

@@ -685,7 +685,7 @@ static int
 drm_output_try_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 {
 	struct weston_mode *base;
-	struct drm_mode *mode;
+	struct drm_mode *mode = NULL;
 	struct drm_backend *backend;
 	const drmModeModeInfo *chosen = NULL;
 
@@ -699,6 +699,7 @@ drm_output_try_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 	}
 
 	if (chosen == info) {
+		assert(mode);
 		backend = to_drm_backend(output->base.compositor);
 		drm_output_destroy_mode(backend, mode);
 		chosen = NULL;
