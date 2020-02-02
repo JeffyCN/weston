@@ -34,10 +34,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <libweston/zalloc.h>
-
-#ifdef HAVE_MEMFD_CREATE
 #include <sys/mman.h>
-#endif
 
 #include "os-compatibility.h"
 
