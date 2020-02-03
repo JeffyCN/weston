@@ -2550,7 +2550,7 @@ load_headless_backend(struct weston_compositor *c,
 	const struct weston_windowed_output_api *api;
 	struct weston_headless_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
-	bool no_outputs;
+	bool no_outputs = false;
 	int ret = 0;
 	char *transform = NULL;
 
