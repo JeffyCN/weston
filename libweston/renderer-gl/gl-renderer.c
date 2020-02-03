@@ -3596,6 +3596,7 @@ fail_terminate:
 	eglTerminate(gr->egl_display);
 fail:
 	free(gr);
+	ec->renderer = NULL;
 	return -1;
 }
 
