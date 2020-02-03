@@ -2970,6 +2970,8 @@ shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
 
 	shader->vertex_shader =
 		compile_shader(GL_VERTEX_SHADER, 1, &vertex_source);
+	if (shader->vertex_shader == GL_NONE)
+		return -1;
 
 	if (renderer->fragment_shader_debug) {
 		sources[0] = fragment_source;
@@ -2984,6 +2986,8 @@ shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
 
 	shader->fragment_shader =
 		compile_shader(GL_FRAGMENT_SHADER, count, sources);
+	if (shader->fragment_shader == GL_NONE)
+		return -1;
 
 	shader->program = glCreateProgram();
 	glAttachShader(shader->program, shader->vertex_shader);
