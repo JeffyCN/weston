@@ -794,8 +794,14 @@ handle_compositor_destroy(struct wl_listener *listener,
 		client_thread_join(test);
 	}
 
+	if (test->is_seat_initialized)
+		test_seat_release(test);
+
+	wl_list_remove(&test->layer.view_list.link);
+	wl_list_remove(&test->layer.link);
+
 	weston_log_scope_destroy(test->log);
-	test->log = NULL;
+	free(test);
 }
 
 WL_EXPORT int
