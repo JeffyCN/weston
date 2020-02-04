@@ -69,6 +69,7 @@ build-native-meson-default-options:
     MESON_OPTIONS: >
       -Dwerror=true
       -Ddoc=true
+      -Dtest-gl-renderer=false
   extends: .build-native-meson
 
 build-native-meson-no-gl-renderer:
