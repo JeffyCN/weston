@@ -162,7 +162,9 @@ static void
 weston_log_debug_wayland_to_destroy(struct weston_log_subscriber *sub)
 {
 	struct weston_log_debug_wayland *stream = to_weston_log_debug_wayland(sub);
-	stream_close_on_failure(stream, "debug name removed");
+
+	if (stream->fd != -1)
+		stream_close_on_failure(stream, "debug name removed");
 }
 
 static struct weston_log_debug_wayland *
@@ -201,20 +203,10 @@ static void
 stream_destroy(struct wl_resource *stream_resource)
 {
 	struct weston_log_debug_wayland *stream;
-	struct weston_log_subscription *sub = NULL;
-
 	stream = wl_resource_get_user_data(stream_resource);
 
-	if (stream->fd != -1)
-		close(stream->fd);
-
-	sub = weston_log_subscriber_get_only_subscription(&stream->base);
-
-	/* we can have a zero subscription if clients tried to subscribe
-	 * to a non-existent scope */
-	if (sub)
-		weston_log_subscription_destroy(sub);
-
+	stream_close_unlink(stream);
+	weston_log_subscriber_release(&stream->base);
 	free(stream);
 }
 

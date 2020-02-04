@@ -293,30 +293,6 @@ weston_log_subscription_destroy(struct weston_log_subscription *sub)
 	free(sub);
 }
 
-/** Retrieve a subscription by using the subscriber
- *
- * This is useful when trying to find a subscription from the subscriber by
- * having only access to the stream.
- *
- * @param subscriber the subscriber in question
- * @returns a weston_log_subscription object
- *
- * @memberof weston_log_subscription
- */
-struct weston_log_subscription *
-weston_log_subscriber_get_only_subscription(struct weston_log_subscriber *subscriber)
-{
-	struct weston_log_subscription *sub;
-	/* unlikely, but can happen */
-	if (wl_list_length(&subscriber->subscription_list) == 0)
-		return NULL;
-
-	assert(wl_list_length(&subscriber->subscription_list) == 1);
-
-	return wl_container_of(subscriber->subscription_list.prev,
-			       sub, owner_link);
-}
-
 /** Adds the subscription \c sub to the subscription list of the
  * scope.
  *

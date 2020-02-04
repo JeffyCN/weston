@@ -72,9 +72,6 @@ weston_log_subscription_create(struct weston_log_subscriber *owner,
 void
 weston_log_subscription_destroy(struct weston_log_subscription *sub);
 
-struct weston_log_subscription *
-weston_log_subscriber_get_only_subscription(struct weston_log_subscriber *subscriber);
-
 void
 weston_log_subscription_add(struct weston_log_scope *scope,
 			    struct weston_log_subscription *sub);
