@@ -115,6 +115,8 @@ config_h.set_quoted('LIBEXECDIR', dir_libexec)
 config_h.set_quoted('MODULEDIR', dir_module_weston)
 config_h.set_quoted('LIBWESTON_MODULEDIR', dir_module_libweston)
 
+config_h.set10('TEST_GL_RENDERER', get_option('test-gl-renderer'))
+
 backend_default = get_option('backend-default')
 if backend_default == 'auto'
 	foreach b : [ 'headless', 'fbdev', 'x11', 'wayland', 'drm' ]

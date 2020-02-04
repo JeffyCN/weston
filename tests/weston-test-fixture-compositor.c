@@ -229,6 +229,13 @@ execute_compositor(const struct compositor_setup *setup,
 	}
 #endif
 
+#if !TEST_GL_RENDERER
+	if (setup->renderer == RENDERER_GL) {
+		fprintf(stderr, "GL-renderer disabled for tests, skipping.\n");
+		return RESULT_SKIP;
+	}
+#endif
+
 	prog_args_init(&args);
 
 	/* argv[0] */

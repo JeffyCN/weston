@@ -205,6 +205,12 @@ option(
 	description: 'Tests: output JUnit XML results'
 )
 option(
+	'test-gl-renderer',
+	type: 'boolean',
+	value: true,
+	description: 'Tests: allow running with GL-renderer'
+)
+option(
 	'doc',
 	type: 'boolean',
 	value: false,
