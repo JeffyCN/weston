@@ -939,6 +939,21 @@ weston_log_scope_timestamp(struct weston_log_scope *scope,
 	return buf;
 }
 
+void
+weston_log_subscriber_release(struct weston_log_subscriber *subscriber)
+{
+	struct weston_log_subscription *sub, *sub_tmp;
+
+	wl_list_for_each_safe(sub, sub_tmp, &subscriber->subscription_list, owner_link) {
+		/* destroy each subscription */
+		if (sub->owner->destroy_subscription)
+			sub->owner->destroy_subscription(sub->owner);
+
+		weston_log_subscription_destroy(sub);
+	}
+
+}
+
 /** Destroy a file type or a flight-rec type subscriber.
  *
  * They are created, respectively, with weston_log_subscriber_create_log()

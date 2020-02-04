@@ -228,6 +228,7 @@ weston_log_subscriber_destroy_flight_rec(struct weston_log_subscriber *sub)
 	if (weston_primary_flight_recorder_ring_buffer == &flight_rec->rb)
 		weston_primary_flight_recorder_ring_buffer = NULL;
 
+	weston_log_subscriber_release(sub);
 	free(flight_rec->rb.buf);
 	free(flight_rec);
 }

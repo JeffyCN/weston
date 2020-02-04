@@ -82,6 +82,9 @@ void
 weston_log_subscription_remove(struct weston_log_subscription *sub);
 
 void
+weston_log_subscriber_release(struct weston_log_subscriber *subscriber);
+
+void
 weston_log_bind_weston_debug(struct wl_client *client,
 			     void *data, uint32_t version, uint32_t id);
 

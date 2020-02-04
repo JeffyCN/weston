@@ -58,6 +58,8 @@ static void
 weston_log_subscriber_destroy_log(struct weston_log_subscriber *subscriber)
 {
 	struct weston_debug_log_file *file = to_weston_debug_log_file(subscriber);
+
+	weston_log_subscriber_release(subscriber);
 	free(file);
 }
 
