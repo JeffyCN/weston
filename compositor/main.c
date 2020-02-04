@@ -3380,9 +3380,9 @@ out:
 	protocol_scope = NULL;
 	weston_log_scope_destroy(log_scope);
 	log_scope = NULL;
-	weston_log_ctx_destroy(log_ctx);
 	weston_log_subscriber_destroy(logger);
 	weston_log_subscriber_destroy(flight_rec);
+	weston_log_ctx_destroy(log_ctx);
 
 out_signals:
 	for (i = ARRAY_LENGTH(signals) - 1; i >= 0; i--)
