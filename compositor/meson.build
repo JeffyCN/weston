@@ -90,7 +90,8 @@ if get_option('screenshare')
 		dependencies: deps_screenshare,
 		name_prefix: '',
 		install: true,
-		install_dir: dir_module_weston
+		install_dir: dir_module_weston,
+		install_rpath: '$ORIGIN'
 	)
 	env_modmap += 'screen-share.so=@0@;'.format(plugin_screenshare.full_path())
 endif
@@ -115,7 +116,8 @@ if get_option('color-management-lcms')
 		dependencies: [ dep_libexec_weston, dep_libweston_public, dep_lcms2 ],
 		name_prefix: '',
 		install: true,
-		install_dir: dir_module_weston
+		install_dir: dir_module_weston,
+		install_rpath: '$ORIGIN'
 	)
 	env_modmap += 'cms-static.so=@0@;'.format(plugin_lcms.full_path())
 endif
