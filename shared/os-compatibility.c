@@ -340,6 +340,7 @@ os_ro_anonymous_file_get_fd(struct ro_anonymous_file *file,
 	void *src, *dst;
 	int seals, fd;
 
+#ifdef HAVE_MEMFD_CREATE
 	seals = fcntl(file->fd, F_GET_SEALS);
 
 	/* file was sealed for read-only and we don't have to support MAP_SHARED
@@ -348,6 +349,7 @@ os_ro_anonymous_file_get_fd(struct ro_anonymous_file *file,
 	if (seals != -1 && mapmode == RO_ANONYMOUS_FILE_MAPMODE_PRIVATE &&
 	    (seals & READONLY_SEALS) == READONLY_SEALS)
 		return file->fd;
+#endif
 
 	/* for all other cases we create a new anonymous file that can be mapped
 	 * with MAP_SHARED and copy the contents to it and return that instead
@@ -388,17 +390,18 @@ os_ro_anonymous_file_get_fd(struct ro_anonymous_file *file,
 int
 os_ro_anonymous_file_put_fd(int fd)
 {
+#ifdef HAVE_MEMFD_CREATE
 	int seals = fcntl(fd, F_GET_SEALS);
 	if (seals == -1 && errno != EINVAL)
 		return -1;
 
-	/* If the fd cannot be sealed seals is -1 at this point
-	 * or the file can be sealed but has not been sealed for writing.
-	 * In both cases we created a new anonymous file that we have to
-	 * close.
+	/* The only case in which we do NOT have to close the file is when the file
+	 * was sealed for read-only
 	 */
-	if (seals == -1 || !(seals & F_SEAL_WRITE))
-		close(fd);
+	if (seals != -1 && (seals & READONLY_SEALS) == READONLY_SEALS)
+		return 0;
+#endif
 
+	close(fd);
 	return 0;
 }
