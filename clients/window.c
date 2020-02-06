@@ -1832,14 +1832,14 @@ widget_cairo_update_transform(struct widget *widget, cairo_t *cr)
 		translate_y = 0;
 		break;
 	case WL_OUTPUT_TRANSFORM_90:
-		angle = M_PI_2;
-		translate_x = surface_height;
-		translate_y = 0;
+		angle = M_PI + M_PI_2;
+		translate_x = 0;
+		translate_y = surface_width;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		angle = M_PI_2;
-		translate_x = surface_height;
-		translate_y = surface_width;
+		angle = M_PI + M_PI_2;
+		translate_x = 0;
+		translate_y = 0;
 		break;
 	case WL_OUTPUT_TRANSFORM_180:
 		angle = M_PI;
@@ -1852,14 +1852,14 @@ widget_cairo_update_transform(struct widget *widget, cairo_t *cr)
 		translate_y = surface_height;
 		break;
 	case WL_OUTPUT_TRANSFORM_270:
-		angle = M_PI + M_PI_2;
-		translate_x = 0;
-		translate_y = surface_width;
+		angle = M_PI_2;
+		translate_x = surface_height;
+		translate_y = 0;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		angle = M_PI + M_PI_2;
-		translate_x = 0;
-		translate_y = 0;
+		angle = M_PI_2;
+		translate_x = surface_height;
+		translate_y = surface_width;
 		break;
 	}
 

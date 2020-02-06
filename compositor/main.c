@@ -1107,14 +1107,14 @@ weston_choose_default_backend(void)
 }
 
 static const struct { const char *name; uint32_t token; } transforms[] = {
-	{ "normal",     WL_OUTPUT_TRANSFORM_NORMAL },
-	{ "90",         WL_OUTPUT_TRANSFORM_90 },
-	{ "180",        WL_OUTPUT_TRANSFORM_180 },
-	{ "270",        WL_OUTPUT_TRANSFORM_270 },
-	{ "flipped",    WL_OUTPUT_TRANSFORM_FLIPPED },
-	{ "flipped-90", WL_OUTPUT_TRANSFORM_FLIPPED_90 },
-	{ "flipped-180", WL_OUTPUT_TRANSFORM_FLIPPED_180 },
-	{ "flipped-270", WL_OUTPUT_TRANSFORM_FLIPPED_270 },
+	{ "normal",             WL_OUTPUT_TRANSFORM_NORMAL },
+	{ "rotate-90",          WL_OUTPUT_TRANSFORM_90 },
+	{ "rotate-180",         WL_OUTPUT_TRANSFORM_180 },
+	{ "rotate-270",         WL_OUTPUT_TRANSFORM_270 },
+	{ "flipped",            WL_OUTPUT_TRANSFORM_FLIPPED },
+	{ "flipped-rotate-90",  WL_OUTPUT_TRANSFORM_FLIPPED_90 },
+	{ "flipped-rotate-180", WL_OUTPUT_TRANSFORM_FLIPPED_180 },
+	{ "flipped-rotate-270", WL_OUTPUT_TRANSFORM_FLIPPED_270 },
 };
 
 WL_EXPORT int

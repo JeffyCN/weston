@@ -231,6 +231,9 @@ usage(int error_code)
 		"   -h <height>\tSet window height to <height>\n"
 		"   --help\tShow this help text\n\n");
 
+	fprintf(stderr, "This version has been fixed for "
+		"https://gitlab.freedesktop.org/wayland/weston/issues/99 .\n");
+
 	exit(error_code);
 }
 

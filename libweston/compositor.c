@@ -643,12 +643,12 @@ weston_transformed_coord(int width, int height,
 		*by = sy;
 		break;
 	case WL_OUTPUT_TRANSFORM_90:
-		*bx = height - sy;
-		*by = sx;
+		*bx = sy;
+		*by = width - sx;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		*bx = height - sy;
-		*by = width - sx;
+		*bx = sy;
+		*by = sx;
 		break;
 	case WL_OUTPUT_TRANSFORM_180:
 		*bx = width - sx;
@@ -659,12 +659,12 @@ weston_transformed_coord(int width, int height,
 		*by = height - sy;
 		break;
 	case WL_OUTPUT_TRANSFORM_270:
-		*bx = sy;
-		*by = width - sx;
+		*bx = height - sy;
+		*by = sx;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		*bx = sy;
-		*by = sx;
+		*bx = height - sy;
+		*by = width - sx;
 		break;
 	}
 
@@ -830,10 +830,10 @@ weston_transformed_region(int width, int height,
 				dest_rects[i].y2 = src_rects[i].y2;
 				break;
 			case WL_OUTPUT_TRANSFORM_90:
-				dest_rects[i].x1 = height - src_rects[i].y2;
-				dest_rects[i].y1 = src_rects[i].x1;
-				dest_rects[i].x2 = height - src_rects[i].y1;
-				dest_rects[i].y2 = src_rects[i].x2;
+				dest_rects[i].x1 = src_rects[i].y1;
+				dest_rects[i].y1 = width - src_rects[i].x2;
+				dest_rects[i].x2 = src_rects[i].y2;
+				dest_rects[i].y2 = width - src_rects[i].x1;
 				break;
 			case WL_OUTPUT_TRANSFORM_180:
 				dest_rects[i].x1 = width - src_rects[i].x2;
@@ -842,10 +842,10 @@ weston_transformed_region(int width, int height,
 				dest_rects[i].y2 = height - src_rects[i].y1;
 				break;
 			case WL_OUTPUT_TRANSFORM_270:
-				dest_rects[i].x1 = src_rects[i].y1;
-				dest_rects[i].y1 = width - src_rects[i].x2;
-				dest_rects[i].x2 = src_rects[i].y2;
-				dest_rects[i].y2 = width - src_rects[i].x1;
+				dest_rects[i].x1 = height - src_rects[i].y2;
+				dest_rects[i].y1 = src_rects[i].x1;
+				dest_rects[i].x2 = height - src_rects[i].y1;
+				dest_rects[i].y2 = src_rects[i].x2;
 				break;
 			case WL_OUTPUT_TRANSFORM_FLIPPED:
 				dest_rects[i].x1 = width - src_rects[i].x2;
@@ -854,10 +854,10 @@ weston_transformed_region(int width, int height,
 				dest_rects[i].y2 = src_rects[i].y2;
 				break;
 			case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-				dest_rects[i].x1 = height - src_rects[i].y2;
-				dest_rects[i].y1 = width - src_rects[i].x2;
-				dest_rects[i].x2 = height - src_rects[i].y1;
-				dest_rects[i].y2 = width - src_rects[i].x1;
+				dest_rects[i].x1 = src_rects[i].y1;
+				dest_rects[i].y1 = src_rects[i].x1;
+				dest_rects[i].x2 = src_rects[i].y2;
+				dest_rects[i].y2 = src_rects[i].x2;
 				break;
 			case WL_OUTPUT_TRANSFORM_FLIPPED_180:
 				dest_rects[i].x1 = src_rects[i].x1;
@@ -866,10 +866,10 @@ weston_transformed_region(int width, int height,
 				dest_rects[i].y2 = height - src_rects[i].y1;
 				break;
 			case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-				dest_rects[i].x1 = src_rects[i].y1;
-				dest_rects[i].y1 = src_rects[i].x1;
-				dest_rects[i].x2 = src_rects[i].y2;
-				dest_rects[i].y2 = src_rects[i].x2;
+				dest_rects[i].x1 = height - src_rects[i].y2;
+				dest_rects[i].y1 = width - src_rects[i].x2;
+				dest_rects[i].x2 = height - src_rects[i].y1;
+				dest_rects[i].y2 = width - src_rects[i].x1;
 				break;
 			}
 		}
@@ -3402,9 +3402,9 @@ weston_surface_build_buffer_matrix(const struct weston_surface *surface,
 		break;
 	case WL_OUTPUT_TRANSFORM_90:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		weston_matrix_rotate_xy(matrix, 0, 1);
+		weston_matrix_rotate_xy(matrix, 0, -1);
 		weston_matrix_translate(matrix,
-					surface->height_from_buffer, 0, 0);
+					0, surface->width_from_buffer, 0);
 		break;
 	case WL_OUTPUT_TRANSFORM_180:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
@@ -3415,9 +3415,9 @@ weston_surface_build_buffer_matrix(const struct weston_surface *surface,
 		break;
 	case WL_OUTPUT_TRANSFORM_270:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		weston_matrix_rotate_xy(matrix, 0, -1);
+		weston_matrix_rotate_xy(matrix, 0, 1);
 		weston_matrix_translate(matrix,
-					0, surface->width_from_buffer, 0);
+					surface->height_from_buffer, 0, 0);
 		break;
 	}
 
@@ -5786,8 +5786,8 @@ weston_output_update_matrix(struct weston_output *output)
 		break;
 	case WL_OUTPUT_TRANSFORM_90:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		weston_matrix_translate(&output->matrix, 0, -output->height, 0);
-		weston_matrix_rotate_xy(&output->matrix, 0, 1);
+		weston_matrix_translate(&output->matrix, -output->width, 0, 0);
+		weston_matrix_rotate_xy(&output->matrix, 0, -1);
 		break;
 	case WL_OUTPUT_TRANSFORM_180:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
@@ -5797,8 +5797,8 @@ weston_output_update_matrix(struct weston_output *output)
 		break;
 	case WL_OUTPUT_TRANSFORM_270:
 	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		weston_matrix_translate(&output->matrix, -output->width, 0, 0);
-		weston_matrix_rotate_xy(&output->matrix, 0, -1);
+		weston_matrix_translate(&output->matrix, 0, -output->height, 0);
+		weston_matrix_rotate_xy(&output->matrix, 0, 1);
 		break;
 	}
 
