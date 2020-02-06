@@ -79,7 +79,7 @@ weston_log_subscriber_create_log(FILE *dump_to)
 
 
 	file->base.write = weston_log_file_write;
-	file->base.destroy = NULL;
+	file->base.destroy_subscription = NULL;
 	file->base.complete = NULL;
 
 	wl_list_init(&file->base.subscription_list);

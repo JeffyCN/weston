@@ -54,7 +54,7 @@ struct weston_log_subscriber {
 	void (*write)(struct weston_log_subscriber *sub, const char *data, size_t len);
 	/** For the type of streams that required additional destroy operation
 	 * for destroying the stream */
-	void (*destroy)(struct weston_log_subscriber *sub);
+	void (*destroy_subscription)(struct weston_log_subscriber *sub);
 	/** For the type of streams that can inform the 'consumer' part that
 	 * write operation has been terminated/finished and should close the
 	 * stream.

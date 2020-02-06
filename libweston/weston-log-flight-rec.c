@@ -241,7 +241,7 @@ weston_log_subscriber_create_flight_rec(size_t size)
 		return NULL;
 
 	flight_rec->base.write = weston_log_flight_recorder_write;
-	flight_rec->base.destroy = NULL;
+	flight_rec->base.destroy_subscription = NULL;
 	flight_rec->base.complete = NULL;
 	wl_list_init(&flight_rec->base.subscription_list);
 

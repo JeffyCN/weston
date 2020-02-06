@@ -712,8 +712,8 @@ weston_log_scope_destroy(struct weston_log_scope *scope)
 
 	wl_list_for_each_safe(sub, sub_tmp, &scope->subscription_list, source_link) {
 		/* destroy each subscription */
-		if (sub->owner->destroy)
-			sub->owner->destroy(sub->owner);
+		if (sub->owner->destroy_subscription)
+			sub->owner->destroy_subscription(sub->owner);
 
 		weston_log_subscription_destroy(sub);
 	}
