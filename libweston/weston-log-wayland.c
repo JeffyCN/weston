@@ -180,6 +180,7 @@ stream_create(struct weston_log_context *log_ctx, const char *name,
 	stream->resource = stream_resource;
 
 	stream->base.write = weston_log_debug_wayland_write;
+	stream->base.destroy = NULL;
 	stream->base.destroy_subscription = weston_log_debug_wayland_to_destroy;
 	stream->base.complete = weston_log_debug_wayland_complete;
 	wl_list_init(&stream->base.subscription_list);

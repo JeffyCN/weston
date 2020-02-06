@@ -939,6 +939,21 @@ weston_log_scope_timestamp(struct weston_log_scope *scope,
 	return buf;
 }
 
+/** Destroy a file type or a flight-rec type subscriber.
+ *
+ * They are created, respectively, with weston_log_subscriber_create_log()
+ * and weston_log_subscriber_create_flight_rec()
+ *
+ * @param subscriber the weston_log_subscriber object to destroy
+ *
+ * @ingroup log
+ */
+WL_EXPORT void
+weston_log_subscriber_destroy(struct weston_log_subscriber *subscriber)
+{
+	subscriber->destroy(subscriber);
+}
+
 /** Subscribe to a scope
  *
  * Creates a subscription which is used to subscribe the \p subscriber

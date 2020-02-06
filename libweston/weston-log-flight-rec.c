@@ -218,10 +218,24 @@ weston_log_subscriber_display_flight_rec(struct weston_log_subscriber *sub)
 	weston_log_subscriber_display_flight_rec_data(rb, rb->file);
 }
 
+static void
+weston_log_subscriber_destroy_flight_rec(struct weston_log_subscriber *sub)
+{
+	struct weston_debug_log_flight_recorder *flight_rec = to_flight_recorder(sub);
+
+	/* Resets weston_primary_flight_recorder_ring_buffer to NULL if it
+	 * is the destroyed subscriber */
+	if (weston_primary_flight_recorder_ring_buffer == &flight_rec->rb)
+		weston_primary_flight_recorder_ring_buffer = NULL;
+
+	free(flight_rec->rb.buf);
+	free(flight_rec);
+}
+
 /** Create a flight recorder type of subscriber
  *
  * Allocates both the flight recorder and the underlying ring buffer. Use
- * weston_log_subscriber_destroy_flight_rec() to clean-up.
+ * weston_log_subscriber_destroy() to clean-up.
  *
  * @param size specify the maximum size (in bytes) of the backing storage
  * for the flight recorder
@@ -241,6 +255,7 @@ weston_log_subscriber_create_flight_rec(size_t size)
 		return NULL;
 
 	flight_rec->base.write = weston_log_flight_recorder_write;
+	flight_rec->base.destroy = weston_log_subscriber_destroy_flight_rec;
 	flight_rec->base.destroy_subscription = NULL;
 	flight_rec->base.complete = NULL;
 	wl_list_init(&flight_rec->base.subscription_list);
@@ -258,27 +273,6 @@ weston_log_subscriber_create_flight_rec(size_t size)
 	weston_log_flight_recorder_map_memory(flight_rec);
 
 	return &flight_rec->base;
-}
-
-/** Destroys the weston_log_subscriber object created with
- * weston_log_subscriber_create_flight_rec()
- *
- * @param sub the weston_log_subscriber object
- *
- * This also resets weston_primary_flight_recorder_ring_buffer to NULL if it
- * is the destroyed subscriber.
- */
-WL_EXPORT void
-weston_log_subscriber_destroy_flight_rec(struct weston_log_subscriber *sub)
-{
-	struct weston_debug_log_flight_recorder *flight_rec;
-
-	flight_rec = to_flight_recorder(sub);
-	if (weston_primary_flight_recorder_ring_buffer == &flight_rec->rb)
-		weston_primary_flight_recorder_ring_buffer = NULL;
-
-	free(flight_rec->rb.buf);
-	free(flight_rec);
 }
 
 /** Retrieve flight recorder ring buffer contents, could be useful when

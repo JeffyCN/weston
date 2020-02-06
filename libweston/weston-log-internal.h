@@ -52,6 +52,8 @@ struct weston_log_subscription;
 struct weston_log_subscriber {
 	/** write the data pointed by @param data */
 	void (*write)(struct weston_log_subscriber *sub, const char *data, size_t len);
+	/** For destroying the subscriber */
+	void (*destroy)(struct weston_log_subscriber *sub);
 	/** For the type of streams that required additional destroy operation
 	 * for destroying the stream */
 	void (*destroy_subscription)(struct weston_log_subscriber *sub);
@@ -78,7 +80,6 @@ weston_log_subscription_add(struct weston_log_scope *scope,
 			    struct weston_log_subscription *sub);
 void
 weston_log_subscription_remove(struct weston_log_subscription *sub);
-
 
 void
 weston_log_bind_weston_debug(struct wl_client *client,
