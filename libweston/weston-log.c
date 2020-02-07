@@ -279,6 +279,9 @@ weston_log_subscription_destroy(struct weston_log_subscription *sub)
 {
 	assert(sub);
 
+	if (sub->owner->destroy_subscription)
+		sub->owner->destroy_subscription(sub->owner);
+
 	if (sub->source->destroy_subscription)
 		sub->source->destroy_subscription(sub, sub->source->user_data);
 
@@ -710,13 +713,8 @@ weston_log_scope_destroy(struct weston_log_scope *scope)
 	if (!scope)
 		return;
 
-	wl_list_for_each_safe(sub, sub_tmp, &scope->subscription_list, source_link) {
-		/* destroy each subscription */
-		if (sub->owner->destroy_subscription)
-			sub->owner->destroy_subscription(sub->owner);
-
+	wl_list_for_each_safe(sub, sub_tmp, &scope->subscription_list, source_link)
 		weston_log_subscription_destroy(sub);
-	}
 
 	wl_list_remove(&scope->compositor_link);
 	free(scope->name);
@@ -944,14 +942,8 @@ weston_log_subscriber_release(struct weston_log_subscriber *subscriber)
 {
 	struct weston_log_subscription *sub, *sub_tmp;
 
-	wl_list_for_each_safe(sub, sub_tmp, &subscriber->subscription_list, owner_link) {
-		/* destroy each subscription */
-		if (sub->owner->destroy_subscription)
-			sub->owner->destroy_subscription(sub->owner);
-
+	wl_list_for_each_safe(sub, sub_tmp, &subscriber->subscription_list, owner_link)
 		weston_log_subscription_destroy(sub);
-	}
-
 }
 
 /** Destroy a file type or a flight-rec type subscriber.
