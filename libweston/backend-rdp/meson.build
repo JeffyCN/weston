@@ -9,6 +9,11 @@ if not dep_frdp.found()
 	error('RDP-backend requires freerdp2 which was not found. Or, you can use \'-Dbackend-rdp=false\'.')
 endif
 
+dep_wpr = dependency('winpr2', version: '>= 2.0.0', required: false)
+if not dep_wpr.found()
+	error('RDP-backend requires winpr2 which was not found. Or, you can use \'-Dbackend-rdp=false\'.')
+endif
+
 if cc.has_header('freerdp/version.h', dependencies: dep_frdp)
 	config_h.set('HAVE_FREERDP_VERSION_H', '1')
 endif
@@ -24,6 +29,7 @@ endif
 deps_rdp = [
 	dep_libweston_private,
 	dep_frdp,
+	dep_wpr,
 ]
 plugin_rdp = shared_library(
 	'rdp-backend',
