@@ -37,7 +37,6 @@ plugin_rdp = shared_library(
 	include_directories: common_inc,
 	dependencies: deps_rdp,
 	name_prefix: '',
-	override_options: [ 'b_lundef=false' ],
 	install: true,
 	install_dir: dir_module_libweston
 )
