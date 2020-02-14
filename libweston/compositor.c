@@ -608,6 +608,24 @@ weston_view_to_global_float(struct weston_view *view,
 	}
 }
 
+/** Transform a point to buffer coordinates
+ *
+ * \param width Surface width.
+ * \param height Surface height.
+ * \param transform Buffer transform.
+ * \param scale Buffer scale.
+ * \param sx Surface x coordinate of a point.
+ * \param sy Surface y coordinate of a point.
+ * \param[out] bx Buffer x coordinate of the point.
+ * \param[out] by Buffer Y coordinate of the point.
+ *
+ * Converts the given surface-local coordinates to buffer coordinates
+ * according to the given buffer transform and scale.
+ * This ignores wp_viewport.
+ *
+ * The given width and height must be the result of inverse scaled and
+ * inverse transformed buffer size.
+ */
 WL_EXPORT void
 weston_transformed_coord(int width, int height,
 			 enum wl_output_transform transform,
@@ -654,6 +672,23 @@ weston_transformed_coord(int width, int height,
 	*by *= scale;
 }
 
+/** Transform a rectangle to buffer coordinates
+ *
+ * \param width Surface width.
+ * \param height Surface height.
+ * \param transform Buffer transform.
+ * \param scale Buffer scale.
+ * \param rect Rectangle in surface coordinates.
+ * \return Rectangle in buffer coordinates.
+ *
+ * Converts the given surface-local rectangle to buffer coordinates
+ * according to the given buffer transform and scale. The resulting
+ * rectangle is guaranteed to be well-formed.
+ * This ignores wp_viewport.
+ *
+ * The given width and height must be the result of inverse scaled and
+ * inverse transformed buffer size.
+ */
 WL_EXPORT pixman_box32_t
 weston_transformed_rect(int width, int height,
 			enum wl_output_transform transform,
@@ -744,6 +779,24 @@ weston_matrix_transform_region(pixman_region32_t *dest,
 	free(dest_rects);
 }
 
+/** Transform a region to buffer coordinates
+ *
+ * \param width Surface width.
+ * \param height Surface height.
+ * \param transform Buffer transform.
+ * \param scale Buffer scale.
+ * \param[in] src Region in surface coordinates.
+ * \param[out] dest Resulting region in buffer coordinates.
+ *
+ * Converts the given surface-local region to buffer coordinates
+ * according to the given buffer transform and scale.
+ * This ignores wp_viewport.
+ *
+ * The given width and height must be the result of inverse scaled and
+ * inverse transformed buffer size.
+ *
+ * src and dest are allowed to point to the same memory for in-place conversion.
+ */
 WL_EXPORT void
 weston_transformed_region(int width, int height,
 			  enum wl_output_transform transform,
