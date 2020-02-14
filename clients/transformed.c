@@ -227,7 +227,6 @@ static void
 usage(int error_code)
 {
 	fprintf(stderr, "Usage: transformed [OPTIONS]\n\n"
-		"   -d\t\tUse \"driver\" fullscreen method\n"
 		"   -w <width>\tSet window width to <width>\n"
 		"   -h <height>\tSet window height to <height>\n"
 		"   --help\tShow this help text\n\n");
