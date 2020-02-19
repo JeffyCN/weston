@@ -1655,7 +1655,7 @@ verify_screen_content(struct client *client,
 		      int seq_no)
 {
 	const char *test_name = get_test_name();
-	const struct range gl_fuzz = { 0, 1 };
+	const struct range gl_fuzz = { -3, 4 };
 	struct buffer *shot;
 	pixman_image_t *ref = NULL;
 	char *ref_fname = NULL;
