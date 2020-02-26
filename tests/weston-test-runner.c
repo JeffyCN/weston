@@ -55,9 +55,9 @@ static const struct weston_test_run_info *test_run_info_;
 
 /** Get the test name string with counter
  *
- * \return The test name with fixture number \c f%%d- prefixed. For an array
- * driven test, e.g. defined with TEST_P(), the name has a \c -e%%d suffix to
- * indicate the array element number.
+ * \return The test name with fixture number \c -f%%d added. For an array
+ * driven test, e.g. defined with TEST_P(), the name has also a \c -e%%d
+ * suffix to indicate the array element number.
  *
  * This is only usable from code paths inside TEST(), TEST_P(), PLUGIN_TEST()
  * etc. defined functions.
@@ -124,11 +124,11 @@ run_test(int fixture_nr, const struct weston_test_entry *t, void *data,
 	struct weston_test_run_info info;
 
 	if (data) {
-		snprintf(info.name, sizeof(info.name), "f%d-%s-e%d",
-			 fixture_nr, t->name, iteration);
+		snprintf(info.name, sizeof(info.name), "%s-f%02d-e%02d",
+			 t->name, fixture_nr, iteration);
 	} else {
-		snprintf(info.name, sizeof(info.name), "f%d-%s",
-			 fixture_nr, t->name);
+		snprintf(info.name, sizeof(info.name), "%s-f%02d",
+			 t->name, fixture_nr);
 	}
 	info.fixture_nr = fixture_nr;
 
