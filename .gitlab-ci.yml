@@ -75,6 +75,7 @@ container_prep:
     name: weston-$CI_COMMIT_SHA
     when: always
     paths:
+    - build-*/*.png
     - build-*/meson-logs
     - build-*/weston-virtme
     - prefix-*
