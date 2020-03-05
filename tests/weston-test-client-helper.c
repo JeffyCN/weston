@@ -1262,21 +1262,47 @@ image_iter_get_row(struct image_iterator *it, int y)
 	return (uint32_t *)(it->data + y * it->stride);
 }
 
-static bool
-fuzzy_match_pixels(uint32_t pix_a, uint32_t pix_b, const struct range *fuzz)
-{
-	int shift;
+struct pixel_diff_stat {
+	struct pixel_diff_stat_channel {
+		int min_diff;
+		int max_diff;
+	} ch[4];
+};
 
-	for (shift = 0; shift < 32; shift += 8) {
+static void
+testlog_pixel_diff_stat(const struct pixel_diff_stat *stat)
+{
+	int i;
+
+	testlog("Image difference statistics:\n");
+	for (i = 0; i < 4; i++) {
+		testlog("\tch %d: [%d, %d]\n",
+			i, stat->ch[i].min_diff, stat->ch[i].max_diff);
+	}
+}
+
+static bool
+fuzzy_match_pixels(uint32_t pix_a, uint32_t pix_b,
+		   const struct range *fuzz,
+		   struct pixel_diff_stat *stat)
+{
+	bool ret = true;
+	int shift;
+	int i;
+
+	for (shift = 0, i = 0; i < 4; shift += 8, i++) {
 		int val_a = (pix_a >> shift) & 0xffu;
 		int val_b = (pix_b >> shift) & 0xffu;
 		int d = val_b - val_a;
 
+		stat->ch[i].min_diff = min(stat->ch[i].min_diff, d);
+		stat->ch[i].max_diff = max(stat->ch[i].max_diff, d);
+
 		if (d < fuzz->a || d > fuzz->b)
-			return false;
+			ret = false;
 	}
 
-	return true;
+	return ret;
 }
 
 /**
@@ -1305,6 +1331,7 @@ check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 		   const struct rectangle *clip_rect, const struct range *prec)
 {
 	struct range fuzz = range_get(prec);
+	struct pixel_diff_stat diffstat = {};
 	struct image_iterator it_a;
 	struct image_iterator it_b;
 	pixman_box32_t box;
@@ -1322,7 +1349,8 @@ check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 		pix_b = image_iter_get_row(&it_b, y) + box.x1;
 
 		for (x = box.x1; x < box.x2; x++) {
-			if (!fuzzy_match_pixels(*pix_a, *pix_b, &fuzz))
+			if (!fuzzy_match_pixels(*pix_a, *pix_b,
+						&fuzz, &diffstat))
 				return false;
 
 			pix_a++;
@@ -1385,6 +1413,7 @@ visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
 			   const struct range *prec)
 {
 	struct range fuzz = range_get(prec);
+	struct pixel_diff_stat diffstat = {};
 	pixman_image_t *diffimg;
 	pixman_image_t *shade;
 	struct image_iterator it_a;
@@ -1427,7 +1456,8 @@ visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
 		pix_d = image_iter_get_row(&it_d, y) + box.x1;
 
 		for (x = box.x1; x < box.x2; x++) {
-			if (fuzzy_match_pixels(*pix_a, *pix_b, &fuzz))
+			if (fuzzy_match_pixels(*pix_a, *pix_b,
+					       &fuzz, &diffstat))
 				*pix_d = tint(*pix_d, 0x00008000); /* green */
 			else
 				*pix_d = tint(*pix_d, 0x00c00000); /* red */
@@ -1437,6 +1467,8 @@ visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
 			pix_d++;
 		}
 	}
+
+	testlog_pixel_diff_stat(&diffstat);
 
 	return diffimg;
 }
