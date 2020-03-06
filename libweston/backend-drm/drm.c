@@ -768,7 +768,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 					       WDRM_PLANE_TYPE__COUNT);
 
 		zpos_range_values =
-			drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS], 
+			drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS],
 						      props);
 
 		if (zpos_range_values) {
