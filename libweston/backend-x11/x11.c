@@ -807,16 +807,6 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	static uint32_t values[2];
 	int ret;
 
-	if (base == NULL) {
-		weston_log("output is NULL.\n");
-		return -1;
-	}
-
-	if (mode == NULL) {
-		weston_log("mode is NULL.\n");
-		return -1;
-	}
-
         b = to_x11_backend(base->compositor);
         output = to_x11_output(base);
 
