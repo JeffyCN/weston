@@ -364,14 +364,16 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	if (scanout_state->fb)
 		return;
 
+	/*
+	 * If we don't have any damage on the primary plane, and we already
+	 * have a renderer buffer active, we can reuse it; else we pass
+	 * the damaged region into the renderer to re-render the affected
+	 * area.
+	 */
 	if (!pixman_region32_not_empty(damage) &&
 	    scanout_plane->state_cur->fb &&
 	    (scanout_plane->state_cur->fb->type == BUFFER_GBM_SURFACE ||
-	     scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB) &&
-	    scanout_plane->state_cur->fb->width ==
-		output->base.current_mode->width &&
-	    scanout_plane->state_cur->fb->height ==
-		output->base.current_mode->height) {
+	     scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB)) {
 		fb = drm_fb_ref(scanout_plane->state_cur->fb);
 	} else if (b->use_pixman) {
 		fb = drm_output_render_pixman(state, damage);
