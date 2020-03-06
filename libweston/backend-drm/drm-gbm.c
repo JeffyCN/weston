@@ -98,18 +98,19 @@ drm_backend_create_gl_renderer(struct drm_backend *b)
 		fallback_format_for(b->gbm_format),
 		0,
 	};
-	unsigned n_formats = 2;
+	struct gl_renderer_display_options options = {
+		.egl_platform = EGL_PLATFORM_GBM_KHR,
+		.egl_native_display = b->gbm,
+		.egl_surface_type = EGL_WINDOW_BIT,
+		.drm_formats = format,
+		.drm_formats_count = 2,
+	};
 
 	if (format[1])
-		n_formats = 3;
-	if (gl_renderer->display_create(b->compositor,
-					EGL_PLATFORM_GBM_KHR,
-					(void *)b->gbm,
-					EGL_WINDOW_BIT,
-					format,
-					n_formats) < 0) {
+		options.drm_formats_count = 3;
+
+	if (gl_renderer->display_create(b->compositor, &options) < 0)
 		return -1;
-	}
 
 	return 0;
 }

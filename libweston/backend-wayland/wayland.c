@@ -2773,12 +2773,14 @@ wayland_backend_create(struct weston_compositor *compositor,
 	}
 
 	if (!b->use_pixman) {
-		if (gl_renderer->display_create(compositor,
-						EGL_PLATFORM_WAYLAND_KHR,
-						b->parent.wl_display,
-						EGL_WINDOW_BIT,
-						wayland_formats,
-						ARRAY_LENGTH(wayland_formats)) < 0) {
+		const struct gl_renderer_display_options options = {
+			.egl_platform = EGL_PLATFORM_WAYLAND_KHR,
+			.egl_native_display = b->parent.wl_display,
+			.egl_surface_type = EGL_WINDOW_BIT,
+			.drm_formats = wayland_formats,
+			.drm_formats_count = ARRAY_LENGTH(wayland_formats),
+		};
+		if (gl_renderer->display_create(compositor, &options) < 0) {
 			weston_log("Failed to initialize the GL renderer; "
 				   "falling back to pixman.\n");
 			b->use_pixman = true;

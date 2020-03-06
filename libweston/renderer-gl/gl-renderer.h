@@ -58,18 +58,30 @@ enum gl_renderer_border_side {
 	GL_RENDERER_BORDER_BOTTOM = 3,
 };
 
+/**
+ * Options passed to the \c display_create method of the GL renderer interface.
+ *
+ * \see struct gl_renderer_interface
+ */
+struct gl_renderer_display_options {
+	/** The EGL platform identifier */
+	EGLenum egl_platform;
+	/** The native display corresponding to the given EGL platform */
+	void *egl_native_display;
+	/** EGL_SURFACE_TYPE bits for the base EGLConfig */
+	EGLint egl_surface_type;
+	/** Array of DRM pixel formats acceptable for the base EGLConfig */
+	const uint32_t *drm_formats;
+	/** The \c drm_formats array length */
+	unsigned drm_formats_count;
+};
+
 struct gl_renderer_interface {
 	/**
 	 * Initialize GL-renderer with the given EGL platform and native display
 	 *
 	 * \param ec The weston_compositor where to initialize.
-	 * \param platform The EGL platform identifier.
-	 * \param native_display The native display corresponding to the given
-	 * EGL platform.
-	 * \param egl_surface_type EGL_SURFACE_TYPE bits for the base EGLConfig.
-	 * \param drm_formats Array of DRM pixel formats that are acceptable
-	 * for the base EGLConfig.
-	 * \param drm_formats_count The drm_formats array length.
+	 * \param options The options struct describing display configuration
 	 * \return 0 on success, -1 on failure.
 	 *
 	 * This function creates an EGLDisplay and initializes it. It also
@@ -96,11 +108,7 @@ struct gl_renderer_interface {
 	 * DRM format.
 	 */
 	int (*display_create)(struct weston_compositor *ec,
-			      EGLenum platform,
-			      void *native_display,
-			      EGLint egl_surface_type,
-			      const uint32_t *drm_formats,
-			      unsigned drm_formats_count);
+			      const struct gl_renderer_display_options *options);
 
 	/**
 	 * Attach GL-renderer to the output with a native window

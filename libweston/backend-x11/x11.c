@@ -1794,20 +1794,20 @@ x11_destroy(struct weston_compositor *ec)
 static int
 init_gl_renderer(struct x11_backend *b)
 {
-	int ret;
+	const struct gl_renderer_display_options options = {
+		.egl_platform = EGL_PLATFORM_X11_KHR,
+		.egl_native_display = b->dpy,
+		.egl_surface_type = EGL_WINDOW_BIT,
+		.drm_formats = x11_formats,
+		.drm_formats_count = ARRAY_LENGTH(x11_formats),
+	};
 
 	gl_renderer = weston_load_module("gl-renderer.so",
 					 "gl_renderer_interface");
 	if (!gl_renderer)
 		return -1;
 
-	ret = gl_renderer->display_create(b->compositor, EGL_PLATFORM_X11_KHR,
-					  (void *) b->dpy,
-					  EGL_WINDOW_BIT,
-					  x11_formats,
-					  ARRAY_LENGTH(x11_formats));
-
-	return ret;
+	return gl_renderer->display_create(b->compositor, &options);
 }
 
 static const struct weston_windowed_output_api api = {

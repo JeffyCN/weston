@@ -387,20 +387,19 @@ headless_destroy(struct weston_compositor *ec)
 static int
 headless_gl_renderer_init(struct headless_backend *b)
 {
+	const struct gl_renderer_display_options options = {
+		.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+		.egl_native_display = EGL_DEFAULT_DISPLAY,
+		.egl_surface_type = EGL_PBUFFER_BIT,
+		.drm_formats = headless_formats,
+		.drm_formats_count = ARRAY_LENGTH(headless_formats),
+	};
+
 	b->glri = weston_load_module("gl-renderer.so", "gl_renderer_interface");
 	if (!b->glri)
 		return -1;
 
-	if (b->glri->display_create(b->compositor,
-				    EGL_PLATFORM_SURFACELESS_MESA,
-				    EGL_DEFAULT_DISPLAY,
-				    EGL_PBUFFER_BIT,
-				    headless_formats,
-				    ARRAY_LENGTH(headless_formats)) < 0) {
-		return -1;
-	}
-
-	return 0;
+	return b->glri->display_create(b->compositor, &options);
 }
 
 static const struct weston_windowed_output_api api = {

@@ -3374,11 +3374,7 @@ gl_renderer_create_pbuffer_surface(struct gl_renderer *gr) {
 
 static int
 gl_renderer_display_create(struct weston_compositor *ec,
-			   EGLenum platform,
-			   void *native_display,
-			   EGLint egl_surface_type,
-			   const uint32_t *drm_formats,
-			   unsigned drm_formats_count)
+			   const struct gl_renderer_display_options *options)
 {
 	struct gl_renderer *gr;
 
@@ -3386,7 +3382,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gr == NULL)
 		return -1;
 
-	gr->platform = platform;
+	gr->platform = options->egl_platform;
 
 	if (gl_renderer_setup_egl_client_extensions(gr) < 0)
 		goto fail;
@@ -3401,7 +3397,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		gl_renderer_surface_get_content_size;
 	gr->base.surface_copy_content = gl_renderer_surface_copy_content;
 
-	if (gl_renderer_setup_egl_display(gr, native_display) < 0)
+	if (gl_renderer_setup_egl_display(gr, options->egl_native_display) < 0)
 		goto fail;
 
 	log_egl_info(gr->egl_display);
@@ -3412,13 +3408,16 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 
 	if (!gr->has_configless_context) {
+		EGLint egl_surface_type = options->egl_surface_type;
+
 		if (!gr->has_surfaceless_context)
 			egl_surface_type |= EGL_PBUFFER_BIT;
 
-		gr->egl_config = gl_renderer_get_egl_config(gr,
-							    egl_surface_type,
-							    drm_formats,
-							    drm_formats_count);
+		gr->egl_config =
+			gl_renderer_get_egl_config(gr,
+						   egl_surface_type,
+						   options->drm_formats,
+						   options->drm_formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
 			weston_log("failed to choose EGL config\n");
 			goto fail_terminate;
