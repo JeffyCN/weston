@@ -1208,7 +1208,7 @@ wet_output_set_scale(struct weston_output *output,
 /* UINT32_MAX is treated as invalid because 0 is a valid
  * enumeration value and the parameter is unsigned
  */
-static void
+static int
 wet_output_set_transform(struct weston_output *output,
 			 struct weston_config_section *section,
 			 uint32_t default_transform,
@@ -1226,6 +1226,7 @@ wet_output_set_transform(struct weston_output *output,
 		if (weston_parse_transform(t, &transform) < 0) {
 			weston_log("Invalid transform \"%s\" for output %s\n",
 				   t, output->name);
+			return -1;
 		}
 		free(t);
 	}
@@ -1234,6 +1235,8 @@ wet_output_set_transform(struct weston_output *output,
 		transform = parsed_transform;
 
 	weston_output_set_transform(output, transform);
+
+	return 0;
 }
 
 static void
@@ -1295,7 +1298,10 @@ wet_configure_windowed_output_from_config(struct weston_output *output,
 		height = parsed_options->height;
 
 	wet_output_set_scale(output, section, defaults->scale, parsed_options->scale);
-	wet_output_set_transform(output, section, defaults->transform, parsed_options->transform);
+	if (wet_output_set_transform(output, section, defaults->transform,
+				     parsed_options->transform) < 0) {
+		return -1;
+	}
 
 	if (api->output_set_size(output, width, height) < 0) {
 		weston_log("Cannot configure output \"%s\" using weston_windowed_output_api.\n",
@@ -1726,7 +1732,11 @@ drm_backend_output_configure(struct weston_output *output,
 	free(modeline);
 
 	wet_output_set_scale(output, section, 1, 0);
-	wet_output_set_transform(output, section, WL_OUTPUT_TRANSFORM_NORMAL, UINT32_MAX);
+	if (wet_output_set_transform(output, section,
+				     WL_OUTPUT_TRANSFORM_NORMAL,
+				     UINT32_MAX) < 0) {
+		return -1;
+	}
 
 	weston_config_section_get_string(section,
 					 "gbm-format", &gbm_format, NULL);
@@ -2221,8 +2231,11 @@ drm_backend_remoted_output_configure(struct weston_output *output,
 	}
 
 	wet_output_set_scale(output, section, 1, 0);
-	wet_output_set_transform(output, section, WL_OUTPUT_TRANSFORM_NORMAL,
-				 UINT32_MAX);
+	if (wet_output_set_transform(output, section,
+				     WL_OUTPUT_TRANSFORM_NORMAL,
+				     UINT32_MAX) < 0) {
+		return -1;
+	};
 
 	weston_config_section_get_string(section, "gbm-format", &gbm_format,
 					 NULL);
@@ -2369,8 +2382,11 @@ drm_backend_pipewire_output_configure(struct weston_output *output,
 	}
 
 	wet_output_set_scale(output, section, 1, 0);
-	wet_output_set_transform(output, section, WL_OUTPUT_TRANSFORM_NORMAL,
-				 UINT32_MAX);
+	if (wet_output_set_transform(output, section,
+				     WL_OUTPUT_TRANSFORM_NORMAL,
+				     UINT32_MAX) < 0) {
+		return -1;
+	}
 
 	weston_config_section_get_string(section, "seat", &seat, "");
 
@@ -2712,7 +2728,12 @@ fbdev_backend_output_configure(struct weston_output *output)
 
 	section = weston_config_get_section(wc, "output", "name", "fbdev");
 
-	wet_output_set_transform(output, section, WL_OUTPUT_TRANSFORM_NORMAL, UINT32_MAX);
+	if (wet_output_set_transform(output, section,
+				     WL_OUTPUT_TRANSFORM_NORMAL,
+				     UINT32_MAX) < 0) {
+		return -1;
+	}
+
 	weston_output_set_scale(output, 1);
 
 	return 0;
