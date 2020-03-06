@@ -836,6 +836,9 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	output->mode.height = mode->height;
 
 	if (b->use_pixman) {
+		const struct pixman_renderer_output_options options = {
+			.use_shadow = true,
+		};
 		pixman_renderer_output_destroy(&output->base);
 		x11_output_deinit_shm(b, output);
 
@@ -846,8 +849,7 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 			return -1;
 		}
 
-		if (pixman_renderer_output_create(&output->base,
-				PIXMAN_RENDERER_OUTPUT_USE_SHADOW) < 0) {
+		if (pixman_renderer_output_create(&output->base, &options) < 0) {
 			weston_log("Failed to create pixman renderer for output\n");
 			x11_output_deinit_shm(b, output);
 			return -1;
@@ -1014,14 +1016,16 @@ x11_output_enable(struct weston_output *base)
 		x11_output_wait_for_map(b, output);
 
 	if (b->use_pixman) {
+		const struct pixman_renderer_output_options options = {
+			.use_shadow = true,
+		};
 		if (x11_output_init_shm(b, output,
 					output->base.current_mode->width,
 					output->base.current_mode->height) < 0) {
 			weston_log("Failed to initialize SHM for the X11 output\n");
 			goto err;
 		}
-		if (pixman_renderer_output_create(&output->base,
-				PIXMAN_RENDERER_OUTPUT_USE_SHADOW) < 0) {
+		if (pixman_renderer_output_create(&output->base, &options) < 0) {
 			weston_log("Failed to create pixman renderer for output\n");
 			x11_output_deinit_shm(b, output);
 			goto err;

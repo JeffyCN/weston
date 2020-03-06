@@ -468,6 +468,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	rdpSettings *settings;
 	pixman_image_t *new_shadow_buffer;
 	struct weston_mode *local_mode;
+	const struct pixman_renderer_output_options options = { };
 
 	local_mode = ensure_matching_mode(output, target_mode);
 	if (!local_mode) {
@@ -484,7 +485,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	output->current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
 
 	pixman_renderer_output_destroy(output);
-	pixman_renderer_output_create(output, 0);
+	pixman_renderer_output_create(output, &options);
 
 	new_shadow_buffer = pixman_image_create_bits(PIXMAN_x8r8g8b8, target_mode->width,
 			target_mode->height, 0, target_mode->width * 4);
@@ -560,6 +561,9 @@ rdp_output_enable(struct weston_output *base)
 	struct rdp_output *output = to_rdp_output(base);
 	struct rdp_backend *b = to_rdp_backend(base->compositor);
 	struct wl_event_loop *loop;
+	const struct pixman_renderer_output_options options = {
+		.use_shadow = true,
+	};
 
 	output->shadow_surface = pixman_image_create_bits(PIXMAN_x8r8g8b8,
 							  output->base.current_mode->width,
@@ -571,8 +575,7 @@ rdp_output_enable(struct weston_output *base)
 		return -1;
 	}
 
-	if (pixman_renderer_output_create(&output->base,
-					  PIXMAN_RENDERER_OUTPUT_USE_SHADOW) < 0) {
+	if (pixman_renderer_output_create(&output->base, &options) < 0) {
 		pixman_image_unref(output->shadow_surface);
 		return -1;
 	}

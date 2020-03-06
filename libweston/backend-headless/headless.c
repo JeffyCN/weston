@@ -214,6 +214,10 @@ headless_output_enable_gl(struct headless_output *output)
 static int
 headless_output_enable_pixman(struct headless_output *output)
 {
+	const struct pixman_renderer_output_options options = {
+		.use_shadow = true,
+	};
+
 	output->image_buf = malloc(output->base.current_mode->width *
 				   output->base.current_mode->height * 4);
 	if (!output->image_buf)
@@ -225,8 +229,7 @@ headless_output_enable_pixman(struct headless_output *output)
 						 output->image_buf,
 						 output->base.current_mode->width * 4);
 
-	if (pixman_renderer_output_create(&output->base,
-					  PIXMAN_RENDERER_OUTPUT_USE_SHADOW) < 0)
+	if (pixman_renderer_output_create(&output->base, &options) < 0)
 		goto err_renderer;
 
 	pixman_renderer_output_set_buffer(&output->base, output->image);

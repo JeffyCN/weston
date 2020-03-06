@@ -924,7 +924,8 @@ pixman_renderer_output_set_hw_extra_damage(struct weston_output *output,
 }
 
 WL_EXPORT int
-pixman_renderer_output_create(struct weston_output *output, uint32_t flags)
+pixman_renderer_output_create(struct weston_output *output,
+			      const struct pixman_renderer_output_options *options)
 {
 	struct pixman_output_state *po;
 	int w, h;
@@ -933,7 +934,7 @@ pixman_renderer_output_create(struct weston_output *output, uint32_t flags)
 	if (po == NULL)
 		return -1;
 
-	if (flags & PIXMAN_RENDERER_OUTPUT_USE_SHADOW) {
+	if (options->use_shadow) {
 		/* set shadow image transformation */
 		w = output->current_mode->width;
 		h = output->current_mode->height;

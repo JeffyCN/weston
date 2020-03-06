@@ -1179,7 +1179,9 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 	uint32_t format = output->gbm_format;
 	uint32_t pixman_format;
 	unsigned int i;
-	uint32_t flags = 0;
+	const struct pixman_renderer_output_options options = {
+		.use_shadow = b->use_pixman_shadow,
+	};
 
 	switch (format) {
 		case DRM_FORMAT_XRGB8888:
@@ -1207,10 +1209,7 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 			goto err;
 	}
 
-	if (b->use_pixman_shadow)
-		flags |= PIXMAN_RENDERER_OUTPUT_USE_SHADOW;
-
-	if (pixman_renderer_output_create(&output->base, flags) < 0)
+	if (pixman_renderer_output_create(&output->base, &options) < 0)
  		goto err;
 
 	weston_log("DRM: output %s %s shadow framebuffer.\n", output->base.name,
