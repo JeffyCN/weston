@@ -185,7 +185,10 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 		output->gbm_format,
 		fallback_format_for(output->gbm_format),
 	};
-	unsigned n_formats = 1;
+	struct gl_renderer_output_options options = {
+		.drm_formats = format,
+		.drm_formats_count = 1,
+	};
 	struct weston_mode *mode = output->base.current_mode;
 	struct drm_plane *plane = output->scanout_plane;
 	unsigned int i;
@@ -231,13 +234,11 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 		return -1;
 	}
 
-	if (format[1])
-		n_formats = 2;
-	if (gl_renderer->output_window_create(&output->base,
-					      (EGLNativeWindowType)output->gbm_surface,
-					      output->gbm_surface,
-					      format,
-					      n_formats) < 0) {
+	if (options.drm_formats[1])
+		options.drm_formats_count = 2;
+	options.window_for_legacy = (EGLNativeWindowType) output->gbm_surface;
+	options.window_for_platform = output->gbm_surface;
+	if (gl_renderer->output_window_create(&output->base, &options) < 0) {
 		weston_log("failed to create gl renderer output state\n");
 		gbm_surface_destroy(output->gbm_surface);
 		output->gbm_surface = NULL;

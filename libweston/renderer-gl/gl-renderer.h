@@ -76,6 +76,17 @@ struct gl_renderer_display_options {
 	unsigned drm_formats_count;
 };
 
+struct gl_renderer_output_options {
+	/** Native window handle for \c eglCreateWindowSurface */
+	EGLNativeWindowType window_for_legacy;
+	/** Native window handle for \c eglCreatePlatformWindowSurface */
+	void *window_for_platform;
+	/** Array of DRM pixel formats acceptable for the window */
+	const uint32_t *drm_formats;
+	/** The \c drm_formats array length */
+	unsigned drm_formats_count;
+};
+
 struct gl_renderer_interface {
 	/**
 	 * Initialize GL-renderer with the given EGL platform and native display
@@ -114,12 +125,7 @@ struct gl_renderer_interface {
 	 * Attach GL-renderer to the output with a native window
 	 *
 	 * \param output The output to create a rendering surface for.
-	 * \param window_for_legacy Native window handle for
-	 * eglCreateWindowSurface().
-	 * \param window_for_platform Native window handle for
-	 * eglCreatePlatformWindowSurface().
-	 * \param drm_formats Array of DRM pixel formats that are acceptable.
-	 * \param drm_formats_count The drm_formats array length.
+	 * \param options The options struct describing output configuration
 	 * \return 0 on success, -1 on failure.
 	 *
 	 * This function creates the renderer data structures needed to repaint
@@ -138,10 +144,7 @@ struct gl_renderer_interface {
 	 * with \c EGL_WINDOW_BIT in \c egl_surface_type.
 	 */
 	int (*output_window_create)(struct weston_output *output,
-				    EGLNativeWindowType window_for_legacy,
-				    void *window_for_platform,
-				    const uint32_t *drm_formats,
-				    unsigned drm_formats_count);
+				    const struct gl_renderer_output_options *options);
 
 	/**
 	 * Attach GL-renderer to the output with internal pixel storage

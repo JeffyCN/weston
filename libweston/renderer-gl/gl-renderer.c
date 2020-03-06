@@ -3172,10 +3172,7 @@ gl_renderer_output_create(struct weston_output *output,
 
 static int
 gl_renderer_output_window_create(struct weston_output *output,
-				 EGLNativeWindowType window_for_legacy,
-				 void *window_for_platform,
-				 const uint32_t *drm_formats,
-				 unsigned drm_formats_count)
+				 const struct gl_renderer_output_options *options)
 {
 	struct weston_compositor *ec = output->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
@@ -3183,10 +3180,10 @@ gl_renderer_output_window_create(struct weston_output *output,
 	int ret = 0;
 
 	egl_surface = gl_renderer_create_window_surface(gr,
-							window_for_legacy,
-							window_for_platform,
-							drm_formats,
-							drm_formats_count);
+							options->window_for_legacy,
+							options->window_for_platform,
+							options->drm_formats,
+							options->drm_formats_count);
 	if (egl_surface == EGL_NO_SURFACE) {
 		weston_log("failed to create egl surface\n");
 		return -1;

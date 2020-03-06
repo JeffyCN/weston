@@ -854,14 +854,16 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 		}
 	} else {
 		Window xid = (Window) output->window;
+		const struct gl_renderer_output_options options = {
+			.window_for_legacy = (EGLNativeWindowType) output->window,
+			.window_for_platform = &xid,
+			.drm_formats = x11_formats,
+			.drm_formats_count = ARRAY_LENGTH(x11_formats),
+		};
 
 		gl_renderer->output_destroy(&output->base);
 
-		ret = gl_renderer->output_window_create(&output->base,
-						        (EGLNativeWindowType) output->window,
-						        &xid,
-						        x11_formats,
-						        ARRAY_LENGTH(x11_formats));
+		ret = gl_renderer->output_window_create(&output->base, &options);
 		if (ret < 0)
 			return -1;
 	}
@@ -1030,13 +1032,15 @@ x11_output_enable(struct weston_output *base)
 		/* eglCreatePlatformWindowSurfaceEXT takes a Window*
 		 * but eglCreateWindowSurface takes a Window. */
 		Window xid = (Window) output->window;
+		const struct gl_renderer_output_options options = {
+			.window_for_legacy = (EGLNativeWindowType) output->window,
+			.window_for_platform = &xid,
+			.drm_formats = x11_formats,
+			.drm_formats_count = ARRAY_LENGTH(x11_formats),
+		};
 
-		ret = gl_renderer->output_window_create(
-					&output->base,
-					(EGLNativeWindowType) output->window,
-					&xid,
-					x11_formats,
-					ARRAY_LENGTH(x11_formats));
+		ret = gl_renderer->output_window_create(&output->base,
+							&options);
 		if (ret < 0)
 			goto err;
 

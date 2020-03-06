@@ -762,6 +762,10 @@ static int
 wayland_output_init_gl_renderer(struct wayland_output *output)
 {
 	int32_t fwidth = 0, fheight = 0;
+	struct gl_renderer_output_options options = {
+		.drm_formats = wayland_formats,
+		.drm_formats_count = ARRAY_LENGTH(wayland_formats),
+	};
 
 	if (output->frame) {
 		fwidth = frame_width(output->frame);
@@ -778,12 +782,10 @@ wayland_output_init_gl_renderer(struct wayland_output *output)
 		weston_log("failure to create wl_egl_window\n");
 		return -1;
 	}
+	options.window_for_legacy = output->gl.egl_window;
+	options.window_for_platform = output->gl.egl_window;
 
-	if (gl_renderer->output_window_create(&output->base,
-					      output->gl.egl_window,
-					      output->gl.egl_window,
-					      wayland_formats,
-					      ARRAY_LENGTH(wayland_formats)) < 0)
+	if (gl_renderer->output_window_create(&output->base, &options) < 0)
 		goto cleanup_window;
 
 	return 0;
