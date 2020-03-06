@@ -1001,6 +1001,7 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 	plane->state_cur->complete = true;
 	plane->possible_crtcs = kplane->possible_crtcs;
 	plane->plane_id = kplane->plane_id;
+	plane->crtc_id = kplane->crtc_id;
 
 	weston_drm_format_array_init(&plane->formats);
 
@@ -1115,6 +1116,14 @@ drm_output_find_special_plane(struct drm_device *device,
 		}
 
 		if (found_elsewhere)
+			continue;
+
+		/* If a plane already has a CRTC selected and it is not our
+		 * output's CRTC, then do not select this plane. We cannot
+		 * switch away a plane from a CTRC when active. */
+		if ((type == WDRM_PLANE_TYPE_PRIMARY) &&
+		    (plane->crtc_id != 0) &&
+		    (plane->crtc_id != output->crtc->crtc_id))
 			continue;
 
 		plane->possible_crtcs = (1 << output->crtc->pipe);

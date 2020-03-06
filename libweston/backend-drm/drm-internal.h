@@ -536,6 +536,7 @@ struct drm_plane {
 	uint32_t possible_crtcs;
 	uint32_t plane_id;
 	uint32_t plane_idx;
+	uint32_t crtc_id;
 
 	struct drm_property_info props[WDRM_PLANE__COUNT];
 
