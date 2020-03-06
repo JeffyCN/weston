@@ -87,6 +87,17 @@ struct gl_renderer_output_options {
 	unsigned drm_formats_count;
 };
 
+struct gl_renderer_pbuffer_options {
+	/** Width of the rendering surface in pixels */
+	int width;
+	/** Height of the rendering surface in pixels */
+	int height;
+	/** Array of DRM pixel formats acceptable for the pbuffer */
+	const uint32_t *drm_formats;
+	/** The \c drm_formats array length */
+	unsigned drm_formats_count;
+};
+
 struct gl_renderer_interface {
 	/**
 	 * Initialize GL-renderer with the given EGL platform and native display
@@ -150,10 +161,7 @@ struct gl_renderer_interface {
 	 * Attach GL-renderer to the output with internal pixel storage
 	 *
 	 * \param output The output to create a rendering surface for.
-	 * \param width Width of the rendering surface in pixels.
-	 * \param height Height of the rendering surface in pixels.
-	 * \param drm_formats Array of DRM pixel formats that are acceptable.
-	 * \param drm_formats_count The drm_formats array length.
+	 * \param options The options struct describing the pbuffer
 	 * \return 0 on success, -1 on failure.
 	 *
 	 * This function creates the renderer data structures needed to repaint
@@ -168,10 +176,7 @@ struct gl_renderer_interface {
 	 * with \c EGL_PBUFFER_BIT in \c egl_surface_type.
 	 */
 	int (*output_pbuffer_create)(struct weston_output *output,
-				     int width,
-				     int height,
-				     const uint32_t *drm_formats,
-				     unsigned drm_formats_count);
+				     const struct gl_renderer_pbuffer_options *options);
 
 	void (*output_destroy)(struct weston_output *output);
 

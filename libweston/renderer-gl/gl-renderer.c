@@ -3198,24 +3198,21 @@ gl_renderer_output_window_create(struct weston_output *output,
 
 static int
 gl_renderer_output_pbuffer_create(struct weston_output *output,
-				  int width,
-				  int height,
-				  const uint32_t *drm_formats,
-				  unsigned drm_formats_count)
+				  const struct gl_renderer_pbuffer_options *options)
 {
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	EGLConfig pbuffer_config;
 	EGLSurface egl_surface;
 	int ret;
 	EGLint pbuffer_attribs[] = {
-		EGL_WIDTH, width,
-		EGL_HEIGHT, height,
+		EGL_WIDTH, options->width,
+		EGL_HEIGHT, options->height,
 		EGL_NONE
 	};
 
 	pbuffer_config = gl_renderer_get_egl_config(gr, EGL_PBUFFER_BIT,
-						    drm_formats,
-						    drm_formats_count);
+						    options->drm_formats,
+						    options->drm_formats_count);
 	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
 		weston_log("failed to choose EGL config for PbufferSurface\n");
 		return -1;
