@@ -2602,7 +2602,7 @@ load_headless_backend(struct weston_compositor *c,
 	if (transform) {
 		if (weston_parse_transform(transform, &parsed_options->transform) < 0) {
 			weston_log("Invalid transform \"%s\"\n", transform);
-			parsed_options->transform = UINT32_MAX;
+			return -1;
 		}
 		free(transform);
 	}
