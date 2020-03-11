@@ -229,6 +229,12 @@ composite_whole(pixman_op_t op,
 	pixman_image_set_transform(src, transform);
 	pixman_image_set_filter(src, filter, NULL, 0);
 
+	/* bilinear filtering needs the equivalent of OpenGL CLAMP_TO_EDGE */
+	if (filter == PIXMAN_FILTER_NEAREST)
+		pixman_image_set_repeat(src, PIXMAN_REPEAT_NONE);
+	else
+		pixman_image_set_repeat(src, PIXMAN_REPEAT_PAD);
+
 	pixman_image_composite32(op, src, mask, dest,
 				 0, 0, /* src_x, src_y */
 				 0, 0, /* mask_x, mask_y */
@@ -254,9 +260,17 @@ composite_clipped(pixman_image_t *src,
 	void *src_data;
 	int i;
 
-	/* Hardcoded to use PIXMAN_OP_OVER, because sampling outside of
+	/*
+	 * Hardcoded to use PIXMAN_OP_OVER, because sampling outside of
 	 * a Pixman image produces (0,0,0,0) instead of discarding the
 	 * fragment.
+	 *
+	 * Also repeat mode must be PIXMAN_REPEAT_NONE (the default) to
+	 * actually sample (0,0,0,0). This may cause issues for clients that
+	 * expect OpenGL CLAMP_TO_EDGE sampling behavior on their buffer.
+	 * Using temporary 'boximg' it is not possible to apply CLAMP_TO_EDGE
+	 * correctly with bilinear filter. Maybe trapezoid rendering could be
+	 * the answer instead of source clip?
 	 */
 
 	dest_width = pixman_image_get_width(dest);
