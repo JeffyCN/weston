@@ -185,6 +185,7 @@ tests = [
 		'dep_objs': dep_vertex_clipping,
 	},
 	{	'name': 'viewporter', },
+	{	'name': 'viewporter-shot', },
 ]
 
 tests_standalone = [
