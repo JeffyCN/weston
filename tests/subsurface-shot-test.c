@@ -82,39 +82,6 @@ get_subcompositor(struct client *client)
 	return sub;
 }
 
-static void
-fill_color(pixman_image_t *image, pixman_color_t *color)
-{
-	pixman_image_t *solid;
-	int width;
-	int height;
-
-	width = pixman_image_get_width(image);
-	height = pixman_image_get_height(image);
-
-	solid = pixman_image_create_solid_fill(color);
-	pixman_image_composite32(PIXMAN_OP_SRC,
-				 solid, /* src */
-				 NULL, /* mask */
-				 image, /* dst */
-				 0, 0, /* src x,y */
-				 0, 0, /* mask x,y */
-				 0, 0, /* dst x,y */
-				 width, height);
-	pixman_image_unref(solid);
-}
-
-static pixman_color_t *
-color(pixman_color_t *tmp, uint8_t r, uint8_t g, uint8_t b)
-{
-	tmp->alpha = 65535;
-	tmp->red = (r << 8) + r;
-	tmp->green = (g << 8) + g;
-	tmp->blue = (b << 8) + b;
-
-	return tmp;
-}
-
 static int
 check_screen(struct client *client,
 	     const char *ref_image,
@@ -137,7 +104,7 @@ surface_commit_color(struct client *client, struct wl_surface *surface,
 	struct buffer *buf;
 
 	buf = create_shm_buffer_a8r8g8b8(client, width, height);
-	fill_color(buf->image, color);
+	fill_image_with_color(buf->image, color);
 	wl_surface_attach(surface, buf->proxy, 0, 0);
 	wl_surface_damage(surface, 0, 0, width, height);
 	wl_surface_commit(surface);
@@ -160,10 +127,10 @@ TEST(subsurface_z_order)
 	pixman_color_t cyan;
 	pixman_color_t green;
 
-	color(&red, 255, 0, 0);
-	color(&blue, 0, 0, 255);
-	color(&cyan, 0, 255, 255);
-	color(&green, 0, 255, 0);
+	color_rgb888(&red, 255, 0, 0);
+	color_rgb888(&blue, 0, 0, 255);
+	color_rgb888(&cyan, 0, 255, 255);
+	color_rgb888(&green, 0, 255, 0);
 
 	client = create_client_and_test_surface(100, 50, 100, 100);
 	assert(client);

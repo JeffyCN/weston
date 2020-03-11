@@ -1,6 +1,7 @@
 /*
  * Copyright © 2012 Intel Corporation
- * Copyright 2017 Collabora, Ltd.
+ * Copyright © 2015 Samsung Electronics Co., Ltd
+ * Copyright 2016, 2017 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -1847,4 +1848,52 @@ client_create_viewport(struct client *client)
 	wp_viewporter_destroy(viewporter);
 
 	return viewport;
+}
+
+/**
+ * Fill the image with the given color
+ *
+ * \param image The image to write to.
+ * \param color The color to use.
+ */
+void
+fill_image_with_color(pixman_image_t *image, pixman_color_t *color)
+{
+	pixman_image_t *solid;
+	int width;
+	int height;
+
+	width = pixman_image_get_width(image);
+	height = pixman_image_get_height(image);
+
+	solid = pixman_image_create_solid_fill(color);
+	pixman_image_composite32(PIXMAN_OP_SRC,
+				 solid, /* src */
+				 NULL, /* mask */
+				 image, /* dst */
+				 0, 0, /* src x,y */
+				 0, 0, /* mask x,y */
+				 0, 0, /* dst x,y */
+				 width, height);
+	pixman_image_unref(solid);
+}
+
+/**
+ * Convert 8-bit RGB to opaque Pixman color
+ *
+ * \param tmp Pixman color struct to fill in.
+ * \param r Red value, 0 - 255.
+ * \param g Green value, 0 - 255.
+ * \param b Blue value, 0 - 255.
+ * \return tmp
+ */
+pixman_color_t *
+color_rgb888(pixman_color_t *tmp, uint8_t r, uint8_t g, uint8_t b)
+{
+	tmp->alpha = 65535;
+	tmp->red = (r << 8) + r;
+	tmp->green = (g << 8) + g;
+	tmp->blue = (b << 8) + b;
+
+	return tmp;
 }
