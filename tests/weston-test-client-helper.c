@@ -1788,3 +1788,63 @@ client_buffer_from_image_file(struct client *client,
 
 	return buf;
 }
+
+/**
+ * Bind to a singleton global in wl_registry
+ *
+ * \param client Client whose registry and globals to use.
+ * \param iface The Wayland interface to look for.
+ * \param version The version to bind the interface with.
+ * \return A struct wl_proxy, which you need to cast to the proper type.
+ *
+ * Asserts that the global being searched for is a singleton and is found.
+ *
+ * Binds with the exact version given, does not take compositor interface
+ * version into account.
+ */
+void *
+bind_to_singleton_global(struct client *client,
+			 const struct wl_interface *iface,
+			 int version)
+{
+	struct global *tmp;
+	struct global *g = NULL;
+	struct wl_proxy *proxy;
+
+	wl_list_for_each(tmp, &client->global_list, link) {
+		if (strcmp(tmp->interface, iface->name))
+			continue;
+
+		assert(!g && "multiple singleton objects");
+		g = tmp;
+	}
+
+	assert(g && "singleton not found");
+
+	proxy = wl_registry_bind(client->wl_registry, g->name, iface, version);
+	assert(proxy);
+
+	return proxy;
+}
+
+/**
+ * Create a wp_viewport for the client surface
+ *
+ * \param client The client->surface to use.
+ * \return A fresh viewport object.
+ */
+struct wp_viewport *
+client_create_viewport(struct client *client)
+{
+	struct wp_viewporter *viewporter;
+	struct wp_viewport *viewport;
+
+	viewporter = bind_to_singleton_global(client,
+					      &wp_viewporter_interface, 1);
+	viewport = wp_viewporter_get_viewport(viewporter,
+					      client->surface->wl_surface);
+	assert(viewport);
+	wp_viewporter_destroy(viewporter);
+
+	return viewport;
+}

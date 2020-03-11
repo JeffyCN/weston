@@ -30,6 +30,8 @@ lib_test_client = static_library(
 		'weston-test-fixture-compositor.c',
 		weston_test_client_protocol_h,
 		weston_test_protocol_c,
+		viewporter_client_protocol_h,
+		viewporter_protocol_c,
 	],
 	include_directories: common_inc,
 	dependencies: [
@@ -43,6 +45,9 @@ lib_test_client = static_library(
 )
 dep_test_client = declare_dependency(
 	link_with: lib_test_client,
+	sources: [
+		viewporter_client_protocol_h,
+	],
 	dependencies: [
 		dep_wayland_client,
 		dep_test_runner,
@@ -179,14 +184,7 @@ tests = [
 		'name': 'vertex-clip',
 		'dep_objs': dep_vertex_clipping,
 	},
-	{
-		'name': 'viewporter',
-		'sources': [
-			'viewporter-test.c',
-			viewporter_client_protocol_h,
-			viewporter_protocol_c,
-		],
-	},
+	{	'name': 'viewporter', },
 ]
 
 tests_standalone = [

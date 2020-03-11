@@ -37,6 +37,7 @@
 #include <wayland-client-protocol.h>
 #include "weston-test-runner.h"
 #include "weston-test-client-protocol.h"
+#include "viewporter-client-protocol.h"
 
 struct client {
 	struct wl_display *wl_display;
@@ -268,5 +269,13 @@ struct buffer *
 client_buffer_from_image_file(struct client *client,
 			      const char *basename,
 			      int scale);
+
+void *
+bind_to_singleton_global(struct client *client,
+			 const struct wl_interface *iface,
+			 int version);
+
+struct wp_viewport *
+client_create_viewport(struct client *client);
 
 #endif
