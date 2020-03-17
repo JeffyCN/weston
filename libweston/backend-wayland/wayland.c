@@ -180,6 +180,8 @@ struct wayland_shm_buffer {
 	struct wl_buffer *buffer;
 	void *data;
 	size_t size;
+	int width;
+	int height;
 	pixman_region32_t damage;		/**< in global coords */
 	int frame_damaged;
 
@@ -339,6 +341,8 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 	sb->frame_damaged = 1;
 
 	sb->data = data;
+	sb->width = width;
+	sb->height = height;
 	sb->size = height * stride;
 
 	pool = wl_shm_create_pool(shm, fd, sb->size);
@@ -410,8 +414,7 @@ draw_initial_frame(struct wayland_output *output)
 
 	wl_surface_attach(output->parent.surface, sb->buffer, 0, 0);
 	wl_surface_damage(output->parent.surface, 0, 0,
-			  output->base.current_mode->width,
-			  output->base.current_mode->height);
+			  sb->width, sb->height);
 }
 
 #ifdef ENABLE_EGL
