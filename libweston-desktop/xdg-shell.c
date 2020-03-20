@@ -683,7 +683,11 @@ weston_desktop_xdg_toplevel_committed(struct weston_desktop_xdg_toplevel *toplev
 
 		wl_resource_post_error(client_resource,
 				       XDG_WM_BASE_ERROR_INVALID_SURFACE_STATE,
-				       "xdg_surface buffer does not match the configured state");
+				       "xdg_surface buffer (%" PRIi32 " x %" PRIi32 ") "
+				       "does not match the configured state (%" PRIi32 " x %" PRIi32 ")",
+				       geometry.width, geometry.height,
+				       toplevel->next.size.width,
+				       toplevel->next.size.height);
 		return;
 	}
 
