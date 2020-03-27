@@ -2697,8 +2697,10 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 		shell_surface_set_output(shsurf, output);
 		shsurf->fullscreen_output = shsurf->output;
 
-		width = shsurf->output->width;
-		height = shsurf->output->height;
+		if (shsurf->output) {
+			width = shsurf->output->width;
+			height = shsurf->output->height;
+		}
 	} else if (weston_desktop_surface_get_maximized(desktop_surface)) {
 		get_maximized_size(shsurf, &width, &height);
 	}
