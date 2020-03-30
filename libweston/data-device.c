@@ -1057,13 +1057,17 @@ data_device_start_drag(struct wl_client *client, struct wl_resource *resource,
 			touch->focus &&
 			touch->focus->surface == origin;
 
-	if (!is_pointer_grab && !is_touch_grab)
-		return;
-
 	/* FIXME: Check that the data source type array isn't empty. */
 
 	if (source_resource)
 		source = wl_resource_get_user_data(source_resource);
+
+	if (!is_pointer_grab && !is_touch_grab) {
+		if (source)
+			wl_data_source_send_cancelled(source->resource);
+		return;
+	}
+
 	if (icon_resource)
 		icon = wl_resource_get_user_data(icon_resource);
 
