@@ -1389,12 +1389,6 @@ drm_output_set_gbm_format(struct weston_output *base,
 
 	if (parse_gbm_format(gbm_format, b->gbm_format, &output->gbm_format) == -1)
 		output->gbm_format = b->gbm_format;
-
-	/* Without universal planes, we can't discover which formats are
-	 * supported by the primary plane; we just hope that the GBM format
-	 * works. */
-	if (!b->universal_planes)
-		output->scanout_plane->formats[0].format = output->gbm_format;
 }
 
 static void
@@ -1625,6 +1619,12 @@ drm_output_init_crtc(struct drm_output *output, drmModeRes *resources)
 			   output->base.name);
 		goto err_crtc;
 	}
+
+	/* Without universal planes, we can't discover which formats are
+	 * supported by the primary plane; we just hope that the GBM format
+	 * works. */
+	if (!b->universal_planes)
+		output->scanout_plane->formats[0].format = output->gbm_format;
 
 	/* Failing to find a cursor plane is not fatal, as we'll fall back
 	 * to software cursor. */
