@@ -31,7 +31,7 @@ If seat identifiers are not set, it looks for the graphics device
 that was used in boot. If that is not found, it finally chooses
 the first DRM device returned by
 .BR udev (7).
-Combining multiple graphics devices are not supported yet.
+Combining multiple graphics devices is not supported yet.
 
 The DRM backend relies on
 .B weston-launch
