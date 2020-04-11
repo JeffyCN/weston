@@ -213,6 +213,9 @@ rdp_peer_refresh_rfx(pixman_region32_t *damage, pixman_image_t *image, freerdp_p
 #else
 	memset(&cmd, 0, sizeof(*cmd));
 #endif
+#ifdef HAVE_SURFCMD_CMDTYPE
+	cmd.cmdType = CMDTYPE_STREAM_SURFACE_BITS;
+#endif
 	cmd.destLeft = damage->extents.x1;
 	cmd.destTop = damage->extents.y1;
 	cmd.destRight = damage->extents.x2;
@@ -270,7 +273,9 @@ rdp_peer_refresh_nsc(pixman_region32_t *damage, pixman_image_t *image, freerdp_p
 #else
 	memset(cmd, 0, sizeof(*cmd));
 #endif
-
+#ifdef HAVE_SURFCMD_CMDTYPE
+	cmd.cmdType = CMDTYPE_SET_SURFACE_BITS;
+#endif
 	cmd.destLeft = damage->extents.x1;
 	cmd.destTop = damage->extents.y1;
 	cmd.destRight = damage->extents.x2;
@@ -326,6 +331,9 @@ rdp_peer_refresh_raw(pixman_region32_t *region, pixman_image_t *image, freerdp_p
 	update->SurfaceFrameMarker(peer->context, &marker);
 
 	memset(&cmd, 0, sizeof(cmd));
+#ifdef HAVE_SURFCMD_CMDTYPE
+	cmd.cmdType = CMDTYPE_SET_SURFACE_BITS;
+#endif
 	SURFACE_BPP(cmd) = 32;
 	SURFACE_CODECID(cmd) = 0;
 
@@ -758,8 +766,11 @@ rdp_peer_context_new(freerdp_peer* client, RdpPeerContext* context)
 	if (!context->nsc_context)
 		goto out_error_nsc;
 
+#ifdef HAVE_NSC_CONTEXT_SET_PARAMETERS
+	nsc_context_set_parameters(context->nsc_context, NSC_COLOR_FORMAT, DEFAULT_PIXEL_FORMAT);
+#else
 	nsc_context_set_pixel_format(context->nsc_context, DEFAULT_PIXEL_FORMAT);
-
+#endif
 	context->encode_stream = Stream_New(NULL, 65536);
 	if (!context->encode_stream)
 		goto out_error_stream;

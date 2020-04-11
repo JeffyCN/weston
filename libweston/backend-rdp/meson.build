@@ -26,6 +26,22 @@ if cc.has_member(
 	config_h.set('HAVE_SURFACE_BITS_BMP', '1')
 endif
 
+if cc.has_type(
+	'enum SURFCMD_CMDTYPE',
+	dependencies : dep_frdp,
+	prefix : '#include <freerdp/update.h>'
+)
+	config_h.set('HAVE_SURFCMD_CMDTYPE', '1')
+endif
+
+if cc.has_function(
+	'nsc_context_set_parameters',
+	dependencies : dep_frdp,
+	prefix: '#include <freerdp/codec/nsc.h>'
+)
+	config_h.set('HAVE_NSC_CONTEXT_SET_PARAMETERS', '1')
+endif
+
 deps_rdp = [
 	dep_libweston_private,
 	dep_frdp,
