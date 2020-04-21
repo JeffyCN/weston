@@ -124,6 +124,12 @@ option(
 	value: true,
 	description: 'Weston shell UI: IVI (automotive)'
 )
+option(
+	'shell-kiosk',
+	type: 'boolean',
+	value: true,
+	description: 'Weston shell UI: kiosk (desktop apps)'
+)
 
 option(
 	'desktop-shell-client-default',
