@@ -52,6 +52,8 @@ drm_plane_state_alloc(struct drm_output_state *state_output,
 							     WL_OUTPUT_TRANSFORM_NORMAL);
 	assert(state->rotation);
 	state->zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
+	state->alpha = (plane->alpha_max < DRM_PLANE_ALPHA_OPAQUE) ?
+		       plane->alpha_max : DRM_PLANE_ALPHA_OPAQUE;
 
 	/* Here we only add the plane state to the desired link, and not
 	 * set the member. Having an output pointer set means that the
@@ -86,6 +88,7 @@ drm_plane_state_free(struct drm_plane_state *state, bool force)
 	state->output_state = NULL;
 	state->in_fence_fd = -1;
 	state->zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
+	state->alpha = DRM_PLANE_ALPHA_OPAQUE;
 
 	/* Once the damage blob has been submitted, it is refcounted internally
 	 * by the kernel, which means we can safely discard it.

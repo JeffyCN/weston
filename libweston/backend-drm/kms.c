@@ -104,6 +104,7 @@ const struct drm_property_info plane_props[] = {
 		.enum_values = plane_rotation_enums,
 		.num_enum_values = WDRM_PLANE_ROTATION__COUNT,
 	 },
+	[WDRM_PLANE_ALPHA] = { .name = "alpha" },
 };
 
 struct drm_property_enum_info dpms_state_enums[] = {
@@ -1308,6 +1309,12 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 			ret |= plane_add_prop(req, plane,
 					      WDRM_PLANE_ZPOS,
 					      plane_state->zpos);
+
+		/*Plane-alpha support */
+		if (plane->alpha_max != plane->alpha_min)
+			ret |= plane_add_prop(req, plane,
+					      WDRM_PLANE_ALPHA,
+					      plane_state->alpha);
 
 		if (ret != 0) {
 			weston_log("couldn't set plane state\n");

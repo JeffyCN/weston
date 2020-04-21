@@ -73,6 +73,10 @@
 #define DRM_PLANE_ZPOS_INVALID_PLANE	0xffffffffffffffffULL
 #endif
 
+#ifndef DRM_PLANE_ALPHA_OPAQUE
+#define DRM_PLANE_ALPHA_OPAQUE	0xffffUL
+#endif
+
 /**
  * A small wrapper to print information into the 'drm-backend' debug scope.
  *
@@ -164,6 +168,7 @@ enum wdrm_plane_property {
 	WDRM_PLANE_FB_DAMAGE_CLIPS,
 	WDRM_PLANE_ZPOS,
 	WDRM_PLANE_ROTATION,
+	WDRM_PLANE_ALPHA,
 	WDRM_PLANE__COUNT
 };
 
@@ -494,6 +499,7 @@ struct drm_plane_state {
 	uint32_t rotation;
 
 	uint64_t zpos;
+	uint16_t alpha;
 
 	bool complete;
 
@@ -538,6 +544,9 @@ struct drm_plane {
 
 	uint64_t zpos_min;
 	uint64_t zpos_max;
+
+	uint16_t alpha_min;
+	uint16_t alpha_max;
 
 	struct wl_list link;
 

@@ -988,6 +988,7 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 	struct drm_plane *plane, *tmp;
 	drmModeObjectProperties *props;
 	uint64_t *zpos_range_values;
+	uint64_t *alpha_range_values;
 
 	plane = zalloc(sizeof(*plane));
 	if (!plane) {
@@ -1027,6 +1028,18 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 	} else {
 		plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
 		plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
+	}
+
+	alpha_range_values =
+		drm_property_get_range_values(&plane->props[WDRM_PLANE_ALPHA],
+					      props);
+
+	if (alpha_range_values) {
+		plane->alpha_min = (uint16_t) alpha_range_values[0];
+		plane->alpha_max = (uint16_t) alpha_range_values[1];
+	} else {
+		plane->alpha_min = DRM_PLANE_ALPHA_OPAQUE;
+		plane->alpha_max = DRM_PLANE_ALPHA_OPAQUE;
 	}
 
 	if (drm_plane_populate_formats(plane, kplane, props,
