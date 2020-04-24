@@ -225,6 +225,8 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	pixman_box32_t *box;
 	struct weston_coord corners[2];
 	float sxf1, syf1, sxf2, syf2;
+	uint16_t min_alpha = state->plane->alpha_min;
+	uint16_t max_alpha = state->plane->alpha_max;
 
 	if (!drm_paint_node_transform_supported(node, state->plane))
 		return false;
@@ -304,6 +306,12 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 
 	/* apply zpos if available */
 	state->zpos = zpos;
+
+	/* The alpha of the view is normalized to alpha value range
+	 * [min_alpha, max_alpha] that got from drm. The alpha value would
+	 * never exceed max_alpha if ev->alpha <= 1.0.
+	 */
+	state->alpha = min_alpha + (uint16_t)round((max_alpha - min_alpha) * ev->alpha);
 
 	return true;
 }

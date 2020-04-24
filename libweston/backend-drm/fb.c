@@ -695,12 +695,6 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 	struct drm_fb *fb;
 	struct drm_plane *plane;
 
-	if (ev->alpha != 1.0f) {
-		pnode->try_view_on_plane_failure_reasons |=
-			FAILURE_REASONS_GLOBAL_ALPHA;
-		return NULL;
-	}
-
 	if (ev->surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_ENFORCED &&
 	    ev->surface->desired_protection > output->base.current_protection) {
 		pnode->try_view_on_plane_failure_reasons |=

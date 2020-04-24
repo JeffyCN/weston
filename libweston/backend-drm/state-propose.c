@@ -583,6 +583,14 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			continue;
 		}
 
+		/* if view has alpha check if this plane supports plane alpha */
+		if (ev->alpha != 1.0f && plane->alpha_max == plane->alpha_min) {
+			drm_debug(b, "\t\t\t\t[plane] not trying plane %d:"
+				     "plane-alpha not supported\n",
+				     plane->plane_id);
+			continue;
+		}
+
 		if (plane->zpos_min >= current_lowest_zpos) {
 			drm_debug(b, "\t\t\t\t[plane] not trying plane %d: "
 				     "plane's minimum zpos (%"PRIu64") above "
