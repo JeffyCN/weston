@@ -7162,8 +7162,8 @@ debug_scene_view_print_tree(struct weston_view *view,
 
 	wl_list_for_each(sub, &view->surface->subsurface_list, parent_link) {
 		wl_list_for_each(ev, &sub->surface->views, surface_link) {
-			/* do not print again the parent view */
-			if (view == ev)
+			/* only print the child views of the current view */
+			if (ev->parent_view != view)
 				continue;
 
 			(*view_idx)++;
