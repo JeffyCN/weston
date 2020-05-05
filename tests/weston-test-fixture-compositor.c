@@ -139,12 +139,18 @@ renderer_to_arg(enum weston_compositor_backend b, enum renderer_type r)
 		[RENDERER_PIXMAN] = "--use-pixman",
 		[RENDERER_GL] = "--use-gl",
 	};
-
-	assert(r >= 0 && r < ARRAY_LENGTH(headless_names));
+	static const char * const drm_names[] = {
+		[RENDERER_PIXMAN] = "--use-pixman",
+		[RENDERER_GL] = NULL,
+	};
 
 	switch (b) {
 	case WESTON_BACKEND_HEADLESS:
+		assert(r >= RENDERER_NOOP && r <= RENDERER_GL);
 		return headless_names[r];
+	case WESTON_BACKEND_DRM:
+		assert(r >= RENDERER_PIXMAN && r <= RENDERER_GL);
+		return drm_names[r];
 	default:
 		assert(0 && "renderer_to_str() does not know the backend");
 	}
