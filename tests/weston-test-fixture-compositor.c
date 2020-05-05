@@ -273,11 +273,14 @@ execute_compositor(const struct compositor_setup *setup,
 		 setup->extra_module ? setup->extra_module : "");
 	prog_args_take(&args, tmp);
 
-	asprintf(&tmp, "--width=%d", setup->width);
-	prog_args_take(&args, tmp);
+	if (setup->backend != WESTON_BACKEND_DRM &&
+	    setup->backend != WESTON_BACKEND_FBDEV) {
+		asprintf(&tmp, "--width=%d", setup->width);
+		prog_args_take(&args, tmp);
 
-	asprintf(&tmp, "--height=%d", setup->height);
-	prog_args_take(&args, tmp);
+		asprintf(&tmp, "--height=%d", setup->height);
+		prog_args_take(&args, tmp);
+	}
 
 	if (setup->scale != 1) {
 		asprintf(&tmp, "--scale=%d", setup->scale);
