@@ -118,6 +118,7 @@ dep_zucmain = declare_dependency(
 
 tests = [
 	{	'name': 'bad-buffer', },
+	{	'name': 'drm-smoke', },
 	{	'name': 'buffer-transforms', },
 	{	'name': 'devices', },
 	{	'name': 'event', },
