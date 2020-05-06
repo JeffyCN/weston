@@ -213,6 +213,34 @@ clients:
    }
 
 
+DRM-backend tests
+-----------------
+
+DRM-backend tests require a DRM device, so they are a special case. To select a
+device the test suite will simply look at the environment variable
+``WESTON_TEST_SUITE_DRM_DEVICE``. So the first thing the user has to do in order
+to run DRM-backend tests is to set this environment variable with the card that
+should run the tests. For instance, in order to run DRM-backend tests with
+``card0`` we need to run ``export WESTON_TEST_SUITE_DRM_DEVICE=card0``.
+
+Note that the card should not be in use by a desktop environment (or any other
+program that requires master status), as there can only be one user at a time
+with master status in a DRM device. Also, this is the reason why we can not run
+two or more DRM-backend tests simultaneously. Since the test suite tries to run
+the tests in parallel, we have a lock mechanism to enforce that DRM-backend
+tests run sequentially, one at a time. Note that this will not avoid them to run
+in parallel with other types of tests.
+
+Another specificity of DRM-backend tests is that they run using the non-default
+seat ``seat-weston-test``. This avoids unnecessarily opening input devices that
+may be present in the default seat ``seat0``. On the other hand, this will make
+``launcher-logind`` fail, as we are trying to use a seat that is different from
+the one we are logged in. In the CI we do not rely on ``logind``, so it should
+fallback to ``launcher-direct`` anyway. It requires root, but this is also not a
+problem for the CI, as ``virtme`` starts as root. The problem is that to run
+the tests locally with a real hardware the users need to run as root.
+
+
 Writing tests
 -------------
 

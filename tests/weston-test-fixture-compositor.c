@@ -27,6 +27,10 @@
 
 #include <string.h>
 #include <assert.h>
+#include <libudev.h>
+#include <unistd.h>
+#include <sys/file.h>
+#include <errno.h>
 
 #include "shared/helpers.h"
 #include "weston-test-fixture-compositor.h"
@@ -87,6 +91,71 @@ prog_args_fini(struct prog_args *p)
 	free(p->saved);
 	free(p->argv);
 	prog_args_init(p);
+}
+
+static char *
+get_lock_path(void)
+{
+	const char *env_path, *suffix;
+	char *lock_path;
+
+	suffix = "weston-test-suite-drm-lock";
+	env_path = getenv("XDG_RUNTIME_DIR");
+	if (!env_path) {
+		fprintf(stderr, "Failed to compute lock file path. " \
+			"XDG_RUNTIME_DIR is not set.\n");
+		return NULL;
+	}
+
+	if (asprintf(&lock_path, "%s/%s", env_path, suffix) == -1)
+		return NULL;
+
+	return lock_path;
+}
+
+/*
+ * DRM-backend tests need to be run sequentially, since there can only be
+ * one user at a time with master status in a DRM KMS device. Since the
+ * test suite runs the tests in parallel, there's a mechanism to assure
+ * only one DRM-backend test is running at a time: tests of this type keep
+ * waiting until they acquire a lock (which is hold until they end).
+ *
+ * Returns -1 in failure and fd in success.
+ */
+static int
+wait_for_lock(void)
+{
+	char *lock_path;
+	int fd;
+
+	lock_path = get_lock_path();
+	if (!lock_path)
+		goto err_path;
+
+	fd = open(lock_path, O_RDWR | O_CLOEXEC | O_CREAT, 00700);
+	if (fd == -1) {
+		fprintf(stderr, "Could not open lock file %s: %s\n", lock_path, strerror(errno));
+		goto err_open;
+	}
+	fprintf(stderr, "Waiting for lock on %s...\n", lock_path);
+
+	/* The call is blocking, so we don't need a 'while'. Also, as we
+	 * have a timeout for each test, this won't get stuck waiting. */
+	if (flock(fd, LOCK_EX) == -1) {
+		fprintf(stderr, "Could not lock %s: %s\n", lock_path, strerror(errno));
+		goto err_lock;
+	}
+	fprintf(stderr, "Lock %s acquired.\n", lock_path);
+	free(lock_path);
+
+	return fd;
+
+err_lock:
+	close(fd);
+err_open:
+	free(lock_path);
+err_path:
+	return -1;
 }
 
 /** Initialize part of compositor setup
@@ -204,8 +273,8 @@ execute_compositor(const struct compositor_setup *setup,
 {
 	struct prog_args args;
 	char *tmp;
-	const char *ctmp;
-	int ret;
+	const char *ctmp, *drm_device;
+	int ret, lock_fd = -1;
 
 	if (setenv("WESTON_MODULE_MAP", WESTON_MODULE_MAP, 0) < 0 ||
 	    setenv("WESTON_DATA_DIR", WESTON_DATA_DIR, 0) < 0) {
@@ -271,6 +340,28 @@ execute_compositor(const struct compositor_setup *setup,
 	asprintf(&tmp, "--backend=%s", backend_to_str(setup->backend));
 	prog_args_take(&args, tmp);
 
+	if (setup->backend == WESTON_BACKEND_DRM) {
+
+		drm_device = getenv("WESTON_TEST_SUITE_DRM_DEVICE");
+		if (!drm_device) {
+			fprintf(stderr, "Skipping DRM-backend tests because " \
+				"WESTON_TEST_SUITE_DRM_DEVICE is not set. " \
+				"See test suite documentation to learn how " \
+				"to run them.\n");
+			return RESULT_SKIP;
+		}
+		asprintf(&tmp, "--drm-device=%s", drm_device);
+		prog_args_take(&args, tmp);
+
+		prog_args_take(&args, strdup("--seat=weston-test-seat"));
+
+		prog_args_take(&args, strdup("--continue-without-input"));
+
+		lock_fd = wait_for_lock();
+		if (lock_fd == -1)
+			return RESULT_FAIL;
+	}
+
 	asprintf(&tmp, "--socket=%s", setup->testset_name);
 	prog_args_take(&args, tmp);
 
@@ -326,6 +417,11 @@ execute_compositor(const struct compositor_setup *setup,
 	ret = wet_main(args.argc, args.argv);
 
 	prog_args_fini(&args);
+
+	/* We acquired a lock (if this is a DRM-backend test) and now we can
+	 * close its fd and release it, as it has already been run. */
+	if (lock_fd != -1)
+		close(lock_fd);
 
 	return ret;
 }
