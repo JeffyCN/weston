@@ -2831,6 +2831,7 @@ drm_backend_create(struct weston_compositor *compositor,
 						   NULL, NULL, NULL);
 
 	compositor->backend = &b->base;
+	compositor->require_input = !config->continue_without_input;
 
 	if (parse_gbm_format(config->gbm_format, DRM_FORMAT_XRGB8888, &b->gbm_format) < 0)
 		goto err_compositor;

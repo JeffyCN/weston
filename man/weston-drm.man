@@ -205,6 +205,9 @@ instead of the seat defined in the environment variable
 Launch Weston on tty
 .I x
 instead of using the current tty.
+.TP
+.B \-\-continue\-without\-input
+Allow Weston to start without input devices. Used for testing purposes.
 .
 .\" ***************************************************************
 .SH ENVIRONMENT
