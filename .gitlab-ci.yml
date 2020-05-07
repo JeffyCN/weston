@@ -1,17 +1,12 @@
 # vim: set expandtab shiftwidth=2 tabstop=8 textwidth=0:
 
 variables:
-  UPSTREAM_REPO: wayland/weston
-  DEBIAN_VERSION: buster
-  DEBIAN_EXEC: 'bash .gitlab-ci/debian-install.sh'
-
-  DEBIAN_TAG: '2020-02-18.1'
-  DEBIAN_CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/debian/$DEBIAN_VERSION:$DEBIAN_TAG
+  FDO_UPSTREAM_REPO: wayland/weston
 
 
 include:
   - project: 'freedesktop/ci-templates'
-    ref: b7030c2cd0d6ccc5f6d4f8299bafa4daa9240d71
+    ref: 59de540b620c45739871d1a073d76d5521989d11
     file: '/templates/debian.yml'
 
 
@@ -21,14 +16,25 @@ stages:
   - pages
 
 
+.debian:
+  variables:
+    FDO_DISTRIBUTION_VERSION: buster
+    FDO_DISTRIBUTION_EXEC: 'bash .gitlab-ci/debian-install.sh'
+    FDO_DISTRIBUTION_TAG: '2020-05-08.0'
+
+
 container_prep:
-  extends: .debian@container-ifnot-exists
+  extends:
+    - .debian
+    - .fdo.container-build@debian
   stage: container_prep
 
 
 .build-native:
+  extends:
+    - .debian
+    - .fdo.distribution-image@debian
   stage: build
-  image: $DEBIAN_CONTAINER_IMAGE
   before_script:
   - git clone --depth=1 https://gitlab.freedesktop.org/wayland/wayland-protocols
   - export WAYLAND_PROTOCOLS_DIR="$(pwd)/prefix-wayland-protocols"
