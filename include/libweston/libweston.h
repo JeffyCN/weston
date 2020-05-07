@@ -2053,6 +2053,16 @@ struct weston_pointer_constraint {
 	struct wl_listener surface_activate_listener;
 };
 
+enum weston_surface_flags {
+	SURFACE_NO_FOCUS		= 1 << 0,
+	SURFACE_STAY_ON_TOP		= 1 << 1,
+	SURFACE_STAY_ON_BOTTOM		= 1 << 2,
+	SURFACE_BLOCKED			= 1 << 3,
+	SURFACE_TRANS_INPUT		= 1 << 4,
+	SURFACE_ACTIVATE		= 1 << 5,
+	SURFACE_DEFAULT_SECONDARY	= 1 << 6,
+};
+
 struct weston_surface {
 	struct weston_trace_flow flow;
 	/** Derived from weston_client::internal_id_counter */
@@ -2230,6 +2240,11 @@ struct weston_surface {
 
 	/* If true, surface is bound to its current output */
 	bool bound_to_output;
+
+	/* Hacky surface flags */
+	enum weston_surface_flags flags;
+
+	double alpha;
 };
 
 struct weston_subsurface {
