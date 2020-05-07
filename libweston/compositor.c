@@ -602,7 +602,7 @@ weston_view_create_internal(struct weston_surface *surface)
 
 	pixman_region32_init(&view->visible);
 
-	view->alpha = 1.0;
+	view->alpha = surface->alpha;
 	pixman_region32_init(&view->transform.opaque);
 
 	wl_list_init(&view->geometry.transformation_list);
@@ -848,6 +848,8 @@ weston_surface_create(struct weston_compositor *compositor)
 
 	surface->compositor = compositor;
 	surface->ref_count = 1;
+
+	surface->alpha = 1.0;
 
 	surface->buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
 	surface->buffer_viewport.buffer.scale = 1;
@@ -2374,6 +2376,12 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 
 		surf_pos = weston_coord_global_to_surface(view, pos);
 		if (!weston_view_takes_input_at_point(view, surf_pos))
+			continue;
+
+		if (view->surface->flags & SURFACE_BLOCKED)
+			break;
+
+		if (view->surface->flags & SURFACE_TRANS_INPUT)
 			continue;
 
 		return view;

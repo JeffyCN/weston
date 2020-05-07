@@ -751,11 +751,204 @@ weston_desktop_surface_set_position(struct weston_desktop_surface *surface,
 		weston_view_set_position(view->view, pos);
 }
 
+static bool
+weston_desktop_surface_set_flags(struct weston_desktop_surface *surface,
+				 char *s)
+{
+	struct weston_surface *wsurface = surface->surface;
+	char *p;
+
+#define SURFACE_FLAG_PREFIX "flags="
+	s = strstr(s, SURFACE_FLAG_PREFIX);
+	if (!s)
+		return false;
+
+	s += strlen(SURFACE_FLAG_PREFIX);
+
+	p = strtok(s, "|");
+	while (p) {
+		enum weston_surface_flags flag = 0;
+		bool clear = false;
+
+		switch (p[0]) {
+		case ';':
+			/* fall through */
+		case '&':
+			return true;
+		case '-':
+			clear = true;
+			/* fall through */
+		case '+':
+			p++;
+		default:
+			break;
+		}
+
+		if (!strcmp(p, "no-focus"))
+			flag = SURFACE_NO_FOCUS;
+		else if (!strcmp(p, "stay-on-top"))
+			flag = SURFACE_STAY_ON_TOP;
+		else if (!strcmp(p, "stay-on-bottom"))
+			flag = SURFACE_STAY_ON_BOTTOM;
+		else if (!strcmp(p, "blocked"))
+			flag = SURFACE_BLOCKED;
+		else if (!strcmp(p, "trans-input"))
+			flag = SURFACE_TRANS_INPUT;
+		else
+			weston_log("%s: warning: unsupported flag: %s\n",
+				   __func__, p);
+
+		if (clear)
+			wsurface->flags &= ~flag;
+		else
+			wsurface->flags |= flag;
+
+		p = strtok(NULL, "|");
+	};
+
+	return true;
+}
+
+static bool
+weston_desktop_surface_set_requests(struct weston_desktop_surface *surface,
+				    char *s)
+{
+	struct weston_surface *wsurface = surface->surface;
+	char *p;
+
+#define SURFACE_REQUEST_PREFIX "requests="
+	s = strstr(s, SURFACE_REQUEST_PREFIX);
+	if (!s)
+		return false;
+
+	s += strlen(SURFACE_REQUEST_PREFIX);
+
+	p = strtok(s, "|");
+	while (p) {
+		switch (p[0]) {
+		case ';':
+			/* fall through */
+		case '&':
+			return true;
+		default:
+			break;
+		}
+
+		if (!strcmp(p, "activate")) {
+			struct weston_coord_surface zero;
+
+			if (weston_surface_is_mapped(wsurface))
+				weston_surface_unmap(wsurface);
+
+			zero = weston_coord_surface(0, 0, wsurface);
+			weston_desktop_api_committed(surface->desktop,
+						     surface, zero);
+		} else {
+			weston_log("%s: warning: unsupported request: %s\n",
+				   __func__, p);
+		}
+
+		p = strtok(NULL, "|");
+	};
+
+	return true;
+}
+
+static void
+weston_surface_set_alpha(struct weston_surface *wsurface, float alpha)
+{
+	struct weston_subsurface *sub;
+	struct weston_view *view;
+
+	wsurface->alpha = alpha;
+	wsurface->is_opaque = !(alpha < 1.0);
+
+	wl_list_for_each(view, &wsurface->views,
+			 surface_link) {
+		view->alpha = alpha;
+		weston_view_geometry_dirty(view);
+	}
+
+	wl_list_for_each(sub, &wsurface->subsurface_list,
+			 parent_link) {
+		if (sub->surface != wsurface)
+			weston_surface_set_alpha(sub->surface, alpha);
+	}
+}
+
+static bool
+weston_desktop_surface_set_attrs(struct weston_desktop_surface *surface,
+				 char *s)
+{
+	struct weston_surface *wsurface = surface->surface;
+	char *p;
+
+#define SURFACE_ATTRS_PREFIX "attrs="
+	s = strstr(s, SURFACE_ATTRS_PREFIX);
+	if (!s)
+		return false;
+
+	s += strlen(SURFACE_ATTRS_PREFIX);
+
+	p = strtok(s, "|");
+	while (p) {
+		switch (p[0]) {
+		case ';':
+			/* fall through */
+		case '&':
+			return true;
+		default:
+			break;
+		}
+
+#define SURFACE_ATTR_ALPHA "alpha:"
+		if (!strncmp(p, SURFACE_ATTR_ALPHA,
+			     strlen(SURFACE_ATTR_ALPHA))) {
+			double alpha = atof(p + strlen(SURFACE_ATTR_ALPHA));
+
+			weston_surface_set_alpha(wsurface, alpha);
+		} else {
+			weston_log("%s: warning: unsupported attr: %s\n",
+				   __func__, p);
+		}
+
+		p = strtok(NULL, "|");
+	};
+
+	return true;
+}
+
+static bool
+weston_desktop_surface_handle_config(struct weston_desktop_surface *surface,
+				     const char *s)
+{
+	char *tmp;
+	bool handled = false;
+
+	tmp = strdup(s);
+	if (tmp == NULL)
+		return false;
+
+	handled |= weston_desktop_surface_set_flags(surface, tmp);
+
+	strcpy(tmp, s);
+	handled |= weston_desktop_surface_set_requests(surface, tmp);
+
+	strcpy(tmp, s);
+	handled |= weston_desktop_surface_set_attrs(surface, tmp);
+
+	free(tmp);
+	return handled;
+}
+
 void
 weston_desktop_surface_set_title(struct weston_desktop_surface *surface,
 				 const char *title)
 {
 	char *tmp, *old;
+
+	if (weston_desktop_surface_handle_config(surface, title))
+		return;
 
 	tmp = strdup(title);
 	if (tmp == NULL)
@@ -772,6 +965,9 @@ weston_desktop_surface_set_app_id(struct weston_desktop_surface *surface,
 				  const char *app_id)
 {
 	char *tmp, *old;
+
+	if (weston_desktop_surface_handle_config(surface, app_id))
+		return;
 
 	tmp = strdup(app_id);
 	if (tmp == NULL)
