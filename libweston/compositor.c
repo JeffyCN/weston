@@ -774,7 +774,7 @@ weston_view_create_internal(struct weston_surface *surface)
 	str_printf(&view->internal_name, "%s-%" PRIu64,
 		   surface->internal_name, view->internal_id);
 
-	view->alpha = 1.0;
+	view->alpha = surface->alpha;
 	pixman_region32_init(&view->transform.opaque);
 
 	wl_list_init(&view->geometry.transformation_list);
@@ -1006,6 +1006,8 @@ weston_surface_create(struct weston_compositor *compositor,
 	surface->internal_id = weston_client_new_internal_id(compositor, client);
 	str_printf(&surface->internal_name, "%s-%" PRIu64,
 		   weston_client_get_internal_name(client), surface->internal_id);
+
+	surface->alpha = 1.0;
 
 	surface->buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
 	surface->buffer_viewport.buffer.scale = 1;
@@ -2599,6 +2601,12 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 
 		surf_pos = weston_coord_global_to_surface(view, pos);
 		if (!weston_view_takes_input_at_point(view, surf_pos))
+			continue;
+
+		if (view->surface->flags & SURFACE_BLOCKED)
+			break;
+
+		if (view->surface->flags & SURFACE_TRANS_INPUT)
 			continue;
 
 		return view;
