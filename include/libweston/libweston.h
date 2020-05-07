@@ -1826,6 +1826,14 @@ struct weston_pointer_constraint {
 	struct wl_listener surface_activate_listener;
 };
 
+enum weston_surface_flags {
+	SURFACE_NO_FOCUS	= 1 << 0,
+	SURFACE_STAY_ON_TOP	= 1 << 1,
+	SURFACE_STAY_ON_BOTTOM	= 1 << 2,
+	SURFACE_BLOCKED		= 1 << 3,
+	SURFACE_TRANS_INPUT	= 1 << 4,
+};
+
 struct weston_surface {
 	struct wl_resource *resource;
 	struct wl_signal destroy_signal; /* callback argument: this surface */
@@ -1932,6 +1940,11 @@ struct weston_surface {
 	enum weston_surface_protection_mode protection_mode;
 
 	struct weston_tearing_control *tear_control;
+
+	/* Hacky surface flags */
+	enum weston_surface_flags flags;
+
+	double alpha;
 };
 
 struct weston_subsurface {
