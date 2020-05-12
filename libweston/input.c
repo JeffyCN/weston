@@ -2801,9 +2801,11 @@ notify_keyboard_focus_out(struct weston_seat *seat)
 		weston_pointer_cancel_grab(pointer);
 
 	if (focus) {
+		if (seat->saved_kbd_focus)
+			wl_list_remove(&seat->saved_kbd_focus_listener.link);
+
 		seat->use_saved_kbd_focus = true;
 		seat->saved_kbd_focus = focus;
-		assert(seat->saved_kbd_focus_listener.notify == NULL);
 		seat->saved_kbd_focus_listener.notify =
 			destroy_device_saved_kbd_focus;
 		wl_signal_add(&focus->destroy_signal,
@@ -4161,13 +4163,16 @@ weston_keyboard_reset_state(struct weston_keyboard *keyboard)
 WL_EXPORT void
 weston_seat_release_keyboard(struct weston_seat *seat)
 {
-	seat->keyboard_device_count--;
-	assert(seat->keyboard_device_count >= 0);
-	if (seat->keyboard_device_count == 0) {
-		weston_keyboard_set_focus(seat->keyboard_state, NULL);
-		weston_keyboard_cancel_grab(seat->keyboard_state);
+	assert(seat->keyboard_device_count > 0);
+
+	if (seat->keyboard_device_count == 1) {
+		notify_keyboard_focus_out(seat);
+		seat->keyboard_device_count = 0;
+
 		weston_keyboard_reset_state(seat->keyboard_state);
 		seat_send_updated_caps(seat);
+	} else {
+		seat->keyboard_device_count--;
 	}
 }
 
