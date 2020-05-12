@@ -148,6 +148,10 @@ device_added(struct udev_input *input, struct libinput_device *libinput_device)
 	if (device->touch_device)
 		wl_signal_emit(&seat->compositor->touch_device_created_signal, device->touch_device);
 
+	if (device->seat_caps & EVDEV_SEAT_KEYBOARD &&
+	    seat->keyboard_device_count == 1)
+		evdev_notify_keyboard_focus(seat, &udev_seat->devices_list);
+
 	return 0;
 }
 
