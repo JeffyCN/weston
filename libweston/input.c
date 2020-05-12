@@ -3400,8 +3400,11 @@ weston_seat_release_keyboard(struct weston_seat *seat)
 	seat->keyboard_device_count--;
 	assert(seat->keyboard_device_count >= 0);
 	if (seat->keyboard_device_count == 0) {
-		weston_keyboard_set_focus(seat->keyboard_state, NULL);
-		weston_keyboard_cancel_grab(seat->keyboard_state);
+		/* Pair with notify_keyboard_focus_in() */
+		seat->keyboard_device_count = 1;
+		notify_keyboard_focus_out(seat);
+		seat->keyboard_device_count = 0;
+
 		weston_keyboard_reset_state(seat->keyboard_state);
 		seat_send_updated_caps(seat);
 	}
