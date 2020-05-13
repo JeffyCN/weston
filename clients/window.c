@@ -6244,7 +6244,7 @@ display_create(int *argc, char *argv[])
 		return NULL;
 	}
 
-	d->xkb_context = xkb_context_new(0);
+	d->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (d->xkb_context == NULL) {
 		fprintf(stderr, "Failed to create XKB context\n");
 		free(d);

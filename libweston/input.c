@@ -3120,7 +3120,7 @@ weston_compositor_set_xkb_rule_names(struct weston_compositor *ec,
 				     struct xkb_rule_names *names)
 {
 	if (ec->xkb_context == NULL) {
-		ec->xkb_context = xkb_context_new(0);
+		ec->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 		if (ec->xkb_context == NULL) {
 			weston_log("failed to create XKB context\n");
 			return -1;
