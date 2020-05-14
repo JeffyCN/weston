@@ -3130,9 +3130,30 @@ send_position(struct weston_surface *surface, int32_t x, int32_t y)
 	}
 }
 
+static void
+send_fullscreen(struct weston_surface *surface, bool fullscreen)
+{
+	struct weston_wm_window *window = get_wm_window(surface);
+
+	if (!window || !window->wm)
+		return;
+
+	if (window->fullscreen == fullscreen)
+		return;
+
+	window->fullscreen = fullscreen;
+	weston_wm_window_set_net_wm_state(window);
+
+	if (window->fullscreen) {
+		window->saved_width = window->width;
+		window->saved_height = window->height;
+	}
+}
+
 static const struct weston_xwayland_client_interface shell_client = {
 	send_configure,
 	send_close,
+	send_fullscreen,
 };
 
 static int

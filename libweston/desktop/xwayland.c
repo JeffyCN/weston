@@ -65,6 +65,7 @@ struct weston_desktop_xwayland_surface {
 	bool added;
 	enum weston_desktop_xwayland_surface_state state;
 	enum weston_desktop_xwayland_surface_state prev_state;
+	bool state_updated;
 };
 
 static void
@@ -85,6 +86,10 @@ weston_desktop_xwayland_surface_change_state(struct weston_desktop_xwayland_surf
 	}
 
 	wsurface = weston_desktop_surface_get_surface(surface->surface);
+	/* In some cases when adding a surface, the state may be updated by the
+	 * shell (e.g., to fullscreen). Track if this has happened and respect
+	 * the updated value. */
+	surface->state_updated = false;
 
 	if (surface->state != state) {
 		if (surface->state == XWAYLAND) {
@@ -126,7 +131,13 @@ weston_desktop_xwayland_surface_change_state(struct weston_desktop_xwayland_surf
 			weston_surface_map(wsurface);
 		}
 
-		surface->state = state;
+		/* If the surface state was updated by the shell during this
+		 * call, respect the updated value, otherwise assign the new
+		 * value. */
+		if (!surface->state_updated) {
+			surface->state = state;
+			surface->state_updated = true;
+		}
 	}
 
 	if (parent != NULL)
@@ -195,6 +206,19 @@ weston_desktop_xwayland_surface_set_size(struct weston_desktop_surface *dsurface
 }
 
 static void
+weston_desktop_xwayland_surface_set_fullscreen(struct weston_desktop_surface *dsurface,
+					       void *user_data, bool fullscreen)
+{
+	struct weston_desktop_xwayland_surface *surface = user_data;
+	struct weston_surface *wsurface =
+		weston_desktop_surface_get_surface(surface->surface);
+
+	surface->state = fullscreen ? FULLSCREEN : TOPLEVEL;
+	surface->state_updated = true;
+	surface->client_interface->send_fullscreen(wsurface, fullscreen);
+}
+
+static void
 weston_desktop_xwayland_surface_destroy(struct weston_desktop_surface *dsurface,
 					void *user_data)
 {
@@ -244,6 +268,7 @@ weston_desktop_xwayland_surface_get_fullscreen(struct weston_desktop_surface *ds
 static const struct weston_desktop_surface_implementation weston_desktop_xwayland_surface_internal_implementation = {
 	.committed = weston_desktop_xwayland_surface_committed,
 	.set_size = weston_desktop_xwayland_surface_set_size,
+	.set_fullscreen = weston_desktop_xwayland_surface_set_fullscreen,
 
 	.get_maximized = weston_desktop_xwayland_surface_get_maximized,
 	.get_fullscreen = weston_desktop_xwayland_surface_get_fullscreen,
