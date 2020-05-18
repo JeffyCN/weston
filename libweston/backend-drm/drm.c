@@ -1272,10 +1272,7 @@ drm_output_fini_pixman(struct drm_output *output)
 	if (!b->shutting_down &&
 	    output->scanout_plane->state_cur->fb &&
 	    output->scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB) {
-		drm_plane_state_free(output->scanout_plane->state_cur, true);
-		output->scanout_plane->state_cur =
-			drm_plane_state_alloc(NULL, output->scanout_plane);
-		output->scanout_plane->state_cur->complete = true;
+		drm_plane_reset_state(output->scanout_plane);
 	}
 
 	pixman_renderer_output_destroy(&output->base);

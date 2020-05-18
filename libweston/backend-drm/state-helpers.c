@@ -262,6 +262,21 @@ drm_plane_state_coords_for_view(struct drm_plane_state *state,
 }
 
 /**
+ * Reset the current state of a DRM plane
+ *
+ * The current state will be freed and replaced by a pristine state.
+ *
+ * @param plane The plane to reset the current state of
+ */
+void
+drm_plane_reset_state(struct drm_plane *plane)
+{
+	drm_plane_state_free(plane->state_cur, true);
+	plane->state_cur = drm_plane_state_alloc(NULL, plane);
+	plane->state_cur->complete = true;
+}
+
+/**
  * Return a plane state from a drm_output_state.
  */
 struct drm_plane_state *

@@ -748,6 +748,8 @@ drm_plane_state_put_back(struct drm_plane_state *state);
 bool
 drm_plane_state_coords_for_view(struct drm_plane_state *state,
 				struct weston_view *ev, uint64_t zpos);
+void
+drm_plane_reset_state(struct drm_plane *plane);
 
 void
 drm_assign_planes(struct weston_output *output_base, void *repaint_data);
