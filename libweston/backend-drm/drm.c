@@ -1679,23 +1679,29 @@ drm_output_fini_crtc(struct drm_output *output)
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	uint32_t *unused;
 
-	if (!b->universal_planes && !b->shutting_down) {
-		/* With universal planes, the 'special' planes are allocated at
-		 * startup, freed at shutdown, and live on the plane list in
-		 * between. We want the planes to continue to exist and be freed
-		 * up for other outputs.
-		 *
-		 * Without universal planes, our special planes are
-		 * pseudo-planes allocated at output creation, freed at output
-		 * destruction, and not usable by other outputs.
-		 *
-		 * On the other hand, if the compositor is already shutting down,
-		 * the plane has already been destroyed.
-		 */
-		if (output->cursor_plane)
-			drm_plane_destroy(output->cursor_plane);
-		if (output->scanout_plane)
-			drm_plane_destroy(output->scanout_plane);
+	/* If the compositor is already shutting down, the planes have already
+	 * been destroyed. */
+	if (!b->shutting_down) {
+		if (!b->universal_planes) {
+			/* Without universal planes, our special planes are
+			 * pseudo-planes allocated at output creation, freed at
+			 * output destruction, and not usable by other outputs.
+			 */
+			if (output->cursor_plane)
+				drm_plane_destroy(output->cursor_plane);
+			if (output->scanout_plane)
+				drm_plane_destroy(output->scanout_plane);
+		} else {
+			/* With universal planes, the 'special' planes are
+			 * allocated at startup, freed at shutdown, and live on
+			 * the plane list in between. We want the planes to
+			 * continue to exist and be freed up for other outputs.
+			 */
+			if (output->cursor_plane)
+				drm_plane_reset_state(output->cursor_plane);
+			if (output->scanout_plane)
+				drm_plane_reset_state(output->scanout_plane);
+		}
 	}
 
 	drm_property_info_free(output->props_crtc, WDRM_CRTC__COUNT);
