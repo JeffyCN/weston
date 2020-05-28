@@ -180,6 +180,8 @@ weston_log_file_open(const char *filename)
 		weston_logfile = fopen(filename, "a");
 		if (weston_logfile)
 			os_fd_set_cloexec(fileno(weston_logfile));
+		else
+			fprintf(stderr, "Failed to open %s: %s\n", filename, strerror(errno));
 	}
 
 	if (weston_logfile == NULL)
