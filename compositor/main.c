@@ -171,23 +171,27 @@ custom_handler(const char *fmt, va_list arg)
 	weston_log_scope_vprintf(log_scope, fmt, arg);
 }
 
-static void
+static bool
 weston_log_file_open(const char *filename)
 {
 	wl_log_set_handler_server(custom_handler);
 
 	if (filename != NULL) {
 		weston_logfile = fopen(filename, "a");
-		if (weston_logfile)
+		if (weston_logfile) {
 			os_fd_set_cloexec(fileno(weston_logfile));
-		else
+		} else {
 			fprintf(stderr, "Failed to open %s: %s\n", filename, strerror(errno));
+			return false;
+		}
 	}
 
 	if (weston_logfile == NULL)
 		weston_logfile = stderr;
 	else
 		setvbuf(weston_logfile, NULL, _IOLBF, 256);
+
+	return true;
 }
 
 static void
@@ -3196,7 +3200,9 @@ wet_main(int argc, char *argv[])
 	log_scope = weston_log_ctx_add_log_scope(log_ctx, "log",
 			"Weston and Wayland log\n", NULL, NULL, NULL);
 
-	weston_log_file_open(log);
+	if (!weston_log_file_open(log))
+		return EXIT_FAILURE;
+
 	weston_log_set_handler(vlog, vlog_continue);
 
 	logger = weston_log_subscriber_create_log(weston_logfile);
