@@ -2938,6 +2938,39 @@ output_repaint_timer_handler(void *data)
 	return 0;
 }
 
+/** Convert a presentation timestamp to another clock domain
+ *
+ * \param compositor The compositor defines the presentation clock domain.
+ * \param presentation_stamp The timestamp in presentation clock domain.
+ * \param presentation_now Current time in presentation clock domain.
+ * \param target_clock Defines the target clock domain.
+ *
+ * This approximation relies on presentation_stamp to be close to current time.
+ * The further it is from current time and the bigger the speed difference
+ * between the two clock domains, the bigger the conversion error.
+ *
+ * Conversion error due to system load is biased and unbounded.
+ */
+static struct timespec
+convert_presentation_time_now(struct weston_compositor *compositor,
+			      const struct timespec *presentation_stamp,
+			      const struct timespec *presentation_now,
+			      clockid_t target_clock)
+{
+	struct timespec target_now = {};
+	struct timespec target_stamp;
+	int64_t delta_ns;
+
+	if (compositor->presentation_clock == target_clock)
+		return *presentation_stamp;
+
+	clock_gettime(target_clock, &target_now);
+	delta_ns = timespec_sub_to_nsec(presentation_stamp, presentation_now);
+	timespec_add_nsec(&target_stamp, &target_now, delta_ns);
+
+	return target_stamp;
+}
+
 /**
  * \ingroup output
  */
@@ -2949,8 +2982,8 @@ weston_output_finish_frame(struct weston_output *output,
 	struct weston_compositor *compositor = output->compositor;
 	int32_t refresh_nsec;
 	struct timespec now;
+	struct timespec vblank_monotonic;
 	int64_t msec_rel;
-
 
 	assert(output->repaint_status == REPAINT_AWAITING_COMPLETION);
 	assert(stamp || (presented_flags & WP_PRESENTATION_FEEDBACK_INVALID));
@@ -2965,8 +2998,11 @@ weston_output_finish_frame(struct weston_output *output,
 		goto out;
 	}
 
+	vblank_monotonic = convert_presentation_time_now(compositor,
+							 stamp, &now,
+							 CLOCK_MONOTONIC);
 	TL_POINT(compositor, "core_repaint_finished", TLP_OUTPUT(output),
-		 TLP_VBLANK(stamp), TLP_END);
+		 TLP_VBLANK(&vblank_monotonic), TLP_END);
 
 	refresh_nsec = millihz_to_nsec(output->current_mode->refresh);
 	weston_presentation_feedback_present_list(&output->feedback_list,
