@@ -49,7 +49,6 @@ drm_plane_state_alloc(struct drm_output_state *state_output,
 	state->plane = plane;
 	state->in_fence_fd = -1;
 	state->zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
-	pixman_region32_init(&state->damage);
 
 	/* Here we only add the plane state to the desired link, and not
 	 * set the member. Having an output pointer set means that the
@@ -82,7 +81,15 @@ drm_plane_state_free(struct drm_plane_state *state, bool force)
 	state->output_state = NULL;
 	state->in_fence_fd = -1;
 	state->zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
-	pixman_region32_fini(&state->damage);
+
+	/* Once the damage blob has been submitted, it is refcounted internally
+	 * by the kernel, which means we can safely discard it.
+	 */
+	if (state->damage_blob_id != 0) {
+		drmModeDestroyPropertyBlob(state->plane->backend->drm.fd,
+					   state->damage_blob_id);
+		state->damage_blob_id = 0;
+	}
 
 	if (force || state != state->plane->state_cur) {
 		drm_fb_unref(state->fb);
@@ -99,12 +106,16 @@ struct drm_plane_state *
 drm_plane_state_duplicate(struct drm_output_state *state_output,
 			  struct drm_plane_state *src)
 {
-	struct drm_plane_state *dst = malloc(sizeof(*dst));
+	struct drm_plane_state *dst = zalloc(sizeof(*dst));
 	struct drm_plane_state *old, *tmp;
 
 	assert(src);
 	assert(dst);
 	*dst = *src;
+	/* We don't want to copy this, because damage is transient, and only
+	 * lasts for the duration of a single repaint.
+	 */
+	dst->damage_blob_id = 0;
 	wl_list_init(&dst->link);
 
 	wl_list_for_each_safe(old, tmp, &state_output->plane_list, link) {
@@ -120,7 +131,6 @@ drm_plane_state_duplicate(struct drm_output_state *state_output,
 	if (src->fb)
 		dst->fb = drm_fb_ref(src->fb);
 	dst->output_state = state_output;
-	pixman_region32_init(&dst->damage);
 	dst->complete = false;
 
 	return dst;

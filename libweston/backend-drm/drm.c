@@ -354,8 +354,13 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	struct weston_compositor *c = output->base.compositor;
 	struct drm_plane_state *scanout_state;
 	struct drm_plane *scanout_plane = output->scanout_plane;
+	struct drm_property_info *damage_info =
+		&scanout_plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS];
 	struct drm_backend *b = to_drm_backend(c);
 	struct drm_fb *fb;
+	pixman_region32_t scanout_damage;
+	pixman_box32_t *rects;
+	int n_rects;
 
 	/* If we already have a client buffer promoted to scanout, then we don't
 	 * want to render. */
@@ -399,24 +404,46 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	scanout_state->dest_w = output->base.current_mode->width;
 	scanout_state->dest_h = output->base.current_mode->height;
 
-	pixman_region32_copy(&scanout_state->damage, damage);
+	pixman_region32_subtract(&c->primary_plane.damage,
+				 &c->primary_plane.damage, damage);
+
+	/* Don't bother calculating plane damage if the plane doesn't support it */
+	if (damage_info->prop_id == 0)
+		return;
+
+	pixman_region32_init(&scanout_damage);
+	pixman_region32_copy(&scanout_damage, damage);
+
 	if (output->base.zoom.active) {
-		weston_matrix_transform_region(&scanout_state->damage,
+		weston_matrix_transform_region(&scanout_damage,
 					       &output->base.matrix,
-					       &scanout_state->damage);
+					       &scanout_damage);
 	} else {
-		pixman_region32_translate(&scanout_state->damage,
+		pixman_region32_translate(&scanout_damage,
 					  -output->base.x, -output->base.y);
 		weston_transformed_region(output->base.width,
 					  output->base.height,
 					  output->base.transform,
 					  output->base.current_scale,
-					  &scanout_state->damage,
-					  &scanout_state->damage);
+					  &scanout_damage,
+					  &scanout_damage);
 	}
 
-	pixman_region32_subtract(&c->primary_plane.damage,
-				 &c->primary_plane.damage, damage);
+	assert(scanout_state->damage_blob_id == 0);
+
+	rects = pixman_region32_rectangles(&scanout_damage, &n_rects);
+
+	/*
+	 * If this function fails, the blob id should still be 0.
+	 * This tells the kernel there is no damage information, which means
+	 * that it will consider the whole plane damaged. While this may
+	 * affect efficiency, it should still produce correct results.
+	 */
+	drmModeCreatePropertyBlob(b->drm.fd, rects,
+				  sizeof(*rects) * n_rects,
+				  &scanout_state->damage_blob_id);
+
+	pixman_region32_fini(&scanout_damage);
 }
 
 static int

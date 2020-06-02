@@ -418,7 +418,7 @@ struct drm_plane_state {
 	/* We don't own the fd, so we shouldn't close it */
 	int in_fence_fd;
 
-	pixman_region32_t damage; /* damage to kernel */
+	uint32_t damage_blob_id; /* damage to kernel */
 
 	struct wl_list link; /* drm_output_state::plane_list */
 };

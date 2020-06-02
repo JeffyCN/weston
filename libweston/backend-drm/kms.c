@@ -847,43 +847,6 @@ plane_add_prop(drmModeAtomicReq *req, struct drm_plane *plane,
 	return (ret <= 0) ? -1 : 0;
 }
 
-
-static int
-plane_add_damage(drmModeAtomicReq *req, struct drm_backend *backend,
-		 struct drm_plane_state *plane_state)
-{
-	struct drm_plane *plane = plane_state->plane;
-	struct drm_property_info *info =
-		&plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS];
-	pixman_box32_t *rects;
-	uint32_t blob_id;
-	int n_rects;
-	int ret;
-
-	if (!pixman_region32_not_empty(&plane_state->damage))
-		return 0;
-
-	/*
-	 * If a plane doesn't support fb damage blob property, kernel will
-	 * perform full plane update.
-	 */
-	if (info->prop_id == 0)
-		return 0;
-
-	rects = pixman_region32_rectangles(&plane_state->damage, &n_rects);
-
-	ret = drmModeCreatePropertyBlob(backend->drm.fd, rects,
-					sizeof(*rects) * n_rects, &blob_id);
-	if (ret != 0)
-		return ret;
-
-	ret = plane_add_prop(req, plane, WDRM_PLANE_FB_DAMAGE_CLIPS, blob_id);
-	if (ret != 0)
-		return ret;
-
-	return 0;
-}
-
 static bool
 drm_head_has_prop(struct drm_head *head,
 		  enum wdrm_connector_property prop)
@@ -1043,7 +1006,9 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 				      plane_state->dest_w);
 		ret |= plane_add_prop(req, plane, WDRM_PLANE_CRTC_H,
 				      plane_state->dest_h);
-		ret |= plane_add_damage(req, b, plane_state);
+		if (plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS].prop_id != 0)
+			ret |= plane_add_prop(req, plane, WDRM_PLANE_FB_DAMAGE_CLIPS,
+					      plane_state->damage_blob_id);
 
 		if (plane_state->fb && plane_state->fb->format)
 			pinfo = plane_state->fb->format;
