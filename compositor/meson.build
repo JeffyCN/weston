@@ -153,7 +153,6 @@ if get_option('color-management-colord')
 		include_directories: common_inc,
 		dependencies: plugin_colord_deps,
 		name_prefix: '',
-		override_options: [ 'b_lundef=false' ],
 		install: true,
 		install_dir: dir_module_weston
 	)
