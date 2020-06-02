@@ -137,7 +137,7 @@ if get_option('color-management-colord')
 		error('cms-colord requires colord >= 0.1.27 which was not found. Or, you can use \'-Dcolor-management-colord=false\'.')
 	endif
 
-	plugin_colord_deps = [ dep_libweston_public, dep_colord ]
+	plugin_colord_deps = [ dep_libweston_public, dep_colord, dep_lcms2 ]
 
 	foreach depname : [ 'glib-2.0', 'gobject-2.0' ]
 		dep = dependency(depname, required: false)
