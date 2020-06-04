@@ -3448,8 +3448,12 @@ gl_renderer_create_pbuffer_surface(struct gl_renderer *gr) {
 		EGL_NONE
 	};
 
-	pbuffer_config = gl_renderer_get_egl_config(gr, EGL_PBUFFER_BIT,
-						    NULL, 0);
+	pbuffer_config = gr->egl_config;
+	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
+		pbuffer_config =
+			gl_renderer_get_egl_config(gr, EGL_PBUFFER_BIT,
+						   NULL, 0);
+	}
 	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
 		weston_log("failed to choose EGL config for PbufferSurface\n");
 		return -1;
