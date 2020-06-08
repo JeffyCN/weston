@@ -1416,6 +1416,25 @@ view_compute_bbox(struct weston_view *view, const pixman_box32_t *inbox,
 }
 
 static void
+weston_view_update_transform_scissor(struct weston_view *view,
+				     pixman_region32_t *region)
+{
+	struct weston_view *parent = view->geometry.parent;
+
+	if (parent) {
+		if (parent->geometry.scissor_enabled) {
+			view->geometry.scissor_enabled = true;
+			weston_view_transfer_scissor(parent, view);
+		} else {
+			view->geometry.scissor_enabled = false;
+		}
+	}
+
+	if (view->geometry.scissor_enabled)
+		pixman_region32_intersect(region, region,
+					  &view->geometry.scissor);
+}
+static void
 weston_view_update_transform_disable(struct weston_view *view)
 {
 	view->transform.enabled = 0;
@@ -1439,10 +1458,8 @@ weston_view_update_transform_disable(struct weston_view *view)
 				  0, 0,
 				  view->surface->width,
 				  view->surface->height);
-	if (view->geometry.scissor_enabled)
-		pixman_region32_intersect(&view->transform.boundingbox,
-					  &view->transform.boundingbox,
-					  &view->geometry.scissor);
+
+	weston_view_update_transform_scissor(view, &view->transform.boundingbox);
 
 	pixman_region32_translate(&view->transform.boundingbox,
 				  view->geometry.x, view->geometry.y);
@@ -1498,9 +1515,9 @@ weston_view_update_transform_enable(struct weston_view *view)
 
 	pixman_region32_init_rect(&surfregion, 0, 0,
 				  view->surface->width, view->surface->height);
-	if (view->geometry.scissor_enabled)
-		pixman_region32_intersect(&surfregion, &surfregion,
-					  &view->geometry.scissor);
+
+	weston_view_update_transform_scissor(view, &surfregion);
+
 	surfbox = pixman_region32_extents(&surfregion);
 
 	view_compute_bbox(view, surfbox, &view->transform.boundingbox);
@@ -1558,15 +1575,6 @@ weston_view_update_transform(struct weston_view *view)
 		pixman_region32_intersect(&view->transform.opaque,
 					  &view->transform.opaque, &mask);
 		pixman_region32_fini(&mask);
-	}
-
-	if (parent) {
-		if (parent->geometry.scissor_enabled) {
-			view->geometry.scissor_enabled = true;
-			weston_view_transfer_scissor(parent, view);
-		} else {
-			view->geometry.scissor_enabled = false;
-		}
 	}
 
 	weston_view_damage_below(view);
