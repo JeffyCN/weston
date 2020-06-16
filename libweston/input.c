@@ -1518,10 +1518,10 @@ send_enter_to_resource_list(struct wl_list *list,
 	struct wl_resource *resource;
 
 	wl_resource_for_each(resource, list) {
-		send_modifiers_to_resource(keyboard, resource, serial);
 		wl_keyboard_send_enter(resource, serial,
 				       surface->resource,
 				       &keyboard->keys);
+		send_modifiers_to_resource(keyboard, resource, serial);
 	}
 }
 
@@ -2848,28 +2848,6 @@ static const struct wl_keyboard_interface keyboard_interface = {
 	keyboard_release
 };
 
-static bool
-should_send_modifiers_to_client(struct weston_seat *seat,
-				struct wl_client *client)
-{
-	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat);
-	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-
-	if (keyboard &&
-	    keyboard->focus &&
-	    keyboard->focus->resource &&
-	    wl_resource_get_client(keyboard->focus->resource) == client)
-		return true;
-
-	if (pointer &&
-	    pointer->focus &&
-	    pointer->focus->surface->resource &&
-	    wl_resource_get_client(pointer->focus->surface->resource) == client)
-		return true;
-
-	return false;
-}
-
 static void
 seat_get_keyboard(struct wl_client *client, struct wl_resource *resource,
 		  uint32_t id)
@@ -2915,12 +2893,6 @@ seat_get_keyboard(struct wl_client *client, struct wl_resource *resource,
 
 	weston_keyboard_send_keymap(keyboard, cr);
 
-	if (should_send_modifiers_to_client(seat, client)) {
-		send_modifiers_to_resource(keyboard,
-					   cr,
-					   keyboard->focus_serial);
-	}
-
 	if (keyboard->focus && keyboard->focus->resource &&
 	    wl_resource_get_client(keyboard->focus->resource) == client) {
 		struct weston_surface *surface =
@@ -2933,6 +2905,10 @@ seat_get_keyboard(struct wl_client *client, struct wl_resource *resource,
 				       keyboard->focus_serial,
 				       surface->resource,
 				       &keyboard->keys);
+
+		send_modifiers_to_resource(keyboard,
+					   cr,
+					   keyboard->focus_serial);
 
 		/* If this is the first keyboard resource for this
 		 * client... */
