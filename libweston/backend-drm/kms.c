@@ -434,7 +434,8 @@ modifiers_ptr(struct drm_format_modifier_blob *blob)
  */
 int
 drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
-			   const drmModeObjectProperties *props)
+			   const drmModeObjectProperties *props,
+			   const bool use_modifiers)
 {
 	unsigned i;
 	drmModePropertyBlobRes *blob;
@@ -442,6 +443,9 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 	struct drm_format_modifier *blob_modifiers;
 	uint32_t *blob_formats;
 	uint32_t blob_id;
+
+	if (!use_modifiers)
+		goto fallback;
 
 	blob_id = drm_property_get_value(&plane->props[WDRM_PLANE_IN_FORMATS],
 				         props,
@@ -1474,11 +1478,13 @@ init_kms_caps(struct drm_backend *b)
 	weston_log("DRM: %s atomic modesetting\n",
 		   b->atomic_modeset ? "supports" : "does not support");
 
-	ret = drmGetCap(b->drm.fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
-	if (ret == 0)
-		b->fb_modifiers = cap;
-	else
-		b->fb_modifiers = 0;
+	if (!getenv("WESTON_DISABLE_GBM_MODIFIERS")) {
+		ret = drmGetCap(b->drm.fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
+		if (ret == 0)
+			b->fb_modifiers = cap;
+	}
+	weston_log("DRM: %s GBM modifiers\n",
+		   b->fb_modifiers ? "supports" : "does not support");
 
 	/*
 	 * KMS support for hardware planes cannot properly synchronize

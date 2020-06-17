@@ -634,7 +634,8 @@ drm_property_get_range_values(struct drm_property_info *info,
 			      const drmModeObjectProperties *props);
 int
 drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
-			   const drmModeObjectProperties *props);
+			   const drmModeObjectProperties *props,
+			   const bool use_modifiers);
 void
 drm_property_info_free(struct drm_property_info *info, int num_props);
 

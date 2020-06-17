@@ -808,7 +808,8 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 			plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
 		}
 
-		if (drm_plane_populate_formats(plane, kplane, props) < 0) {
+		if (drm_plane_populate_formats(plane, kplane, props,
+					       b->fb_modifiers) < 0) {
 			drmModeFreeObjectProperties(props);
 			goto err;
 		}
