@@ -676,7 +676,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 
 	wl_list_for_each(head, &output->base.head_list, base.output_link) {
 		assert(n_conn < MAX_CLONED_CONNECTORS);
-		connectors[n_conn++] = head->connector_id;
+		connectors[n_conn++] = head->connector.connector_id;
 	}
 
 	/* If disable_planes is set then assign_planes() wasn't
@@ -772,14 +772,14 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 
 	if (state->dpms != output->state_cur->dpms) {
 		wl_list_for_each(head, &output->base.head_list, base.output_link) {
-			dpms_prop = &head->props_conn[WDRM_CONNECTOR_DPMS];
+			dpms_prop = &head->connector.props[WDRM_CONNECTOR_DPMS];
 			if (dpms_prop->prop_id == 0)
 				continue;
 
 			ret = drmModeConnectorSetProperty(backend->drm.fd,
-							  head->connector_id,
-							  dpms_prop->prop_id,
-							  state->dpms);
+						head->connector.connector_id,
+						dpms_prop->prop_id,
+						state->dpms);
 			if (ret) {
 				weston_log("DRM: DPMS: failed property set for %s\n",
 					   head->base.name);
@@ -817,19 +817,19 @@ crtc_add_prop(drmModeAtomicReq *req, struct drm_crtc *crtc,
 }
 
 static int
-connector_add_prop(drmModeAtomicReq *req, struct drm_head *head,
+connector_add_prop(drmModeAtomicReq *req, struct drm_connector *connector,
 		   enum wdrm_connector_property prop, uint64_t val)
 {
-	struct drm_property_info *info = &head->props_conn[prop];
+	struct drm_property_info *info = &connector->props[prop];
+	uint32_t connector_id = connector->connector_id;
 	int ret;
 
 	if (info->prop_id == 0)
 		return -1;
 
-	ret = drmModeAtomicAddProperty(req, head->connector_id,
-				       info->prop_id, val);
-	drm_debug(head->backend, "\t\t\t[CONN:%lu] %lu (%s) -> %llu (0x%llx)\n",
-		  (unsigned long) head->connector_id,
+	ret = drmModeAtomicAddProperty(req, connector_id, info->prop_id, val);
+	drm_debug(connector->backend, "\t\t\t[CONN:%lu] %lu (%s) -> %llu (0x%llx)\n",
+		  (unsigned long) connector_id,
 		  (unsigned long) info->prop_id, info->name,
 		  (unsigned long long) val, (unsigned long long) val);
 	return (ret <= 0) ? -1 : 0;
@@ -855,10 +855,10 @@ plane_add_prop(drmModeAtomicReq *req, struct drm_plane *plane,
 }
 
 static bool
-drm_head_has_prop(struct drm_head *head,
-		  enum wdrm_connector_property prop)
+drm_connector_has_prop(struct drm_connector *connector,
+		       enum wdrm_connector_property prop)
 {
-	if (head && head->props_conn[prop].prop_id != 0)
+	if (connector->props[prop].prop_id != 0)
 		return true;
 
 	return false;
@@ -894,20 +894,21 @@ get_drm_protection_from_weston(enum weston_hdcp_protection weston_protection,
 }
 
 static void
-drm_head_set_hdcp_property(struct drm_head *head,
-			   enum weston_hdcp_protection protection,
-			   drmModeAtomicReq *req)
+drm_connector_set_hdcp_property(struct drm_connector *connector,
+				enum weston_hdcp_protection protection,
+				drmModeAtomicReq *req)
 {
 	int ret;
 	enum wdrm_content_protection_state drm_protection;
 	enum wdrm_hdcp_content_type drm_cp_type;
 	struct drm_property_enum_info *enum_info;
 	uint64_t prop_val;
+	struct drm_property_info *props = connector->props;
 
 	get_drm_protection_from_weston(protection, &drm_protection,
 				       &drm_cp_type);
 
-	if (!drm_head_has_prop(head, WDRM_CONNECTOR_CONTENT_PROTECTION))
+	if (!drm_connector_has_prop(connector, WDRM_CONNECTOR_CONTENT_PROTECTION))
 		return;
 
 	/*
@@ -915,23 +916,23 @@ drm_head_set_hdcp_property(struct drm_head *head,
 	 * HDCP2.2, therefore, type-1 cannot be supported. The type-0 content
 	 * still can be supported if the content-protection property is exposed.
 	 */
-	if (!drm_head_has_prop(head, WDRM_CONNECTOR_HDCP_CONTENT_TYPE) &&
+	if (!drm_connector_has_prop(connector, WDRM_CONNECTOR_HDCP_CONTENT_TYPE) &&
 	    drm_cp_type != WDRM_HDCP_CONTENT_TYPE0)
 			return;
 
-	enum_info = head->props_conn[WDRM_CONNECTOR_CONTENT_PROTECTION].enum_values;
+	enum_info = props[WDRM_CONNECTOR_CONTENT_PROTECTION].enum_values;
 	prop_val = enum_info[drm_protection].value;
-	ret = connector_add_prop(req, head, WDRM_CONNECTOR_CONTENT_PROTECTION,
-				 prop_val);
+	ret = connector_add_prop(req, connector,
+				 WDRM_CONNECTOR_CONTENT_PROTECTION, prop_val);
 	assert(ret == 0);
 
-	if (!drm_head_has_prop(head, WDRM_CONNECTOR_HDCP_CONTENT_TYPE))
+	if (!drm_connector_has_prop(connector, WDRM_CONNECTOR_HDCP_CONTENT_TYPE))
 		return;
 
-	enum_info = head->props_conn[WDRM_CONNECTOR_HDCP_CONTENT_TYPE].enum_values;
+	enum_info = props[WDRM_CONNECTOR_HDCP_CONTENT_TYPE].enum_values;
 	prop_val = enum_info[drm_cp_type].value;
-	ret = connector_add_prop(req, head, WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
-				 prop_val);
+	ret = connector_add_prop(req, connector,
+				 WDRM_CONNECTOR_HDCP_CONTENT_TYPE, prop_val);
 	assert(ret == 0);
 }
 
@@ -969,7 +970,8 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		/* No need for the DPMS property, since it is implicit in
 		 * routing and CRTC activity. */
 		wl_list_for_each(head, &output->base.head_list, base.output_link) {
-			ret |= connector_add_prop(req, head, WDRM_CONNECTOR_CRTC_ID,
+			ret |= connector_add_prop(req, &head->connector,
+						  WDRM_CONNECTOR_CRTC_ID,
 						  crtc->crtc_id);
 		}
 	} else {
@@ -979,11 +981,13 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		/* No need for the DPMS property, since it is implicit in
 		 * routing and CRTC activity. */
 		wl_list_for_each(head, &output->base.head_list, base.output_link)
-			ret |= connector_add_prop(req, head, WDRM_CONNECTOR_CRTC_ID, 0);
+			ret |= connector_add_prop(req, &head->connector,
+						  WDRM_CONNECTOR_CRTC_ID, 0);
 	}
 
 	wl_list_for_each(head, &output->base.head_list, base.output_link)
-		drm_head_set_hdcp_property(head, state->protection, req);
+		drm_connector_set_hdcp_property(&head->connector,
+						state->protection, req);
 
 	if (ret != 0) {
 		weston_log("couldn't set atomic CRTC/connector state\n");
@@ -1081,6 +1085,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		struct weston_head *head_base;
 		struct drm_head *head;
 		struct drm_crtc *crtc;
+		uint32_t connector_id;
 		int err;
 
 		drm_debug(b, "\t\t[atomic] previous state invalid; "
@@ -1097,15 +1102,16 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 				continue;
 
 			head = to_drm_head(head_base);
+			connector_id = head->connector.connector_id;
 
 			drm_debug(b, "\t\t[atomic] disabling inactive head %s\n",
 				  head_base->name);
 
-			info = &head->props_conn[WDRM_CONNECTOR_CRTC_ID];
-			err = drmModeAtomicAddProperty(req, head->connector_id,
+			info = &head->connector.props[WDRM_CONNECTOR_CRTC_ID];
+			err = drmModeAtomicAddProperty(req, connector_id,
 						       info->prop_id, 0);
 			drm_debug(b, "\t\t\t[CONN:%lu] %lu (%s) -> 0\n",
-				  (unsigned long) head->connector_id,
+				  (unsigned long) connector_id,
 				  (unsigned long) info->prop_id,
 				  info->name);
 			if (err <= 0)

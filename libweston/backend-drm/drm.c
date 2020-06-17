@@ -213,7 +213,7 @@ drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id)
 	wl_list_for_each(base,
 			 &backend->compositor->head_list, compositor_link) {
 		head = to_drm_head(base);
-		if (head->connector_id == connector_id)
+		if (head->connector.connector_id == connector_id)
 			return head;
 	}
 
@@ -1362,12 +1362,13 @@ static int
 drm_head_read_current_setup(struct drm_head *head, struct drm_backend *backend)
 {
 	int drm_fd = backend->drm.fd;
+	drmModeConnector *conn = head->connector.conn;
 	drmModeEncoder *encoder;
 	drmModeCrtc *crtc;
 
 	/* Get the current mode on the crtc that's currently driving
 	 * this connector. */
-	encoder = drmModeGetEncoder(drm_fd, head->connector->encoder_id);
+	encoder = drmModeGetEncoder(drm_fd, conn->encoder_id);
 	if (encoder != NULL) {
 		head->inherited_crtc_id = encoder->crtc_id;
 
@@ -1426,15 +1427,16 @@ drm_output_init_gamma_size(struct drm_output *output)
 }
 
 static uint32_t
-drm_head_get_possible_crtcs_mask(struct drm_head *head)
+drm_connector_get_possible_crtcs_mask(struct drm_connector *connector)
 {
 	uint32_t possible_crtcs = 0;
+	drmModeConnector *conn = connector->conn;
 	drmModeEncoder *encoder;
 	int i;
 
-	for (i = 0; i < head->connector->count_encoders; i++) {
-		encoder = drmModeGetEncoder(head->backend->drm.fd,
-					    head->connector->encoders[i]);
+	for (i = 0; i < conn->count_encoders; i++) {
+		encoder = drmModeGetEncoder(connector->backend->drm.fd,
+					    conn->encoders[i]);
 		if (!encoder)
 			continue;
 
@@ -1475,7 +1477,8 @@ drm_output_pick_crtc(struct drm_output *output)
 	wl_list_for_each(base, &output->base.head_list, output_link) {
 		head = to_drm_head(base);
 
-		possible_crtcs &= drm_head_get_possible_crtcs_mask(head);
+		possible_crtcs &=
+			drm_connector_get_possible_crtcs_mask(&head->connector);
 
 		crtc_id = head->inherited_crtc_id;
 		if (crtc_id > 0 && n < ARRAY_LENGTH(existing_crtc))
@@ -1957,14 +1960,14 @@ drm_head_get_current_protection(struct drm_head *head,
 	enum wdrm_hdcp_content_type type;
 	enum weston_hdcp_protection weston_hdcp = WESTON_HDCP_DISABLE;
 
-	info = &head->props_conn[WDRM_CONNECTOR_CONTENT_PROTECTION];
+	info = &head->connector.props[WDRM_CONNECTOR_CONTENT_PROTECTION];
 	protection = drm_property_get_value(info, props,
 					    WDRM_CONTENT_PROTECTION__COUNT);
 
 	if (protection == WDRM_CONTENT_PROTECTION__COUNT)
 		return WESTON_HDCP_DISABLE;
 
-	info = &head->props_conn[WDRM_CONNECTOR_HDCP_CONTENT_TYPE];
+	info = &head->connector.props[WDRM_CONNECTOR_HDCP_CONTENT_TYPE];
 	type = drm_property_get_value(info, props,
 				      WDRM_HDCP_CONTENT_TYPE__COUNT);
 
@@ -1981,7 +1984,7 @@ drm_head_get_current_protection(struct drm_head *head,
 					   &weston_hdcp) == -1) {
 		weston_log("Invalid drm protection:%d type:%d, for head:%s connector-id:%d\n",
 			   protection, type, head->base.name,
-			   head->connector_id);
+			   head->connector.connector_id);
 		return WESTON_HDCP_DISABLE;
 	}
 
@@ -1990,48 +1993,73 @@ drm_head_get_current_protection(struct drm_head *head,
 
 /** Replace connector data and monitor information
  *
- * @param head The head to update.
- * @param connector The connector data to be owned by the head, must match
- * the head's connector ID.
+ * @param connector The drm_connector object to be updated.
+ * @param conn The connector data to be owned by the drm_connector, must match
+ * the current drm_connector ID.
  * @return 0 on success, -1 on failure.
  *
  * Takes ownership of @c connector on success, not on failure.
  *
- * May schedule a heads changed call.
+ * May schedule a heads changed call if this connector is owned by a head
  */
 static int
-drm_head_assign_connector_info(struct drm_head *head,
-			       drmModeConnector *connector)
+drm_connector_assign_connector_info(struct drm_connector *connector,
+				    drmModeConnector *conn)
 {
 	drmModeObjectProperties *props;
 
-	assert(connector);
-	assert(head->connector_id == connector->connector_id);
+	assert(connector->connector_id == conn->connector_id);
 
-	props = drmModeObjectGetProperties(head->backend->drm.fd,
-					   head->connector_id,
+	props = drmModeObjectGetProperties(connector->backend->drm.fd,
+					   connector->connector_id,
 					   DRM_MODE_OBJECT_CONNECTOR);
 	if (!props) {
-		weston_log("Error: failed to get connector '%s' properties\n",
-			   head->base.name);
+		weston_log("Error: failed to get connector properties\n");
 		return -1;
 	}
 
-	if (head->connector)
-		drmModeFreeConnector(head->connector);
-	head->connector = connector;
+	if (connector->conn && connector->conn != conn)
+		drmModeFreeConnector(connector->conn);
+	connector->conn = conn;
 
-	drm_property_info_free(head->props_conn, WDRM_CONNECTOR__COUNT);
-	drm_property_info_populate(head->backend, connector_props,
-				   head->props_conn,
+	drm_property_info_free(connector->props, WDRM_CONNECTOR__COUNT);
+	drm_property_info_populate(connector->backend, connector_props,
+				   connector->props,
 				   WDRM_CONNECTOR__COUNT, props);
-	update_head_from_connector(head, props);
 
-	weston_head_set_content_protection_status(&head->base,
-					 drm_head_get_current_protection(head, props));
+	if (connector->head != NULL) {
+		update_head_from_connector(connector->head, props);
+		weston_head_set_content_protection_status(&connector->head->base,
+			drm_head_get_current_protection(connector->head, props));
+	}
+
 	drmModeFreeObjectProperties(props);
 
 	return 0;
+}
+
+static int
+drm_connector_init(struct drm_backend *b, struct drm_connector *connector,
+		   uint32_t connector_id)
+{
+	connector->backend = b;
+	connector->connector_id = connector_id;
+	connector->head = NULL;
+
+	connector->conn = drmModeGetConnector(b->drm.fd, connector_id);
+	if (!connector->conn) {
+		weston_log("DRM: Could not retrieve connector.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+static void
+drm_connector_fini(struct drm_connector *connector)
+{
+	drmModeFreeConnector(connector->conn);
+	drm_property_info_free(connector->props, WDRM_CONNECTOR__COUNT);
 }
 
 static void
@@ -2040,12 +2068,12 @@ drm_head_log_info(struct drm_head *head, const char *msg)
 	if (head->base.connected) {
 		weston_log("DRM: head '%s' %s, connector %d is connected, "
 			   "EDID make '%s', model '%s', serial '%s'\n",
-			   head->base.name, msg, head->connector_id,
+			   head->base.name, msg, head->connector.connector_id,
 			   head->base.make, head->base.model,
 			   head->base.serial_number ?: "");
 	} else {
 		weston_log("DRM: head '%s' %s, connector %d is disconnected.\n",
-			   head->base.name, msg, head->connector_id);
+			   head->base.name, msg, head->connector.connector_id);
 	}
 }
 
@@ -2060,18 +2088,18 @@ drm_head_log_info(struct drm_head *head, const char *msg)
 static void
 drm_head_update_info(struct drm_head *head)
 {
-	drmModeConnector *connector;
+	drmModeConnector *conn;
 
-	connector = drmModeGetConnector(head->backend->drm.fd,
-					head->connector_id);
-	if (!connector) {
+	conn = drmModeGetConnector(head->backend->drm.fd,
+				   head->connector.connector_id);
+	if (!conn) {
 		weston_log("DRM: getting connector info for '%s' failed.\n",
 			   head->base.name);
 		return;
 	}
 
-	if (drm_head_assign_connector_info(head, connector) < 0)
-		drmModeFreeConnector(connector);
+	if (drm_connector_assign_connector_info(&head->connector, conn) < 0)
+		drmModeFreeConnector(conn);
 
 	if (head->base.device_changed)
 		drm_head_log_info(head, "updated");
@@ -2093,39 +2121,42 @@ drm_head_create(struct drm_backend *backend, uint32_t connector_id,
 		struct udev_device *drm_device)
 {
 	struct drm_head *head;
-	drmModeConnector *connector;
+	drmModeConnector *conn;
 	char *name;
+	int ret;
 
 	head = zalloc(sizeof *head);
 	if (!head)
 		return NULL;
 
-	connector = drmModeGetConnector(backend->drm.fd, connector_id);
-	if (!connector)
-		goto err_alloc;
+	head->backend = backend;
 
-	name = make_connector_name(connector);
+	ret = drm_connector_init(backend, &head->connector, connector_id);
+	if (ret < 0)
+		goto err;
+	head->connector.head = head;
+	conn = head->connector.conn;
+
+	name = make_connector_name(conn);
 	if (!name)
-		goto err_alloc;
+		goto err_name;
 
 	weston_head_init(&head->base, name);
 	free(name);
 
-	head->connector_id = connector_id;
-	head->backend = backend;
+	ret = drm_connector_assign_connector_info(&head->connector, conn);
+	if (ret < 0)
+		goto err_assign;
 
-	head->backlight = backlight_init(drm_device, connector->connector_type);
+	head->backlight = backlight_init(drm_device, conn->connector_type);
 
-	if (drm_head_assign_connector_info(head, connector) < 0)
-		goto err_init;
-
-	if (head->connector->connector_type == DRM_MODE_CONNECTOR_LVDS ||
-	    head->connector->connector_type == DRM_MODE_CONNECTOR_eDP)
+	if (conn->connector_type == DRM_MODE_CONNECTOR_LVDS ||
+	    conn->connector_type == DRM_MODE_CONNECTOR_eDP)
 		weston_head_set_internal(&head->base);
 
 	if (drm_head_read_current_setup(head, backend) < 0) {
 		weston_log("Failed to retrieve current mode from connector %d.\n",
-			   head->connector_id);
+			   head->connector.connector_id);
 		/* Not fatal. */
 	}
 
@@ -2134,15 +2165,12 @@ drm_head_create(struct drm_backend *backend, uint32_t connector_id,
 
 	return head;
 
-err_init:
+err_assign:
 	weston_head_release(&head->base);
-
-err_alloc:
-	if (connector)
-		drmModeFreeConnector(connector);
-
+err_name:
+	drm_connector_fini(&head->connector);
+err:
 	free(head);
-
 	return NULL;
 }
 
@@ -2151,8 +2179,7 @@ drm_head_destroy(struct drm_head *head)
 {
 	weston_head_release(&head->base);
 
-	drm_property_info_free(head->props_conn, WDRM_CONNECTOR__COUNT);
-	drmModeFreeConnector(head->connector);
+	drm_connector_fini(&head->connector);
 
 	if (head->backlight)
 		backlight_destroy(head->backlight);
@@ -2247,6 +2274,7 @@ drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
 	drmModeRes *resources;
 	struct weston_head *base, *next;
 	struct drm_head *head;
+	uint32_t connector_id;
 	int i;
 
 	resources = drmModeGetResources(b->drm.fd);
@@ -2257,7 +2285,7 @@ drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
 
 	/* collect new connectors that have appeared, e.g. MST */
 	for (i = 0; i < resources->count_connectors; i++) {
-		uint32_t connector_id = resources->connectors[i];
+		connector_id = resources->connectors[i];
 
 		head = drm_head_find_by_connector(b, connector_id);
 		if (head) {
@@ -2274,11 +2302,11 @@ drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
 	wl_list_for_each_safe(base, next,
 			      &b->compositor->head_list, compositor_link) {
 		bool removed = true;
-
 		head = to_drm_head(base);
+		connector_id = head->connector.connector_id;
 
 		for (i = 0; i < resources->count_connectors; i++) {
-			if (resources->connectors[i] == head->connector_id) {
+			if (resources->connectors[i] == connector_id) {
 				removed = false;
 				break;
 			}
@@ -2288,7 +2316,7 @@ drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
 			continue;
 
 		weston_log("DRM: head '%s' (connector %d) disappeared.\n",
-			   head->base.name, head->connector_id);
+			   head->base.name, connector_id);
 		drm_head_destroy(head);
 	}
 
@@ -2296,16 +2324,17 @@ drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
 }
 
 static enum wdrm_connector_property
-drm_head_find_property_by_id(struct drm_head *head, uint32_t property_id)
+drm_connector_find_property_by_id(struct drm_connector *connector,
+				  uint32_t property_id)
 {
 	int i;
 	enum wdrm_connector_property prop = WDRM_CONNECTOR__COUNT;
 
-	if (!head || !property_id)
+	if (!connector || !property_id)
 		return WDRM_CONNECTOR__COUNT;
 
 	for (i = 0; i < WDRM_CONNECTOR__COUNT; i++)
-		if (head->props_conn[i].prop_id == property_id) {
+		if (connector->props[i].prop_id == property_id) {
 			prop = (enum wdrm_connector_property) i;
 			break;
 		}
@@ -2328,7 +2357,7 @@ drm_backend_update_conn_props(struct drm_backend *b,
 		return;
 	}
 
-	conn_prop = drm_head_find_property_by_id(head, property_id);
+	conn_prop = drm_connector_find_property_by_id(&head->connector, property_id);
 	if (conn_prop >= WDRM_CONNECTOR__COUNT)
 		return;
 

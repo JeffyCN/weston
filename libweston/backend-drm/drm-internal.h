@@ -466,16 +466,23 @@ struct drm_plane {
 	} formats[];
 };
 
+struct drm_connector {
+	struct drm_backend *backend;
+	struct drm_head *head;
+
+	drmModeConnector *conn;
+	uint32_t connector_id;
+
+	/* Holds the properties for the connector */
+	struct drm_property_info props[WDRM_CONNECTOR__COUNT];
+};
+
 struct drm_head {
 	struct weston_head base;
 	struct drm_backend *backend;
+	struct drm_connector connector;
 
-	drmModeConnector *connector;
-	uint32_t connector_id;
 	struct drm_edid edid;
-
-	/* Holds the properties for the connector */
-	struct drm_property_info props_conn[WDRM_CONNECTOR__COUNT];
 
 	struct backlight *backlight;
 

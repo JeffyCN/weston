@@ -120,19 +120,19 @@ drm_mode_ensure_blob(struct drm_backend *backend, struct drm_mode *mode)
 }
 
 static bool
-check_non_desktop(struct drm_head *head, drmModeObjectPropertiesPtr props)
+check_non_desktop(struct drm_connector *connector, drmModeObjectPropertiesPtr props)
 {
 	struct drm_property_info *non_desktop_info =
-		&head->props_conn[WDRM_CONNECTOR_NON_DESKTOP];
+		&connector->props[WDRM_CONNECTOR_NON_DESKTOP];
 
 	return drm_property_get_value(non_desktop_info, props, 0);
 }
 
 static uint32_t
-get_panel_orientation(struct drm_head *head, drmModeObjectPropertiesPtr props)
+get_panel_orientation(struct drm_connector *connector, drmModeObjectPropertiesPtr props)
 {
 	struct drm_property_info *orientation =
-		&head->props_conn[WDRM_CONNECTOR_PANEL_ORIENTATION];
+		&connector->props[WDRM_CONNECTOR_PANEL_ORIENTATION];
 	uint64_t kms_val =
 		drm_property_get_value(orientation, props,
 				       WDRM_PANEL_ORIENTATION_NORMAL);
@@ -322,8 +322,9 @@ find_and_parse_output_edid(struct drm_head *head,
 	int rc;
 
 	blob_id =
-		drm_property_get_value(&head->props_conn[WDRM_CONNECTOR_EDID],
-				       props, 0);
+		drm_property_get_value(
+			&head->connector.props[WDRM_CONNECTOR_EDID],
+			props, 0);
 	if (!blob_id)
 		return;
 
@@ -509,6 +510,8 @@ void
 update_head_from_connector(struct drm_head *head,
 			   drmModeObjectProperties *props)
 {
+	struct drm_connector *connector = &head->connector;
+	drmModeConnector *conn = connector->conn;
 	const char *make = "unknown";
 	const char *model = "unknown";
 	const char *serial_number = "unknown";
@@ -516,19 +519,18 @@ update_head_from_connector(struct drm_head *head,
 	find_and_parse_output_edid(head, props, &make, &model, &serial_number);
 	weston_head_set_monitor_strings(&head->base, make, model, serial_number);
 	weston_head_set_non_desktop(&head->base,
-				    check_non_desktop(head, props));
+				    check_non_desktop(connector, props));
 	weston_head_set_subpixel(&head->base,
-		drm_subpixel_to_wayland(head->connector->subpixel));
+				 drm_subpixel_to_wayland(conn->subpixel));
 
-	weston_head_set_physical_size(&head->base, head->connector->mmWidth,
-				      head->connector->mmHeight);
+	weston_head_set_physical_size(&head->base, conn->mmWidth, conn->mmHeight);
 
 	weston_head_set_transform(&head->base,
-				  get_panel_orientation(head, props));
+				  get_panel_orientation(connector, props));
 
 	/* Unknown connection status is assumed disconnected. */
 	weston_head_set_connection_status(&head->base,
-			head->connector->connection == DRM_MODE_CONNECTED);
+				conn->connection == DRM_MODE_CONNECTED);
 }
 
 /**
@@ -757,6 +759,7 @@ drm_output_update_modelist_from_heads(struct drm_output *output)
 	struct drm_backend *backend = to_drm_backend(output->base.compositor);
 	struct weston_head *head_base;
 	struct drm_head *head;
+	drmModeConnector *conn;
 	int i;
 	int ret;
 
@@ -766,9 +769,9 @@ drm_output_update_modelist_from_heads(struct drm_output *output)
 
 	wl_list_for_each(head_base, &output->base.head_list, output_link) {
 		head = to_drm_head(head_base);
-		for (i = 0; i < head->connector->count_modes; i++) {
-			ret = drm_output_try_add_mode(output,
-						&head->connector->modes[i]);
+		conn = head->connector.conn;
+		for (i = 0; i < conn->count_modes; i++) {
+			ret = drm_output_try_add_mode(output, &conn->modes[i]);
 			if (ret < 0)
 				return -1;
 		}
