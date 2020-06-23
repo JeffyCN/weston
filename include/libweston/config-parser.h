@@ -32,6 +32,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define WESTON_CONFIG_FILE_ENV_VAR "WESTON_CONFIG_FILE"
 
