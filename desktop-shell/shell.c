@@ -1979,7 +1979,7 @@ shell_configure_fullscreen(struct shell_surface *shsurf)
 						   &surf_width, &surf_height);
 
 	if (weston_surface_has_content(surface))
-		weston_shell_utils_center_on_output(shsurf->view, shsurf->fullscreen_output);
+		weston_shell_utils_center_on_output(shsurf->view, shsurf->output);
 }
 
 static void
@@ -2339,7 +2339,7 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 	/* initial positioning, see also configure() */
 	if (shsurf->state.fullscreen) {
 		weston_shell_utils_center_on_output(shsurf->view,
-						    shsurf->fullscreen_output);
+						    shsurf->output);
 		shell_map_fullscreen(shsurf);
 	} else if (shsurf->state.maximized) {
 		set_maximized_position(shell, shsurf);
@@ -3951,6 +3951,9 @@ shell_fade_done_for_output(struct weston_view_animation *animation, void *data)
 	struct shell_output *shell_output = data;
 	struct desktop_shell *shell = shell_output->shell;
 
+	if (!shell_output->fade.curtain)
+		return;
+
 	shell_output->fade.animation = NULL;
 	switch (shell_output->fade.type) {
 	case FADE_IN:
@@ -4680,6 +4683,9 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	if (!shsurf)
 		return;
 
+	if (shsurf->fullscreen_output && shsurf->fullscreen_output->destroying)
+		shsurf->fullscreen_output = NULL;
+
 	if (!visible) {
 		first_output = container_of(ec->output_list.next,
 					    struct weston_output, link);
@@ -4695,11 +4701,6 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 		    shsurf->state.fullscreen)
 			return;
 	}
-
-
-	shsurf->saved_position_valid = false;
-	set_maximized(shsurf, false);
-	set_fullscreen(shsurf, false, NULL);
 }
 
 void
@@ -4738,8 +4739,12 @@ shell_output_destroy(struct shell_output *shell_output)
 		shell_output->fade.animation = NULL;
 	}
 
-	if (shell_output->fade.curtain)
-		weston_shell_utils_curtain_destroy(shell_output->fade.curtain);
+	if (shell_output->fade.curtain) {
+		struct weston_curtain *curtain = shell_output->fade.curtain;
+
+		shell_output->fade.curtain = NULL;
+		weston_shell_utils_curtain_destroy(curtain);
+	}
 
 	if (shell_output->fade.startup_timer)
 		wl_event_source_remove(shell_output->fade.startup_timer);
@@ -4842,12 +4847,28 @@ handle_output_move_layer(struct desktop_shell *shell,
 static void
 handle_output_move(struct wl_listener *listener, void *data)
 {
+	struct weston_output *output = data;
+	struct weston_compositor *compositor = output->compositor;
 	struct desktop_shell *shell;
 
 	shell = container_of(listener, struct desktop_shell,
 			     output_move_listener);
 
-	shell_for_each_layer(shell, handle_output_move_layer, data);
+	if (shell->lock_surface) {
+		struct weston_coord_surface offset =
+			 weston_coord_surface(0, 0, shell->lock_surface);
+		shell->lock_surface->committed(shell->lock_surface, offset);
+	}
+
+	/* Only move normal layers for non-default output */
+	if (output != weston_shell_utils_get_default_output(compositor)) {
+		shell_for_each_layer(shell, handle_output_move_layer, data);
+		return;
+	}
+
+	handle_output_move_layer(shell, &shell->lock_layer, data);
+	handle_output_move_layer(shell, &shell->background_layer, data);
+	handle_output_move_layer(shell, &shell->panel_layer, data);
 }
 
 static void
