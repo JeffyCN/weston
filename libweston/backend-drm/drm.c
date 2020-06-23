@@ -48,6 +48,7 @@
 
 #include <libudev.h>
 
+#include <libweston/config-parser.h>
 #include <libweston/libweston.h>
 #include <libweston/backend-drm.h>
 #include <libweston/weston-log.h>
@@ -70,6 +71,43 @@
 #include "linux-explicit-synchronization.h"
 
 static const char default_seat[] = "seat0";
+
+static inline bool
+drm_head_is_external(struct drm_head *head)
+{
+	drmModeConnector *conn = head->connector.conn;
+	switch (conn->connector_type) {
+		case DRM_MODE_CONNECTOR_LVDS:
+		case DRM_MODE_CONNECTOR_eDP:
+#ifdef DRM_MODE_CONNECTOR_DSI
+		case DRM_MODE_CONNECTOR_DSI:
+#endif
+			return false;
+		default:
+			return true;
+	}
+};
+
+static void
+drm_backend_update_outputs(struct drm_backend *b)
+{
+	struct weston_output *primary;
+
+	if (!b->primary_head)
+		return;
+
+	primary = b->primary_head->base.output;
+	if (!primary)
+		return;
+
+	wl_list_remove(&primary->link);
+	wl_list_insert(&b->compositor->output_list, &primary->link);
+
+	/* Reflow outputs */
+	weston_compositor_reflow_outputs(b->compositor);
+
+	weston_compositor_damage_all(b->compositor);
+}
 
 static void
 drm_backend_create_faked_zpos(struct drm_device *device)
@@ -622,17 +660,33 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	struct drm_plane_state *scanout_state;
 	struct drm_pending_state *pending_state;
 	struct drm_device *device;
+	struct drm_backend *b;
+	struct timespec now;
+	int64_t now_ms;
 
 	assert(output);
 	assert(!output->virtual);
 
 	device = output->device;
 	pending_state = device->repaint_data;
+	b = device->backend;
 
 	if (output->disable_pending || output->destroy_pending)
 		goto err;
 
 	assert(!output->state_last);
+
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+	now_ms = timespec_to_msec(&now);
+	if (now_ms < b->last_resize_ms + DRM_RESIZE_FREEZE_MS) {
+		/* Resize fullscreen/maxmium views(not always success) */
+		if (now_ms < b->last_resize_ms + DRM_RESIZE_FREEZE_MS)
+			wl_signal_emit(&b->compositor->output_resized_signal,
+				       output);
+
+		/* Request retry */
+		return 1;
+	}
 
 	/* If planes have been disabled in the core, we might not have
 	 * hit assign_planes at all, so might not have valid output state
@@ -948,6 +1002,7 @@ drm_output_apply_mode(struct drm_output *output)
 	 *      content.
 	 */
 	device->state_invalid = true;
+	output->state_invalid = true;
 
 	if (b->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		drm_output_fini_pixman(output);
@@ -1587,6 +1642,7 @@ drm_output_attach_head(struct weston_output *output_base,
 	 * will not clear the flag before this output is updated?
 	 */
 	device->state_invalid = true;
+	output->state_invalid = true;
 
 	weston_output_schedule_repaint(output_base);
 
@@ -2177,6 +2233,8 @@ drm_output_enable(struct weston_output *base)
 	output->base.switch_mode = drm_output_switch_mode;
 	output->base.set_gamma = drm_output_set_gamma;
 
+	output->state_invalid = true;
+
 	if (device->atomic_modeset)
 		weston_output_update_capture_info(base, WESTON_OUTPUT_CAPTURE_SOURCE_WRITEBACK,
 						  base->current_mode->width,
@@ -2543,8 +2601,7 @@ drm_head_create(struct drm_device *device, drmModeConnector *conn,
 
 	head->backlight = backlight_init(drm_device, conn->connector_type);
 
-	if (conn->connector_type == DRM_MODE_CONNECTOR_LVDS ||
-	    conn->connector_type == DRM_MODE_CONNECTOR_eDP)
+	if (!drm_head_is_external(head))
 		weston_head_set_internal(&head->base);
 
 	if (drm_head_read_current_setup(head, device) < 0) {
@@ -2937,44 +2994,6 @@ drm_backend_add_connector(struct drm_device *device, drmModeConnector *conn,
 	return ret;
 }
 
-/** Find all connectors of the fd and create drm_head or drm_writeback objects
- * (depending on the type of connector they are) for each of them
- *
- * These objects are added to the DRM-backend lists of heads and writebacks.
- *
- * @param device The DRM device structure
- * @param drm_device udev device pointer
- * @param resources The DRM resources, it is taken with drmModeGetResources
- * @return 0 on success, -1 on failure
- */
-static int
-drm_backend_discover_connectors(struct drm_device *device,
-				struct udev_device *drm_device,
-				drmModeRes *resources)
-{
-	drmModeConnector *conn;
-	int i, ret;
-
-	device->min_width  = resources->min_width;
-	device->max_width  = resources->max_width;
-	device->min_height = resources->min_height;
-	device->max_height = resources->max_height;
-
-	for (i = 0; i < resources->count_connectors; i++) {
-		uint32_t connector_id = resources->connectors[i];
-
-		conn = drmModeGetConnector(device->drm.fd, connector_id);
-		if (!conn)
-			continue;
-
-		ret = drm_backend_add_connector(device, conn, drm_device);
-		if (ret < 0)
-			drmModeFreeConnector(conn);
-	}
-
-	return 0;
-}
-
 static bool
 resources_has_connector(drmModeRes *resources, uint32_t connector_id)
 {
@@ -2986,7 +3005,43 @@ resources_has_connector(drmModeRes *resources, uint32_t connector_id)
 	return false;
 }
 
-static void
+/* based on compositor/main.c#drm_head_prepare_enable() */
+static bool
+drm_head_is_available(struct weston_head *head)
+{
+	struct weston_config_section *section;
+	char *mode = NULL;
+
+	section = head->section;
+	if (!section)
+		return true;
+
+	/* skip outputs that are explicitly off, or non-desktop and not
+	 * explicitly enabled.
+	 */
+	weston_config_section_get_string(section, "mode", &mode, NULL);
+	if (mode && strcmp(mode, "off") == 0) {
+		free(mode);
+		return false;
+	}
+
+	if (!mode && weston_head_is_non_desktop(head))
+		return false;
+
+	free(mode);
+	return true;
+}
+
+static bool
+drm_head_match_fallback(struct drm_backend *b, struct drm_head *head)
+{
+	if (b->head_fallback_all)
+		return true;
+
+	return b->head_fallback && !b->primary_head;
+}
+
+static int
 drm_backend_update_connectors(struct drm_device *device,
 			      struct udev_device *drm_device)
 {
@@ -2996,14 +3051,21 @@ drm_backend_update_connectors(struct drm_device *device,
 	struct weston_head *base, *base_next;
 	struct drm_head *head;
 	struct drm_writeback *writeback, *writeback_next;
+	drm_head_match_t *match = b->head_matches;
+	struct timespec now;
 	uint32_t connector_id;
 	int i, ret;
 
 	resources = drmModeGetResources(device->drm.fd);
 	if (!resources) {
 		weston_log("drmModeGetResources failed\n");
-		return;
+		return -1;
 	}
+
+	device->min_width  = resources->min_width;
+	device->max_width  = resources->max_width;
+	device->min_height = resources->min_height;
+	device->max_height = resources->max_height;
 
 	/* collect new connectors that have appeared, e.g. MST */
 	for (i = 0; i < resources->count_connectors; i++) {
@@ -3069,6 +3131,63 @@ drm_backend_update_connectors(struct drm_device *device,
 	}
 
 	drmModeFreeResources(resources);
+
+	wl_list_for_each_safe(base, base_next,
+			      &b->compositor->head_list, compositor_link)
+		weston_head_set_connection_status(base, false);
+
+	/* Re-connect matched heads and find primary head */
+	b->primary_head = NULL;
+	while (*match) {
+		wl_list_for_each_safe(base, base_next,
+				      &b->compositor->head_list,
+				      compositor_link) {
+			drmModeConnector *conn;
+
+			if (!drm_head_is_available(base))
+				continue;
+
+			head = to_drm_head(base);
+			conn = head->connector.conn;
+
+			if (conn->connection != DRM_MODE_CONNECTED ||
+			    !(*match)(b, head))
+				continue;
+
+			weston_head_set_connection_status(base, true);
+
+			if (!b->primary_head) {
+				b->primary_head = head;
+
+				/* Done the single-head match */
+				if (b->single_head)
+					goto match_done;
+			}
+		}
+
+		/* Done the fallback match */
+		if (*match == drm_head_match_fallback)
+			goto match_done;
+
+		match++;
+
+		/* Try the fallback match */
+		if (!match && !b->primary_head)
+			*match = drm_head_match_fallback;
+	}
+match_done:
+
+	drm_backend_update_outputs(b);
+
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+
+	/* Assume primary output's size changed */
+	if (b->last_update_ms && b->primary_head)
+		b->last_resize_ms = timespec_to_msec(&now);
+
+	b->last_update_ms = timespec_to_msec(&now);
+
+	return 0;
 }
 
 static enum wdrm_connector_property
@@ -3159,6 +3278,50 @@ udev_event_is_conn_prop_change(struct drm_backend *b,
 	return 1;
 }
 
+static void
+udev_hotplug_event(struct drm_device *device, struct udev_device *udev_device)
+{
+	struct drm_backend *b = device->backend;
+	struct timespec now;
+	int64_t now_ms, next_ms;
+
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+	now_ms = timespec_to_msec(&now);
+
+	/* Already have a pending request */
+	if (b->pending_update)
+		return;
+
+	next_ms = b->last_update_ms + DRM_MIN_UPDATE_MS;
+	if (next_ms <= now_ms) {
+		/* Long enough to trigger a new request */
+		drm_backend_update_connectors(device, udev_device);
+	} else {
+		/* Too close to the last request, schedule a new one */
+		b->pending_update = true;
+		wl_event_source_timer_update(b->hotplug_timer,
+					     next_ms - now_ms);
+	}
+}
+
+static int
+hotplug_timer_handler(void *data)
+{
+	struct drm_device *device = data;
+	struct drm_backend *b = device->backend;
+	struct udev_device *udev_device;
+	struct udev *udev;
+
+	udev = udev_monitor_get_udev(b->udev_monitor);
+	udev_device = udev_device_new_from_syspath(udev, device->drm.syspath);
+
+	drm_backend_update_connectors(device, udev_device);
+	b->pending_update = false;
+
+	udev_device_unref(udev_device);
+	return 0;
+}
+
 static int
 udev_drm_event(int fd, uint32_t mask, void *data)
 {
@@ -3173,7 +3336,7 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 		if (udev_event_is_conn_prop_change(b, event, &conn_id, &prop_id))
 			drm_backend_update_conn_props(b, conn_id, prop_id);
 		else
-			drm_backend_update_connectors(b->drm, event);
+			udev_hotplug_event(b->drm, event);
 	}
 
 	wl_list_for_each(device, &b->kms_list, link) {
@@ -3202,6 +3365,7 @@ drm_destroy(struct weston_backend *backend)
 
 	udev_input_destroy(&b->input);
 
+	wl_event_source_remove(b->hotplug_timer);
 	wl_event_source_remove(b->udev_drm_source);
 	wl_event_source_remove(b->drm_source);
 
@@ -3255,6 +3419,10 @@ session_notify(struct wl_listener *listener, void *data)
 		weston_compositor_wake(compositor);
 		weston_compositor_damage_all(compositor);
 		device->state_invalid = true;
+
+		wl_list_for_each(output, &compositor->output_list, link)
+			to_drm_output(output)->state_invalid = true;
+
 		udev_input_enable(&b->input);
 	} else {
 		weston_log("deactivating session\n");
@@ -3661,7 +3829,7 @@ drm_device_create(struct drm_backend *backend, const char *name)
 	create_sprites(device, res);
 
 	wl_list_init(&device->writeback_connector_list);
-	if (drm_backend_discover_connectors(device, udev_device, res) < 0) {
+	if (drm_backend_update_connectors(device, udev_device) < 0) {
 		weston_log("Failed to create heads for %s\n", device->drm.filename);
 		goto err;
 	}
@@ -3699,6 +3867,15 @@ next:
 	free(tokenize);
 }
 
+static void
+output_create_notify(struct wl_listener *listener, void *data)
+{
+	struct drm_backend *b = container_of(listener, struct drm_backend,
+					     output_create_listener);
+
+	drm_backend_update_outputs(b);
+}
+
 static const struct weston_drm_output_api api = {
 	drm_output_set_mode,
 	drm_output_set_gbm_format,
@@ -3706,6 +3883,71 @@ static const struct weston_drm_output_api api = {
 	drm_output_set_max_bpc,
 	drm_output_set_content_type,
 };
+
+enum drm_head_mode {
+	DRM_HEAD_MODE_DEFAULT,
+	DRM_HEAD_MODE_PRIMARY,
+	DRM_HEAD_MODE_INTERNAL,
+	DRM_HEAD_MODE_EXTERNAL,
+	DRM_HEAD_MODE_EXTERNAL_DUAL,
+};
+
+static bool
+drm_head_match_primary(struct drm_backend *b, struct drm_head *head)
+{
+	const char *buf = getenv("WESTON_DRM_PRIMARY");
+	return buf && !strcmp(buf, head->base.name);
+}
+
+static bool
+drm_head_match_external(struct drm_backend *b, struct drm_head *head)
+{
+	return drm_head_is_external(head);
+}
+
+static bool
+drm_head_match_internal(struct drm_backend *b, struct drm_head *head)
+{
+	return !drm_head_is_external(head);
+}
+
+#define DRM_HEAD_MAX_MATCHES 5
+static drm_head_match_t drm_head_matches[][DRM_HEAD_MAX_MATCHES] = {
+	[DRM_HEAD_MODE_DEFAULT] = {
+		drm_head_match_primary,
+		drm_head_match_internal,
+		drm_head_match_external,
+		NULL,
+	},
+	[DRM_HEAD_MODE_PRIMARY] = {
+		drm_head_match_primary,
+		NULL,
+	},
+	[DRM_HEAD_MODE_INTERNAL] = {
+		drm_head_match_primary,
+		drm_head_match_internal,
+		NULL,
+	},
+	[DRM_HEAD_MODE_EXTERNAL] = {
+		drm_head_match_primary,
+		drm_head_match_external,
+		NULL,
+	},
+	[DRM_HEAD_MODE_EXTERNAL_DUAL] = {
+		drm_head_match_primary,
+		drm_head_match_external,
+		drm_head_match_internal,
+		NULL,
+	},
+};
+
+static void
+drm_backend_late_init(void *data)
+{
+	struct drm_backend *b = data;
+
+	hotplug_timer_handler(b->drm);
+}
 
 static struct drm_backend *
 drm_backend_create(struct weston_compositor *compositor,
@@ -3718,7 +3960,9 @@ drm_backend_create(struct weston_compositor *compositor,
 	const char *seat_id = default_seat;
 	const char *session_seat;
 	struct weston_drm_format_array *scanout_formats;
+	enum drm_head_mode head_mode = DRM_HEAD_MODE_DEFAULT;
 	drmModeRes *res;
+	char *buf;
 	int ret;
 
 	session_seat = getenv("XDG_SEAT");
@@ -3733,6 +3977,48 @@ drm_backend_create(struct weston_compositor *compositor,
 	b = zalloc(sizeof *b);
 	if (b == NULL)
 		return NULL;
+
+	buf = getenv("WESTON_DRM_SINGLE_HEAD");
+	if (buf && buf[0] == '1')
+		b->single_head = true;
+
+	buf = getenv("WESTON_DRM_HEAD_FALLBACK");
+	if (buf && buf[0] == '1')
+		b->head_fallback = true;
+
+	buf = getenv("WESTON_DRM_HEAD_FALLBACK_ALL");
+	if (buf && buf[0] == '1')
+		b->head_fallback_all = true;
+
+	buf = getenv("WESTON_DRM_PREFER_EXTERNAL");
+	if (buf && buf[0] == '1') {
+		head_mode = DRM_HEAD_MODE_EXTERNAL;
+		b->head_fallback = true;
+	}
+
+	buf = getenv("WESTON_DRM_PREFER_EXTERNAL_DUAL");
+	if (buf && buf[0] == '1')
+		head_mode = DRM_HEAD_MODE_EXTERNAL_DUAL;
+
+	buf = getenv("WESTON_DRM_HEAD_MODE");
+	if (buf) {
+		if (!strcmp(buf, "primary"))
+			head_mode = DRM_HEAD_MODE_PRIMARY;
+		else if (!strcmp(buf, "internal"))
+			head_mode = DRM_HEAD_MODE_INTERNAL;
+		else if (!strcmp(buf, "external"))
+			head_mode = DRM_HEAD_MODE_EXTERNAL;
+		else if (!strcmp(buf, "external-dual"))
+			head_mode = DRM_HEAD_MODE_EXTERNAL_DUAL;
+	}
+
+	b->head_matches = drm_head_matches[head_mode];
+
+	buf = getenv("WESTON_DRM_RESIZE_FREEZE_MS");
+	if (buf)
+		b->resize_freeze_ms = atoi(buf);
+	else
+		b->resize_freeze_ms = DRM_RESIZE_FREEZE_MS;
 
 	device = zalloc(sizeof *device);
 	if (device == NULL)
@@ -3854,10 +4140,6 @@ drm_backend_create(struct weston_compositor *compositor,
 	}
 
 	wl_list_init(&b->drm->writeback_connector_list);
-	if (drm_backend_discover_connectors(b->drm, drm_device, res) < 0) {
-		weston_log("Failed to create heads for %s\n", b->drm->drm.filename);
-		goto err_udev_input;
-	}
 
 	drmModeFreeResources(res);
 
@@ -3892,6 +4174,10 @@ drm_backend_create(struct weston_compositor *compositor,
 	}
 
 	udev_device_unref(drm_device);
+
+	b->output_create_listener.notify = output_create_notify;
+	wl_signal_add(&b->compositor->output_created_signal,
+		      &b->output_create_listener);
 
 	weston_compositor_add_debug_binding(compositor, KEY_O,
 					    planes_binding, b);
@@ -3952,6 +4238,11 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev_monitor;
 	}
 
+	b->hotplug_timer =
+		wl_event_loop_add_timer(loop, hotplug_timer_handler, b->drm);
+
+	wl_event_loop_add_idle(loop, drm_backend_late_init, b);
+
 	return b;
 
 err_udev_monitor:
@@ -3959,7 +4250,6 @@ err_udev_monitor:
 	udev_monitor_unref(b->udev_monitor);
 err_drm_source:
 	wl_event_source_remove(b->drm_source);
-err_udev_input:
 	udev_input_destroy(&b->input);
 err_sprite:
 	destroy_sprites(b->drm);
