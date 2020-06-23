@@ -371,6 +371,10 @@ kiosk_shell_surface_reconfigure_for_output(struct kiosk_shell_surface *shsurf)
 		weston_desktop_surface_set_size(desktop_surface,
 						shsurf->output->width,
 						shsurf->output->height);
+
+		if (shsurf->last_width != shsurf->output->width ||
+		    shsurf->last_height != shsurf->output->height)
+			shsurf->output->resizing = true;
 	}
 
 	weston_shell_utils_center_on_output(shsurf->view, shsurf->output);
@@ -989,6 +993,11 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	shsurf->last_width = surface->width;
 	shsurf->last_height = surface->height;
+
+	if (is_fullscreen && shsurf->output &&
+	    (shsurf->last_width != shsurf->output->width ||
+	     shsurf->last_height != shsurf->output->height))
+		shsurf->output->resizing = true;
 }
 
 static void
@@ -1254,6 +1263,12 @@ kiosk_shell_handle_output_resized(struct wl_listener *listener, void *data)
 		kiosk_shell_find_shell_output(shell, output);
 	struct weston_view *view;
 
+	/* HACK: The resized signal might be eariler than the created signal */
+	if (!shoutput)
+		return;
+
+	output->resizing = false;
+
 	kiosk_shell_output_recreate_background(shoutput);
 
 	wl_list_for_each(view, &shell->normal_layer.view_list.link,
@@ -1430,6 +1445,8 @@ wet_shell_init(struct weston_compositor *ec,
 	screenshooter_create(ec);
 
 	kiosk_shell_add_bindings(shell);
+
+	ec->block_output_resizing = true;
 
 	return 0;
 }
