@@ -516,6 +516,8 @@ struct weston_head {
 	 * When a client uses this request, we add the wl_resource we create to
 	 * this list. */
         struct wl_list cm_output_resource_list;
+
+	struct weston_config_section *section; /**< config section **/
 };
 
 enum weston_output_power_state {
@@ -711,6 +713,9 @@ struct weston_output {
 	 * mirror-of key in [output] section.
 	 */
 	struct weston_output *mirror_of;
+
+	/* Resizing maximized or fullscreen surfaces */
+	bool resizing;
 };
 
 enum weston_pointer_motion_mask {
@@ -1632,6 +1637,8 @@ struct weston_compositor {
 		struct wl_global *weston_capture_v1;
 		struct wl_signal ask_auth;
 	} output_capture;
+
+	bool block_output_resizing;
 
 	enum weston_output_flow output_flow;
 };
