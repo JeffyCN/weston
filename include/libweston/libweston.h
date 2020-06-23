@@ -410,6 +410,8 @@ struct weston_head {
 
 	/** Current content protection status */
 	enum weston_hdcp_protection current_protection;
+
+	struct weston_config_section *section; /**< config section **/
 };
 
 /** Output properties derived from its color characteristics and profile
@@ -605,6 +607,9 @@ struct weston_output {
 	 */
 	void (*detach_head)(struct weston_output *output,
 			    struct weston_head *head);
+
+	/* Resizing maximized or fullscreen surfaces */
+	bool resizing;
 };
 
 enum weston_pointer_motion_mask {
