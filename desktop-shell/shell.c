@@ -3988,6 +3988,9 @@ shell_fade_done_for_output(struct weston_view_animation *animation, void *data)
 	struct shell_output *shell_output = data;
 	struct desktop_shell *shell = shell_output->shell;
 
+	if (!shell_output->fade.view)
+		return;
+
 	shell_output->fade.animation = NULL;
 	switch (shell_output->fade.type) {
 	case FADE_IN:
@@ -4021,6 +4024,7 @@ shell_fade_create_surface_for_output(struct desktop_shell *shell, struct shell_o
 
 	weston_surface_set_size(surface, shell_output->output->width, shell_output->output->height);
 	weston_view_set_position(view, shell_output->output->x, shell_output->output->y);
+	weston_view_set_output(view, shell_output->output);
 	weston_surface_set_color(surface, 0.0, 0.0, 0.0, 1.0);
 	weston_layer_entry_insert(&compositor->fade_layer.view_list,
 				  &view->layer_link);
@@ -4841,8 +4845,11 @@ shell_output_destroy(struct shell_output *shell_output)
 	}
 
 	if (shell_output->fade.view) {
+		struct weston_view *view = shell_output->fade.view;
+		shell_output->fade.view = NULL;
+
 		/* destroys the view as well */
-		weston_surface_destroy(shell_output->fade.view->surface);
+		weston_surface_destroy(view->surface);
 	}
 
 	if (shell_output->fade.startup_timer)
@@ -4946,12 +4953,25 @@ handle_output_move_layer(struct desktop_shell *shell,
 static void
 handle_output_move(struct wl_listener *listener, void *data)
 {
+	struct weston_output *output = data;
+	struct weston_compositor *compositor = output->compositor;
 	struct desktop_shell *shell;
 
 	shell = container_of(listener, struct desktop_shell,
 			     output_move_listener);
 
-	shell_for_each_layer(shell, handle_output_move_layer, data);
+	if (shell->lock_surface)
+		shell->lock_surface->committed(shell->lock_surface, 0, 0);
+
+	/* Only move normal layers for non-default output */
+	if (output != get_default_output(compositor)) {
+		shell_for_each_layer(shell, handle_output_move_layer, data);
+		return;
+	}
+
+	handle_output_move_layer(shell, &shell->lock_layer, data);
+	handle_output_move_layer(shell, &shell->background_layer, data);
+	handle_output_move_layer(shell, &shell->panel_layer, data);
 }
 
 static void
