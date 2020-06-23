@@ -399,6 +399,8 @@ struct weston_head {
 
 	/** Opaque pointer used by backends to identify heads as theirs */
 	const void *backend_id;
+
+	struct weston_config_section *section; /**< config section **/
 };
 
 /** Output properties derived from its color characteristics and profile

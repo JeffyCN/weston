@@ -2341,7 +2341,7 @@ drm_head_prepare_enable(struct wet_compositor *wet,
 	char *output_name = NULL;
 	char *mode = NULL;
 
-	section = drm_config_find_controlling_output_section(wet->config, name);
+	section = head->section;
 	if (section) {
 		/* skip outputs that are explicitly off, or non-desktop and not
 		 * explicitly enabled. The backend turns them off automatically.
@@ -2371,11 +2371,10 @@ static bool
 drm_head_should_force_enable(struct wet_compositor *wet,
 			     struct weston_head *head)
 {
-	const char *name = weston_head_get_name(head);
 	struct weston_config_section *section;
 	bool force;
 
-	section = drm_config_find_controlling_output_section(wet->config, name);
+	section = head->section;
 	if (!section)
 		return false;
 
@@ -2566,6 +2565,21 @@ drm_head_disable(struct weston_head *head)
 		wet_output_destroy(output);
 }
 
+static bool
+drm_head_update_output_section(struct weston_head *head)
+{
+	struct weston_compositor *compositor = head->compositor;
+	struct wet_compositor *wet = to_wet_compositor(compositor);
+	const char *name = weston_head_get_name(head);
+
+	if (head->section)
+		return true;
+
+	head->section =
+		drm_config_find_controlling_output_section(wet->config, name);
+	return !!head->section;
+}
+
 static void
 drm_heads_changed(struct wl_listener *listener, void *arg)
 {
@@ -2581,6 +2595,8 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 	 * output.
 	 */
 	while ((head = weston_compositor_iterate_heads(compositor, head))) {
+		drm_head_update_output_section(head);
+
 		connected = weston_head_is_connected(head);
 		enabled = weston_head_is_enabled(head);
 		changed = weston_head_is_device_changed(head);

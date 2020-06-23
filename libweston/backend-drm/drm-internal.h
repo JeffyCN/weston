@@ -110,6 +110,10 @@
 
 #define MAX_CLONED_CONNECTORS 4
 
+/* Min duration between drm outputs update requests, to avoid glith */
+#define DRM_MIN_UPDATE_MS	1000
+
+#define DRM_RESIZE_FREEZE_MS    600
 
 /**
  * Represents the values of an enum-type KMS property
@@ -268,6 +272,7 @@ struct drm_device {
 		int fd;
 		char *filename;
 		dev_t devnum;
+		char *syspath;
 	} drm;
 
 	/* drm_crtc::link */
@@ -302,6 +307,10 @@ struct drm_device {
 	int min_height, max_height;
 };
 
+struct drm_head;
+struct drm_backend;
+typedef bool (*drm_head_match_t) (struct drm_backend *, struct drm_head *);
+
 struct drm_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
@@ -327,6 +336,19 @@ struct drm_backend {
 	bool shutting_down;
 
 	struct weston_log_scope *debug;
+
+	struct wl_event_source *hotplug_timer;
+	bool pending_update;
+	int64_t last_update_ms;
+	int64_t last_resize_ms;
+	int64_t resize_freeze_ms;
+
+	bool single_head;
+	bool head_fallback;
+	bool head_fallback_all;
+	drm_head_match_t *head_matches;
+	struct drm_head *primary_head;
+	struct wl_listener output_create_listener;
 };
 
 struct drm_mode {
@@ -589,6 +611,8 @@ struct drm_output {
 	void (*virtual_destroy)(struct weston_output *base);
 
 	submit_frame_cb virtual_submit_frame;
+
+	bool state_invalid;
 };
 
 void
