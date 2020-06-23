@@ -29,6 +29,8 @@
 
 #include "config.h"
 
+#include <linux/version.h>
+
 #include <stdint.h>
 
 #include <xf86drm.h>
@@ -1492,10 +1494,13 @@ init_kms_caps(struct drm_backend *b)
 	if (!b->atomic_modeset || getenv("WESTON_FORCE_RENDERER"))
 		b->sprites_are_broken = true;
 
+	/* HACK: This conflicts with custom cap in Rockchip BSP 4.4 kernel */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0)
 	ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_ASPECT_RATIO, 1);
 	b->aspect_ratio_supported = (ret == 0);
 	weston_log("DRM: %s picture aspect ratio\n",
 		   b->aspect_ratio_supported ? "supports" : "does not support");
+#endif
 
 	return 0;
 }
