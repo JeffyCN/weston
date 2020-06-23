@@ -882,6 +882,21 @@ main(int argc, char **argv)
 	if (display.cursor_theme)
 		wl_cursor_theme_destroy(display.cursor_theme);
 
+	if (display.shm)
+		wl_shm_destroy(display.shm);
+
+	if (display.pointer)
+		wl_pointer_destroy(display.pointer);
+
+	if (display.keyboard)
+		wl_keyboard_destroy(display.keyboard);
+
+	if (display.touch)
+		wl_touch_destroy(display.touch);
+
+	if (display.seat)
+		wl_seat_destroy(display.seat);
+
 	if (display.wm_base)
 		xdg_wm_base_destroy(display.wm_base);
 
