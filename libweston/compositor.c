@@ -423,6 +423,25 @@ weston_paint_node_destroy(struct weston_paint_node *pnode)
 	free(pnode);
 }
 
+static struct weston_layer *
+get_view_layer(struct weston_view *view);
+
+static bool
+weston_compositor_is_static_layer(struct weston_layer *layer)
+{
+	if (!layer)
+		return false;
+
+	switch (layer->position) {
+	case WESTON_LAYER_POSITION_BACKGROUND:
+	case WESTON_LAYER_POSITION_UI:
+	case WESTON_LAYER_POSITION_FADE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /** Send wl_output events for mode and scale changes
  *
  * \param head Send on all resources bound to this head.
@@ -1626,6 +1645,22 @@ weston_view_assign_output(struct weston_view *ev)
 	pixman_region32_t region;
 	uint32_t new_output_area, area, mask;
 	pixman_box32_t *e;
+
+	/* The static views should bind to the specific output */
+	if (weston_compositor_is_static_layer(get_view_layer(ev))) {
+		struct weston_view *view = ev;
+
+		while (view && !(output = view->output))
+			view = view->geometry.parent;
+
+		if (output && !output->destroying)
+			ev->output_mask = 1u << output->id;
+		else
+			weston_view_set_output(ev, NULL);
+
+		weston_surface_assign_output(ev->surface);
+		return;
+	}
 
 	new_output = NULL;
 	new_output_area = 0;
@@ -3725,6 +3760,11 @@ weston_output_flush_damage_for_primary_plane(struct weston_output *output,
 WL_EXPORT void
 weston_output_schedule_repaint_reset(struct weston_output *output)
 {
+	if (output->idle_repaint_source) {
+		wl_event_source_remove(output->idle_repaint_source);
+		output->idle_repaint_source = NULL;
+	}
+
 	weston_output_put_back_feedback_list(output);
 	output->repaint_status = REPAINT_NOT_SCHEDULED;
 	TL_POINT(output->compositor, "core_repaint_exit_loop",
@@ -3792,10 +3832,20 @@ weston_output_repaint(struct weston_output *output, struct timespec *now)
 
 	output_accumulate_damage(output);
 
+	if (output->resizing) {
+		/* Resize maximized or fullscreen views(not always success) */
+		wl_signal_emit(&ec->output_resized_signal, output);
+	}
+
 	r = output->repaint(output);
 
 	output->repaint_needed = false;
-	if (r == 0) {
+
+	/* HACK: Retry repaint again */
+	if (r > 0) {
+		weston_output_schedule_repaint(output);
+		r = 0;
+	} else if (r == 0) {
 		output->repaint_status = REPAINT_AWAITING_COMPLETION;
 		output->repainted = true;
 	}
@@ -3957,7 +4007,7 @@ output_repaint_timer_handler(void *data)
 	struct weston_backend *backend;
 	struct weston_output *output;
 	struct timespec now;
-	int ret = 0;
+	int ret = 0, repainted = 0;
 
 	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK)) {
 		usleep(DEFAULT_REPAINT_WINDOW * 1000);
@@ -4000,8 +4050,10 @@ output_repaint_timer_handler(void *data)
 			ret = weston_output_repaint(output, &now);
 			if (ret)
 				break;
+
+			repainted |= output->repainted;
 		}
-		if (ret == 0) {
+		if (ret == 0 && repainted) {
 			if (backend->repaint_flush)
 				backend->repaint_flush(backend);
 		} else {
@@ -7317,6 +7369,8 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 
 		weston_output_set_position(output, output->mirror_of->pos);
 	}
+
+	compositor->view_list_needs_rebuild = true;
 }
 
 /** Transform a region from global to output coordinates
@@ -7513,6 +7567,10 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 		weston_view_geometry_dirty_internal(view);
 
 	compositor->view_list_needs_rebuild = true;
+
+	/* Ensure maximized and fullscreen surfaces resized */
+	if (compositor->block_output_resizing)
+		output->resizing = true;
 }
 
 /** Create a weston_coord_global from a point and a weston_output
@@ -9844,6 +9902,10 @@ weston_compositor_backends_loaded(struct weston_compositor *compositor)
 		return -1;
 	}
 
+	wl_list_for_each(backend, &compositor->backend_list, link)
+		if (backend->late_init)
+			backend->late_init(backend);
+
 	return 0;
 }
 
@@ -9861,10 +9923,10 @@ weston_compositor_backends_loaded(struct weston_compositor *compositor)
  *
  * \ingroup compositor
  */
-WL_EXPORT void
+	WL_EXPORT void
 weston_compositor_read_presentation_clock(
-			struct weston_compositor *compositor,
-			struct timespec *ts)
+					  struct weston_compositor *compositor,
+					  struct timespec *ts)
 {
 	int ret;
 

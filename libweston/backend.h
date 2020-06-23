@@ -42,6 +42,8 @@ struct weston_hdr_metadata_type1;
 struct weston_backend {
 	struct wl_list link; /**< in weston_compositor::backend_list */
 
+	void (*late_init)(struct weston_backend *backend);
+
 	/** Bitfield of supported presentation clocks
 	 *
 	 * Bit positions correspond to system clock IDs.
