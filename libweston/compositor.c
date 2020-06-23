@@ -160,6 +160,25 @@ weston_paint_node_destroy(struct weston_paint_node *pnode)
 	free(pnode);
 }
 
+static struct weston_layer *
+get_view_layer(struct weston_view *view);
+
+static bool
+weston_compositor_is_static_layer(struct weston_layer *layer)
+{
+	if (!layer)
+		return false;
+
+	switch (layer->position) {
+	case WESTON_LAYER_POSITION_BACKGROUND:
+	case WESTON_LAYER_POSITION_UI:
+	case WESTON_LAYER_POSITION_FADE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /** Send wl_output events for mode and scale changes
  *
  * \param head Send on all resources bound to this head.
@@ -1384,6 +1403,22 @@ weston_view_assign_output(struct weston_view *ev)
 	pixman_region32_t region;
 	uint32_t max, area, mask;
 	pixman_box32_t *e;
+
+	/* The static views should bind to the specific output */
+	if (weston_compositor_is_static_layer(get_view_layer(ev))) {
+		struct weston_view *view = ev;
+
+		while (view && !(output = view->output))
+			view = view->geometry.parent;
+
+		if (output && !output->destroying)
+			ev->output_mask = 1u << output->id;
+		else
+			weston_view_set_output(ev, NULL);
+
+		weston_surface_assign_output(ev->surface);
+		return;
+	}
 
 	new_output = NULL;
 	max = 0;
@@ -3299,6 +3334,7 @@ weston_output_repaint(struct weston_output *output)
 	if (output->dirty)
 		weston_output_update_matrix(output);
 
+	output->repaint_needed = false;
 	r = output->repaint(output, &output_damage);
 
 	/* Clear painted primary damage */
@@ -3307,8 +3343,9 @@ weston_output_repaint(struct weston_output *output)
 
 	pixman_region32_fini(&output_damage);
 
-	output->repaint_needed = false;
-	if (r == 0)
+	if (output->repaint_needed)
+		output->repaint_status = REPAINT_SCHEDULED;
+	else if (r == 0)
 		output->repaint_status = REPAINT_AWAITING_COMPLETION;
 
 	weston_compositor_repick(ec);
@@ -6882,6 +6919,7 @@ weston_compositor_remove_output(struct weston_output *output)
 	 * Use view_list in case the output did not go through repaint
 	 * after a view came on it, lacking a paint node. Just to be sure.
 	 */
+	weston_compositor_build_view_list(compositor, NULL);
 	wl_list_for_each(view, &compositor->view_list, link) {
 		if (view->output_mask & (1u << output->id))
 			weston_view_assign_output(view);

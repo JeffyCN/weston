@@ -683,6 +683,8 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 
 	scanout_state =
 		drm_output_state_get_existing_plane(state, scanout_plane);
+	if (!scanout_state || !scanout_state->fb)
+		return 0;
 
 	/* The legacy SetCrtc API doesn't allow us to do scaling, and the
 	 * legacy PageFlip API doesn't allow us to do clipping either. */
@@ -700,7 +702,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	assert(scanout_state->in_fence_fd == -1);
 
 	mode = to_drm_mode(output->base.current_mode);
-	if (device->state_invalid ||
+	if (output->state_invalid ||
 	    !scanout_plane->state_cur->fb ||
 	    scanout_plane->state_cur->fb->strides[0] !=
 	    scanout_state->fb->strides[0]) {
@@ -714,6 +716,8 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 			weston_log("set mode failed: %s\n", strerror(errno));
 			goto err;
 		}
+
+		output->state_invalid = false;
 	}
 
 	pinfo = scanout_state->fb->format;
@@ -964,6 +968,11 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		*flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
 	}
 
+	if (output->state_invalid) {
+		drm_debug(b, "\t\t\t[atomic] output state invalid, modeset OK\n");
+		*flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+	}
+
 	if (state->dpms == WESTON_DPMS_ON) {
 		ret = drm_mode_ensure_blob(device, current_mode);
 		if (ret != 0)
@@ -1080,6 +1089,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 	struct drm_output_state *output_state, *tmp;
 	struct drm_plane *plane;
 	drmModeAtomicReq *req = drmModeAtomicAlloc();
+	struct timespec now;
 	uint32_t flags;
 	int ret = 0;
 
@@ -1214,13 +1224,33 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		goto out;
 	}
 
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+
 	wl_list_for_each_safe(output_state, tmp, &pending_state->output_list,
-			      link)
+			      link) {
+		struct drm_output *output = output_state->output;
+		struct drm_plane *scanout_plane = output->scanout_plane;
+		struct drm_plane_state *scanout_state =
+			drm_output_state_get_existing_plane(output_state,
+							    scanout_plane);
+
+		/* Don't have a new state to apply */
+		if (output_state->dpms == WESTON_DPMS_ON &&
+		    (!scanout_state || !scanout_state->fb))
+			continue;
+
 		drm_output_assign_state(output_state, mode);
+		output->state_invalid = false;
+
+		/* Not gonna receive flip event when dpms off */
+		if (output_state->dpms != WESTON_DPMS_ON)
+			drm_output_update_complete(output,
+						   WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION,
+						   now.tv_sec,
+						   now.tv_nsec / 1000);
+	}
 
 	device->state_invalid = false;
-
-	assert(wl_list_empty(&pending_state->output_list));
 
 out:
 	drmModeAtomicFree(req);
@@ -1321,8 +1351,6 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 
 	device->state_invalid = false;
 
-	assert(wl_list_empty(&pending_state->output_list));
-
 	drm_pending_state_free(pending_state);
 
 	return 0;
@@ -1373,8 +1401,6 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 	}
 
 	device->state_invalid = false;
-
-	assert(wl_list_empty(&pending_state->output_list));
 
 	drm_pending_state_free(pending_state);
 
