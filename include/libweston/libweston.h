@@ -261,6 +261,8 @@ struct weston_head {
 
 	/** Current content protection status */
 	enum weston_hdcp_protection current_protection;
+
+	struct weston_config_section *section; /**< config section **/
 };
 
 /** Content producer for heads
