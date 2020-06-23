@@ -35,6 +35,7 @@
 struct weston_hdr_metadata_type1;
 
 struct weston_backend {
+	void (*late_init)(struct weston_backend *backend);
 	void (*destroy)(struct weston_backend *backend);
 
 	/** Begin a repaint sequence
