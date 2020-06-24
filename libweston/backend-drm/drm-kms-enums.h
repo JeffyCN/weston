@@ -56,6 +56,7 @@ enum wdrm_plane_property {
 	WDRM_PLANE_ZPOS,
 	WDRM_PLANE_ROTATION,
 	WDRM_PLANE_ALPHA,
+	WDRM_PLANE_FEATURE,
 	WDRM_PLANE__COUNT
 };
 
@@ -80,6 +81,15 @@ enum wdrm_plane_rotation {
 	WDRM_PLANE_ROTATION_REFLECT_X,
 	WDRM_PLANE_ROTATION_REFLECT_Y,
 	WDRM_PLANE_ROTATION__COUNT,
+};
+
+/**
+ * Possible values for the WDRM_PLANE_FEATURE property.
+ */
+enum wdrm_plane_feature {
+	WDRM_PLANE_FEATURE_SCALE = 0,
+	WDRM_PLANE_FEATURE_ALPHA,
+	WDRM_PLANE_FEATURE__COUNT
 };
 
 /**
