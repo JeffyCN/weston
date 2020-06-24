@@ -173,6 +173,7 @@ enum wdrm_plane_property {
 	WDRM_PLANE_ZPOS,
 	WDRM_PLANE_ROTATION,
 	WDRM_PLANE_ALPHA,
+	WDRM_PLANE_FEATURE,
 	WDRM_PLANE__COUNT
 };
 
@@ -197,6 +198,15 @@ enum wdrm_plane_rotation {
 	WDRM_PLANE_ROTATION_REFLECT_X,
 	WDRM_PLANE_ROTATION_REFLECT_Y,
 	WDRM_PLANE_ROTATION__COUNT,
+};
+
+/**
+ * Possible values for the WDRM_PLANE_FEATURE property.
+ */
+enum wdrm_plane_feature {
+	WDRM_PLANE_FEATURE_SCALE = 0,
+	WDRM_PLANE_FEATURE_ALPHA,
+	WDRM_PLANE_FEATURE__COUNT
 };
 
 /**
@@ -397,6 +407,9 @@ struct drm_backend {
 	drm_head_match_t *head_matches;
 	struct drm_head *primary_head;
 	struct wl_listener output_create_listener;
+
+	int virtual_width;
+	int virtual_height;
 };
 
 struct drm_mode {
@@ -566,6 +579,8 @@ struct drm_plane {
 	struct wl_list link;
 
 	struct weston_drm_format_array formats;
+
+	bool can_scale;
 };
 
 struct drm_connector {
@@ -722,6 +737,9 @@ struct drm_output {
 	enum wdrm_content_type content_type;
 
 	bool state_invalid;
+
+	/* The dummy framebuffer for SET_CRTC. */
+	struct drm_fb *fb_dummy;
 };
 
 void
@@ -852,6 +870,10 @@ uint64_t
 drm_property_get_value(struct drm_property_info *info,
 		       const drmModeObjectProperties *props,
 		       uint64_t def);
+bool
+drm_property_has_feature(struct drm_property_info *infos,
+			 const drmModeObjectProperties *props,
+			 enum wdrm_plane_feature feature);
 uint64_t *
 drm_property_get_range_values(struct drm_property_info *info,
 			      const drmModeObjectProperties *props);
