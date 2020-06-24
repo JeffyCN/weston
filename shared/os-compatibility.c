@@ -338,10 +338,10 @@ os_ro_anonymous_file_get_fd(struct ro_anonymous_file *file,
 			    enum ro_anonymous_file_mapmode mapmode)
 {
 	void *src, *dst;
-	int seals, fd;
+	int fd;
 
 #ifdef HAVE_MEMFD_CREATE
-	seals = fcntl(file->fd, F_GET_SEALS);
+	int seals = fcntl(file->fd, F_GET_SEALS);
 
 	/* file was sealed for read-only and we don't have to support MAP_SHARED
 	 * so we can simply pass the memfd fd
