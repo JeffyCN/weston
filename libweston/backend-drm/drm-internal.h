@@ -296,6 +296,10 @@ struct drm_backend {
 	bool pending_hotplug_update;
 	/* Timestamp of last processed update */
 	int64_t last_hotplug_update_ms;
+
+	/* Virtual screen size for resolution scaling */
+	int virtual_width;
+	int virtual_height;
 };
 
 struct drm_mode {
@@ -691,6 +695,9 @@ struct drm_output {
 
 	bool reused_state;
 	bool force_rebuild_state;
+
+	/* Dummy framebuffer for initial mode set */
+	struct drm_fb *fb_dummy;
 };
 
 void

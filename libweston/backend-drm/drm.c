@@ -488,6 +488,12 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 	drm_output_state_free(output->state_last);
 	output->state_last = NULL;
 
+	/* Clean up dummy framebuffer after page flip */
+	if (output->fb_dummy) {
+		drm_fb_unref(output->fb_dummy);
+		output->fb_dummy = NULL;
+	}
+
 	if (output->destroy_pending) {
 		output->destroy_pending = false;
 		output->disable_pending = false;
@@ -559,6 +565,7 @@ drm_output_render(struct drm_output_state *state)
 	struct drm_plane *scanout_plane = output->scanout_handle->plane;
 	struct drm_property_info *damage_info =
 		&scanout_plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS];
+	struct drm_mode *mode;
 	struct drm_fb *fb;
 	pixman_region32_t damage, scanout_damage;
 	pixman_box32_t *rects;
@@ -607,10 +614,11 @@ drm_output_render(struct drm_output_state *state)
 	scanout_state->src_w = fb->width << 16;
 	scanout_state->src_h = fb->height << 16;
 
+	mode = to_drm_mode(output->base.current_mode);
 	scanout_state->dest_x = 0;
 	scanout_state->dest_y = 0;
-	scanout_state->dest_w = output->base.current_mode->width;
-	scanout_state->dest_h = output->base.current_mode->height;
+	scanout_state->dest_w = mode->mode_info.hdisplay;
+	scanout_state->dest_h = mode->mode_info.vdisplay;
 
 	scanout_state->zpos = scanout_plane->zpos_min;
 
@@ -1464,6 +1472,8 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 		drm_property_has_feature(&plane->props[WDRM_PLANE_FEATURE],
 					 props,
 					 WDRM_PLANE_FEATURE_SCALE);
+	if (getenv("WESTON_DRM_DISABLE_PLANE_SCALE"))
+		plane->can_scale = false;
 
 	zpos_range_values =
 		drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS],
@@ -4611,6 +4621,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	const char *seat_id = default_seat;
 	const char *session_seat;
 	struct weston_drm_format_array *scanout_formats;
+	const char *buf;
 	int ret;
 
 	session_seat = getenv("XDG_SEAT");
@@ -4625,6 +4636,10 @@ drm_backend_create(struct weston_compositor *compositor,
 	b = zalloc(sizeof *b);
 	if (b == NULL)
 		return NULL;
+
+	buf = getenv("WESTON_DRM_VIRTUAL_SIZE");
+	if (buf)
+		sscanf(buf, "%dx%d", &b->virtual_width, &b->virtual_height);
 
 	wl_list_init(&b->kms_list);
 
