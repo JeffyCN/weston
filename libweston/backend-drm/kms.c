@@ -56,6 +56,15 @@ struct drm_property_enum_info plane_type_enums[] = {
 	},
 };
 
+struct drm_property_enum_info plane_feature_enums[] = {
+	[WDRM_PLANE_FEATURE_SCALE] = {
+		.name = "scale",
+	},
+	[WDRM_PLANE_FEATURE_ALPHA] = {
+		.name = "alpha",
+	},
+};
+
 const struct drm_property_info plane_props[] = {
 	[WDRM_PLANE_TYPE] = {
 		.name = "type",
@@ -76,6 +85,11 @@ const struct drm_property_info plane_props[] = {
 	[WDRM_PLANE_IN_FENCE_FD] = { .name = "IN_FENCE_FD" },
 	[WDRM_PLANE_FB_DAMAGE_CLIPS] = { .name = "FB_DAMAGE_CLIPS" },
 	[WDRM_PLANE_ZPOS] = { .name = "zpos" },
+	[WDRM_PLANE_FEATURE] = {
+		.name = "FEATURE",
+		.enum_values = plane_feature_enums,
+		.num_enum_values = WDRM_PLANE_FEATURE__COUNT,
+	},
 };
 
 struct drm_property_enum_info dpms_state_enums[] = {
@@ -217,6 +231,31 @@ drm_property_get_value(struct drm_property_info *info,
 	return def;
 }
 
+bool
+drm_property_has_feature(struct drm_property_info *infos,
+			 const drmModeObjectProperties *props,
+			 enum wdrm_plane_feature feature)
+{
+	struct drm_property_info *info = &infos[WDRM_PLANE_FEATURE];
+	unsigned int i;
+
+	if (info->prop_id == 0 ||
+	    feature >= info->num_enum_values ||
+	    !info->enum_values[feature].valid)
+		return false;
+
+	for (i = 0; i < props->count_props; i++) {
+		if (props->props[i] != info->prop_id)
+			continue;
+
+		if (props->prop_values[i] &
+		    (1LL << info->enum_values[feature].value))
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * Get the current range values of a KMS property
  *
@@ -337,9 +376,11 @@ drm_property_info_populate(struct drm_device *device,
 		}
 
 		if (info[j].num_enum_values == 0 &&
-		    (prop->flags & DRM_MODE_PROP_ENUM)) {
+		    (prop->flags & DRM_MODE_PROP_ENUM ||
+		     prop->flags & DRM_MODE_PROP_BITMASK)) {
 			weston_log("DRM: expected property %s to not be an"
-			           " enum, but it is; ignoring\n", prop->name);
+			           " enum or bitmask, but it is; ignoring\n",
+				   prop->name);
 			drmModeFreeProperty(prop);
 			continue;
 		}
@@ -360,9 +401,11 @@ drm_property_info_populate(struct drm_device *device,
 			continue;
 		}
 
-		if (!(prop->flags & DRM_MODE_PROP_ENUM)) {
-			weston_log("DRM: expected property %s to be an enum,"
-				   " but it is not; ignoring\n", prop->name);
+		if (!(prop->flags & DRM_MODE_PROP_ENUM ||
+		      prop->flags & DRM_MODE_PROP_BITMASK)) {
+			weston_log("DRM: expected property %s to be an enum or "
+				   "bitmask, but it is not; ignoring\n",
+				   prop->name);
 			drmModeFreeProperty(prop);
 			info[j].prop_id = 0;
 			continue;
@@ -639,6 +682,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	int n_conn = 0;
 	struct timespec now;
 	int ret = 0;
+	bool scaling;
 
 	wl_list_for_each(head, &output->base.head_list, base.output_link) {
 		assert(n_conn < MAX_CLONED_CONNECTORS);
@@ -686,30 +730,40 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	if (!scanout_state || !scanout_state->fb)
 		return 0;
 
-	/* The legacy SetCrtc API doesn't allow us to do scaling, and the
-	 * legacy PageFlip API doesn't allow us to do clipping either. */
-	assert(scanout_state->src_x == 0);
-	assert(scanout_state->src_y == 0);
-	assert(scanout_state->src_w ==
-		(unsigned) (output->base.current_mode->width << 16));
-	assert(scanout_state->src_h ==
-		(unsigned) (output->base.current_mode->height << 16));
-	assert(scanout_state->dest_x == 0);
-	assert(scanout_state->dest_y == 0);
-	assert(scanout_state->dest_w == scanout_state->src_w >> 16);
-	assert(scanout_state->dest_h == scanout_state->src_h >> 16);
 	/* The legacy SetCrtc API doesn't support fences */
 	assert(scanout_state->in_fence_fd == -1);
 
 	mode = to_drm_mode(output->base.current_mode);
+
 	if (output->state_invalid ||
-	    !scanout_plane->state_cur->fb ||
-	    scanout_plane->state_cur->fb->strides[0] !=
-	    scanout_state->fb->strides[0]) {
+	    !scanout_plane->state_cur->fb) {
+		int fb_id = scanout_state->fb->fb_id;
+
+		if (scanout_state->dest_x || scanout_state->dest_y ||
+		    scanout_state->dest_w != mode->mode_info.hdisplay ||
+		    scanout_state->dest_h != mode->mode_info.vdisplay ||
+		    scanout_state->src_x || scanout_state->src_y ||
+		    (scanout_state->src_w >> 16) != scanout_state->dest_w ||
+		    (scanout_state->src_h >> 16) != scanout_state->dest_h) {
+			/* Use a dummy fb for initial mode setting */
+			if (output->fb_dummy)
+				drm_fb_unref(output->fb_dummy);
+
+			output->fb_dummy =
+				drm_fb_create_dumb(device,
+						   mode->mode_info.hdisplay,
+						   mode->mode_info.vdisplay,
+						   output->gbm_format);
+			if (!output->fb_dummy) {
+				weston_log("failed to create fb_dummy\n");
+				goto err;
+			}
+
+			fb_id = output->fb_dummy->fb_id;
+		}
 
 		ret = drmModeSetCrtc(device->drm.fd, crtc->crtc_id,
-				     scanout_state->fb->fb_id,
-				     0, 0,
+				     fb_id, 0, 0,
 				     connectors, n_conn,
 				     &mode->mode_info);
 		if (ret) {
@@ -718,6 +772,29 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 		}
 
 		output->state_invalid = false;
+	}
+
+	scaling = scanout_state->src_w >> 16 != scanout_state->dest_w ||
+		scanout_state->src_h >> 16 != scanout_state->dest_h;
+	if (scaling && !output->scanout_plane->can_scale) {
+		weston_log("Couldn't do scaling on output %s\n",
+			   output->base.name);
+		weston_output_finish_frame(&output->base, NULL,
+					   WP_PRESENTATION_FEEDBACK_INVALID);
+		return 0;
+	}
+
+	ret = drmModeSetPlane(device->drm.fd,
+			      scanout_state->plane->plane_id,
+			      crtc->crtc_id,
+			      scanout_state->fb->fb_id, 0,
+			      scanout_state->dest_x, scanout_state->dest_y,
+			      scanout_state->dest_w, scanout_state->dest_h,
+			      scanout_state->src_x, scanout_state->src_y,
+			      scanout_state->src_w, scanout_state->src_h);
+	if (ret) {
+		weston_log("set plane failed: %s\n", strerror(errno));
+		goto err;
 	}
 
 	pinfo = scanout_state->fb->format;
