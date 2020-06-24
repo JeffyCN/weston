@@ -378,6 +378,7 @@ drm_refresh_rate_mHz(const drmModeModeInfo *info)
 static struct drm_mode *
 drm_output_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 {
+	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct drm_mode *mode;
 
 	mode = malloc(sizeof *mode);
@@ -387,6 +388,11 @@ drm_output_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 	mode->base.flags = 0;
 	mode->base.width = info->hdisplay;
 	mode->base.height = info->vdisplay;
+
+	if (b->virtual_width && b->virtual_height) {
+		mode->base.width = b->virtual_width;
+		mode->base.height = b->virtual_height;
+	}
 
 	mode->base.refresh = drm_refresh_rate_mHz(info);
 	mode->mode_info = *info;
@@ -434,20 +440,34 @@ drm_output_print_modes(struct drm_output *output)
 	struct weston_mode *m;
 	struct drm_mode *dm;
 	const char *aspect_ratio;
+	bool virtual_size = false;
 
 	wl_list_for_each(m, &output->base.mode_list, link) {
 		dm = to_drm_mode(m);
 
 		aspect_ratio = aspect_ratio_to_string(m->aspect_ratio);
 		weston_log_continue(STAMP_SPACE "%dx%d@%.1f%s%s%s, %.1f MHz\n",
-				    m->width, m->height, m->refresh / 1000.0,
+				    dm->mode_info.hdisplay,
+				    dm->mode_info.vdisplay,
+				    m->refresh / 1000.0,
 				    aspect_ratio,
 				    m->flags & WL_OUTPUT_MODE_PREFERRED ?
 				    ", preferred" : "",
 				    m->flags & WL_OUTPUT_MODE_CURRENT ?
 				    ", current" : "",
 				    dm->mode_info.clock / 1000.0);
+
+		if(m->flags & WL_OUTPUT_MODE_CURRENT &&
+		   (dm->mode_info.hdisplay != m->width ||
+		    dm->mode_info.vdisplay != m->height))
+			virtual_size = true;
 	}
+
+	if (virtual_size)
+		weston_log("Output %s: using virtual size %dx%d\n",
+			   output->base.name,
+			   output->base.current_mode->width,
+			   output->base.current_mode->height);
 }
 
 
