@@ -1067,6 +1067,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	int n_conn = 0;
 	struct timespec now;
 	int ret = 0;
+	bool scaling;
 
 	wl_list_for_each(head, &output->base.head_list, base.output_link) {
 		assert(n_conn < MAX_CLONED_CONNECTORS);
@@ -1100,18 +1101,6 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	scanout_state =
 		drm_output_state_get_existing_plane(state, scanout_plane);
 
-	/* The legacy SetCrtc API doesn't allow us to do scaling, and the
-	 * legacy PageFlip API doesn't allow us to do clipping either. */
-	assert(scanout_state->src_x == 0);
-	assert(scanout_state->src_y == 0);
-	assert(scanout_state->src_w ==
-		(unsigned) (output->base.current_mode->width << 16));
-	assert(scanout_state->src_h ==
-		(unsigned) (output->base.current_mode->height << 16));
-	assert(scanout_state->dest_x == 0);
-	assert(scanout_state->dest_y == 0);
-	assert(scanout_state->dest_w == scanout_state->src_w >> 16);
-	assert(scanout_state->dest_h == scanout_state->src_h >> 16);
 	/* The legacy SetCrtc API doesn't support fences */
 	assert(scanout_state->in_fence_fd == -1);
 
@@ -1120,10 +1109,35 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	    !scanout_plane->state_cur->fb ||
 	    scanout_plane->state_cur->fb->strides[0] !=
 	    scanout_state->fb->strides[0]) {
+		int fb_id = scanout_state->fb->fb_id;
+
+		/* When scaling, create a dummy framebuffer matching the
+		 * display's native resolution for the initial mode set */
+		if (scanout_state->dest_x || scanout_state->dest_y ||
+		    scanout_state->dest_w != mode->mode_info.hdisplay ||
+		    scanout_state->dest_h != mode->mode_info.vdisplay ||
+		    scanout_state->src_x || scanout_state->src_y ||
+		    (scanout_state->src_w >> 16) != scanout_state->dest_w ||
+		    (scanout_state->src_h >> 16) != scanout_state->dest_h) {
+			if (output->fb_dummy)
+				drm_fb_unref(output->fb_dummy);
+
+			output->fb_dummy =
+				drm_fb_create_dumb(device,
+						   mode->mode_info.hdisplay,
+						   mode->mode_info.vdisplay,
+						   output->format->format);
+			if (!output->fb_dummy) {
+				weston_log("failed to create fb_dummy\n");
+				goto err;
+			}
+
+			fb_id = output->fb_dummy->fb_id;
+		}
+
 
 		ret = drmModeSetCrtc(device->kms_device->fd, crtc->crtc_id,
-				     scanout_state->fb->fb_id,
-				     0, 0,
+				     fb_id, 0, 0,
 				     connectors, n_conn,
 				     &mode->mode_info);
 		if (ret) {
@@ -1132,6 +1146,27 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 		}
 
 		drm_output_reset_legacy_gamma(output);
+	}
+
+	scaling = scanout_state->src_w >> 16 != scanout_state->dest_w ||
+		scanout_state->src_h >> 16 != scanout_state->dest_h;
+	if (scaling && !scanout_plane->can_scale) {
+		weston_log("Couldn't do scaling on output %s\n",
+			   output->base.name);
+		goto err;
+	}
+
+	ret = drmModeSetPlane(device->kms_device->fd,
+			      scanout_state->plane->plane_id,
+			      crtc->crtc_id,
+			      scanout_state->fb->fb_id, 0,
+			      scanout_state->dest_x, scanout_state->dest_y,
+			      scanout_state->dest_w, scanout_state->dest_h,
+			      scanout_state->src_x, scanout_state->src_y,
+			      scanout_state->src_w, scanout_state->src_h);
+	if (ret) {
+		weston_log("set plane failed: %s\n", strerror(errno));
+		goto err;
 	}
 
 	pinfo = scanout_state->fb->format;
@@ -1987,6 +2022,15 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 	wl_list_for_each(plane_state, &state->plane_list, link) {
 		struct drm_plane *plane = plane_state->plane;
 		const struct pixel_format_info *pinfo = NULL;
+		bool scaling;
+
+		scaling = plane_state->src_w >> 16 != plane_state->dest_w ||
+			plane_state->src_h >> 16 != plane_state->dest_h;
+		if (scaling && !plane->can_scale) {
+			weston_log("Couldn't do scaling on output %s\n",
+				   output->base.name);
+			return -1;
+		}
 
 		ret |= plane_add_prop(req, plane, WDRM_PLANE_FB_ID,
 				      plane_state->fb ? plane_state->fb->fb_id : 0);
