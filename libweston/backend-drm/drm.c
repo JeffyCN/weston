@@ -331,6 +331,11 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 		output->state_last = NULL;
 	}
 
+	if (output->fb_dummy) {
+		drm_fb_unref(output->fb_dummy);
+		output->fb_dummy = NULL;
+	}
+
 	if (output->destroy_pending) {
 		output->destroy_pending = false;
 		output->disable_pending = false;
@@ -411,6 +416,7 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	struct drm_property_info *damage_info =
 		&scanout_plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS];
 	struct drm_backend *b = device->backend;
+	struct drm_mode *mode;
 	struct drm_fb *fb;
 	pixman_region32_t scanout_damage;
 	pixman_box32_t *rects;
@@ -454,10 +460,11 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	scanout_state->src_w = fb->width << 16;
 	scanout_state->src_h = fb->height << 16;
 
+	mode = to_drm_mode(output->base.current_mode);
 	scanout_state->dest_x = 0;
 	scanout_state->dest_y = 0;
-	scanout_state->dest_w = output->base.current_mode->width;
-	scanout_state->dest_h = output->base.current_mode->height;
+	scanout_state->dest_w = mode->mode_info.hdisplay;
+	scanout_state->dest_h = mode->mode_info.vdisplay;
 
 	pixman_region32_subtract(&c->primary_plane.damage,
 				 &c->primary_plane.damage, damage);
@@ -521,7 +528,7 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 
 	weston_compositor_read_presentation_clock(b->compositor, &now);
 	now_ms = timespec_to_msec(&now);
-	if (now_ms < b->last_resize_ms + DRM_RESIZE_FREEZE_MS) {
+	if (now_ms < b->last_resize_ms + b->resize_freeze_ms) {
 		/* Resize fullscreen/maxmium views(not always success) */
 		if (now_ms < b->last_resize_ms + DRM_RESIZE_FREEZE_MS)
 			wl_signal_emit(&b->compositor->output_resized_signal,
@@ -878,6 +885,11 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 		drm_property_get_value(&plane->props[WDRM_PLANE_TYPE],
 				       props,
 				       WDRM_PLANE_TYPE__COUNT);
+
+	plane->can_scale =
+		drm_property_has_feature(plane->props,
+					 props,
+					 WDRM_PLANE_FEATURE_SCALE);
 
 	zpos_range_values =
 		drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS],
@@ -3417,6 +3429,10 @@ drm_backend_create(struct weston_compositor *compositor,
 	}
 
 	b->head_matches = drm_head_matches[head_mode];
+
+	buf = getenv("WESTON_DRM_VIRTUAL_SIZE");
+	if (buf)
+		sscanf(buf, "%dx%d", &b->virtual_width, &b->virtual_height);
 
 	buf = getenv("WESTON_DRM_RESIZE_FREEZE_MS");
 	if (buf)
