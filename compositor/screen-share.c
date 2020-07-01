@@ -1163,13 +1163,15 @@ wet_module_init(struct weston_compositor *compositor,
 		int *argc, char *argv[])
 {
 	struct screen_share *ss;
-	struct weston_config *config = wet_get_config(compositor);
+	struct weston_config *config;
 	struct weston_config_section *section;
 
 	ss = zalloc(sizeof *ss);
 	if (ss == NULL)
 		return -1;
 	ss->compositor = compositor;
+
+	config = wet_get_config(compositor);
 
 	section = weston_config_get_section(config, "screen-share", NULL, NULL);
 
