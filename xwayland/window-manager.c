@@ -1082,6 +1082,10 @@ weston_wm_window_create_frame(struct weston_wm_window *window)
 	window->frame = frame_create(window->wm->theme,
 				     window->width, window->height,
 				     buttons, window->name, NULL);
+
+	if (!window->frame)
+		return;
+
 	frame_resize_inside(window->frame, window->width, window->height);
 
 	weston_wm_window_get_frame_size(window, &width, &height);
