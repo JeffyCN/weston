@@ -3156,8 +3156,6 @@ weston_output_finish_frame(struct weston_output *output,
 	struct timespec vblank_monotonic;
 	int64_t msec_rel;
 
-	assert(output->repaint_status == REPAINT_AWAITING_COMPLETION);
-
 	/*
 	 * If timestamp of latest vblank is given, it must always go forwards.
 	 * If not given, INVALID flag must be set.
