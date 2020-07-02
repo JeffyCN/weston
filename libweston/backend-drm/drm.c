@@ -287,8 +287,10 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 	wl_list_for_each(ps, &output->state_cur->plane_list, link)
 		ps->complete = true;
 
-	drm_output_state_free(output->state_last);
-	output->state_last = NULL;
+	if (output->state_last) {
+		drm_output_state_free(output->state_last);
+		output->state_last = NULL;
+	}
 
 	if (output->destroy_pending) {
 		output->destroy_pending = false;
