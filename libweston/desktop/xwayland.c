@@ -325,16 +325,23 @@ create_surface(struct weston_desktop_xwayland *xwayland,
 static void
 set_toplevel(struct weston_desktop_xwayland_surface *surface)
 {
+	enum weston_desktop_xwayland_surface_state prev_state = surface->state;
+
 	weston_desktop_xwayland_surface_change_state(surface, TOPLEVEL, NULL,
 						     0, 0);
+
+	if (prev_state == FULLSCREEN) {
+		weston_desktop_api_fullscreen_requested(surface->desktop,
+							surface->surface, false,
+							NULL);
+	}
 }
 
 static void
 set_toplevel_with_position(struct weston_desktop_xwayland_surface *surface,
 			   int32_t x, int32_t y)
 {
-	weston_desktop_xwayland_surface_change_state(surface, TOPLEVEL, NULL,
-						     0, 0);
+	set_toplevel(surface);
 	weston_desktop_api_set_xwayland_position(surface->desktop,
 						 surface->surface, x, y);
 }
