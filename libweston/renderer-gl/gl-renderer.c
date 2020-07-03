@@ -1649,6 +1649,10 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	/* Calculate the global GL matrix */
 	go->output_matrix = output->matrix;
+
+	weston_matrix_scale(&go->output_matrix,
+			    output->down_scale, output->down_scale, 1);
+
 	weston_matrix_translate(&go->output_matrix,
 				-(output->current_mode->width / 2.0),
 				-(output->current_mode->height / 2.0), 0);

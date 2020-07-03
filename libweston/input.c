@@ -1689,7 +1689,7 @@ weston_pointer_clamp(struct weston_pointer *pointer, wl_fixed_t *fx, wl_fixed_t 
 		if (pointer->seat->output && pointer->seat->output != output)
 			continue;
 
-		if (output->unavailable)
+		if (!weston_output_valid(output))
 			continue;
 
 		if (pixman_region32_contains_point(&output->region,
@@ -1761,7 +1761,7 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 	y = wl_fixed_to_int(pointer->y);
 
 	wl_list_for_each(output, &ec->output_list, link) {
-		if (output->unavailable)
+		if (!weston_output_valid(output))
 			continue;
 
 		if (pixman_region32_contains_point(&output->region,

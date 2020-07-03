@@ -706,6 +706,11 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	bool scaling;
 
 	wl_list_for_each(head, &output->base.head_list, base.output_link) {
+		if (!drm_head_is_connected(head)) {
+			output->state_invalid = true;
+			continue;
+		}
+
 		assert(n_conn < MAX_CLONED_CONNECTORS);
 		connectors[n_conn++] = head->connector.connector_id;
 	}
@@ -722,7 +727,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 		}
 	}
 
-	if (state->dpms != WESTON_DPMS_ON) {
+	if (!n_conn || state->dpms != WESTON_DPMS_ON) {
 		if (output->cursor_plane) {
 			ret = drmModeSetCursor(backend->drm.fd, crtc->crtc_id,
 					       0, 0, 0);
@@ -1043,6 +1048,11 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		/* No need for the DPMS property, since it is implicit in
 		 * routing and CRTC activity. */
 		wl_list_for_each(head, &output->base.head_list, base.output_link) {
+			if (!drm_head_is_connected(head)) {
+				output->state_invalid = true;
+				continue;
+			}
+
 			ret |= connector_add_prop(req, &head->connector,
 						  WDRM_CONNECTOR_CRTC_ID,
 						  crtc->crtc_id);
@@ -1369,6 +1379,15 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 			      link) {
 		struct drm_output *output = output_state->output;
 		int ret;
+
+		if (output_state->dpms != WESTON_DPMS_ON) {
+			output->state_invalid = true;
+			drm_output_assign_state(output_state,
+						DRM_STATE_APPLY_SYNC);
+			weston_output_finish_frame(&output->base, NULL,
+						   WP_PRESENTATION_FEEDBACK_INVALID);
+			continue;
+		}
 
 		if (output->virtual) {
 			drm_output_assign_state(output_state,

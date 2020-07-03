@@ -1392,6 +1392,12 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 	if (!shsurf || !shsurf->desktop_surface || !move->active)
 		return;
 
+	/* Ignore pinned output when grabbing. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
+
 	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
 	weston_view_set_position(shsurf->view, dx, dy);
@@ -1523,6 +1529,12 @@ move_grab_motion(struct weston_pointer_grab *grab,
 	weston_pointer_move(pointer, event);
 	if (!shsurf || !shsurf->desktop_surface)
 		return;
+
+	/* Ignore pinned output when grabbing. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
 
 	surface = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
@@ -1933,8 +1945,6 @@ shell_surface_set_output(struct shell_surface *shsurf,
 		shsurf->output = output;
 	else if (es->output)
 		shsurf->output = es->output;
-	else
-		shsurf->output = get_default_output(es->compositor);
 
 	if (shsurf->output_destroy_listener.notify) {
 		wl_list_remove(&shsurf->output_destroy_listener.link);
@@ -2629,12 +2639,21 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 		shell_surface_set_output(shsurf, output);
 		shsurf->fullscreen_output = shsurf->output;
 
+		/* Update fullscreen view's position */
+		if (output)
+			weston_view_set_position(shsurf->view,
+						 output->x, output->y);
+		else
+			weston_view_set_position(shsurf->view, 0, 0);
+
 		if (shsurf->output) {
 			width = shsurf->output->width;
 			height = shsurf->output->height;
 		}
 	} else if (weston_desktop_surface_get_maximized(desktop_surface)) {
 		get_maximized_size(shsurf, &width, &height);
+
+		set_maximized_position(shsurf->shell, shsurf);
 	}
 	weston_desktop_surface_set_fullscreen(desktop_surface, fullscreen);
 	weston_desktop_surface_set_size(desktop_surface, width, height);
@@ -2749,6 +2768,8 @@ set_maximized(struct shell_surface *shsurf, bool maximized)
 		shell_surface_set_output(shsurf, output);
 
 		get_maximized_size(shsurf, &width, &height);
+
+                set_maximized_position(shsurf->shell, shsurf);
 	}
 	weston_desktop_surface_set_maximized(desktop_surface, maximized);
 	weston_desktop_surface_set_size(desktop_surface, width, height);
@@ -4255,6 +4276,7 @@ weston_view_set_initial_position(struct weston_view *view,
 	int32_t range_x, range_y;
 	int32_t x, y;
 	struct weston_output *output, *target_output = NULL;
+	struct weston_output *preferred_output = NULL;
 	struct weston_seat *seat;
 	pixman_rectangle32_t area;
 
@@ -4279,15 +4301,19 @@ weston_view_set_initial_position(struct weston_view *view,
 		}
 	}
 
-	wl_list_for_each(output, &compositor->output_list, link) {
-		if (output->unavailable)
+	wl_list_for_each_reverse(output, &compositor->output_list, link) {
+		if (!weston_output_valid(output))
 			continue;
 
-		if (pixman_region32_contains_point(&output->region, ix, iy, NULL)) {
+		if (weston_output_preferred(output))
+			preferred_output = output;
+
+		if (pixman_region32_contains_point(&output->region, ix, iy, NULL))
 			target_output = output;
-			break;
-		}
 	}
+
+	if (preferred_output)
+		target_output = preferred_output;
 
 	if (!target_output) {
 		weston_view_set_position(view, 10 + random() % 400,
@@ -4785,7 +4811,20 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 		}
 	}
 
+	shsurf = get_shell_surface(view->surface);
+	if (!shsurf)
+		return;
+
+	if (!weston_output_valid(shsurf->fullscreen_output))
+		shsurf->fullscreen_output = NULL;
+
 	if (!visible) {
+		if (ec->pin_output && view->pinned_output)
+			return;
+
+		if (shsurf->state.fullscreen || shsurf->state.maximized)
+			return;
+
 		first_output = container_of(ec->output_list.next,
 					    struct weston_output, link);
 
@@ -4796,14 +4835,6 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	} else {
 		weston_view_geometry_dirty(view);
 	}
-
-
-	shsurf = get_shell_surface(view->surface);
-	if (!shsurf)
-		return;
-
-	if (!weston_output_valid(shsurf->fullscreen_output))
-		shsurf->fullscreen_output = NULL;
 }
 
 void
@@ -4889,6 +4920,41 @@ shell_resize_surface_to_output(struct desktop_shell *shell,
 					output->height);
 }
 
+static void
+handle_output_resize_layer(struct desktop_shell *shell,
+			   struct weston_layer *layer, void *data)
+{
+	struct weston_output *output = data;
+	struct weston_view *view;
+
+	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+		struct weston_desktop_surface *desktop_surface;
+		struct shell_surface *shsurf;
+		bool dirty = false;
+
+		if (view->output != output)
+			continue;
+
+		shsurf = get_shell_surface(view->surface);
+		if (!shsurf)
+			continue;
+
+		desktop_surface = shsurf->desktop_surface;
+		if (weston_desktop_surface_get_fullscreen(desktop_surface)) {
+			set_fullscreen(shsurf, true, output);
+			dirty = true;
+		}
+		if (weston_desktop_surface_get_maximized(desktop_surface)) {
+			set_maximized(shsurf, true);
+			dirty = true;
+		}
+
+		if (dirty) {
+			weston_view_geometry_dirty(view);
+			weston_surface_damage(view->surface);
+		}
+	}
+}
 
 static void
 handle_output_resized(struct wl_listener *listener, void *data)
@@ -4898,8 +4964,13 @@ handle_output_resized(struct wl_listener *listener, void *data)
 	struct weston_output *output = (struct weston_output *)data;
 	struct shell_output *sh_output = find_shell_output_from_weston_output(shell, output);
 
+	if (shell->lock_surface)
+		shell->lock_surface->committed(shell->lock_surface, 0, 0);
+
 	shell_resize_surface_to_output(shell, sh_output->background_surface, output);
 	shell_resize_surface_to_output(shell, sh_output->panel_surface, output);
+
+	shell_for_each_layer(shell, handle_output_resize_layer, data);
 }
 
 static void
@@ -4948,7 +5019,9 @@ handle_output_move_layer(struct desktop_shell *shell,
 
 		x = view->geometry.x + output->move_x;
 		y = view->geometry.y + output->move_y;
-		weston_view_set_position(view, x, y);
+
+		if (pixman_region32_contains_point(&output->region, x, y, NULL))
+			weston_view_set_position(view, x, y);
 	}
 }
 
