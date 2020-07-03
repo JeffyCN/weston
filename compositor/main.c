@@ -2144,6 +2144,20 @@ drm_backend_output_configure(struct weston_output *output,
 	}
 	free(s);
 
+	weston_config_section_get_string(section, "pos", &s, NULL);
+	if (s) {
+		if (sscanf(s, "%lf,%lf", &output->pos.c.x, &output->pos.c.y) == 2)
+			output->fixed_position = true;
+		free(s);
+	}
+
+	weston_config_section_get_string(section, "size", &s, NULL);
+	if (s) {
+		if (sscanf(s, "%dx%d", &output->width, &output->height) == 2)
+			output->fixed_size = true;
+		free(s);
+	}
+
 	if (api->set_mode(output, mode, modeline) < 0) {
 		weston_log("Cannot configure output \"%s\" using weston_drm_output_api.\n",
 			   output->name);
@@ -4243,6 +4257,10 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		else if (!strcmp(buf, "same-as"))
 			wet.compositor->output_flow = WESTON_OUTPUT_FLOW_SAME_AS;
 	}
+
+	buf = getenv("WESTON_OUTPUT_PIN");
+	if (buf && buf[0] == '1')
+		wet.compositor->pin_output = true;
 
 	protocol_scope =
 		weston_log_ctx_add_log_scope(log_ctx, "proto",
