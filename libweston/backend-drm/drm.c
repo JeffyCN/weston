@@ -213,32 +213,28 @@ close_src:
 static void
 drm_backend_update_outputs(struct drm_backend *b)
 {
-	struct weston_output *primary;
+	struct weston_output *base, *primary;
 
 	if (!b->primary_head)
 		return;
 
 	primary = b->primary_head->base.output;
 
-	if (b->mirror_mode) {
-		struct weston_output *base;
+	wl_list_for_each(base, &b->compositor->output_list, link) {
+		struct drm_output *output = to_drm_output(base);
+		bool is_mirror = b->mirror_mode && (base != primary);
 
-		wl_list_for_each(base, &b->compositor->output_list, link) {
-			struct drm_output *output = to_drm_output(base);
-			bool is_mirror = base != primary;
+		if (output->is_mirror == is_mirror)
+			continue;
 
-			if (output->is_mirror == is_mirror)
-				continue;
+		/* Make mirrors unavailable for normal views */
+		output->base.unavailable = is_mirror;
 
-			/* Make mirrors unavailable for normal views */
-			output->base.unavailable = is_mirror;
+		output->is_mirror = is_mirror;
+		output->state_invalid = true;
 
-			output->is_mirror = is_mirror;
-			output->state_invalid = true;
-
-			weston_log("Output %s changed to %s output\n",
-				   base->name, is_mirror ? "mirror" : "main");
-		}
+		weston_log("Output %s changed to %s output\n",
+			   base->name, is_mirror ? "mirror" : "main");
 	}
 
 	if (!primary)
@@ -4399,6 +4395,58 @@ config_handle_output(struct drm_backend *b, const char *name,
 	}
 }
 
+static void
+config_handle_compositor(struct drm_backend *b, const char *key,
+			 const char *value)
+{
+	if (!strcmp(key, "state")) {
+		if (!strcmp(value, "sleep")) {
+			weston_compositor_sleep(b->compositor);
+		} else if (!strcmp(value, "block")) {
+			udev_input_disable(&b->input);
+		} else if (!strcmp(value, "freeze")) {
+			udev_input_disable(&b->input);
+			weston_compositor_offscreen(b->compositor);
+		} else if (!strcmp(value, "offscreen")) {
+			/* HACK: offscreen + DPMS off */
+			weston_compositor_sleep(b->compositor);
+			weston_compositor_offscreen(b->compositor);
+			udev_input_enable(&b->input);
+		} else if (!strcmp(value, "off")) {
+			udev_input_disable(&b->input);
+			weston_compositor_sleep(b->compositor);
+		} else {
+			/* HACK: Force waking from offscreen */
+			if (b->compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
+				b->compositor->state = WESTON_COMPOSITOR_IDLE;
+
+			weston_compositor_wake(b->compositor);
+			weston_compositor_damage_all(b->compositor);
+
+			if (b->input.suspended)
+				udev_input_enable(&b->input);
+		}
+	} else if (!strcmp(key, "hotplug")) {
+		if (!strcmp(value, "off"))
+			wl_event_source_fd_update(b->udev_drm_source, 0);
+		else if (!strcmp(value, "on"))
+			wl_event_source_fd_update(b->udev_drm_source,
+						  WL_EVENT_READABLE);
+		else if (!strcmp(value, "force"))
+			hotplug_timer_handler(b->drm);
+	} else if (!strcmp(key, "cursor")) {
+		if (!strcmp(value, "hide"))
+			b->compositor->hide_cursor = true;
+		else if (!strcmp(value, "show"))
+			b->compositor->hide_cursor = false;
+
+		weston_compositor_damage_all(b->compositor);
+	} else if (!strcmp(key, "mirror")) {
+		b->mirror_mode = !strcmp(value, "on");
+		drm_backend_update_outputs(b);
+	}
+}
+
 static int
 config_timer_handler(void *data)
 {
@@ -4440,7 +4488,9 @@ config_timer_handler(void *data)
 
 	/**
 	 * Parse configs, formated with <type>:<key>:<value>
-	 * For example: "output:all:rotate90"
+	 * For example:
+	 *	output:all:rotate90
+	 *	compositor:state:off
 	 */
 	while (3 == fscanf(conf_fp,
 			   "%" STR(MAX_CONF_LEN) "[^:]:"
@@ -4448,6 +4498,8 @@ config_timer_handler(void *data)
 			   "%" STR(MAX_CONF_LEN) "[^\n]%*c", type, key, value)) {
 		if (!strcmp(type, "output"))
 			config_handle_output(b, key, value);
+		else if (!strcmp(type, "compositor"))
+			config_handle_compositor(b, key, value);
 	}
 
 	fclose(conf_fp);
