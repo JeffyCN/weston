@@ -4567,6 +4567,55 @@ config_handle_output(struct drm_backend *b, const char *name,
 	}
 }
 
+static void
+config_handle_compositor(struct drm_backend *b, const char *key,
+			 const char *value)
+{
+	if (!strncmp(key, "state", strlen("state"))) {
+		if (!strncmp(value, "sleep", strlen("sleep"))) {
+			weston_compositor_sleep(b->compositor);
+		} else if (!strncmp(value, "block", strlen("block"))) {
+			udev_input_disable(&b->input);
+		} else if (!strncmp(value, "freeze", strlen("freeze"))) {
+			udev_input_disable(&b->input);
+			weston_compositor_offscreen(b->compositor);
+		} else if (!strncmp(value, "offscreen", strlen("offscreen"))) {
+			/* HACK: offscreen + DPMS off */
+			weston_compositor_sleep(b->compositor);
+			weston_compositor_offscreen(b->compositor);
+			udev_input_enable(&b->input);
+		} else if (!strncmp(value, "off", strlen("off"))) {
+			udev_input_disable(&b->input);
+			weston_compositor_sleep(b->compositor);
+		} else {
+			/* HACK: Force waking from offscreen */
+			if (b->compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
+				b->compositor->state = WESTON_COMPOSITOR_IDLE;
+
+			weston_compositor_wake(b->compositor);
+			weston_compositor_damage_all(b->compositor);
+
+			if (b->input.suspended)
+				udev_input_enable(&b->input);
+		}
+	} else if (!strncmp(key, "hotplug", strlen("hotplug"))) {
+		if (!strncmp(value, "off", strlen("off")))
+			wl_event_source_fd_update(b->udev_drm_source, 0);
+		else if (!strncmp(value, "on", strlen("on")))
+			wl_event_source_fd_update(b->udev_drm_source,
+						  WL_EVENT_READABLE);
+		else if (!strncmp(value, "force", strlen("force")))
+			hotplug_timer_handler(b->drm);
+	} else if (!strncmp(key, "cursor", strlen("cursor"))) {
+		if (!strncmp(value, "hide", strlen("hide")))
+			b->compositor->hide_cursor = true;
+		else if (!strncmp(value, "show", strlen("show")))
+			b->compositor->hide_cursor = false;
+
+		weston_compositor_damage_all(b->compositor);
+	}
+}
+
 static int
 config_timer_handler(void *data)
 {
@@ -4607,7 +4656,9 @@ config_timer_handler(void *data)
 
 	/**
 	 * Parse configs, formated with <type>:<key>:<value>
-	 * For example: "output:all:rotate90"
+	 * For example:
+	 *	output:all:rotate90
+	 *	compositor:state:off
 	 */
 	while (3 == fscanf(conf_fp,
 			   "%" STR(MAX_CONF_LEN) "[^:]:"
@@ -4615,6 +4666,8 @@ config_timer_handler(void *data)
 			   "%" STR(MAX_CONF_LEN) "[^\n]%*c", type, key, value)) {
 		if (!strcmp(type, "output"))
 			config_handle_output(b, key, value);
+		else if (!strcmp(type, "compositor"))
+			config_handle_compositor(b, key, value);
 	}
 
 	fclose(conf_fp);
