@@ -405,14 +405,18 @@ drm_output_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 	if (mode == NULL)
 		return NULL;
 
-	mode->base.flags = 0;
-	mode->base.width = info->hdisplay;
-	mode->base.height = info->vdisplay;
-
-	if (b->virtual_width && b->virtual_height) {
+	if (output->base.fixed_size) {
+		mode->base.width = output->base.width;
+		mode->base.height = output->base.height;
+	} else if (b->virtual_width && b->virtual_height) {
 		mode->base.width = b->virtual_width;
 		mode->base.height = b->virtual_height;
+	} else {
+		mode->base.width = info->hdisplay;
+		mode->base.height = info->vdisplay;
 	}
+
+	mode->base.flags = 0;
 
 	mode->base.refresh = drm_refresh_rate_mHz(info);
 	mode->mode_info = *info;
@@ -589,7 +593,7 @@ update_head_from_connector(struct drm_head *head)
  * @param current_mode Mode currently being displayed on this output
  * @returns A mode from the output's mode list, or NULL if none available
  */
-static struct drm_mode *
+struct drm_mode *
 drm_output_choose_initial_mode(struct drm_device *device,
 			       struct drm_output *output,
 			       enum weston_drm_backend_output_mode mode,
@@ -642,8 +646,8 @@ drm_output_choose_initial_mode(struct drm_device *device,
 	}
 
 	wl_list_for_each_reverse(drm_mode, &output->base.mode_list, base.link) {
-		if (width == drm_mode->base.width &&
-		    height == drm_mode->base.height &&
+		if (width == drm_mode->mode_info.hdisplay &&
+		    height == drm_mode->mode_info.vdisplay &&
 		    (refresh == 0 || refresh == drm_mode->mode_info.vrefresh)) {
 			if (!device->aspect_ratio_supported ||
 			    aspect_ratio == drm_mode->base.aspect_ratio)
