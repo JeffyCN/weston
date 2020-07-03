@@ -337,6 +337,7 @@ static const struct pixel_format_info pixel_format_table[] = {
 		SAMPLER_TYPE(EGL_TEXTURE_Y_XUXV_WL),
 		.num_planes = 1,
 		.hsub = 2,
+		PIXMAN_FMT(yuy2),
 	},
 	{
 		DRM_FORMAT(YVYU),
@@ -366,6 +367,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		.num_planes = 2,
 		.hsub = 2,
 		.vsub = 2,
+#ifdef HAVE_PIXMAN_NV12
+		PIXMAN_FMT(nv12),
+#endif
 	},
 	{
 		DRM_FORMAT(NV21),
@@ -381,6 +385,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		.num_planes = 2,
 		.hsub = 2,
 		.vsub = 1,
+#ifdef HAVE_PIXMAN_NV16
+		PIXMAN_FMT(nv16),
+#endif
 	},
 	{
 		DRM_FORMAT(NV61),
@@ -437,6 +444,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		.num_planes = 3,
 		.hsub = 2,
 		.vsub = 2,
+#ifdef HAVE_PIXMAN_I420
+		PIXMAN_FMT(i420),
+#endif
 	},
 	{
 		DRM_FORMAT(YVU420),
@@ -445,6 +455,7 @@ static const struct pixel_format_info pixel_format_table[] = {
 		.chroma_order = ORDER_VU,
 		.hsub = 2,
 		.vsub = 2,
+		PIXMAN_FMT(yv12),
 	},
 	{
 		DRM_FORMAT(YUV422),
