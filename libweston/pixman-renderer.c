@@ -153,10 +153,14 @@ pixman_renderer_compute_transform(pixman_transform_t *transform_out,
 {
 	struct weston_matrix matrix;
 
+	weston_matrix_init(&matrix);
+	weston_matrix_scale(&matrix, 1.0f / output->down_scale,
+			    1.0f / output->down_scale, 1);
+
 	/* Set up the source transformation based on the surface
 	   position, the output position/transform/scale and the client
 	   specified buffer transform/scale */
-	matrix = output->inverse_matrix;
+	weston_matrix_multiply(&matrix, &output->inverse_matrix);
 
 	if (ev->transform.enabled) {
 		weston_matrix_multiply(&matrix, &ev->transform.inverse);
@@ -349,6 +353,20 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 		filter = PIXMAN_FILTER_BILINEAR;
 	else
 		filter = PIXMAN_FILTER_NEAREST;
+
+	if (output->down_scale != 1.0f) {
+		struct weston_matrix matrix;
+		pixman_region32_t clip;
+
+		weston_matrix_init(&matrix);
+		weston_matrix_scale(&matrix, output->down_scale,
+				    output->down_scale, 1);
+
+		pixman_region32_init(&clip);
+		weston_matrix_transform_region(&clip, &matrix, repaint_output);
+
+		pixman_image_set_clip_region32(target_image, &clip);
+	}
 
 	if (ps->buffer_ref.buffer)
 		wl_shm_buffer_begin_access(ps->buffer_ref.buffer->shm_buffer);
@@ -556,6 +574,15 @@ copy_to_hw_buffer(struct weston_output *output, pixman_region32_t *region)
 	pixman_region32_copy(&output_region, region);
 
 	weston_output_region_from_global(output, &output_region);
+
+	if (output->down_scale != 1.0f) {
+		struct weston_matrix matrix;
+		weston_matrix_init(&matrix);
+		weston_matrix_scale(&matrix, output->down_scale,
+				    output->down_scale, 1);
+		weston_matrix_transform_region(&output_region,
+					       &matrix, &output_region);
+	}
 
 	pixman_image_set_clip_region32 (po->hw_buffer, &output_region);
 	pixman_region32_fini(&output_region);
