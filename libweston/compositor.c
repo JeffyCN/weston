@@ -6471,7 +6471,7 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 		wl_list_for_each(head, &output->head_list, output_link)
 			weston_head_update_global(head);
 
-		if (!weston_output_valid(output))
+		if (!weston_output_valid(output) || output->fixed_position)
 			continue;
 
 		pos.c = weston_coord(next_x, next_y);
@@ -6940,6 +6940,9 @@ weston_output_set_transform(struct weston_output *output,
 
 	weston_compositor_reflow_outputs(output->compositor);
 
+	wl_signal_emit(&output->compositor->output_resized_signal,
+		       output);
+
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
 		wl_resource_for_each(resource, &head->resource_list) {
@@ -7215,6 +7218,8 @@ weston_output_init(struct weston_output *output,
 	output->scale = 0;
 	/* Can't use -1 on uint32_t and 0 is valid enum value */
 	output->transform = UINT32_MAX;
+
+	output->down_scale = 1.0f;
 
 	pixman_region32_init(&output->damage);
 	pixman_region32_init(&output->region);
