@@ -305,6 +305,10 @@ weston_compositor_xkb_destroy(struct weston_compositor *ec);
 int
 weston_input_init(struct weston_compositor *compositor);
 
+void
+weston_input_bind_output(struct weston_compositor *compositor,
+			 const char *output_name, const char *match);
+
 /* weston_output */
 
 void
