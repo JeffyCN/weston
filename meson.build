@@ -174,6 +174,20 @@ prog_python = import('python').find_installation('python3')
 files_xxd_py = files('tools/xxd.py')
 cmd_xxd = [ prog_python, files_xxd_py, '@INPUT@', '@OUTPUT@' ]
 
+dep_egl = dependency('egl', required: false)
+if dep_egl.found()
+	config_h.set('HAVE_EGL', '1')
+endif
+
+dep_gles2 = dependency('glesv2', required: false)
+if dep_gles2.found()
+	config_h.set('HAVE_GLES2', '1')
+endif
+
+if dependency('gbm', required: false).found()
+	config_h.set('HAVE_GBM', '1')
+endif
+
 subdir('include')
 subdir('protocol')
 subdir('shared')
