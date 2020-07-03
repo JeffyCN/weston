@@ -161,6 +161,16 @@ dep_libdrm = dependency('libdrm', version: '>= 2.4.95')
 dep_libdrm_headers = dep_libdrm.partial_dependency(compile_args: true)
 dep_threads = dependency('threads')
 
+if cc.has_header_symbol('pixman.h', 'PIXMAN_nv12', dependencies : dep_pixman)
+  config_h.set('HAVE_PIXMAN_NV12', 1)
+endif
+if cc.has_header_symbol('pixman.h', 'PIXMAN_i420', dependencies : dep_pixman)
+  config_h.set('HAVE_PIXMAN_I420', 1)
+endif
+if cc.has_header_symbol('pixman.h', 'PIXMAN_nv16', dependencies : dep_pixman)
+  config_h.set('HAVE_PIXMAN_NV16', 1)
+endif
+
 dep_libdrm_version = dep_libdrm.version()
 if dep_libdrm_version.version_compare('>=2.4.107')
   message('Found libdrm with human format modifier support.')
