@@ -4973,6 +4973,75 @@ config_handle_output(struct drm_backend *b, const char *name,
 	}
 }
 
+static void
+config_handle_compositor(struct drm_backend *b, const char *key,
+			 const char *value)
+{
+	if (!strcmp(key, "state")) {
+		if (!strcmp(value, "sleep")) {
+			weston_compositor_sleep(b->compositor);
+		} else if (!strcmp(value, "block")) {
+			udev_input_disable(&b->input);
+		} else if (!strcmp(value, "freeze")) {
+			udev_input_disable(&b->input);
+			weston_compositor_offscreen(b->compositor);
+		} else if (!strcmp(value, "offscreen")) {
+			/* HACK: Enter offscreen mode and turn off DPMS. */
+			weston_compositor_sleep(b->compositor);
+			weston_compositor_offscreen(b->compositor);
+			udev_input_enable(&b->input);
+		} else if (!strcmp(value, "off")) {
+			udev_input_disable(&b->input);
+			weston_compositor_sleep(b->compositor);
+		} else {
+			/* HACK: Force wake from offscreen state. */
+			if (b->compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
+				b->compositor->state = WESTON_COMPOSITOR_IDLE;
+
+			weston_compositor_wake(b->compositor);
+			weston_compositor_damage_all(b->compositor);
+			udev_input_enable(&b->input);
+		}
+	} else if (!strcmp(key, "hotplug")) {
+		if (!strcmp(value, "off"))
+			wl_event_source_fd_update(b->udev_drm_source, 0);
+		else if (!strcmp(value, "on"))
+			wl_event_source_fd_update(b->udev_drm_source,
+						  WL_EVENT_READABLE);
+		else if (!strcmp(value, "force"))
+			hotplug_update_handler(b);
+	} else if (!strcmp(key, "cursor")) {
+		if (!strcmp(value, "hide"))
+			b->compositor->hide_cursor = true;
+		else if (!strcmp(value, "show"))
+			b->compositor->hide_cursor = false;
+
+		b->compositor->view_list_needs_rebuild = true;
+		weston_compositor_damage_all(b->compositor);
+	} else if (!strcmp(key, "mirror")) {
+		/* Set output mirror mode (off/stretch/fit) */
+		if (!strcmp(value, "off"))
+			b->compositor->output_mirror =
+				WESTON_OUTPUT_MIRROR_NONE;
+		else if (!strcmp(value, "stretch"))
+			b->compositor->output_mirror =
+				WESTON_OUTPUT_MIRROR_STRETCH;
+		else if (!strcmp(value, "fit") || !strcmp(value, "on"))
+			b->compositor->output_mirror =
+				WESTON_OUTPUT_MIRROR_FIT;
+		weston_compositor_schedule_heads_changed(b->compositor);
+	} else if (!strcmp(key, "output")) {
+		if (!strcmp(value, "pin"))
+			b->compositor->pin_output = true;
+		else if (!strcmp(value, "unpin"))
+			b->compositor->pin_output = false;
+		else if (!strcmp(value, "refresh"))
+			drm_device_recovery_required(b->drm);
+
+		weston_compositor_damage_all(b->compositor);
+	}
+}
+
 static int
 config_timer_handler(void *data)
 {
@@ -5014,7 +5083,9 @@ config_timer_handler(void *data)
 
 	/**
 	 * Parse configs, formatted as <type>:<key>:<value>
-	 * For example: "output:all:rotate90"
+	 * For example:
+	 *	output:all:rotate90
+	 *	compositor:state:off
 	 */
 	while (3 == fscanf(conf_fp,
 			   "%" STR(MAX_CONF_LEN) "[^:]:"
@@ -5022,6 +5093,8 @@ config_timer_handler(void *data)
 			   "%" STR(MAX_CONF_LEN) "[^\n]%*c", type, key, value)) {
 		if (!strcmp(type, "output"))
 			config_handle_output(b, key, value);
+		else if (!strcmp(type, "compositor"))
+			config_handle_compositor(b, key, value);
 	}
 
 	fclose(conf_fp);
