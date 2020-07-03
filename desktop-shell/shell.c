@@ -4074,7 +4074,7 @@ weston_view_set_initial_position(struct weston_view *view,
 	struct weston_compositor *compositor = shell->compositor;
 	int32_t range_x, range_y;
 	int32_t x, y;
-	struct weston_output *output, *target_output = NULL;
+	struct weston_output *output, *target_output = NULL, *prefer_output = NULL;
 	struct weston_seat *seat;
 	pixman_rectangle32_t area;
 	struct weston_coord_global pos;
@@ -4101,15 +4101,19 @@ weston_view_set_initial_position(struct weston_view *view,
 		}
 	}
 
-	wl_list_for_each(output, &compositor->output_list, link) {
+	wl_list_for_each_reverse(output, &compositor->output_list, link) {
 		if (output->unavailable)
 			continue;
 
-		if (weston_output_contains_coord(output, pos)) {
+		if (output == compositor->prefer_output)
+			prefer_output = output;
+
+		if (weston_output_contains_coord(output, pos))
 			target_output = output;
-			break;
-		}
 	}
+
+	if (prefer_output)
+		target_output = prefer_output;
 
 	if (!target_output) {
 		pos.c = weston_coord(10 + random() % 400,
@@ -4648,6 +4652,15 @@ handle_output_resized(struct wl_listener *listener, void *data)
 	struct weston_output *output = (struct weston_output *)data;
 	struct shell_output *sh_output = find_shell_output_from_weston_output(shell, output);
 
+	if (!sh_output)
+		return;
+
+	if (shell->lock_surface) {
+		struct weston_coord_surface offset =
+			 weston_coord_surface(0, 0, shell->lock_surface);
+		shell->lock_surface->committed(shell->lock_surface, offset);
+	}
+
 	handle_output_resized_shsurfs(shell);
 
 	shell_resize_surface_to_output(shell, sh_output->background_surface, output);
@@ -4701,7 +4714,9 @@ handle_output_move_layer(struct desktop_shell *shell,
 		pos = weston_coord_global_add(
 		      weston_view_get_pos_offset_global(view),
 		      output->move);
-		weston_view_set_position(view, pos);
+		if (pixman_region32_contains_point(&output->region,
+						   pos.c.x, pos.c.y, NULL))
+			weston_view_set_position(view, pos);
 	}
 }
 
