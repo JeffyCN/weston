@@ -225,6 +225,9 @@ weston_output_disable_planes_incr(struct weston_output *output);
 void
 weston_output_disable_planes_decr(struct weston_output *output);
 
+void
+weston_output_bind_input(struct weston_output *output, const char *name);
+
 /* weston_plane */
 
 void

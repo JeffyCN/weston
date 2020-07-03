@@ -3831,7 +3831,7 @@ weston_view_set_initial_position(struct weston_view *view,
 	int ix = 0, iy = 0;
 	int32_t range_x, range_y;
 	int32_t x, y;
-	struct weston_output *output, *target_output = NULL;
+	struct weston_output *output, *target_output = NULL, *prefer_output = NULL;
 	struct weston_seat *seat;
 	pixman_rectangle32_t area;
 
@@ -3856,15 +3856,19 @@ weston_view_set_initial_position(struct weston_view *view,
 		}
 	}
 
-	wl_list_for_each(output, &compositor->output_list, link) {
+	wl_list_for_each_reverse(output, &compositor->output_list, link) {
 		if (output->unavailable)
 			continue;
 
-		if (pixman_region32_contains_point(&output->region, ix, iy, NULL)) {
+		if (output == compositor->prefer_output)
+			prefer_output = output;
+
+		if (pixman_region32_contains_point(&output->region, ix, iy, NULL))
 			target_output = output;
-			break;
-		}
 	}
+
+	if (prefer_output)
+		target_output = prefer_output;
 
 	if (!target_output) {
 		weston_view_set_position(view, 10 + random() % 400,
@@ -4381,6 +4385,41 @@ shell_resize_surface_to_output(struct desktop_shell *shell,
 					output->height);
 }
 
+static void
+handle_output_resize_layer(struct desktop_shell *shell,
+			   struct weston_layer *layer, void *data)
+{
+	struct weston_output *output = data;
+	struct weston_view *view;
+
+	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+		struct weston_desktop_surface *desktop_surface;
+		struct shell_surface *shsurf;
+		bool dirty = false;
+
+		if (view->output != output)
+			continue;
+
+		shsurf = get_shell_surface(view->surface);
+		if (!shsurf)
+			continue;
+
+		desktop_surface = shsurf->desktop_surface;
+		if (weston_desktop_surface_get_fullscreen(desktop_surface)) {
+			set_fullscreen(shsurf, true, output);
+			dirty = true;
+		}
+		if (weston_desktop_surface_get_maximized(desktop_surface)) {
+			set_maximized(shsurf, true);
+			dirty = true;
+		}
+
+		if (dirty) {
+			weston_view_geometry_dirty(view);
+			weston_surface_damage(view->surface);
+		}
+	}
+}
 
 static void
 handle_output_resized(struct wl_listener *listener, void *data)
@@ -4390,8 +4429,13 @@ handle_output_resized(struct wl_listener *listener, void *data)
 	struct weston_output *output = (struct weston_output *)data;
 	struct shell_output *sh_output = find_shell_output_from_weston_output(shell, output);
 
+	if (shell->lock_surface)
+		shell->lock_surface->committed(shell->lock_surface, 0, 0);
+
 	shell_resize_surface_to_output(shell, sh_output->background_surface, output);
 	shell_resize_surface_to_output(shell, sh_output->panel_surface, output);
+
+	shell_for_each_layer(shell, handle_output_resize_layer, data);
 }
 
 static void
@@ -4440,7 +4484,9 @@ handle_output_move_layer(struct desktop_shell *shell,
 
 		x = view->geometry.x + output->move_x;
 		y = view->geometry.y + output->move_y;
-		weston_view_set_position(view, x, y);
+
+		if (pixman_region32_contains_point(&output->region, x, y, NULL))
+			weston_view_set_position(view, x, y);
 	}
 }
 

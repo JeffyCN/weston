@@ -3370,6 +3370,11 @@ weston_output_repaint(struct weston_output *output)
 static void
 weston_output_schedule_repaint_reset(struct weston_output *output)
 {
+	if (output->idle_repaint_source) {
+		wl_event_source_remove(output->idle_repaint_source);
+		output->idle_repaint_source = NULL;
+	}
+
 	output->repaint_status = REPAINT_NOT_SCHEDULED;
 	TL_POINT(output->compositor, "core_repaint_exit_loop",
 		 TLP_OUTPUT(output), TLP_END);
@@ -3381,6 +3386,11 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now)
 	struct weston_compositor *compositor = output->compositor;
 	int ret = 0;
 	int64_t msec_to_repaint;
+
+	/* If we're sleeping, drop the repaint machinery entirely; we will
+	 * explicitly repaint it when we come back. */
+	if (output->freezing)
+		goto err;
 
 	/* We're not ready yet; come back to make a decision later. */
 	if (output->repaint_status != REPAINT_SCHEDULED)
@@ -3408,11 +3418,11 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now)
 	 * output. */
 	ret = weston_output_repaint(output);
 	weston_compositor_read_presentation_clock(compositor, now);
-	if (ret != 0)
+	if (ret < 0)
 		goto err;
 
-	output->repainted = true;
-	return ret;
+	output->repainted = !ret;
+	return 0;
 
 err:
 	weston_output_schedule_repaint_reset(output);
@@ -3478,7 +3488,7 @@ output_repaint_timer_handler(void *data)
 	struct weston_compositor *compositor = data;
 	struct weston_output *output;
 	struct timespec now;
-	int ret = 0;
+	int ret = 0, repainted = 0;
 
 	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK)) {
 		usleep(DEFAULT_REPAINT_WINDOW * 1000);
@@ -3495,9 +3505,11 @@ output_repaint_timer_handler(void *data)
 		ret = weston_output_maybe_repaint(output, &now);
 		if (ret)
 			break;
+
+		repainted |= output->repainted;
 	}
 
-	if (ret == 0) {
+	if (ret == 0 && repainted) {
 		if (compositor->backend->repaint_flush)
 			ret = compositor->backend->repaint_flush(compositor);
 	} else {
@@ -6515,7 +6527,7 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 		wl_list_for_each(head, &output->head_list, output_link)
 			weston_head_update_global(head);
 
-		if (!weston_output_valid(output))
+		if (!weston_output_valid(output) || output->fixed_position)
 			continue;
 
 		x = next_x;
@@ -7021,6 +7033,9 @@ weston_output_set_transform(struct weston_output *output,
 
 	weston_compositor_reflow_outputs(output->compositor);
 
+	wl_signal_emit(&output->compositor->output_resized_signal,
+		       output);
+
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
 		wl_resource_for_each(resource, &head->resource_list) {
@@ -7259,6 +7274,8 @@ weston_output_init(struct weston_output *output,
 	/* Can't use -1 on uint32_t and 0 is valid enum value */
 	output->transform = UINT32_MAX;
 
+	output->down_scale = 1.0f;
+
 	pixman_region32_init(&output->damage);
 	pixman_region32_init(&output->region);
 	wl_list_init(&output->mode_list);
@@ -7391,7 +7408,6 @@ weston_output_enable(struct weston_output *output)
 	weston_output_transform_scale_init(output, output->transform, output->scale);
 
 	weston_output_init_geometry(output, output->x, output->y);
-	weston_output_damage(output);
 
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->feedback_list);
