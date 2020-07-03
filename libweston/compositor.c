@@ -5813,6 +5813,10 @@ weston_compositor_wake(struct weston_compositor *compositor)
 {
 	uint32_t old_state = compositor->state;
 
+	/* HACK: Avoid waking up by input */
+	if (old_state == WESTON_COMPOSITOR_OFFSCREEN)
+		return;
+
 	/* The state needs to be changed before emitting the wake
 	 * signal because that may try to schedule a repaint which
 	 * will not work if the compositor is still sleeping */
@@ -5820,10 +5824,11 @@ weston_compositor_wake(struct weston_compositor *compositor)
 
 	switch (old_state) {
 	case WESTON_COMPOSITOR_SLEEPING:
+		wl_signal_emit(&compositor->wake_signal, compositor);
+		/* fall through */
 	case WESTON_COMPOSITOR_IDLE:
 	case WESTON_COMPOSITOR_OFFSCREEN:
 		weston_compositor_dpms(compositor, WESTON_DPMS_ON);
-		wl_signal_emit(&compositor->wake_signal, compositor);
 		/* fall through */
 	default:
 		wl_event_source_timer_update(compositor->idle_source,
