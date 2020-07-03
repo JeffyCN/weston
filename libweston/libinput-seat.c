@@ -532,3 +532,46 @@ udev_seat_get_named(struct udev_input *input, const char *seat_name)
 
 	return udev_seat_create(input, seat_name);
 }
+
+void
+weston_output_bind_input(struct weston_output *output, const char *match)
+{
+	struct weston_compositor *compositor = output->compositor;
+	struct evdev_device *device;
+	struct udev_seat *seat;
+	const char *sysname, *name;
+	int len = strlen(match);
+	int clear = !len;
+
+	/* Handle pattern match */
+	if (len && match[len - 1] == '*')
+		len--;
+
+	wl_list_for_each(seat, &compositor->seat_list, base.link) {
+		wl_list_for_each(device, &seat->devices_list, link) {
+			if (clear) {
+				/* Clear all bounded inputs */
+				if (!device->output_name ||
+				    strcmp(device->output_name, output->name))
+					continue;
+
+				free(device->output_name);
+				device->output_name = NULL;
+				continue;
+			}
+
+			sysname = libinput_device_get_sysname(device->device);
+			name = libinput_device_get_name(device->device);
+
+			if (!len || !strncmp(name, match, len) ||
+			    !strncmp(sysname, match, len)) {
+				if (device->output_name)
+					free(device->output_name);
+
+				device->output_name = strdup(output->name);
+			}
+		}
+
+		udev_seat_update_output(seat);
+	}
+}
