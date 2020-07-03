@@ -317,6 +317,10 @@ udev_input_enable(struct udev_input *input)
 	struct udev_seat *seat;
 	int devices_found = 0;
 
+	/* Already enabled */
+	if (input->libinput_source && !input->suspended)
+		return 0;
+
 	loop = wl_display_get_event_loop(c->wl_display);
 	fd = libinput_get_fd(input->libinput);
 	input->libinput_source =
