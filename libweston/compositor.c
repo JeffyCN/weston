@@ -58,6 +58,7 @@
 #include "timeline.h"
 #include "weston-trace.h"
 
+#include <libweston/desktop.h>
 #include <libweston/shell-utils.h>
 #include <libweston/libweston.h>
 #include <libweston/weston-log.h>
@@ -4416,6 +4417,7 @@ weston_output_should_freeze(struct weston_output *output)
 {
 	struct weston_paint_node *pnode;
 	struct timespec now;
+	bool has_desktop_surface = false;
 
 	weston_compositor_read_presentation_clock(output->compositor, &now);
 
@@ -4427,6 +4429,19 @@ weston_output_should_freeze(struct weston_output *output)
 			timespec_add_msec(&output->freeze_until, &now, 50);
 			return true;
 		}
+
+		/* Check if any desktop surface is present */
+		if (weston_surface_is_desktop_surface(pnode->surface))
+			has_desktop_surface = true;
+	}
+
+	/* Freeze output until first desktop app appears */
+	if (output->lazy_ready) {
+		if (!has_desktop_surface)
+			return true;
+
+		/* Unlock output once desktop app is ready */
+		output->lazy_ready = false;
 	}
 
 	if (timespec_sub_to_msec(&output->freeze_until, &now) > 0)
@@ -11721,6 +11736,8 @@ WL_EXPORT void
 weston_output_set_ready(struct weston_output *output)
 {
 	if (!output->ready) {
+		output->lazy_ready = output->compositor->lazy_output_ready;
+
 		output->ready = true;
 		weston_output_schedule_repaint(output);
 	}
