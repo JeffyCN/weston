@@ -43,8 +43,16 @@
 WL_EXPORT struct weston_output *
 weston_shell_utils_get_default_output(struct weston_compositor *compositor)
 {
+	struct weston_output *output;
+
 	if (wl_list_empty(&compositor->output_list))
 		return NULL;
+
+	/* HACK: Return preferred output when available */
+	wl_list_for_each(output, &compositor->output_list, link) {
+		if (weston_output_preferred(output))
+			return output;
+	}
 
 	return container_of(compositor->output_list.next,
 			    struct weston_output, link);
@@ -57,8 +65,15 @@ WL_EXPORT struct weston_output *
 weston_shell_utils_get_focused_output(struct weston_compositor *compositor)
 {
 	struct weston_seat *seat;
-	struct weston_output *output = NULL;
+	struct weston_output *output;
 
+	/* HACK: Return preferred output when available */
+	wl_list_for_each(output, &compositor->output_list, link) {
+		if (weston_output_preferred(output))
+			return output;
+	}
+
+	output = NULL;
 	wl_list_for_each(seat, &compositor->seat_list, link) {
 		struct weston_touch *touch = weston_seat_get_touch(seat);
 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);

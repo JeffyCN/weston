@@ -132,6 +132,9 @@
 /* Minimum interval between hotplug update requests (ms) to avoid glitches */
 #define DRM_HOTPLUG_DEBOUNCE_MS	1000
 
+#define WESTON_DRM_CONFIG_FILE	"/tmp/.weston_drm.conf"
+#define DRM_CONFIG_UPDATE_MS	100
+
 /**
  * Represents the values of an enum-type KMS property
  */
@@ -303,6 +306,11 @@ struct drm_backend {
 
 	/* Master mode flag, controls CRTC management */
 	bool master;
+
+	struct wl_listener output_create_listener;
+
+	struct wl_event_source *config_timer;
+	struct stat config_stat;
 };
 
 struct drm_mode {
@@ -703,6 +711,12 @@ struct drm_output {
 
 	/* Dummy framebuffer for initial mode set */
 	struct drm_fb *fb_dummy;
+
+	bool offscreen;
+
+	pixman_box32_t plane_bounds;
+
+	uint32_t original_transform;
 };
 
 void
@@ -860,6 +874,13 @@ drm_mode_list_destroy(struct drm_device *device, struct wl_list *mode_list);
 
 void
 drm_output_print_modes(struct drm_output *output);
+
+struct drm_mode *
+drm_output_choose_initial_mode(struct drm_device *device,
+			       struct drm_output *output,
+			       enum weston_drm_backend_output_mode mode,
+			       const char *modeline,
+			       const drmModeModeInfo *current_mode);
 
 int
 drm_output_set_mode(struct weston_output *base,

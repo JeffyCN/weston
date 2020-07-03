@@ -797,6 +797,12 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 	if (!shsurf || !shsurf->desktop_surface || !move->active)
 		return;
 
+	/* Ignore the pinned output when dragging windows. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
+
 	pos = weston_coord_global_add(grab->touch->grab_pos, move->delta);
 	pos.c = weston_coord_truncate(pos.c);
 	weston_view_set_position(shsurf->view, pos);
@@ -933,6 +939,12 @@ move_grab_motion(struct weston_pointer_grab *grab,
 	if (!shsurf || !shsurf->desktop_surface)
 		return;
 
+	/* Ignore the pinned output when dragging windows. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
+
 	pos = constrain_position(move);
 	weston_view_set_position(shsurf->view, pos);
 }
@@ -1057,6 +1069,12 @@ tablet_tool_move_grab_motion(struct weston_tablet_tool_grab *grab,
 
 	if (!shsurf)
 		return;
+
+	/* Ignore the pinned output when dragging windows. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
 
 	pos.c.x += wl_fixed_to_double(move->dx);
 	pos.c.y += wl_fixed_to_double(move->dy);
@@ -3982,6 +4000,7 @@ weston_view_set_initial_position(struct weston_view *view,
 	int32_t x, y;
 	struct weston_output *output, *target_output = NULL;
 	struct shell_output *shoutput;
+	struct weston_output *preferred_output = NULL;
 	struct weston_seat *seat;
 	pixman_rectangle32_t area;
 	struct weston_coord_global pos;
@@ -4020,12 +4039,16 @@ weston_view_set_initial_position(struct weston_view *view,
 		}
 	}
 
-	wl_list_for_each(output, &compositor->output_list, link) {
-		if (weston_output_contains_coord(output, pos)) {
+	wl_list_for_each_reverse(output, &compositor->output_list, link) {
+		if (weston_output_contains_coord(output, pos))
 			target_output = output;
-			break;
-		}
+
+		if (weston_output_preferred(output))
+			preferred_output = output;
 	}
+
+	if (preferred_output)
+		target_output = preferred_output;
 
 	if (!target_output) {
 		pos.c = weston_coord(10 + random() % 400,
@@ -4494,6 +4517,12 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 
 	if (!visible) {
 		struct weston_coord_global pos;
+
+		if (ec->pin_output && view->pinned_output)
+			return;
+
+		if (shsurf->state.fullscreen || shsurf->state.maximized)
+			return;
 
 		first_output = container_of(ec->output_list.next,
 					    struct weston_output, link);

@@ -34,6 +34,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <time.h>
 #include <pixman.h>
 #include <xkbcommon/xkbcommon.h>
@@ -606,6 +607,14 @@ struct weston_output {
 
 	/* Output is ready but waiting for first desktop surface */
 	bool lazy_ready;
+
+	/* Display freeze */
+	bool freezing;
+
+	bool fixed_position;
+	bool fixed_size;
+
+	double down_scale;
 };
 
 enum weston_pointer_motion_mask {
@@ -1616,6 +1625,8 @@ struct weston_compositor {
 	bool hide_cursor;
 
 	int cursor_size;
+
+	bool pin_output;
 };
 
 struct weston_solid_buffer_values {
@@ -1835,6 +1846,9 @@ struct weston_view {
 	 */
 	struct weston_output *output;
 	struct wl_listener output_destroy_listener;
+
+	/* Pinned to this output. */
+	char *pinned_output;
 
 	/*
 	 * A bitfield of outputs this view intersects - though it may not be
@@ -2955,5 +2969,15 @@ weston_output_set_primary(struct weston_output *output);
 #ifdef  __cplusplus
 }
 #endif
+
+static inline bool
+weston_output_preferred(struct weston_output *output) {
+	const char *preferred_output = getenv("WESTON_OUTPUT_PREFERRED");
+
+	if (!output || output->destroying || !preferred_output)
+		return false;
+
+	return !strcmp(output->name, preferred_output);
+}
 
 #endif
