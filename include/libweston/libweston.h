@@ -1542,6 +1542,8 @@ struct weston_compositor {
 	enum weston_output_flow output_flow;
 
 	bool pin_output;
+
+	bool warm_up;
 };
 
 struct weston_solid_buffer_values {
