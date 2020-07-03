@@ -179,6 +179,24 @@ weston_compositor_is_static_layer(struct weston_layer *layer)
 	}
 }
 
+static bool
+weston_compositor_is_system_layer(struct weston_layer *layer)
+{
+	if (!layer)
+		return false;
+
+	switch (layer->position) {
+	case WESTON_LAYER_POSITION_BACKGROUND:
+	case WESTON_LAYER_POSITION_UI:
+	case WESTON_LAYER_POSITION_LOCK:
+	case WESTON_LAYER_POSITION_CURSOR:
+	case WESTON_LAYER_POSITION_FADE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /** Send wl_output events for mode and scale changes
  *
  * \param head Send on all resources bound to this head.
@@ -1373,10 +1391,16 @@ weston_surface_assign_output(struct weston_surface *es)
 
 		mask |= view->output_mask;
 
-		if (area >= max) {
+		if (area > max) {
 			new_output = view->output;
 			max = area;
+			continue;
 		}
+
+		/* All else being equal, use the preferred one */
+		if (area == max && new_output &&
+		    weston_output_preferred(view->output))
+			new_output = view->output;
 	}
 	pixman_region32_fini(&region);
 
@@ -1403,21 +1427,24 @@ weston_view_assign_output(struct weston_view *ev)
 	pixman_region32_t region;
 	uint32_t max, area, mask;
 	pixman_box32_t *e;
+	struct weston_layer *layer = get_view_layer(ev);
 
 	/* The static views should bind to the specific output */
-	if (weston_compositor_is_static_layer(get_view_layer(ev))) {
+	if (weston_compositor_is_static_layer(layer)) {
 		struct weston_view *view = ev;
 
 		while (view && !(output = view->output))
 			view = view->geometry.parent;
 
-		if (output && !output->destroying)
-			ev->output_mask = 1u << output->id;
-		else
-			weston_view_set_output(ev, NULL);
+		if (output && !output->destroying) {
+			new_output = output;
+			mask = 1u << output->id;
+		} else {
+			new_output = NULL;
+			mask = 0;
+		}
 
-		weston_surface_assign_output(ev->surface);
-		return;
+		goto out;
 	}
 
 	new_output = NULL;
@@ -1437,13 +1464,36 @@ weston_view_assign_output(struct weston_view *ev)
 		if (area > 0)
 			mask |= 1u << output->id;
 
-		if (area >= max) {
+		/* Pinned to a specific output */
+		if (ec->pin_output && ev->pinned_output &&
+		    strcmp(output->name, ev->pinned_output))
+			continue;
+
+		if (area > max) {
 			new_output = output;
 			max = area;
+			continue;
 		}
+
+		/* All else being equal, use the preferred one */
+		if (new_output && area == max &&
+		    weston_output_preferred(output))
+			new_output = output;
 	}
 	pixman_region32_fini(&region);
 
+	if (ec->pin_output && layer &&
+	    !weston_compositor_is_system_layer(layer)) {
+		/* Pin non-system view to new output */
+		if (!ev->pinned_output && new_output)
+			ev->pinned_output = strdup(new_output->name);
+
+		/* Don't show pinned view on other outputs */
+		if (ev->pinned_output && !new_output)
+			mask = 0;
+	}
+
+out:
 	weston_view_set_output(ev, new_output);
 	ev->output_mask = mask;
 
@@ -2365,6 +2415,9 @@ weston_view_destroy(struct weston_view *view)
 	weston_view_set_output(view, NULL);
 
 	wl_list_remove(&view->surface_link);
+
+	if (view->pinned_output)
+		free(view->pinned_output);
 
 	free(view);
 }
@@ -3370,6 +3423,11 @@ weston_output_repaint(struct weston_output *output)
 static void
 weston_output_schedule_repaint_reset(struct weston_output *output)
 {
+	if (output->idle_repaint_source) {
+		wl_event_source_remove(output->idle_repaint_source);
+		output->idle_repaint_source = NULL;
+	}
+
 	output->repaint_status = REPAINT_NOT_SCHEDULED;
 	TL_POINT(output->compositor, "core_repaint_exit_loop",
 		 TLP_OUTPUT(output), TLP_END);
@@ -3381,6 +3439,11 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now)
 	struct weston_compositor *compositor = output->compositor;
 	int ret = 0;
 	int64_t msec_to_repaint;
+
+	/* If we're sleeping, drop the repaint machinery entirely; we will
+	 * explicitly repaint it when we come back. */
+	if (output->freezing)
+		goto err;
 
 	/* We're not ready yet; come back to make a decision later. */
 	if (output->repaint_status != REPAINT_SCHEDULED)
@@ -3408,11 +3471,11 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now)
 	 * output. */
 	ret = weston_output_repaint(output);
 	weston_compositor_read_presentation_clock(compositor, now);
-	if (ret != 0)
+	if (ret < 0)
 		goto err;
 
-	output->repainted = true;
-	return ret;
+	output->repainted = !ret;
+	return 0;
 
 err:
 	weston_output_schedule_repaint_reset(output);
@@ -3478,7 +3541,7 @@ output_repaint_timer_handler(void *data)
 	struct weston_compositor *compositor = data;
 	struct weston_output *output;
 	struct timespec now;
-	int ret = 0;
+	int ret = 0, repainted = 0;
 
 	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK)) {
 		usleep(DEFAULT_REPAINT_WINDOW * 1000);
@@ -3495,9 +3558,11 @@ output_repaint_timer_handler(void *data)
 		ret = weston_output_maybe_repaint(output, &now);
 		if (ret)
 			break;
+
+		repainted |= output->repainted;
 	}
 
-	if (ret == 0) {
+	if (ret == 0 && repainted) {
 		if (compositor->backend->repaint_flush)
 			ret = compositor->backend->repaint_flush(compositor);
 	} else {
@@ -6515,7 +6580,7 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 		wl_list_for_each(head, &output->head_list, output_link)
 			weston_head_update_global(head);
 
-		if (!weston_output_valid(output))
+		if (!weston_output_valid(output) || output->fixed_position)
 			continue;
 
 		x = next_x;
@@ -7021,6 +7086,9 @@ weston_output_set_transform(struct weston_output *output,
 
 	weston_compositor_reflow_outputs(output->compositor);
 
+	wl_signal_emit(&output->compositor->output_resized_signal,
+		       output);
+
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
 		wl_resource_for_each(resource, &head->resource_list) {
@@ -7259,6 +7327,8 @@ weston_output_init(struct weston_output *output,
 	/* Can't use -1 on uint32_t and 0 is valid enum value */
 	output->transform = UINT32_MAX;
 
+	output->down_scale = 1.0f;
+
 	pixman_region32_init(&output->damage);
 	pixman_region32_init(&output->region);
 	wl_list_init(&output->mode_list);
@@ -7391,7 +7461,6 @@ weston_output_enable(struct weston_output *output)
 	weston_output_transform_scale_init(output, output->transform, output->scale);
 
 	weston_output_init_geometry(output, output->x, output->y);
-	weston_output_damage(output);
 
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->feedback_list);

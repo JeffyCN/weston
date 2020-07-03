@@ -34,6 +34,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <time.h>
 #include <pixman.h>
 #include <xkbcommon/xkbcommon.h>
@@ -575,6 +576,12 @@ struct weston_output {
 			    struct weston_head *head);
 
 	bool unavailable;
+	bool freezing;
+
+	bool fixed_position;
+	bool fixed_size;
+
+	double down_scale;
 };
 #define weston_output_valid(o) \
 	((o) && !(o)->destroying && !(o)->unavailable)
@@ -1333,6 +1340,8 @@ struct weston_compositor {
 	bool warned_about_unmapped_surface_or_view;
 
 	enum weston_output_flow output_flow;
+
+	bool pin_output;
 };
 
 struct weston_solid_buffer_values {
@@ -1539,6 +1548,9 @@ struct weston_view {
 	 */
 	struct weston_output *output;
 	struct wl_listener output_destroy_listener;
+
+	/* Pinned to this output. */
+	char *pinned_output;
 
 	/*
 	 * A more complete representation of all outputs this surface is
@@ -2363,6 +2375,16 @@ weston_compositor_load_icc_file(struct weston_compositor *compositor,
 
 void
 weston_compositor_reflow_outputs(struct weston_compositor *compositor);
+
+static inline bool
+weston_output_preferred(struct weston_output *output) {
+	const char *preferred_output = getenv("WESTON_OUTPUT_PREFERRED");
+
+	if (!weston_output_valid(output) || !preferred_output)
+		return false;
+
+	return !strcmp(output->name, preferred_output);
+}
 
 #ifdef  __cplusplus
 }
