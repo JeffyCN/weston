@@ -264,6 +264,9 @@ void
 weston_output_set_single_mode(struct weston_output *output,
 			      struct weston_mode *target);
 
+void
+weston_output_bind_input(struct weston_output *output, const char *name);
+
 /* weston_plane */
 
 void
