@@ -1224,6 +1224,7 @@ struct weston_buffer {
 	uint32_t busy_count;
 	int y_inverted;
 	void *backend_private;
+	void *renderer_private;
 };
 
 struct weston_buffer_reference {
