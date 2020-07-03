@@ -1728,7 +1728,10 @@ drm_assign_planes(struct weston_output *output_base)
 	assert(state);
 	assert(state->planes_enabled == !output_base->disable_planes);
 
-	output->force_rebuild_state = false;
+	/* HACK: Force-disable state reuse (new native logic crashes in many
+	 * scenarios)
+	 */
+	output->force_rebuild_state = true;
 
 	drm_debug(b, "\t[repaint] Using %s composition\n",
 		  drm_propose_state_mode_to_string(mode));

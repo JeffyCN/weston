@@ -1714,6 +1714,7 @@ get_view_layer(struct weston_view *view)
 static void
 weston_surface_assign_output(struct weston_surface *es)
 {
+	struct weston_compositor *ec = es->compositor;
 	struct weston_output *new_output;
 	struct weston_view *view;
 	pixman_region32_t region;
@@ -1781,10 +1782,11 @@ weston_surface_assign_output(struct weston_surface *es)
 			continue;
 		}
 
-		/* All else being equal, prefer the primary backend */
-		if (area == max && new_output &&
-		    view->output->backend == es->compositor->primary_backend) {
-			new_output = view->output;
+		/* All else being equal, prefer the preferred or primary backend */
+		if (area == max && new_output) {
+			if (weston_output_preferred(view->output) ||
+			    view->output->backend == ec->primary_backend)
+				new_output = view->output;
 		}
 	}
 	pixman_region32_fini(&region);
@@ -1885,6 +1887,18 @@ weston_view_assign_output(struct weston_view *ev)
 
 		mask |= 1u << output->id;
 
+		/* Pin view to output if compositor-wide pinning is enabled. */
+		if (ec->pin_output && ev->pinned_output) {
+			/* Only assign to matching output. */
+			if (!strcmp(output->name, ev->pinned_output)) {
+				new_output = output;
+				break;
+			}
+
+			/* Ignore other outputs */
+			continue;
+		}
+
 		/* Regardless of what we have now, even if it's off, a turned
 		 * off output is not better.
 		 */
@@ -1900,13 +1914,24 @@ weston_view_assign_output(struct weston_view *ev)
 			continue;
 		}
 
-		/* All else being equal, prefer the primary backend */
-		if (new_output && new_output_area == area &&
-		    output->backend == ec->primary_backend) {
-			new_output = output;
+		/* All else being equal, prefer the preferred or primary backend */
+		if (new_output && new_output_area == area) {
+			if (weston_output_preferred(output) ||
+			    output->backend == ec->primary_backend)
+				new_output = output;
 		}
 	}
 	pixman_region32_fini(&region);
+
+	if (ec->pin_output) {
+		/* Pin view to new output */
+		if (!ev->pinned_output && new_output)
+			ev->pinned_output = strdup(new_output->name);
+
+		/* Don't show pinned view on other outputs */
+		if (ev->pinned_output && !new_output)
+			mask = 0;
+	}
 
 out:
 	weston_view_set_output_mask(ev, mask);
@@ -2889,6 +2914,10 @@ weston_view_destroy(struct weston_view *view)
 	wl_list_remove(&view->surface_link);
 
 	free(view->internal_name);
+
+	if (view->pinned_output)
+		free(view->pinned_output);
+
 	free(view);
 }
 
@@ -4430,6 +4459,9 @@ weston_output_should_freeze(struct weston_output *output)
 	struct weston_paint_node *pnode;
 	struct timespec now;
 	bool has_desktop_surface = false;
+
+	if (output->freezing)
+		return true;
 
 	weston_compositor_read_presentation_clock(output->compositor, &now);
 
@@ -6816,7 +6848,7 @@ weston_compositor_call_heads_changed(void *data)
  * \ingroup compositor
  * \internal
  */
-static void
+WL_EXPORT void
 weston_compositor_schedule_heads_changed(struct weston_compositor *compositor)
 {
 	struct wl_event_loop *loop;
@@ -7722,7 +7754,8 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 	wl_list_for_each(output, &compositor->output_list, link) {
 		struct weston_coord_global pos;
 
-		if (output->destroying || output->mirror_of)
+		if (output->destroying || output->mirror_of ||
+		    output->fixed_position)
 			continue;
 
 		pos.c = weston_coord(next_x, next_y);
@@ -8586,6 +8619,10 @@ weston_output_set_transform(struct weston_output *output,
 
 	weston_compositor_reflow_outputs(output->compositor);
 
+	/* Notify clients of the change for output size */
+	wl_signal_emit(&output->compositor->output_resized_signal,
+		       output);
+
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
 		wl_resource_for_each(resource, &head->resource_list) {
@@ -8900,6 +8937,8 @@ weston_output_init(struct weston_output *output,
 	output->current_scale = 0;
 	/* Can't use -1 on uint32_t and 0 is valid enum value */
 	output->transform = UINT32_MAX;
+
+	output->down_scale = 1.0f;
 
 	pixman_region32_init(&output->region);
 	wl_list_init(&output->mode_list);

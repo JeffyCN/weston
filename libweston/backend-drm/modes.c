@@ -641,6 +641,9 @@ drm_output_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 	if (b->virtual_width && b->virtual_height) {
 		mode->base.width = b->virtual_width;
 		mode->base.height = b->virtual_height;
+	} else if (output->base.fixed_size) {
+		mode->base.width = output->base.width;
+		mode->base.height = output->base.height;
 	}
 
 	mode->base.refresh = drm_refresh_rate_mHz(info);
@@ -868,7 +871,7 @@ update_head_from_connector(struct drm_head *head)
  * @param current_mode Mode currently being displayed on this output
  * @returns A mode from the output's mode list, or NULL if none available
  */
-static struct drm_mode *
+struct drm_mode *
 drm_output_choose_initial_mode(struct drm_device *device,
 			       struct drm_output *output,
 			       enum weston_drm_backend_output_mode mode,
