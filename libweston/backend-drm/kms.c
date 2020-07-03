@@ -1405,6 +1405,15 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 		struct drm_output *output = output_state->output;
 		int ret;
 
+		if (output_state->dpms != WESTON_DPMS_ON) {
+			output->state_invalid = true;
+			drm_output_assign_state(output_state,
+						DRM_STATE_APPLY_SYNC);
+			weston_output_finish_frame(&output->base, NULL,
+						   WP_PRESENTATION_FEEDBACK_INVALID);
+			continue;
+		}
+
 		if (output->virtual) {
 			drm_output_assign_state(output_state,
 						DRM_STATE_APPLY_ASYNC);
