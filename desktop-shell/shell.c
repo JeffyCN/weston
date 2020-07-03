@@ -48,6 +48,9 @@
 #define DEFAULT_NUM_WORKSPACES 1
 #define DEFAULT_WORKSPACE_CHANGE_ANIMATION_LENGTH 200
 
+static void
+set_maximized_position(struct desktop_shell *shell, struct shell_surface *shsurf);
+
 struct focus_state {
 	struct desktop_shell *shell;
 	struct weston_seat *seat;
@@ -268,22 +271,31 @@ set_shsurf_size_maximized_or_fullscreen(struct shell_surface *shsurf,
 {
 	int width = 0; int height = 0;
 
-	if (!weston_output_valid(shsurf->output))
+	if (!weston_output_valid(shsurf->output)) {
+		struct weston_coord_global pos;
+		pos.c = weston_coord(0, 0);
+		weston_view_set_position(shsurf->view, pos);
 		return;
+	}
 
 	if (fullscreen_requested) {
 		width = shsurf->output->width;
 		height = shsurf->output->height;
+
+		weston_view_set_position(shsurf->view, shsurf->output->pos);
 	} else if (max_requested) {
 		/* take the panels into considerations */
 		get_maximized_size(shsurf, &width, &height);
+
+		set_maximized_position(shsurf->shell, shsurf);
 	}
 
 	/* (0, 0) means we're back from one of the maximized/fullcreen states */
 	weston_desktop_surface_set_size(shsurf->desktop_surface, width, height);
 
-	if (shsurf->committed_width != width &&
-	    shsurf->committed_height != height)
+	if (shsurf->shell->compositor->view_list_needs_rebuild ||
+	    (shsurf->committed_width != width &&
+	    shsurf->committed_height != height))
 		shsurf->output->resizing = true;
 }
 
@@ -972,6 +984,12 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 	if (!shsurf || !shsurf->desktop_surface || !move->active)
 		return;
 
+	/* Ignore pinned output when grabbing. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
+
 	pos = weston_coord_global_add(grab->touch->grab_pos, move->delta);
 	pos.c = weston_coord_truncate(pos.c);
 	weston_view_set_position(shsurf->view, pos);
@@ -1098,6 +1116,12 @@ move_grab_motion(struct weston_pointer_grab *grab,
 	if (!shsurf || !shsurf->desktop_surface)
 		return;
 
+	/* Ignore pinned output when grabbing. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
+
 	pos = constrain_position(move);
 	weston_view_set_position(shsurf->view, pos);
 }
@@ -1222,6 +1246,12 @@ tablet_tool_move_grab_motion(struct weston_tablet_tool_grab *grab,
 
 	if (!shsurf)
 		return;
+
+	/* Ignore pinned output when grabbing. */
+	if (shsurf->view && shsurf->view->pinned_output) {
+		free(shsurf->view->pinned_output);
+		shsurf->view->pinned_output = NULL;
+	}
 
 	pos.c.x += wl_fixed_to_double(move->dx);
 	pos.c.y += wl_fixed_to_double(move->dy);
@@ -1713,8 +1743,6 @@ shell_surface_set_output(struct shell_surface *shsurf,
 		shsurf->output = output;
 	else if (es->output)
 		shsurf->output = es->output;
-	else
-		shsurf->output = weston_shell_utils_get_default_output(es->compositor);
 
 	if (shsurf->output_destroy_listener.notify) {
 		wl_list_remove(&shsurf->output_destroy_listener.link);
@@ -4076,6 +4104,7 @@ weston_view_set_initial_position(struct weston_view *view,
 	int32_t range_x, range_y;
 	int32_t x, y;
 	struct weston_output *output, *target_output = NULL;
+	struct weston_output *preferred_output = NULL;
 	struct weston_seat *seat;
 	pixman_rectangle32_t area;
 	struct weston_coord_global pos;
@@ -4102,15 +4131,19 @@ weston_view_set_initial_position(struct weston_view *view,
 		}
 	}
 
-	wl_list_for_each(output, &compositor->output_list, link) {
+	wl_list_for_each_reverse(output, &compositor->output_list, link) {
 		if (!weston_output_valid(output))
 			continue;
 
-		if (weston_output_contains_coord(output, pos)) {
+		if (weston_output_preferred(output))
+			preferred_output = output;
+
+		if (weston_output_contains_coord(output, pos))
 			target_output = output;
-			break;
-		}
 	}
+
+	if (preferred_output)
+		target_output = preferred_output;
 
 	if (!target_output) {
 		pos.c = weston_coord(10 + random() % 400,
@@ -4532,6 +4565,12 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	if (!visible) {
 		struct weston_coord_global pos;
 
+		if (ec->pin_output && view->pinned_output)
+			return;
+
+		if (shsurf->state.fullscreen || shsurf->state.maximized)
+			return;
+
 		first_output = container_of(ec->output_list.next,
 					    struct weston_output, link);
 
@@ -4647,6 +4686,12 @@ handle_output_resized(struct wl_listener *listener, void *data)
 	if (!sh_output)
 		return;
 
+	if (shell->lock_surface) {
+		struct weston_coord_surface offset =
+			 weston_coord_surface(0, 0, shell->lock_surface);
+		shell->lock_surface->committed(shell->lock_surface, offset);
+	}
+
 	handle_output_resized_shsurfs(shell);
 
 	shell_resize_surface_to_output(shell, sh_output->background_surface, output);
@@ -4700,7 +4745,9 @@ handle_output_move_layer(struct desktop_shell *shell,
 		pos = weston_coord_global_add(
 		      weston_view_get_pos_offset_global(view),
 		      output->move);
-		weston_view_set_position(view, pos);
+		if (pixman_region32_contains_point(&output->region,
+						   pos.c.x, pos.c.y, NULL))
+			weston_view_set_position(view, pos);
 	}
 }
 
@@ -4728,6 +4775,9 @@ handle_output_move(struct wl_listener *listener, void *data)
 		handle_output_move_layer(shell, &shell->background_layer, data);
 		handle_output_move_layer(shell, &shell->panel_layer, data);
 	}
+
+	/* HACK: For updating fullscreen/maximized views' position */
+	handle_output_resized_shsurfs(shell);
 }
 
 static void
