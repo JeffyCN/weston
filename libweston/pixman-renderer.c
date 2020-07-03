@@ -40,7 +40,13 @@
 #include "shared/weston-drm-fourcc.h"
 #include "shared/xalloc.h"
 
+#include <string.h>
+#include <unistd.h>
+#include <sys/mman.h>
 #include <linux/input.h>
+
+#include "linux-dmabuf.h"
+#include "linux-dmabuf-unstable-v1-server-protocol.h"
 
 struct pixman_output_state {
 	pixman_image_t *shadow_image;
@@ -86,6 +92,13 @@ struct pixman_renderer {
 	struct weston_binding *debug_binding;
 
 	struct wl_signal destroy_signal;
+
+	struct weston_drm_format_array supported_dmabuf_formats;
+};
+
+struct dmabuf_data {
+	void *ptr;
+	size_t size;
 };
 
 static inline struct pixman_output_state *
@@ -311,7 +324,8 @@ repaint_region(struct weston_paint_node *pnode,
 	else
 		filter = PIXMAN_FILTER_NEAREST;
 
-	if (ps->buffer_ref.buffer)
+	if (ps->buffer_ref.buffer &&
+	    ps->buffer_ref.buffer->type == WESTON_BUFFER_SHM)
 		wl_shm_buffer_begin_access(ps->buffer_ref.buffer->shm_buffer);
 
 	if (pnode->view_alpha < 1.0) {
@@ -331,7 +345,8 @@ repaint_region(struct weston_paint_node *pnode,
 	if (mask_image)
 		pixman_image_unref(mask_image);
 
-	if (ps->buffer_ref.buffer)
+	if (ps->buffer_ref.buffer &&
+	    ps->buffer_ref.buffer->type == WESTON_BUFFER_SHM)
 		wl_shm_buffer_end_access(ps->buffer_ref.buffer->shm_buffer);
 
 	if (pr->repaint_debug)
@@ -711,12 +726,190 @@ pixman_renderer_surface_set_color(struct weston_surface *es,
 }
 
 static void
+pixman_renderer_destroy_dmabuf(struct linux_dmabuf_buffer *dmabuf)
+{
+	struct dmabuf_data *data = dmabuf->user_data;
+	linux_dmabuf_buffer_set_user_data(dmabuf, NULL, NULL);
+
+	if (data) {
+		if (data->ptr)
+			munmap(data->ptr, data->size);
+
+		free(data);
+	}
+}
+
+static bool
+pixman_renderer_prepare_dmabuf(struct linux_dmabuf_buffer *dmabuf)
+{
+	struct dmabuf_attributes *attributes = &dmabuf->attributes;
+	struct dmabuf_data *data;
+	size_t total_size, vstride0;
+	int i;
+
+	/* Only support linear or implicit modifiers */
+	if (attributes->modifier != DRM_FORMAT_MOD_INVALID &&
+	    attributes->modifier != DRM_FORMAT_MOD_LINEAR)
+		return false;
+
+	/* reject all flags we do not recognize or handle */
+	if (attributes->flags & ~ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT)
+		return false;
+
+	if (attributes->n_planes <= 0)
+		return false;
+
+	total_size = lseek(attributes->fd[0], 0, SEEK_END);
+
+	/* For single plane, assume it's contiguous */
+	if (attributes->n_planes == 1)
+		goto out;
+
+	vstride0 = (attributes->offset[1] - attributes->offset[0]) /
+		attributes->stride[0];
+
+	for (i = 1; i < attributes->n_planes; i++) {
+		size_t size = attributes->offset[i] - attributes->offset[i - 1];
+		size_t vstride = size / attributes->stride[i - 1];
+
+		/* Check for non-contiguous or overlapping planes */
+		if (size <= 0 || vstride <= 0 ||
+		    attributes->offset[i - 1] + size > total_size)
+			return false;
+
+		/* Check for consistent strides for YUV formats */
+		if ((vstride != vstride0 && vstride != vstride0 / 2) ||
+		    (attributes->stride[i] != attributes->stride[0] &&
+		     attributes->stride[i] != attributes->stride[0] / 2))
+			return false;
+	}
+
+out:
+	/* Handle contiguous dmabuf - map it for pixman access */
+
+	data = zalloc(sizeof *data);
+	if (!data)
+		return false;
+
+	linux_dmabuf_buffer_set_user_data(dmabuf, data,
+					  pixman_renderer_destroy_dmabuf);
+
+	data->size = total_size;
+	data->ptr = mmap(NULL, data->size, PROT_READ,
+			 MAP_SHARED, attributes->fd[0], 0);
+	return data->ptr != MAP_FAILED;
+}
+
+static void
+pixman_renderer_attach_dmabuf(struct weston_surface *es,
+			      struct weston_buffer *buffer,
+			      struct linux_dmabuf_buffer *dmabuf)
+{
+	struct pixman_surface_state *ps = get_surface_state(es);
+	struct dmabuf_attributes *attributes = &dmabuf->attributes;
+	struct dmabuf_data *data;
+	pixman_format_code_t pixman_format;
+	size_t vstride;
+
+	data = linux_dmabuf_buffer_get_user_data(dmabuf);
+	if (!data || !data->ptr) {
+		weston_buffer_reference(&ps->buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
+		weston_buffer_release_reference(&ps->buffer_release_ref,
+						NULL);
+		return;
+	}
+
+	buffer->width = attributes->width;
+	buffer->height = attributes->height;
+
+	if (attributes->n_planes == 1)
+		vstride = attributes->height;
+	else
+		vstride = (attributes->offset[1] - attributes->offset[0]) /
+			attributes->stride[0];
+
+	switch (attributes->format) {
+	case DRM_FORMAT_RGBA8888:
+		pixman_format = PIXMAN_r8g8b8a8;
+		break;
+	case DRM_FORMAT_RGBX8888:
+		pixman_format = PIXMAN_r8g8b8x8;
+		break;
+	case DRM_FORMAT_BGRA8888:
+		pixman_format = PIXMAN_b8g8r8a8;
+		break;
+	case DRM_FORMAT_BGRX8888:
+		pixman_format = PIXMAN_b8g8r8x8;
+		break;
+	case DRM_FORMAT_ABGR8888:
+		pixman_format = PIXMAN_a8b8g8r8;
+		break;
+	case DRM_FORMAT_XBGR8888:
+		pixman_format = PIXMAN_x8b8g8r8;
+		break;
+	case DRM_FORMAT_BGR888:
+		pixman_format = PIXMAN_b8g8r8;
+		break;
+	case DRM_FORMAT_ARGB8888:
+		pixman_format = PIXMAN_a8r8g8b8;
+		break;
+	case DRM_FORMAT_XRGB8888:
+		pixman_format = PIXMAN_x8r8g8b8;
+		break;
+	case DRM_FORMAT_RGB888:
+		pixman_format = PIXMAN_r8g8b8;
+		break;
+	case DRM_FORMAT_YUYV:
+		pixman_format = PIXMAN_yuy2;
+		break;
+	case DRM_FORMAT_YVU420:
+		pixman_format = PIXMAN_yv12;
+		break;
+#ifdef HAVE_PIXMAN_I420
+	case DRM_FORMAT_YUV420:
+		pixman_format = PIXMAN_i420;
+		break;
+#endif
+#ifdef HAVE_PIXMAN_NV12
+	case DRM_FORMAT_NV12:
+		pixman_format = PIXMAN_nv12;
+		break;
+#endif
+#ifdef HAVE_PIXMAN_NV16
+	case DRM_FORMAT_NV16:
+		pixman_format = PIXMAN_nv16;
+		break;
+#endif
+	default:
+		weston_log("Unsupported dmabuf format\n");
+		weston_buffer_reference(&ps->buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
+		weston_buffer_release_reference(&ps->buffer_release_ref,
+						NULL);
+		return;
+	}
+
+	ps->image = pixman_image_create_bits(pixman_format,
+					     buffer->width, vstride,
+					     data->ptr + attributes->offset[0],
+					     attributes->stride[0]);
+
+	ps->buffer_destroy_listener.notify =
+		buffer_state_handle_buffer_destroy;
+	wl_signal_add(&buffer->destroy_signal,
+		      &ps->buffer_destroy_listener);
+}
+
+static void
 pixman_renderer_attach(struct weston_paint_node *pnode)
 {
 	struct weston_surface *es = pnode->surface;
+	struct weston_compositor *ec = es->compositor;
 	struct weston_buffer *buffer = pnode->surface->buffer_ref.buffer;
 	struct pixman_surface_state *ps = get_surface_state(es);
 	struct wl_shm_buffer *shm_buffer;
+	struct linux_dmabuf_buffer *dmabuf;
 	const struct pixel_format_info *pixel_info;
 
 	weston_buffer_reference(&ps->buffer_ref, buffer,
@@ -751,10 +944,16 @@ pixman_renderer_attach(struct weston_paint_node *pnode)
 	}
 
 	if (buffer->type != WESTON_BUFFER_SHM) {
-		weston_log("Pixman renderer supports only SHM buffers\n");
-		weston_buffer_reference(&ps->buffer_ref, NULL,
-					BUFFER_WILL_NOT_BE_ACCESSED);
-		weston_buffer_release_reference(&ps->buffer_release_ref, NULL);
+		if ((dmabuf = linux_dmabuf_buffer_get(ec, buffer->resource))) {
+			pixman_renderer_attach_dmabuf(es, buffer, dmabuf);
+		} else {
+			weston_log("unhandled buffer type!\n");
+			weston_buffer_reference(&ps->buffer_ref, NULL,
+						BUFFER_WILL_NOT_BE_ACCESSED);
+			weston_buffer_release_reference(&ps->buffer_release_ref,
+							NULL);
+		}
+
 		return;
 	}
 
@@ -866,6 +1065,9 @@ pixman_renderer_destroy(struct weston_compositor *ec)
 
 	wl_signal_emit(&pr->destroy_signal, pr);
 	weston_binding_destroy(pr->debug_binding);
+
+	weston_drm_format_array_fini(&pr->supported_dmabuf_formats);
+
 	free(pr);
 
 	ec->renderer = NULL;
@@ -1080,12 +1282,73 @@ debug_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 
 static struct pixman_renderer_interface pixman_renderer_interface;
 
+static bool
+pixman_renderer_import_dmabuf(struct weston_compositor *ec,
+			      struct linux_dmabuf_buffer *dmabuf)
+{
+	return pixman_renderer_prepare_dmabuf(dmabuf);
+}
+
+static const struct weston_drm_format_array *
+pixman_renderer_get_supported_dmabuf_formats(struct weston_compositor *ec)
+{
+	struct pixman_renderer *pr = get_renderer(ec);
+
+	return &pr->supported_dmabuf_formats;
+}
+
+static int
+populate_supported_dmabuf_formats(struct weston_compositor *ec,
+			   struct weston_drm_format_array *supported_dmabuf_formats)
+{
+	struct weston_drm_format *fmt;
+	int i, ret = 0;
+
+	/* TODO: support more formats */
+	static const int formats[] = {
+		DRM_FORMAT_ARGB8888,
+		DRM_FORMAT_XRGB8888,
+		DRM_FORMAT_RGBA8888,
+		DRM_FORMAT_RGBX8888,
+		DRM_FORMAT_ABGR8888,
+		DRM_FORMAT_XBGR8888,
+		DRM_FORMAT_BGRA8888,
+		DRM_FORMAT_BGRX8888,
+		DRM_FORMAT_YUYV,
+		DRM_FORMAT_YVU420,
+		DRM_FORMAT_YUV420,
+		DRM_FORMAT_NV12,
+		DRM_FORMAT_NV16,
+	};
+
+	int num_formats = ARRAY_LENGTH(formats);
+
+	for (i = 0; i < num_formats; i++) {
+		fmt = weston_drm_format_array_add_format(supported_dmabuf_formats,
+							 formats[i]);
+		if (!fmt) {
+			ret = -1;
+			goto out;
+		}
+
+		/* Always add DRM_FORMAT_MOD_INVALID, as EGL implementations
+		 * support implicit modifiers. */
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
+		if (ret < 0)
+			goto out;
+	}
+
+out:
+	return ret;
+}
+
 WL_EXPORT int
 pixman_renderer_init(struct weston_compositor *ec)
 {
 	struct pixman_renderer *renderer;
 	const struct pixel_format_info *pixel_info, *info_argb8888, *info_xrgb8888;
 	unsigned int i, num_formats;
+	int ret;
 
 	renderer = zalloc(sizeof *renderer);
 	if (renderer == NULL)
@@ -1111,6 +1374,15 @@ pixman_renderer_init(struct weston_compositor *ec)
 	ec->capabilities |= WESTON_CAP_ROTATION_ANY;
 	ec->capabilities |= WESTON_CAP_VIEW_CLIP_MASK;
 
+	weston_drm_format_array_init(&renderer->supported_dmabuf_formats);
+
+	ret = populate_supported_dmabuf_formats(ec, &renderer->supported_dmabuf_formats);
+	if (ret < 0) {
+		weston_drm_format_array_fini(&renderer->supported_dmabuf_formats);
+		free(renderer);
+		return -1;
+	}
+
 	renderer->debug_binding =
 		weston_compositor_add_debug_binding(ec, KEY_R,
 						    debug_binding, ec);
@@ -1132,6 +1404,11 @@ pixman_renderer_init(struct weston_compositor *ec)
 	}
 
 	wl_signal_init(&renderer->destroy_signal);
+
+	renderer->base.import_dmabuf = pixman_renderer_import_dmabuf;
+
+	renderer->base.get_supported_dmabuf_formats =
+		pixman_renderer_get_supported_dmabuf_formats;
 
 	return 0;
 }
