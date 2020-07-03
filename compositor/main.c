@@ -2144,6 +2144,20 @@ drm_backend_output_configure(struct weston_output *output,
 	}
 	free(s);
 
+	weston_config_section_get_string(section, "pos", &s, NULL);
+	if (s) {
+		if (sscanf(s, "%lf,%lf", &output->pos.c.x, &output->pos.c.y) == 2)
+			output->fixed_position = true;
+		free(s);
+	}
+
+	weston_config_section_get_string(section, "size", &s, NULL);
+	if (s) {
+		if (sscanf(s, "%dx%d", &output->width, &output->height) == 2)
+			output->fixed_size = true;
+		free(s);
+	}
+
 	if (api->set_mode(output, mode, modeline) < 0) {
 		weston_log("Cannot configure output \"%s\" using weston_drm_output_api.\n",
 			   output->name);
