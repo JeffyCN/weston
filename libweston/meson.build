@@ -88,6 +88,9 @@ subdir('desktop')
 subdir('shell-utils')
 
 dep_gbm = dependency('gbm', required: false, version: '>= 21.1.1')
+if dep_egl.found()
+	deps_libweston += [ dep_gbm ]
+endif
 
 if get_option('backend-vnc')
 	dep_pam = dependency('pam', required: false)
