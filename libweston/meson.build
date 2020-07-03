@@ -70,12 +70,10 @@ srcs_libweston = [
 	weston_direct_display_server_protocol_h,
 ]
 
-if get_option('renderer-gl')
-	dep_egl = dependency('egl', required: false)
-	if not dep_egl.found()
-		error('libweston + gl-renderer requires egl which was not found. Or, you can use \'-Drenderer-gl=false\'.')
-	endif
-	deps_libweston += dep_egl
+dep_egl = dependency('egl', required: false)
+dep_gbm = dependency('gbm', required: false)
+if dep_egl.found() and dep_gbm.found()
+	deps_libweston += [ dep_egl, dep_gbm ]
 endif
 
 lib_weston = shared_library(
