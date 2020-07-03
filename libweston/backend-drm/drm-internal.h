@@ -118,6 +118,9 @@
 /* Min duration between drm outputs update requests, to avoid glith */
 #define DRM_MIN_UPDATE_MS	1000
 
+#define WESTON_DRM_CONFIG_FILE	"/tmp/.weston_drm.conf"
+#define DRM_CONFIG_UPDATE_MS	100
+
 /**
  * Represents the values of an enum-type KMS property
  */
@@ -396,7 +399,6 @@ struct drm_backend {
 	struct wl_event_source *hotplug_timer;
 	bool pending_update;
 	int64_t last_update_ms;
-	int64_t resize_freeze_ms;
 
 	bool single_head;
 	bool head_fallback;
@@ -409,6 +411,9 @@ struct drm_backend {
 	int virtual_height;
 
 	bool mirror_mode;
+
+	struct wl_event_source *config_timer;
+	struct stat config_stat;
 };
 
 struct drm_mode {
@@ -640,6 +645,12 @@ struct drm_writeback {
 	struct weston_drm_format_array formats;
 };
 
+enum drm_head_state {
+	DRM_HEAD_DETECT,
+	DRM_HEAD_OFF,
+	DRM_HEAD_ON,
+};
+
 struct drm_head {
 	struct weston_head base;
 	struct drm_connector connector;
@@ -652,6 +663,8 @@ struct drm_head {
 
 	/* drm_output::disable_head */
 	struct wl_list disable_head_link;
+
+	enum drm_head_state state;
 };
 
 struct drm_crtc {
@@ -746,7 +759,12 @@ struct drm_output {
 
 	bool is_mirror;
 
+	bool freezing;
+	bool offscreen;
+
 	pixman_box32_t plane_bounds;
+
+	uint32_t original_transform;
 };
 
 void
@@ -861,6 +879,13 @@ drm_mode_list_destroy(struct drm_device *device, struct wl_list *mode_list);
 
 void
 drm_output_print_modes(struct drm_output *output);
+
+struct drm_mode *
+drm_output_choose_initial_mode(struct drm_device *device,
+			       struct drm_output *output,
+			       enum weston_drm_backend_output_mode mode,
+			       const char *modeline,
+			       const drmModeModeInfo *current_mode);
 
 int
 drm_output_set_mode(struct weston_output *base,
@@ -1076,3 +1101,12 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 	return NULL;
 }
 #endif
+
+inline static bool
+drm_head_is_connected(struct drm_head *head)
+{
+	if (!head || !head->connector.conn)
+		return false;
+
+	return head->connector.conn->connection == DRM_MODE_CONNECTED;
+}
