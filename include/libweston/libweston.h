@@ -603,6 +603,9 @@ struct weston_output {
 
 	/* Needs full buffer clear */
 	bool full_clear_needed;
+
+	/* Output is ready but waiting for first desktop surface */
+	bool lazy_ready;
 };
 
 enum weston_pointer_motion_mask {
@@ -1602,6 +1605,9 @@ struct weston_compositor {
 	/* Primary output dimensions for mirrors */
 	int32_t mirror_width;
 	int32_t mirror_height;
+
+	/* Delay output display until first desktop surface (warm-up) */
+	bool lazy_output_ready;
 };
 
 struct weston_solid_buffer_values {
