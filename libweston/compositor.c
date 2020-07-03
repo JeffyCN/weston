@@ -2950,7 +2950,14 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 	wl_list_init(&compositor->view_list);
 
 	wl_list_for_each(layer, &compositor->layer_list, link) {
+		bool system_layer = weston_compositor_is_system_layer(layer);
+
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+			if (compositor->warm_up && !system_layer) {
+				weston_log("seeing the first app\n");
+				compositor->warm_up = false;
+			}
+
 			view_list_add(compositor, view, output);
 		}
 	}
@@ -3005,6 +3012,11 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 
 	/* Rebuild the surface list and update surface transforms up front. */
 	weston_compositor_build_view_list(ec, output);
+
+	if (ec->warm_up) {
+		weston_log("holding display for the first app...\n");
+		return -1;
+	}
 
 	/* Find the highest protection desired for an output */
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
