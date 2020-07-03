@@ -711,6 +711,7 @@ usage(int error_code)
 		"  -f, --flight-rec-scopes=SCOPE\n\t\t\tSpecify log scopes to "
 			"subscribe to.\n\t\t\tCan specify multiple scopes, "
 			"each followed by comma\n"
+		"  -w, --warm-up\t\tHold display for the first app\n"
 		"  -h, --help\t\tThis help message\n\n");
 
 #if defined(BUILD_DRM_COMPOSITOR)
@@ -3943,6 +3944,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	bool wait_for_debugger = false;
 	struct wl_protocol_logger *protologger = NULL;
 
+	bool warm_up = false;
+
 	const struct weston_option core_options[] = {
 		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
 		{ WESTON_OPTION_STRING, "renderer", 0, &renderer },
@@ -3962,6 +3965,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		{ WESTON_OPTION_BOOLEAN, "debug", 0, &debug_protocol },
 		{ WESTON_OPTION_STRING, "logger-scopes", 'l', &log_scopes },
 		{ WESTON_OPTION_STRING, "flight-rec-scopes", 'f', &flight_rec_scopes },
+		{ WESTON_OPTION_BOOLEAN, "warm-up", 'w', &warm_up },
 	};
 
 	wl_list_init(&wet.layoutput_list);
@@ -4155,9 +4159,13 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	if (idle_time < 0)
 		idle_time = 300; /* default idle timeout, in seconds */
 
+	if (!warm_up)
+		weston_config_section_get_bool(section, "warm-up", &warm_up, false);
+
 	wet.compositor->idle_time = idle_time;
 	wet.compositor->default_pointer_grab = NULL;
 	wet.compositor->exit = handle_exit;
+	wet.compositor->warm_up = warm_up;
 
 	weston_compositor_log_capabilities(wet.compositor);
 
