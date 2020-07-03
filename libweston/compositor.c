@@ -179,6 +179,24 @@ weston_compositor_is_static_layer(struct weston_layer *layer)
 	}
 }
 
+static bool
+weston_compositor_is_system_layer(struct weston_layer *layer)
+{
+	if (!layer)
+		return false;
+
+	switch (layer->position) {
+	case WESTON_LAYER_POSITION_BACKGROUND:
+	case WESTON_LAYER_POSITION_UI:
+	case WESTON_LAYER_POSITION_LOCK:
+	case WESTON_LAYER_POSITION_CURSOR:
+	case WESTON_LAYER_POSITION_FADE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /** Send wl_output events for mode and scale changes
  *
  * \param head Send on all resources bound to this head.
@@ -3232,7 +3250,14 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 	wl_list_init(&compositor->view_list);
 
 	wl_list_for_each(layer, &compositor->layer_list, link) {
+		bool system_layer = weston_compositor_is_system_layer(layer);
+
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+			if (compositor->warm_up && !system_layer) {
+				weston_log("seeing the first app\n");
+				compositor->warm_up = false;
+			}
+
 			view_list_add(compositor, view, output);
 		}
 	}
@@ -3287,6 +3312,11 @@ weston_output_repaint(struct weston_output *output)
 
 	/* Rebuild the surface list and update surface transforms up front. */
 	weston_compositor_build_view_list(ec, output);
+
+	if (ec->warm_up) {
+		weston_log("holding display for the first app...\n");
+		return -1;
+	}
 
 	/* Find the highest protection desired for an output */
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
