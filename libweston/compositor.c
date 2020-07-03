@@ -3025,6 +3025,11 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 static void
 weston_output_schedule_repaint_reset(struct weston_output *output)
 {
+	if (output->idle_repaint_source) {
+		wl_event_source_remove(output->idle_repaint_source);
+		output->idle_repaint_source = NULL;
+	}
+
 	output->repaint_status = REPAINT_NOT_SCHEDULED;
 	TL_POINT(output->compositor, "core_repaint_exit_loop",
 		 TLP_OUTPUT(output), TLP_END);
@@ -3037,6 +3042,11 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now,
 	struct weston_compositor *compositor = output->compositor;
 	int ret = 0;
 	int64_t msec_to_repaint;
+
+	/* If we're sleeping, drop the repaint machinery entirely; we will
+	 * explicitly repaint it when we come back. */
+	if (output->freezing)
+		goto err;
 
 	/* We're not ready yet; come back to make a decision later. */
 	if (output->repaint_status != REPAINT_SCHEDULED)
@@ -3064,11 +3074,11 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now,
 	 * output. */
 	ret = weston_output_repaint(output, repaint_data);
 	weston_compositor_read_presentation_clock(compositor, now);
-	if (ret != 0)
+	if (ret < 0)
 		goto err;
 
-	output->repainted = true;
-	return ret;
+	output->repainted = !ret;
+	return 0;
 
 err:
 	weston_output_schedule_repaint_reset(output);
@@ -3121,7 +3131,7 @@ output_repaint_timer_handler(void *data)
 	struct weston_output *output;
 	struct timespec now;
 	void *repaint_data = NULL;
-	int ret = 0;
+	int ret = 0, repainted = 0;
 
 	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK)) {
 		usleep(DEFAULT_REPAINT_WINDOW * 1000);
@@ -3138,9 +3148,11 @@ output_repaint_timer_handler(void *data)
 		ret = weston_output_maybe_repaint(output, &now, repaint_data);
 		if (ret)
 			break;
+
+		repainted |= output->repainted;
 	}
 
-	if (ret == 0) {
+	if (ret == 0 && repainted) {
 		if (compositor->backend->repaint_flush)
 			ret = compositor->backend->repaint_flush(compositor,
 							 repaint_data);
@@ -6088,7 +6100,7 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 		wl_list_for_each(head, &output->head_list, output_link)
 			weston_head_update_global(head);
 
-		if (!weston_output_valid(output))
+		if (!weston_output_valid(output) || output->fixed_position)
 			continue;
 
 		x = next_x;
@@ -6535,6 +6547,9 @@ weston_output_set_transform(struct weston_output *output,
 
 	weston_compositor_reflow_outputs(output->compositor);
 
+	wl_signal_emit(&output->compositor->output_resized_signal,
+		       output);
+
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
 		wl_resource_for_each(resource, &head->resource_list) {
@@ -6667,6 +6682,8 @@ weston_output_init(struct weston_output *output,
 	/* Can't use -1 on uint32_t and 0 is valid enum value */
 	output->transform = UINT32_MAX;
 
+        output->down_scale = 1.0f;
+
 	pixman_region32_init(&output->damage);
 	pixman_region32_init(&output->region);
 	wl_list_init(&output->mode_list);
@@ -6759,11 +6776,8 @@ weston_output_create_heads_string(struct weston_output *output)
 WL_EXPORT int
 weston_output_enable(struct weston_output *output)
 {
-	struct weston_compositor *c = output->compositor;
-	struct weston_output *iterator;
 	struct weston_head *head;
 	char *head_names;
-	int x = 0, y = 0;
 
 	if (output->enabled) {
 		weston_log("Error: attempt to enable an enabled output '%s'\n",
@@ -6788,20 +6802,17 @@ weston_output_enable(struct weston_output *output)
 		assert(head->model);
 	}
 
-	iterator = container_of(c->output_list.prev,
-				struct weston_output, link);
-
-	if (!wl_list_empty(&c->output_list))
-		x = iterator->x + iterator->width;
-
 	/* Make sure the scale is set up */
 	assert(output->scale);
 
 	/* Make sure we have a transform set */
 	assert(output->transform != UINT32_MAX);
 
-	output->x = x;
-	output->y = y;
+	if (!output->fixed_position) {
+		output->x = 0;
+		output->y = 0;
+	}
+
 	output->original_scale = output->scale;
 
 	wl_signal_init(&output->frame_signal);
@@ -6810,8 +6821,7 @@ weston_output_enable(struct weston_output *output)
 	weston_output_transform_scale_init(output, output->transform, output->scale);
 	weston_output_init_zoom(output);
 
-	weston_output_init_geometry(output, x, y);
-	weston_output_damage(output);
+	weston_output_init_geometry(output, output->x, output->y);
 
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->feedback_list);
@@ -6837,6 +6847,8 @@ weston_output_enable(struct weston_output *output)
 	weston_log("Output '%s' enabled with head(s) %s\n",
 		   output->name, head_names);
 	free(head_names);
+
+	weston_compositor_reflow_outputs(output->compositor);
 
 	return 0;
 }
