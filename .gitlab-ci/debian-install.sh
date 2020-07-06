@@ -38,6 +38,8 @@ apt-get -y --no-install-recommends install \
 	doxygen \
 	freerdp2-dev \
 	git \
+	libasound2-dev \
+	libbluetooth-dev \
 	libcairo2-dev \
 	libcolord-dev \
 	libdbus-1-dev \
@@ -52,20 +54,23 @@ apt-get -y --no-install-recommends install \
 	libgstreamer1.0-dev \
 	libgstreamer-plugins-base1.0-dev \
 	libinput-dev \
+	libjack-jackd2-dev \
 	libjpeg-dev \
 	libjpeg-dev \
 	liblcms2-dev \
 	libmtdev-dev \
 	libpam0g-dev \
 	libpango1.0-dev \
-	libpipewire-0.2-dev \
 	libpixman-1-dev \
 	libpng-dev \
+	libpulse-dev \
+	libsbc-dev \
 	libsystemd-dev \
 	libtool \
 	libudev-dev \
 	libva-dev \
 	libvpx-dev \
+	libvulkan-dev \
 	libwayland-dev \
 	libwebp-dev \
 	libx11-dev \
@@ -145,6 +150,15 @@ meson build -Dauto_features=disabled \
 ninja -C build install
 cd ..
 rm -rf mesa
+
+rm -rf pipewire
+git clone --single-branch --branch master https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire
+cd pipewire
+git checkout -b snapshot db12f47505ddccb257acdc0fa2bb884aceb1b593
+meson build
+ninja -C build install
+cd ..
+rm -rf pipewire
 
 apt-get -y --autoremove purge $LINUX_DEV_PKGS
 apt-get -y --autoremove purge $MESA_DEV_PKGS
