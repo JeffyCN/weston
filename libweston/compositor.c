@@ -68,6 +68,7 @@
 #include "shared/os-compatibility.h"
 #include "shared/string-helpers.h"
 #include "shared/timespec-util.h"
+#include "shared/signal.h"
 #include "git-version.h"
 #include <libweston/version.h>
 #include <libweston/plugin-registry.h>
@@ -2308,7 +2309,7 @@ weston_surface_destroy(struct weston_surface *surface)
 
 	assert(surface->resource == NULL);
 
-	wl_signal_emit(&surface->destroy_signal, surface);
+	weston_signal_emit_mutable(&surface->destroy_signal, surface);
 
 	assert(wl_list_empty(&surface->subsurface_list_pending));
 	assert(wl_list_empty(&surface->subsurface_list));
