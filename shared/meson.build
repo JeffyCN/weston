@@ -1,11 +1,12 @@
 srcs_libshared = [
 	'config-parser.c',
 	'option-parser.c',
+	'signal.c',
 	'file-util.c',
 	'os-compatibility.c',
 	'xalloc.c',
 ]
-deps_libshared = dep_wayland_client
+deps_libshared = [dep_wayland_client, dep_wayland_server]
 
 lib_libshared = static_library(
 	'shared',
