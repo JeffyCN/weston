@@ -2534,7 +2534,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct dmabuf_image *image;
 	int i;
-	int ret;
 
 	if (!gr->has_dmabuf_import) {
 		linux_dmabuf_buffer_send_server_error(dmabuf,
@@ -2580,10 +2579,8 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	/* The dmabuf_image should have been created during the import */
 	assert(image != NULL);
 
-	for (i = 0; i < image->num_images; ++i) {
-		ret = egl_image_unref(image->images[i]);
-		assert(ret == 0);
-	}
+	for (i = 0; i < image->num_images; ++i)
+		egl_image_unref(image->images[i]);
 
 	if (!import_known_dmabuf(gr, image)) {
 		linux_dmabuf_buffer_send_server_error(dmabuf, "EGL dmabuf import failed");
