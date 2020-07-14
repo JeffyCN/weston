@@ -862,20 +862,6 @@ drm_output_propose_state(struct weston_output *output_base,
 			continue;
 		}
 
-		/* We only assign planes to views which are exclusively present
-		 * on our output. */
-		if (ev->output_mask != (1u << output->base.id)) {
-			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
-			             "(on multiple outputs)\n", ev);
-			force_renderer = true;
-		}
-
-		if (!weston_view_has_valid_buffer(ev)) {
-			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
-			             "(no buffer available)\n", ev);
-			force_renderer = true;
-		}
-
 		/* Ignore views we know to be totally occluded. */
 		pixman_region32_init(&clipped_view);
 		pixman_region32_intersect(&clipped_view,
@@ -895,6 +881,20 @@ drm_output_propose_state(struct weston_output *output_base,
 			pixman_region32_fini(&surface_overlap);
 			pixman_region32_fini(&clipped_view);
 			continue;
+		}
+
+		/* We only assign planes to views which are exclusively present
+		 * on our output. */
+		if (ev->output_mask != (1u << output->base.id)) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
+			             "(on multiple outputs)\n", ev);
+			force_renderer = true;
+		}
+
+		if (!weston_view_has_valid_buffer(ev)) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
+			             "(no buffer available)\n", ev);
+			force_renderer = true;
 		}
 
 		/* Since we process views from top to bottom, we know that if
