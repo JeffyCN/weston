@@ -71,7 +71,7 @@ if get_option('backend-drm-screencast-vaapi')
 	config_h.set('BUILD_VAAPI_RECORDER', '1')
 endif
 
-if get_option('remoting')
+if get_option('remoting') or get_option('pipewire')
 	if not get_option('renderer-gl')
 		warning('DRM virtual requires renderer-gl.')
 	endif

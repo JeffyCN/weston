@@ -92,6 +92,7 @@ build-native-meson-no-gl-renderer:
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
       -Drenderer-gl=false
       -Dremoting=false
+      -Dpipewire=false
       -Dwerror=true
   extends: .build-native-meson
 
