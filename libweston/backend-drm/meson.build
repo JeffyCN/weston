@@ -73,7 +73,7 @@ endif
 
 if get_option('remoting') or get_option('pipewire')
 	if not get_option('renderer-gl')
-		warning('DRM virtual requires renderer-gl.')
+		error('DRM virtual requires renderer-gl.')
 	endif
 	srcs_drm += 'drm-virtual.c'
 	config_h.set('BUILD_DRM_VIRTUAL', '1')
