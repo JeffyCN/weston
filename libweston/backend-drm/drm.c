@@ -259,6 +259,8 @@ drm_output_get_disable_state(struct drm_pending_state *pending_state,
 	return output_state;
 }
 
+static int
+drm_output_apply_mode(struct drm_output *output);
 
 /**
  * Mark a drm_output_state (the output's last state) as complete. This handles
@@ -287,18 +289,24 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 		output->destroy_pending = false;
 		output->disable_pending = false;
 		output->dpms_off_pending = false;
+		output->mode_switch_pending = false;
 		drm_output_destroy(&output->base);
 		return;
 	} else if (output->disable_pending) {
 		output->disable_pending = false;
 		output->dpms_off_pending = false;
+		output->mode_switch_pending = false;
 		weston_output_disable(&output->base);
 		return;
 	} else if (output->dpms_off_pending) {
 		struct drm_pending_state *pending = drm_pending_state_alloc(device);
 		output->dpms_off_pending = false;
+		output->mode_switch_pending = false;
 		drm_output_get_disable_state(pending, output);
 		drm_pending_state_apply_sync(pending);
+	} else if (output->mode_switch_pending) {
+		output->mode_switch_pending = false;
+		drm_output_apply_mode(output);
 	}
 	if (output->state_cur->dpms == WESTON_DPMS_OFF &&
 	    output->base.repaint_status != REPAINT_AWAITING_COMPLETION) {
@@ -687,8 +695,6 @@ static int
 drm_output_switch_mode(struct weston_output *output_base, struct weston_mode *mode)
 {
 	struct drm_output *output = to_drm_output(output_base);
-	struct drm_device *device = output->device;
-	struct drm_backend *b = device->backend;
 	struct drm_mode *drm_mode;
 
 	assert(output);
@@ -708,6 +714,20 @@ drm_output_switch_mode(struct weston_output *output_base, struct weston_mode *mo
 	output->base.current_mode = &drm_mode->base;
 	output->base.current_mode->flags =
 		WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
+
+	if (output->page_flip_pending || output->atomic_complete_pending) {
+		output->mode_switch_pending = true;
+		return 0;
+	}
+
+	return drm_output_apply_mode(output);
+}
+
+static int
+drm_output_apply_mode(struct drm_output *output)
+{
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 
 	/* XXX: This drops our current buffer too early, before we've started
 	 *      displaying it. Ideally this should be much more atomic and

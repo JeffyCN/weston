@@ -545,6 +545,7 @@ struct drm_output {
 	bool destroy_pending;
 	bool disable_pending;
 	bool dpms_off_pending;
+	bool mode_switch_pending;
 
 	uint32_t gbm_cursor_handle[2];
 	struct drm_fb *gbm_cursor_fb[2];
