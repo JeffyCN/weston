@@ -4630,6 +4630,9 @@ switcher_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 	struct switcher *switcher;
 
 	switcher = malloc(sizeof *switcher);
+	if (!switcher)
+		return;
+	
 	switcher->shell = shell;
 	switcher->current = NULL;
 	switcher->listener.notify = switcher_handle_view_destroy;
