@@ -1463,8 +1463,6 @@ init_kms_caps(struct drm_backend *b)
 		ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
 		b->universal_planes = (ret == 0);
 	}
-	weston_log("DRM: %s universal planes\n",
-		   b->universal_planes ? "supports" : "does not support");
 
 	if (b->universal_planes && !getenv("WESTON_DISABLE_ATOMIC")) {
 		ret = drmGetCap(b->drm.fd, DRM_CAP_CRTC_IN_VBLANK_EVENT, &cap);
