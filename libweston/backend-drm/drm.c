@@ -3031,10 +3031,10 @@ err_sprite:
 	destroy_sprites(b);
 err_udev_dev:
 	udev_device_unref(drm_device);
-err_launcher:
-	weston_launcher_destroy(compositor->launcher);
 err_udev:
 	udev_unref(b->udev);
+err_launcher:
+	weston_launcher_destroy(compositor->launcher);
 err_compositor:
 	weston_compositor_shutdown(compositor);
 	free(b);
