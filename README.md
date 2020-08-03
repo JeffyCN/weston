@@ -342,7 +342,7 @@ would be roughly like this:
 	+ desktop shell
 	+ ivi-shell
 	+ fullscreen shell
-	+ weston-info, weston-terminal, etc. we install by default
+	+ weston-info (deprecated), weston-terminal, etc. we install by default
 	+ screen-share
 
 - weston demos (not parallel-installable)
