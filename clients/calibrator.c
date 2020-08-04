@@ -106,6 +106,7 @@ finish_calibration (struct calibrator *calibrator)
 	struct weston_matrix m;
 	struct weston_matrix inverse;
 	struct weston_vector x_calib, y_calib;
+	struct rectangle allocation;
 	int i;
 
 
@@ -138,6 +139,14 @@ finish_calibration (struct calibrator *calibrator)
 	weston_matrix_transform(&inverse, &y_calib);
 
 	printf ("Calibration values: %f %f %f %f %f %f\n",
+		x_calib.f[0], x_calib.f[1], x_calib.f[2],
+		y_calib.f[0], y_calib.f[1], y_calib.f[2]);
+
+	widget_get_allocation(calibrator->widget, &allocation);
+	x_calib.f[2] /= allocation.width;
+	y_calib.f[2] /= allocation.height;
+
+	printf ("Final calibration values: %f %f %f %f %f %f\n",
 		x_calib.f[0], x_calib.f[1], x_calib.f[2],
 		y_calib.f[0], y_calib.f[1], y_calib.f[2]);
 
