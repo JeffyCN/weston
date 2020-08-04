@@ -627,6 +627,35 @@ evdev_device_set_calibration(struct evdev_device *device)
 		return;
 	}
 
+	calibration_values = getenv("WESTON_TOUCH_CALIBRATION");
+	if (calibration_values) {
+		const char *values;
+		char prefix[256];
+
+		snprintf(prefix, sizeof(prefix), "%s:",
+			 libinput_device_get_name(device->device));
+		if ((values = strstr(calibration_values, prefix))) {
+			values += strlen(prefix);
+		} else {
+			snprintf(prefix, sizeof(prefix), "%s:", sysname);
+			if ((values = strstr(calibration_values, prefix)))
+				values += strlen(prefix);
+			else
+				values = calibration_values;
+		}
+
+		if ((sscanf(values, "%f %f %f %f %f %f",
+			    &calibration.m[0],
+			    &calibration.m[1],
+			    &calibration.m[2],
+			    &calibration.m[3],
+			    &calibration.m[4],
+			    &calibration.m[5]) == 6)) {
+			do_set_calibration(device, &calibration);
+			return;
+		}
+	}
+
 	width = device->output->width;
 	height = device->output->height;
 	if (width == 0 || height == 0)
