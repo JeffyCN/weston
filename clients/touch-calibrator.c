@@ -772,15 +772,19 @@ touch_device_handler(void *data, struct weston_touch_calibration *c,
 
 	if (!cal->match_name) {
 		printf("device \"%s\" - head \"%s\"\n", device, head);
+
+		if (!cal->device_name)
+			cal->device_name = strdup(device);
 		return;
 	}
 
-	if (cal->device_name)
-		return;
-
 	if (strcmp(cal->match_name, device) == 0 ||
-	    strcmp(cal->match_name, head) == 0)
+	    strcmp(cal->match_name, head) == 0) {
+		if (cal->device_name)
+			free(cal->device_name);
+
 		cal->device_name = strdup(device);
+	}
 }
 
 struct weston_touch_calibration_listener touch_calibration_listener = {
