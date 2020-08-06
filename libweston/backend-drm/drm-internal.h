@@ -668,16 +668,6 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 int
 on_drm_input(int fd, uint32_t mask, void *data);
 
-struct drm_plane_state *
-drm_output_state_get_existing_plane(struct drm_output_state *state_output,
-				    struct drm_plane *plane);
-void
-drm_plane_state_free(struct drm_plane_state *state, bool force);
-void
-drm_output_state_free(struct drm_output_state *state);
-void
-drm_pending_state_free(struct drm_pending_state *pending_state);
-
 struct drm_fb *
 drm_fb_ref(struct drm_fb *fb);
 void
