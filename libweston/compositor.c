@@ -2491,8 +2491,9 @@ view_accumulate_damage(struct weston_view *view,
 }
 
 static void
-compositor_accumulate_damage(struct weston_compositor *ec)
+output_accumulate_damage(struct weston_output *output)
 {
+	struct weston_compositor *ec = output->compositor;
 	struct weston_plane *plane;
 	struct weston_view *ev;
 	pixman_region32_t opaque, clip;
@@ -2521,6 +2522,9 @@ compositor_accumulate_damage(struct weston_compositor *ec)
 		ev->surface->touched = false;
 
 	wl_list_for_each(ev, &ec->view_list, link) {
+		/* Ignore views not visible on the current output */
+		if (!(ev->output_mask & (1u << output->id)))
+			continue;
 		if (ev->surface->touched)
 			continue;
 		ev->surface->touched = true;
@@ -2763,7 +2767,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 		}
 	}
 
-	compositor_accumulate_damage(ec);
+	output_accumulate_damage(output);
 
 	pixman_region32_init(&output_damage);
 	pixman_region32_intersect(&output_damage,
