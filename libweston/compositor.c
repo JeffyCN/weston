@@ -7145,8 +7145,7 @@ debug_scene_view_print(FILE *fp, struct weston_view *view, int view_idx)
 		box->x1, box->y1, box->x2, box->y2);
 	box = pixman_region32_extents(&view->transform.opaque);
 
-	if (pixman_region32_equal(&view->transform.opaque,
-				  &view->transform.boundingbox)) {
+	if (weston_view_is_opaque(view, &view->transform.boundingbox)) {
 		fprintf(fp, "\t\t[fully opaque]\n");
 	} else if (!pixman_region32_not_empty(&view->transform.opaque)) {
 		fprintf(fp, "\t\t[not opaque]\n");
