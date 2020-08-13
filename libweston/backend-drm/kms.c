@@ -1080,7 +1080,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 	if (b->state_invalid) {
 		struct weston_head *head_base;
 		struct drm_head *head;
-		uint32_t *unused;
+		struct drm_crtc *crtc;
 		int err;
 
 		drm_debug(b, "\t\t[atomic] previous state invalid; "
@@ -1112,59 +1112,38 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 				ret = -1;
 		}
 
-		wl_array_for_each(unused, &b->unused_crtcs) {
-			struct drm_property_info infos[WDRM_CRTC__COUNT];
+		wl_list_for_each(crtc, &b->crtc_list, link) {
 			struct drm_property_info *info;
 			drmModeObjectProperties *props;
 			uint64_t active;
 
-			memset(infos, 0, sizeof(infos));
+			/* Ignore CRTCs that are in use */
+			if (crtc->output)
+				continue;
 
 			/* We can't emit a disable on a CRTC that's already
 			 * off, as the kernel will refuse to generate an event
 			 * for an off->off state and fail the commit.
 			 */
 			props = drmModeObjectGetProperties(b->drm.fd,
-							   *unused,
+							   crtc->crtc_id,
 							   DRM_MODE_OBJECT_CRTC);
 			if (!props) {
 				ret = -1;
 				continue;
 			}
 
-			drm_property_info_populate(b, crtc_props, infos,
-						   WDRM_CRTC__COUNT,
-						   props);
-
-			info = &infos[WDRM_CRTC_ACTIVE];
+			info = &crtc->props_crtc[WDRM_CRTC_ACTIVE];
 			active = drm_property_get_value(info, props, 0);
 			drmModeFreeObjectProperties(props);
-			if (active == 0) {
-				drm_property_info_free(infos, WDRM_CRTC__COUNT);
+			if (active == 0)
 				continue;
-			}
 
 			drm_debug(b, "\t\t[atomic] disabling unused CRTC %lu\n",
-				  (unsigned long) *unused);
+				  (unsigned long) crtc->crtc_id);
 
-			drm_debug(b, "\t\t\t[CRTC:%lu] %lu (%s) -> 0\n",
-				  (unsigned long) *unused,
-				  (unsigned long) info->prop_id, info->name);
-			err = drmModeAtomicAddProperty(req, *unused,
-						       info->prop_id, 0);
-			if (err <= 0)
-				ret = -1;
-
-			info = &infos[WDRM_CRTC_MODE_ID];
-			drm_debug(b, "\t\t\t[CRTC:%lu] %lu (%s) -> 0\n",
-				  (unsigned long) *unused,
-				  (unsigned long) info->prop_id, info->name);
-			err = drmModeAtomicAddProperty(req, *unused,
-						       info->prop_id, 0);
-			if (err <= 0)
-				ret = -1;
-
-			drm_property_info_free(infos, WDRM_CRTC__COUNT);
+			ret |= crtc_add_prop(req, crtc, WDRM_CRTC_ACTIVE, 0);
+			ret |= crtc_add_prop(req, crtc, WDRM_CRTC_MODE_ID, 0);
 		}
 
 		/* Disable all the planes; planes which are being used will
@@ -1266,7 +1245,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 {
 	struct drm_backend *b = pending_state->backend;
 	struct drm_output_state *output_state, *tmp;
-	uint32_t *unused;
+	struct drm_crtc *crtc;
 
 	if (b->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
@@ -1278,9 +1257,12 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 		 * disable all the CRTCs we aren't using. This also disables
 		 * all connectors on these CRTCs, so we don't need to do that
 		 * separately with the pre-atomic API. */
-		wl_array_for_each(unused, &b->unused_crtcs)
-			drmModeSetCrtc(b->drm.fd, *unused, 0, 0, 0, NULL, 0,
-				       NULL);
+		wl_list_for_each(crtc, &b->crtc_list, link) {
+			if (crtc->output)
+				continue;
+			drmModeSetCrtc(b->drm.fd, crtc->crtc_id, 0, 0, 0,
+				       NULL, 0, NULL);
+		}
 	}
 
 	wl_list_for_each_safe(output_state, tmp, &pending_state->output_list,
@@ -1322,7 +1304,7 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 {
 	struct drm_backend *b = pending_state->backend;
 	struct drm_output_state *output_state, *tmp;
-	uint32_t *unused;
+	struct drm_crtc *crtc;
 
 	if (b->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
@@ -1334,9 +1316,12 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 		 * disable all the CRTCs we aren't using. This also disables
 		 * all connectors on these CRTCs, so we don't need to do that
 		 * separately with the pre-atomic API. */
-		wl_array_for_each(unused, &b->unused_crtcs)
-			drmModeSetCrtc(b->drm.fd, *unused, 0, 0, 0, NULL, 0,
-				       NULL);
+		wl_list_for_each(crtc, &b->crtc_list, link) {
+			if (crtc->output)
+				continue;
+			drmModeSetCrtc(b->drm.fd, crtc->crtc_id, 0, 0, 0,
+				       NULL, 0, NULL);
+		}
 	}
 
 	wl_list_for_each_safe(output_state, tmp, &pending_state->output_list,

@@ -278,9 +278,6 @@ struct drm_backend {
 	/* drm_crtc::link */
 	struct wl_list crtc_list;
 
-	/* CRTC IDs not used by any enabled output. */
-	struct wl_array unused_crtcs;
-
 	bool sprites_are_broken;
 	bool cursors_are_broken;
 

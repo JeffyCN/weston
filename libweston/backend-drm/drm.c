@@ -123,26 +123,6 @@ drm_backend_create_faked_zpos(struct drm_backend *b)
 	}
 }
 
-static void
-wl_array_remove_uint32(struct wl_array *array, uint32_t elm)
-{
-	uint32_t *pos, *end;
-
-	end = (uint32_t *) ((char *) array->data + array->size);
-
-	wl_array_for_each(pos, array) {
-		if (*pos != elm)
-			continue;
-
-		array->size -= sizeof(*pos);
-		if (pos + 1 == end)
-			break;
-
-		memmove(pos, pos + 1, (char *) end -  (char *) (pos + 1));
-		break;
-	}
-}
-
 static int
 pageflip_timeout(void *data) {
 	/*
@@ -1714,7 +1694,6 @@ drm_output_attach_crtc(struct drm_output *output)
 
 	/* Reserve the CRTC for the output */
 	output->crtc->output = output;
-	wl_array_remove_uint32(&b->unused_crtcs, output->crtc->crtc_id);
 
 	return 0;
 }
@@ -1730,7 +1709,6 @@ drm_output_detach_crtc(struct drm_output *output)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct drm_crtc *crtc = output->crtc;
-	uint32_t *unused;
 
 	/* If the compositor is already shutting down, the planes have already
 	 * been destroyed. */
@@ -1756,9 +1734,6 @@ drm_output_detach_crtc(struct drm_output *output)
 				drm_plane_reset_state(output->scanout_plane);
 		}
 	}
-
-	unused = wl_array_add(&b->unused_crtcs, sizeof(*unused));
-	*unused = crtc->crtc_id;
 
 	/* Force resetting unused CRTCs */
 	b->state_invalid = true;
@@ -1913,39 +1888,6 @@ drm_output_disable(struct weston_output *base)
 	output->disable_pending = false;
 
 	return 0;
-}
-
-/**
- * Update the list of unused connectors and CRTCs
- *
- * This keeps the unused_crtc arrays up to date.
- *
- * @param b Weston backend structure
- * @param resources DRM resources for this device
- */
-static void
-drm_backend_update_unused_outputs(struct drm_backend *b, drmModeRes *resources)
-{
-	int i;
-
-	wl_array_release(&b->unused_crtcs);
-	wl_array_init(&b->unused_crtcs);
-
-	for (i = 0; i < resources->count_crtcs; i++) {
-		struct drm_output *output = NULL;
-		struct drm_crtc *crtc;
-		uint32_t *crtc_id;
-
-		crtc = drm_crtc_find(b, resources->crtcs[i]);
-		if (crtc)
-			output = crtc->output;
-
-		if (output && output->base.enabled)
-			continue;
-
-		crtc_id = wl_array_add(&b->unused_crtcs, sizeof(*crtc_id));
-		*crtc_id = resources->crtcs[i];
-	}
 }
 
 /*
@@ -2274,8 +2216,6 @@ drm_backend_create_heads(struct drm_backend *b, struct udev_device *drm_device)
 		}
 	}
 
-	drm_backend_update_unused_outputs(b, resources);
-
 	drmModeFreeResources(resources);
 
 	return 0;
@@ -2331,8 +2271,6 @@ drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
 			   head->base.name, head->connector_id);
 		drm_head_destroy(head);
 	}
-
-	drm_backend_update_unused_outputs(b, resources);
 
 	drmModeFreeResources(resources);
 }
@@ -2487,8 +2425,6 @@ drm_destroy(struct weston_compositor *ec)
 	udev_unref(b->udev);
 
 	weston_launcher_destroy(ec->launcher);
-
-	wl_array_release(&b->unused_crtcs);
 
 	close(b->drm.fd);
 	free(b->drm.filename);
@@ -2902,7 +2838,6 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	b->state_invalid = true;
 	b->drm.fd = -1;
-	wl_array_init(&b->unused_crtcs);
 
 	b->compositor = compositor;
 	b->use_pixman = config->use_pixman;
