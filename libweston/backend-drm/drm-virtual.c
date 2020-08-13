@@ -38,6 +38,49 @@
 #include "drm-internal.h"
 #include "renderer-gl/gl-renderer.h"
 
+#define POISON_PTR ((void *)8)
+
+/**
+ * Create a drm_crtc for virtual output
+ *
+ * It will leave its ID and pipe zeroed, as virtual outputs should not use real
+ * CRTC's. Also, as this is a fake CRTC, it will not try to populate props.
+ */
+static struct drm_crtc *
+drm_virtual_crtc_create(struct drm_backend *b, struct drm_output *output)
+{
+	struct drm_crtc *crtc;
+
+	crtc = zalloc(sizeof(*crtc));
+	if (!crtc)
+		return NULL;
+
+	crtc->backend = b;
+	crtc->output = output;
+
+	crtc->crtc_id = 0;
+	crtc->pipe = 0;
+
+	/* Poisoning the pointers as CRTC's of virtual outputs should not be
+         * added to the DRM-backend CRTC list. With this we can assure (in
+         * function drm_virtual_crtc_destroy()) that this did not happen. */
+	crtc->link.prev = POISON_PTR;
+	crtc->link.next = POISON_PTR;
+
+	return crtc;
+}
+
+/**
+ * Destroy drm_crtc created by drm_virtual_crtc_create()
+ */
+static void
+drm_virtual_crtc_destroy(struct drm_crtc *crtc)
+{
+	assert(crtc->link.prev == POISON_PTR);
+	assert(crtc->link.next == POISON_PTR);
+	free(crtc);
+}
+
 /**
  * Create a drm_plane for virtual output
  *
@@ -184,6 +227,7 @@ drm_virtual_output_deinit(struct weston_output *base)
 	drm_output_fini_egl(output);
 
 	drm_virtual_plane_destroy(output->scanout_plane);
+	drm_virtual_crtc_destroy(output->crtc);
 }
 
 static void
@@ -267,10 +311,17 @@ static struct weston_output *
 drm_virtual_output_create(struct weston_compositor *c, char *name)
 {
 	struct drm_output *output;
+	struct drm_backend *b = to_drm_backend(c);
 
 	output = zalloc(sizeof *output);
 	if (!output)
 		return NULL;
+
+	output->crtc = drm_virtual_crtc_create(b, output);
+	if (!output->crtc) {
+		free(output);
+		return NULL;
+	}
 
 	output->virtual = true;
 	output->gbm_bo_flags = GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING;

@@ -208,17 +208,17 @@ drm_plane_is_available(struct drm_plane *plane, struct drm_output *output)
 
 	/* Check whether the plane can be used with this CRTC; possible_crtcs
 	 * is a bitmask of CRTC indices (pipe), rather than CRTC object ID. */
-	return !!(plane->possible_crtcs & (1 << output->pipe));
+	return !!(plane->possible_crtcs & (1 << output->crtc->pipe));
 }
 
-struct drm_output *
-drm_output_find_by_crtc(struct drm_backend *b, uint32_t crtc_id)
+struct drm_crtc *
+drm_crtc_find(struct drm_backend *b, uint32_t crtc_id)
 {
-	struct drm_output *output;
+	struct drm_crtc *crtc;
 
-	wl_list_for_each(output, &b->compositor->output_list, base.link) {
-		if (output->crtc_id == crtc_id)
-			return output;
+	wl_list_for_each(crtc, &b->crtc_list, link) {
+		if (crtc->crtc_id == crtc_id)
+			return crtc;
 	}
 
 	return NULL;
@@ -506,12 +506,12 @@ err:
  * using DRM_BLANK_HIGH_CRTC_MASK.
  */
 static unsigned int
-drm_waitvblank_pipe(struct drm_output *output)
+drm_waitvblank_pipe(struct drm_crtc *crtc)
 {
-	if (output->pipe > 1)
-		return (output->pipe << DRM_VBLANK_HIGH_CRTC_SHIFT) &
+	if (crtc->pipe > 1)
+		return (crtc->pipe << DRM_VBLANK_HIGH_CRTC_SHIFT) &
 				DRM_VBLANK_HIGH_CRTC_MASK;
-	else if (output->pipe > 0)
+	else if (crtc->pipe > 0)
 		return DRM_VBLANK_SECONDARY;
 	else
 		return 0;
@@ -552,7 +552,7 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 	assert(scanout_plane->state_cur->output == output);
 
 	/* Try to get current msc and timestamp via instant query */
-	vbl.request.type |= drm_waitvblank_pipe(output);
+	vbl.request.type |= drm_waitvblank_pipe(output->crtc);
 	ret = drmWaitVBlank(backend->drm.fd, &vbl);
 
 	/* Error ret or zero timestamp means failure to get valid timestamp */
@@ -818,7 +818,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 		drmModeFreeObjectProperties(props);
 	}
 	else {
-		plane->possible_crtcs = (1 << output->pipe);
+		plane->possible_crtcs = (1 << output->crtc->pipe);
 		plane->plane_id = 0;
 		plane->count_formats = 1;
 		plane->formats[0].format = format;
@@ -929,7 +929,7 @@ drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
 		if (found_elsewhere)
 			continue;
 
-		plane->possible_crtcs = (1 << output->pipe);
+		plane->possible_crtcs = (1 << output->crtc->pipe);
 		return plane;
 	}
 
@@ -1435,8 +1435,8 @@ drm_output_init_gamma_size(struct drm_output *output)
 	drmModeCrtc *crtc;
 
 	assert(output->base.compositor);
-	assert(output->crtc_id != 0);
-	crtc = drmModeGetCrtc(backend->drm.fd, output->crtc_id);
+	assert(output->crtc);
+	crtc = drmModeGetCrtc(backend->drm.fd, output->crtc->crtc_id);
 	if (!crtc)
 		return -1;
 
@@ -1467,39 +1467,25 @@ drm_head_get_possible_crtcs_mask(struct drm_head *head)
 	return possible_crtcs;
 }
 
-static int
-drm_crtc_get_index(drmModeRes *resources, uint32_t crtc_id)
-{
-	int i;
-
-	for (i = 0; i < resources->count_crtcs; i++) {
-		if (resources->crtcs[i] == crtc_id)
-			return i;
-	}
-
-	assert(0 && "unknown crtc id");
-	return -1;
-}
-
 /** Pick a CRTC that might be able to drive all attached connectors
  *
  * @param output The output whose attached heads to include.
- * @param resources The DRM KMS resources.
- * @return CRTC index, or -1 on failure or not found.
+ * @return CRTC object to pick, or NULL on failure or not found.
  */
-static int
-drm_output_pick_crtc(struct drm_output *output, drmModeRes *resources)
+static struct drm_crtc *
+drm_output_pick_crtc(struct drm_output *output)
 {
 	struct drm_backend *backend;
 	struct weston_head *base;
 	struct drm_head *head;
+	struct drm_crtc *crtc;
+	struct drm_crtc *best_crtc = NULL;
+	struct drm_crtc *fallback_crtc = NULL;
+	struct drm_crtc *existing_crtc[32];
 	uint32_t possible_crtcs = 0xffffffff;
-	int existing_crtc[32];
-	unsigned j, n = 0;
+	unsigned n = 0;
 	uint32_t crtc_id;
-	int best_crtc_index = -1;
-	int fallback_crtc_index = -1;
-	int i;
+	unsigned int i;
 	bool match;
 
 	backend = to_drm_backend(output->base.compositor);
@@ -1515,30 +1501,28 @@ drm_output_pick_crtc(struct drm_output *output, drmModeRes *resources)
 
 		crtc_id = head->inherited_crtc_id;
 		if (crtc_id > 0 && n < ARRAY_LENGTH(existing_crtc))
-			existing_crtc[n++] = drm_crtc_get_index(resources,
-								crtc_id);
+			existing_crtc[n++] = drm_crtc_find(backend, crtc_id);
 	}
 
 	/* Find a crtc that could drive each connector individually at least,
 	 * and prefer existing routings. */
-	for (i = 0; i < resources->count_crtcs; i++) {
-		crtc_id = resources->crtcs[i];
+	wl_list_for_each(crtc, &backend->crtc_list, link) {
 
 		/* Could the crtc not drive each connector? */
-		if (!(possible_crtcs & (1 << i)))
+		if (!(possible_crtcs & (1 << crtc->pipe)))
 			continue;
 
 		/* Is the crtc already in use? */
-		if (drm_output_find_by_crtc(backend, crtc_id))
+		if (crtc->output)
 			continue;
 
 		/* Try to preserve the existing CRTC -> connector routing;
 		 * it makes initialisation faster, and also since we have a
 		 * very dumb picking algorithm, may preserve a better
 		 * choice. */
-		for (j = 0; j < n; j++) {
-			if (existing_crtc[j] == i)
-				return i;
+		for (i = 0; i < n; i++) {
+			if (existing_crtc[i] == crtc)
+				return crtc;
 		}
 
 		/* Check if any other head had existing routing to this CRTC.
@@ -1555,22 +1539,22 @@ drm_output_pick_crtc(struct drm_output *output, drmModeRes *resources)
 			if (weston_head_is_enabled(&head->base))
 				continue;
 
-			if (head->inherited_crtc_id == crtc_id) {
+			if (head->inherited_crtc_id == crtc->crtc_id) {
 				match = true;
 				break;
 			}
 		}
 		if (!match)
-			best_crtc_index = i;
+			best_crtc = crtc;
 
-		fallback_crtc_index = i;
+		fallback_crtc = crtc;
 	}
 
-	if (best_crtc_index != -1)
-		return best_crtc_index;
+	if (best_crtc)
+		return best_crtc;
 
-	if (fallback_crtc_index != -1)
-		return fallback_crtc_index;
+	if (fallback_crtc)
+		return fallback_crtc;
 
 	/* Likely possible_crtcs was empty due to asking for clones,
 	 * but since the DRM documentation says the kernel lies, let's
@@ -1578,64 +1562,133 @@ drm_output_pick_crtc(struct drm_output *output, drmModeRes *resources)
 	 * be sure if something doesn't work. */
 
 	/* First pick any existing assignment. */
-	for (j = 0; j < n; j++) {
-		crtc_id = resources->crtcs[existing_crtc[j]];
-		if (!drm_output_find_by_crtc(backend, crtc_id))
-			return existing_crtc[j];
+	for (i = 0; i < n; i++) {
+		crtc = existing_crtc[i];
+		if (!crtc->output)
+			return crtc;
 	}
 
 	/* Otherwise pick any available crtc. */
-	for (i = 0; i < resources->count_crtcs; i++) {
-		crtc_id = resources->crtcs[i];
-
-		if (!drm_output_find_by_crtc(backend, crtc_id))
-			return i;
+	wl_list_for_each(crtc, &backend->crtc_list, link) {
+		if (!crtc->output)
+			return crtc;
 	}
 
+	return NULL;
+}
+
+/** Create an "empty" drm_crtc. It will only set its ID, pipe and props. After
+ * all, it adds the object to the DRM-backend CRTC list.
+ */
+static struct drm_crtc *
+drm_crtc_create(struct drm_backend *b, uint32_t crtc_id, uint32_t pipe)
+{
+	struct drm_crtc *crtc;
+	drmModeObjectPropertiesPtr props;
+
+	props = drmModeObjectGetProperties(b->drm.fd, crtc_id,
+					   DRM_MODE_OBJECT_CRTC);
+	if (!props) {
+		weston_log("failed to get CRTC properties\n");
+		return NULL;
+	}
+
+	crtc = zalloc(sizeof(*crtc));
+	if (!crtc)
+		goto ret;
+
+	drm_property_info_populate(b, crtc_props, crtc->props_crtc,
+				   WDRM_CRTC__COUNT, props);
+	crtc->backend = b;
+	crtc->crtc_id = crtc_id;
+	crtc->pipe = pipe;
+	crtc->output = NULL;
+
+	/* Add it to the last position of the DRM-backend CRTC list */
+	wl_list_insert(b->crtc_list.prev, &crtc->link);
+
+ret:
+	drmModeFreeObjectProperties(props);
+	return crtc;
+}
+
+/** Destroy a drm_crtc object that was created with drm_crtc_create(). It will
+ * also remove it from the DRM-backend CRTC list.
+ */
+static void
+drm_crtc_destroy(struct drm_crtc *crtc)
+{
+	/* TODO: address the issue below to be able to remove the comment
+	 * from the assert.
+	 *
+	 * https://gitlab.freedesktop.org/wayland/weston/-/issues/421
+	 */
+
+	//assert(!crtc->output);
+
+	wl_list_remove(&crtc->link);
+	drm_property_info_free(crtc->props_crtc, WDRM_CRTC__COUNT);
+	free(crtc);
+}
+
+/** Find all CRTCs of the fd and create drm_crtc objects for them.
+ *
+ * The CRTCs are saved in a list of the drm_backend and will keep there until
+ * the fd gets closed.
+ *
+ * @param b The DRM-backend structure.
+ * @return 0 on success (at least one CRTC in the list), -1 on failure.
+ */
+static int
+drm_backend_create_crtc_list(struct drm_backend *b)
+{
+	drmModeRes *resources;
+	struct drm_crtc *crtc, *crtc_tmp;
+	int i;
+
+	resources = drmModeGetResources(b->drm.fd);
+	if (!resources) {
+		weston_log("drmModeGetResources failed\n");
+		return -1;
+	}
+
+	/* Iterate through all CRTCs */
+	for (i = 0; i < resources->count_crtcs; i++) {
+
+		/* Let's create an object for the CRTC and add it to the list */
+		crtc = drm_crtc_create(b, resources->crtcs[i], i);
+		if (!crtc)
+			goto err;
+	}
+
+	drmModeFreeResources(resources);
+	return 0;
+
+err:
+	wl_list_for_each_safe(crtc, crtc_tmp, &b->crtc_list, link)
+		drm_crtc_destroy(crtc);
+	drmModeFreeResources(resources);
 	return -1;
 }
 
-/** Allocate a CRTC for the output
- *
- * @param output The output with no allocated CRTC.
- * @param resources DRM KMS resources.
- * @return 0 on success, -1 on failure.
- *
- * Finds a free CRTC that might drive the attached connectors, reserves the CRTC
- * for the output, and loads the CRTC properties.
- *
- * Populates the cursor and scanout planes.
+/** Pick a CRTC and reserve it for the output.
  *
  * On failure, the output remains without a CRTC.
+ *
+ * @param output The output with no CRTC associated.
+ * @return 0 on success, -1 on failure.
  */
 static int
-drm_output_init_crtc(struct drm_output *output, drmModeRes *resources)
+drm_output_attach_crtc(struct drm_output *output)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	drmModeObjectPropertiesPtr props;
-	int i;
 
-	assert(output->crtc_id == 0);
-
-	i = drm_output_pick_crtc(output, resources);
-	if (i < 0) {
+	output->crtc = drm_output_pick_crtc(output);
+	if (!output->crtc) {
 		weston_log("Output '%s': No available CRTCs.\n",
 			   output->base.name);
 		return -1;
 	}
-
-	output->crtc_id = resources->crtcs[i];
-	output->pipe = i;
-
-	props = drmModeObjectGetProperties(b->drm.fd, output->crtc_id,
-					   DRM_MODE_OBJECT_CRTC);
-	if (!props) {
-		weston_log("failed to get CRTC properties\n");
-		goto err_crtc;
-	}
-	drm_property_info_populate(b, crtc_props, output->props_crtc,
-				   WDRM_CRTC__COUNT, props);
-	drmModeFreeObjectProperties(props);
 
 	output->scanout_plane =
 		drm_output_find_special_plane(b, output,
@@ -1643,7 +1696,8 @@ drm_output_init_crtc(struct drm_output *output, drmModeRes *resources)
 	if (!output->scanout_plane) {
 		weston_log("Failed to find primary plane for output %s\n",
 			   output->base.name);
-		goto err_crtc;
+		output->crtc = NULL;
+		return -1;
 	}
 
 	/* Without universal planes, we can't discover which formats are
@@ -1658,27 +1712,24 @@ drm_output_init_crtc(struct drm_output *output, drmModeRes *resources)
 		drm_output_find_special_plane(b, output,
 					      WDRM_PLANE_TYPE_CURSOR);
 
-	wl_array_remove_uint32(&b->unused_crtcs, output->crtc_id);
+	/* Reserve the CRTC for the output */
+	output->crtc->output = output;
+	wl_array_remove_uint32(&b->unused_crtcs, output->crtc->crtc_id);
 
 	return 0;
-
-err_crtc:
-	output->crtc_id = 0;
-	output->pipe = 0;
-
-	return -1;
 }
 
-/** Free the CRTC from the output
+/** Release reservation of the CRTC.
  *
- * @param output The output whose CRTC to deallocate.
+ * Make the CRTC free to be reserved and used by another output.
  *
- * The CRTC reserved for the given output becomes free to use again.
+ * @param output The output that will release its CRTC.
  */
 static void
-drm_output_fini_crtc(struct drm_output *output)
+drm_output_detach_crtc(struct drm_output *output)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_crtc *crtc = output->crtc;
 	uint32_t *unused;
 
 	/* If the compositor is already shutting down, the planes have already
@@ -1706,17 +1757,15 @@ drm_output_fini_crtc(struct drm_output *output)
 		}
 	}
 
-	drm_property_info_free(output->props_crtc, WDRM_CRTC__COUNT);
-
-	assert(output->crtc_id != 0);
-
 	unused = wl_array_add(&b->unused_crtcs, sizeof(*unused));
-	*unused = output->crtc_id;
+	*unused = crtc->crtc_id;
 
 	/* Force resetting unused CRTCs */
 	b->state_invalid = true;
 
-	output->crtc_id = 0;
+	crtc->output = NULL;
+	output->crtc = NULL;
+
 	output->cursor_plane = NULL;
 	output->scanout_plane = NULL;
 }
@@ -1726,18 +1775,11 @@ drm_output_enable(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
 	struct drm_backend *b = to_drm_backend(base->compositor);
-	drmModeRes *resources;
 	int ret;
 
 	assert(!output->virtual);
 
-	resources = drmModeGetResources(b->drm.fd);
-	if (!resources) {
-		weston_log("drmModeGetResources failed\n");
-		return -1;
-	}
-	ret = drm_output_init_crtc(output, resources);
-	drmModeFreeResources(resources);
+	ret = drm_output_attach_crtc(output);
 	if (ret < 0)
 		return -1;
 
@@ -1778,14 +1820,13 @@ drm_output_enable(struct weston_output *base)
 				      &b->compositor->primary_plane);
 
 	weston_log("Output %s (crtc %d) video modes:\n",
-		   output->base.name, output->crtc_id);
+		   output->base.name, output->crtc->crtc_id);
 	drm_output_print_modes(output);
 
 	return 0;
 
 err:
-	drm_output_fini_crtc(output);
-
+	drm_output_detach_crtc(output);
 	return -1;
 }
 
@@ -1812,11 +1853,11 @@ drm_output_deinit(struct weston_output *base)
 			wl_list_remove(&output->cursor_plane->base.link);
 			wl_list_init(&output->cursor_plane->base.link);
 			/* Turn off hardware cursor */
-			drmModeSetCursor(b->drm.fd, output->crtc_id, 0, 0, 0);
+			drmModeSetCursor(b->drm.fd, output->crtc->crtc_id, 0, 0, 0);
 		}
 	}
 
-	drm_output_fini_crtc(output);
+	drm_output_detach_crtc(output);
 }
 
 static void
@@ -1891,10 +1932,14 @@ drm_backend_update_unused_outputs(struct drm_backend *b, drmModeRes *resources)
 	wl_array_init(&b->unused_crtcs);
 
 	for (i = 0; i < resources->count_crtcs; i++) {
-		struct drm_output *output;
+		struct drm_output *output = NULL;
+		struct drm_crtc *crtc;
 		uint32_t *crtc_id;
 
-		output = drm_output_find_by_crtc(b, resources->crtcs[i]);
+		crtc = drm_crtc_find(b, resources->crtcs[i]);
+		if (crtc)
+			output = crtc->output;
+
 		if (output && output->base.enabled)
 			continue;
 
@@ -2177,6 +2222,8 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
 		return NULL;
 
 	output->backend = b;
+	output->crtc = NULL;
+
 #ifdef BUILD_DRM_GBM
 	output->gbm_bo_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 #endif
@@ -2410,6 +2457,7 @@ drm_destroy(struct weston_compositor *ec)
 {
 	struct drm_backend *b = to_drm_backend(ec);
 	struct weston_head *base, *next;
+	struct drm_crtc *crtc, *crtc_tmp;
 
 	udev_input_destroy(&b->input);
 
@@ -2423,6 +2471,9 @@ drm_destroy(struct weston_compositor *ec)
 	weston_log_scope_destroy(b->debug);
 	b->debug = NULL;
 	weston_compositor_shutdown(ec);
+
+	wl_list_for_each_safe(crtc, crtc_tmp, &b->crtc_list, link)
+		drm_crtc_destroy(crtc);
 
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
 		drm_head_destroy(to_drm_head(base));
@@ -2451,6 +2502,7 @@ session_notify(struct wl_listener *listener, void *data)
 	struct drm_backend *b = to_drm_backend(compositor);
 	struct drm_plane *plane;
 	struct drm_output *output;
+	struct drm_crtc *crtc;
 
 	if (compositor->session_active) {
 		weston_log("activating session\n");
@@ -2473,23 +2525,22 @@ session_notify(struct wl_listener *listener, void *data)
 		 * pending frame callbacks. */
 
 		wl_list_for_each(output, &compositor->output_list, base.link) {
+			crtc = output->crtc;
 			output->base.repaint_needed = false;
 			if (output->cursor_plane)
-				drmModeSetCursor(b->drm.fd, output->crtc_id,
+				drmModeSetCursor(b->drm.fd, crtc->crtc_id,
 						 0, 0, 0);
 		}
 
 		output = container_of(compositor->output_list.next,
 				      struct drm_output, base.link);
+		crtc = output->crtc;
 
 		wl_list_for_each(plane, &b->plane_list, link) {
 			if (plane->type != WDRM_PLANE_TYPE_OVERLAY)
 				continue;
-
-			drmModeSetPlane(b->drm.fd,
-					plane->plane_id,
-					output->crtc_id, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0);
+			drmModeSetPlane(b->drm.fd, plane->plane_id, crtc->crtc_id,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 		}
 	}
 }
@@ -2922,6 +2973,12 @@ drm_backend_create(struct weston_compositor *compositor,
 	b->base.can_scanout_dmabuf = drm_can_scanout_dmabuf;
 
 	weston_setup_vt_switch_bindings(compositor);
+
+	wl_list_init(&b->crtc_list);
+	if (drm_backend_create_crtc_list(b) == -1) {
+		weston_log("Failed to create CRTC list for DRM-backend\n");
+		goto err_udev_dev;
+	}
 
 	wl_list_init(&b->plane_list);
 	create_sprites(b);

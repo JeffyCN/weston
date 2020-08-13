@@ -275,6 +275,9 @@ struct drm_backend {
 
 	bool state_invalid;
 
+	/* drm_crtc::link */
+	struct wl_list crtc_list;
+
 	/* CRTC IDs not used by any enabled output. */
 	struct wl_array unused_crtcs;
 
@@ -483,15 +486,25 @@ struct drm_head {
 	uint32_t inherited_crtc_id;	/**< Original CRTC assignment */
 };
 
-struct drm_output {
-	struct weston_output base;
+struct drm_crtc {
+	/* drm_backend::crtc_list */
+	struct wl_list link;
 	struct drm_backend *backend;
+
+	/* The output driven by the CRTC */
+	struct drm_output *output;
 
 	uint32_t crtc_id; /* object ID to pass to DRM functions */
 	int pipe; /* index of CRTC in resource array / bitmasks */
 
 	/* Holds the properties for the CRTC */
 	struct drm_property_info props_crtc[WDRM_CRTC__COUNT];
+};
+
+struct drm_output {
+	struct weston_output base;
+	struct drm_backend *backend;
+	struct drm_crtc *crtc;
 
 	bool page_flip_pending;
 	bool atomic_complete_pending;
@@ -573,8 +586,8 @@ drm_output_get_plane_type_name(struct drm_plane *p)
 	}
 }
 
-struct drm_output *
-drm_output_find_by_crtc(struct drm_backend *b, uint32_t crtc_id);
+struct drm_crtc *
+drm_crtc_find(struct drm_backend *b, uint32_t crtc_id);
 
 struct drm_head *
 drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id);
