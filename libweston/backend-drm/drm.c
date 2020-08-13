@@ -345,8 +345,7 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 
 	/* If we already have a client buffer promoted to scanout, then we don't
 	 * want to render. */
-	scanout_state = drm_output_state_get_plane(state,
-						   output->scanout_plane);
+	scanout_state = drm_output_state_get_plane(state, scanout_plane);
 	if (scanout_state->fb)
 		return;
 
@@ -518,7 +517,7 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 	if (output->disable_pending || output->destroy_pending)
 		return 0;
 
-	if (!output->scanout_plane->state_cur->fb) {
+	if (!scanout_plane->state_cur->fb) {
 		/* We can't page flip if there's no mode set */
 		goto finish_frame;
 	}
@@ -897,8 +896,7 @@ drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
 		/* On some platforms, primary/cursor planes can roam
 		 * between different CRTCs, so make sure we don't claim the
 		 * same plane for two outputs. */
-		wl_list_for_each(tmp, &b->compositor->output_list,
-				 base.link) {
+		wl_list_for_each(tmp, &b->compositor->output_list, base.link) {
 			if (tmp->cursor_plane == plane ||
 			    tmp->scanout_plane == plane) {
 				found_elsewhere = true;

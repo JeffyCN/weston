@@ -323,8 +323,7 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	if (b->gbm == NULL)
 		return NULL;
 
-	plane_state =
-		drm_output_state_get_plane(output_state, output->cursor_plane);
+	plane_state = drm_output_state_get_plane(output_state, plane);
 
 	if (plane_state && plane_state->fb)
 		return NULL;
