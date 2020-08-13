@@ -1651,24 +1651,14 @@ err:
 	return -1;
 }
 
-/** Pick a CRTC and reserve it for the output.
- *
- * On failure, the output remains without a CRTC.
- *
- * @param output The output with no CRTC associated.
- * @return 0 on success, -1 on failure.
+
+/** Populates scanout and cursor planes for the output. Also sets the topology
+ * of the planes by adding them to the plane stacking list.
  */
 static int
-drm_output_attach_crtc(struct drm_output *output)
+drm_output_init_planes(struct drm_output *output)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
-
-	output->crtc = drm_output_pick_crtc(output);
-	if (!output->crtc) {
-		weston_log("Output '%s': No available CRTCs.\n",
-			   output->base.name);
-		return -1;
-	}
 
 	output->scanout_plane =
 		drm_output_find_special_plane(b, output,
@@ -1679,6 +1669,10 @@ drm_output_attach_crtc(struct drm_output *output)
 		output->crtc = NULL;
 		return -1;
 	}
+
+	weston_compositor_stack_plane(b->compositor,
+				      &output->scanout_plane->base,
+				      &b->compositor->primary_plane);
 
 	/* Without universal planes, we can't discover which formats are
 	 * supported by the primary plane; we just hope that the GBM format
@@ -1692,23 +1686,25 @@ drm_output_attach_crtc(struct drm_output *output)
 		drm_output_find_special_plane(b, output,
 					      WDRM_PLANE_TYPE_CURSOR);
 
-	/* Reserve the CRTC for the output */
-	output->crtc->output = output;
+	if (output->cursor_plane)
+		weston_compositor_stack_plane(b->compositor,
+					      &output->cursor_plane->base,
+					      NULL);
+	else
+		b->cursors_are_broken = true;
 
 	return 0;
 }
 
-/** Release reservation of the CRTC.
- *
- * Make the CRTC free to be reserved and used by another output.
- *
- * @param output The output that will release its CRTC.
+/** The opposite of drm_output_init_planes(). First of all it removes the planes
+ * from the plane stacking list. Then, in case we don't have support for
+ * universal planes it destroys the planes. After all it sets the planes of the
+ * output as NULL.
  */
 static void
-drm_output_detach_crtc(struct drm_output *output)
+drm_output_deinit_planes(struct drm_output *output)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_crtc *crtc = output->crtc;
 
 	/* If the compositor is already shutting down, the planes have already
 	 * been destroyed. */
@@ -1735,14 +1731,50 @@ drm_output_detach_crtc(struct drm_output *output)
 		}
 	}
 
-	/* Force resetting unused CRTCs */
-	b->state_invalid = true;
+	output->cursor_plane = NULL;
+	output->scanout_plane = NULL;
+}
+
+/** Pick a CRTC and reserve it for the output.
+ *
+ * On failure, the output remains without a CRTC.
+ *
+ * @param output The output with no CRTC associated.
+ * @return 0 on success, -1 on failure.
+ */
+static int
+drm_output_attach_crtc(struct drm_output *output)
+{
+	output->crtc = drm_output_pick_crtc(output);
+	if (!output->crtc) {
+		weston_log("Output '%s': No available CRTCs.\n",
+			   output->base.name);
+		return -1;
+	}
+
+	/* Reserve the CRTC for the output */
+	output->crtc->output = output;
+
+	return 0;
+}
+
+/** Release reservation of the CRTC.
+ *
+ * Make the CRTC free to be reserved and used by another output.
+ *
+ * @param output The output that will release its CRTC.
+ */
+static void
+drm_output_detach_crtc(struct drm_output *output)
+{
+	struct drm_backend *b = output->backend;
+	struct drm_crtc *crtc = output->crtc;
 
 	crtc->output = NULL;
 	output->crtc = NULL;
 
-	output->cursor_plane = NULL;
-	output->scanout_plane = NULL;
+	/* Force resetting unused CRTCs */
+	b->state_invalid = true;
 }
 
 static int
@@ -1758,8 +1790,12 @@ drm_output_enable(struct weston_output *base)
 	if (ret < 0)
 		return -1;
 
+	ret = drm_output_init_planes(output);
+	if (ret < 0)
+		goto err_crtc;
+
 	if (drm_output_init_gamma_size(output) < 0)
-		goto err;
+		goto err_planes;
 
 	if (b->pageflip_timeout)
 		drm_output_pageflip_timer_create(output);
@@ -1767,11 +1803,11 @@ drm_output_enable(struct weston_output *base)
 	if (b->use_pixman) {
 		if (drm_output_init_pixman(output, b) < 0) {
 			weston_log("Failed to init output pixman state\n");
-			goto err;
+			goto err_planes;
 		}
 	} else if (drm_output_init_egl(output, b) < 0) {
 		weston_log("Failed to init output gl state\n");
-		goto err;
+		goto err_planes;
 	}
 
 	drm_output_init_backlight(output);
@@ -1783,24 +1819,15 @@ drm_output_enable(struct weston_output *base)
 	output->base.switch_mode = drm_output_switch_mode;
 	output->base.set_gamma = drm_output_set_gamma;
 
-	if (output->cursor_plane)
-		weston_compositor_stack_plane(b->compositor,
-					      &output->cursor_plane->base,
-					      NULL);
-	else
-		b->cursors_are_broken = true;
-
-	weston_compositor_stack_plane(b->compositor,
-				      &output->scanout_plane->base,
-				      &b->compositor->primary_plane);
-
 	weston_log("Output %s (crtc %d) video modes:\n",
 		   output->base.name, output->crtc->crtc_id);
 	drm_output_print_modes(output);
 
 	return 0;
 
-err:
+err_planes:
+	drm_output_deinit_planes(output);
+err_crtc:
 	drm_output_detach_crtc(output);
 	return -1;
 }
@@ -1816,22 +1843,7 @@ drm_output_deinit(struct weston_output *base)
 	else
 		drm_output_fini_egl(output);
 
-	/* Since our planes are no longer in use anywhere, remove their base
-	 * weston_plane's link from the plane stacking list, unless we're
-	 * shutting down, in which case the plane has already been
-	 * destroyed. */
-	if (!b->shutting_down) {
-		wl_list_remove(&output->scanout_plane->base.link);
-		wl_list_init(&output->scanout_plane->base.link);
-
-		if (output->cursor_plane) {
-			wl_list_remove(&output->cursor_plane->base.link);
-			wl_list_init(&output->cursor_plane->base.link);
-			/* Turn off hardware cursor */
-			drmModeSetCursor(b->drm.fd, output->crtc->crtc_id, 0, 0, 0);
-		}
-	}
-
+	drm_output_deinit_planes(output);
 	drm_output_detach_crtc(output);
 }
 
