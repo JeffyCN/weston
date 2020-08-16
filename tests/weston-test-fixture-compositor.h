@@ -88,8 +88,9 @@ struct compositor_setup {
 	/** Default output transform, one of WL_OUTPUT_TRANSFORM_*. */
 	enum wl_output_transform transform;
 	/** The absolute path to \c weston.ini to use,
-	 * or NULL for \c --no-config . */
-	const char *config_file;
+	 * or NULL for \c --no-config .
+	 * To properly fill this entry use weston_ini_setup() */
+	char *config_file;
 	/** Full path to an extra plugin to load, or NULL for none. */
 	const char *extra_module;
 	/** Debug scopes for the compositor log,
@@ -130,5 +131,28 @@ compositor_setup_defaults_(struct compositor_setup *setup,
 int
 execute_compositor(const struct compositor_setup *setup,
 		   struct wet_testsuite_data *data);
+
+/* This function creates and fills a Weston.ini file
+ *
+ * \param setup a compositor_setup
+ * \param ... Variadic number of strings that will be used to compose
+ * the Weston.ini
+ *
+ * This function receives a compositor_setup and a variable number of
+ * strings that will compose the weston.ini. And will create a
+ * <test-name>.ini and fill it with the entries.
+ * This function will assert if anything goes wrong, then it will not
+ * have a return value to indicate success or failure.
+ *
+ * \ingroup testharness
+ */
+#define weston_ini_setup(setup, ...) \
+		weston_ini_setup_(setup, __VA_ARGS__, NULL)
+
+void
+weston_ini_setup_(struct compositor_setup *setup, ...);
+
+char *
+cfgln(const char *fmt, ...);
 
 #endif /* WESTON_TEST_FIXTURE_COMPOSITOR_H */

@@ -42,7 +42,11 @@ fixture_setup(struct weston_test_harness *harness)
 	setup.width = 320;
 	setup.height = 240;
 	setup.shell = SHELL_DESKTOP;
-	setup.config_file = TESTSUITE_INTERNAL_SCREENSHOT_CONFIG_PATH;
+
+	weston_ini_setup (&setup,
+			  cfgln("[shell]"),
+			  cfgln("startup-animation=%s", "none"),
+			  cfgln("background-color=%s", "0xCC336699"));
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }

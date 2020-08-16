@@ -30,6 +30,10 @@
 #include <libudev.h>
 #include <unistd.h>
 #include <sys/file.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdarg.h>
+#include <stdlib.h>
 #include <errno.h>
 
 #include "shared/helpers.h"
@@ -393,6 +397,7 @@ execute_compositor(const struct compositor_setup *setup,
 	if (setup->config_file) {
 		asprintf(&tmp, "--config=%s", setup->config_file);
 		prog_args_take(&args, tmp);
+		free(setup->config_file);
 	} else {
 		prog_args_take(&args, strdup("--no-config"));
 	}
@@ -425,3 +430,77 @@ execute_compositor(const struct compositor_setup *setup,
 
 	return ret;
 }
+
+static void
+write_cfg(va_list entry_list, FILE *weston_ini)
+{
+	char *entry = va_arg(entry_list, char *);
+	int ret;
+	assert(entry);
+
+	while (entry) {
+		ret = fprintf(weston_ini, "%s\n", entry);
+		assert(ret >= 0);
+		free(entry);
+		entry = va_arg(entry_list, char *);
+	}
+}
+
+static FILE *
+open_ini_file(struct compositor_setup *setup)
+{
+	char *wd, *tmp_path = NULL;
+	FILE *weston_ini = NULL;
+
+	assert(!setup->config_file);
+
+	wd = realpath(".", NULL);
+	assert(wd);
+
+	if (asprintf(&tmp_path, "%s/%s.ini", wd, setup->testset_name) == -1) {
+		fprintf(stderr, "Fail formating Weston.ini file name.\n");
+		goto out;
+	}
+
+	weston_ini = fopen(tmp_path, "w");
+	assert(weston_ini);
+	setup->config_file = tmp_path;
+
+out:
+	free(wd);
+	return weston_ini;
+}
+
+void
+weston_ini_setup_(struct compositor_setup *setup, ...)
+{
+	FILE *weston_ini = NULL;
+	int ret;
+	va_list entry_list;
+
+	weston_ini = open_ini_file(setup);
+	assert(weston_ini);
+
+	va_start(entry_list, setup);
+	write_cfg(entry_list, weston_ini);
+	va_end(entry_list);
+
+	ret = fclose(weston_ini);
+	assert(ret != EOF);
+}
+
+char *
+cfgln(const char *fmt, ...)
+{
+	char *str;
+	int ret;
+	va_list ap;
+
+	va_start(ap, fmt);
+	ret = vasprintf(&str, fmt, ap);
+	assert(ret >= 0);
+	va_end(ap);
+
+	return str;
+}
+
