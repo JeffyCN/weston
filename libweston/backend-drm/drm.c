@@ -1948,13 +1948,12 @@ get_weston_protection_from_drm(enum wdrm_content_protection_state protection,
  * Get current content-protection status for a given head.
  *
  * @param head drm_head, whose protection is to be retrieved
- * @param props drm property object of the connector, related to the head
  * @return protection status in case of success, -1 otherwise
  */
 static enum weston_hdcp_protection
-drm_head_get_current_protection(struct drm_head *head,
-				drmModeObjectProperties *props)
+drm_head_get_current_protection(struct drm_head *head)
 {
+	drmModeObjectProperties *props = head->connector.props_drm;
 	struct drm_property_info *info;
 	enum wdrm_content_protection_state protection;
 	enum wdrm_hdcp_content_type type;
@@ -1991,6 +1990,26 @@ drm_head_get_current_protection(struct drm_head *head,
 	return weston_hdcp;
 }
 
+static int
+drm_connector_update_properties(struct drm_connector *connector)
+{
+	drmModeObjectProperties *props;
+
+	props = drmModeObjectGetProperties(connector->backend->drm.fd,
+					   connector->connector_id,
+					   DRM_MODE_OBJECT_CONNECTOR);
+	if (!props) {
+		weston_log("Error: failed to get connector properties\n");
+		return -1;
+	}
+
+	if (connector->props_drm)
+		drmModeFreeObjectProperties(connector->props_drm);
+	connector->props_drm = props;
+
+	return 0;
+}
+
 /** Replace connector data and monitor information
  *
  * @param connector The drm_connector object to be updated.
@@ -2006,17 +2025,10 @@ static int
 drm_connector_assign_connector_info(struct drm_connector *connector,
 				    drmModeConnector *conn)
 {
-	drmModeObjectProperties *props;
-
 	assert(connector->connector_id == conn->connector_id);
 
-	props = drmModeObjectGetProperties(connector->backend->drm.fd,
-					   connector->connector_id,
-					   DRM_MODE_OBJECT_CONNECTOR);
-	if (!props) {
-		weston_log("Error: failed to get connector properties\n");
+	if (drm_connector_update_properties(connector) < 0)
 		return -1;
-	}
 
 	if (connector->conn && connector->conn != conn)
 		drmModeFreeConnector(connector->conn);
@@ -2025,15 +2037,13 @@ drm_connector_assign_connector_info(struct drm_connector *connector,
 	drm_property_info_free(connector->props, WDRM_CONNECTOR__COUNT);
 	drm_property_info_populate(connector->backend, connector_props,
 				   connector->props,
-				   WDRM_CONNECTOR__COUNT, props);
+				   WDRM_CONNECTOR__COUNT, connector->props_drm);
 
 	if (connector->head != NULL) {
-		update_head_from_connector(connector->head, props);
+		update_head_from_connector(connector->head);
 		weston_head_set_content_protection_status(&connector->head->base,
-			drm_head_get_current_protection(connector->head, props));
+			drm_head_get_current_protection(connector->head));
 	}
-
-	drmModeFreeObjectProperties(props);
 
 	return 0;
 }
@@ -2045,6 +2055,7 @@ drm_connector_init(struct drm_backend *b, struct drm_connector *connector,
 	connector->backend = b;
 	connector->connector_id = connector_id;
 	connector->head = NULL;
+	connector->props_drm = NULL;
 
 	connector->conn = drmModeGetConnector(b->drm.fd, connector_id);
 	if (!connector->conn) {
@@ -2059,6 +2070,7 @@ static void
 drm_connector_fini(struct drm_connector *connector)
 {
 	drmModeFreeConnector(connector->conn);
+	drmModeFreeObjectProperties(connector->props_drm);
 	drm_property_info_free(connector->props, WDRM_CONNECTOR__COUNT);
 }
 
@@ -2348,7 +2360,6 @@ drm_backend_update_conn_props(struct drm_backend *b,
 {
 	struct drm_head *head;
 	enum wdrm_connector_property conn_prop;
-	drmModeObjectProperties *props;
 
 	head = drm_head_find_by_connector(b, connector_id);
 	if (!head) {
@@ -2361,19 +2372,13 @@ drm_backend_update_conn_props(struct drm_backend *b,
 	if (conn_prop >= WDRM_CONNECTOR__COUNT)
 		return;
 
-	props = drmModeObjectGetProperties(b->drm.fd,
-					   connector_id,
-					   DRM_MODE_OBJECT_CONNECTOR);
-	if (!props) {
-		weston_log("Error: failed to get connector '%s' properties\n",
-			   head->base.name);
+	if (drm_connector_update_properties(&head->connector) < 0)
 		return;
-	}
+
 	if (conn_prop == WDRM_CONNECTOR_CONTENT_PROTECTION) {
 		weston_head_set_content_protection_status(&head->base,
-					     drm_head_get_current_protection(head, props));
+					     drm_head_get_current_protection(head));
 	}
-	drmModeFreeObjectProperties(props);
 }
 
 static int

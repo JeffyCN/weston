@@ -473,6 +473,8 @@ struct drm_connector {
 	drmModeConnector *conn;
 	uint32_t connector_id;
 
+	drmModeObjectProperties *props_drm;
+
 	/* Holds the properties for the connector */
 	struct drm_property_info props[WDRM_CONNECTOR__COUNT];
 };
@@ -622,8 +624,7 @@ struct drm_mode *
 drm_output_choose_mode(struct drm_output *output,
 		       struct weston_mode *target_mode);
 void
-update_head_from_connector(struct drm_head *head,
-			   drmModeObjectProperties *props);
+update_head_from_connector(struct drm_head *head);
 
 void
 drm_mode_list_destroy(struct drm_backend *backend, struct wl_list *mode_list);

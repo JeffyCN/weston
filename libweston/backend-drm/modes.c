@@ -507,10 +507,10 @@ drm_output_choose_mode(struct drm_output *output,
 }
 
 void
-update_head_from_connector(struct drm_head *head,
-			   drmModeObjectProperties *props)
+update_head_from_connector(struct drm_head *head)
 {
 	struct drm_connector *connector = &head->connector;
+	drmModeObjectProperties *props = connector->props_drm;
 	drmModeConnector *conn = connector->conn;
 	const char *make = "unknown";
 	const char *model = "unknown";
