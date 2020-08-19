@@ -88,6 +88,7 @@ struct pipewire_output {
 	struct wl_event_source *finish_frame_timer;
 	struct wl_list link;
 	bool submitted_frame;
+	enum dpms_enum dpms;
 };
 
 struct pipewire_frame_data {
@@ -317,7 +318,11 @@ pipewire_output_finish_frame_handler(void *data)
 		api->finish_frame(output->output, &now, 0);
 	}
 
-	pipewire_output_timer_update(output);
+	if (output->dpms == WESTON_DPMS_ON)
+		pipewire_output_timer_update(output);
+	else
+		wl_event_source_timer_update(output->finish_frame_timer, 0);
+
 	return 0;
 }
 
@@ -353,6 +358,18 @@ pipewire_output_start_repaint_loop(struct weston_output *base_output)
 	pipewire_output_timer_update(output);
 
 	return 0;
+}
+
+static void
+pipewire_set_dpms(struct weston_output *base_output, enum dpms_enum level)
+{
+	struct pipewire_output *output = lookup_pipewire_output(base_output);
+
+	if (output->dpms == level)
+		return;
+
+	output->dpms = level;
+	pipewire_output_finish_frame_handler(output);
 }
 
 static int
@@ -420,12 +437,14 @@ pipewire_output_enable(struct weston_output *base_output)
 
 	output->saved_start_repaint_loop = base_output->start_repaint_loop;
 	base_output->start_repaint_loop = pipewire_output_start_repaint_loop;
+	base_output->set_dpms = pipewire_set_dpms;
 
 	loop = wl_display_get_event_loop(c->wl_display);
 	output->finish_frame_timer =
 		wl_event_loop_add_timer(loop,
 					pipewire_output_finish_frame_handler,
 					output);
+	output->dpms = WESTON_DPMS_ON;
 
 	return 0;
 }
