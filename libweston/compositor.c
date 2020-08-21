@@ -1888,10 +1888,8 @@ weston_view_is_opaque(struct weston_view *ev, pixman_region32_t *region)
 	if (ev->surface->is_opaque)
 		return true;
 
-	if (ev->transform.dirty) {
-		weston_log("%s: transform dirty", __func__);
+	if (ev->transform.dirty)
 		return false;
-	}
 
 	pixman_region32_init(&r);
 	pixman_region32_subtract(&r, region, &ev->transform.opaque);
