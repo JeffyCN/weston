@@ -929,27 +929,17 @@ drm_output_propose_state(struct weston_output *output_base,
 			drm_debug(b, "\t\t\t[plane] next zpos to use %"PRIu64"\n",
 				      current_lowest_zpos);
 
-			/* If we have been assigned to an overlay or scanout
-			 * plane, add this area to the occluded region, so
-			 * other views are known to be behind it. The cursor
-			 * plane, however, is special, in that it blends with
-			 * the content underneath it: the area should neither
-			 * be added to the renderer region nor the occluded
-			 * region. */
-			if (ps->plane->type != WDRM_PLANE_TYPE_CURSOR) {
-				if (!weston_view_is_opaque(ev, &clipped_view))
-					pixman_region32_intersect(&clipped_view,
-								  &clipped_view,
-								  &ev->transform.opaque);
-				/* the visible-and-opaque region of this view
-				 * will occlude views underneath it */
-				pixman_region32_union(&occluded_region,
-						      &occluded_region,
-						      &clipped_view);
+			if (!weston_view_is_opaque(ev, &clipped_view))
+				pixman_region32_intersect(&clipped_view,
+							  &clipped_view,
+							  &ev->transform.opaque);
+			/* the visible-and-opaque region of this view
+			 * will occlude views underneath it */
+			pixman_region32_union(&occluded_region,
+					      &occluded_region,
+					      &clipped_view);
 
-				pixman_region32_fini(&clipped_view);
-
-			}
+			pixman_region32_fini(&clipped_view);
 			continue;
 		}
 
@@ -964,15 +954,21 @@ drm_output_propose_state(struct weston_output *output_base,
 			goto err_region;
 		}
 
+		/* clipped_view contains the area that's going to be visible
+		 * on screen; add this to the renderer region */
 		pixman_region32_union(&renderer_region,
 				      &renderer_region,
 				      &clipped_view);
 
+		/* Opaque areas of our clipped view occlude areas behind it;
+		 * however, anything not in the opaque region (which is the
+		 * entire clipped area if the whole view is known to be
+		 * opaque) does not necessarily occlude what's behind it, as
+		 * it could be alpha-blended. */
 		if (!weston_view_is_opaque(ev, &clipped_view))
 			pixman_region32_intersect(&clipped_view,
 						  &clipped_view,
 						  &ev->transform.opaque);
-
 		pixman_region32_union(&occluded_region,
 				      &occluded_region,
 				      &clipped_view);
