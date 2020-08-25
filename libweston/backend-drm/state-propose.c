@@ -818,7 +818,7 @@ drm_output_propose_state(struct weston_output *output_base,
 
 		scanout_state = drm_plane_state_duplicate(state,
 							  plane->state_cur);
-		/* assign the primary primary the lowest zpos value */
+		/* assign the primary the lowest zpos value */
 		scanout_state->zpos = plane->zpos_min;
 		drm_debug(b, "\t\t[state] using renderer FB ID %lu for mixed "
 			     "mode for output %s (%lu)\n",
