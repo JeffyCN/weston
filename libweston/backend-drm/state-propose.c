@@ -917,6 +917,7 @@ drm_output_propose_state(struct weston_output *output_base,
 			force_renderer = true;
 		}
 
+		/* Now try to place it on a plane if we can. */
 		if (!force_renderer) {
 			drm_debug(b, "\t\t\t[plane] started with zpos %"PRIu64"\n",
 				      current_lowest_zpos);
@@ -929,37 +930,22 @@ drm_output_propose_state(struct weston_output *output_base,
 			current_lowest_zpos = ps->zpos;
 			drm_debug(b, "\t\t\t[plane] next zpos to use %"PRIu64"\n",
 				      current_lowest_zpos);
-
-			if (!weston_view_is_opaque(ev, &clipped_view))
-				pixman_region32_intersect(&clipped_view,
-							  &clipped_view,
-							  &ev->transform.opaque);
-			/* the visible-and-opaque region of this view
-			 * will occlude views underneath it */
-			pixman_region32_union(&occluded_region,
-					      &occluded_region,
-					      &clipped_view);
-
-			pixman_region32_fini(&clipped_view);
-			continue;
-		}
-
-		/* We have been assigned to the primary (renderer) plane:
-		 * check if this is OK, and add ourselves to the renderer
-		 * region if so. */
-		if (!renderer_ok) {
+		} else if (!ps && !renderer_ok) {
 			drm_debug(b, "\t\t[view] failing state generation: "
 				      "placing view %p to renderer not allowed\n",
 				  ev);
 			pixman_region32_fini(&clipped_view);
 			goto err_region;
-		}
+		} else if (!ps) {
+			/* clipped_view contains the area that's going to be
+			 * visible on screen; add this to the renderer region */
+			pixman_region32_union(&renderer_region,
+					      &renderer_region,
+					      &clipped_view);
 
-		/* clipped_view contains the area that's going to be visible
-		 * on screen; add this to the renderer region */
-		pixman_region32_union(&renderer_region,
-				      &renderer_region,
-				      &clipped_view);
+			drm_debug(b, "\t\t\t\t[view] view %p will be placed "
+				     "on the renderer\n", ev);
+		}
 
 		/* Opaque areas of our clipped view occlude areas behind it;
 		 * however, anything not in the opaque region (which is the
@@ -975,9 +961,6 @@ drm_output_propose_state(struct weston_output *output_base,
 				      &clipped_view);
 
 		pixman_region32_fini(&clipped_view);
-
-		drm_debug(b, "\t\t\t\t[view] view %p will be placed "
-			     "on the renderer\n", ev);
 	}
 
 	pixman_region32_fini(&renderer_region);
