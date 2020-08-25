@@ -769,7 +769,7 @@ drm_output_propose_state(struct weston_output *output_base,
 	struct drm_plane_state *scanout_state = NULL;
 	struct weston_view *ev;
 
-	pixman_region32_t surface_overlap, renderer_region, planes_region;
+	pixman_region32_t surface_overlap, renderer_region;
 	pixman_region32_t occluded_region;
 
 	bool renderer_ok = (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY);
@@ -830,8 +830,6 @@ drm_output_propose_state(struct weston_output *output_base,
 
 	/* - renderer_region contains the total region which which will be
 	 *   covered by the renderer
-	 * - planes_region contains the total region which has been covered by
-	 *   hardware planes
 	 * - occluded_region contains the total region which which will be
 	 *   covered by the renderer and hardware planes, where the view's
 	 *   visible-and-opaque region is added in both cases (the view's
@@ -840,7 +838,6 @@ drm_output_propose_state(struct weston_output *output_base,
 	 *   situation where occluded_region covers entire output's region.
 	 */
 	pixman_region32_init(&renderer_region);
-	pixman_region32_init(&planes_region);
 	pixman_region32_init(&occluded_region);
 
 	wl_list_for_each(ev, &output_base->compositor->view_list, link) {
@@ -940,10 +937,6 @@ drm_output_propose_state(struct weston_output *output_base,
 			 * be added to the renderer region nor the occluded
 			 * region. */
 			if (ps->plane->type != WDRM_PLANE_TYPE_CURSOR) {
-				pixman_region32_union(&planes_region,
-						      &planes_region,
-						      &clipped_view);
-
 				if (!weston_view_is_opaque(ev, &clipped_view))
 					pixman_region32_intersect(&clipped_view,
 								  &clipped_view,
@@ -991,7 +984,6 @@ drm_output_propose_state(struct weston_output *output_base,
 	}
 
 	pixman_region32_fini(&renderer_region);
-	pixman_region32_fini(&planes_region);
 	pixman_region32_fini(&occluded_region);
 
 	/* In renderer-only mode, we can't test the state as we don't have a
