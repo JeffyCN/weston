@@ -769,7 +769,7 @@ drm_output_propose_state(struct weston_output *output_base,
 	struct drm_plane_state *scanout_state = NULL;
 	struct weston_view *ev;
 
-	pixman_region32_t surface_overlap, renderer_region;
+	pixman_region32_t renderer_region;
 	pixman_region32_t occluded_region;
 
 	bool renderer_ok = (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY);
@@ -844,6 +844,7 @@ drm_output_propose_state(struct weston_output *output_base,
 		struct drm_plane_state *ps = NULL;
 		bool force_renderer = false;
 		pixman_region32_t clipped_view;
+		pixman_region32_t surface_overlap;
 		bool totally_occluded = false;
 
 		drm_debug(b, "\t\t\t[view] evaluating view %p for "
