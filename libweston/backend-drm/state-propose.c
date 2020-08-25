@@ -720,15 +720,6 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			continue;
 		}
 
-		if (plane->type != WDRM_PLANE_TYPE_CURSOR &&
-		    b->sprites_are_broken) {
-			drm_debug(b, "\t\t\t\t[plane] not adding plane %d, type %s to "
-				     "candidate list: sprites are broken!\n",
-				     plane->plane_id,
-				     drm_output_get_plane_type_name(plane));
-			continue;
-		}
-
 		if (plane->type == WDRM_PLANE_TYPE_CURSOR && !shmbuf) {
 			drm_debug(b, "\t\t\t\t[plane] not adding plane %d, type cursor to "
 				     "candidate list: cursor planes only support wl_shm "
