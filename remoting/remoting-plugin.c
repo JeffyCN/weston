@@ -119,6 +119,7 @@ struct remoted_output {
 	struct remoted_gstpipe gstpipe;
 	GstClockTime start_time;
 	int retry_count;
+	enum dpms_enum dpms;
 };
 
 struct mem_free_cb_data {
@@ -477,8 +478,12 @@ remoting_output_finish_frame_handler(void *data)
 		api->finish_frame(output->output, &now, 0);
 	}
 
-	msec = millihz_to_nsec(output->output->current_mode->refresh) / 1000000;
-	wl_event_source_timer_update(output->finish_frame_timer, msec);
+	if (output->dpms == WESTON_DPMS_ON) {
+		msec = millihz_to_nsec(output->output->current_mode->refresh) / 1000000;
+		wl_event_source_timer_update(output->finish_frame_timer, msec);
+	} else {
+		wl_event_source_timer_update(output->finish_frame_timer, 0);
+	}
 	return 0;
 }
 
@@ -666,6 +671,18 @@ remoting_output_start_repaint_loop(struct weston_output *output)
 	return 0;
 }
 
+static void
+remoting_output_set_dpms(struct weston_output *base_output, enum dpms_enum level)
+{
+	struct remoted_output *output = lookup_remoted_output(base_output);
+
+	if (output->dpms == level)
+		return;
+
+	output->dpms = level;
+	remoting_output_finish_frame_handler(output);
+}
+
 static int
 remoting_output_enable(struct weston_output *output)
 {
@@ -684,6 +701,7 @@ remoting_output_enable(struct weston_output *output)
 
 	remoted_output->saved_start_repaint_loop = output->start_repaint_loop;
 	output->start_repaint_loop = remoting_output_start_repaint_loop;
+	output->set_dpms = remoting_output_set_dpms;
 
 	ret = remoting_gst_pipeline_init(remoted_output);
 	if (ret < 0) {
@@ -697,6 +715,7 @@ remoting_output_enable(struct weston_output *output)
 					remoting_output_finish_frame_handler,
 					remoted_output);
 
+	remoted_output->dpms = WESTON_DPMS_ON;
 	return 0;
 }
 
