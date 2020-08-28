@@ -27,5 +27,4 @@ if get_option('pipewire')
 		install_dir: dir_module_libweston
 	)
 	env_modmap += 'pipewire-plugin.so=@0@;'.format(plugin_pipewire.full_path())
-	install_headers('pipewire-plugin.h', subdir: dir_include_libweston_install)
 endif

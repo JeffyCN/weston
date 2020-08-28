@@ -63,8 +63,8 @@
 #include <libweston/backend-wayland.h>
 #include <libweston/windowed-output-api.h>
 #include <libweston/weston-log.h>
-#include "../remoting/remoting-plugin.h"
-#include "../pipewire/pipewire-plugin.h"
+#include <libweston/remoting-plugin.h>
+#include <libweston/pipewire-plugin.h>
 
 #define WINDOW_TITLE "Weston Compositor"
 /* flight recorder size (in bytes) */

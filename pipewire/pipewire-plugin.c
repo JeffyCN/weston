@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "pipewire-plugin.h"
+#include <libweston/pipewire-plugin.h>
 #include "backend.h"
 #include "libweston-internal.h"
 #include "shared/timespec-util.h"
