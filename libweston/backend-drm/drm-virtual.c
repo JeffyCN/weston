@@ -112,13 +112,7 @@ drm_virtual_plane_create(struct drm_backend *b, struct drm_output *output)
 	if (!fmt)
 		goto err;
 
-	/* If output supports linear modifier, we add it to the plane.
-	 * Otherwise we add DRM_FORMAT_MOD_INVALID, as explicit modifiers
-	 * are not supported. */
-	if ((output->gbm_bo_flags & GBM_BO_USE_LINEAR) && b->fb_modifiers)
-		mod = DRM_FORMAT_MOD_LINEAR;
-	else
-		mod = DRM_FORMAT_MOD_INVALID;
+	mod = DRM_FORMAT_MOD_LINEAR;
 
 	if (weston_drm_format_add_modifier(fmt, mod) < 0)
 		goto err;

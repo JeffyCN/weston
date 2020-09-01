@@ -725,7 +725,7 @@ pixman_renderer_prepare_dmabuf(struct linux_dmabuf_buffer *dmabuf)
 	total_size = lseek(attributes->fd[0], 0, SEEK_END);
 
 	for (i = 0; i < attributes->n_planes; i++) {
-		if (attributes->modifier[i] != DRM_FORMAT_MOD_INVALID)
+		if (DRM_MOD_VALID(attributes->modifier[i]))
 			return false;
 	}
 
@@ -1221,7 +1221,7 @@ populate_supported_formats(struct weston_compositor *ec,
 
 		/* Always add DRM_FORMAT_MOD_INVALID, as EGL implementations
 		 * support implicit modifiers. */
-		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
 		if (ret < 0)
 			goto out;
 	}
