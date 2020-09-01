@@ -761,8 +761,7 @@ pixman_renderer_prepare_dmabuf(struct linux_dmabuf_buffer *dmabuf)
 	total_size = lseek(attributes->fd[0], 0, SEEK_END);
 
 	for (i = 0; i < attributes->n_planes; i++) {
-		if (attributes->modifier[i] != DRM_FORMAT_MOD_INVALID &&
-		    attributes->modifier[i] != DRM_FORMAT_MOD_LINEAR)
+		if (DRM_MOD_VALID(attributes->modifier[i]))
 			return false;
 	}
 
