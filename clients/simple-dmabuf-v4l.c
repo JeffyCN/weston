@@ -856,7 +856,7 @@ dmabuf_modifier(void *data, struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf,
 	struct display *d = data;
 	uint64_t modifier = u64_from_u32s(modifier_hi, modifier_lo);
 
-	if (format == d->drm_format && modifier == DRM_FORMAT_MOD_LINEAR)
+	if (format == d->drm_format && !DRM_MOD_VALID(modifier))
 		d->requested_format_found = true;
 }
 

@@ -766,7 +766,7 @@ pixel_format_get_modifier(uint64_t modifier)
 		return mod_str;
 	}
 
-	if (modifier == DRM_FORMAT_MOD_LINEAR) {
+	if (!DRM_MOD_VALID(modifier)) {
 		str_printf(&mod_str, "%s (0x%llx)", modifier_name,
 			   (unsigned long long) modifier);
 		free(modifier_name);
