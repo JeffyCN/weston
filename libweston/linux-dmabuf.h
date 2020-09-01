@@ -31,6 +31,10 @@
 
 #define MAX_DMABUF_PLANES 4
 
+/* modifier is not linear or invalid */
+#define DRM_MOD_VALID(mod) \
+	((mod) != DRM_FORMAT_MOD_LINEAR && (mod) != DRM_FORMAT_MOD_INVALID)
+
 struct linux_dmabuf_buffer;
 typedef void (*dmabuf_user_data_destroy_func)(
 			struct linux_dmabuf_buffer *buffer);
