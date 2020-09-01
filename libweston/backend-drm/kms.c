@@ -835,6 +835,9 @@ fallback:
 		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
 		if (ret < 0)
 			return -1;
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
+		if (ret < 0)
+			return -1;
 	}
 	return 0;
 }

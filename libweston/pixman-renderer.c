@@ -748,8 +748,7 @@ pixman_renderer_prepare_dmabuf(struct linux_dmabuf_buffer *dmabuf)
 	int i;
 
 	/* Only support linear or implicit modifiers */
-	if (attributes->modifier != DRM_FORMAT_MOD_INVALID &&
-	    attributes->modifier != DRM_FORMAT_MOD_LINEAR)
+	if (DRM_MOD_VALID(attributes->modifier))
 		return false;
 
 	/* reject all flags we do not recognize or handle */
@@ -1342,6 +1341,9 @@ populate_supported_dmabuf_formats(struct weston_compositor *ec,
 		/* Always add DRM_FORMAT_MOD_INVALID, as EGL implementations
 		 * support implicit modifiers. */
 		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
+		if (ret < 0)
+			goto out;
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
 		if (ret < 0)
 			goto out;
 	}

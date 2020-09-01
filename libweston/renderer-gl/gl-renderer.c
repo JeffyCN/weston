@@ -3862,7 +3862,7 @@ import_simple_dmabuf(struct gl_renderer *gr,
 	attribs[atti++] = EGL_IMAGE_PRESERVED_KHR;
 	attribs[atti++] = EGL_TRUE;
 
-	if (attributes->modifier != DRM_FORMAT_MOD_INVALID) {
+	if (DRM_MOD_VALID(attributes->modifier)) {
 		if (!egl_display_has(gr, EXTENSION_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS))
 			return NULL;
 		has_modifier = true;
@@ -4337,7 +4337,7 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 	assert(egl_display_has(gr, EXTENSION_EXT_IMAGE_DMA_BUF_IMPORT));
 
 	/* return if EGL doesn't support import modifiers */
-	if (dmabuf->attributes.modifier != DRM_FORMAT_MOD_INVALID)
+	if (DRM_MOD_VALID(dmabuf->attributes.modifier))
 		if (!egl_display_has(gr, EXTENSION_EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS))
 			return false;
 
@@ -4419,7 +4419,7 @@ populate_supported_dmabuf_formats(struct weston_compositor *ec,
 
 		for (j = 0; j < num_modifiers; j++) {
 			/* Skip MOD_INVALID, as it has already been added. */
-			if (modifiers[j] == DRM_FORMAT_MOD_INVALID)
+			if (!DRM_MOD_VALID(modifiers[j]))
 				continue;
 			ret = weston_drm_format_add_modifier(fmt, modifiers[j]);
 			if (ret < 0) {
