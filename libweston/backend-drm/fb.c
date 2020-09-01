@@ -77,7 +77,7 @@ drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 
 	/* If we have a modifier set, we must only use the WithModifiers
 	 * entrypoint; we cannot import it through legacy ioctls. */
-	if (b->fb_modifiers && fb->modifier != DRM_FORMAT_MOD_INVALID) {
+	if (b->fb_modifiers && DRM_MOD_VALID(fb->modifier)) {
 		/* KMS demands that if a modifier is set, it must be the same
 		 * for all planes. */
 		for (i = 0; i < ARRAY_LENGTH(mods) && fb->handles[i]; i++)
@@ -150,7 +150,7 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 		goto err_fb;
 
 	fb->type = BUFFER_PIXMAN_DUMB;
-	fb->modifier = DRM_FORMAT_MOD_INVALID;
+	fb->modifier = DRM_FORMAT_MOD_LINEAR;
 	fb->handles[0] = create_arg.handle;
 	fb->strides[0] = create_arg.pitch;
 	fb->num_planes = 1;
@@ -237,6 +237,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		.modifier = dmabuf->attributes.modifier[0],
 	};
 
+#if 0
 	/* We should not import to KMS a buffer that has been allocated using no
 	 * modifiers. Usually drivers use linear layouts to allocate with no
 	 * modifiers, but this is not a rule. The driver could use, for
@@ -250,6 +251,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 				FAILURE_REASONS_DMABUF_MODIFIER_INVALID;
 		return NULL;
 	}
+#endif
 
 	/* XXX: TODO:
 	 *
@@ -375,7 +377,7 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 	fb->num_planes = 1;
 	fb->strides[0] = gbm_bo_get_stride(bo);
 	fb->handles[0] = gbm_bo_get_handle(bo).u32;
-	fb->modifier = DRM_FORMAT_MOD_INVALID;
+	fb->modifier = DRM_FORMAT_MOD_LINEAR;
 #endif
 
 	if (!fb->format) {
@@ -482,7 +484,7 @@ drm_fb_compatible_with_plane(struct drm_fb *fb, struct drm_plane *plane)
 		 * wl_drm is being used for scanout. Mesa is the only user we
 		 * care in this case (even though recent versions are also using
 		 * dmabufs), and it should know better what works or not. */
-		if (fb->modifier == DRM_FORMAT_MOD_INVALID)
+		if (!DRM_MOD_VALID(fb->modifier))
 			return true;
 
 		if (weston_drm_format_has_modifier(fmt, fb->modifier))

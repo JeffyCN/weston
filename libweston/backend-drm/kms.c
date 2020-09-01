@@ -542,7 +542,7 @@ fallback:
 							 kplane->formats[i]);
 		if (!fmt)
 			return -1;
-		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
 		if (ret < 0)
 			return -1;
 	}
