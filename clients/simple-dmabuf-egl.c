@@ -267,7 +267,8 @@ create_fbo_for_buffer(struct display *display, struct buffer *buffer)
 	attribs[atti++] = (int) buffer->offsets[plane_idx]; \
 	attribs[atti++] = EGL_DMA_BUF_PLANE ## plane_idx ## _PITCH_EXT; \
 	attribs[atti++] = (int) buffer->strides[plane_idx]; \
-	if (display->egl.has_dma_buf_import_modifiers) { \
+	if (DRM_MOD_VALID(buffer->modifier) && \
+	    display->egl.has_dma_buf_import_modifiers) { \
 		attribs[atti++] = EGL_DMA_BUF_PLANE ## plane_idx ## _MODIFIER_LO_EXT; \
 		attribs[atti++] = buffer->modifier & 0xFFFFFFFF; \
 		attribs[atti++] = EGL_DMA_BUF_PLANE ## plane_idx ## _MODIFIER_HI_EXT; \
@@ -1030,7 +1031,7 @@ dmabuf_modifiers(void *data, struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf,
 
 	d->format_supported = true;
 
-	if (modifier != DRM_FORMAT_MOD_INVALID) {
+	if (DRM_MOD_VALID(modifier)) {
 		++d->modifiers_count;
 		d->modifiers = realloc(d->modifiers,
 				       d->modifiers_count * sizeof(*d->modifiers));
