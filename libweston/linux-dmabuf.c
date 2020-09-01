@@ -1057,8 +1057,7 @@ bind_linux_dmabuf(struct wl_client *client,
 								  fmt->format,
 								  modifier_hi,
 								  modifier_lo);
-			} else if (modifiers[i] == DRM_FORMAT_MOD_LINEAR ||
-				   modifiers[i] == DRM_FORMAT_MOD_INVALID) {
+			} else if (!DRM_MOD_VALID(modifiers[i])) {
 				zwp_linux_dmabuf_v1_send_format(resource,
 								fmt->format);
 			}
