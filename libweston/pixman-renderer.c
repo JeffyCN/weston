@@ -848,8 +848,7 @@ pixman_renderer_prepare_dmabuf(struct linux_dmabuf_buffer *dmabuf)
 
 	total_size = lseek(attributes->fd[0], 0, SEEK_END);
 
-	if (attributes->modifier != DRM_FORMAT_MOD_INVALID &&
-	    attributes->modifier != DRM_FORMAT_MOD_LINEAR)
+	if (DRM_MOD_VALID(attributes->modifier))
 		return false;
 
 	/* reject all flags we do not recognize or handle */
