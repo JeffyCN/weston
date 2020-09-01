@@ -30,6 +30,10 @@
 
 #include <drm_fourcc.h>
 
+/* modifier is not linear or invalid */
+#define DRM_MOD_VALID(mod) \
+	((mod) != DRM_FORMAT_MOD_LINEAR && (mod) != DRM_FORMAT_MOD_INVALID)
+
 /* The kernel header drm_fourcc.h defines the DRM formats below.  We duplicate
  * some of the definitions here so that building Weston won't require
  * bleeding-edge kernel headers.
