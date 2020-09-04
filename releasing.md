@@ -50,7 +50,8 @@ To make a release of Weston, follow these steps.
 
    Once satisfied:
 
-       git commit -am "releases: add ${RELEASE_NUMBER} release"
+       git add releases.html releases/weston-${RELEASE_NUMBER}.tar.xz*
+       git commit -m "releases: add weston ${RELEASE_NUMBER} release"
        git push
 
 For x.y.0 releases, also create the release series x.y branch.  The x.y branch
