@@ -266,7 +266,6 @@ test_config_h.set_quoted('WESTON_TEST_REFERENCE_PATH', meson.current_source_dir(
 test_config_h.set_quoted('WESTON_MODULE_MAP', env_modmap)
 test_config_h.set_quoted('WESTON_DATA_DIR', join_paths(meson.current_source_dir(), '..', 'data'))
 test_config_h.set_quoted('TESTSUITE_PLUGIN_PATH', exe_plugin_test.full_path())
-test_config_h.set_quoted('TESTSUITE_IVI_CONFIG_PATH', join_paths(meson.current_build_dir(), '../ivi-shell/weston-ivi-test.ini'))
 configure_file(output: 'test-config.h', configuration: test_config_h)
 
 foreach t : tests
