@@ -35,6 +35,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include "shared/helpers.h"
 #include "weston-test-fixture-compositor.h"
