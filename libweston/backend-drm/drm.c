@@ -1664,7 +1664,6 @@ drm_output_init_planes(struct drm_output *output)
 	if (!output->scanout_plane) {
 		weston_log("Failed to find primary plane for output %s\n",
 			   output->base.name);
-		output->crtc = NULL;
 		return -1;
 	}
 
