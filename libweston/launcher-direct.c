@@ -232,6 +232,12 @@ launcher_direct_open(struct weston_launcher *launcher_base, const char *path, in
 	if (fd == -1)
 		return -1;
 
+	if (geteuid() != 0) {
+		weston_log("WARNING! Succeeded opening %s as non-root user."
+			   " This implies your device can be spied on.\n",
+			   path);
+	}
+
 	if (fstat(fd, &s) == -1) {
 		close(fd);
 		return -1;
