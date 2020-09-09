@@ -278,6 +278,9 @@ struct drm_backend {
 	/* drm_crtc::link */
 	struct wl_list crtc_list;
 
+	/* drm_writeback::link */
+	struct wl_list writeback_connector_list;
+
 	bool sprites_are_broken;
 	bool cursors_are_broken;
 
@@ -476,6 +479,14 @@ struct drm_connector {
 
 	/* Holds the properties for the connector */
 	struct drm_property_info props[WDRM_CONNECTOR__COUNT];
+};
+
+struct drm_writeback {
+	/* drm_backend::writeback_connector_list */
+	struct wl_list link;
+
+	struct drm_backend *backend;
+	struct drm_connector connector;
 };
 
 struct drm_head {

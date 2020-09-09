@@ -220,6 +220,19 @@ drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id)
 	return NULL;
 }
 
+static struct drm_writeback *
+drm_writeback_find_by_connector(struct drm_backend *backend, uint32_t connector_id)
+{
+	struct drm_writeback *writeback;
+
+	wl_list_for_each(writeback, &backend->writeback_connector_list, link) {
+		if (writeback->connector.connector_id == connector_id)
+			return writeback;
+	}
+
+	return NULL;
+}
+
 /**
  * Get output state to disable output
  *
@@ -2101,6 +2114,24 @@ drm_head_update_info(struct drm_head *head, drmModeConnector *conn)
 	return ret;
 }
 
+/** Update writeback connector
+ *
+ * @param writeback The writeback to update.
+ * @param conn DRM connector object.
+ * @returns 0 on success, -1 on failure.
+ *
+ * Takes ownership of @c connector on success, not on failure.
+ */
+static int
+drm_writeback_update_info(struct drm_writeback *writeback, drmModeConnector *conn)
+{
+	int ret;
+
+	ret = drm_connector_assign_connector_info(&writeback->connector, conn);
+
+	return ret;
+}
+
 /**
  * Create a Weston head for a connector
  *
@@ -2227,9 +2258,57 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
 	return &output->base;
 }
 
-/** Given the DRM connector object of a connector, create drm_head for it.
+/**
+ * Create a Weston writeback for a writeback connector
  *
- * The object is then added to the DRM-backend list of heads.
+ * Given a DRM connector of type writeback, create a matching drm_writeback
+ * structure and add it to Weston's writeback list.
+ *
+ * @param b Weston backend structure
+ * @param conn DRM connector object of type writeback
+ * @returns 0 on success, -1 on failure
+ *
+ * Takes ownership of @c connector on success, not on failure.
+ */
+static int
+drm_writeback_create(struct drm_backend *b, drmModeConnector *conn)
+{
+	struct drm_writeback *writeback;
+	int ret;
+
+	writeback = zalloc(sizeof *writeback);
+	assert(writeback);
+
+	writeback->backend = b;
+
+	drm_connector_init(b, &writeback->connector, conn->connector_id);
+
+	ret = drm_writeback_update_info(writeback, conn);
+	if (ret < 0)
+		goto err;
+
+	wl_list_insert(&b->writeback_connector_list, &writeback->link);
+	return 0;
+
+err:
+	drm_connector_fini(&writeback->connector);
+	free(writeback);
+	return -1;
+}
+
+static void
+drm_writeback_destroy(struct drm_writeback *writeback)
+{
+	drm_connector_fini(&writeback->connector);
+	wl_list_remove(&writeback->link);
+
+	free(writeback);
+}
+
+/** Given the DRM connector object of a connector, create drm_head or
+ * drm_writeback object (depending on the type of connector) for it.
+ *
+ * The object is then added to the DRM-backend list of heads or writebacks.
  *
  * @param b The DRM-backend structure
  * @param conn The DRM connector object
@@ -2242,16 +2321,32 @@ drm_backend_add_connector(struct drm_backend *b, drmModeConnector *conn,
 {
 	int ret;
 
-	ret = drm_head_create(b, conn, drm_device);
-	if (ret < 0)
-		weston_log("DRM: failed to create head for connector %d.\n",
-			   conn->connector_id);
+	if (conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK) {
+		ret = drm_writeback_create(b, conn);
+		if (ret < 0)
+			weston_log("DRM: failed to create writeback for connector %d.\n",
+				   conn->connector_id);
+	} else {
+		ret = drm_head_create(b, conn, drm_device);
+		if (ret < 0)
+			weston_log("DRM: failed to create head for connector %d.\n",
+				   conn->connector_id);
+	}
 
 	return ret;
 }
 
+/** Find all connectors of the fd and create drm_head or drm_writeback objects
+ * (depending on the type of connector they are) for each of them
+ *
+ * These objects are added to the DRM-backend lists of heads and writebacks.
+ *
+ * @param b The DRM-backend structure
+ * @param drm_device udev device pointer
+ * @return 0 on success, -1 on failure
+ */
 static int
-drm_backend_create_heads(struct drm_backend *b, struct udev_device *drm_device)
+drm_backend_discover_connectors(struct drm_backend *b, struct udev_device *drm_device)
 {
 	drmModeRes *resources;
 	drmModeConnector *conn;
@@ -2301,8 +2396,9 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 {
 	drmModeRes *resources;
 	drmModeConnector *conn;
-	struct weston_head *base, *next;
+	struct weston_head *base, *base_next;
 	struct drm_head *head;
+	struct drm_writeback *writeback, *writeback_next;
 	uint32_t connector_id;
 	int i, ret;
 
@@ -2321,8 +2417,16 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 			continue;
 
 		head = drm_head_find_by_connector(b, connector_id);
+		writeback = drm_writeback_find_by_connector(b, connector_id);
+
+		/* Connector can't be owned by both a head and a writeback, so
+		 * one of the searches must fail. */
+		assert(head == NULL || writeback == NULL);
+
 		if (head)
 			ret = drm_head_update_info(head, conn);
+		else if (writeback)
+			ret = drm_writeback_update_info(writeback, conn);
 		else
 			ret = drm_backend_add_connector(b, conn, drm_device);
 
@@ -2330,8 +2434,9 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 			drmModeFreeConnector(conn);
 	}
 
-	/* Remove connectors that have disappeared. */
-	wl_list_for_each_safe(base, next,
+	/* Destroy head objects of connectors (except writeback connectors) that
+	 * have disappeared. */
+	wl_list_for_each_safe(base, base_next,
 			      &b->compositor->head_list, compositor_link) {
 		head = to_drm_head(base);
 		connector_id = head->connector.connector_id;
@@ -2342,6 +2447,20 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 		weston_log("DRM: head '%s' (connector %d) disappeared.\n",
 			   head->base.name, connector_id);
 		drm_head_destroy(head);
+	}
+
+	/* Destroy writeback objects of writeback connectors that have
+	 * disappeared. */
+	wl_list_for_each_safe(writeback, writeback_next,
+			      &b->writeback_connector_list, link) {
+		connector_id = writeback->connector.connector_id;
+
+		if (resources_has_connector(resources, connector_id))
+			continue;
+
+		weston_log("DRM: writeback connector (connector %d) disappeared.\n",
+			   connector_id);
+		drm_writeback_destroy(writeback);
 	}
 
 	drmModeFreeResources(resources);
@@ -2462,6 +2581,7 @@ drm_destroy(struct weston_compositor *ec)
 	struct drm_backend *b = to_drm_backend(ec);
 	struct weston_head *base, *next;
 	struct drm_crtc *crtc, *crtc_tmp;
+	struct drm_writeback *writeback, *writeback_tmp;
 
 	udev_input_destroy(&b->input);
 
@@ -2481,6 +2601,10 @@ drm_destroy(struct weston_compositor *ec)
 
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
 		drm_head_destroy(to_drm_head(base));
+
+	wl_list_for_each_safe(writeback, writeback_tmp,
+			      &b->writeback_connector_list, link)
+		drm_writeback_destroy(writeback);
 
 #ifdef BUILD_DRM_GBM
 	if (b->gbm)
@@ -2991,7 +3115,8 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_sprite;
 	}
 
-	if (drm_backend_create_heads(b, drm_device) < 0) {
+	wl_list_init(&b->writeback_connector_list);
+	if (drm_backend_discover_connectors(b, drm_device) < 0) {
 		weston_log("Failed to create heads for %s\n", b->drm.filename);
 		goto err_udev_input;
 	}

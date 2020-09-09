@@ -1487,6 +1487,8 @@ init_kms_caps(struct drm_backend *b)
 	weston_log("DRM: %s GBM modifiers\n",
 		   b->fb_modifiers ? "supports" : "does not support");
 
+	drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_WRITEBACK_CONNECTORS, 1);
+
 	/*
 	 * KMS support for hardware planes cannot properly synchronize
 	 * without nuclear page flip. Without nuclear/atomic, hw plane
