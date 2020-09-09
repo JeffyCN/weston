@@ -127,6 +127,9 @@ setup_tty(struct launcher_direct *launcher, int tty)
 	char tty_device[32] ="<stdin>";
 	int ret, kd_mode;
 
+	if (geteuid() != 0)
+		return -1;
+
 	if (tty == 0) {
 		launcher->tty = dup(tty);
 		if (launcher->tty == -1) {
@@ -289,9 +292,6 @@ launcher_direct_connect(struct weston_launcher **out, struct weston_compositor *
 			int tty, const char *seat_id, bool sync_drm)
 {
 	struct launcher_direct *launcher;
-
-	if (geteuid() != 0)
-		return -EINVAL;
 
 	launcher = zalloc(sizeof(*launcher));
 	if (launcher == NULL)
