@@ -2265,6 +2265,17 @@ drm_backend_create_heads(struct drm_backend *b, struct udev_device *drm_device)
 	return 0;
 }
 
+static bool
+resources_has_connector(drmModeRes *resources, uint32_t connector_id)
+{
+	for (int i = 0; i < resources->count_connectors; i++) {
+		if (resources->connectors[i] == connector_id)
+			return true;
+	}
+
+	return false;
+}
+
 static void
 drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_device)
 {
@@ -2307,18 +2318,10 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 	/* Remove connectors that have disappeared. */
 	wl_list_for_each_safe(base, next,
 			      &b->compositor->head_list, compositor_link) {
-		bool removed = true;
 		head = to_drm_head(base);
 		connector_id = head->connector.connector_id;
 
-		for (i = 0; i < resources->count_connectors; i++) {
-			if (resources->connectors[i] == connector_id) {
-				removed = false;
-				break;
-			}
-		}
-
-		if (!removed)
+		if (resources_has_connector(resources, connector_id))
 			continue;
 
 		weston_log("DRM: head '%s' (connector %d) disappeared.\n",
