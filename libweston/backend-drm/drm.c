@@ -2266,7 +2266,7 @@ drm_backend_create_heads(struct drm_backend *b, struct udev_device *drm_device)
 }
 
 static void
-drm_backend_update_heads(struct drm_backend *b, struct udev_device *drm_device)
+drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_device)
 {
 	drmModeRes *resources;
 	drmModeConnector *conn;
@@ -2430,7 +2430,7 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 		if (udev_event_is_conn_prop_change(b, event, &conn_id, &prop_id))
 			drm_backend_update_conn_props(b, conn_id, prop_id);
 		else
-			drm_backend_update_heads(b, event);
+			drm_backend_update_connectors(b, event);
 	}
 
 	udev_device_unref(event);
