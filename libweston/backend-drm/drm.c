@@ -2021,6 +2021,7 @@ drm_head_assign_connector_info(struct drm_head *head,
 		drmModeFreeConnector(head->connector);
 	head->connector = connector;
 
+	drm_property_info_free(head->props_conn, WDRM_CONNECTOR__COUNT);
 	drm_property_info_populate(head->backend, connector_props,
 				   head->props_conn,
 				   WDRM_CONNECTOR__COUNT, props);
