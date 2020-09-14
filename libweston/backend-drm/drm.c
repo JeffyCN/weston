@@ -2227,6 +2227,29 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
 	return &output->base;
 }
 
+/** Given the DRM connector object of a connector, create drm_head for it.
+ *
+ * The object is then added to the DRM-backend list of heads.
+ *
+ * @param b The DRM-backend structure
+ * @param conn The DRM connector object
+ * @param drm_device udev device pointer
+ * @return 0 on success, -1 on failure
+ */
+static int
+drm_backend_add_connector(struct drm_backend *b, drmModeConnector *conn,
+			  struct udev_device *drm_device)
+{
+	int ret;
+
+	ret = drm_head_create(b, conn, drm_device);
+	if (ret < 0)
+		weston_log("DRM: failed to create head for connector %d.\n",
+			   conn->connector_id);
+
+	return ret;
+}
+
 static int
 drm_backend_create_heads(struct drm_backend *b, struct udev_device *drm_device)
 {
@@ -2252,12 +2275,9 @@ drm_backend_create_heads(struct drm_backend *b, struct udev_device *drm_device)
 		if (!conn)
 			continue;
 
-		ret = drm_head_create(b, conn, drm_device);
-		if (ret < 0) {
-			weston_log("DRM: failed to create head for connector %d.\n",
-				   connector_id);
+		ret = drm_backend_add_connector(b, conn, drm_device);
+		if (ret < 0)
 			drmModeFreeConnector(conn);
-		}
 	}
 
 	drmModeFreeResources(resources);
@@ -2301,18 +2321,13 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 			continue;
 
 		head = drm_head_find_by_connector(b, connector_id);
-		if (head) {
+		if (head)
 			ret = drm_head_update_info(head, conn);
-			if (ret < 0)
-				drmModeFreeConnector(conn);
-		} else {
-			ret = drm_head_create(b, conn, drm_device);
-			if (ret < 0) {
-				weston_log("DRM: failed to create head for hot-added connector %d.\n",
-					   connector_id);
-				drmModeFreeConnector(conn);
-			}
-		}
+		else
+			ret = drm_backend_add_connector(b, conn, drm_device);
+
+		if (ret < 0)
+			drmModeFreeConnector(conn);
 	}
 
 	/* Remove connectors that have disappeared. */
