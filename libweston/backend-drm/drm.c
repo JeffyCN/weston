@@ -2018,8 +2018,6 @@ drm_connector_update_properties(struct drm_connector *connector)
  * @return 0 on success, -1 on failure.
  *
  * Takes ownership of @c connector on success, not on failure.
- *
- * May schedule a heads changed call if this connector is owned by a head
  */
 static int
 drm_connector_assign_connector_info(struct drm_connector *connector,
@@ -2039,13 +2037,6 @@ drm_connector_assign_connector_info(struct drm_connector *connector,
 	drm_property_info_populate(connector->backend, connector_props,
 				   connector->props,
 				   WDRM_CONNECTOR__COUNT, connector->props_drm);
-
-	if (connector->head != NULL) {
-		update_head_from_connector(connector->head);
-		weston_head_set_content_protection_status(&connector->head->base,
-			drm_head_get_current_protection(connector->head));
-	}
-
 	return 0;
 }
 
@@ -2056,7 +2047,6 @@ drm_connector_init(struct drm_backend *b, struct drm_connector *connector,
 	connector->backend = b;
 	connector->connector_id = connector_id;
 	connector->conn = NULL;
-	connector->head = NULL;
 	connector->props_drm = NULL;
 }
 
@@ -2099,6 +2089,10 @@ drm_head_update_info(struct drm_head *head, drmModeConnector *conn)
 
 	ret = drm_connector_assign_connector_info(&head->connector, conn);
 
+	update_head_from_connector(head);
+	weston_head_set_content_protection_status(&head->base,
+					drm_head_get_current_protection(head));
+
 	if (head->base.device_changed)
 		drm_head_log_info(head, "updated");
 
@@ -2131,7 +2125,6 @@ drm_head_create(struct drm_backend *backend, drmModeConnector *conn,
 	head->backend = backend;
 
 	drm_connector_init(backend, &head->connector, conn->connector_id);
-	head->connector.head = head;
 
 	name = make_connector_name(conn);
 	if (!name)
@@ -2140,9 +2133,9 @@ drm_head_create(struct drm_backend *backend, drmModeConnector *conn,
 	weston_head_init(&head->base, name);
 	free(name);
 
-	ret = drm_connector_assign_connector_info(&head->connector, conn);
+	ret = drm_head_update_info(head, conn);
 	if (ret < 0)
-		goto err_assign;
+		goto err_update;
 
 	head->backlight = backlight_init(drm_device, conn->connector_type);
 
@@ -2161,7 +2154,7 @@ drm_head_create(struct drm_backend *backend, drmModeConnector *conn,
 
 	return 0;
 
-err_assign:
+err_update:
 	weston_head_release(&head->base);
 err:
 	drm_connector_fini(&head->connector);

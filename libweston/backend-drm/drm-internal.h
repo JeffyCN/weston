@@ -468,7 +468,6 @@ struct drm_plane {
 
 struct drm_connector {
 	struct drm_backend *backend;
-	struct drm_head *head;
 
 	drmModeConnector *conn;
 	uint32_t connector_id;
