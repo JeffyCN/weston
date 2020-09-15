@@ -2081,6 +2081,8 @@ drm_head_log_info(struct drm_head *head, const char *msg)
  *
  * Updates monitor information and connection status. This may schedule a
  * heads changed call to the user.
+ *
+ * Takes ownership of @c connector on success, not on failure.
  */
 static int
 drm_head_update_info(struct drm_head *head, drmModeConnector *conn)
@@ -2109,6 +2111,8 @@ drm_head_update_info(struct drm_head *head, drmModeConnector *conn)
  * @param conn DRM connector object
  * @param drm_device udev device pointer
  * @returns 0 on success, -1 on failure
+ *
+ * Takes ownership of @c connector on success, not on failure.
  */
 static int
 drm_head_create(struct drm_backend *backend, drmModeConnector *conn,
