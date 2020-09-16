@@ -1706,6 +1706,16 @@ drm_output_deinit_planes(struct drm_output *output)
 	/* If the compositor is already shutting down, the planes have already
 	 * been destroyed. */
 	if (!b->shutting_down) {
+		wl_list_remove(&output->scanout_plane->base.link);
+		wl_list_init(&output->scanout_plane->base.link);
+
+		if (output->cursor_plane) {
+			wl_list_remove(&output->cursor_plane->base.link);
+			wl_list_init(&output->cursor_plane->base.link);
+			/* Turn off hardware cursor */
+			drmModeSetCursor(b->drm.fd, output->crtc->crtc_id, 0, 0, 0);
+		}
+
 		if (!b->universal_planes) {
 			/* Without universal planes, our special planes are
 			 * pseudo-planes allocated at output creation, freed at
