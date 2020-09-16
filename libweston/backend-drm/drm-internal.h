@@ -60,10 +60,6 @@
 #include "backend.h"
 #include "libweston-internal.h"
 
-#ifndef DRM_CLIENT_CAP_ASPECT_RATIO
-#define DRM_CLIENT_CAP_ASPECT_RATIO	4
-#endif
-
 #ifndef GBM_BO_USE_CURSOR
 #define GBM_BO_USE_CURSOR GBM_BO_USE_CURSOR_64X64
 #endif
@@ -113,17 +109,6 @@
 	weston_log_scope_printf((b)->debug, __VA_ARGS__)
 
 #define MAX_CLONED_CONNECTORS 4
-
-#ifndef DRM_MODE_PICTURE_ASPECT_64_27
-#define DRM_MODE_PICTURE_ASPECT_64_27		3
-#define  DRM_MODE_FLAG_PIC_AR_64_27 \
-			(DRM_MODE_PICTURE_ASPECT_64_27<<19)
-#endif
-#ifndef DRM_MODE_PICTURE_ASPECT_256_135
-#define DRM_MODE_PICTURE_ASPECT_256_135		4
-#define  DRM_MODE_FLAG_PIC_AR_256_135 \
-			(DRM_MODE_PICTURE_ASPECT_256_135<<19)
-#endif
 
 
 /**
