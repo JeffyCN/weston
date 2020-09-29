@@ -36,7 +36,6 @@ apt-get -y --no-install-recommends install \
 	build-essential \
 	curl \
 	doxygen \
-	freerdp2-dev \
 	git \
 	libasound2-dev \
 	libbluetooth-dev \
@@ -92,6 +91,8 @@ apt-get -y --no-install-recommends install \
 	xwayland \
 	$MESA_RUNTIME_PKGS
 
+apt-get -y --no-install-recommends -t buster-backports install \
+	freerdp2-dev
 
 pip3 install --user git+https://github.com/mesonbuild/meson.git@0.49
 export PATH=$HOME/.local/bin:$PATH
