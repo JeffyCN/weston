@@ -476,7 +476,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	rdpSettings *settings;
 	pixman_image_t *new_shadow_buffer;
 	struct weston_mode *local_mode;
-	const struct pixman_renderer_output_options options = { };
+	const struct pixman_renderer_output_options options = { .use_shadow = true, };
 
 	local_mode = ensure_matching_mode(output, target_mode);
 	if (!local_mode) {
