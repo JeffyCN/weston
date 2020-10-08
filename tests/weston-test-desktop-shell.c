@@ -165,6 +165,8 @@ shell_destroy(struct wl_listener *listener, void *data)
 	dts = container_of(listener, struct desktest_shell,
 			   compositor_destroy_listener);
 
+	wl_list_remove(&dts->compositor_destroy_listener.link);
+
 	weston_desktop_destroy(dts->desktop);
 	weston_view_destroy(dts->background_view);
 	weston_surface_destroy(dts->background_surface);
