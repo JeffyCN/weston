@@ -269,7 +269,6 @@ struct drm_backend {
 	bool sprites_are_broken;
 	bool cursors_are_broken;
 
-	bool universal_planes;
 	bool atomic_modeset;
 
 	bool use_pixman;

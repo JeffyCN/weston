@@ -1447,12 +1447,13 @@ init_kms_caps(struct drm_backend *b)
 	else
 		b->cursor_height = 64;
 
-	if (!getenv("WESTON_DISABLE_UNIVERSAL_PLANES")) {
-		ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
-		b->universal_planes = (ret == 0);
+	ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+	if (ret) {
+		weston_log("Error: drm card doesn't support universal planes!\n");
+		return -1;
 	}
 
-	if (b->universal_planes && !getenv("WESTON_DISABLE_ATOMIC")) {
+	if (!getenv("WESTON_DISABLE_ATOMIC")) {
 		ret = drmGetCap(b->drm.fd, DRM_CAP_CRTC_IN_VBLANK_EVENT, &cap);
 		if (ret != 0)
 			cap = 0;

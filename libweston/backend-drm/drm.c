@@ -736,10 +736,6 @@ init_pixman(struct drm_backend *b)
  * Creates one drm_plane structure for a hardware plane, and initialises its
  * properties and formats.
  *
- * In the absence of universal plane support, where KMS does not explicitly
- * expose the primary and cursor planes to userspace, this may also create
- * an 'internal' plane for internal management.
- *
  * This function does not add the plane to the list of usable planes in Weston
  * itself; the caller is responsible for this.
  *
@@ -747,20 +743,14 @@ init_pixman(struct drm_backend *b)
  *
  * @sa drm_output_find_special_plane
  * @param b DRM compositor backend
- * @param kplane DRM plane to create, or NULL if creating internal plane
- * @param output Output to create internal plane for, or NULL
- * @param type Type to use when creating internal plane, or invalid
- * @param format Format to use for internal planes, or 0
+ * @param kplane DRM plane to create
  */
 static struct drm_plane *
-drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
-		 struct drm_output *output, enum wdrm_plane_type type,
-		 uint32_t format)
+drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 {
 	struct drm_plane *plane;
 	drmModeObjectProperties *props;
 	uint64_t *zpos_range_values;
-	struct weston_drm_format *fmt;
 
 	plane = zalloc(sizeof(*plane));
 	if (!plane) {
@@ -771,78 +761,47 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 	plane->backend = b;
 	plane->state_cur = drm_plane_state_alloc(NULL, plane);
 	plane->state_cur->complete = true;
+	plane->possible_crtcs = kplane->possible_crtcs;
+	plane->plane_id = kplane->plane_id;
 
 	weston_drm_format_array_init(&plane->formats);
 
-	if (kplane) {
-		plane->possible_crtcs = kplane->possible_crtcs;
-		plane->plane_id = kplane->plane_id;
-
-		props = drmModeObjectGetProperties(b->drm.fd, kplane->plane_id,
-						   DRM_MODE_OBJECT_PLANE);
-		if (!props) {
-			weston_log("couldn't get plane properties\n");
-			goto err;
-		}
-		drm_property_info_populate(b, plane_props, plane->props,
-					   WDRM_PLANE__COUNT, props);
-		plane->type =
-			drm_property_get_value(&plane->props[WDRM_PLANE_TYPE],
-					       props,
-					       WDRM_PLANE_TYPE__COUNT);
-
-		zpos_range_values =
-			drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS],
-						      props);
-
-		if (zpos_range_values) {
-			plane->zpos_min = zpos_range_values[0];
-			plane->zpos_max = zpos_range_values[1];
-		} else {
-			plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
-			plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
-		}
-
-		if (drm_plane_populate_formats(plane, kplane, props,
-					       b->fb_modifiers) < 0) {
-			drmModeFreeObjectProperties(props);
-			goto err;
-		}
-
-		drmModeFreeObjectProperties(props);
+	props = drmModeObjectGetProperties(b->drm.fd, kplane->plane_id,
+					   DRM_MODE_OBJECT_PLANE);
+	if (!props) {
+		weston_log("couldn't get plane properties\n");
+		goto err;
 	}
-	else {
-		plane->possible_crtcs = (1 << output->crtc->pipe);
-		plane->plane_id = 0;
-		plane->type = type;
-		plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
+
+	drm_property_info_populate(b, plane_props, plane->props,
+				   WDRM_PLANE__COUNT, props);
+	plane->type =
+		drm_property_get_value(&plane->props[WDRM_PLANE_TYPE],
+				       props,
+				       WDRM_PLANE_TYPE__COUNT);
+
+	zpos_range_values =
+		drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS],
+					      props);
+
+	if (zpos_range_values) {
+		plane->zpos_min = zpos_range_values[0];
+		plane->zpos_max = zpos_range_values[1];
+	} else {
 		plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
-
-		/* Without universal planes support we can't tell the formats
-		 * and modifiers that the plane support, as we don't know
-		 * anything about the planes. So modifiers are not supported. */
-		fmt = weston_drm_format_array_add_format(&plane->formats, format);
-		if (!fmt)
-			goto err;
-		if (!weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID))
-			goto err;
+		plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
 	}
+
+	if (drm_plane_populate_formats(plane, kplane, props,
+				       b->fb_modifiers) < 0) {
+		drmModeFreeObjectProperties(props);
+		goto err;
+	}
+
+	drmModeFreeObjectProperties(props);
 
 	if (plane->type == WDRM_PLANE_TYPE__COUNT)
 		goto err_props;
-
-	/* With universal planes, everything is a DRM plane; without
-	 * universal planes, the only DRM planes are overlay planes.
-	 * Everything else is a fake plane. */
-	if (b->universal_planes) {
-		assert(kplane);
-	} else {
-		if (kplane)
-			assert(plane->type == WDRM_PLANE_TYPE_OVERLAY);
-		else
-			assert(plane->type != WDRM_PLANE_TYPE_OVERLAY &&
-			       output);
-	}
 
 	weston_plane_init(&plane->base, b->compositor, 0, 0);
 	wl_list_insert(&b->plane_list, &plane->link);
@@ -861,20 +820,6 @@ err:
 /**
  * Find, or create, a special-purpose plane
  *
- * Primary and cursor planes are a special case, in that before universal
- * planes, they are driven by non-plane API calls. Without universal plane
- * support, the only way to configure a primary plane is via drmModeSetCrtc,
- * and the only way to configure a cursor plane is drmModeSetCursor2.
- *
- * Although they may actually be regular planes in the hardware, without
- * universal plane support, these planes are not actually exposed to
- * userspace in the regular plane list.
- *
- * However, for ease of internal tracking, we want to manage all planes
- * through the same drm_plane structures. Therefore, when we are running
- * without universal plane support, we create fake drm_plane structures
- * to track these planes.
- *
  * @param b DRM backend
  * @param output Output to use for plane
  * @param type Type of plane
@@ -884,27 +829,6 @@ drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
 			      enum wdrm_plane_type type)
 {
 	struct drm_plane *plane;
-
-	if (!b->universal_planes) {
-		uint32_t format;
-
-		switch (type) {
-		case WDRM_PLANE_TYPE_CURSOR:
-			format = DRM_FORMAT_ARGB8888;
-			break;
-		case WDRM_PLANE_TYPE_PRIMARY:
-			/* We don't know what formats the primary plane supports
-			 * before universal planes, so we just assume that the
-			 * GBM format works. */
-			format = output->gbm_format;
-			break;
-		default:
-			assert(!"invalid type in drm_output_find_special_plane");
-			break;
-		}
-
-		return drm_plane_create(b, NULL, output, type, format);
-	}
 
 	wl_list_for_each(plane, &b->plane_list, link) {
 		struct drm_output *tmp;
@@ -986,8 +910,7 @@ create_sprites(struct drm_backend *b)
 		if (!kplane)
 			continue;
 
-		drm_plane = drm_plane_create(b, kplane, NULL,
-		                             WDRM_PLANE_TYPE__COUNT, 0);
+		drm_plane = drm_plane_create(b, kplane);
 		drmModeFreePlane(kplane);
 		if (!drm_plane)
 			continue;
@@ -1706,9 +1629,7 @@ drm_output_init_planes(struct drm_output *output)
 }
 
 /** The opposite of drm_output_init_planes(). First of all it removes the planes
- * from the plane stacking list. Then, in case we don't have support for
- * universal planes it destroys the planes. After all it sets the planes of the
- * output as NULL.
+ * from the plane stacking list. After all it sets the planes of the output as NULL.
  */
 static void
 drm_output_deinit_planes(struct drm_output *output)
@@ -1728,26 +1649,15 @@ drm_output_deinit_planes(struct drm_output *output)
 			drmModeSetCursor(b->drm.fd, output->crtc->crtc_id, 0, 0, 0);
 		}
 
-		if (!b->universal_planes) {
-			/* Without universal planes, our special planes are
-			 * pseudo-planes allocated at output creation, freed at
-			 * output destruction, and not usable by other outputs.
-			 */
-			if (output->cursor_plane)
-				drm_plane_destroy(output->cursor_plane);
-			if (output->scanout_plane)
-				drm_plane_destroy(output->scanout_plane);
-		} else {
-			/* With universal planes, the 'special' planes are
-			 * allocated at startup, freed at shutdown, and live on
-			 * the plane list in between. We want the planes to
-			 * continue to exist and be freed up for other outputs.
-			 */
-			if (output->cursor_plane)
-				drm_plane_reset_state(output->cursor_plane);
-			if (output->scanout_plane)
-				drm_plane_reset_state(output->scanout_plane);
-		}
+		/* With universal planes, the planes are allocated at startup,
+		 * freed at shutdown, and live on the plane list in between.
+		 * We want the planes to  continue to exist and be freed up
+		 * for other outputs.
+		 */
+		if (output->cursor_plane)
+			drm_plane_reset_state(output->cursor_plane);
+		if (output->scanout_plane)
+			drm_plane_reset_state(output->scanout_plane);
 	}
 
 	output->cursor_plane = NULL;
