@@ -1631,20 +1631,14 @@ drm_crtc_destroy(struct drm_crtc *crtc)
  * the fd gets closed.
  *
  * @param b The DRM-backend structure.
+ * @param resources The DRM resources, it is taken with drmModeGetResources
  * @return 0 on success (at least one CRTC in the list), -1 on failure.
  */
 static int
-drm_backend_create_crtc_list(struct drm_backend *b)
+drm_backend_create_crtc_list(struct drm_backend *b, drmModeRes *resources)
 {
-	drmModeRes *resources;
 	struct drm_crtc *crtc, *crtc_tmp;
 	int i;
-
-	resources = drmModeGetResources(b->drm.fd);
-	if (!resources) {
-		weston_log("drmModeGetResources failed\n");
-		return -1;
-	}
 
 	/* Iterate through all CRTCs */
 	for (i = 0; i < resources->count_crtcs; i++) {
@@ -1655,13 +1649,11 @@ drm_backend_create_crtc_list(struct drm_backend *b)
 			goto err;
 	}
 
-	drmModeFreeResources(resources);
 	return 0;
 
 err:
 	wl_list_for_each_safe(crtc, crtc_tmp, &b->crtc_list, link)
 		drm_crtc_destroy(crtc);
-	drmModeFreeResources(resources);
 	return -1;
 }
 
@@ -2343,20 +2335,15 @@ drm_backend_add_connector(struct drm_backend *b, drmModeConnector *conn,
  *
  * @param b The DRM-backend structure
  * @param drm_device udev device pointer
+ * @param resources The DRM resources, it is taken with drmModeGetResources
  * @return 0 on success, -1 on failure
  */
 static int
-drm_backend_discover_connectors(struct drm_backend *b, struct udev_device *drm_device)
+drm_backend_discover_connectors(struct drm_backend *b, struct udev_device *drm_device,
+				drmModeRes *resources)
 {
-	drmModeRes *resources;
 	drmModeConnector *conn;
 	int i, ret;
-
-	resources = drmModeGetResources(b->drm.fd);
-	if (!resources) {
-		weston_log("drmModeGetResources failed\n");
-		return -1;
-	}
 
 	b->min_width  = resources->min_width;
 	b->max_width  = resources->max_width;
@@ -2374,8 +2361,6 @@ drm_backend_discover_connectors(struct drm_backend *b, struct udev_device *drm_d
 		if (ret < 0)
 			drmModeFreeConnector(conn);
 	}
-
-	drmModeFreeResources(resources);
 
 	return 0;
 }
@@ -3011,6 +2996,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	struct wl_event_loop *loop;
 	const char *seat_id = default_seat;
 	const char *session_seat;
+	drmModeRes *res;
 	int ret;
 
 	session_seat = getenv("XDG_SEAT");
@@ -3099,10 +3085,16 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	weston_setup_vt_switch_bindings(compositor);
 
-	wl_list_init(&b->crtc_list);
-	if (drm_backend_create_crtc_list(b) == -1) {
-		weston_log("Failed to create CRTC list for DRM-backend\n");
+	res = drmModeGetResources(b->drm.fd);
+	if (!res) {
+		weston_log("Failed to get drmModeRes\n");
 		goto err_udev_dev;
+	}
+
+	wl_list_init(&b->crtc_list);
+	if (drm_backend_create_crtc_list(b, res) == -1) {
+		weston_log("Failed to create CRTC list for DRM-backend\n");
+		goto err_create_crtc_list;
 	}
 
 	wl_list_init(&b->plane_list);
@@ -3116,10 +3108,12 @@ drm_backend_create(struct weston_compositor *compositor,
 	}
 
 	wl_list_init(&b->writeback_connector_list);
-	if (drm_backend_discover_connectors(b, drm_device) < 0) {
+	if (drm_backend_discover_connectors(b, drm_device, res) < 0) {
 		weston_log("Failed to create heads for %s\n", b->drm.filename);
 		goto err_udev_input;
 	}
+
+	drmModeFreeResources(res);
 
 	/* 'compute' faked zpos values in case HW doesn't expose any */
 	drm_backend_create_faked_zpos(b);
@@ -3213,6 +3207,8 @@ err_sprite:
 		gbm_device_destroy(b->gbm);
 #endif
 	destroy_sprites(b);
+err_create_crtc_list:
+	drmModeFreeResources(res);
 err_udev_dev:
 	udev_device_unref(drm_device);
 err_udev:
