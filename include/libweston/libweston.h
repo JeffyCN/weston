@@ -1846,6 +1846,9 @@ enum weston_surface_flags {
 	SURFACE_DEFAULT_SECONDARY	= 1 << 6,
 };
 
+#define WESTON_SURFACE_FLAGS_STAY_MASK \
+	((uint32_t)(SURFACE_STAY_ON_TOP | SURFACE_STAY_ON_BOTTOM))
+
 struct weston_surface {
 	struct wl_resource *resource;
 	struct wl_signal destroy_signal; /* callback argument: this surface */
