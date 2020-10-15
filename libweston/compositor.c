@@ -3251,14 +3251,30 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 
 	wl_list_for_each(layer, &compositor->layer_list, link) {
 		bool system_layer = weston_compositor_is_system_layer(layer);
+		static bool seen_first = false;
 
 		if (compositor->hide_cursor && layer == &compositor->cursor_layer)
 			continue;
 
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
-			if (compositor->warm_up && !system_layer) {
+			if (!seen_first && !system_layer) {
+				const char *env;
+
 				weston_log("seeing the first app\n");
+				seen_first = true;
+
 				compositor->warm_up = false;
+
+				if (!(view->surface->flags &
+				      WESTON_SURFACE_FLAGS_STAY_MASK)) {
+					env = getenv("WESTON_FIRST_APP_LAYER");
+					if (env && !strcmp(env, "top"))
+						view->surface->flags |=
+							SURFACE_STAY_ON_TOP;
+					else if (env && !strcmp(env, "bottom"))
+						view->surface->flags |=
+							SURFACE_STAY_ON_BOTTOM;
+				}
 			}
 
 			view_list_add(compositor, view, output);
