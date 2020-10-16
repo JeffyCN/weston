@@ -850,7 +850,8 @@ calibrator_run(struct calibrator *cal)
 		return CAL_EXIT_ERROR;
 
 	if (verify_calibration(cal, result) < 0)
-		return CAL_EXIT_ERROR;
+		//return CAL_EXIT_ERROR;
+		pr_ver("Ignoring verify errors.\n");
 
 	pr_ver("Calibration values:");
 	for (i = 0; i < 6; i++)
