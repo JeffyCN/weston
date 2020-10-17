@@ -57,7 +57,6 @@ struct client {
 	struct surface *surface;
 	int has_argb;
 	struct wl_list global_list;
-	bool has_wl_drm;
 	struct wl_list output_list; /* struct output::link */
 };
 

@@ -792,8 +792,6 @@ handle_global(void *data, struct wl_registry *registry,
 					 &weston_test_interface, version);
 		weston_test_add_listener(test->weston_test, &test_listener, test);
 		client->test = test;
-	} else if (strcmp(interface, "wl_drm") == 0) {
-		client->has_wl_drm = true;
 	}
 }
 
