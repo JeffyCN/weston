@@ -221,6 +221,8 @@ wet_shell_init(struct weston_compositor *ec,
 	if (dts->desktop == NULL)
 		goto out_view;
 
+	screenshooter_create(ec);
+
 	return 0;
 
 out_view:

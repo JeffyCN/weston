@@ -2,7 +2,7 @@ plugin_test_shell_desktop = shared_library(
 	'weston-test-desktop-shell',
 	'weston-test-desktop-shell.c',
 	include_directories: common_inc,
-	dependencies: [ dep_lib_desktop, dep_libweston_public ],
+	dependencies: [ dep_lib_desktop, dep_libweston_public, dep_libexec_weston ],
 	name_prefix: '',
 	install: false
 )
@@ -29,6 +29,7 @@ lib_test_client = static_library(
 		'weston-test-client-helper.c',
 		'weston-test-fixture-compositor.c',
 		weston_test_client_protocol_h,
+		weston_screenshooter_protocol_c,
 		weston_test_protocol_c,
 		viewporter_client_protocol_h,
 		viewporter_protocol_c,

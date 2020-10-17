@@ -540,17 +540,20 @@ test_handle_pointer_position(void *data, struct weston_test *weston_test,
 }
 
 static void
-test_handle_capture_screenshot_done(void *data, struct weston_test *weston_test)
+test_handle_capture_screenshot_done(void *data, struct weston_screenshooter *screenshooter)
 {
-	struct test *test = data;
+	struct client *client = data;
 
 	testlog("Screenshot has been captured\n");
-	test->buffer_copy_done = true;
+	client->buffer_copy_done = true;
 }
+
+static const struct weston_screenshooter_listener screenshooter_listener = {
+	test_handle_capture_screenshot_done
+};
 
 static const struct weston_test_listener test_listener = {
 	test_handle_pointer_position,
-	test_handle_capture_screenshot_done,
 };
 
 static void
@@ -792,6 +795,12 @@ handle_global(void *data, struct wl_registry *registry,
 					 &weston_test_interface, version);
 		weston_test_add_listener(test->weston_test, &test_listener, test);
 		client->test = test;
+	} else if (strcmp(interface, "weston_screenshooter") == 0) {
+		client->screenshooter =
+			wl_registry_bind(registry, id,
+					 &weston_screenshooter_interface, 1);
+		weston_screenshooter_add_listener(client->screenshooter,
+						  &screenshooter_listener, client);
 	}
 }
 
@@ -1614,17 +1623,18 @@ capture_screenshot_of_output(struct client *client)
 {
 	struct buffer *buffer;
 
+	assert(client->screenshooter);
+
 	buffer = create_shm_buffer_a8r8g8b8(client,
 					    client->output->width,
 					    client->output->height);
 
-	client->test->buffer_copy_done = false;
-	weston_test_capture_screenshot(client->test->weston_test,
+	client->buffer_copy_done = false;
+	weston_screenshooter_take_shot(client->screenshooter,
 				       client->output->wl_output,
 				       buffer->proxy);
-	while (client->test->buffer_copy_done == false)
-		if (wl_display_dispatch(client->wl_display) < 0)
-			break;
+	while (client->buffer_copy_done == false)
+		assert(wl_display_dispatch(client->wl_display) >= 0);
 
 	/* FIXME: Document somewhere the orientation the screenshot is taken
 	 * and how the clip coords are interpreted, in case of scaling/transform.

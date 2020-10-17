@@ -369,6 +369,9 @@ execute_compositor(const struct compositor_setup *setup,
 			return RESULT_FAIL;
 	}
 
+	/* Test suite needs the debug protocol to be able to take screenshots */
+	prog_args_take(&args, strdup("--debug"));
+
 	asprintf(&tmp, "--socket=%s", setup->testset_name);
 	prog_args_take(&args, tmp);
 
