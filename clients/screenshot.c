@@ -315,9 +315,9 @@ int main(int argc, char *argv[])
 						     output->height,
 						     &output->data,
 						     sh_data.shm);
-		weston_screenshooter_shoot(sh_data.screenshooter,
-					   output->output,
-					   output->buffer);
+		weston_screenshooter_take_shot(sh_data.screenshooter,
+					       output->output,
+					       output->buffer);
 		sh_data.buffer_copy_done = 0;
 		while (!sh_data.buffer_copy_done)
 			wl_display_roundtrip(display);

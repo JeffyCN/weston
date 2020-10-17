@@ -61,10 +61,10 @@ screenshooter_done(void *data, enum weston_screenshooter_outcome outcome)
 }
 
 static void
-screenshooter_shoot(struct wl_client *client,
-		    struct wl_resource *resource,
-		    struct wl_resource *output_resource,
-		    struct wl_resource *buffer_resource)
+screenshooter_take_shot(struct wl_client *client,
+			struct wl_resource *resource,
+			struct wl_resource *output_resource,
+			struct wl_resource *buffer_resource)
 {
 	struct weston_output *output =
 		weston_head_from_resource(output_resource)->output;
@@ -80,7 +80,7 @@ screenshooter_shoot(struct wl_client *client,
 }
 
 struct weston_screenshooter_interface screenshooter_implementation = {
-	screenshooter_shoot
+	screenshooter_take_shot
 };
 
 static void
