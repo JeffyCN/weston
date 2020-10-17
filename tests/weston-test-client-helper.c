@@ -545,7 +545,7 @@ test_handle_capture_screenshot_done(void *data, struct weston_test *weston_test)
 	struct test *test = data;
 
 	testlog("Screenshot has been captured\n");
-	test->buffer_copy_done = 1;
+	test->buffer_copy_done = true;
 }
 
 static const struct weston_test_listener test_listener = {
@@ -1618,11 +1618,11 @@ capture_screenshot_of_output(struct client *client)
 					    client->output->width,
 					    client->output->height);
 
-	client->test->buffer_copy_done = 0;
+	client->test->buffer_copy_done = false;
 	weston_test_capture_screenshot(client->test->weston_test,
 				       client->output->wl_output,
 				       buffer->proxy);
-	while (client->test->buffer_copy_done == 0)
+	while (client->test->buffer_copy_done == false)
 		if (wl_display_dispatch(client->wl_display) < 0)
 			break;
 
