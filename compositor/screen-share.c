@@ -882,8 +882,8 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 			y_orig = y;
 
 		so->output->compositor->renderer->read_pixels(
-			so->output, PIXMAN_a8r8g8b8, so->tmp_data,
-			x, y_orig, width, height);
+			so->output, so->output->compositor->read_format,
+			so->tmp_data, x, y_orig, width, height);
 
 		damaged_image = pixman_image_create_bits(PIXMAN_a8r8g8b8,
 							 width, height,
