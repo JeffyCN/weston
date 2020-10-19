@@ -7334,9 +7334,9 @@ debug_scene_graph_cb(struct weston_log_subscription *sub, void *data)
  *  1. The struct weston_testsuite_quirks, which can be used by the tests to
  *  change certain behavior of Weston when running these tests.
  *
- *  2. The struct wet_testsuite_data member, which can be used by the test suite
+ *  2. The void *test_private_data member which can be used by the test suite
  *  of projects that uses libweston in order to give arbitrary test data to the
- *  compositor.
+ *  compositor. Its type should be defined by the test suite of the project.
  *
  * This function can be called at most once per compositor instance, just after
  * creating the weston_compositor object and never again. This happens because

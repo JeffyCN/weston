@@ -98,12 +98,6 @@ text_backend_destroy(struct text_backend *text_backend);
 int
 wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data);
 
-
-/* test suite utilities */
-
-/** Opaque type for a test suite to define. */
-struct wet_testsuite_data;
-
 #ifdef  __cplusplus
 }
 #endif

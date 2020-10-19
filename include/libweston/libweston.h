@@ -203,7 +203,7 @@ struct weston_testsuite_quirks {
  */
 struct weston_testsuite_data {
 	struct weston_testsuite_quirks test_quirks;
-	struct wet_testsuite_data *test_private_data;
+	void *test_private_data;
 };
 
 /** Represents a head, usually a display connector
