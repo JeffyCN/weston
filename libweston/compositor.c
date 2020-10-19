@@ -7327,6 +7327,55 @@ debug_scene_graph_cb(struct weston_log_subscription *sub, void *data)
 	weston_log_subscription_complete(sub);
 }
 
+/** Init the compositor testsuite data
+ *
+ * The struct weston_testsuite_data contains two members:
+ *
+ *  1. The struct weston_testsuite_quirks, which can be used by the tests to
+ *  change certain behavior of Weston when running these tests.
+ *
+ *  2. The struct wet_testsuite_data member, which can be used by the test suite
+ *  of projects that uses libweston in order to give arbitrary test data to the
+ *  compositor.
+ *
+ * This function can be called at most once per compositor instance, just after
+ * creating the weston_compositor object and never again. This happens because
+ * changing the quirks after e.g. loading the backend is not going to work,
+ * there are certain behaviors that need to be set up before this point.
+ *
+ * \param ec The weston compositor.
+ * \param test_data The testsuite data.
+ *
+ * \ingroup compositor
+ * \sa weston_compositor_get_test_data
+ */
+WL_EXPORT void
+weston_compositor_test_data_init(struct weston_compositor *ec,
+				 const struct weston_testsuite_data *test_data)
+{
+	assert(ec->backend == NULL);
+	ec->test_data = *test_data;
+}
+
+/** Retrieve testsuite data from compositor
+ *
+ * The testsuite data can be defined by the test suite of projects that uses
+ * libweston and given to the compositor at the moment of its creation. This
+ * function should be used when we need to retrieve the testsuite private data
+ * from the compositor.
+ *
+ * \param ec The weston compositor.
+ * \return The testsuite data.
+ *
+ * \ingroup compositor
+ * \sa weston_compositor_test_data_init
+ */
+WL_EXPORT void *
+weston_compositor_get_test_data(struct weston_compositor *ec)
+{
+	return ec->test_data.test_private_data;
+}
+
 /** Create the compositor.
  *
  * This functions creates and initializes a compositor instance.

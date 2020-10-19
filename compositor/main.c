@@ -3119,7 +3119,7 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
 }
 
 WL_EXPORT int
-wet_main(int argc, char *argv[])
+wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 {
 	int ret = EXIT_FAILURE;
 	char *cmdline;
@@ -3288,6 +3288,9 @@ wet_main(int argc, char *argv[])
 		weston_log("fatal: failed to create compositor\n");
 		goto out;
 	}
+
+	if (test_data)
+		weston_compositor_test_data_init(wet.compositor, test_data);
 
 	protocol_scope =
 		weston_log_ctx_add_log_scope(log_ctx, "proto",

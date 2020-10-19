@@ -750,7 +750,7 @@ static void
 idle_launch_testsuite(void *test_)
 {
 	struct weston_test *test = test_;
-	struct wet_testsuite_data *data = wet_testsuite_data_get();
+	struct wet_testsuite_data *data = weston_compositor_get_test_data(test->compositor);
 
 	if (!data)
 		return;

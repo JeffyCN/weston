@@ -185,6 +185,27 @@ enum weston_hdcp_protection {
 	WESTON_HDCP_ENABLE_TYPE_1
 };
 
+/** Weston test suite quirks
+ *
+ * There are some things that need a specific behavior when we run Weston in the
+ * test suite. Tests can use this struct to select for certain behaviors.
+ *
+ * \sa compositor_setup
+ * \ingroup testharness
+ */
+struct weston_testsuite_quirks {
+};
+
+/** Weston test suite data that is given to compositor
+ *
+ * \sa compositor_setup
+ * \ingroup testharness
+ */
+struct weston_testsuite_data {
+	struct weston_testsuite_quirks test_quirks;
+	struct wet_testsuite_data *test_private_data;
+};
+
 /** Represents a head, usually a display connector
  *
  * \rst
@@ -1105,6 +1126,9 @@ struct weston_compositor {
 	/* Whether to let the compositor run without any input device. */
 	bool require_input;
 
+	/* Test suite data */
+	struct weston_testsuite_data test_data;
+
 	/* Signal for a backend to inform a frontend about possible changes
 	 * in head status.
 	 */
@@ -1775,6 +1799,12 @@ weston_compositor_destroy(struct weston_compositor *ec);
 struct weston_compositor *
 weston_compositor_create(struct wl_display *display,
 			 struct weston_log_context *log_ctx, void *user_data);
+
+void
+weston_compositor_test_data_init(struct weston_compositor *ec,
+				 const struct weston_testsuite_data *test_data);
+void *
+weston_compositor_get_test_data(struct weston_compositor *ec);
 
 bool
 weston_compositor_add_destroy_listener_once(struct weston_compositor *compositor,
