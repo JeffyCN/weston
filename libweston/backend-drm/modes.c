@@ -450,9 +450,8 @@ drm_output_print_modes(struct drm_output *output)
 		dm = to_drm_mode(m);
 
 		aspect_ratio = aspect_ratio_to_string(m->aspect_ratio);
-		weston_log_continue(STAMP_SPACE "%dx%d@%.1f%s%s%s, %.1f MHz\n",
-				    dm->mode_info.hdisplay,
-				    dm->mode_info.vdisplay,
+		weston_log_continue(STAMP_SPACE "%s@%.1f%s%s%s, %.1f MHz\n",
+				    dm->mode_info.name,
 				    m->refresh / 1000.0,
 				    aspect_ratio,
 				    m->flags & WL_OUTPUT_MODE_PREFERRED ?
@@ -495,11 +494,14 @@ drm_output_choose_mode(struct drm_output *output,
 	enum weston_mode_aspect_ratio target_aspect = WESTON_MODE_PIC_AR_NONE;
 	struct drm_backend *b;
 
+#define WESTON_MODE_NAME(mode) \
+	to_drm_mode(mode)->mode_info.name
+
 	b = to_drm_backend(output->base.compositor);
 	target_aspect = target_mode->aspect_ratio;
 	src_aspect = output->base.current_mode->aspect_ratio;
-	if (output->base.current_mode->width == target_mode->width &&
-	    output->base.current_mode->height == target_mode->height &&
+	if (!strcmp(WESTON_MODE_NAME(output->base.current_mode),
+		    WESTON_MODE_NAME(target_mode)) &&
 	    (output->base.current_mode->refresh == target_mode->refresh ||
 	     target_mode->refresh == 0)) {
 		if (!b->aspect_ratio_supported || src_aspect == target_aspect)
@@ -509,8 +511,8 @@ drm_output_choose_mode(struct drm_output *output,
 	wl_list_for_each(mode, &output->base.mode_list, base.link) {
 
 		src_aspect = mode->base.aspect_ratio;
-		if (mode->mode_info.hdisplay == target_mode->width &&
-		    mode->mode_info.vdisplay == target_mode->height) {
+		if (!strcmp(mode->mode_info.name,
+			    WESTON_MODE_NAME(target_mode))) {
 			if (mode->base.refresh == target_mode->refresh ||
 			    target_mode->refresh == 0) {
 				if (!b->aspect_ratio_supported ||
@@ -584,6 +586,7 @@ drm_output_choose_initial_mode(struct drm_backend *backend,
 	struct drm_mode *best = NULL;
 	struct drm_mode *drm_mode;
 	drmModeModeInfo drm_modeline;
+	char name[16] = {0};
 	int32_t width = 0;
 	int32_t height = 0;
 	uint32_t refresh = 0;
@@ -593,7 +596,9 @@ drm_output_choose_initial_mode(struct drm_backend *backend,
 	int n;
 
 	if (mode == WESTON_DRM_BACKEND_OUTPUT_PREFERRED && modeline) {
-		n = sscanf(modeline, "%dx%d@%d %u:%u", &width, &height,
+		sscanf(modeline, "%12[^@pP]", name);
+
+		n = sscanf(modeline, "%dx%d%*[^0-9]%d %u:%u", &width, &height,
 			   &refresh, &aspect_width, &aspect_height);
 		if (backend->aspect_ratio_supported && n == 5) {
 			if (aspect_width == 4 && aspect_height == 3)
@@ -623,8 +628,7 @@ drm_output_choose_initial_mode(struct drm_backend *backend,
 	}
 
 	wl_list_for_each_reverse(drm_mode, &output->base.mode_list, base.link) {
-		if (width == drm_mode->mode_info.hdisplay &&
-		    height == drm_mode->mode_info.vdisplay &&
+		if (!strcmp(name, drm_mode->mode_info.name) &&
 		    (refresh == 0 || refresh == drm_mode->mode_info.vrefresh)) {
 			if (!backend->aspect_ratio_supported ||
 			    aspect_ratio == drm_mode->base.aspect_ratio)
