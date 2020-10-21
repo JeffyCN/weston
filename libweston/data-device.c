@@ -401,7 +401,7 @@ data_source_set_actions(struct wl_client *client,
 	source->actions_set = true;
 }
 
-static struct wl_data_source_interface data_source_interface = {
+static const struct wl_data_source_interface data_source_interface = {
 	data_source_offer,
 	data_source_destroy,
 	data_source_set_actions
