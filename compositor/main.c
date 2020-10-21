@@ -345,7 +345,6 @@ protocol_log_fn(void *user_data,
 }
 
 static struct wl_list child_process_list;
-static struct weston_compositor *segv_compositor;
 
 static int
 sigchld_handler(int signal_number, void *data)
@@ -3289,7 +3288,6 @@ wet_main(int argc, char *argv[])
 		weston_log("fatal: failed to create compositor\n");
 		goto out;
 	}
-	segv_compositor = wet.compositor;
 
 	protocol_scope =
 		weston_log_ctx_add_log_scope(log_ctx, "proto",
