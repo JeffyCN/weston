@@ -36,6 +36,9 @@
 #include <linux/input.h>
 
 static const struct launcher_interface *ifaces[] = {
+#ifdef HAVE_LIBSEAT
+	&launcher_libseat_iface,
+#endif
 #ifdef HAVE_SYSTEMD_LOGIN
 	&launcher_logind_iface,
 #endif

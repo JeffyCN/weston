@@ -180,6 +180,16 @@ if get_option('launcher-logind')
 		systemd_dep,
 	]
 endif
+if get_option('launcher-libseat')
+	libseat_dep = dependency('libseat', version: '>= 0.4')
+	config_h.set('HAVE_LIBSEAT', '1')
+	srcs_session_helper += [
+		'launcher-libseat.c',
+	]
+	deps_session_helper += [
+		libseat_dep,
+	]
+endif
 
 lib_session_helper = static_library(
 	'session-helper',

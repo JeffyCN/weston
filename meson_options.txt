@@ -159,6 +159,13 @@ option(
 )
 
 option(
+	'launcher-libseat',
+	type: 'boolean',
+	value: false,
+	description: 'Compositor: support libseat'
+)
+
+option(
 	'image-jpeg',
 	type: 'boolean',
 	value: true,
