@@ -3581,9 +3581,9 @@ drm_output_modeset(struct drm_output *output, const char *modeline)
 
 	mode = to_drm_mode(output->base.current_mode);
 
-	weston_log("Output %s changed to %dx%d@%d for mode(%s)\n",
+	weston_log("Output %s changed to %s@%d for mode(%s)\n",
 		   output->base.name,
-		   mode->mode_info.hdisplay, mode->mode_info.vdisplay,
+		   mode->mode_info.name,
 		   mode->mode_info.vrefresh,
 		   modeline);
 
