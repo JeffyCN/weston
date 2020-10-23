@@ -301,6 +301,7 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 	struct drm_device *device = output->device;
 	struct gbm_bo *bo;
 	struct drm_fb *ret;
+	bool is_opaque;
 
 	output->base.compositor->renderer->repaint_output(&output->base,
 							  damage, NULL);
@@ -312,8 +313,9 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 		return NULL;
 	}
 
-	/* The renderer always produces an opaque image. */
-	ret = drm_fb_get_from_bo(bo, device, true, BUFFER_GBM_SURFACE);
+	is_opaque = pixel_format_is_opaque(output->format);
+
+	ret = drm_fb_get_from_bo(bo, device, is_opaque, BUFFER_GBM_SURFACE);
 	if (!ret) {
 		weston_log("failed to get drm_fb for bo\n");
 		gbm_surface_release_buffer(output->gbm_surface, bo);
