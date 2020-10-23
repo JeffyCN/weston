@@ -1655,7 +1655,7 @@ pixman_renderer_output_create(struct weston_output *output,
 	output->renderer_state = po;
 
 	if (options->use_shadow)
-		po->shadow_format = pixel_format_get_info(DRM_FORMAT_XRGB8888);
+		po->shadow_format = options->format;
 
 	wl_list_init(&po->renderbuffer_list);
 
