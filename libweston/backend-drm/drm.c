@@ -1607,6 +1607,9 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 	};
 
 	switch (format) {
+		case DRM_FORMAT_ARGB8888:
+			pixman_format = PIXMAN_a8r8g8b8;
+			break;
 		case DRM_FORMAT_XRGB8888:
 			pixman_format = PIXMAN_x8r8g8b8;
 			break;
