@@ -342,16 +342,24 @@ kiosk_shell_seat_handle_keyboard_focus(struct wl_listener *listener, void *data)
 }
 
 static void
+kiosk_shell_seat_destroy(struct kiosk_shell_seat *shseat)
+{
+	wl_list_remove(&shseat->keyboard_focus_listener.link);
+	wl_list_remove(&shseat->caps_changed_listener.link);
+	wl_list_remove(&shseat->seat_destroy_listener.link);
+
+	wl_list_remove(&shseat->link);
+	free(shseat);
+}
+
+static void
 kiosk_shell_seat_handle_destroy(struct wl_listener *listener, void *data)
 {
 	struct kiosk_shell_seat *shseat =
 		container_of(listener,
 			     struct kiosk_shell_seat, seat_destroy_listener);
 
-	wl_list_remove(&shseat->keyboard_focus_listener.link);
-	wl_list_remove(&shseat->caps_changed_listener.link);
-	wl_list_remove(&shseat->seat_destroy_listener.link);
-	free(shseat);
+	kiosk_shell_seat_destroy(shseat);
 }
 
 static void
@@ -375,7 +383,7 @@ kiosk_shell_seat_handle_caps_changed(struct wl_listener *listener, void *data)
 }
 
 static struct kiosk_shell_seat *
-kiosk_shell_seat_create(struct weston_seat *seat)
+kiosk_shell_seat_create(struct kiosk_shell *shell, struct weston_seat *seat)
 {
 	struct kiosk_shell_seat *shseat;
 
@@ -397,6 +405,8 @@ kiosk_shell_seat_create(struct weston_seat *seat)
 	wl_signal_add(&seat->updated_caps_signal,
 		      &shseat->caps_changed_listener);
 	kiosk_shell_seat_handle_caps_changed(&shseat->caps_changed_listener, NULL);
+
+	wl_list_insert(&shell->seat_list, &shseat->link);
 
 	return shseat;
 }
@@ -986,7 +996,9 @@ static void
 kiosk_shell_handle_seat_created(struct wl_listener *listener, void *data)
 {
 	struct weston_seat *seat = data;
-	kiosk_shell_seat_create(seat);
+	struct kiosk_shell *shell =
+		container_of(listener, struct kiosk_shell, seat_created_listener);
+	kiosk_shell_seat_create(shell, seat);
 }
 
 static void
@@ -995,6 +1007,7 @@ kiosk_shell_destroy(struct wl_listener *listener, void *data)
 	struct kiosk_shell *shell =
 		container_of(listener, struct kiosk_shell, destroy_listener);
 	struct kiosk_shell_output *shoutput, *tmp;
+	struct kiosk_shell_seat *shseat, *shseat_next;
 
 	wl_list_remove(&shell->destroy_listener.link);
 	wl_list_remove(&shell->output_created_listener.link);
@@ -1004,6 +1017,10 @@ kiosk_shell_destroy(struct wl_listener *listener, void *data)
 
 	wl_list_for_each_safe(shoutput, tmp, &shell->output_list, link) {
 		kiosk_shell_output_destroy(shoutput);
+	}
+
+	wl_list_for_each_safe(shseat, shseat_next, &shell->seat_list, link) {
+		kiosk_shell_seat_destroy(shseat);
 	}
 
 	weston_desktop_destroy(shell->desktop);
@@ -1047,8 +1064,9 @@ wet_shell_init(struct weston_compositor *ec,
 	if (!shell->desktop)
 		return -1;
 
+	wl_list_init(&shell->seat_list);
 	wl_list_for_each(seat, &ec->seat_list, link)
-		kiosk_shell_seat_create(seat);
+		kiosk_shell_seat_create(shell, seat);
 	shell->seat_created_listener.notify = kiosk_shell_handle_seat_created;
 	wl_signal_add(&ec->seat_created_signal, &shell->seat_created_listener);
 

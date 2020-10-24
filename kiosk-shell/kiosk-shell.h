@@ -41,6 +41,7 @@ struct kiosk_shell {
 	struct weston_layer normal_layer;
 
 	struct wl_list output_list;
+	struct wl_list seat_list;
 };
 
 struct kiosk_shell_surface {
@@ -75,6 +76,8 @@ struct kiosk_shell_seat {
 
 	struct wl_listener caps_changed_listener;
 	struct wl_listener keyboard_focus_listener;
+
+	struct wl_list link;	/** kiosk_shell::seat_list */
 };
 
 struct kiosk_shell_output {
