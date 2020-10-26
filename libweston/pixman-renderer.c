@@ -1484,7 +1484,8 @@ pixman_renderer_init(struct weston_compositor *ec)
 		pixman_renderer_get_supported_formats;
 
 #ifdef ENABLE_EGL
-	pixman_renderer_init_egl(renderer, ec);
+	if (!getenv("WESTON_PIXMAN_WITHOUT_EGL"))
+		pixman_renderer_init_egl(renderer, ec);
 #endif
 
 	return 0;
