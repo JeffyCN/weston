@@ -1528,6 +1528,9 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 					 props,
 					 WDRM_PLANE_FEATURE_SCALE);
 
+	if (getenv("WESTON_DRM_DISABLE_PLANE_SCALE"))
+		plane->can_scale = false;
+
 	zpos_range_values =
 		drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS],
 					      props);
