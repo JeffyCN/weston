@@ -60,6 +60,8 @@ extern char **environ; /* defined by libc */
 enum clock_format {
 	CLOCK_FORMAT_MINUTES,
 	CLOCK_FORMAT_SECONDS,
+	CLOCK_FORMAT_MINUTES_24H,
+	CLOCK_FORMAT_SECONDS_24H,
 	CLOCK_FORMAT_NONE
 };
 
@@ -464,6 +466,14 @@ panel_add_clock(struct panel *panel)
 		clock->format_string = "%a %b %d, %I:%M:%S %p";
 		clock->refresh_timer = 1;
 		break;
+	case CLOCK_FORMAT_MINUTES_24H:
+		clock->format_string = "%a %b %d, %H:%M";
+		clock->refresh_timer = 60;
+		break;
+	case CLOCK_FORMAT_SECONDS_24H:
+		clock->format_string = "%a %b %d, %H:%M:%S";
+		clock->refresh_timer = 1;
+		break;
 	case CLOCK_FORMAT_NONE:
 		assert(!"not reached");
 	}
@@ -502,7 +512,7 @@ panel_resize_handler(struct widget *widget,
 
 	if (panel->clock_format == CLOCK_FORMAT_SECONDS)
 		w = 170;
-	else /* CLOCK_FORMAT_MINUTES */
+	else /* CLOCK_FORMAT_MINUTES and 24H versions */
 		w = 150;
 
 	if (horizontal)
@@ -549,6 +559,8 @@ panel_configure(void *data,
 			width = 32;
 			break;
 		case CLOCK_FORMAT_MINUTES:
+		case CLOCK_FORMAT_MINUTES_24H:
+		case CLOCK_FORMAT_SECONDS_24H:
 			width = 150;
 			break;
 		case CLOCK_FORMAT_SECONDS:
@@ -1505,6 +1517,10 @@ parse_clock_format(struct desktop *desktop, struct weston_config_section *s)
 		desktop->clock_format = CLOCK_FORMAT_MINUTES;
 	else if (strcmp(clock_format, "seconds") == 0)
 		desktop->clock_format = CLOCK_FORMAT_SECONDS;
+	else if (strcmp(clock_format, "minutes-24h") == 0)
+		desktop->clock_format = CLOCK_FORMAT_MINUTES_24H;
+	else if (strcmp(clock_format, "seconds-24h") == 0)
+		desktop->clock_format = CLOCK_FORMAT_SECONDS_24H;
 	else if (strcmp(clock_format, "none") == 0)
 		desktop->clock_format = CLOCK_FORMAT_NONE;
 	else

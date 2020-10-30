@@ -379,7 +379,9 @@ digit pairs are in order alpha, red, green, and blue.
 sets the panel clock format (string). Can be
 .BR "none" ","
 .BR "minutes" ","
-.BR "seconds" "."
+.BR "seconds" ","
+.BR "minutes-24h" ","
+.BR "seconds-24h" "."
 By default, minutes format is used.
 .TP 7
 .BI "panel-color=" 0xAARRGGBB
