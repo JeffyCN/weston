@@ -10,6 +10,7 @@ install_data(
 		'weston-content-protection.xml',
 		'weston-debug.xml',
 		'weston-direct-display.xml',
+		'weston-output-capture.xml',
 	],
 	install_dir: join_paths(dir_data, dir_protocol_libweston)
 )
@@ -32,6 +33,7 @@ generated_protocols = [
 	[ 'viewporter', 'stable' ],
 	[ 'weston-debug', 'internal' ],
 	[ 'weston-desktop-shell', 'internal' ],
+	[ 'weston-output-capture', 'internal' ],
 	[ 'weston-screenshooter', 'internal' ],
 	[ 'weston-content-protection', 'internal' ],
 	[ 'weston-test', 'internal' ],
