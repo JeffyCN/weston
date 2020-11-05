@@ -1673,10 +1673,11 @@ write_visual_diff(pixman_image_t *ref_image,
 /**
  * Take a screenshot and verify its contents
  *
- * Takes a screenshot and writes the image into a PNG file named with
- * get_test_name() and seq_no. Compares the contents to the given reference
+ * Takes a screenshot and compares the contents to the given reference
  * image over the given clip rectangle, reports whether they match to the
- * test log, and if they do not match writes a visual diff into a PNG file.
+ * test log, and if they do not match writes a visual diff into a PNG file
+ * and the screenshot into another PNG file named with get_test_name() and
+ * seq_no.
  *
  * The compositor output size and the reference image size must both contain
  * the clip rectangle.
@@ -1711,12 +1712,11 @@ verify_screen_content(struct client *client,
 	pixman_image_t *ref = NULL;
 	char *ref_fname = NULL;
 	char *shot_fname;
-	bool match;
+	bool match = false;
 
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
 	shot_fname = screenshot_output_filename(test_name, seq_no);
-	write_image_as_png(shot->image, shot_fname);
 
 	if (ref_image) {
 		ref_fname = screenshot_reference_filename(ref_image, ref_seq_no);
@@ -1736,8 +1736,10 @@ verify_screen_content(struct client *client,
 		pixman_image_unref(ref);
 	} else {
 		testlog("No reference image, shot %s: FAIL\n", shot_fname);
-		match = false;
 	}
+
+	if (!match)
+		write_image_as_png(shot->image, shot_fname);
 
 	free(ref_fname);
 	buffer_destroy(shot);
