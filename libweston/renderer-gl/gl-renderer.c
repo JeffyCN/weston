@@ -58,12 +58,6 @@
 #include "shared/timespec-util.h"
 #include "shared/weston-egl-ext.h"
 
-#define GR_GL_VERSION(major, minor) \
-	(((uint32_t)(major) << 16) | (uint32_t)(minor))
-
-#define GR_GL_VERSION_INVALID \
-	GR_GL_VERSION(0, 0)
-
 #define BUFFER_DAMAGE_COUNT 2
 
 enum gl_border_status {
@@ -218,6 +212,24 @@ struct timeline_render_point {
 	struct weston_output *output;
 	struct wl_event_source *event_source;
 };
+
+static uint32_t
+gr_gl_version(uint16_t major, uint16_t minor)
+{
+	return ((uint32_t)major << 16) | minor;
+}
+
+static int
+gr_gl_version_major(uint32_t ver)
+{
+	return ver >> 16;
+}
+
+static int
+gr_gl_version_minor(uint32_t ver)
+{
+	return ver & 0xffff;
+}
 
 static inline const char *
 dump_format(uint32_t format, char out[4])
@@ -3658,11 +3670,13 @@ get_gl_version(void)
 	version = (const char *) glGetString(GL_VERSION);
 	if (version &&
 	    (sscanf(version, "%d.%d", &major, &minor) == 2 ||
-	     sscanf(version, "OpenGL ES %d.%d", &major, &minor) == 2)) {
-		return GR_GL_VERSION(major, minor);
+	     sscanf(version, "OpenGL ES %d.%d", &major, &minor) == 2) &&
+	    major > 0 && minor >= 0) {
+		return gr_gl_version(major, minor);
 	}
 
-	return GR_GL_VERSION_INVALID;
+	weston_log("warning: failed to detect GLES version, defaulting to 2.0.\n");
+	return gr_gl_version(2, 0);
 }
 
 static int
@@ -3737,12 +3751,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	}
 
 	gr->gl_version = get_gl_version();
-	if (gr->gl_version == GR_GL_VERSION_INVALID) {
-		weston_log("warning: failed to detect GLES version, "
-			   "defaulting to 2.0.\n");
-		gr->gl_version = GR_GL_VERSION(2, 0);
-	}
-
 	log_gl_info();
 
 	gr->image_target_texture_2d =
@@ -3764,13 +3772,13 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	else
 		ec->read_format = PIXMAN_a8b8g8r8;
 
-	if (gr->gl_version < GR_GL_VERSION(3, 0) &&
+	if (gr->gl_version < gr_gl_version(3, 0) &&
 	    !weston_check_egl_extension(extensions, "GL_EXT_unpack_subimage")) {
 		weston_log("GL_EXT_unpack_subimage not available.\n");
 		return -1;
 	}
 
-	if (gr->gl_version >= GR_GL_VERSION(3, 0) ||
+	if (gr->gl_version >= gr_gl_version(3, 0) ||
 	    weston_check_egl_extension(extensions, "GL_EXT_texture_rg"))
 		gr->has_gl_texture_rg = true;
 
@@ -3795,12 +3803,13 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	wl_signal_add(&ec->output_destroyed_signal,
 		      &gr->output_destroy_listener);
 
-	weston_log("GL ES 2 renderer features:\n");
+	weston_log("GL ES %d.%d - renderer features:\n",
+		   gr_gl_version_major(gr->gl_version),
+		   gr_gl_version_minor(gr->gl_version));
 	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
 		ec->read_format == PIXMAN_a8r8g8b8 ? "BGRA" : "RGBA");
 	weston_log_continue(STAMP_SPACE "EGL Wayland extension: %s\n",
 			    gr->has_bind_display ? "yes" : "no");
-
 
 	return 0;
 }
