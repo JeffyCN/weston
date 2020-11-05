@@ -23,6 +23,8 @@
  * SOFTWARE.
  */
 
+#include "config.h"
+
 #include <libweston/pipewire-plugin.h>
 #include "backend.h"
 #include "libweston-internal.h"
@@ -630,6 +632,7 @@ pipewire_output_create(struct weston_compositor *c, char *name)
 	const char *model = "Virtual Display";
 	const char *serial_number = "unknown";
 	const char *connector_name = "pipewire";
+	char *remoting_name;
 
 	if (!name || !strlen(name))
 		return NULL;
@@ -672,7 +675,8 @@ pipewire_output_create(struct weston_compositor *c, char *name)
 	output->pipewire = pipewire;
 	wl_list_insert(pipewire->output_list.prev, &output->link);
 
-	weston_head_init(head, connector_name);
+	asprintf(&remoting_name, "%s-%s", connector_name, name);
+	weston_head_init(head, remoting_name);
 	weston_head_set_subpixel(head, WL_OUTPUT_SUBPIXEL_NONE);
 	weston_head_set_monitor_strings(head, make, model, serial_number);
 	head->compositor = c;
@@ -680,6 +684,7 @@ pipewire_output_create(struct weston_compositor *c, char *name)
 
 	weston_output_attach_head(output->output, head);
 
+	free(remoting_name);
 	pipewire_output_debug(output, "created");
 
 	return output->output;

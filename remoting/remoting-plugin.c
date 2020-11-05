@@ -741,6 +741,7 @@ remoting_output_create(struct weston_compositor *c, char *name)
 	const char *model = "Virtual Display";
 	const char *serial_number = "unknown";
 	const char *connector_name = "remoting";
+	char *remoting_name;
 
 	if (!name || !strlen(name))
 		return NULL;
@@ -775,7 +776,8 @@ remoting_output_create(struct weston_compositor *c, char *name)
 	output->remoting = remoting;
 	wl_list_insert(remoting->output_list.prev, &output->link);
 
-	weston_head_init(head, connector_name);
+	asprintf(&remoting_name, "%s-%s", connector_name, name);
+	weston_head_init(head, remoting_name);
 	weston_head_set_subpixel(head, WL_OUTPUT_SUBPIXEL_NONE);
 	weston_head_set_monitor_strings(head, make, model, serial_number);
 	head->compositor = c;
@@ -785,6 +787,7 @@ remoting_output_create(struct weston_compositor *c, char *name)
 
 	/* set XRGB8888 format */
 	output->format = &supported_formats[0];
+	free(remoting_name);
 
 	return output->output;
 
