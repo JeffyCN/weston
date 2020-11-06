@@ -255,6 +255,11 @@ headless_output_enable(struct weston_output *base)
 	output->finish_frame_timer =
 		wl_event_loop_add_timer(loop, finish_frame_handler, output);
 
+	if (output->finish_frame_timer == NULL) {
+		weston_log("failed to add finish frame timer\n");
+		return -1;
+	}
+
 	switch (b->renderer_type) {
 	case HEADLESS_GL:
 		ret = headless_output_enable_gl(output);
