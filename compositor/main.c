@@ -3283,14 +3283,11 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 			backend = weston_choose_default_backend();
 	}
 
-	wet.compositor = weston_compositor_create(display, log_ctx, &wet);
+	wet.compositor = weston_compositor_create(display, log_ctx, &wet, test_data);
 	if (wet.compositor == NULL) {
 		weston_log("fatal: failed to create compositor\n");
 		goto out;
 	}
-
-	if (test_data)
-		weston_compositor_test_data_init(wet.compositor, test_data);
 
 	protocol_scope =
 		weston_log_ctx_add_log_scope(log_ctx, "proto",

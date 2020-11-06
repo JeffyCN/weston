@@ -7327,36 +7327,6 @@ debug_scene_graph_cb(struct weston_log_subscription *sub, void *data)
 	weston_log_subscription_complete(sub);
 }
 
-/** Init the compositor testsuite data
- *
- * The struct weston_testsuite_data contains two members:
- *
- *  1. The struct weston_testsuite_quirks, which can be used by the tests to
- *  change certain behavior of Weston when running these tests.
- *
- *  2. The void *test_private_data member which can be used by the test suite
- *  of projects that uses libweston in order to give arbitrary test data to the
- *  compositor. Its type should be defined by the test suite of the project.
- *
- * This function can be called at most once per compositor instance, just after
- * creating the weston_compositor object and never again. This happens because
- * changing the quirks after e.g. loading the backend is not going to work,
- * there are certain behaviors that need to be set up before this point.
- *
- * \param ec The weston compositor.
- * \param test_data The testsuite data.
- *
- * \ingroup compositor
- * \sa weston_compositor_get_test_data
- */
-WL_EXPORT void
-weston_compositor_test_data_init(struct weston_compositor *ec,
-				 const struct weston_testsuite_data *test_data)
-{
-	assert(ec->backend == NULL);
-	ec->test_data = *test_data;
-}
-
 /** Retrieve testsuite data from compositor
  *
  * The testsuite data can be defined by the test suite of projects that uses
@@ -7383,6 +7353,7 @@ weston_compositor_get_test_data(struct weston_compositor *ec)
  * \param display The Wayland display to be used.
  * \param user_data A pointer to an object that can later be retrieved
  * \param log_ctx A pointer to weston_debug_compositor
+ * \param test_data Optional testsuite data, or NULL.
  * using the \ref weston_compositor_get_user_data function.
  * \return The compositor instance on success or NULL on failure.
  *
@@ -7390,8 +7361,8 @@ weston_compositor_get_test_data(struct weston_compositor *ec)
  */
 WL_EXPORT struct weston_compositor *
 weston_compositor_create(struct wl_display *display,
-			 struct weston_log_context *log_ctx,
-			 void *user_data)
+			 struct weston_log_context *log_ctx, void *user_data,
+			 const struct weston_testsuite_data *test_data)
 {
 	struct weston_compositor *ec;
 	struct wl_event_loop *loop;
@@ -7402,6 +7373,9 @@ weston_compositor_create(struct wl_display *display,
 	ec = zalloc(sizeof *ec);
 	if (!ec)
 		return NULL;
+
+	if (test_data)
+		ec->test_data = *test_data;
 
 	ec->weston_log_ctx = log_ctx;
 	ec->wl_display = display;

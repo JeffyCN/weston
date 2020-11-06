@@ -198,6 +198,14 @@ struct weston_testsuite_quirks {
 
 /** Weston test suite data that is given to compositor
  *
+ * It contains two members:
+ *
+ * 1. The struct weston_testsuite_quirks, which can be used by the tests to
+ *    change certain behavior of Weston when running these tests.
+ * 2. The void *test_private_data member which can be used by the testsuite of
+ *    projects that uses libweston in order to give arbitrary test data to the
+ *    compositor. Its type should be defined by the testsuite of the project.
+ *
  * \sa compositor_setup
  * \ingroup testharness
  */
@@ -1798,11 +1806,9 @@ weston_compositor_destroy(struct weston_compositor *ec);
 
 struct weston_compositor *
 weston_compositor_create(struct wl_display *display,
-			 struct weston_log_context *log_ctx, void *user_data);
+			 struct weston_log_context *log_ctx, void *user_data,
+			 const struct weston_testsuite_data *test_data);
 
-void
-weston_compositor_test_data_init(struct weston_compositor *ec,
-				 const struct weston_testsuite_data *test_data);
 void *
 weston_compositor_get_test_data(struct weston_compositor *ec);
 
