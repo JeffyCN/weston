@@ -1202,7 +1202,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 				 &b->compositor->head_list, compositor_link) {
 			struct drm_property_info *info;
 			head = to_drm_head(head_base);
-			if (!head)
+			if (!head || head == b->dummy_head)
 				continue;
 
 			if (weston_head_is_enabled(head_base))
