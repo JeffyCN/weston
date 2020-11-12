@@ -4815,10 +4815,6 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	shsurf = get_shell_surface(view->surface);
 	if (!shsurf)
 		return;
-
-	shsurf->saved_position_valid = false;
-	set_maximized(shsurf, false);
-	set_fullscreen(shsurf, false, NULL);
 }
 
 void
@@ -4949,6 +4945,9 @@ handle_output_resized(struct wl_listener *listener, void *data)
 		container_of(listener, struct desktop_shell, resized_listener);
 	struct weston_output *output = (struct weston_output *)data;
 	struct shell_output *sh_output = find_shell_output_from_weston_output(shell, output);
+
+	if (!sh_output)
+		return;
 
 	if (shell->lock_surface)
 		shell->lock_surface->committed(shell->lock_surface, 0, 0);
