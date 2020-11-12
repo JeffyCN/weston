@@ -6806,6 +6806,9 @@ weston_output_set_color_outcome(struct weston_output *output)
 	struct weston_color_manager *cm = output->compositor->color_manager;
 	struct weston_output_color_outcome *colorout;
 
+	if (!cm)
+		return false;
+
 	colorout = cm->create_output_color_outcome(cm, output);
 	if (!colorout) {
 		weston_log("Creating color transformation for output \"%s\" failed.\n",
