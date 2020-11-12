@@ -114,8 +114,14 @@ drm_backend_update_outputs(struct drm_backend *b)
 {
 	struct weston_output *base, *primary;
 
-	if (!b->primary_head)
+	if (!b->primary_head) {
+		if (!b->dummy_output->enabled)
+			weston_output_enable(b->dummy_output);
 		return;
+	} else {
+		if (b->dummy_output->enabled)
+			weston_output_disable(b->dummy_output);
+	}
 
 	primary = b->primary_head->base.output;
 
@@ -347,6 +353,9 @@ drm_output_get_disable_state(struct drm_pending_state *pending_state,
 static int
 drm_output_apply_mode(struct drm_output *output);
 
+static unsigned int
+drm_waitvblank_pipe(struct drm_crtc *crtc);
+
 /**
  * Mark a drm_output_state (the output's last state) as complete. This handles
  * any post-completion actions such as updating the repaint timer, disabling the
@@ -363,6 +372,30 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 	/* Stop the pageflip timer instead of rearming it here */
 	if (output->pageflip_timer)
 		wl_event_source_timer_update(output->pageflip_timer, 0);
+
+	if (!sec && !usec) {
+		drmVBlank vbl = {
+			.request.type = DRM_VBLANK_RELATIVE,
+			.request.sequence = 0,
+			.request.signal = 0,
+		};
+		int ret;
+
+		/* Try to get current msc and timestamp via instant query */
+		vbl.request.type |= drm_waitvblank_pipe(output->crtc);
+		ret = drmWaitVBlank(device->drm.fd, &vbl);
+
+		/* Error ret or zero timestamp means failure to get valid timestamp */
+		if ((ret == 0) &&
+		    (vbl.reply.tval_sec > 0 || vbl.reply.tval_usec > 0)) {
+			ts.tv_sec = vbl.reply.tval_sec;
+			ts.tv_nsec = vbl.reply.tval_usec * 1000;
+			sec = ts.tv_sec;
+			usec = ts.tv_nsec / 1000;
+
+			drm_output_update_msc(output, vbl.reply.sequence);
+		}
+	}
 
 	wl_list_for_each(ps, &output->state_cur->plane_list, link)
 		ps->complete = true;
@@ -414,7 +447,7 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 	ts.tv_sec = sec;
 	ts.tv_nsec = usec * 1000;
 
-	if (output->state_cur->dpms != WESTON_DPMS_OFF)
+	if (output->state_cur->dpms != WESTON_DPMS_OFF && (sec || usec))
 		weston_output_finish_frame(&output->base, &ts, flags);
 	else
 		weston_output_finish_frame(&output->base, NULL,
@@ -1381,6 +1414,10 @@ drm_output_find_special_plane(struct drm_device *device,
 	wl_list_for_each(plane, &device->plane_list, link) {
 		struct weston_output *base;
 		bool found_elsewhere = false;
+
+		/* Ignore non-real planes */
+		if (!plane->plane_id)
+			continue;
 
 		if (plane->type != type)
 			continue;
@@ -2845,11 +2882,15 @@ drm_head_destroy(struct weston_head *base)
 
 	weston_head_release(&head->base);
 
+	if (!head->connector.connector_id)
+		goto out;
+
 	drm_connector_fini(&head->connector);
 
 	if (head->backlight)
 		backlight_destroy(head->backlight);
 
+out:
 	free(head);
 }
 
@@ -3314,8 +3355,9 @@ drm_backend_update_connectors(struct drm_device *device,
 	wl_list_for_each_safe(base, base_next,
 			      &b->compositor->head_list, compositor_link) {
 		head = to_drm_head(base);
-		if (!head)
+		if (!head || !head->connector.connector_id)
 			continue;
+
 		connector_id = head->connector.connector_id;
 
 		if (head->connector.device != device)
@@ -3359,6 +3401,8 @@ drm_backend_update_connectors(struct drm_device *device,
 				continue;
 
 			head = to_drm_head(base);
+			if (!head || !head->connector.connector_id)
+				continue;
 
 			if (head->state == DRM_HEAD_OFF ||
 			    (head->state != DRM_HEAD_ON &&
@@ -3391,6 +3435,8 @@ drm_backend_update_connectors(struct drm_device *device,
 	}
 match_done:
 
+	weston_head_set_connection_status(&b->dummy_head->base,
+					  !b->primary_head);
 	drm_backend_update_outputs(b);
 
 	weston_compositor_read_presentation_clock(b->compositor, &now);
@@ -3576,6 +3622,11 @@ drm_destroy(struct weston_backend *backend)
 	struct weston_head *base, *next;
 	struct drm_crtc *crtc, *crtc_tmp;
 	struct drm_writeback *writeback, *writeback_tmp;
+
+	weston_output_destroy(b->dummy_output);
+
+	if (b->dummy_head)
+		drm_head_destroy(&b->dummy_head->base);
 
 	udev_input_destroy(&b->input);
 
@@ -4502,6 +4553,185 @@ config_timer_handler(void *data)
 	return 0;
 }
 
+static int
+drm_dummy_output_start_repaint_loop(struct weston_output *output_base)
+{
+	weston_output_finish_frame(output_base, NULL,
+				   WP_PRESENTATION_FEEDBACK_INVALID);
+
+	return 0;
+}
+
+static int
+drm_dummy_output_repaint(struct weston_output *output_base,
+			   pixman_region32_t *damage)
+{
+	struct drm_backend *b = to_drm_backend(output_base->compositor);
+
+	wl_signal_emit(&output_base->frame_signal, damage);
+
+	if (b->compositor->renderer->type == WESTON_RENDERER_PIXMAN)
+		return -1;
+
+	/* Switch GL output context to avoid corruption */
+	output_base->compositor->renderer->repaint_output(output_base,
+							  damage, NULL);
+	return -1;
+}
+
+static int
+drm_dummy_output_enable(struct weston_output *output_base)
+{
+	struct drm_backend *b = to_drm_backend(output_base->compositor);
+	struct drm_output *output = to_drm_output(output_base);
+
+	if (b->compositor->renderer->type == WESTON_RENDERER_PIXMAN)
+		return 0;
+
+	return drm_output_init_egl(output, b);
+}
+
+static int
+drm_dummy_output_disable(struct weston_output *output_base)
+{
+	struct drm_backend *b = to_drm_backend(output_base->compositor);
+	struct drm_output *output = to_drm_output(output_base);
+
+	if (b->compositor->renderer->type != WESTON_RENDERER_PIXMAN)
+		drm_output_fini_egl(output);
+
+	return 0;
+}
+
+void
+drm_dummy_output_destroy(struct weston_output *output_base)
+{
+	struct drm_output *output = to_drm_output(output_base);
+	struct drm_plane *plane = output->scanout_plane;
+	struct weston_mode *mode, *next;
+
+	if (output->base.enabled)
+		drm_dummy_output_disable(&output->base);
+
+	wl_list_for_each_safe(mode, next, &output_base->mode_list, link) {
+		wl_list_remove(&mode->link);
+		free(mode);
+	}
+
+	drm_plane_state_free(plane->state_cur, true);
+	weston_plane_release(&plane->base);
+	wl_list_remove(&plane->link);
+	weston_drm_format_array_fini(&plane->formats);
+	free(plane);
+
+	weston_output_release(output_base);
+	free(output);
+}
+
+static struct weston_output *
+drm_dummy_output_create(struct drm_device *device)
+{
+	struct drm_backend *b = device->backend;
+	struct drm_output *output;
+	struct drm_plane *plane;
+	struct weston_drm_format *fmt;
+
+	output = zalloc(sizeof *output);
+	if (!output)
+		return NULL;
+
+	output->device = device;
+	output->crtc = NULL;
+
+#ifdef BUILD_DRM_GBM
+	output->gbm_bo_flags = GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING;
+	output->format = pixel_format_get_info(DRM_FORMAT_XRGB8888),
+#endif
+
+	weston_output_init(&output->base, b->compositor, "DUMMY");
+
+	output->base.enable = drm_dummy_output_enable;
+	output->base.destroy = drm_dummy_output_destroy;
+	output->base.disable = drm_dummy_output_disable;
+
+	output->base.start_repaint_loop = drm_dummy_output_start_repaint_loop;
+	output->base.repaint = drm_dummy_output_repaint;
+	output->base.unavailable = true;
+
+	output->backend = b;
+
+	weston_compositor_add_pending_output(&output->base, b->compositor);
+
+	plane = zalloc(sizeof(*plane));
+	if (!plane) {
+		weston_output_release(&output->base);
+		free(output);
+		return NULL;
+	}
+
+	plane->type = WDRM_PLANE_TYPE_PRIMARY;
+	plane->device = device;
+	plane->state_cur = drm_plane_state_alloc(NULL, plane);
+	plane->state_cur->complete = true;
+
+	weston_drm_format_array_init(&plane->formats);
+	fmt = weston_drm_format_array_add_format(&plane->formats,
+						 output->format->format);
+	weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
+
+	weston_plane_init(&plane->base, b->compositor);
+	wl_list_insert(&device->plane_list, &plane->link);
+
+	output->scanout_plane = plane;
+
+	return &output->base;
+}
+
+static int drm_backend_init_dummy(struct drm_backend *b)
+{
+	struct weston_mode *mode;
+
+	b->dummy_output = drm_dummy_output_create(b->drm);
+	if (!b->dummy_output)
+		return -1;
+
+	mode = zalloc(sizeof *mode);
+	if (!mode)
+		goto err;
+
+	mode->flags = WL_OUTPUT_MODE_CURRENT;
+	mode->width = 1920;
+	mode->height = 1080;
+	mode->refresh = 60 * 1000LL;
+
+	wl_list_insert(b->dummy_output->mode_list.prev, &mode->link);
+
+	b->dummy_output->current_mode = mode;
+
+	weston_output_set_scale(b->dummy_output, 1);
+	weston_output_set_transform(b->dummy_output,
+				    WL_OUTPUT_TRANSFORM_NORMAL);
+
+	b->dummy_head = zalloc(sizeof *b->dummy_head);
+	if (!b->dummy_head)
+		goto err;
+
+	weston_head_init(&b->dummy_head->base, "DUMMY");
+
+	b->dummy_head->base.backend = &b->base;
+
+	weston_head_set_monitor_strings(&b->dummy_head->base,
+					"DUMMY", "DUMMY", "DUMMY");
+	weston_compositor_add_head(b->compositor, &b->dummy_head->base);
+	weston_output_attach_head(b->dummy_output, &b->dummy_head->base);
+
+	return 0;
+err:
+	weston_output_destroy(b->dummy_output);
+	b->dummy_output = NULL;
+	return -1;
+}
+
 enum drm_head_mode {
 	DRM_HEAD_MODE_DEFAULT,
 	DRM_HEAD_MODE_PRIMARY,
@@ -4562,6 +4792,9 @@ static drm_head_match_t drm_head_matches[][DRM_HEAD_MAX_MATCHES] = {
 static void
 drm_late_init(struct weston_backend *backend) {
 	struct drm_backend *b = container_of(backend, struct drm_backend, base);
+
+	if (drm_backend_init_dummy(b) < 0)
+		weston_log("Failed to init dummy output\n");
 
 	hotplug_timer_handler(b->drm);
 	config_timer_handler(b);
