@@ -4839,6 +4839,9 @@ handle_output_resized(struct wl_listener *listener, void *data)
 	struct weston_output *output = (struct weston_output *)data;
 	struct shell_output *sh_output = find_shell_output_from_weston_output(shell, output);
 
+	if (!sh_output)
+		return;
+
 	if (shell->lock_surface) {
 		struct weston_coord_surface offset =
 			 weston_coord_surface(0, 0, shell->lock_surface);
