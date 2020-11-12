@@ -354,6 +354,9 @@ struct drm_backend {
 
 	struct wl_event_source *config_timer;
 	struct stat config_stat;
+
+	struct weston_output *dummy_output;
+	struct drm_head *dummy_head;
 };
 
 struct drm_mode {

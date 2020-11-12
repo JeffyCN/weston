@@ -6439,6 +6439,9 @@ weston_output_set_color_transforms(struct weston_output *output)
 	struct weston_color_transform *sRGB_to_blend = NULL;
 	bool ok;
 
+	if (!cm)
+		return false;
+
 	ok = cm->get_output_color_transform(cm, output, &blend_to_output);
 	ok = ok && cm->get_sRGB_to_output_color_transform(cm, output,
 							  &sRGB_to_output);
