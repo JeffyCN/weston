@@ -1723,7 +1723,7 @@ WL_EXPORT void
 weston_pointer_clamp(struct weston_pointer *pointer, wl_fixed_t *fx, wl_fixed_t *fy)
 {
 	struct weston_compositor *ec = pointer->seat->compositor;
-	struct weston_output *output, *prev = NULL;
+	struct weston_output *output, *prev = NULL, *fallback = NULL;
 	int x, y, old_x, old_y, valid = 0;
 
 	x = wl_fixed_to_int(*fx);
@@ -1744,10 +1744,14 @@ weston_pointer_clamp(struct weston_pointer *pointer, wl_fixed_t *fx, wl_fixed_t 
 		if (pixman_region32_contains_point(&output->region,
 						   old_x, old_y, NULL))
 			prev = output;
+		if (!fallback)
+			fallback = output;
 	}
 
 	if (!prev)
 		prev = pointer->seat->output;
+	if (!prev)
+		prev = fallback;
 
 	if (prev && !valid)
 		weston_pointer_clamp_for_output(pointer, prev, fx, fy);
