@@ -280,7 +280,7 @@ struct wp_viewport *
 client_create_viewport(struct client *client);
 
 void
-fill_image_with_color(pixman_image_t *image, pixman_color_t *color);
+fill_image_with_color(pixman_image_t *image, const pixman_color_t *color);
 
 pixman_color_t *
 color_rgb888(pixman_color_t *tmp, uint8_t r, uint8_t g, uint8_t b);

@@ -1867,7 +1867,7 @@ client_create_viewport(struct client *client)
  * \param color The color to use.
  */
 void
-fill_image_with_color(pixman_image_t *image, pixman_color_t *color)
+fill_image_with_color(pixman_image_t *image, const pixman_color_t *color)
 {
 	pixman_image_t *solid;
 	int width;
