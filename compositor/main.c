@@ -2610,6 +2610,9 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 	 * output.
 	 */
 	while ((head = weston_compositor_iterate_heads(compositor, head))) {
+		if (!strcasecmp(weston_head_get_name(head), "dummy"))
+			continue;
+
 		drm_head_update_output_section(head);
 
 		connected = weston_head_is_connected(head);
