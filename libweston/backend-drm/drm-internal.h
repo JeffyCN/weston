@@ -418,6 +418,9 @@ struct drm_backend {
 
 	struct wl_event_source *config_timer;
 	struct stat config_stat;
+
+	struct weston_output *dummy_output;
+	struct drm_head *dummy_head;
 };
 
 struct drm_mode {
@@ -790,6 +793,8 @@ void
 drm_output_destroy(struct weston_output *output_base);
 void
 drm_virtual_output_destroy(struct weston_output *output_base);
+void
+drm_dummy_output_destroy(struct weston_output *output_base);
 
 static inline struct drm_output *
 to_drm_output(struct weston_output *base)
@@ -798,6 +803,7 @@ to_drm_output(struct weston_output *base)
 #ifdef BUILD_DRM_VIRTUAL
 	    base->destroy != drm_virtual_output_destroy &&
 #endif
+	    base->destroy != drm_dummy_output_destroy &&
 	    base->destroy != drm_output_destroy)
 		return NULL;
 	return container_of(base, struct drm_output, base);
