@@ -2693,6 +2693,9 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 	 * output.
 	 */
 	while ((head = wet_backend_iterate_heads(wet, wb, head))) {
+		if (!strcasecmp(weston_head_get_name(head), "dummy"))
+			continue;
+
 		drm_head_update_output_section(head);
 
 		connected = weston_head_is_connected(head);
