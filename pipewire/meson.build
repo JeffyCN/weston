@@ -1,5 +1,5 @@
 if get_option('pipewire')
-	user_hint = 'If you rather not build this, set "pipewire=false".'
+	user_hint = 'If you rather not build this, set \'-Dpipewire=false\'.'
 
 	if not get_option('backend-drm')
 		error('Attempting to build the pipewire plugin without the required DRM backend. ' + user_hint)
