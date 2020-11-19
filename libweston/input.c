@@ -2172,6 +2172,10 @@ weston_pointer_clamp(struct weston_pointer *pointer, struct weston_coord_global 
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (pointer->seat->output && pointer->seat->output != output)
 			continue;
+
+		if (output->unavailable)
+			continue;
+
 		if (weston_output_contains_point(output, pos.c.x, pos.c.y))
 			valid = 1;
 		if (weston_output_contains_point(output, pointer->pos.c.x,
@@ -2236,6 +2240,9 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 	y = pointer->pos.c.y;
 
 	wl_list_for_each(output, &ec->output_list, link) {
+		if (output->unavailable)
+			continue;
+
 		if (weston_output_contains_point(output, x, y))
 			return;
 
