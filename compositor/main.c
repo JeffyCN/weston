@@ -3423,11 +3423,6 @@ out:
 	weston_compositor_destroy(wet.compositor);
 	weston_log_scope_destroy(protocol_scope);
 	protocol_scope = NULL;
-	weston_log_scope_destroy(log_scope);
-	log_scope = NULL;
-	weston_log_subscriber_destroy(logger);
-	weston_log_subscriber_destroy(flight_rec);
-	weston_log_ctx_destroy(log_ctx);
 
 out_signals:
 	for (i = ARRAY_LENGTH(signals) - 1; i >= 0; i--)
@@ -3437,6 +3432,11 @@ out_signals:
 	wl_display_destroy(display);
 
 out_display:
+	weston_log_scope_destroy(log_scope);
+	log_scope = NULL;
+	weston_log_subscriber_destroy(logger);
+	weston_log_subscriber_destroy(flight_rec);
+	weston_log_ctx_destroy(log_ctx);
 	weston_log_file_close();
 
 	if (config)
