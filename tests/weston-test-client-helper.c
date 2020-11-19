@@ -1671,51 +1671,49 @@ write_visual_diff(pixman_image_t *ref_image,
 }
 
 /**
- * Take a screenshot and verify its contents
+ * Verify image contents
  *
- * Takes a screenshot and compares the contents to the given reference
+ * Compares the contents of the given shot to the given reference
  * image over the given clip rectangle, reports whether they match to the
  * test log, and if they do not match writes a visual diff into a PNG file
  * and the screenshot into another PNG file named with get_test_name() and
  * seq_no.
  *
- * The compositor output size and the reference image size must both contain
+ * The shot image size and the reference image size must both contain
  * the clip rectangle.
  *
  * This function uses the pixel value allowed fuzz approriate for GL-renderer
  * with 8 bits per channel data.
  *
- * \param client The client, for connecting to the compositor.
+ * \param shot The image to be verified, usually a screenshot.
  * \param ref_image The reference image file basename, without sequence number
  * and .png suffix.
  * \param ref_seq_no The reference image sequence number.
  * \param clip The region of interest, or NULL for comparing the whole
  * images.
  * \param seq_no Test sequence number, for writing output files.
- * \return True if the screen contents matches the reference image,
- * false otherwise.
+ * \return True if the shot matches the reference image, false otherwise.
  *
  * For bootstrapping, ref_image can be NULL or the file can be missing.
  * In that case the screenshot file is written but no comparison is performed,
  * and false is returned.
+ *
+ * \sa verify_screen_content
  */
 bool
-verify_screen_content(struct client *client,
-		      const char *ref_image,
-		      int ref_seq_no,
-		      const struct rectangle *clip,
-		      int seq_no)
+verify_image(struct buffer *shot,
+	     const char *ref_image,
+	     int ref_seq_no,
+	     const struct rectangle *clip,
+	     int seq_no)
 {
 	const char *test_name = get_test_name();
 	const struct range gl_fuzz = { -3, 4 };
-	struct buffer *shot;
 	pixman_image_t *ref = NULL;
 	char *ref_fname = NULL;
 	char *shot_fname;
 	bool match = false;
 
-	shot = capture_screenshot_of_output(client);
-	assert(shot);
 	shot_fname = screenshot_output_filename(test_name, seq_no);
 
 	if (ref_image) {
@@ -1742,8 +1740,38 @@ verify_screen_content(struct client *client,
 		write_image_as_png(shot->image, shot_fname);
 
 	free(ref_fname);
-	buffer_destroy(shot);
 	free(shot_fname);
+
+	return match;
+}
+
+/**
+ * Take a screenshot and verify its contents
+ *
+ * Takes a screenshot and calls verify_image() with it.
+ *
+ * \param client The client, for connecting to the compositor.
+ * \param ref_image See verify_image().
+ * \param ref_seq_no See verify_image().
+ * \param clip See verify_image().
+ * \param seq_no See verify_image().
+ * \return True if the screen contents matches the reference image,
+ * false otherwise.
+ */
+bool
+verify_screen_content(struct client *client,
+		      const char *ref_image,
+		      int ref_seq_no,
+		      const struct rectangle *clip,
+		      int seq_no)
+{
+	struct buffer *shot;
+	bool match;
+
+	shot = capture_screenshot_of_output(client);
+	assert(shot);
+	match = verify_image(shot, ref_image, ref_seq_no, clip, seq_no);
+	buffer_destroy(shot);
 
 	return match;
 }

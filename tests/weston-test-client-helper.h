@@ -260,6 +260,13 @@ struct buffer *
 capture_screenshot_of_output(struct client *client);
 
 bool
+verify_image(struct buffer *shot,
+	     const char *ref_image,
+	     int ref_seq_no,
+	     const struct rectangle *clip,
+	     int seq_no);
+
+bool
 verify_screen_content(struct client *client,
 		      const char *ref_image,
 		      int ref_seq_no,
