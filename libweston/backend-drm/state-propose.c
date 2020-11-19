@@ -55,6 +55,21 @@ static const char *const drm_output_propose_state_mode_as_string[] = {
 	[DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY]	= "plane-only state"
 };
 
+static bool
+drm_is_mirroring(struct drm_backend *b)
+{
+	struct drm_output *tmp;
+
+	if (!b->mirror_mode)
+		return false;
+
+	wl_list_for_each(tmp, &b->compositor->output_list, base.link)
+		if (tmp->is_mirror)
+			return true;
+
+	return false;
+}
+
 static const char *
 drm_propose_state_mode_to_string(enum drm_output_propose_state_mode mode)
 {
@@ -105,13 +120,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 		drm_debug(b, "\t\t\t\t[view] not placing view %p on plane: "
 			     "unsuitable transform\n", ev);
 		goto out;
-	}
-
-	/* Should've been ensured by weston_view_matches_entire_output. */
-	if (plane->type == WDRM_PLANE_TYPE_PRIMARY) {
-		assert(state->dest_x == 0 && state->dest_y == 0 &&
-		       state->dest_w == (unsigned) output->base.current_mode->width &&
-		       state->dest_h == (unsigned) output->base.current_mode->height);
 	}
 
 	/* We hold one reference for the lifetime of this function; from
@@ -459,7 +467,8 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 		return NULL;
 	} else if (buffer->type == WESTON_BUFFER_SHM) {
-		if (!output->cursor_plane || device->cursors_are_broken) {
+		if (!output->cursor_plane || device->cursors_are_broken ||
+		    drm_is_mirroring(b)) {
 			pnode->try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			return NULL;
@@ -932,7 +941,10 @@ drm_assign_planes(struct weston_output *output_base)
 	drm_debug(b, "\t[repaint] preparing state for output %s (%lu)\n",
 		  output_base->name, (unsigned long) output_base->id);
 
-	if (!device->sprites_are_broken && !output->virtual && b->gbm) {
+	/* Force single plane in mirror mode */
+	if (drm_is_mirroring(b)) {
+		drm_debug(b, "\t[state] no overlay plane in mirror mode\n");
+	} else if (!device->sprites_are_broken && !output->virtual && b->gbm) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		state = drm_output_propose_state(output_base, pending_state, mode);
 		if (!state) {
