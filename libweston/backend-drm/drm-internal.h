@@ -362,6 +362,8 @@ struct drm_backend {
 
 	int virtual_width;
 	int virtual_height;
+
+	bool mirror_mode;
 };
 
 struct drm_mode {
@@ -617,6 +619,10 @@ struct drm_output {
 	int current_image;
 	pixman_region32_t previous_damage;
 
+	/* Wrap fb for scale/rotate usage */
+	struct drm_fb *wrap[2];
+	int next_wrap;
+
 	struct vaapi_recorder *recorder;
 	struct wl_listener recorder_frame_listener;
 
@@ -631,6 +637,10 @@ struct drm_output {
 
 	/* The dummy framebuffer for SET_CRTC. */
 	struct drm_fb *fb_dummy;
+
+	bool is_mirror;
+
+	pixman_box32_t plane_bounds;
 };
 
 void
