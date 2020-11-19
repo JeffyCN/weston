@@ -54,7 +54,8 @@ deps_drm = [
 	dep_libinput_backend,
 	dependency('libudev', version: '>= 136'),
 	dep_libdisplay_info,
-	dep_backlight
+	dep_backlight,
+	dep_rga,
 ]
 
 if get_option('renderer-gl')
