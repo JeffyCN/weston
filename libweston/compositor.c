@@ -1425,7 +1425,7 @@ weston_view_assign_output(struct weston_view *ev)
 	mask = 0;
 	pixman_region32_init(&region);
 	wl_list_for_each(output, &ec->output_list, link) {
-		if (output->destroying)
+		if (!weston_output_valid(output))
 			continue;
 
 		pixman_region32_intersect(&region, &ev->transform.boundingbox,
@@ -5631,6 +5631,9 @@ bind_output(struct wl_client *client,
 static void
 weston_head_add_global(struct weston_head *head)
 {
+	if (head->global || !weston_output_valid(head->output))
+		return;
+
 	head->global = wl_global_create(head->compositor->wl_display,
 					&wl_output_interface, 3,
 					head, bind_output);
@@ -5664,6 +5667,15 @@ weston_head_remove_global(struct weston_head *head)
 		wl_resource_set_destructor(resource, NULL);
 	}
 	wl_list_init(&head->xdg_output_resource_list);
+}
+
+static void
+weston_head_update_global(struct weston_head *head)
+{
+	if (weston_output_valid(head->output))
+		weston_head_add_global(head);
+	else
+		weston_head_remove_global(head);
 }
 
 /** Get the backing object of wl_output
@@ -6492,6 +6504,7 @@ WL_EXPORT void
 weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 {
 	struct weston_output *output;
+	struct weston_head *head;
 	int x, y, next_x, next_y;
 
 	if (compositor->output_flow_dirty)
@@ -6499,7 +6512,10 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 
 	next_x = next_y = 0;
 	wl_list_for_each(output, &compositor->output_list, link) {
-		if (output->destroying)
+		wl_list_for_each(head, &output->head_list, output_link)
+			weston_head_update_global(head);
+
+		if (!weston_output_valid(output))
 			continue;
 
 		x = next_x;
@@ -6714,10 +6730,10 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 	wl_list_insert(compositor->output_list.prev, &output->link);
 	output->enabled = true;
 
+	wl_signal_emit(&compositor->output_created_signal, output);
+
 	wl_list_for_each(head, &output->head_list, output_link)
 		weston_head_add_global(head);
-
-	wl_signal_emit(&compositor->output_created_signal, output);
 
 	/*
 	 * Use view_list, as paint nodes have not been created for this
