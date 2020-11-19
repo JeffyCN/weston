@@ -88,6 +88,24 @@ drm_head_is_external(struct drm_head *head)
 	}
 };
 
+static int
+drm_output_get_rotation(struct drm_output *output)
+{
+	switch (output->base.transform) {
+	case WL_OUTPUT_TRANSFORM_90:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		return 90;
+	case WL_OUTPUT_TRANSFORM_180:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		return 180;
+	case WL_OUTPUT_TRANSFORM_270:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		return 270;
+	default:
+		return 0;
+	}
+}
+
 static void
 drm_backend_update_outputs(struct drm_backend *b)
 {
@@ -97,6 +115,28 @@ drm_backend_update_outputs(struct drm_backend *b)
 		return;
 
 	primary = b->primary_head->base.output;
+
+	if (b->mirror_mode) {
+		struct weston_output *base;
+
+		wl_list_for_each(base, &b->compositor->output_list, link) {
+			struct drm_output *output = to_drm_output(base);
+			bool is_mirror = base != primary;
+
+			if (!output || output->is_mirror == is_mirror)
+				continue;
+
+			/* Make mirrors unavailable for normal views */
+			output->base.unavailable = is_mirror;
+
+			output->is_mirror = is_mirror;
+			output->state_invalid = true;
+
+			weston_log("Output %s changed to %s output\n",
+				   base->name, is_mirror ? "mirror" : "main");
+		}
+	}
+
 	if (!primary)
 		return;
 
@@ -426,21 +466,86 @@ drm_output_render_pixman(struct drm_output_state *state,
 	return drm_fb_ref(output->dumb[output->current_image]);
 }
 
+static struct drm_fb *
+drm_output_get_fb(struct drm_pending_state *pending_state,
+		  struct weston_output *output_base)
+{
+	struct drm_output *output = to_drm_output(output_base);
+	struct drm_plane_state *scanout_state;
+	struct drm_output_state *state;
+	struct drm_fb *fb = output->scanout_plane->state_cur->fb;
+
+	state = drm_pending_state_get_output(pending_state, output);
+	if (!state)
+		return fb;
+
+	scanout_state =
+		drm_output_state_get_existing_plane(state,
+						    output->scanout_plane);
+	if (!scanout_state || !scanout_state->fb)
+		return fb;
+
+	return scanout_state->fb;
+}
+
+static void
+drm_output_try_destroy_wrap_fb(struct drm_output *output)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_LENGTH(output->wrap); i++) {
+		if (output->wrap[i])
+		drm_fb_unref(output->wrap[i]);
+		output->wrap[i] = NULL;
+	}
+
+	output->next_wrap = 0;
+}
+
+static struct drm_fb *
+drm_output_get_wrap_fb(struct drm_backend *b, struct drm_output *output,
+		       int width, int height)
+{
+	struct drm_fb *fb = output->wrap[output->next_wrap];
+
+	if (fb) {
+		if (fb->width == width && fb->height == height)
+			goto out;
+
+		drm_fb_unref(fb);
+	}
+
+	fb = drm_fb_create_dumb(b->drm, width, height, output->format->format);
+	if (!fb) {
+		weston_log("failed to create wrap fb\n");
+		return NULL;
+	}
+
+	output->wrap[output->next_wrap] = fb;
+out:
+	output->next_wrap ^= 1;
+	return drm_fb_ref(fb);
+}
+
 void
 drm_output_render(struct drm_output_state *state)
 {
 	struct drm_output *output = state->output;
 	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	struct weston_compositor *c = output->base.compositor;
 	struct drm_plane_state *scanout_state;
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_property_info *damage_info =
 		&scanout_plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS];
 	struct drm_mode *mode;
-	struct drm_fb *fb;
+	struct drm_fb *fb = NULL;
 	pixman_region32_t damage, scanout_damage;
 	pixman_box32_t *rects;
 	int n_rects;
+	int sw, sh, dx, dy, dw, dh;
+	int rotation = 0;
+	bool scaling;
 
 	/* If we already have a client buffer promoted to scanout, then we don't
 	 * want to render. */
@@ -451,6 +556,37 @@ drm_output_render(struct drm_output_state *state)
 	pixman_region32_init(&damage);
 
 	weston_output_flush_damage_for_primary_plane(&output->base, &damage);
+
+	if (!output->is_mirror) {
+		struct weston_output *base;
+
+		/* Repaint all mirrors when updating main output */
+		wl_list_for_each(base, &c->output_list, link) {
+			struct drm_output *output = to_drm_output(base);
+			if (output && output->is_mirror)
+				weston_output_schedule_repaint(base);
+		}
+	} else {
+		if (!b->primary_head)
+			goto out;
+
+		rotation = drm_output_get_rotation(output);
+
+		fb = drm_output_get_fb(state->pending_state,
+				       b->primary_head->base.output);
+		if (fb) {
+			drm_fb_ref(fb);
+
+			pixman_region32_init(&scanout_damage);
+			wl_signal_emit(&output->base.frame_signal,
+				       &scanout_damage);
+			pixman_region32_fini(&scanout_damage);
+		} else {
+			weston_compositor_damage_all(b->compositor);
+		}
+
+		goto got_fb;
+	}
 
 	/*
 	 * If we don't have any damage on the primary plane, and we already
@@ -472,24 +608,86 @@ drm_output_render(struct drm_output_state *state)
 		fb = drm_output_render_gl(state, &damage);
 	}
 
+got_fb:
 	if (!fb) {
 		drm_plane_state_put_back(scanout_state);
 		goto out;
 	}
 
+	sw = fb->width;
+	sh = fb->height;
+
+	dx = output->plane_bounds.x1;
+	dy = output->plane_bounds.y1;
+	dw = output->plane_bounds.x2 - output->plane_bounds.x1;
+	dh = output->plane_bounds.y2 - output->plane_bounds.y1;
+
+	if (!dw || !dh) {
+		mode = to_drm_mode(output->base.current_mode);
+		dw = mode->mode_info.hdisplay;
+		dh = mode->mode_info.vdisplay;
+	}
+
+	if (output->is_mirror && getenv("WESTON_DRM_KEEP_RATIO")) {
+		float src_ratio = (float) sw / sh;
+		float dst_ratio = (float) dw / dh;
+		int offset;
+
+		if (rotation % 180)
+			src_ratio = 1 / src_ratio;
+
+		if (src_ratio > dst_ratio) {
+			offset = dh - dw / src_ratio;
+			dy = offset / 2;
+			dh -= offset;
+		} else {
+			offset = dw - dh * src_ratio;
+			dx = offset / 2;
+			dw -= offset;
+		}
+	}
+
+	scaling = sw != dw || sh != dh;
+
+	if (rotation || (scaling && !output->scanout_plane->can_scale)) {
+		struct drm_fb *wrap_fb =
+			drm_output_get_wrap_fb(b, output, dw, dh);
+		if (!wrap_fb) {
+			weston_log("failed to get wrap fb\n");
+			goto err;
+		}
+
+		if (!drm_fb_convert(fb, wrap_fb, rotation, sw, sh)) {
+			weston_log("failed to convert fb\n");
+			goto err;
+		}
+
+		sw = dw;
+		sh = dh;
+
+		drm_fb_unref(fb);
+		fb = wrap_fb;
+	} else {
+		drm_output_try_destroy_wrap_fb(output);
+	}
+
 	scanout_state->fb = fb;
+	fb = NULL;
+
 	scanout_state->output = output;
 
 	scanout_state->src_x = 0;
 	scanout_state->src_y = 0;
-	scanout_state->src_w = fb->width << 16;
-	scanout_state->src_h = fb->height << 16;
+	scanout_state->src_w = sw << 16;
+	scanout_state->src_h = sh << 16;
 
-	mode = to_drm_mode(output->base.current_mode);
-	scanout_state->dest_x = 0;
-	scanout_state->dest_y = 0;
-	scanout_state->dest_w = mode->mode_info.hdisplay;
-	scanout_state->dest_h = mode->mode_info.vdisplay;
+	scanout_state->dest_x = dx;
+	scanout_state->dest_y = dy;
+	scanout_state->dest_w = dw;
+	scanout_state->dest_h = dh;
+
+	if (output->is_mirror)
+		return;
 
 	scanout_state->zpos = scanout_plane->zpos_min;
 
@@ -520,6 +718,12 @@ drm_output_render(struct drm_output_state *state)
 	pixman_region32_fini(&scanout_damage);
 out:
 	pixman_region32_fini(&damage);
+	return;
+err:
+	if (fb)
+		drm_fb_unref(fb);
+
+	drm_plane_state_put_back(scanout_state);
 }
 
 static uint32_t
@@ -1684,8 +1888,8 @@ drm_output_fini_pixman(struct drm_output *output)
 	/* Destroying the Pixman surface will destroy all our buffers,
 	 * regardless of refcount. Ensure we destroy them here. */
 	if (!b->compositor->shutting_down &&
-	    output->scanout_plane->state_cur->fb &&
-	    output->scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB) {
+	    output->scanout_plane->state_cur->fb && (output->is_mirror ||
+	    output->scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB)) {
 		drm_plane_reset_state(output->scanout_plane);
 	}
 
@@ -2466,6 +2670,8 @@ drm_output_destroy(struct weston_output *base)
 	assert(output->hdr_output_metadata_blob_id == 0);
 
 	wl_list_remove(&output->disable_head);
+
+	drm_output_try_destroy_wrap_fb(output);
 
 	free(output);
 }
@@ -4211,6 +4417,12 @@ drm_backend_create(struct weston_compositor *compositor,
 	buf = getenv("WESTON_DRM_VIRTUAL_SIZE");
 	if (buf)
 		sscanf(buf, "%dx%d", &b->virtual_width, &b->virtual_height);
+
+	buf = getenv("WESTON_DRM_MIRROR");
+	if (buf && buf[0] == '1') {
+		b->mirror_mode = true;
+		weston_log("Entering mirror mode.\n");
+	}
 
 	device = zalloc(sizeof *device);
 	if (device == NULL)

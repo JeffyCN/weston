@@ -33,6 +33,7 @@ config_h.set('BUILD_DRM_COMPOSITOR', '1')
 srcs_drm = [
 	'drm.c',
 	'fb.c',
+	'fb-convert.c',
 	'modes.c',
 	'kms.c',
 	'kms-color.c',
@@ -45,6 +46,8 @@ srcs_drm = [
 
 deps_drm = [
 	dep_egl, # optional
+	dep_gles2, # optional
+	dep_gbm, # optional
 	dep_libm,
 	dep_libdl,
 	dep_libshared,
@@ -54,7 +57,8 @@ deps_drm = [
 	dep_libinput_backend,
 	dependency('libudev', version: '>= 136'),
 	dep_libdisplay_info,
-	dep_backlight
+	dep_backlight,
+	dep_rga,
 ]
 
 if get_option('renderer-gl')
