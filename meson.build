@@ -145,6 +145,11 @@ if get_option('deprecated-wl-shell')
 	config_h.set('HAVE_DEPRECATED_WL_SHELL', '1')
 endif
 
+dep_rga = dependency('librga', required: false)
+if dep_rga.found()
+	config_h.set('HAVE_RGA', '1')
+endif
+
 dep_wayland_server = dependency('wayland-server', version: '>= 1.18.0')
 dep_wayland_client = dependency('wayland-client', version: '>= 1.18.0')
 dep_pixman = dependency('pixman-1', version: '>= 0.25.2')

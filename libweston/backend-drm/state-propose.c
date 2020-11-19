@@ -54,6 +54,21 @@ static const char *const drm_output_propose_state_mode_as_string[] = {
 	[DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY]	= "plane-only state"
 };
 
+static bool
+drm_is_mirroring(struct drm_backend *b)
+{
+	struct drm_output *tmp;
+
+	if (!b->mirror_mode)
+		return false;
+
+	wl_list_for_each(tmp, &b->compositor->output_list, base.link)
+		if (tmp->is_mirror)
+			return true;
+
+	return false;
+}
+
 static const char *
 drm_propose_state_mode_to_string(enum drm_output_propose_state_mode mode)
 {
@@ -466,7 +481,7 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 
 	switch (plane->type) {
 	case WDRM_PLANE_TYPE_CURSOR:
-		if (b->cursors_are_broken) {
+		if (b->cursors_are_broken || drm_is_mirroring(b)) {
 			availability = NO_PLANES_ACCEPTED;
 			goto out;
 		}
@@ -1102,7 +1117,10 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 	drm_debug(b, "\t[repaint] preparing state for output %s (%lu)\n",
 		  output_base->name, (unsigned long) output_base->id);
 
-	if (!b->sprites_are_broken && !output->virtual) {
+	/* Force single plane in mirror mode */
+	if (drm_is_mirroring(b)) {
+		drm_debug(b, "\t[state] no overlay plane in mirror mode\n");
+	} else if (!b->sprites_are_broken && !output->virtual) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		state = drm_output_propose_state(output_base, pending_state, mode);
 		if (!state) {
