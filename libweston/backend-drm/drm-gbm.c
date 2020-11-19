@@ -282,8 +282,8 @@ drm_output_fini_egl(struct drm_output *output)
 	/* Destroying the GBM surface will destroy all our GBM buffers,
 	 * regardless of refcount. Ensure we destroy them here. */
 	if (!b->compositor->shutting_down &&
-	    output->scanout_plane->state_cur->fb &&
-	    output->scanout_plane->state_cur->fb->type == BUFFER_GBM_SURFACE) {
+	    output->scanout_plane->state_cur->fb && (output->is_mirror ||
+	    output->scanout_plane->state_cur->fb->type == BUFFER_GBM_SURFACE)) {
 		drm_plane_reset_state(output->scanout_plane);
 	}
 

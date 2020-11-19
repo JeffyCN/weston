@@ -4107,6 +4107,9 @@ weston_view_set_initial_position(struct weston_view *view,
 	}
 
 	wl_list_for_each(output, &compositor->output_list, link) {
+		if (output->unavailable)
+			continue;
+
 		if (weston_output_contains_coord(output, pos)) {
 			target_output = output;
 			break;
@@ -4527,7 +4530,7 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	if (!shsurf)
 		return;
 
-	if (shsurf->fullscreen_output && shsurf->fullscreen_output->destroying)
+	if (!weston_output_valid(shsurf->fullscreen_output))
 		shsurf->fullscreen_output = NULL;
 
 	if (!visible) {

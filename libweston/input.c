@@ -2148,20 +2148,28 @@ WL_EXPORT struct weston_coord_global
 weston_pointer_clamp(struct weston_pointer *pointer, struct weston_coord_global pos)
 {
 	struct weston_compositor *ec = pointer->seat->compositor;
-	struct weston_output *output, *prev = NULL;
+	struct weston_output *output, *prev = NULL, *fallback = NULL;
 	int valid = 0;
 
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (pointer->seat->output && pointer->seat->output != output)
 			continue;
+
+		if (output->unavailable)
+			continue;
+
 		if (weston_output_contains_coord(output, pos))
 			valid = 1;
 		if (weston_output_contains_coord(output, pointer->pos))
 			prev = output;
+		if (!fallback)
+			fallback = output;
 	}
 
 	if (!prev)
 		prev = pointer->seat->output;
+	if (!prev)
+		prev = fallback;
 
 	if (prev && !valid)
 		pos = weston_pointer_clamp_for_output(pointer, prev, pos);
@@ -2219,6 +2227,9 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 
 	wl_list_for_each(output, &ec->output_list, link) {
 		int ox, oy;
+
+		if (output->unavailable)
+			continue;
 
 		if (weston_output_contains_coord(output, pointer->pos))
 			return;
