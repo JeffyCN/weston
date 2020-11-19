@@ -1062,9 +1062,14 @@ desktop_shell_configure(void *data,
 			struct wl_surface *surface,
 			int32_t width, int32_t height)
 {
-	struct window *window = wl_surface_get_user_data(surface);
-	struct surface *s = window_get_user_data(window);
+	struct window *window;
+	struct surface *s;
 
+	if (!surface)
+		return;
+
+	window = wl_surface_get_user_data(surface);
+	s = window_get_user_data(window);
 	s->configure(data, desktop_shell, edges, window, width, height);
 }
 
