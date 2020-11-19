@@ -223,6 +223,27 @@ drm_plane_state_coords_for_view(struct drm_plane_state *state,
 	state->dest_y = tbox.y1;
 	state->dest_w = tbox.x2 - tbox.x1;
 	state->dest_h = tbox.y2 - tbox.y1;
+
+	// HACK: Based on drm.c's drm_output_render()
+	sxf1 = output->plane_bounds.x1;
+	syf1 = output->plane_bounds.y1;
+	if (output->plane_bounds.x2 && output->plane_bounds.y2) {
+		sxf2 = output->plane_bounds.x2 - sxf1;
+		syf2 = output->plane_bounds.y2 - syf1;
+	} else {
+		struct drm_mode *mode = to_drm_mode(output->base.current_mode);
+		sxf2 = mode->mode_info.hdisplay;
+		syf2 = mode->mode_info.vdisplay;
+	}
+	sxf2 /= output->base.current_mode->width;
+	syf2 /= output->base.current_mode->height;
+
+	// HACK: Convert with plane bounds
+	state->dest_x = state->dest_x * sxf2 + sxf1;
+	state->dest_y = state->dest_y * syf2 + syf1;
+	state->dest_w = state->dest_w * sxf2;
+	state->dest_h = state->dest_h * syf2;
+
 	pixman_region32_fini(&dest_rect);
 
 	/* Now calculate the source rectangle, by finding the extents of the

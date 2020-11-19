@@ -22,6 +22,7 @@ config_h.set('BUILD_DRM_COMPOSITOR', '1')
 srcs_drm = [
 	'drm.c',
 	'fb.c',
+	'fb-convert.c',
 	'modes.c',
 	'kms.c',
 	'state-helpers.c',
@@ -32,13 +33,17 @@ srcs_drm = [
 ]
 
 deps_drm = [
+	dep_egl, # optional
+	dep_gles2, # optional
+	dep_gbm, # optional
 	dep_libdl,
 	dep_libweston_private,
 	dep_session_helper,
 	dep_libdrm,
 	dep_libinput_backend,
 	dependency('libudev', version: '>= 136'),
-	dep_backlight
+	dep_backlight,
+	dep_rga
 ]
 
 if get_option('renderer-gl')
