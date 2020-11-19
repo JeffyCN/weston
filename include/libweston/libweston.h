@@ -594,7 +594,11 @@ struct weston_output {
 	 */
 	void (*detach_head)(struct weston_output *output,
 			    struct weston_head *head);
+
+	bool unavailable;
 };
+#define weston_output_valid(o) \
+	((o) && !(o)->destroying && !(o)->unavailable)
 
 enum weston_pointer_motion_mask {
 	WESTON_POINTER_MOTION_ABS = 1 << 0,
