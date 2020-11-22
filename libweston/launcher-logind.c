@@ -860,6 +860,9 @@ static int
 launcher_logind_get_vt(struct weston_launcher *launcher)
 {
 	struct launcher_logind *wl = wl_container_of(launcher, wl, base);
+	if (wl->vtnr <= 0) {
+		return -EINVAL;
+	}
 	return wl->vtnr;
 }
 

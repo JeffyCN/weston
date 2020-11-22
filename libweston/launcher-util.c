@@ -31,6 +31,7 @@
 #include "launcher-util.h"
 #include "launcher-impl.h"
 
+#include <errno.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <linux/input.h>
@@ -107,10 +108,12 @@ switch_vt_binding(struct weston_keyboard *keyboard,
 WL_EXPORT void
 weston_setup_vt_switch_bindings(struct weston_compositor *compositor)
 {
+	int ret;
 	uint32_t key;
 	struct weston_launcher *launcher = compositor->launcher;
 
-	if (launcher->iface->get_vt(launcher) <= 0)
+	ret = launcher->iface->get_vt(launcher);
+	if (ret < 0 && ret != -ENOSYS)
 		return;
 
 	if (compositor->vt_switching == false)
