@@ -149,4 +149,14 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr);
 int
 gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 
+int
+shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
+		   const char *vertex_source, const char *fragment_source);
+
+void
+shader_release(struct gl_shader *shader);
+
+int
+compile_shaders(struct weston_compositor *ec);
+
 #endif /* GL_RENDERER_INTERNAL_H */
