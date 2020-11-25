@@ -32,16 +32,8 @@
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
 
-static const char vertex_shader[] =
-	"uniform mat4 proj;\n"
-	"attribute vec2 position;\n"
-	"attribute vec2 texcoord;\n"
-	"varying vec2 v_texcoord;\n"
-	"void main()\n"
-	"{\n"
-	"   gl_Position = proj * vec4(position, 0.0, 1.0);\n"
-	"   v_texcoord = texcoord;\n"
-	"}\n";
+/* static const char vertex_shader[]; vertex.glsl */
+#include "vertex-shader.h"
 
 /* Declare common fragment shader uniforms */
 #define FRAGMENT_CONVERT_YUV						\

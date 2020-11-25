@@ -4,12 +4,20 @@ endif
 
 config_h.set('ENABLE_EGL', '1')
 
+vertex_glsl = custom_target(
+	'vertex-shader.h',
+	command: cmd_xxd + [ '-n', 'vertex_shader' ],
+	input: 'vertex.glsl',
+	output: 'vertex-shader.h',
+)
+
 srcs_renderer_gl = [
 	'egl-glue.c',
 	'gl-renderer.c',
 	'gl-shaders.c',
 	linux_dmabuf_unstable_v1_protocol_c,
 	linux_dmabuf_unstable_v1_server_protocol_h,
+	vertex_glsl,
 ]
 
 deps_renderer_gl = [
