@@ -1526,6 +1526,7 @@ int main(int argc, char *argv[])
 	if (desktop.display == NULL) {
 		fprintf(stderr, "failed to create display: %s\n",
 			strerror(errno));
+		weston_config_destroy(desktop.config);
 		return -1;
 	}
 
@@ -1554,6 +1555,7 @@ int main(int argc, char *argv[])
 		unlock_dialog_destroy(desktop.unlock_dialog);
 	weston_desktop_shell_destroy(desktop.shell);
 	display_destroy(desktop.display);
+	weston_config_destroy(desktop.config);
 
 	return 0;
 }
