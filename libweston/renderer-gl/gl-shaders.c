@@ -35,114 +35,8 @@
 /* static const char vertex_shader[]; vertex.glsl */
 #include "vertex-shader.h"
 
-/* Declare common fragment shader uniforms */
-#define FRAGMENT_CONVERT_YUV						\
-	"  y *= alpha;\n"						\
-	"  u *= alpha;\n"						\
-	"  v *= alpha;\n"						\
-	"  gl_FragColor.r = y + 1.59602678 * v;\n"			\
-	"  gl_FragColor.g = y - 0.39176229 * u - 0.81296764 * v;\n"	\
-	"  gl_FragColor.b = y + 2.01723214 * u;\n"			\
-	"  gl_FragColor.a = alpha;\n"
-
-static const char fragment_debug[] =
-	"  gl_FragColor = vec4(0.0, 0.3, 0.0, 0.2) + gl_FragColor * 0.8;\n";
-
-static const char fragment_brace[] =
-	"}\n";
-
-static const char texture_fragment_shader_rgba[] =
-	"precision mediump float;\n"
-	"varying vec2 v_texcoord;\n"
-	"uniform sampler2D tex;\n"
-	"uniform float alpha;\n"
-	"void main()\n"
-	"{\n"
-	"   gl_FragColor = alpha * texture2D(tex, v_texcoord)\n;"
-	;
-
-static const char texture_fragment_shader_rgbx[] =
-	"precision mediump float;\n"
-	"varying vec2 v_texcoord;\n"
-	"uniform sampler2D tex;\n"
-	"uniform float alpha;\n"
-	"void main()\n"
-	"{\n"
-	"   gl_FragColor.rgb = alpha * texture2D(tex, v_texcoord).rgb\n;"
-	"   gl_FragColor.a = alpha;\n"
-	;
-
-static const char texture_fragment_shader_egl_external[] =
-	"#extension GL_OES_EGL_image_external : require\n"
-	"precision mediump float;\n"
-	"varying vec2 v_texcoord;\n"
-	"uniform samplerExternalOES tex;\n"
-	"uniform float alpha;\n"
-	"void main()\n"
-	"{\n"
-	"   gl_FragColor = alpha * texture2D(tex, v_texcoord)\n;"
-	;
-
-static const char texture_fragment_shader_y_uv[] =
-	"precision mediump float;\n"
-	"uniform sampler2D tex;\n"
-	"uniform sampler2D tex1;\n"
-	"varying vec2 v_texcoord;\n"
-	"uniform float alpha;\n"
-	"void main() {\n"
-	"  float y = 1.16438356 * (texture2D(tex, v_texcoord).x - 0.0625);\n"
-	"  float u = texture2D(tex1, v_texcoord).r - 0.5;\n"
-	"  float v = texture2D(tex1, v_texcoord).g - 0.5;\n"
-	FRAGMENT_CONVERT_YUV
-	;
-
-static const char texture_fragment_shader_y_u_v[] =
-	"precision mediump float;\n"
-	"uniform sampler2D tex;\n"
-	"uniform sampler2D tex1;\n"
-	"uniform sampler2D tex2;\n"
-	"varying vec2 v_texcoord;\n"
-	"uniform float alpha;\n"
-	"void main() {\n"
-	"  float y = 1.16438356 * (texture2D(tex, v_texcoord).x - 0.0625);\n"
-	"  float u = texture2D(tex1, v_texcoord).x - 0.5;\n"
-	"  float v = texture2D(tex2, v_texcoord).x - 0.5;\n"
-	FRAGMENT_CONVERT_YUV
-	;
-
-static const char texture_fragment_shader_y_xuxv[] =
-	"precision mediump float;\n"
-	"uniform sampler2D tex;\n"
-	"uniform sampler2D tex1;\n"
-	"varying vec2 v_texcoord;\n"
-	"uniform float alpha;\n"
-	"void main() {\n"
-	"  float y = 1.16438356 * (texture2D(tex, v_texcoord).x - 0.0625);\n"
-	"  float u = texture2D(tex1, v_texcoord).g - 0.5;\n"
-	"  float v = texture2D(tex1, v_texcoord).a - 0.5;\n"
-	FRAGMENT_CONVERT_YUV
-	;
-
-static const char texture_fragment_shader_xyuv[] =
-	"precision mediump float;\n"
-	"uniform sampler2D tex;\n"
-	"varying vec2 v_texcoord;\n"
-	"uniform float alpha;\n"
-	"void main() {\n"
-	"  float y = 1.16438356 * (texture2D(tex, v_texcoord).b - 0.0625);\n"
-	"  float u = texture2D(tex, v_texcoord).g - 0.5;\n"
-	"  float v = texture2D(tex, v_texcoord).r - 0.5;\n"
-	FRAGMENT_CONVERT_YUV
-	;
-
-static const char solid_fragment_shader[] =
-	"precision mediump float;\n"
-	"uniform vec4 color;\n"
-	"uniform float alpha;\n"
-	"void main()\n"
-	"{\n"
-	"   gl_FragColor = alpha * color\n;"
-	;
+/* static const char fragment_shader[]; fragment.glsl */
+#include "fragment-shader.h"
 
 static int
 compile_shader(GLenum type, int count, const char **sources)
@@ -166,31 +60,40 @@ compile_shader(GLenum type, int count, const char **sources)
 
 int
 shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
-		   const char *vertex_source, const char *fragment_source)
+		   const char *vertex_source, const char *fragment_variant)
 {
+	static const char fragment_shader_attrs_fmt[] =
+		"#define DEF_DEBUG %s\n"
+		"#define DEF_VARIANT %s\n"
+		;
 	char msg[512];
 	GLint status;
-	int count;
+	int ret;
 	const char *sources[3];
+	char *attrs;
+	const char *def_debug;
 
 	shader->vertex_shader =
 		compile_shader(GL_VERTEX_SHADER, 1, &vertex_source);
 	if (shader->vertex_shader == GL_NONE)
 		return -1;
 
-	if (renderer->fragment_shader_debug) {
-		sources[0] = fragment_source;
-		sources[1] = fragment_debug;
-		sources[2] = fragment_brace;
-		count = 3;
-	} else {
-		sources[0] = fragment_source;
-		sources[1] = fragment_brace;
-		count = 2;
-	}
+	if (renderer->fragment_shader_debug)
+		def_debug = "true";
+	else
+		def_debug = "false";
 
-	shader->fragment_shader =
-		compile_shader(GL_FRAGMENT_SHADER, count, sources);
+	ret = asprintf(&attrs, fragment_shader_attrs_fmt,
+		       def_debug, fragment_variant);
+	if (ret < 0)
+		return -1;
+
+	sources[0] = "#version 100\n";
+	sources[1] = attrs;
+	sources[2] = fragment_shader;
+	shader->fragment_shader = compile_shader(GL_FRAGMENT_SHADER,
+						 3, sources);
+	free(attrs);
 	if (shader->fragment_shader == GL_NONE)
 		return -1;
 
@@ -236,31 +139,28 @@ compile_shaders(struct weston_compositor *ec)
 	struct gl_renderer *gr = get_renderer(ec);
 
 	gr->texture_shader_rgba.vertex_source = vertex_shader;
-	gr->texture_shader_rgba.fragment_source = texture_fragment_shader_rgba;
+	gr->texture_shader_rgba.fragment_source = "SHADER_VARIANT_RGBA";
 
 	gr->texture_shader_rgbx.vertex_source = vertex_shader;
-	gr->texture_shader_rgbx.fragment_source = texture_fragment_shader_rgbx;
+	gr->texture_shader_rgbx.fragment_source = "SHADER_VARIANT_RGBX";
 
 	gr->texture_shader_egl_external.vertex_source = vertex_shader;
-	gr->texture_shader_egl_external.fragment_source =
-		texture_fragment_shader_egl_external;
+	gr->texture_shader_egl_external.fragment_source = "SHADER_VARIANT_EXTERNAL";
 
 	gr->texture_shader_y_uv.vertex_source = vertex_shader;
-	gr->texture_shader_y_uv.fragment_source = texture_fragment_shader_y_uv;
+	gr->texture_shader_y_uv.fragment_source = "SHADER_VARIANT_Y_UV";
 
 	gr->texture_shader_y_u_v.vertex_source = vertex_shader;
-	gr->texture_shader_y_u_v.fragment_source =
-		texture_fragment_shader_y_u_v;
+	gr->texture_shader_y_u_v.fragment_source = "SHADER_VARIANT_Y_U_V";
 
 	gr->texture_shader_y_xuxv.vertex_source = vertex_shader;
-	gr->texture_shader_y_xuxv.fragment_source =
-		texture_fragment_shader_y_xuxv;
+	gr->texture_shader_y_xuxv.fragment_source = "SHADER_VARIANT_Y_XUXV";
 
 	gr->texture_shader_xyuv.vertex_source = vertex_shader;
-	gr->texture_shader_xyuv.fragment_source = texture_fragment_shader_xyuv;
+	gr->texture_shader_xyuv.fragment_source = "SHADER_VARIANT_XYUV";
 
 	gr->solid_shader.vertex_source = vertex_shader;
-	gr->solid_shader.fragment_source = solid_fragment_shader;
+	gr->solid_shader.fragment_source = "SHADER_VARIANT_SOLID";
 
 	return 0;
 }

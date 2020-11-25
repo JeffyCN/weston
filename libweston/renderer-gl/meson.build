@@ -11,8 +11,16 @@ vertex_glsl = custom_target(
 	output: 'vertex-shader.h',
 )
 
+fragment_glsl = custom_target(
+	'fragment-shader.h',
+	command: cmd_xxd + [ '-n', 'fragment_shader' ],
+	input: 'fragment.glsl',
+	output: 'fragment-shader.h',
+)
+
 srcs_renderer_gl = [
 	'egl-glue.c',
+	fragment_glsl,
 	'gl-renderer.c',
 	'gl-shaders.c',
 	linux_dmabuf_unstable_v1_protocol_c,
