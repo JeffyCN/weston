@@ -29,6 +29,8 @@
 
 #include <GLES2/gl2.h>
 
+#include <string.h>
+
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
 
@@ -37,6 +39,43 @@
 
 /* static const char fragment_shader[]; fragment.glsl */
 #include "fragment-shader.h"
+
+static void
+dump_program_with_line_numbers(int count, const char **sources)
+{
+	FILE *fp;
+	char *dumpstr;
+	size_t dumpstrsz;
+	const char *cur;
+	const char *delim;
+	int line = 1;
+	int i;
+	bool new_line = true;
+
+	fp = open_memstream(&dumpstr, &dumpstrsz);
+	if (!fp)
+		return;
+
+	for (i = 0; i < count; i++) {
+		cur = sources[i];
+		while ((delim = strchr(cur, '\n'))) {
+			if (new_line)
+				fprintf(fp, "%6d: ", line++);
+			fprintf(fp, "%.*s\n", (int)(delim - cur), cur);
+			new_line = true;
+			cur = delim + 1;
+		}
+		if (new_line)
+			fprintf(fp, "%6d: ", line++);
+		new_line = false;
+		fprintf(fp, "%s", cur);
+	}
+
+	if (fclose(fp) == 0)
+		weston_log_continue("%s\n", dumpstr);
+
+	free(dumpstr);
+}
 
 static int
 compile_shader(GLenum type, int count, const char **sources)
@@ -52,6 +91,8 @@ compile_shader(GLenum type, int count, const char **sources)
 	if (!status) {
 		glGetShaderInfoLog(s, sizeof msg, NULL, msg);
 		weston_log("shader info: %s\n", msg);
+		weston_log("shader source:\n");
+		dump_program_with_line_numbers(count, sources);
 		return GL_NONE;
 	}
 
