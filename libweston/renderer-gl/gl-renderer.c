@@ -844,14 +844,13 @@ ensure_surface_buffer_is_ready(struct gl_renderer *gr,
   *   protected view is captured.
   * - unprotected_censor: Censor regions of protected views
   *   when displayed on an output which has lower protection capability.
-  * Returns the originally stored gl_shader if content censoring is required,
-  * NULL otherwise.
+  * Returns a censoring shader if necessary, or the surface's original
+  * shader otherwise.
   */
 static struct gl_shader *
-setup_censor_overrides(struct weston_output *output,
-		       struct weston_view *ev)
+maybe_censor_override(struct weston_output *output,
+		      struct weston_view *ev)
 {
-	struct gl_shader *replaced_shader = NULL;
 	struct weston_compositor *ec = ev->surface->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(ev->surface);
@@ -867,26 +866,24 @@ setup_censor_overrides(struct weston_output *output,
 		gs->color[1] = 0.0;
 		gs->color[2] = 0.0;
 		gs->color[3] = 1.0;
-		gs->shader = &gr->solid_shader;
-		return gs->shader;
+		return &gr->solid_shader;
 	}
 
 	/* When not in enforced mode, the client is notified of the protection */
 	/* change, so content censoring is not required */
 	if (ev->surface->protection_mode !=
 	    WESTON_SURFACE_PROTECTION_MODE_ENFORCED)
-		return NULL;
+		return gs->shader;
 
 	if (recording_censor || unprotected_censor) {
-		replaced_shader = gs->shader;
 		gs->color[0] = 0.40;
 		gs->color[1] = 0.0;
 		gs->color[2] = 0.0;
 		gs->color[3] = 1.0;
-		gs->shader = &gr->solid_shader;
+		return &gr->solid_shader;
 	}
 
-	return replaced_shader;
+	return gs->shader;
 }
 
 static void
@@ -904,7 +901,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	pixman_region32_t surface_blend;
 	GLint filter;
 	int i;
-	struct gl_shader *replaced_shader = NULL;
+	struct gl_shader *shader;
 
 	/* In case of a runtime switch of renderers, we may not have received
 	 * an attach for this surface since the switch. In that case we don't
@@ -923,7 +920,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	if (ensure_surface_buffer_is_ready(gr, gs) < 0)
 		goto out;
 
-	replaced_shader = setup_censor_overrides(output, ev);
+	shader = maybe_censor_override(output, ev);
 
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -932,8 +929,8 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 		shader_uniforms(&gr->solid_shader, ev, output);
 	}
 
-	use_shader(gr, gs->shader);
-	shader_uniforms(gs->shader, ev, output);
+	use_shader(gr, shader);
+	shader_uniforms(shader, ev, output);
 
 	if (ev->transform.enabled || output->zoom.active ||
 	    output->current_scale != ev->surface->buffer_viewport.buffer.scale)
@@ -967,7 +964,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 		pixman_region32_copy(&surface_opaque, &ev->surface->opaque);
 
 	if (pixman_region32_not_empty(&surface_opaque)) {
-		if (gs->shader == &gr->texture_shader_rgba) {
+		if (shader == &gr->texture_shader_rgba) {
 			/* Special case for RGBA textures with possibly
 			 * bad data in alpha channel: use the shader
 			 * that forces texture alpha = 1.0.
@@ -987,7 +984,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
-		use_shader(gr, gs->shader);
+		use_shader(gr, shader);
 		glEnable(GL_BLEND);
 		repaint_region(ev, &repaint, &surface_blend);
 		gs->used_in_output_repaint = true;
@@ -998,9 +995,6 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 
 out:
 	pixman_region32_fini(&repaint);
-
-	if (replaced_shader)
-		gs->shader = replaced_shader;
 }
 
 static void
