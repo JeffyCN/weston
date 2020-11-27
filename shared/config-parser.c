@@ -39,6 +39,7 @@
 #include <errno.h>
 
 #include <wayland-util.h>
+#include <libweston/zalloc.h>
 #include <libweston/config-parser.h>
 #include "helpers.h"
 #include "string-helpers.h"
@@ -344,7 +345,7 @@ config_add_section(struct weston_config *config, const char *name)
 {
 	struct weston_config_section *section;
 
-	section = malloc(sizeof *section);
+	section = zalloc(sizeof *section);
 	if (section == NULL)
 		return NULL;
 
@@ -366,7 +367,7 @@ section_add_entry(struct weston_config_section *section,
 {
 	struct weston_config_entry *entry;
 
-	entry = malloc(sizeof *entry);
+	entry = zalloc(sizeof *entry);
 	if (entry == NULL)
 		return NULL;
 
@@ -399,7 +400,7 @@ weston_config_parse(const char *name)
 	struct weston_config_section *section = NULL;
 	int i, fd;
 
-	config = malloc(sizeof *config);
+	config = zalloc(sizeof *config);
 	if (config == NULL)
 		return NULL;
 
