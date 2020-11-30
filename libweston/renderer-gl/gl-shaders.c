@@ -63,7 +63,7 @@ shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
 		   const char *vertex_source, const char *fragment_variant)
 {
 	static const char fragment_shader_attrs_fmt[] =
-		"#define DEF_DEBUG %s\n"
+		"#define DEF_GREEN_TINT %s\n"
 		"#define DEF_VARIANT %s\n"
 		;
 	char msg[512];
@@ -71,7 +71,7 @@ shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
 	int ret;
 	const char *sources[3];
 	char *attrs;
-	const char *def_debug;
+	const char *def_green_tint;
 
 	shader->vertex_shader =
 		compile_shader(GL_VERTEX_SHADER, 1, &vertex_source);
@@ -79,12 +79,12 @@ shader_init(struct gl_shader *shader, struct gl_renderer *renderer,
 		return -1;
 
 	if (renderer->fragment_shader_debug)
-		def_debug = "true";
+		def_green_tint = "true";
 	else
-		def_debug = "false";
+		def_green_tint = "false";
 
 	ret = asprintf(&attrs, fragment_shader_attrs_fmt,
-		       def_debug, fragment_variant);
+		       def_green_tint, fragment_variant);
 	if (ret < 0)
 		return -1;
 

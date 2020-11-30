@@ -50,7 +50,7 @@ precision mediump float;
  * snippet.
  */
 const int c_variant = DEF_VARIANT;
-const bool c_debug = DEF_DEBUG;
+const bool c_green_tint = DEF_GREEN_TINT;
 
 vec4
 yuva2rgba(float y, float u, float v, float a)
@@ -125,6 +125,6 @@ main()
 		gl_FragColor = vec4(1.0, 0.3, 1.0, 1.0);
 	}
 
-	if (c_debug)
+	if (c_green_tint)
 		gl_FragColor = vec4(0.0, 0.3, 0.0, 0.2) + gl_FragColor * 0.8;
 }
