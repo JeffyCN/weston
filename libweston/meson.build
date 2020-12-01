@@ -15,6 +15,7 @@ srcs_libweston = [
 	'compositor.c',
 	'content-protection.c',
 	'data-device.c',
+	'drm-formats.c',
 	'input.c',
 	'linux-dmabuf.c',
 	'linux-explicit-synchronization.c',

@@ -325,6 +325,72 @@ void
 weston_protected_surface_send_event(struct protected_surface *psurface,
 				    enum weston_hdcp_protection protection);
 
+/* weston_drm_format */
+
+struct weston_drm_format {
+	uint32_t format;
+	struct wl_array modifiers;
+};
+
+struct weston_drm_format_array {
+	struct wl_array arr;
+};
+
+struct weston_drm_format_array *
+weston_drm_format_array_create(void);
+
+void
+weston_drm_format_array_init(struct weston_drm_format_array *formats);
+
+void
+weston_drm_format_array_destroy(struct weston_drm_format_array *formats);
+
+void
+weston_drm_format_array_fini(struct weston_drm_format_array *formats);
+
+int
+weston_drm_format_array_replace(struct weston_drm_format_array *formats,
+				const struct weston_drm_format_array *source_formats);
+
+struct weston_drm_format *
+weston_drm_format_array_add_format(struct weston_drm_format_array *formats,
+				   uint32_t format);
+
+void
+weston_drm_format_array_remove_latest_format(struct weston_drm_format_array *formats);
+
+struct weston_drm_format *
+weston_drm_format_array_find_format(const struct weston_drm_format_array *formats,
+				    uint32_t format);
+
+bool
+weston_drm_format_array_equal(const struct weston_drm_format_array *formats_A,
+			      const struct weston_drm_format_array *formats_B);
+
+int
+weston_drm_format_array_join(struct weston_drm_format_array *formats_A,
+			     const struct weston_drm_format_array *formats_B);
+
+struct weston_drm_format_array *
+weston_drm_format_array_intersect(const struct weston_drm_format_array *formats_A,
+				  const struct weston_drm_format_array *formats_B);
+
+int
+weston_drm_format_array_subtract(struct weston_drm_format_array *formats_A,
+				 const struct weston_drm_format_array *formats_B);
+
+int
+weston_drm_format_add_modifier(struct weston_drm_format *format,
+			       uint64_t modifier);
+
+bool
+weston_drm_format_has_modifier(const struct weston_drm_format *format,
+			       uint64_t modifier);
+
+const uint64_t *
+weston_drm_format_get_modifiers(const struct weston_drm_format *format,
+				unsigned int *count_out);
+
 /* others */
 int
 wl_data_device_manager_init(struct wl_display *display);
