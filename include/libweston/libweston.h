@@ -359,6 +359,8 @@ struct weston_output {
 	bool enabled; /**< is in the output_list, not pending list */
 	int scale;
 
+	bool use_renderer_shadow_buffer;
+
 	int (*enable)(struct weston_output *output);
 	int (*disable)(struct weston_output *output);
 
@@ -970,6 +972,9 @@ enum weston_capability {
 
 	/* renderer supports explicit synchronization */
 	WESTON_CAP_EXPLICIT_SYNC		= 0x0020,
+
+	/* renderer supports color management operations */
+	WESTON_CAP_COLOR_OPS			= 0x0040,
 };
 
 /* Configuration struct for a backend.
@@ -2052,6 +2057,9 @@ weston_output_set_scale(struct weston_output *output,
 void
 weston_output_set_transform(struct weston_output *output,
 			    uint32_t transform);
+
+bool
+weston_output_set_renderer_shadow_buffer(struct weston_output *output);
 
 void
 weston_output_init(struct weston_output *output,

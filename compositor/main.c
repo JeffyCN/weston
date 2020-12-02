@@ -781,6 +781,7 @@ static const struct {
 } capability_strings[] = {
 	{ WESTON_CAP_ROTATION_ANY, "arbitrary surface rotation:" },
 	{ WESTON_CAP_CAPTURE_YFLIP, "screen capture uses y-flip:" },
+	{ WESTON_CAP_COLOR_OPS, "color operations:" },
 };
 
 static void
