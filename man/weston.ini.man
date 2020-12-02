@@ -551,6 +551,19 @@ A comma separated list of the IDs of applications to place on this output.
 These IDs should match the application IDs as set with the xdg_shell.set_app_id
 request. Currently, this option is supported by kiosk-shell.
 .RE
+.TP 7
+.BI "use-renderer-shadow=" boolean
+Use a shadow framebuffer enabling two-pass composition for possible color
+mangling operations. This is an experimental feature that is only available
+on GL-renderer combined with headless or DRM backend. Setting this to true may
+turn on various composite rendering effects and/or stop composite-bypass in
+DRM-backend.
+
+.I Only for developer testing.
+
+Defaults to
+.BR false .
+.RE
 .SH "INPUT-METHOD SECTION"
 .TP 7
 .BI "path=" "@weston_libexecdir@/weston-keyboard"
