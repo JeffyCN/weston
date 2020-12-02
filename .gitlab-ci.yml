@@ -80,12 +80,36 @@ container_prep:
     - build-*/weston-virtme
     - prefix-*
 
+.build-native-meson-no-test:
+  extends: .build-native
+  tags:
+    - kvm
+  script:
+  - export PATH=~/.local/bin:$PATH
+  - cd "$BUILDDIR"
+  - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
+  - ninja -k0
+  - ninja install
+  - ninja clean
+  artifacts:
+    name: weston-$CI_COMMIT_SHA
+    when: always
+    paths:
+    - build-*/meson-logs
+    - prefix-*
+
 build-native-meson-default-options:
   variables:
     MESON_OPTIONS: >
       -Dwerror=true
-      -Ddoc=true
   extends: .build-native-meson
+
+build-docs:
+  variables:
+    MESON_OPTIONS: >
+      -Dwerror=true
+      -Ddoc=true
+  extends: .build-native-meson-no-test
 
 build-native-meson-no-gl-renderer:
   variables:
@@ -100,10 +124,10 @@ build-native-meson-no-gl-renderer:
 preview-docs:
   stage: pages
   script:
-  - mv prefix-weston-build-native-meson-default-options/share/doc/weston Documentation
+  - mv prefix-weston-build-docs/share/doc/weston Documentation
   - rm -rf build-* prefix-*
   dependencies:
-    - build-native-meson-default-options
+    - build-docs
   artifacts:
     expose_as: 'Documentation preview'
     paths:
@@ -112,9 +136,9 @@ preview-docs:
 pages:
   stage: pages
   dependencies:
-    - build-native-meson-default-options
+    - build-docs
   script:
-  - export PREFIX=$(pwd)/prefix-weston-build-native-meson-default-options
+  - export PREFIX=$(pwd)/prefix-weston-build-docs
   - mkdir public
   - cp -R $PREFIX/share/doc/weston/* public/
   artifacts:
