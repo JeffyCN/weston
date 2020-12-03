@@ -30,6 +30,7 @@
 struct weston_launcher;
 
 struct launcher_interface {
+	char *name;
 	int (* connect) (struct weston_launcher **launcher_out, struct weston_compositor *compositor,
 			 int tty, const char *seat_id, bool sync_drm);
 	void (* destroy) (struct weston_launcher *launcher);

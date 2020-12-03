@@ -97,6 +97,7 @@ launcher_logind_take_device(struct launcher_logind *wl, uint32_t major,
 	reply = dbus_connection_send_with_reply_and_block(wl->dbus, m,
 							  -1, NULL);
 	if (!reply) {
+		weston_log("logind: TakeDevice on %d:%d failed.\n", major, minor);
 		r = -ENODEV;
 		goto err_unref;
 	}
@@ -106,6 +107,7 @@ launcher_logind_take_device(struct launcher_logind *wl, uint32_t major,
 				  DBUS_TYPE_BOOLEAN, &paused,
 				  DBUS_TYPE_INVALID);
 	if (!b) {
+		weston_log("logind: error parsing reply to TakeDevice.\n");
 		r = -ENODEV;
 		goto err_reply;
 	}
@@ -173,17 +175,25 @@ launcher_logind_open(struct weston_launcher *launcher, const char *path, int fla
 	int fl, r, fd;
 
 	r = stat(path, &st);
-	if (r < 0)
+	if (r < 0) {
+		weston_log("logind: cannot stat: %s! error=%s\n", path, strerror(errno));
 		return -1;
+	}
+
 	if (!S_ISCHR(st.st_mode)) {
+		weston_log("logind: %s is not a character special file!\n", path);
 		errno = ENODEV;
 		return -1;
 	}
 
 	fd = launcher_logind_take_device(wl, major(st.st_rdev),
 				       minor(st.st_rdev), NULL);
-	if (fd < 0)
-		return fd;
+	if (fd < 0) {
+		weston_log("logind: TakeDevice on %s failed, error=%s\n",
+			   path, strerror(-fd));
+		errno = -fd;
+		return -1;
+	}
 
 	/* Compared to weston_launcher_open() we cannot specify the open-mode
 	 * directly. Instead, logind passes us an fd with sane default modes.
@@ -195,6 +205,7 @@ launcher_logind_open(struct weston_launcher *launcher, const char *path, int fla
 	fl = fcntl(fd, F_GETFL);
 	if (fl < 0) {
 		r = -errno;
+		weston_log("logind: cannot get file flags: %s\n", strerror(errno));
 		goto err_close;
 	}
 
@@ -204,6 +215,7 @@ launcher_logind_open(struct weston_launcher *launcher, const char *path, int fla
 	r = fcntl(fd, F_SETFL, fl);
 	if (r < 0) {
 		r = -errno;
+		weston_log("logind: cannot set O_NONBLOCK: %s\n", strerror(errno));
 		goto err_close;
 	}
 	return fd;
@@ -816,7 +828,8 @@ err_seat:
 err_wl:
 	free(wl);
 err_out:
-	weston_log("logind: cannot setup systemd-logind helper (%d), using legacy fallback\n", r);
+	weston_log("logind: cannot setup systemd-logind helper error: (%s), using legacy fallback\n",
+		   strerror(-r));
 	errno = -r;
 	return -1;
 }
@@ -847,6 +860,7 @@ launcher_logind_get_vt(struct weston_launcher *launcher)
 }
 
 const struct launcher_interface launcher_logind_iface = {
+	.name = "logind",
 	.connect = launcher_logind_connect,
 	.destroy = launcher_logind_destroy,
 	.open = launcher_logind_open,

@@ -253,12 +253,17 @@ launcher_weston_environment_get_fd(const char *env)
 	int fd, flags;
 
 	e = getenv(env);
-	if (!e || !safe_strtoint(e, &fd))
+	if (!e || !safe_strtoint(e, &fd)) {
+		weston_log("could not get launcher fd from env\n");
 		return -1;
+	}
 
 	flags = fcntl(fd, F_GETFD);
-	if (flags == -1)
+	if (flags == -1) {
+		weston_log("could not get fd flags!, env: %s, error: %s\n",
+			   env, strerror(errno));
 		return -1;
+	}
 
 	fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
 	unsetenv(env);
@@ -297,6 +302,7 @@ launcher_weston_launch_connect(struct weston_launcher **out, struct weston_compo
 							launcher);
 		if (launcher->source == NULL) {
 			free(launcher);
+			weston_log("failed to get weston-launcher socket fd event source\n");
 			return -ENOMEM;
 		}
 
@@ -329,13 +335,16 @@ launcher_weston_launch_get_vt(struct weston_launcher *base)
 {
 	struct launcher_weston_launch *launcher = wl_container_of(base, launcher, base);
 	struct stat s;
-	if (fstat(launcher->tty, &s) < 0)
+	if (fstat(launcher->tty, &s) < 0) {
+		weston_log("could not fstat launcher tty: %s\n", strerror(errno));
 		return -1;
+	}
 
 	return minor(s.st_rdev);
 }
 
 const struct launcher_interface launcher_weston_launch_iface = {
+	.name = "weston_launch",
 	.connect = launcher_weston_launch_connect,
 	.destroy = launcher_weston_launch_destroy,
 	.open = launcher_weston_launch_open,
