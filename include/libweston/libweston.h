@@ -194,6 +194,8 @@ enum weston_hdcp_protection {
  * \ingroup testharness
  */
 struct weston_testsuite_quirks {
+	/** Force GL-renderer to do a full upload of wl_shm buffers. */
+	bool gl_force_full_upload;
 };
 
 /** Weston test suite data that is given to compositor

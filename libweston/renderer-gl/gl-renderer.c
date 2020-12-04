@@ -1572,6 +1572,8 @@ static GLenum gl_format_from_internal(GLenum internal_format)
 static void
 gl_renderer_flush_damage(struct weston_surface *surface)
 {
+	const struct weston_testsuite_quirks *quirks =
+		&surface->compositor->test_data.test_quirks;
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	struct weston_view *view;
@@ -1607,7 +1609,7 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 
 	data = wl_shm_buffer_get_data(buffer->shm_buffer);
 
-	if (gs->needs_full_upload) {
+	if (gs->needs_full_upload || quirks->gl_force_full_upload) {
 		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
 		glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
 		wl_shm_buffer_begin_access(buffer->shm_buffer);

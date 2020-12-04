@@ -142,6 +142,7 @@ tests = [
 			linux_explicit_synchronization_unstable_v1_protocol_c,
 		],
 	},
+	{	'name': 'output-damage', },
 	{	'name': 'output-transforms', },
 	{	'name': 'plugin-registry', },
 	{
