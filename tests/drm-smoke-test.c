@@ -43,7 +43,6 @@ fixture_setup(struct weston_test_harness *harness)
 DECLARE_FIXTURE_SETUP(fixture_setup);
 
 TEST(drm_smoke) {
-
 	struct client *client;
 	struct buffer *buffer;
 	struct wl_surface *surface;
@@ -66,6 +65,32 @@ TEST(drm_smoke) {
 		frame_callback_set(surface, &frame);
 		wl_surface_commit(surface);
 		frame_callback_wait(client, &frame);
+	}
+
+	client_destroy(client);
+}
+
+TEST(drm_screenshot_no_damage) {
+	struct client *client;
+	int i;
+	bool ret;
+
+	client = create_client_and_test_surface(0, 0, 200, 200);
+	assert(client);
+
+	/*
+	 * DRM-backend has an optimization to not even call the renderer if
+	 * there is no damage to be repainted on the primary plane occupied by
+	 * renderer's buffer. However, renderer must be called for a screenshot
+	 * to complete.
+	 *
+	 * Therefore, if there is no damage, it is possible that screenshots
+	 * might get stuck. This test makes sure they run regardless.
+	 */
+	for (i = 0; i < 5; i++) {
+		ret = verify_screen_content(client, "drm_screenshot_no_damage",
+					    0, NULL, i);
+		assert(ret);
 	}
 
 	client_destroy(client);
