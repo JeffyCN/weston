@@ -856,6 +856,7 @@ weston_pipewire_init(struct weston_pipewire *pipewire)
 
 #if PW_CHECK_VERSION(0, 2, 90)
 	pipewire->context = pw_context_new(pipewire->loop, NULL, 0);
+	pipewire->core = pw_context_connect(pipewire->context, NULL, 0);
 #else
 	pipewire->core = pw_core_new(pipewire->loop, NULL);
 	pipewire->t = pw_core_get_type(pipewire->core);
