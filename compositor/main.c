@@ -2514,6 +2514,7 @@ load_drm_backend(struct weston_compositor *c,
 	struct weston_drm_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
 	struct wet_compositor *wet = to_wet_compositor(c);
+	bool without_input = false;
 	int ret = 0;
 
 	wet->drm_use_current_mode = false;
@@ -2528,7 +2529,7 @@ load_drm_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_STRING, "drm-device", 0, &config.specific_device },
 		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &wet->drm_use_current_mode },
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
-		{ WESTON_OPTION_BOOLEAN, "continue-without-input", 0, &config.continue_without_input },
+		{ WESTON_OPTION_BOOLEAN, "continue-without-input", false, &without_input }
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
@@ -2541,6 +2542,8 @@ load_drm_backend(struct weston_compositor *c,
 	                               &config.pageflip_timeout, 0);
 	weston_config_section_get_bool(section, "pixman-shadow",
 				       &config.use_pixman_shadow, true);
+	if (without_input)
+		c->require_input = !without_input;
 
 	config.base.struct_version = WESTON_DRM_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_drm_backend_config);

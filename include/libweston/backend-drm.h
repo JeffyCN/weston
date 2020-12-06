@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-#define WESTON_DRM_BACKEND_CONFIG_VERSION 3
+#define WESTON_DRM_BACKEND_CONFIG_VERSION 4
 
 struct libinput_device;
 
@@ -223,9 +223,6 @@ struct weston_drm_backend_config {
 
 	/** Use shadow buffer if using Pixman-renderer. */
 	bool use_pixman_shadow;
-
-	/** Allow compositor to start without input devices. */
-	bool continue_without_input;
 };
 
 #ifdef  __cplusplus
