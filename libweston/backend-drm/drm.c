@@ -366,9 +366,11 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	 * If we don't have any damage on the primary plane, and we already
 	 * have a renderer buffer active, we can reuse it; else we pass
 	 * the damaged region into the renderer to re-render the affected
-	 * area.
+	 * area. But, we still have to call the renderer anyway if any screen
+	 * capture is pending, otherwise the capture will not complete.
 	 */
 	if (!pixman_region32_not_empty(damage) &&
+	    wl_list_empty(&output->base.frame_signal.listener_list) &&
 	    scanout_plane->state_cur->fb &&
 	    (scanout_plane->state_cur->fb->type == BUFFER_GBM_SURFACE ||
 	     scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB)) {
