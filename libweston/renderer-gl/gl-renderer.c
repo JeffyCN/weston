@@ -90,6 +90,7 @@ struct gl_output_state {
 	enum gl_border_status border_damage[BUFFER_DAMAGE_COUNT];
 	struct gl_border_image borders[4];
 	enum gl_border_status border_status;
+	bool swap_behavior_is_preserved;
 
 	struct weston_matrix output_matrix;
 
@@ -1259,6 +1260,8 @@ output_get_damage(struct weston_output *output,
 			weston_log("buffer age query failed.\n");
 			gl_renderer_print_egl_error_state();
 		}
+	} else if (go->swap_behavior_is_preserved) {
+		buffer_age = 1;
 	}
 
 	if (buffer_age == 0 || buffer_age - 1 > BUFFER_DAMAGE_COUNT) {
@@ -3276,8 +3279,10 @@ gl_renderer_output_pbuffer_create(struct weston_output *output,
 				  const struct gl_renderer_pbuffer_options *options)
 {
 	struct gl_renderer *gr = get_renderer(output->compositor);
+	struct gl_output_state *go;
 	EGLConfig pbuffer_config;
 	EGLSurface egl_surface;
+	EGLint value = 0;
 	int ret;
 	EGLint pbuffer_attribs[] = {
 		EGL_WIDTH, options->width,
@@ -3303,9 +3308,22 @@ gl_renderer_output_pbuffer_create(struct weston_output *output,
 		return -1;
 	}
 
+	eglSurfaceAttrib(gr->egl_display, egl_surface,
+			 EGL_SWAP_BEHAVIOR, EGL_BUFFER_PRESERVED);
+	if (!eglQuerySurface(gr->egl_display, egl_surface,
+			     EGL_SWAP_BEHAVIOR, &value) ||
+	    value != EGL_BUFFER_PRESERVED) {
+		weston_log("Error: pbuffer surface does not support EGL_BUFFER_PRESERVED, got 0x%x."
+			   " Continuing anyway.\n", value);
+	}
+
 	ret = gl_renderer_output_create(output, egl_surface);
-	if (ret < 0)
+	if (ret < 0) {
 		eglDestroySurface(gr->egl_display, egl_surface);
+	} else {
+		go = get_output_state(output);
+		go->swap_behavior_is_preserved = true;
+	}
 
 	return ret;
 }
