@@ -38,6 +38,7 @@
 		.scale = s,						\
 		.transform = WL_OUTPUT_TRANSFORM_ ## t,			\
 		.transform_name = #t,					\
+		.gl_shadow_fb = false,					\
 		.meta.name = "pixman " #s " " #t,			\
 	},								\
 	{								\
@@ -45,7 +46,16 @@
 		.scale = s,						\
 		.transform = WL_OUTPUT_TRANSFORM_ ## t,			\
 		.transform_name = #t,					\
-		.meta.name = "GL " #s " " #t,				\
+		.gl_shadow_fb = false,					\
+		.meta.name = "GL no-shadow " #s " " #t,			\
+	},								\
+	{								\
+		.renderer = RENDERER_GL,				\
+		.scale = s,						\
+		.transform = WL_OUTPUT_TRANSFORM_ ## t,			\
+		.transform_name = #t,					\
+		.gl_shadow_fb = true,					\
+		.meta.name = "GL shadow " #s " " #t,			\
 	}
 
 struct setup_args {
@@ -54,6 +64,7 @@ struct setup_args {
 	int scale;
 	enum wl_output_transform transform;
 	const char *transform_name;
+	bool gl_shadow_fb;
 };
 
 static const struct setup_args my_setup_args[] = {
@@ -117,6 +128,24 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 	 * want to see is the crisp outline of the damage rectangles.
 	 */
 	setup.test_quirks.gl_force_full_upload = true;
+
+	if (arg->gl_shadow_fb) {
+		/*
+		 * A second case for GL-renderer: the shadow framebuffer
+		 *
+		 * This tests blit_shadow_to_output() specifically. The quirk
+		 * forces the shadow framebuffer to be redrawn completely, which
+		 * means the test surface will be completely filled with a new
+		 * color regardless of damage. The blit uses damage too, and
+		 * the damage pattern that is tested for needs to appear in
+		 * that step.
+		 */
+		setup.test_quirks.gl_force_full_redraw_of_shadow_fb = true;
+		weston_ini_setup(&setup,
+				 cfgln("[output]"),
+				 cfgln("name=headless"),
+				 cfgln("use-renderer-shadow=true"));
+	}
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }

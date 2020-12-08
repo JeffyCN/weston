@@ -196,6 +196,8 @@ enum weston_hdcp_protection {
 struct weston_testsuite_quirks {
 	/** Force GL-renderer to do a full upload of wl_shm buffers. */
 	bool gl_force_full_upload;
+	/** Ensure GL shadow fb is used, and always repaint it fully. */
+	bool gl_force_full_redraw_of_shadow_fb;
 };
 
 /** Weston test suite data that is given to compositor

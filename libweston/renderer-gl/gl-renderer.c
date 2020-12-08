@@ -1750,7 +1750,10 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	if (shadow_exists(go)) {
 		/* Repaint into shadow. */
-		repaint_views(output, output_damage);
+		if (compositor->test_data.test_quirks.gl_force_full_redraw_of_shadow_fb)
+			repaint_views(output, &output->region);
+		else
+			repaint_views(output, output_damage);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
@@ -3316,9 +3319,12 @@ gl_renderer_output_create(struct weston_output *output,
 {
 	struct gl_output_state *go;
 	struct gl_renderer *gr = get_renderer(output->compositor);
+	const struct weston_testsuite_quirks *quirks;
 	GLint internal_format;
 	bool ret;
 	int i;
+
+	quirks = &output->compositor->test_data.test_quirks;
 
 	go = zalloc(sizeof *go);
 	if (go == NULL)
@@ -3357,6 +3363,9 @@ gl_renderer_output_create(struct weston_output *output,
 			free(go);
 			return -1;
 		}
+	} else if (quirks->gl_force_full_redraw_of_shadow_fb) {
+		weston_log("ERROR: gl_force_full_redraw_of_shadow_fb quirk used but shadow fb was not enabled.\n");
+		abort();
 	}
 
 	output->renderer_state = go;
