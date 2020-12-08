@@ -125,20 +125,6 @@ pixman_renderer_read_pixels(struct weston_output *output,
 	return 0;
 }
 
-static void
-region_global_to_output(struct weston_output *output, pixman_region32_t *region)
-{
-	if (output->zoom.active) {
-		weston_matrix_transform_region(region, &output->matrix, region);
-	} else {
-		pixman_region32_translate(region, -output->x, -output->y);
-		weston_transformed_region(output->width, output->height,
-					  output->transform,
-					  output->current_scale,
-					  region, region);
-	}
-}
-
 #define D2F(v) pixman_double_to_fixed((double)v)
 
 static void
@@ -426,7 +412,8 @@ draw_view_translated(struct weston_view *view, struct weston_output *output,
 							  repaint_global,
 							  &surface->opaque,
 							  view);
-			region_global_to_output(output, &repaint_output);
+			weston_output_region_from_global(output,
+							 &repaint_output);
 
 			repaint_region(view, output, &repaint_output, NULL,
 				       PIXMAN_OP_SRC);
@@ -437,7 +424,7 @@ draw_view_translated(struct weston_view *view, struct weston_output *output,
 		region_intersect_only_translation(&repaint_output,
 						  repaint_global,
 						  &surface_blend, view);
-		region_global_to_output(output, &repaint_output);
+		weston_output_region_from_global(output, &repaint_output);
 
 		repaint_region(view, output, &repaint_output, NULL,
 			       PIXMAN_OP_OVER);
@@ -473,7 +460,7 @@ draw_view_source_clipped(struct weston_view *view,
 
 	pixman_region32_init(&repaint_output);
 	pixman_region32_copy(&repaint_output, repaint_global);
-	region_global_to_output(output, &repaint_output);
+	weston_output_region_from_global(output, &repaint_output);
 
 	repaint_region(view, output, &repaint_output, &buffer_region,
 		       PIXMAN_OP_OVER);
@@ -546,7 +533,7 @@ copy_to_hw_buffer(struct weston_output *output, pixman_region32_t *region)
 	pixman_region32_init(&output_region);
 	pixman_region32_copy(&output_region, region);
 
-	region_global_to_output(output, &output_region);
+	weston_output_region_from_global(output, &output_region);
 
 	pixman_image_set_clip_region32 (po->hw_buffer, &output_region);
 	pixman_region32_fini(&output_region);

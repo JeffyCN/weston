@@ -5844,6 +5844,36 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
 	}
 }
 
+/** Transform a region in-place from global to output coordinates
+ *
+ * \param output The output that defines the transformation.
+ * \param region The region to be transformed in-place.
+ *
+ * This takes a region in the global coordinate system, and takes into account
+ * output position, transform and scale, and the zoom, and converts the region
+ * into output pixel coordinates in the framebuffer.
+ *
+ * Uses floating-point operations if zoom is active, which may round to expand
+ * the region.
+ *
+ * \internal
+ * \ingroup output
+ */
+WL_EXPORT void
+weston_output_region_from_global(struct weston_output *output,
+				 pixman_region32_t *region)
+{
+	if (output->zoom.active) {
+		weston_matrix_transform_region(region, &output->matrix, region);
+	} else {
+		pixman_region32_translate(region, -output->x, -output->y);
+		weston_transformed_region(output->width, output->height,
+					  output->transform,
+					  output->current_scale,
+					  region, region);
+	}
+}
+
 static void
 weston_output_update_matrix(struct weston_output *output)
 {

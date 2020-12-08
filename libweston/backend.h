@@ -170,6 +170,10 @@ weston_output_transform_coordinate(struct weston_output *output,
 				   double device_x, double device_y,
 				   double *x, double *y);
 
+void
+weston_output_region_from_global(struct weston_output *output,
+				 pixman_region32_t *region);
+
 /* weston_seat */
 
 void
