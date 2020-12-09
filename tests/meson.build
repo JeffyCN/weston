@@ -190,6 +190,13 @@ tests = [
 	},
 	{	'name': 'viewporter', },
 	{	'name': 'viewporter-shot', },
+	{
+		'name': 'yuv-buffer',
+		'dep_objs': [
+			dep_libdrm_headers,
+			dep_libm,
+		],
+	},
 ]
 
 tests_standalone = [
