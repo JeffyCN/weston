@@ -47,6 +47,10 @@ doxygen_conf_weston = configure_file(
 script_data = configuration_data()
 script_data.set('SRCDIR', meson.current_build_dir())
 script_data.set('OUTDIR', meson.current_build_dir() + '/doc')
+
+# Set a different directory for doctrees to avoid installing them
+script_data.set('DOCTREES_DIR', meson.current_build_dir() + '/doctrees')
+
 script_data.set('DOXYGEN_CONF', meson.current_build_dir() + '/doxygen.ini')
 script_data.set('DOXYGEN_CMD', doxygen.path())
 script_data.set('SPHINX_CMD', sphinx.path())
@@ -84,5 +88,6 @@ docs = run_target(
 install_subdir(
 	sphinx_doc.full_path(),
 	install_dir: join_paths(dir_data, 'doc', 'weston'),
+	exclude_files: '.buildinfo',
 	strip_directory: true,
 )
