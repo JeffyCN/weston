@@ -2685,6 +2685,9 @@ set_maximized(struct shell_surface *shsurf, bool maximized)
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 	int32_t width = 0, height = 0;
 
+	if (weston_desktop_surface_get_fullscreen(desktop_surface))
+		return;
+
 	if (maximized) {
 		struct weston_output *output;
 
