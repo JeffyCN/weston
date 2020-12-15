@@ -1569,7 +1569,6 @@ static GLenum gl_format_from_internal(GLenum internal_format)
 static void
 gl_renderer_flush_damage(struct weston_surface *surface)
 {
-	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	struct weston_view *view;
@@ -1604,24 +1603,6 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 		goto done;
 
 	data = wl_shm_buffer_get_data(buffer->shm_buffer);
-
-	if (!gr->has_unpack_subimage) {
-		wl_shm_buffer_begin_access(buffer->shm_buffer);
-		for (j = 0; j < gs->num_textures; j++) {
-			glBindTexture(GL_TEXTURE_2D, gs->textures[j]);
-			glTexImage2D(GL_TEXTURE_2D, 0,
-				     gs->gl_format[j],
-				     gs->pitch / gs->hsub[j],
-				     buffer->height / gs->vsub[j],
-				     0,
-				     gl_format_from_internal(gs->gl_format[j]),
-				     gs->gl_pixel_type,
-				     data + gs->offset[j]);
-		}
-		wl_shm_buffer_end_access(buffer->shm_buffer);
-
-		goto done;
-	}
 
 	if (gs->needs_full_upload) {
 		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
@@ -3763,9 +3744,11 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	else
 		ec->read_format = PIXMAN_a8b8g8r8;
 
-	if (gr->gl_version >= GR_GL_VERSION(3, 0) ||
-	    weston_check_egl_extension(extensions, "GL_EXT_unpack_subimage"))
-		gr->has_unpack_subimage = true;
+	if (gr->gl_version < GR_GL_VERSION(3, 0) &&
+	    !weston_check_egl_extension(extensions, "GL_EXT_unpack_subimage")) {
+		weston_log("GL_EXT_unpack_subimage not available.\n");
+		return -1;
+	}
 
 	if (gr->gl_version >= GR_GL_VERSION(3, 0) ||
 	    weston_check_egl_extension(extensions, "GL_EXT_texture_rg"))
@@ -3795,8 +3778,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	weston_log("GL ES 2 renderer features:\n");
 	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
 		ec->read_format == PIXMAN_a8r8g8b8 ? "BGRA" : "RGBA");
-	weston_log_continue(STAMP_SPACE "wl_shm sub-image to texture: %s\n",
-			    gr->has_unpack_subimage ? "yes" : "no");
 	weston_log_continue(STAMP_SPACE "EGL Wayland extension: %s\n",
 			    gr->has_bind_display ? "yes" : "no");
 
