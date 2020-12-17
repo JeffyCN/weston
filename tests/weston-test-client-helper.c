@@ -1682,7 +1682,7 @@ write_visual_diff(pixman_image_t *ref_image,
  * The shot image size and the reference image size must both contain
  * the clip rectangle.
  *
- * This function uses the pixel value allowed fuzz approriate for GL-renderer
+ * This function uses the pixel value allowed fuzz appropriate for GL-renderer
  * with 8 bits per channel data.
  *
  * \param shot The image to be verified, usually a screenshot.

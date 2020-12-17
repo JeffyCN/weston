@@ -465,7 +465,7 @@ open_ini_file(struct compositor_setup *setup)
 	assert(wd);
 
 	if (asprintf(&tmp_path, "%s/%s.ini", wd, setup->testset_name) == -1) {
-		fprintf(stderr, "Fail formating Weston.ini file name.\n");
+		fprintf(stderr, "Fail formatting Weston.ini file name.\n");
 		goto out;
 	}
 

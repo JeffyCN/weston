@@ -181,7 +181,7 @@ check_blend_pattern(struct buffer *shot)
 
 /*
  * Test that alpha blending is roughly correct, and that an alpha ramp
- * results in a stricly monotonic color ramp. This should ensure that any
+ * results in a strictly monotonic color ramp. This should ensure that any
  * animation that varies alpha never goes "backwards" as that is easily
  * noticeable.
  *
