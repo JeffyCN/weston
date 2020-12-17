@@ -93,7 +93,7 @@ set_type(struct wl_client *client, struct wl_resource *resource,
 				       "wl_surface@%"PRIu32" Invalid content-type %d for request:set_type\n",
 				       wl_resource_get_id(surface_resource), content_type);
 
-		content_protection_log(cp, "wl_surface@%"PRIu32" Invalid content-type %d for resquest:set_type\n",
+		content_protection_log(cp, "wl_surface@%"PRIu32" Invalid content-type %d for request:set_type\n",
 				       wl_resource_get_id(surface_resource), content_type);
 		return;
 	}

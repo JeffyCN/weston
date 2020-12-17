@@ -462,7 +462,7 @@ compositor_destroy_listener(struct wl_listener *listener, void *data)
 	struct weston_log_context *log_ctx =
 		wl_container_of(listener, log_ctx, compositor_destroy_listener);
 
-	/* We have to keep this list initalized as weston_log_ctx_destroy() has
+	/* We have to keep this list initialized as weston_log_ctx_destroy() has
 	 * to check if there's any compositor destroy listener registered */
 	wl_list_remove(&log_ctx->compositor_destroy_listener.link);
 	wl_list_init(&log_ctx->compositor_destroy_listener.link);
@@ -745,7 +745,7 @@ weston_log_subscription_complete(struct weston_log_subscription *sub)
  *
  * Complete the log scope, calling each stream's complete callback if one was
  * installed/created. This can be useful to signal the reading end that the
- * data has been transmited and should no longer expect that written over the
+ * data has been transmitted and should no longer expect that written over the
  * stream. Particularly useful for the weston-debug protocol.
  *
  * @memberof weston_log_scope

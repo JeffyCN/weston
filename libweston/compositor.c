@@ -5246,7 +5246,7 @@ weston_compositor_iterate_heads(struct weston_compositor *compositor,
  *  If you cause \c iter to be removed from the list, you cannot use it to
  * continue iterating. Removing any other item is safe.
  *
- * \ingroup ouput
+ * \ingroup output
  */
 WL_EXPORT struct weston_head *
 weston_output_iterate_heads(struct weston_output *output,
@@ -6125,7 +6125,7 @@ weston_compositor_remove_output(struct weston_output *output)
  * It only supports setting scale for an output that
  * is not enabled and it can only be ran once.
  *
- * \ingroup ouput
+ * \ingroup output
  */
 WL_EXPORT void
 weston_output_set_scale(struct weston_output *output,
@@ -6517,7 +6517,7 @@ weston_compositor_flush_heads_changed(struct weston_compositor *compositor)
  * @note This is for the final destruction of an output, not when it gets
  * disabled. If you want to keep track of enabled outputs, this is not it.
  *
- * \ingroup ouput
+ * \ingroup output
  */
 WL_EXPORT void
 weston_output_add_destroy_listener(struct weston_output *output,
@@ -6555,7 +6555,7 @@ weston_output_get_destroy_listener(struct weston_output *output,
  * All fields of weston_output become uninitialized, i.e. should not be used
  * anymore. The caller can free the memory after this.
  *
- * \ingroup ouput
+ * \ingroup output
  * \internal
  */
 WL_EXPORT void
@@ -6677,7 +6677,7 @@ weston_compositor_create_output_with_head(struct weston_compositor *compositor,
  * weston_compositor_destroy() will automatically destroy any remaining
  * outputs.
  *
- * \ingroup ouput
+ * \ingroup output
  */
 WL_EXPORT void
 weston_output_destroy(struct weston_output *output)
@@ -6693,7 +6693,7 @@ weston_output_destroy(struct weston_output *output)
  * \param output The weston_output whose head to get.
  * \return The first head in the output's list.
  *
- * \ingroup ouput
+ * \ingroup output
  */
 WL_EXPORT struct weston_head *
 weston_output_get_first_head(struct weston_output *output)
