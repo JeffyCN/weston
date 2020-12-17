@@ -210,7 +210,7 @@ typedef EGLint (EGLAPIENTRYP PFNEGLDUPNATIVEFENCEFDANDROIDPROC) (EGLDisplay dpy,
 
 #else /* ENABLE_EGL */
 
-/* EGL platform definition are keept to allow compositor-xx.c to build */
+/* EGL platform definition are kept to allow compositor-xx.c to build */
 #define EGL_PLATFORM_GBM_KHR     0x31D7
 #define EGL_PLATFORM_WAYLAND_KHR 0x31D8
 #define EGL_PLATFORM_X11_KHR     0x31D5

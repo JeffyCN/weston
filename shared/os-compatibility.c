@@ -327,7 +327,7 @@ os_ro_anonymous_file_size(struct ro_anonymous_file *file)
  * The returned file descriptor must not be shared between multiple clients.
  * When \p mapmode is RO_ANONYMOUS_FILE_MAPMODE_PRIVATE the file descriptor is
  * only guaranteed to be mmapable with \c MAP_PRIVATE, when \p mapmode is
- * RO_ANONYMOUS_FILE_MAPMODE_SHARED the file descriptor can be mmaped with
+ * RO_ANONYMOUS_FILE_MAPMODE_SHARED the file descriptor can be mmapped with
  * either MAP_PRIVATE or MAP_SHARED.
  * When you're done with the fd you must call \c os_ro_anonymous_file_put_fd
  * instead of calling \c close.
