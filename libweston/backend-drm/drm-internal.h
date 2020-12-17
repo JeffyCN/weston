@@ -370,7 +370,7 @@ struct drm_output_state {
 
 /**
  * An instance of this class is created each time we believe we have a plane
- * suitable to be used by a view as a direct scan-out. The list is initalized
+ * suitable to be used by a view as a direct scan-out. The list is initialized
  * and populated locally.
  */
 struct drm_plane_zpos {

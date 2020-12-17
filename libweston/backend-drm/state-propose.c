@@ -670,7 +670,7 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 		if (plane->zpos_min >= current_lowest_zpos) {
 			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
-				     "candidate list: minium zpos (%"PRIu64") "
+				     "candidate list: minimum zpos (%"PRIu64") "
 				     "plane's above current lowest zpos "
 				     "(%"PRIu64")\n", plane->plane_id,
 				     plane->zpos_min, current_lowest_zpos);
