@@ -143,9 +143,9 @@ make install
 cd ../../
 
 apt-get -y --no-install-recommends install $MESA_DEV_PKGS
-git clone --single-branch --branch master --shallow-since='2020-02-15' https://gitlab.freedesktop.org/mesa/mesa.git mesa
+git clone --single-branch --branch 20.3 --shallow-since='2020-12-15' https://gitlab.freedesktop.org/mesa/mesa.git mesa
 cd mesa
-git checkout -b snapshot c7617d8908a970124321ce731b43d5996c3c5775
+git checkout -b snapshot mesa-20.3.1
 meson build -Dauto_features=disabled \
 	-Dgallium-drivers=swrast -Dvulkan-drivers= -Ddri-drivers=
 ninja -C build install
