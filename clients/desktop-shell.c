@@ -48,6 +48,7 @@
 #include "shared/xalloc.h"
 #include <libweston/zalloc.h>
 #include "shared/file-util.h"
+#include "shared/timespec-util.h"
 
 #include "weston-desktop-shell-client-protocol.h"
 
@@ -421,13 +422,19 @@ static int
 clock_timer_reset(struct panel_clock *clock)
 {
 	struct itimerspec its;
+	struct timespec ts;
+	struct tm *tm;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	tm = localtime(&ts.tv_sec);
 
 	its.it_interval.tv_sec = clock->refresh_timer;
 	its.it_interval.tv_nsec = 0;
-	its.it_value.tv_sec = clock->refresh_timer;
-	its.it_value.tv_nsec = 0;
-	toytimer_arm(&clock->timer, &its);
+	its.it_value.tv_sec = clock->refresh_timer - tm->tm_sec % clock->refresh_timer;
+	its.it_value.tv_nsec = 10000000; /* 10 ms late to ensure the clock digit has actually changed */
+	timespec_add_nsec(&its.it_value, &its.it_value, -ts.tv_nsec);
 
+	toytimer_arm(&clock->timer, &its);
 	return 0;
 }
 
