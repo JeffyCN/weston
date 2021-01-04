@@ -126,7 +126,42 @@ The combination \fBmod + Shift + Space\fR begins a debug binding. Debug
 bindings are completed by pressing an additional key. For example, pressing
 F may toggle texture mesh wireframes with the GL renderer.
 (In fact, most debug effects can be disabled again by repeating the command.)
-Debug bindings are often tied to specific backends.
+Debug bindings are often tied to specific backends. Below are the debug bindings available.
+
+.RS
+- KEY_D :
+.RS 4
+Subscribe for flight recorder.
+.RE
+- KEY_C : 
+.RS 4
+Enable/Disable cursor planes.
+.RE
+- KEY_V :
+.RS 4
+Enable/Disable overlay planes.
+.RE
+- KEY_Q :
+.RS 4
+Start VAAPI recorder.
+.RE
+- KEY_W :
+.RS 4
+Switch to gl-renderer from pixman.
+.RE
+- KEY_S : 
+.RS 4
+Enable fragment debugging for gl-renderer.
+.RE
+- KEY_F :
+.RS 4
+Enable fan debugging for gl-renderer.
+.RE
+- KEY_R :
+.RS 4
+Enable repaint debugging for pixman:
+.RE
+.RE
 
 .SH "SEE ALSO"
 .BR weston (1),
