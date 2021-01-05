@@ -220,6 +220,8 @@ static const struct pixel_format_info pixel_format_table[] = {
 	{
 		DRM_FORMAT(XBGR8888),
 		BITS_RGBA_FIXED(8, 8, 8, 0),
+		.depth = 24,
+		.bpp = 32,
 		GL_FORMAT(GL_RGBA),
 		GL_TYPE(GL_UNSIGNED_BYTE),
 #if __BYTE_ORDER == __LITTLE_ENDIAN
