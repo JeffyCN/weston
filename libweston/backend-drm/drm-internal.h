@@ -495,6 +495,9 @@ struct drm_plane {
 	struct weston_drm_format_array formats;
 
 	bool can_scale;
+
+	/* True if plane supports any valid (non-linear/invalid) modifiers. */
+	bool has_modifiers;
 };
 
 struct drm_plane_handle {
