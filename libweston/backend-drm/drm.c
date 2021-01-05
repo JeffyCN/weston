@@ -1224,6 +1224,42 @@ err:
 	return NULL;
 }
 
+static inline bool
+drm_plane_has_modifier(struct drm_plane *plane, uint32_t format)
+{
+	struct weston_drm_format *fmt;
+	const uint64_t *modifiers;
+	unsigned int num_modifiers, i;
+
+	fmt = weston_drm_format_array_find_format(&plane->formats, format);
+	if (!fmt)
+		return false;
+
+	modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+	for (i = 0; i < num_modifiers; i++) {
+		if (DRM_MOD_VALID(modifiers[i]))
+			return true;
+	}
+
+	return false;
+}
+
+static inline bool
+drm_planes_have_modifier(struct drm_backend *b)
+{
+	struct drm_plane *plane;
+
+	if (!b->fb_modifiers)
+		return false;
+
+	wl_list_for_each_reverse(plane, &b->plane_list, link) {
+		if (plane->has_modifiers)
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * Find, or create, a special-purpose plane
  *
@@ -1236,7 +1272,10 @@ drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
 			      enum wdrm_plane_type type)
 {
 	struct drm_plane *plane;
+	bool prefer_modifier =
+		b->fb_modifiers && type == WDRM_PLANE_TYPE_PRIMARY;
 
+retry:
 	wl_list_for_each(plane, &b->plane_list, link) {
 		struct drm_output *tmp;
 		bool found_elsewhere = false;
@@ -1264,8 +1303,17 @@ drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
 		if (found_elsewhere)
 			continue;
 
+		if (prefer_modifier &&
+		    !drm_plane_has_modifier(plane, output->gbm_format))
+			continue;
+
 		plane->possible_crtcs = (1 << output->crtc->pipe);
 		return plane;
+	}
+
+	if (prefer_modifier) {
+		prefer_modifier = false;
+		goto retry;
 	}
 
 	return NULL;
@@ -4211,9 +4259,6 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	compositor->backend = &b->base;
 
-	if (parse_gbm_format(config->gbm_format, DRM_FORMAT_XRGB8888, &b->gbm_format) < 0)
-		goto err_compositor;
-
 	/* Check if we run drm-backend using weston-launch */
 	compositor->launcher = weston_launcher_connect(compositor, config->tty,
 						       seat_id, true);
@@ -4247,28 +4292,6 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev_dev;
 	}
 
-	if (b->use_pixman) {
-		if (init_pixman(b) < 0) {
-			weston_log("failed to initialize pixman renderer\n");
-			goto err_udev_dev;
-		}
-	} else {
-		if (init_egl(b) < 0) {
-			weston_log("failed to initialize egl\n");
-			goto err_udev_dev;
-		}
-	}
-
-	b->base.destroy = drm_destroy;
-	b->base.repaint_begin = drm_repaint_begin;
-	b->base.repaint_flush = drm_repaint_flush;
-	b->base.repaint_cancel = drm_repaint_cancel;
-	b->base.create_output = drm_output_create;
-	b->base.device_changed = drm_device_changed;
-	b->base.can_scanout_dmabuf = drm_can_scanout_dmabuf;
-
-	weston_setup_vt_switch_bindings(compositor);
-
 	res = drmModeGetResources(b->drm.fd);
 	if (!res) {
 		weston_log("Failed to get drmModeRes\n");
@@ -4283,6 +4306,40 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	wl_list_init(&b->plane_list);
 	create_sprites(b, res);
+
+	if (!drm_planes_have_modifier(b))
+		b->fb_modifiers = false;
+
+	b->gbm_format = DRM_FORMAT_XRGB8888;
+
+	/* HACK: The modifiers only work with xbgr8888 now */
+	if (b->fb_modifiers)
+		b->gbm_format = DRM_FORMAT_XBGR8888;
+
+	if (parse_gbm_format(config->gbm_format, b->gbm_format, &b->gbm_format) < 0)
+		goto err_sprite;
+
+	if (b->use_pixman) {
+		if (init_pixman(b) < 0) {
+			weston_log("failed to initialize pixman renderer\n");
+			goto err_sprite;
+		}
+	} else {
+		if (init_egl(b) < 0) {
+			weston_log("failed to initialize egl\n");
+			goto err_sprite;
+		}
+	}
+
+	b->base.destroy = drm_destroy;
+	b->base.repaint_begin = drm_repaint_begin;
+	b->base.repaint_flush = drm_repaint_flush;
+	b->base.repaint_cancel = drm_repaint_cancel;
+	b->base.create_output = drm_output_create;
+	b->base.device_changed = drm_device_changed;
+	b->base.can_scanout_dmabuf = drm_can_scanout_dmabuf;
+
+	weston_setup_vt_switch_bindings(compositor);
 
 	if (udev_input_init(&b->input,
 			    compositor, b->udev, seat_id,

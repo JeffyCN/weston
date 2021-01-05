@@ -38,6 +38,7 @@
 
 #include <libweston/libweston.h>
 #include <libweston/backend-drm.h>
+#include <libweston/linux-dmabuf.h>
 #include "shared/helpers.h"
 #include "shared/weston-drm-fourcc.h"
 #include "drm-internal.h"
@@ -525,6 +526,9 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			ret = weston_drm_format_add_modifier(fmt, mod->modifier);
 			if (ret < 0)
 				goto out;
+
+			if (DRM_MOD_VALID(mod->modifier))
+				plane->has_modifiers = true;
 		}
 
 		if (fmt->modifiers.size == 0)
@@ -1594,7 +1598,7 @@ init_kms_caps(struct drm_backend *b)
 	weston_log("DRM: %s atomic modesetting\n",
 		   b->atomic_modeset ? "supports" : "does not support");
 
-	if (!getenv("WESTON_DISABLE_GBM_MODIFIERS")) {
+	if (getenv("WESTON_ALLOW_GBM_MODIFIERS")) {
 		ret = drmGetCap(b->drm.fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
 		if (ret == 0)
 			b->fb_modifiers = cap;
