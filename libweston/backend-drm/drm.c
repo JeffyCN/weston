@@ -1532,6 +1532,44 @@ err:
 	return NULL;
 }
 
+/* Check if plane supports any valid modifier (excluding INVALID and LINEAR)
+ * for a format. */
+static inline bool
+drm_plane_has_modifier(struct drm_plane *plane, uint32_t format)
+{
+	struct weston_drm_format *fmt;
+	const uint64_t *modifiers;
+	unsigned int num_modifiers, i;
+
+	fmt = weston_drm_format_array_find_format(&plane->formats, format);
+	if (!fmt)
+		return false;
+
+	modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+	for (i = 0; i < num_modifiers; i++) {
+		if (DRM_MOD_VALID(modifiers[i]))
+			return true;
+	}
+
+	return false;
+}
+
+static inline bool
+drm_planes_have_modifier(struct drm_device *device)
+{
+	struct drm_plane *plane;
+
+	if (!device->fb_modifiers)
+		return false;
+
+	wl_list_for_each_reverse(plane, &device->plane_list, link) {
+		if (plane->has_modifiers)
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * Find, or create, a special-purpose plane
  *
@@ -1546,7 +1584,14 @@ drm_output_find_special_plane(struct drm_device *device,
 {
 	struct drm_backend *b = device->backend;
 	struct drm_plane *plane;
+	bool prefer_modifier =
+		device->fb_modifiers && type == WDRM_PLANE_TYPE_PRIMARY;
 
+	/* First try to find a plane that supports modifiers for the output
+	 * format, then fall back to any plane if not found or if modifiers
+	 * are not required.
+	 */
+retry:
 	wl_list_for_each(plane, &device->plane_list, link) {
 		struct weston_output *base;
 		bool found_elsewhere = false;
@@ -1583,8 +1628,25 @@ drm_output_find_special_plane(struct drm_device *device,
 		    (plane->crtc_id != output->crtc->crtc_id))
 			continue;
 
+		/* HACK: Force XBGR8888 for modifier support
+		 * (platform-specific)
+		 */
+		if (prefer_modifier) {
+			if (!drm_plane_has_modifier(plane, DRM_FORMAT_XBGR8888))
+				continue;
+
+			output->format =
+				pixel_format_get_info(DRM_FORMAT_XBGR8888);
+		}
+
 		plane->possible_crtcs = (1 << output->crtc->pipe);
 		return plane;
+	}
+
+	/* Fallback: retry without modifier preference */
+	if (prefer_modifier) {
+		prefer_modifier = false;
+		goto retry;
 	}
 
 	return NULL;
@@ -4789,6 +4851,9 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev;
 	}
 	b->drm = device;
+
+	if (!drm_planes_have_modifier(b->drm))
+		device->fb_modifiers = false;
 
 	if (config->additional_devices)
 		open_additional_devices(b, config->additional_devices);

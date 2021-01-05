@@ -538,6 +538,9 @@ struct drm_plane {
 	struct drm_color_pipeline *pipelines;
 
 	bool can_scale;
+
+	/* True if plane supports any valid (non-linear/invalid) modifiers. */
+	bool has_modifiers;
 };
 
 struct drm_plane_handle {
