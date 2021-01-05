@@ -38,6 +38,7 @@
 
 #include <libweston/libweston.h>
 #include <libweston/backend-drm.h>
+#include <libweston/linux-dmabuf.h>
 #include "shared/helpers.h"
 #include "shared/weston-drm-fourcc.h"
 #include "drm-internal.h"
@@ -1927,7 +1928,7 @@ init_kms_caps(struct drm_device *device)
 	weston_log("DRM: %s atomic modesetting\n",
 		   device->atomic_modeset ? "supports" : "does not support");
 
-	if (!getenv("WESTON_DISABLE_GBM_MODIFIERS")) {
+	if (getenv("WESTON_ALLOW_GBM_MODIFIERS")) {
 		ret = drmGetCap(device->drm.fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
 		if (ret == 0)
 			device->fb_modifiers = cap;
