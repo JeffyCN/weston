@@ -1588,6 +1588,42 @@ err:
 	return NULL;
 }
 
+static inline bool
+drm_plane_has_modifier(struct drm_plane *plane, uint32_t format)
+{
+	struct weston_drm_format *fmt;
+	const uint64_t *modifiers;
+	unsigned int num_modifiers, i;
+
+	fmt = weston_drm_format_array_find_format(&plane->formats, format);
+	if (!fmt)
+		return false;
+
+	modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+	for (i = 0; i < num_modifiers; i++) {
+		if (DRM_MOD_VALID(modifiers[i]))
+			return true;
+	}
+
+	return false;
+}
+
+static inline bool
+drm_planes_have_modifier(struct drm_device *device)
+{
+	struct drm_plane *plane;
+
+	if (!device->fb_modifiers)
+		return false;
+
+	wl_list_for_each_reverse(plane, &device->plane_list, link) {
+		if (plane->has_modifiers)
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * Find, or create, a special-purpose plane
  *
@@ -1602,7 +1638,10 @@ drm_output_find_special_plane(struct drm_device *device,
 {
 	struct drm_backend *b = device->backend;
 	struct drm_plane *plane;
+	bool prefer_modifier =
+		device->fb_modifiers && type == WDRM_PLANE_TYPE_PRIMARY;
 
+retry:
 	wl_list_for_each(plane, &device->plane_list, link) {
 		struct weston_output *base;
 		bool found_elsewhere = false;
@@ -1642,8 +1681,17 @@ drm_output_find_special_plane(struct drm_device *device,
 		    (plane->crtc_id != output->crtc->crtc_id))
 			continue;
 
+		if (prefer_modifier &&
+		    !drm_plane_has_modifier(plane, output->format->format))
+			continue;
+
 		plane->possible_crtcs = (1 << output->crtc->pipe);
 		return plane;
+	}
+
+	if (prefer_modifier) {
+		prefer_modifier = false;
+		goto retry;
 	}
 
 	return NULL;
@@ -5083,11 +5131,6 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	wl_list_insert(&compositor->backend_list, &b->base.link);
 
-	if (parse_gbm_format(config->gbm_format,
-			     pixel_format_get_info(DRM_FORMAT_XRGB8888),
-			     &b->format) < 0)
-		goto err_compositor;
-
 	/* Check if we run drm-backend using a compatible launcher */
 	compositor->launcher = weston_launcher_connect(compositor, seat_id, true);
 	if (compositor->launcher == NULL) {
@@ -5120,6 +5163,33 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev_dev;
 	}
 
+	res = drmModeGetResources(b->drm->drm.fd);
+	if (!res) {
+		weston_log("Failed to get drmModeRes\n");
+		goto err_udev_dev;
+	}
+
+	wl_list_init(&b->drm->crtc_list);
+	if (drm_backend_create_crtc_list(b->drm, res) == -1) {
+		weston_log("Failed to create CRTC list for DRM-backend\n");
+		goto err_create_crtc_list;
+	}
+
+	wl_list_init(&device->plane_list);
+	create_sprites(b->drm, res);
+
+	if (!drm_planes_have_modifier(b->drm))
+		device->fb_modifiers = false;
+
+	b->format = pixel_format_get_info(DRM_FORMAT_XRGB8888);
+
+	/* HACK: The modifiers only work with xbgr8888 now */
+	if (device->fb_modifiers)
+		b->format = pixel_format_get_info(DRM_FORMAT_XBGR8888);
+
+	if (parse_gbm_format(config->gbm_format, b->format, &b->format) < 0)
+		goto err_sprite;
+
 	if (config->additional_devices)
 		open_additional_devices(b, config->additional_devices);
 
@@ -5135,18 +5205,18 @@ drm_backend_create(struct weston_compositor *compositor,
 	case WESTON_RENDERER_PIXMAN:
 		if (init_pixman(b) < 0) {
 			weston_log("failed to initialize pixman renderer\n");
-			goto err_udev_dev;
+			goto err_sprite;
 		}
 		break;
 	case WESTON_RENDERER_GL:
 		if (init_egl(b) < 0) {
 			weston_log("failed to initialize egl\n");
-			goto err_udev_dev;
+			goto err_sprite;
 		}
 		break;
 	default:
 		weston_log("unsupported renderer for DRM backend\n");
-		goto err_udev_dev;
+		goto err_sprite;
 	}
 
 	b->base.shutdown = drm_shutdown;
@@ -5159,21 +5229,6 @@ drm_backend_create(struct weston_compositor *compositor,
 	b->base.can_scanout_dmabuf = drm_can_scanout_dmabuf;
 
 	weston_setup_vt_switch_bindings(compositor);
-
-	res = drmModeGetResources(b->drm->drm.fd);
-	if (!res) {
-		weston_log("Failed to get drmModeRes\n");
-		goto err_udev_dev;
-	}
-
-	wl_list_init(&b->drm->crtc_list);
-	if (drm_backend_create_crtc_list(b->drm, res) == -1) {
-		weston_log("Failed to create CRTC list for DRM-backend\n");
-		goto err_create_crtc_list;
-	}
-
-	wl_list_init(&device->plane_list);
-	create_sprites(b->drm, res);
 
 	if (udev_input_init(&b->input,
 			    compositor, b->udev, seat_id,
