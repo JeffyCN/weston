@@ -181,6 +181,7 @@ err:
 static void
 create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 {
+	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct weston_mode *mode = output->base.current_mode;
 	struct drm_plane *plane = output->scanout_plane;
 	struct weston_drm_format *fmt;
@@ -196,9 +197,19 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 	}
 
 #ifdef HAVE_GBM_MODIFIERS
-	if (!weston_drm_format_has_modifier(fmt, DRM_FORMAT_MOD_INVALID) &&
-	    !weston_drm_format_has_modifier(fmt, DRM_FORMAT_MOD_LINEAR)) {
+	/* HACK: Prefer valid modifilers */
+	if (b->fb_modifiers) {
+#define MAX_MODIFIERS 128
+		uint64_t _modifiers[MAX_MODIFIERS];
+		int i, j;
 		modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+		for (i = 0, j = 0; i < (int)num_modifiers; i++) {
+			if (DRM_MOD_VALID(modifiers[i]) && j < MAX_MODIFIERS)
+				_modifiers[j++] = modifiers[i];
+		}
+		modifiers = _modifiers;
+		num_modifiers = j;
+
 		output->gbm_surface =
 			gbm_surface_create_with_modifiers(gbm,
 							  mode->width, mode->height,
