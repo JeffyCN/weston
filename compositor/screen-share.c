@@ -485,7 +485,6 @@ shared_output_get_shm_buffer(struct shared_output *so)
 
 	sb->output = so;
 	wl_list_init(&sb->free_link);
-	wl_list_insert(&so->shm.buffers, &sb->link);
 
 	pixman_region32_init_rect(&sb->damage, 0, 0, width, height);
 
@@ -510,10 +509,13 @@ shared_output_get_shm_buffer(struct shared_output *so)
 	if (!sb->pm_image)
 		goto out_pixman_error;
 
+	wl_list_insert(&so->shm.buffers, &sb->link);
 	return sb;
 
 out_pixman_error:
+	wl_buffer_destroy(sb->buffer);
 	pixman_region32_fini(&sb->damage);
+	free(sb);
 out_unmap:
 	munmap(data, height * stride);
 out_close:
