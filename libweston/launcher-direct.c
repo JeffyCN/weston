@@ -318,7 +318,7 @@ launcher_direct_connect(struct weston_launcher **out, struct weston_compositor *
 	/* Checking the existance of /dev/tty0 and verifying it's a TTY
 	 * device, as kernels compiled with CONFIG_VT=0 do not create these
 	 * devices. */
-	if (stat("/dev/tty0", &buf) == 0 &&
+	if (compositor->vt_switching && stat("/dev/tty0", &buf) == 0 &&
 	    strcmp("seat0", seat_id) == 0 && major(buf.st_rdev) == TTY_MAJOR) {
 		if (setup_tty(launcher, tty) == -1) {
 			free(launcher);
