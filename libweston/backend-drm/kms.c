@@ -1173,6 +1173,14 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 	if (!req)
 		return -1;
 
+	wl_list_for_each(output_state, &pending_state->output_list, link) {
+		if (output_state->output->virtual)
+			continue;
+		if (output_state->dpms == WESTON_DPMS_OFF &&
+		    mode == DRM_STATE_APPLY_ASYNC)
+			mode = DRM_STATE_APPLY_SYNC;
+	}
+
 	switch (mode) {
 	case DRM_STATE_APPLY_SYNC:
 		flags = 0;
@@ -1275,8 +1283,6 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 	wl_list_for_each(output_state, &pending_state->output_list, link) {
 		if (output_state->output->virtual)
 			continue;
-		if (mode == DRM_STATE_APPLY_SYNC)
-			assert(output_state->dpms == WESTON_DPMS_OFF);
 		ret |= drm_output_apply_state_atomic(output_state, req, &flags);
 	}
 
