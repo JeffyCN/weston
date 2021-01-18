@@ -74,6 +74,58 @@ struct linux_dmabuf_buffer {
 	bool direct_display;
 };
 
+enum weston_dmabuf_feedback_tranche_preference {
+	RENDERER_PREF = 0,
+	SCANOUT_PREF = 1
+};
+
+struct weston_dmabuf_feedback_format_table {
+	int fd;
+	unsigned int size;
+
+	/* This is a pointer to the region of memory where we mapped the file
+	 * that clients receive. We fill it with the format/modifier pairs
+	 * supported by the renderer. We don't formats not supported by the
+	 * renderer in the table, as we must always be able to fallback to the
+	 * renderer if direct scanout fails. */
+	struct {
+		uint32_t format;
+		uint32_t pad; /* unused */
+		uint64_t modifier;
+	} *data;
+
+	/* Indices of the renderer formats in the table. As the table consists
+	 * of formats supported by the renderer, this goes from 0 to the number
+	 * of pairs in the table. */
+	struct wl_array renderer_formats_indices;
+};
+
+struct weston_dmabuf_feedback {
+	/* We can have multiple clients subscribing to the same surface dma-buf
+	 * feedback. As they are dynamic and we need to re-send them multiple
+	 * times during Weston's lifetime, we need to keep track of the
+	 * resources of each client. In the case of the default feedback this is
+	 * not necessary, as we only advertise them when clients subscribe. IOW,
+	 * default feedback events are never re-sent. */
+	struct wl_list resource_list;
+
+	dev_t main_device;
+
+	/* weston_dmabuf_feedback_tranche::link */
+	struct wl_list tranche_list;
+};
+
+struct weston_dmabuf_feedback_tranche {
+	/* weston_dmabuf_feedback::tranche_list */
+	struct wl_list link;
+
+	dev_t target_device;
+	uint32_t flags;
+	enum weston_dmabuf_feedback_tranche_preference preference;
+
+	struct wl_array formats_indices;
+};
+
 int
 linux_dmabuf_setup(struct weston_compositor *compositor);
 
@@ -93,5 +145,23 @@ linux_dmabuf_buffer_get_user_data(struct linux_dmabuf_buffer *buffer);
 void
 linux_dmabuf_buffer_send_server_error(struct linux_dmabuf_buffer *buffer,
 				      const char *msg);
+
+struct weston_dmabuf_feedback *
+weston_dmabuf_feedback_create(dev_t main_device);
+
+void
+weston_dmabuf_feedback_destroy(struct weston_dmabuf_feedback *dmabuf_feedback);
+
+struct weston_dmabuf_feedback_format_table *
+weston_dmabuf_feedback_format_table_create(const struct weston_drm_format_array *renderer_formats);
+
+void
+weston_dmabuf_feedback_format_table_destroy(struct weston_dmabuf_feedback_format_table *format_table);
+
+struct weston_dmabuf_feedback_tranche *
+weston_dmabuf_feedback_tranche_create(struct weston_dmabuf_feedback *dmabuf_feedback,
+				      struct weston_dmabuf_feedback_format_table *format_table,
+				      dev_t target_device, uint32_t flags,
+				      enum weston_dmabuf_feedback_tranche_preference preference);
 
 #endif /* WESTON_LINUX_DMABUF_H */

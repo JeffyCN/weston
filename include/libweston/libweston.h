@@ -1054,6 +1054,8 @@ struct weston_desktop_xwayland;
 struct weston_desktop_xwayland_interface;
 struct weston_debug_compositor;
 struct weston_color_manager;
+struct weston_dmabuf_feedback;
+struct weston_dmabuf_feedback_format_table;
 
 /** Main object, container-like structure which aggregates all other objects.
  *
@@ -1128,6 +1130,9 @@ struct weston_compositor {
 
 	struct weston_backend *backend;
 	struct weston_launcher *launcher;
+
+	struct weston_dmabuf_feedback *default_dmabuf_feedback;
+	struct weston_dmabuf_feedback_format_table *dmabuf_feedback_format_table;
 
 	struct wl_list plugin_api_list; /* struct weston_plugin_api::link */
 
@@ -1537,6 +1542,8 @@ struct weston_surface {
 	struct wl_resource *synchronization_resource;
 	int acquire_fence_fd;
 	struct weston_buffer_release_reference buffer_release_ref;
+
+	struct weston_dmabuf_feedback *dmabuf_feedback;
 
 	enum weston_hdcp_protection desired_protection;
 	enum weston_hdcp_protection current_protection;

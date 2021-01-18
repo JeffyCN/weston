@@ -35,6 +35,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <ctype.h>
 #include <float.h>
 #include <assert.h>
@@ -3612,6 +3613,38 @@ gl_renderer_create_pbuffer_surface(struct gl_renderer *gr) {
 }
 
 static int
+create_default_dmabuf_feedback(struct weston_compositor *ec,
+			       struct gl_renderer *gr)
+{
+	struct stat dev_stat;
+	struct weston_dmabuf_feedback_tranche *tranche;
+	uint32_t flags = 0;
+
+	if (stat(gr->drm_device, &dev_stat) != 0) {
+		weston_log("%s: device disappeared, so we can't recover\n", __func__);
+		abort();
+	}
+
+	ec->default_dmabuf_feedback =
+		weston_dmabuf_feedback_create(dev_stat.st_rdev);
+	if (!ec->default_dmabuf_feedback)
+		return -1;
+
+	tranche =
+		weston_dmabuf_feedback_tranche_create(ec->default_dmabuf_feedback,
+						      ec->dmabuf_feedback_format_table,
+						      dev_stat.st_rdev, flags,
+						      RENDERER_PREF);
+	if (!tranche) {
+		weston_dmabuf_feedback_destroy(ec->default_dmabuf_feedback);
+		ec->default_dmabuf_feedback = NULL;
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
 gl_renderer_display_create(struct weston_compositor *ec,
 			   const struct gl_renderer_display_options *options)
 {
@@ -3685,6 +3718,17 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		ret = populate_supported_formats(ec, &gr->supported_formats);
 		if (ret < 0)
 			goto fail_terminate;
+		if (gr->drm_device) {
+			/* We support dma-buf feedback only when the renderer
+			 * exposes a DRM-device */
+			ec->dmabuf_feedback_format_table =
+				weston_dmabuf_feedback_format_table_create(&gr->supported_formats);
+			if (!ec->dmabuf_feedback_format_table)
+				goto fail_terminate;
+			ret = create_default_dmabuf_feedback(ec, gr);
+			if (ret < 0)
+				goto fail_feedback;
+		}
 	}
 	wl_list_init(&gr->dmabuf_formats);
 
@@ -3731,6 +3775,15 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 fail_with_error:
 	gl_renderer_print_egl_error_state();
+	if (gr->drm_device) {
+		weston_dmabuf_feedback_destroy(ec->default_dmabuf_feedback);
+		ec->default_dmabuf_feedback = NULL;
+	}
+fail_feedback:
+	if (gr->drm_device) {
+		weston_dmabuf_feedback_format_table_destroy(ec->dmabuf_feedback_format_table);
+		ec->dmabuf_feedback_format_table = NULL;
+	}
 fail_terminate:
 	weston_drm_format_array_fini(&gr->supported_formats);
 	eglTerminate(gr->egl_display);
