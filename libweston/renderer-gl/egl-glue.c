@@ -455,6 +455,45 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	return egl_config;
 }
 
+static void
+gl_renderer_set_egl_device(struct gl_renderer *gr)
+{
+	EGLAttrib attrib;
+	const char *extensions;
+
+	assert(gr->has_device_query);
+
+	if (!gr->query_display_attrib(gr->egl_display, EGL_DEVICE_EXT, &attrib)) {
+		weston_log("failed to get EGL device\n");
+		gl_renderer_print_egl_error_state();
+		return;
+	}
+
+	gr->egl_device = (EGLDeviceEXT) attrib;
+
+	extensions = gr->query_device_string(gr->egl_device, EGL_EXTENSIONS);
+	if (!extensions) {
+		weston_log("failed to get EGL extensions\n");
+		return;
+	}
+
+	gl_renderer_log_extensions("EGL device extensions", extensions);
+
+	/* Try to query the render node using EGL_DRM_RENDER_NODE_FILE_EXT */
+	if (weston_check_egl_extension(extensions, "EGL_EXT_device_drm_render_node"))
+		gr->drm_device = gr->query_device_string(gr->egl_device,
+							 EGL_DRM_RENDER_NODE_FILE_EXT);
+
+	/* The extension is not supported by the Mesa version of the system or
+	 * the query failed. Fallback to EGL_DRM_DEVICE_FILE_EXT */
+	if (!gr->drm_device && weston_check_egl_extension(extensions, "EGL_EXT_device_drm"))
+		gr->drm_device = gr->query_device_string(gr->egl_device,
+							 EGL_DRM_DEVICE_FILE_EXT);
+
+	if (!gr->drm_device)
+		weston_log("failed to query DRM device from EGL\n");
+}
+
 int
 gl_renderer_setup_egl_display(struct gl_renderer *gr,
 			      void *native_display)
@@ -483,6 +522,9 @@ gl_renderer_setup_egl_display(struct gl_renderer *gr,
 		weston_log("failed to initialize display\n");
 		goto fail;
 	}
+
+	if (gr->has_device_query)
+		gl_renderer_set_egl_device(gr);
 
 	return 0;
 
@@ -533,6 +575,14 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 
 	gl_renderer_log_extensions("EGL client extensions",
 				   extensions);
+
+	if (weston_check_egl_extension(extensions, "EGL_EXT_device_query")) {
+		gr->query_display_attrib =
+			(void *) eglGetProcAddress("eglQueryDisplayAttribEXT");
+		gr->query_device_string =
+			(void *) eglGetProcAddress("eglQueryDeviceStringEXT");
+		gr->has_device_query = true;
+	}
 
 	if (weston_check_egl_extension(extensions, "EGL_EXT_platform_base")) {
 		gr->get_platform_display =

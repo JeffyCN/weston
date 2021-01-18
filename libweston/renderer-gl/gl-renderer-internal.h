@@ -119,6 +119,9 @@ struct gl_renderer {
 	struct wl_array vertices;
 	struct wl_array vtxcnt;
 
+	EGLDeviceEXT egl_device;
+	const char *drm_device;
+
 	struct weston_drm_format_array supported_formats;
 
 	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
@@ -162,6 +165,10 @@ struct gl_renderer {
 	bool has_dmabuf_import_modifiers;
 	PFNEGLQUERYDMABUFFORMATSEXTPROC query_dmabuf_formats;
 	PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_dmabuf_modifiers;
+
+	bool has_device_query;
+	PFNEGLQUERYDISPLAYATTRIBEXTPROC query_display_attrib;
+	PFNEGLQUERYDEVICESTRINGEXTPROC query_device_string;
 
 	bool has_native_fence_sync;
 	PFNEGLCREATESYNCKHRPROC create_sync;
