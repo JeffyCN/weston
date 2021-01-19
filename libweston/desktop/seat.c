@@ -242,6 +242,104 @@ static const struct weston_touch_grab_interface weston_desktop_seat_touch_popup_
 };
 
 static void
+weston_desktop_seat_popup_grab_tablet_tool_proximity_in(struct weston_tablet_tool_grab *grab,
+				      const struct timespec *time,
+				      struct weston_tablet *tablet)
+{
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_proximity_out(struct weston_tablet_tool_grab *grab,
+				       const struct timespec *time)
+{
+	weston_tablet_tool_send_proximity_out(grab->tool, time);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_motion(struct weston_tablet_tool_grab *grab,
+				const struct timespec *time,
+				struct weston_coord_global pos)
+{
+	weston_tablet_tool_send_motion(grab->tool, time, pos);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_down(struct weston_tablet_tool_grab *grab,
+			      const struct timespec *time)
+{
+	weston_tablet_tool_send_down(grab->tool, time);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_up(struct weston_tablet_tool_grab *grab,
+			      const struct timespec *time)
+{
+	weston_tablet_tool_send_up(grab->tool, time);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_pressure(struct weston_tablet_tool_grab *grab,
+				  const struct timespec *time,
+				  uint32_t pressure)
+{
+	weston_tablet_tool_send_pressure(grab->tool, time, pressure);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_distance(struct weston_tablet_tool_grab *grab,
+				  const struct timespec *time,
+				  uint32_t distance)
+{
+	weston_tablet_tool_send_distance(grab->tool, time, distance);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_tilt(struct weston_tablet_tool_grab *grab,
+			      const struct timespec *time,
+			      wl_fixed_t tilt_x, wl_fixed_t tilt_y)
+{
+	weston_tablet_tool_send_tilt(grab->tool, time, tilt_x, tilt_y);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_button(struct weston_tablet_tool_grab *grab,
+				const struct timespec *time,
+				uint32_t button, uint32_t state)
+{
+	weston_tablet_tool_send_button(grab->tool, time, button, state);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_frame(struct weston_tablet_tool_grab *grab,
+			       const struct timespec *time)
+{
+	weston_tablet_tool_send_frame(grab->tool, time);
+}
+
+static void
+weston_desktop_seat_popup_grab_tablet_tool_cancel(struct weston_tablet_tool_grab *grab)
+{
+	struct weston_desktop_seat *seat =
+		wl_container_of(grab, seat, popup_grab.pointer);
+
+	weston_desktop_seat_popup_grab_end(seat);
+}
+
+static const struct weston_tablet_tool_grab_interface weston_desktop_seat_tablet_tool_popup_grab_interface = {
+	weston_desktop_seat_popup_grab_tablet_tool_proximity_in,
+	weston_desktop_seat_popup_grab_tablet_tool_proximity_out,
+	weston_desktop_seat_popup_grab_tablet_tool_motion,
+	weston_desktop_seat_popup_grab_tablet_tool_down,
+	weston_desktop_seat_popup_grab_tablet_tool_up,
+	weston_desktop_seat_popup_grab_tablet_tool_pressure,
+	weston_desktop_seat_popup_grab_tablet_tool_distance,
+	weston_desktop_seat_popup_grab_tablet_tool_tilt,
+	weston_desktop_seat_popup_grab_tablet_tool_button,
+	weston_desktop_seat_popup_grab_tablet_tool_frame,
+	weston_desktop_seat_popup_grab_tablet_tool_cancel,
+};
+
+static void
 weston_desktop_seat_destroy(struct wl_listener *listener, void *data)
 {
 	struct weston_desktop_seat *seat =
@@ -318,11 +416,32 @@ weston_desktop_seat_popup_grab_start(struct weston_desktop_seat *seat,
 	struct weston_keyboard *keyboard = weston_seat_get_keyboard(wseat);
 	struct weston_pointer *pointer = weston_seat_get_pointer(wseat);
 	struct weston_touch *touch = weston_seat_get_touch(wseat);
+	struct weston_tablet_tool *tool;
+	bool tool_found = false;
+
+	if (wseat) {
+		wl_list_for_each(tool, &wseat->tablet_tool_list, link) {
+			if (tool->grab_serial == serial) {
+				tool_found = true;
+				break;
+			}
+		}
+	}
 
 	if ((keyboard == NULL || keyboard->grab_serial != serial) &&
 	    (pointer == NULL || pointer->grab_serial != serial) &&
-	    (touch == NULL || touch->grab_serial != serial)) {
+	    (touch == NULL || touch->grab_serial != serial) &&
+	    !tool_found) {
 		return false;
+	}
+
+	wl_list_for_each(tool, &wseat->tablet_tool_list, link) {
+		if (tool->grab->interface != &weston_desktop_seat_tablet_tool_popup_grab_interface) {
+			struct weston_tablet_tool_grab *grab = zalloc(sizeof(*grab));
+
+			grab->interface = &weston_desktop_seat_tablet_tool_popup_grab_interface;
+			weston_tablet_tool_start_grab(tool, grab);
+		}
 	}
 
 	seat->popup_grab.initial_up =
@@ -360,6 +479,7 @@ weston_desktop_seat_popup_grab_end(struct weston_desktop_seat *seat)
 	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat->seat);
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat->seat);
 	struct weston_touch *touch = weston_seat_get_touch(seat->seat);
+	struct weston_tablet_tool *tool;
 
 	while (!wl_list_empty(&seat->popup_grab.surfaces)) {
 		struct wl_list *link = seat->popup_grab.surfaces.prev;
@@ -391,6 +511,14 @@ weston_desktop_seat_popup_grab_end(struct weston_desktop_seat *seat)
 	if (touch != NULL &&
 	    touch->grab->interface == &weston_desktop_seat_touch_popup_grab_interface)
 		weston_touch_end_grab(touch);
+
+	wl_list_for_each(tool, &seat->seat->tablet_tool_list, link) {
+		if (tool->grab->interface == &weston_desktop_seat_tablet_tool_popup_grab_interface) {
+			struct weston_tablet_tool_grab *grab = tool->grab;
+			weston_tablet_tool_end_grab(tool);
+			free(grab);
+		}
+	}
 
 	seat->popup_grab.client = NULL;
 	if (seat->popup_grab.grab_surface) {
