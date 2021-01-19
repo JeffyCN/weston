@@ -5355,6 +5355,16 @@ menu_touch_up_handler(struct widget *widget,
 }
 
 static void
+menu_tablet_tool_up_handler(struct widget *widget, struct tablet_tool *tool,
+			    void *data)
+{
+	struct menu *menu = data;
+
+	input_ungrab(tool->input);
+	menu_destroy(menu);
+}
+
+static void
 menu_redraw_handler(struct widget *widget, void *data)
 {
 	cairo_t *cr;
@@ -5460,6 +5470,7 @@ create_menu(struct display *display,
 	widget_set_motion_handler(menu->widget, menu_motion_handler);
 	widget_set_button_handler(menu->widget, menu_button_handler);
 	widget_set_touch_up_handler(menu->widget, menu_touch_up_handler);
+	widget_set_tablet_tool_up_handler(menu->widget, menu_tablet_tool_up_handler);
 
 	input_grab(input, menu->widget, 0);
 	frame_resize_inside(menu->frame, 200, count * 20);
