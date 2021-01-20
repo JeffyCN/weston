@@ -33,6 +33,7 @@
 #include "libweston-internal.h"
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
+#include "tablet-unstable-v2-server-protocol.h"
 
 struct weston_binding {
 	uint32_t key;
@@ -133,6 +134,24 @@ weston_compositor_add_touch_binding(struct weston_compositor *compositor,
 		return NULL;
 
 	wl_list_insert(compositor->touch_binding_list.prev, &binding->link);
+
+	return binding;
+}
+
+WL_EXPORT struct weston_binding *
+weston_compositor_add_tablet_tool_binding(struct weston_compositor *compositor,
+					  uint32_t button, uint32_t modifier,
+					  weston_tablet_tool_binding_handler_t handler,
+					  void *data)
+{
+	struct weston_binding *binding;
+
+	binding = weston_compositor_add_binding(compositor, 0, button, 0,
+						modifier, handler, data);
+	if (binding == NULL)
+		return NULL;
+
+	wl_list_insert(compositor->tablet_tool_binding_list.prev, &binding->link);
 
 	return binding;
 }
@@ -391,6 +410,25 @@ weston_compositor_run_touch_binding(struct weston_compositor *compositor,
 		if (b->modifier == touch->seat->modifier_state) {
 			weston_touch_binding_handler_t handler = b->handler;
 			handler(touch, time, b->data);
+		}
+	}
+}
+
+void
+weston_compositor_run_tablet_tool_binding(struct weston_compositor *compositor,
+					  struct weston_tablet_tool *tool,
+					  uint32_t button, uint32_t state_w)
+{
+	enum zwp_tablet_tool_v2_button_state state = state_w;
+	struct weston_binding *b;
+
+	if (state != ZWP_TABLET_TOOL_V2_BUTTON_STATE_PRESSED)
+		return;
+
+	wl_list_for_each(b, &compositor->tablet_tool_binding_list, link) {
+		if (b->modifier == tool->seat->modifier_state) {
+			weston_tablet_tool_binding_handler_t handler = b->handler;
+			handler(tool, button, b->data);
 		}
 	}
 }

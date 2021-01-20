@@ -224,6 +224,10 @@ weston_compositor_run_touch_binding(struct weston_compositor *compositor,
 				    const struct timespec *time,
 				    int touch_type);
 void
+weston_compositor_run_tablet_tool_binding(struct weston_compositor *compositor,
+					  struct weston_tablet_tool *tool,
+					  uint32_t button, uint32_t state_w);
+void
 weston_compositor_stack_plane(struct weston_compositor *ec,
 			      struct weston_plane *plane,
 			      struct weston_plane *above);
