@@ -908,6 +908,12 @@ struct weston_tablet_tool {
 	bool tip_is_down;
 
 	struct timespec frame_time;
+
+	struct weston_view *sprite;
+	struct weston_coord_surface hotspot;
+	struct wl_listener sprite_destroy_listener;
+
+	struct weston_coord_global pos;
 };
 
 struct weston_tablet {
@@ -1063,6 +1069,10 @@ weston_tablet_tool_send_button(struct weston_tablet_tool *tool,
 void
 weston_tablet_tool_send_frame(struct weston_tablet_tool *tool,
 			       const struct timespec *time);
+
+void
+weston_tablet_tool_cursor_move(struct weston_tablet_tool *tool,
+			       struct weston_coord_global pos);
 
 
 void

@@ -2063,6 +2063,7 @@ weston_view_unmap(struct weston_view *view)
 			struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 			struct weston_keyboard *keyboard =
 				weston_seat_get_keyboard(seat);
+			struct weston_tablet_tool *tool;
 
 			if (keyboard && keyboard->focus == view->surface)
 				weston_keyboard_set_focus(keyboard, NULL);
@@ -2070,6 +2071,11 @@ weston_view_unmap(struct weston_view *view)
 				weston_pointer_clear_focus(pointer);
 			if (touch && touch->focus == view)
 				weston_touch_set_focus(touch, NULL);
+
+			wl_list_for_each(tool, &seat->tablet_tool_list, link) {
+				if (tool->focus == view)
+					weston_tablet_tool_set_focus(tool, NULL, 0);
+			}
 		}
 	}
 	weston_signal_emit_mutable(&view->unmap_signal, view);

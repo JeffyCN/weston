@@ -1563,6 +1563,10 @@ weston_tablet_tool_send_proximity_out(struct weston_tablet_tool *tool,
 				      const struct timespec *time)
 {
 	weston_tablet_tool_set_focus(tool, NULL, time);
+
+	/* Hide the cursor */
+	if (tool->sprite && weston_surface_is_mapped(tool->sprite->surface))
+		weston_surface_unmap(tool->sprite->surface);
 }
 
 static void
@@ -1584,6 +1588,7 @@ weston_tablet_tool_send_motion(struct weston_tablet_tool *tool,
 	current_view = weston_compositor_pick_view(tool->seat->compositor, pos);
 	if (current_view != tool->focus)
 		weston_tablet_tool_set_focus(tool, current_view, time);
+	weston_tablet_tool_cursor_move(tool, pos);
 	surf_pos = weston_coord_global_to_surface(tool->focus, pos);
 
 	wl_resource_for_each(resource, &tool->focus_resource_list) {
@@ -1770,6 +1775,29 @@ static struct weston_tablet_tool_grab_interface default_tablet_tool_grab_interfa
 	default_grab_tablet_tool_cancel,
 };
 
+static void
+tablet_tool_unmap_sprite(struct weston_tablet_tool *tool)
+{
+	if (weston_surface_is_mapped(tool->sprite->surface))
+		weston_surface_unmap(tool->sprite->surface);
+
+	wl_list_remove(&tool->sprite_destroy_listener.link);
+	tool->sprite->surface->committed = NULL;
+	tool->sprite->surface->committed_private = NULL;
+	weston_view_destroy(tool->sprite);
+	tool->sprite = NULL;
+}
+
+static void
+tablet_tool_handle_sprite_destroy(struct wl_listener *listener, void *data)
+{
+	struct weston_tablet_tool *tool =
+		container_of(listener, struct weston_tablet_tool,
+			     sprite_destroy_listener);
+
+	tool->sprite = NULL;
+}
+
 WL_EXPORT struct weston_tablet_tool *
 weston_tablet_tool_create(void)
 {
@@ -1781,6 +1809,9 @@ weston_tablet_tool_create(void)
 
 	wl_list_init(&tool->resource_list);
 	wl_list_init(&tool->focus_resource_list);
+
+	wl_list_init(&tool->sprite_destroy_listener.link);
+	tool->sprite_destroy_listener.notify = tablet_tool_handle_sprite_destroy;
 
 	wl_list_init(&tool->focus_view_listener.link);
 	tool->focus_view_listener.notify = tablet_tool_focus_view_destroyed;
@@ -1800,6 +1831,9 @@ weston_tablet_tool_destroy(struct weston_tablet_tool *tool)
 {
 	struct wl_resource *resource, *tmp;
 
+	if (tool->sprite)
+		tablet_tool_unmap_sprite(tool);
+
 	wl_resource_for_each_safe(resource, tmp, &tool->resource_list) {
 		zwp_tablet_tool_v2_send_removed(resource);
 		wl_resource_set_user_data(resource, NULL);
@@ -1816,6 +1850,19 @@ weston_tablet_tool_destroy(struct weston_tablet_tool *tool)
 	free(tool);
 }
 
+WL_EXPORT void
+weston_tablet_tool_cursor_move(struct weston_tablet_tool *tool,
+			       struct weston_coord_global pos)
+{
+	tool->pos = pos;
+
+	if (tool->sprite) {
+		weston_view_set_position(tool->sprite,
+					 pos.c.x - tool->hotspot.c.x,
+					 pos.c.y - tool->hotspot.c.y);
+		weston_view_schedule_repaint(tool->sprite);
+	}
+}
 
 static void
 seat_send_updated_caps(struct weston_seat *seat)
@@ -3164,10 +3211,91 @@ notify_tablet_added(struct weston_tablet *tablet)
 }
 
 static void
+tablet_tool_cursor_surface_committed(struct weston_surface *es,
+				     struct weston_coord_surface new_origin)
+{
+	struct weston_tablet_tool *tool = es->committed_private;
+	struct weston_coord_global pos;
+
+	if (es->width == 0)
+		return;
+
+	assert(es == tool->sprite->surface);
+
+	tool->hotspot.c = weston_coord_sub(tool->hotspot.c, new_origin.c);
+	pos.c = weston_coord_sub(tool->pos.c, tool->hotspot.c);
+
+	weston_view_set_position(tool->sprite, pos.c.x, pos.c.y);
+
+	empty_region(&es->pending.input);
+	empty_region(&es->input);
+
+	if (!weston_surface_is_mapped(es)) {
+		weston_layer_entry_insert(
+			&es->compositor->cursor_layer.view_list,
+			&tool->sprite->layer_link);
+		weston_view_update_transform(tool->sprite);
+		es->is_mapped = true;
+		tool->sprite->is_mapped = true;
+	}
+}
+
+static void
 tablet_tool_set_cursor(struct wl_client *client, struct wl_resource *resource,
 		       uint32_t serial, struct wl_resource *surface_resource,
 		       int32_t hotspot_x, int32_t hotspot_y)
 {
+	struct weston_tablet_tool *tool = wl_resource_get_user_data(resource);
+	struct weston_surface *surface = NULL;
+
+	if (!tool)
+		return;
+
+	if (surface_resource)
+		surface = wl_resource_get_user_data(surface_resource);
+
+	if (tool->focus == NULL)
+		return;
+
+	/* tablet->focus->surface->resource can be NULL. Surfaces like the
+	 * black_surface used in shell.c for fullscreen don't have
+	 * a resource, but can still have focus */
+	if (tool->focus->surface->resource == NULL)
+		return;
+
+	if (wl_resource_get_client(tool->focus->surface->resource) != client)
+		return;
+
+	if (tool->focus_serial - serial > UINT32_MAX / 2)
+		return;
+
+	if (surface && tool->sprite && surface != tool->sprite->surface &&
+	    surface->committed) {
+		wl_resource_post_error(surface->resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "surface->configure already set");
+		return;
+	}
+
+	if (tool->sprite)
+		tablet_tool_unmap_sprite(tool);
+
+	if (!surface)
+		return;
+
+	wl_signal_add(&surface->destroy_signal,
+		      &tool->sprite_destroy_listener);
+	surface->committed = tablet_tool_cursor_surface_committed;
+	surface->committed_private = tool;
+	tool->sprite = weston_view_create(surface);
+	tool->hotspot = weston_coord_surface(hotspot_x, hotspot_y, surface);
+
+	if (surface->buffer_ref.buffer) {
+		struct weston_coord_surface delta =
+			weston_coord_surface(0, 0, surface);
+
+		tablet_tool_cursor_surface_committed(surface, delta);
+	}
 }
 
 static void
