@@ -227,7 +227,8 @@ lib_libinput_backend = static_library(
 	'libinput-backend',
 	[
 		'libinput-device.c',
-		'libinput-seat.c'
+		'libinput-seat.c',
+		tablet_unstable_v2_server_protocol_h
 	],
 	dependencies: [
 		dep_libweston_private,

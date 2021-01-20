@@ -906,6 +906,8 @@ struct weston_tablet_tool {
 
 	int button_count;
 	bool tip_is_down;
+
+	struct timespec frame_time;
 };
 
 struct weston_tablet {

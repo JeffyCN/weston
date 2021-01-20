@@ -139,7 +139,7 @@ endif
 dep_wayland_server = dependency('wayland-server', version: '>= 1.20.0')
 dep_wayland_client = dependency('wayland-client', version: '>= 1.20.0')
 dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
-dep_libinput = dependency('libinput', version: '>= 0.8.0')
+dep_libinput = dependency('libinput', version: '>= 1.2.0')
 dep_libevdev = dependency('libevdev')
 dep_libm = cc.find_library('m')
 dep_libdl = cc.find_library('dl')
