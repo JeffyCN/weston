@@ -674,6 +674,46 @@ struct weston_touch_grab {
 	struct weston_touch *touch;
 };
 
+struct weston_tablet;
+struct weston_tablet_tool;
+struct weston_tablet_tool_grab;
+struct weston_tablet_tool_grab_interface {
+	void (*proximity_in)(struct weston_tablet_tool_grab *grab,
+			     const struct timespec *time,
+			     struct weston_tablet *tablet);
+	void (*proximity_out)(struct weston_tablet_tool_grab *grab,
+			     const struct timespec *time);
+	void (*motion)(struct weston_tablet_tool_grab *grab,
+		       const struct timespec *time,
+		       struct weston_coord_global pos);
+	void (*down)(struct weston_tablet_tool_grab *grab,
+		     const struct timespec *time);
+	void (*up)(struct weston_tablet_tool_grab *grab,
+		   const struct timespec *time);
+	void (*pressure)(struct weston_tablet_tool_grab *grab,
+			 const struct timespec *time,
+			 uint32_t pressure);
+	void (*distance)(struct weston_tablet_tool_grab *grab,
+			 const struct timespec *time,
+			 uint32_t distance);
+	void (*tilt)(struct weston_tablet_tool_grab *grab,
+		     const struct timespec *time,
+		     wl_fixed_t tilt_x,
+		     wl_fixed_t tilt_y);
+	void (*button)(struct weston_tablet_tool_grab *grab,
+		       const struct timespec *time,
+		       uint32_t button,
+		       uint32_t state);
+	void (*frame)(struct weston_tablet_tool_grab *grab,
+		      const struct timespec *time);
+	void (*cancel)(struct weston_tablet_tool_grab *grab);
+};
+
+struct weston_tablet_tool_grab {
+	const struct weston_tablet_tool_grab_interface *interface;
+	struct weston_tablet_tool *tool;
+};
+
 struct weston_data_offer {
 	struct wl_resource *resource;
 	struct weston_data_source *source;
@@ -853,12 +893,19 @@ struct weston_tablet_tool {
 	struct wl_listener focus_view_listener;
 	struct wl_listener focus_resource_listener;
 	uint32_t focus_serial;
+	uint32_t grab_serial;
 
 	struct wl_list link;
 
 	uint64_t serial;
 	uint64_t hwid;
 	uint32_t capabilities;
+
+	struct weston_tablet_tool_grab *grab;
+	struct weston_tablet_tool_grab default_grab;
+
+	int button_count;
+	bool tip_is_down;
 };
 
 struct weston_tablet {
@@ -966,6 +1013,54 @@ void
 weston_tablet_tool_set_focus(struct weston_tablet_tool *tool,
 			     struct weston_view *view,
 			     const struct timespec *time);
+
+void
+weston_tablet_tool_start_grab(struct weston_tablet_tool *tool,
+			      struct weston_tablet_tool_grab *grab);
+
+void
+weston_tablet_tool_end_grab(struct weston_tablet_tool *tool);
+
+void
+weston_tablet_tool_send_proximity_out(struct weston_tablet_tool *tool,
+				      const struct timespec *time);
+
+void
+weston_tablet_tool_send_motion(struct weston_tablet_tool *tool,
+			       const struct timespec *time,
+			       struct weston_coord_global pos);
+
+void
+weston_tablet_tool_send_down(struct weston_tablet_tool *tool,
+			     const struct timespec *time);
+
+void
+weston_tablet_tool_send_up(struct weston_tablet_tool *tool,
+			    const struct timespec *time);
+
+void
+weston_tablet_tool_send_pressure(struct weston_tablet_tool *tool,
+				  const struct timespec *time,
+				  uint32_t pressure);
+
+void
+weston_tablet_tool_send_distance(struct weston_tablet_tool *tool,
+				  const struct timespec *time,
+				  uint32_t distance);
+
+void
+weston_tablet_tool_send_tilt(struct weston_tablet_tool *tool,
+			      const struct timespec *time,
+			      wl_fixed_t tilt_x, wl_fixed_t tilt_y);
+
+void
+weston_tablet_tool_send_button(struct weston_tablet_tool *tool,
+				const struct timespec *time,
+				uint32_t button, uint32_t state);
+
+void
+weston_tablet_tool_send_frame(struct weston_tablet_tool *tool,
+			       const struct timespec *time);
 
 
 void
