@@ -845,8 +845,14 @@ struct weston_touch {
 struct weston_tablet_tool {
 	struct weston_seat *seat;
 	uint32_t type;
+	struct weston_tablet *current_tablet;
 
 	struct wl_list resource_list;
+	struct wl_list focus_resource_list;
+	struct weston_view *focus;
+	struct wl_listener focus_view_listener;
+	struct wl_listener focus_resource_listener;
+	uint32_t focus_serial;
 
 	struct wl_list link;
 
@@ -954,6 +960,12 @@ weston_touch_send_motion(struct weston_touch *touch,
 			 struct weston_coord_global pos);
 void
 weston_touch_send_frame(struct weston_touch *touch);
+
+
+void
+weston_tablet_tool_set_focus(struct weston_tablet_tool *tool,
+			     struct weston_view *view,
+			     const struct timespec *time);
 
 
 void
