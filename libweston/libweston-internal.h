@@ -300,6 +300,15 @@ weston_seat_release_pointer(struct weston_seat *seat);
 void
 weston_seat_release_touch(struct weston_seat *seat);
 
+struct weston_tablet *
+weston_seat_add_tablet(struct weston_seat *seat);
+struct weston_tablet_tool *
+weston_seat_add_tablet_tool(struct weston_seat *seat);
+void
+weston_seat_release_tablet_tool(struct weston_tablet_tool *tablet_tool);
+void
+weston_seat_release_tablet(struct weston_tablet *tablet);
+
 void
 weston_seat_update_keymap(struct weston_seat *seat, struct xkb_keymap *keymap);
 
@@ -348,6 +357,25 @@ weston_touch_start_drag(struct weston_touch *touch,
 
 bool
 weston_touch_device_can_calibrate(struct weston_touch_device *device);
+
+/* weston_tablet */
+
+void
+weston_tablet_manager_init(struct weston_compositor *ec);
+
+struct weston_tablet *
+weston_tablet_create(void);
+
+void
+weston_tablet_destroy(struct weston_tablet *tablet);
+
+/* weston_tablet_tool */
+
+struct weston_tablet_tool *
+weston_tablet_tool_create(void);
+
+void
+weston_tablet_tool_destroy(struct weston_tablet_tool *tool);
 
 /* weston_surface */
 pixman_box32_t

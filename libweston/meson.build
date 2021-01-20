@@ -73,6 +73,8 @@ srcs_libweston = [
 	weston_direct_display_server_protocol_h,
 	weston_output_capture_protocol_c,
 	weston_output_capture_server_protocol_h,
+	tablet_unstable_v2_protocol_c,
+	tablet_unstable_v2_server_protocol_h,
 ]
 
 subdir('desktop')

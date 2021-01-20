@@ -256,4 +256,46 @@ notify_touch_calibrator_cancel(struct weston_touch_device *device);
 void
 notify_touch_calibrator_frame(struct weston_touch_device *device);
 
+void
+notify_tablet_added(struct weston_tablet *tablet);
+
+void
+notify_tablet_tool_added(struct weston_tablet_tool *tool);
+
+void
+notify_tablet_tool_proximity_in(struct weston_tablet_tool *tool,
+				const struct timespec *time,
+				struct weston_tablet *tablet);
+void
+notify_tablet_tool_proximity_out(struct weston_tablet_tool *tool,
+				 const struct timespec *time);
+void
+notify_tablet_tool_motion(struct weston_tablet_tool *tool,
+			  const struct timespec *time,
+			  wl_fixed_t x, wl_fixed_t y);
+void
+notify_tablet_tool_pressure(struct weston_tablet_tool *tool,
+			    const struct timespec *time, uint32_t pressure);
+void
+notify_tablet_tool_distance(struct weston_tablet_tool *tool,
+			    const struct timespec *time, uint32_t distance);
+void
+notify_tablet_tool_tilt(struct weston_tablet_tool *tool,
+			const struct timespec *time,
+			int32_t tilt_x, int32_t tilt_y);
+void
+notify_tablet_tool_button(struct weston_tablet_tool *tool,
+			  const struct timespec *time,
+			  uint32_t button,
+			  uint32_t state_w);
+void
+notify_tablet_tool_up(struct weston_tablet_tool *tool,
+		      const struct timespec *time);
+void
+notify_tablet_tool_down(struct weston_tablet_tool *tool,
+			const struct timespec *time);
+void
+notify_tablet_tool_frame(struct weston_tablet_tool *tool,
+			 const struct timespec *time);
+
 #endif

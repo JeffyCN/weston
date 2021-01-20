@@ -842,6 +842,33 @@ struct weston_touch {
 	struct wl_list timestamps_list;
 };
 
+struct weston_tablet_tool {
+	struct weston_seat *seat;
+	uint32_t type;
+
+	struct wl_list resource_list;
+
+	struct wl_list link;
+
+	uint64_t serial;
+	uint64_t hwid;
+	uint32_t capabilities;
+};
+
+struct weston_tablet {
+	struct weston_seat *seat;
+
+	struct wl_list resource_list;
+	struct wl_list tool_list;
+
+	struct wl_list link;
+
+	char *name;
+	uint32_t vid;
+	uint32_t pid;
+	const char *path;
+};
+
 struct weston_coord_global
 weston_pointer_motion_to_abs(struct weston_pointer *pointer,
 			     struct weston_pointer_motion_event *event);
@@ -1026,6 +1053,10 @@ struct weston_seat {
 
 	struct input_method *input_method;
 	char *seat_name;
+
+	struct wl_list tablet_list;
+	struct wl_list tablet_tool_list;
+	struct wl_list tablet_seat_resource_list;
 };
 
 enum {
@@ -1306,6 +1337,9 @@ struct weston_compositor {
 
 	void *user_data;
 	void (*exit)(struct weston_compositor *c);
+
+	struct wl_global *tablet_manager;
+	struct wl_list tablet_manager_resource_list;
 
 	/* Whether to let the compositor run without any input device. */
 	bool require_input;
