@@ -887,9 +887,8 @@ drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
 		case WDRM_PLANE_TYPE_PRIMARY:
 			/* We don't know what formats the primary plane supports
 			 * before universal planes, so we just assume that the
-			 * GBM format works; however, this isn't set until after
-			 * the output is created. */
-			format = 0;
+			 * GBM format works. */
+			format = output->gbm_format;
 			break;
 		default:
 			assert(!"invalid type in drm_output_find_special_plane");
@@ -1680,12 +1679,6 @@ drm_output_init_planes(struct drm_output *output)
 	weston_compositor_stack_plane(b->compositor,
 				      &output->scanout_plane->base,
 				      &b->compositor->primary_plane);
-
-	/* Without universal planes, we can't discover which formats are
-	 * supported by the primary plane; we just hope that the GBM format
-	 * works. */
-	if (!b->universal_planes)
-		output->scanout_plane->formats[0].format = output->gbm_format;
 
 	/* Failing to find a cursor plane is not fatal, as we'll fall back
 	 * to software cursor. */
