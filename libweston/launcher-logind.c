@@ -779,9 +779,9 @@ launcher_logind_connect(struct weston_launcher **out, struct weston_compositor *
 		goto err_session;
 	}
 
-	r = strcmp(t, "seat0");
+	r = sd_seat_can_tty(t);
 	free(t);
-	if (r == 0) {
+	if (r > 0) {
 		r = weston_sd_session_get_vt(wl->sid, &wl->vtnr);
 		if (r < 0) {
 			weston_log("logind: session not running on a VT\n");
@@ -792,6 +792,10 @@ launcher_logind_connect(struct weston_launcher **out, struct weston_compositor *
 			r = -EINVAL;
 			goto err_session;
 		}
+	} else if (r < 0) {
+		weston_log("logind: could not determine if seat %s has ttys or not", t);
+		r = -EINVAL;
+		goto err_session;
 	}
 
 	loop = wl_display_get_event_loop(compositor->wl_display);
