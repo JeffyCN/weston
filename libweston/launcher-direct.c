@@ -304,6 +304,7 @@ launcher_direct_connect(struct weston_launcher **out, struct weston_compositor *
 			int tty, const char *seat_id, bool sync_drm)
 {
 	struct launcher_direct *launcher;
+	struct stat buf;
 
 	launcher = zalloc(sizeof(*launcher));
 	if (launcher == NULL) {
@@ -314,7 +315,11 @@ launcher_direct_connect(struct weston_launcher **out, struct weston_compositor *
 	launcher->base.iface = &launcher_direct_iface;
 	launcher->compositor = compositor;
 
-	if (strcmp("seat0", seat_id) == 0) {
+	/* Checking the existance of /dev/tty0 and verifying it's a TTY
+	 * device, as kernels compiled with CONFIG_VT=0 do not create these
+	 * devices. */
+	if (stat("/dev/tty0", &buf) == 0 &&
+	    strcmp("seat0", seat_id) == 0 && major(buf.st_rdev) == TTY_MAJOR) {
 		if (setup_tty(launcher, tty) == -1) {
 			free(launcher);
 			return -1;
