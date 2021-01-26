@@ -78,6 +78,7 @@ struct display {
 	struct weston_direct_display_v1 *direct_display;
 	struct zwp_linux_explicit_synchronization_v1 *explicit_sync;
 	uint32_t format;
+	bool format_supported;
 	uint64_t *modifiers;
 	int modifiers_count;
 	int req_dmabuf_immediate;
@@ -997,13 +998,19 @@ dmabuf_modifiers(void *data, struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf,
 		 uint32_t format, uint32_t modifier_hi, uint32_t modifier_lo)
 {
 	struct display *d = data;
+	uint64_t modifier = ((uint64_t)modifier_hi << 32) | modifier_lo;
 
-	if (format == d->format) {
+	if (format != d->format) {
+		return;
+	}
+
+	d->format_supported = true;
+
+	if (modifier != DRM_FORMAT_MOD_INVALID) {
 		++d->modifiers_count;
 		d->modifiers = realloc(d->modifiers,
 				       d->modifiers_count * sizeof(*d->modifiers));
-		d->modifiers[d->modifiers_count - 1] =
-			((uint64_t)modifier_hi << 32) | modifier_lo;
+		d->modifiers[d->modifiers_count - 1] = modifier;
 	}
 }
 
@@ -1380,7 +1387,7 @@ create_display(char const *drm_render_node, uint32_t format, int opts)
 
 	wl_display_roundtrip(display->display);
 
-	if (!display->modifiers_count) {
+	if (!display->format_supported) {
 		fprintf(stderr, "format 0x%"PRIX32" is not available\n",
 			display->format);
 		goto error;
