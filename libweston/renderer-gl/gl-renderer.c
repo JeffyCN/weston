@@ -789,6 +789,19 @@ use_output(struct weston_output *output)
 }
 
 static void
+gl_renderer_send_shader_error(struct weston_view *view)
+{
+	struct wl_resource *resource = view->surface->resource;
+
+	if (!resource)
+		return;
+
+	wl_client_post_implementation_error(wl_resource_get_client(resource),
+		"Weston GL-renderer shader failed for wl_surface@%u",
+		wl_resource_get_id(resource));
+}
+
+static void
 gl_renderer_use_program_with_view_uniforms(struct gl_renderer *gr,
 					   struct gl_shader *shader,
 					   struct weston_view *view,
@@ -798,8 +811,10 @@ gl_renderer_use_program_with_view_uniforms(struct gl_renderer *gr,
 	struct gl_surface_state *gs = get_surface_state(view->surface);
 	struct gl_output_state *go = get_output_state(output);
 
-	if (!gl_renderer_use_program(gr, shader))
+	if (!gl_renderer_use_program(gr, shader)) {
+		gl_renderer_send_shader_error(view);
 		return;
+	}
 
 	glUniformMatrix4fv(shader->proj_uniform,
 			   1, GL_FALSE, go->output_matrix.d);
