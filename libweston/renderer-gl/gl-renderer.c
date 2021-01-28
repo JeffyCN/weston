@@ -654,11 +654,42 @@ gl_renderer_get_program(struct gl_renderer *gr,
 	return NULL;
 }
 
-static bool
-gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader *shader)
+static struct gl_shader *
+gl_renderer_create_fallback_shader(struct gl_renderer *gr)
 {
+	static const struct gl_shader_requirements fallback_requirements = {
+		.variant = SHADER_VARIANT_SOLID,
+	};
+	struct gl_shader *shader;
+
+	shader = gl_shader_create(gr, &fallback_requirements);
+	if (!shader)
+		return NULL;
+
+	/*
+	 * This shader must be exempt from any automatic garbage collection.
+	 * It is destroyed explicitly.
+	 */
+	wl_list_remove(&shader->link);
+	wl_list_init(&shader->link);
+
+	return shader;
+}
+
+static bool
+gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader **shaderp)
+{
+	static const GLfloat fallback_shader_color[4] = { 0.2, 0.1, 0.0, 1.0 };
+	struct gl_shader *shader = *shaderp;
+
 	if (!shader) {
 		weston_log("Error: trying to use NULL GL shader.\n");
+		gr->current_shader = NULL;
+		shader = gr->fallback_shader;
+		glUseProgram(shader->program);
+		glUniform4fv(shader->color_uniform, 1, fallback_shader_color);
+		glUniform1f(shader->alpha_uniform, 1.0f);
+		*shaderp = shader;
 		return false;
 	}
 
@@ -694,7 +725,7 @@ triangle_fan_debug(struct weston_view *view, int first, int count)
 	};
 
 	shader = gl_renderer_get_program(gr, &requirements_triangle_fan);
-	if (!gl_renderer_use_program(gr, shader))
+	if (!gl_renderer_use_program(gr, &shader))
 		return;
 
 	nelems = (count - 1 + count - 2) * 2;
@@ -716,7 +747,7 @@ triangle_fan_debug(struct weston_view *view, int first, int count)
 		     color[color_idx++ % ARRAY_LENGTH(color)]);
 	glDrawElements(GL_LINES, nelems, GL_UNSIGNED_SHORT, buffer);
 
-	gl_renderer_use_program(gr, prev_shader);
+	gl_renderer_use_program(gr, &prev_shader);
 	free(buffer);
 }
 
@@ -803,26 +834,30 @@ gl_renderer_send_shader_error(struct weston_view *view)
 
 static void
 gl_renderer_use_program_with_view_uniforms(struct gl_renderer *gr,
-					   struct gl_shader *shader,
+					   struct gl_shader **shaderp,
 					   struct weston_view *view,
 					   struct weston_output *output)
 {
 	int i;
 	struct gl_surface_state *gs = get_surface_state(view->surface);
 	struct gl_output_state *go = get_output_state(output);
+	struct gl_shader *shader;
+	bool ok;
 
-	if (!gl_renderer_use_program(gr, shader)) {
-		gl_renderer_send_shader_error(view);
-		return;
-	}
-
+	ok = gl_renderer_use_program(gr, shaderp);
+	shader = *shaderp;
 	glUniformMatrix4fv(shader->proj_uniform,
 			   1, GL_FALSE, go->output_matrix.d);
-	glUniform4fv(shader->color_uniform, 1, gs->color);
-	glUniform1f(shader->alpha_uniform, view->alpha);
 
-	for (i = 0; i < gs->num_textures; i++)
-		glUniform1i(shader->tex_uniforms[i], i);
+	if (ok) {
+		glUniform4fv(shader->color_uniform, 1, gs->color);
+		glUniform1f(shader->alpha_uniform, view->alpha);
+
+		for (i = 0; i < gs->num_textures; i++)
+			glUniform1i(shader->tex_uniforms[i], i);
+	} else {
+		gl_renderer_send_shader_error(view);
+	}
 }
 
 static int
@@ -988,7 +1023,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	if (gr->fan_debug) {
 		shader = gl_renderer_get_program(gr,
 						 &requirements_triangle_fan);
-		gl_renderer_use_program_with_view_uniforms(gr, shader,
+		gl_renderer_use_program_with_view_uniforms(gr, &shader,
 							   ev, output);
 	}
 
@@ -1024,7 +1059,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 		pixman_region32_copy(&surface_opaque, &ev->surface->opaque);
 
 	shader = maybe_censor_override(output, ev);
-	gl_renderer_use_program_with_view_uniforms(gr, shader, ev, output);
+	gl_renderer_use_program_with_view_uniforms(gr, &shader, ev, output);
 
 	if (pixman_region32_not_empty(&surface_opaque)) {
 		if (shader->key.variant == SHADER_VARIANT_RGBA) {
@@ -1040,7 +1075,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 			tmp_requirements.variant = SHADER_VARIANT_RGBX;
 			tmp_shader = gl_renderer_get_program(gr, &tmp_requirements);
 			gl_renderer_use_program_with_view_uniforms(gr,
-								   tmp_shader,
+								   &tmp_shader,
 								   ev, output);
 		}
 
@@ -1054,7 +1089,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
-		gl_renderer_use_program(gr, shader);
+		gl_renderer_use_program(gr, &shader);
 		glEnable(GL_BLEND);
 		repaint_region(ev, &repaint, &surface_blend);
 		gs->used_in_output_repaint = true;
@@ -1251,7 +1286,7 @@ draw_output_borders(struct weston_output *output,
 
 	glDisable(GL_BLEND);
 	shader = gl_renderer_get_program(gr, &requirements_rgba);
-	if (!gl_renderer_use_program(gr, shader))
+	if (!gl_renderer_use_program(gr, &shader))
 		return;
 
 	glViewport(0, 0, full_width, full_height);
@@ -2823,7 +2858,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	}
 
 	shader = gl_renderer_get_program(gr, &gs->shader_requirements);
-	if (!gl_renderer_use_program(gr, shader))
+	if (!gl_renderer_use_program(gr, &shader))
 		return -1;
 
 	glGenTextures(1, &tex);
@@ -3269,6 +3304,9 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	wl_list_for_each_safe(shader, next_shader, &gr->shader_list, link)
 		gl_shader_destroy(shader);
 
+	if (gr->fallback_shader)
+		gl_shader_destroy(gr->fallback_shader);
+
 	/* Work around crash in egl_dri2.c's dri2_make_current() - when does this apply? */
 	eglMakeCurrent(gr->egl_display,
 		       EGL_NO_SURFACE, EGL_NO_SURFACE,
@@ -3604,6 +3642,12 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		gr->has_egl_image_external = true;
 
 	glActiveTexture(GL_TEXTURE0);
+
+	gr->fallback_shader = gl_renderer_create_fallback_shader(gr);
+	if (!gr->fallback_shader) {
+		weston_log("Error: compiling fallback shader failed.\n");
+		return -1;
+	}
 
 	gr->fragment_binding =
 		weston_compositor_add_debug_binding(ec, KEY_S,

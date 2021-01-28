@@ -136,6 +136,7 @@ struct gl_renderer {
 	bool has_gl_texture_rg;
 
 	struct gl_shader *current_shader;
+	struct gl_shader *fallback_shader;
 
 	struct wl_signal destroy_signal;
 
