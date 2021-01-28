@@ -1721,6 +1721,8 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 
 	data = wl_shm_buffer_get_data(buffer->shm_buffer);
 
+	glActiveTexture(GL_TEXTURE0);
+
 	if (gs->needs_full_upload || quirks->gl_force_full_upload) {
 		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
 		glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
@@ -1785,6 +1787,8 @@ ensure_textures(struct gl_surface_state *gs, int num_textures)
 
 	if (num_textures <= gs->num_textures)
 		return;
+
+	glActiveTexture(GL_TEXTURE0);
 
 	for (i = gs->num_textures; i < num_textures; i++) {
 		glGenTextures(1, &gs->textures[i]);
@@ -2861,6 +2865,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	if (!gl_renderer_use_program(gr, &shader))
 		return -1;
 
+	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cw, ch,
