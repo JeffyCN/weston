@@ -437,15 +437,6 @@ sets the cursor theme (string).
 .TP 7
 .BI "cursor-size=" 24
 sets the cursor size (unsigned integer).
-.TP 7
-.BI "lockscreen-icon=" path
-sets the path to lock screen icon image (string). (tablet shell only)
-.TP 7
-.BI "lockscreen=" path
-sets the path to lock screen background image (string). (tablet shell only)
-.TP 7
-.BI "homescreen=" path
-sets the path to home screen background image (string). (tablet shell only)
 .RE
 .SH "LAUNCHER SECTION"
 There can be multiple launcher sections, one for each launcher.
