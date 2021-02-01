@@ -433,12 +433,14 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const drmModeObjectProperties *props,
 			   const bool use_modifiers)
 {
-	unsigned i;
-	drmModePropertyBlobRes *blob;
+	unsigned i, j;
+	drmModePropertyBlobRes *blob = NULL;
 	struct drm_format_modifier_blob *fmt_mod_blob;
 	struct drm_format_modifier *blob_modifiers;
 	uint32_t *blob_formats;
 	uint32_t blob_id;
+	struct weston_drm_format *fmt;
+	int ret = 0;
 
 	if (!use_modifiers)
 		goto fallback;
@@ -457,20 +459,15 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 	blob_formats = formats_ptr(fmt_mod_blob);
 	blob_modifiers = modifiers_ptr(fmt_mod_blob);
 
-	if (plane->count_formats != fmt_mod_blob->count_formats) {
-		weston_log("DRM backend: format count differs between "
-		           "plane (%d) and IN_FORMATS (%d)\n",
-			   plane->count_formats,
-			   fmt_mod_blob->count_formats);
-		weston_log("This represents a kernel bug; Weston is "
-			   "unable to continue.\n");
-		abort();
-	}
+	assert(kplane->count_formats == fmt_mod_blob->count_formats);
 
 	for (i = 0; i < fmt_mod_blob->count_formats; i++) {
-		uint32_t count_modifiers = 0;
-		uint64_t *modifiers = NULL;
-		unsigned j;
+		fmt = weston_drm_format_array_add_format(&plane->formats,
+							 blob_formats[i]);
+		if (!fmt) {
+			ret = -1;
+			goto out;
+		}
 
 		for (j = 0; j < fmt_mod_blob->count_modifiers; j++) {
 			struct drm_format_modifier *mod = &blob_modifiers[j];
@@ -480,38 +477,33 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			if (!(mod->formats & (1 << (i - mod->offset))))
 				continue;
 
-			modifiers = realloc(modifiers,
-					    (count_modifiers + 1) *
-					     sizeof(modifiers[0]));
-			assert(modifiers);
-			modifiers[count_modifiers++] = mod->modifier;
+			ret = weston_drm_format_add_modifier(fmt, mod->modifier);
+			if (ret < 0)
+				goto out;
 		}
 
-		if (count_modifiers == 0) {
-			modifiers = malloc(sizeof(*modifiers));
-			*modifiers = DRM_FORMAT_MOD_LINEAR;
-			count_modifiers = 1;
+		if (fmt->modifiers.size == 0) {
+			ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
+			if (ret < 0)
+				goto out;
 		}
-
-		plane->formats[i].format = blob_formats[i];
-		plane->formats[i].modifiers = modifiers;
-		plane->formats[i].count_modifiers = count_modifiers;
 	}
 
+out:
 	drmModeFreePropertyBlob(blob);
-
-	return 0;
+	return ret;
 
 fallback:
 	/* No IN_FORMATS blob available, so just use the old. */
-	assert(plane->count_formats == kplane->count_formats);
 	for (i = 0; i < kplane->count_formats; i++) {
-		plane->formats[i].format = kplane->formats[i];
-		plane->formats[i].modifiers = malloc(sizeof(uint64_t));
-		plane->formats[i].modifiers[0] = DRM_FORMAT_MOD_LINEAR;
-		plane->formats[i].count_modifiers = 1;
+		fmt = weston_drm_format_array_add_format(&plane->formats,
+							 kplane->formats[i]);
+		if (!fmt)
+			return -1;
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
+		if (ret < 0)
+			return -1;
 	}
-
 	return 0;
 }
 

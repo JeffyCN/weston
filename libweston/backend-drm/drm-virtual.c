@@ -93,9 +93,10 @@ static struct drm_plane *
 drm_virtual_plane_create(struct drm_backend *b, struct drm_output *output)
 {
 	struct drm_plane *plane;
+	struct weston_drm_format *fmt;
+	int ret;
 
-	/* num of formats is one */
-	plane = zalloc(sizeof(*plane) + sizeof(plane->formats[0]));
+	plane = zalloc(sizeof(*plane));
 	if (!plane) {
 		weston_log("%s: out of memory\n", __func__);
 		return NULL;
@@ -105,21 +106,28 @@ drm_virtual_plane_create(struct drm_backend *b, struct drm_output *output)
 	plane->backend = b;
 	plane->state_cur = drm_plane_state_alloc(NULL, plane);
 	plane->state_cur->complete = true;
-	plane->formats[0].format = output->gbm_format;
-	plane->count_formats = 1;
+
+	weston_drm_format_array_init(&plane->formats);
+	fmt = weston_drm_format_array_add_format(&plane->formats, output->gbm_format);
+	if (!fmt)
+		goto err;
+
 	if ((output->gbm_bo_flags & GBM_BO_USE_LINEAR) && b->fb_modifiers) {
-		uint64_t *modifiers = zalloc(sizeof *modifiers);
-		if (modifiers) {
-			*modifiers = DRM_FORMAT_MOD_LINEAR;
-			plane->formats[0].modifiers = modifiers;
-			plane->formats[0].count_modifiers = 1;
-		}
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
+		if (ret < 0)
+			goto err;
 	}
 
 	weston_plane_init(&plane->base, b->compositor, 0, 0);
 	wl_list_insert(&b->plane_list, &plane->link);
 
 	return plane;
+
+err:
+	drm_plane_state_free(plane->state_cur, true);
+	weston_drm_format_array_fini(&plane->formats);
+	free(plane);
+	return NULL;
 }
 
 /**
@@ -133,8 +141,7 @@ drm_virtual_plane_destroy(struct drm_plane *plane)
 	drm_plane_state_free(plane->state_cur, true);
 	weston_plane_release(&plane->base);
 	wl_list_remove(&plane->link);
-	if (plane->formats[0].modifiers)
-		free(plane->formats[0].modifiers);
+	weston_drm_format_array_fini(&plane->formats);
 	free(plane);
 }
 

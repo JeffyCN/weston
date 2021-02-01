@@ -129,25 +129,19 @@ drm_output_plane_has_valid_format(struct drm_plane *plane,
 				  struct drm_fb *fb)
 {
 	struct drm_backend *b = plane->backend;
-	unsigned int i;
+	struct weston_drm_format *fmt;
 
 	if (!fb)
 		return false;
 
 	/* Check whether the format is supported */
-	for (i = 0; i < plane->count_formats; i++) {
-		unsigned int j;
-
-		if (plane->formats[i].format != fb->format->format)
-			continue;
-
+	fmt = weston_drm_format_array_find_format(&plane->formats,
+						  fb->format->format);
+	if (fmt) {
 		if (fb->modifier == DRM_FORMAT_MOD_INVALID)
 			return true;
-
-		for (j = 0; j < plane->formats[i].count_modifiers; j++) {
-			if (plane->formats[i].modifiers[j] == fb->modifier)
-				return true;
-		}
+		if (weston_drm_format_has_modifier(fmt, fb->modifier))
+			return true;
 	}
 
 	drm_debug(b, "\t\t\t\t[%s] not placing view on %s: "

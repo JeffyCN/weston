@@ -435,7 +435,6 @@ struct drm_plane {
 
 	uint32_t possible_crtcs;
 	uint32_t plane_id;
-	uint32_t count_formats;
 
 	struct drm_property_info props[WDRM_PLANE__COUNT];
 
@@ -447,11 +446,7 @@ struct drm_plane {
 
 	struct wl_list link;
 
-	struct {
-		uint32_t format;
-		uint32_t count_modifiers;
-		uint64_t *modifiers;
-	} formats[];
+	struct weston_drm_format_array formats;
 };
 
 struct drm_connector {

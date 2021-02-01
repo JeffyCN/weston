@@ -181,6 +181,10 @@ err:
 int
 drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 {
+	struct weston_drm_format *fmt;
+	const uint64_t *modifiers;
+	unsigned int num_modifiers;
+
 	uint32_t format[2] = {
 		output->gbm_format,
 		fallback_format_for(output->gbm_format),
@@ -191,30 +195,26 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 	};
 	struct weston_mode *mode = output->base.current_mode;
 	struct drm_plane *plane = output->scanout_plane;
-	unsigned int i;
 
 	assert(output->gbm_surface == NULL);
 
-	for (i = 0; i < plane->count_formats; i++) {
-		if (plane->formats[i].format == output->gbm_format)
-			break;
-	}
-
-	if (i == plane->count_formats) {
+	fmt = weston_drm_format_array_find_format(&plane->formats, output->gbm_format);
+	if (!fmt) {
 		weston_log("format 0x%x not supported by output %s\n",
 			   output->gbm_format, output->base.name);
 		return -1;
 	}
 
 #ifdef HAVE_GBM_MODIFIERS
-	if (plane->formats[i].count_modifiers > 0) {
+	modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+	if (num_modifiers > 0) {
 		output->gbm_surface =
 			gbm_surface_create_with_modifiers(b->gbm,
 							  mode->width,
 							  mode->height,
 							  output->gbm_format,
-							  plane->formats[i].modifiers,
-							  plane->formats[i].count_modifiers);
+							  modifiers,
+							  num_modifiers);
 	}
 
 	/* If allocating with modifiers fails, try again without. This can

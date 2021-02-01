@@ -760,19 +760,18 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 	struct drm_plane *plane;
 	drmModeObjectProperties *props;
 	uint64_t *zpos_range_values;
-	uint32_t num_formats = (kplane) ? kplane->count_formats : 1;
 
-	plane = zalloc(sizeof(*plane) +
-		       (sizeof(plane->formats[0]) * num_formats));
+	plane = zalloc(sizeof(*plane));
 	if (!plane) {
 		weston_log("%s: out of memory\n", __func__);
 		return NULL;
 	}
 
 	plane->backend = b;
-	plane->count_formats = num_formats;
 	plane->state_cur = drm_plane_state_alloc(NULL, plane);
 	plane->state_cur->complete = true;
+
+	weston_drm_format_array_init(&plane->formats);
 
 	if (kplane) {
 		plane->possible_crtcs = kplane->possible_crtcs;
@@ -814,11 +813,11 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 	else {
 		plane->possible_crtcs = (1 << output->crtc->pipe);
 		plane->plane_id = 0;
-		plane->count_formats = 1;
-		plane->formats[0].format = format;
 		plane->type = type;
 		plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
 		plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
+		if (!weston_drm_format_array_add_format(&plane->formats, format))
+			goto err;
 	}
 
 	if (plane->type == WDRM_PLANE_TYPE__COUNT)
@@ -845,6 +844,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 err_props:
 	drm_property_info_free(plane->props, WDRM_PLANE__COUNT);
 err:
+	weston_drm_format_array_fini(&plane->formats);
 	drm_plane_state_free(plane->state_cur, true);
 	free(plane);
 	return NULL;
@@ -945,6 +945,7 @@ drm_plane_destroy(struct drm_plane *plane)
 	drm_plane_state_free(plane->state_cur, true);
 	drm_property_info_free(plane->props, WDRM_PLANE__COUNT);
 	weston_plane_release(&plane->base);
+	weston_drm_format_array_fini(&plane->formats);
 	wl_list_remove(&plane->link);
 	free(plane);
 }
