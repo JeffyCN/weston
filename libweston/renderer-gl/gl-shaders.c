@@ -235,7 +235,8 @@ gl_shader_create(struct gl_renderer *gr,
 	shader->tex_uniforms[1] = glGetUniformLocation(shader->program, "tex1");
 	shader->tex_uniforms[2] = glGetUniformLocation(shader->program, "tex2");
 	shader->alpha_uniform = glGetUniformLocation(shader->program, "alpha");
-	shader->color_uniform = glGetUniformLocation(shader->program, "color");
+	shader->color_uniform = glGetUniformLocation(shader->program,
+						     "unicolor");
 
 	free(conf);
 

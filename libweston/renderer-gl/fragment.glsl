@@ -78,7 +78,7 @@ varying vec2 v_texcoord;
 uniform sampler2D tex1;
 uniform sampler2D tex2;
 uniform float alpha;
-uniform vec4 color;
+uniform vec4 unicolor;
 
 void
 main()
@@ -118,7 +118,7 @@ main()
 		gl_FragColor = yuva2rgba(y, u, v, alpha);
 
 	} else if (c_variant == SHADER_VARIANT_SOLID) {
-		gl_FragColor = alpha * color;
+		gl_FragColor = alpha * unicolor;
 
 	} else {
 		/* Never reached, bad variant value. */
