@@ -60,10 +60,6 @@
 
 #include "shared/weston-egl-ext.h"
 
-#ifndef DRM_FORMAT_MOD_INVALID
-#define DRM_FORMAT_MOD_INVALID ((1ULL << 56) - 1)
-#endif
-
 /* Possible options that affect the displayed image */
 #define OPT_IMMEDIATE     (1 << 0)  /* create wl_buffer immediately */
 #define OPT_IMPLICIT_SYNC (1 << 1)  /* force implicit sync */
