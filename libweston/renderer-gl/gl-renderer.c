@@ -2307,14 +2307,6 @@ import_simple_dmabuf(struct gl_renderer *gr,
  * some of the definitions here so that building Weston won't require
  * bleeding-edge kernel headers.
  */
-#ifndef DRM_FORMAT_R8
-#define DRM_FORMAT_R8            fourcc_code('R', '8', ' ', ' ') /* [7:0] R */
-#endif
-
-#ifndef DRM_FORMAT_GR88
-#define DRM_FORMAT_GR88          fourcc_code('G', 'R', '8', '8') /* [15:0] G:R 8:8 little endian */
-#endif
-
 #ifndef DRM_FORMAT_XYUV8888
 #define DRM_FORMAT_XYUV8888      fourcc_code('X', 'Y', 'U', 'V') /* [31:0] X:Y:Cb:Cr 8:8:8:8 little endian */
 #endif
