@@ -39,13 +39,13 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-#include <drm_fourcc.h>
 #include <xf86drm.h>
 #include <gbm.h>
 
 #include <wayland-client.h>
 #include "shared/helpers.h"
 #include "shared/platform.h"
+#include "shared/weston-drm-fourcc.h"
 #include <libweston/zalloc.h>
 #include "xdg-shell-client-protocol.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"

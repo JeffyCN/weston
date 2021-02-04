@@ -39,7 +39,6 @@
 #include <sys/shm.h>
 #include <linux/input.h>
 
-#include <drm_fourcc.h>
 #include <xcb/xcb.h>
 #include <xcb/shm.h>
 #ifdef HAVE_XCB_XKB
@@ -58,6 +57,7 @@
 #include "shared/timespec-util.h"
 #include "shared/file-util.h"
 #include "renderer-gl/gl-renderer.h"
+#include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
 #include "pixman-renderer.h"
 #include "presentation-time-server-protocol.h"

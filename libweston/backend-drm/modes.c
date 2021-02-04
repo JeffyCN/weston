@@ -31,9 +31,9 @@
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <drm_fourcc.h>
 
 #include "drm-internal.h"
+#include "shared/weston-drm-fourcc.h"
 
 static const char *const aspect_ratio_as_string[] = {
 	[WESTON_MODE_PIC_AR_NONE] = "",

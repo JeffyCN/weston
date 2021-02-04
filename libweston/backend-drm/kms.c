@@ -33,11 +33,11 @@
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <drm_fourcc.h>
 
 #include <libweston/libweston.h>
 #include <libweston/backend-drm.h>
 #include "shared/helpers.h"
+#include "shared/weston-drm-fourcc.h"
 #include "drm-internal.h"
 #include "pixel-formats.h"
 #include "presentation-time-server-protocol.h"

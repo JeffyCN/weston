@@ -45,7 +45,6 @@
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <drm_fourcc.h>
 
 #ifdef BUILD_DRM_GBM
 #include <gbm.h>
@@ -56,6 +55,7 @@
 #include <libweston/backend-drm.h>
 #include <libweston/weston-log.h>
 #include "shared/helpers.h"
+#include "shared/weston-drm-fourcc.h"
 #include "libinput-seat.h"
 #include "backend.h"
 #include "libweston-internal.h"

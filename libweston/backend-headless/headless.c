@@ -32,7 +32,6 @@
 #include <string.h>
 #include <sys/time.h>
 #include <stdbool.h>
-#include <drm_fourcc.h>
 
 #include <libweston/libweston.h>
 #include <libweston/backend-headless.h>
@@ -40,6 +39,7 @@
 #include "linux-explicit-synchronization.h"
 #include "pixman-renderer.h"
 #include "renderer-gl/gl-renderer.h"
+#include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
 #include "linux-dmabuf.h"
 #include "presentation-time-server-protocol.h"

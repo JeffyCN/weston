@@ -39,7 +39,6 @@
 #include <float.h>
 #include <assert.h>
 #include <linux/input.h>
-#include <drm_fourcc.h>
 #include <unistd.h>
 
 #include "linux-sync-file.h"
@@ -57,6 +56,7 @@
 #include "shared/helpers.h"
 #include "shared/platform.h"
 #include "shared/timespec-util.h"
+#include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
 
 #define BUFFER_DAMAGE_COUNT 2
@@ -2302,14 +2302,6 @@ import_simple_dmabuf(struct gl_renderer *gr,
 
 	return image;
 }
-
-/* The kernel header drm_fourcc.h defines the DRM formats below.  We duplicate
- * some of the definitions here so that building Weston won't require
- * bleeding-edge kernel headers.
- */
-#ifndef DRM_FORMAT_XYUV8888
-#define DRM_FORMAT_XYUV8888      fourcc_code('X', 'Y', 'U', 'V') /* [31:0] X:Y:Cb:Cr 8:8:8:8 little endian */
-#endif
 
 struct yuv_format_descriptor yuv_formats[] = {
 	{

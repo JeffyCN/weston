@@ -31,10 +31,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
-#include <drm_fourcc.h>
 #include <wayland-client-protocol.h>
 
 #include "shared/helpers.h"
+#include "shared/weston-drm-fourcc.h"
 #include "wayland-util.h"
 #include "pixel-formats.h"
 

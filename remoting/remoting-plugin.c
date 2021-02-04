@@ -41,12 +41,12 @@
 #include <gst/allocators/gstdmabuf.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/video/gstvideometa.h>
-#include <drm_fourcc.h>
 
 #include <libweston/remoting-plugin.h>
 #include <libweston/backend-drm.h>
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
+#include "shared/weston-drm-fourcc.h"
 #include "backend.h"
 #include "libweston-internal.h"
 

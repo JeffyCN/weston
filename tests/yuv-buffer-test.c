@@ -31,11 +31,10 @@
 #include <math.h>
 #include <unistd.h>
 
-#include <drm_fourcc.h>
-
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 #include "shared/os-compatibility.h"
+#include "shared/weston-drm-fourcc.h"
 #include "shared/xalloc.h"
 
 static enum test_result_code

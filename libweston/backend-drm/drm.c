@@ -44,7 +44,6 @@
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <drm_fourcc.h>
 
 #include <libudev.h>
 
@@ -55,6 +54,7 @@
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
 #include "shared/string-helpers.h"
+#include "shared/weston-drm-fourcc.h"
 #include "pixman-renderer.h"
 #include "pixel-formats.h"
 #include "libbacklight.h"

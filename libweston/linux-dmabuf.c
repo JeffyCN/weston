@@ -30,12 +30,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#include <drm_fourcc.h>
-
 #include <libweston/libweston.h>
 #include "linux-dmabuf.h"
 #include "linux-dmabuf-unstable-v1-server-protocol.h"
 #include "libweston-internal.h"
+#include "shared/weston-drm-fourcc.h"
 
 static void
 linux_dmabuf_buffer_destroy(struct linux_dmabuf_buffer *buffer)

@@ -38,7 +38,6 @@
 #include <sys/mman.h>
 #include <linux/input.h>
 
-#include <drm_fourcc.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 
@@ -49,6 +48,7 @@
 #include <libweston/libweston.h>
 #include <libweston/backend-wayland.h>
 #include "renderer-gl/gl-renderer.h"
+#include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
 #include "pixman-renderer.h"
 #include "shared/helpers.h"

@@ -37,8 +37,6 @@
 #include <signal.h>
 #include <fcntl.h>
 
-#include <drm_fourcc.h>
-
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -54,6 +52,7 @@
 #include "weston-direct-display-client-protocol.h"
 
 #include "shared/helpers.h"
+#include "shared/weston-drm-fourcc.h"
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define OPT_FLAG_INVERT (1 << 0)
