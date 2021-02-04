@@ -58,10 +58,20 @@ yuva2rgba(vec4 yuva)
 	vec4 color_out;
 	float Y, su, sv;
 
+	/* ITU-R BT.601 & BT.709 quantization (limited range) */
+
+	/* Y = 255/219 * (x - 16/256) */
 	Y = 1.16438356 * (yuva.x - 0.0625);
+
+	/* Remove offset 128/256, but the 255/224 multiplier comes later */
 	su = yuva.y - 0.5;
 	sv = yuva.z - 0.5;
 
+	/*
+	 * ITU-R BT.601 encoding coefficients (inverse), with the
+	 * 255/224 limited range multiplier already included in the
+	 * factors for su (Cb) and sv (Cr).
+	 */
 	color_out.r = Y                   + 1.59602678 * sv;
 	color_out.g = Y - 0.39176229 * su - 0.81296764 * sv;
 	color_out.b = Y + 2.01723214 * su;
