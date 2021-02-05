@@ -353,6 +353,70 @@ yuyv_create_buffer(struct client *client,
 	return buf;
 }
 
+/*
+ * Packed YCbCr
+ *
+ * [31:0] X:Y:Cb:Cr 8:8:8:8 little endian
+ * full resolution chroma
+ */
+static struct yuv_buffer *
+xyuv8888_create_buffer(struct client *client,
+		       uint32_t drm_format,
+		       pixman_image_t *rgb_image)
+{
+	struct yuv_buffer *buf;
+	size_t bytes;
+	int width;
+	int height;
+	int x, y;
+	void *rgb_pixels;
+	int rgb_stride_bytes;
+	uint32_t *rgb_row;
+	uint32_t *yuv_base;
+	uint32_t *yuv_row;
+	uint8_t cr;
+	uint8_t cb;
+	uint8_t y0;
+
+	assert(drm_format == DRM_FORMAT_XYUV8888);
+
+	width = pixman_image_get_width(rgb_image);
+	height = pixman_image_get_height(rgb_image);
+	rgb_pixels = pixman_image_get_data(rgb_image);
+	rgb_stride_bytes = pixman_image_get_stride(rgb_image);
+
+	/* Full size, 32 bits per pixel */
+	bytes = width * height * sizeof(uint32_t);
+	buf = yuv_buffer_create(client, bytes, width, height, width * sizeof(uint32_t), drm_format);
+
+	yuv_base = buf->data;
+
+	for (y = 0; y < height; y++) {
+		rgb_row = rgb_pixels + (y / 2 * 2) * rgb_stride_bytes;
+		yuv_row = yuv_base + y * width;
+
+		for (x = 0; x < width; x++) {
+			/*
+			 * 2x2 sub-sample the source image to get the same
+			 * result as the other YUV variants, so we can use the
+			 * same reference image for checking.
+			 */
+			x8r8g8b8_to_ycbcr8_bt601(*(rgb_row + x / 2 * 2), &y0, &cb, &cr);
+			/*
+			 * The unused byte is intentionally set to "garbage"
+			 * to catch any accidental use of it in the compositor.
+			 */
+			*(yuv_row + x) =
+				((uint32_t)x << 24) |
+				((uint32_t)y0 << 16) |
+				((uint32_t)cb << 8) |
+				((uint32_t)cr << 0);
+		}
+	}
+
+	return buf;
+}
+
 static void
 show_window_with_yuv(struct client *client, struct yuv_buffer *buf)
 {
@@ -374,6 +438,7 @@ static const struct yuv_case yuv_cases[] = {
 	{ FMT(YUV420), yuv420_create_buffer },
 	{ FMT(NV12), nv12_create_buffer },
 	{ FMT(YUYV), yuyv_create_buffer },
+	{ FMT(XYUV8888), xyuv8888_create_buffer },
 #undef FMT
 };
 
