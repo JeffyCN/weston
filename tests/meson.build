@@ -298,7 +298,12 @@ foreach t : tests
 		install: false,
 	)
 
-	test(t.get('name'), t_exe, depends: t.get('test_deps', []))
+	test(
+		t.get('name'),
+		t_exe,
+		depends: t.get('test_deps', []),
+		protocol: 'tap'
+	)
 endforeach
 
 # FIXME: the multiple loops is lame. rethink this.
