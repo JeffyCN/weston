@@ -1,6 +1,6 @@
 /*
  * Copyright 2012 Intel Corporation
- * Copyright 2015,2019 Collabora, Ltd.
+ * Copyright 2015,2019,2021 Collabora, Ltd.
  * Copyright 2016 NVIDIA Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -53,16 +53,21 @@ const int c_variant = DEF_VARIANT;
 const bool c_green_tint = DEF_GREEN_TINT;
 
 vec4
-yuva2rgba(float y, float u, float v, float a)
+yuva2rgba(vec4 yuva)
 {
 	vec4 color_out;
+	float Y, su, sv;
 
-	color_out.r = y + 1.59602678 * v;
-	color_out.g = y - 0.39176229 * u - 0.81296764 * v;
-	color_out.b = y + 2.01723214 * u;
+	Y = 1.16438356 * (yuva.x - 0.0625);
+	su = yuva.y - 0.5;
+	sv = yuva.z - 0.5;
 
-	color_out.rgb *= a;
-	color_out.a = a;
+	color_out.r = Y                   + 1.59602678 * sv;
+	color_out.g = Y - 0.39176229 * su - 0.81296764 * sv;
+	color_out.b = Y + 2.01723214 * su;
+
+	color_out.rgb *= yuva.w;
+	color_out.a = yuva.w;
 
 	return color_out;
 }
@@ -82,7 +87,7 @@ uniform vec4 unicolor;
 void
 main()
 {
-	float y, u, v;
+	vec4 yuva;
 
 	if (c_variant == SHADER_VARIANT_RGBA ||
 	    c_variant == SHADER_VARIANT_EXTERNAL) {
@@ -93,28 +98,32 @@ main()
 		gl_FragColor.a = alpha;
 
 	} else if (c_variant == SHADER_VARIANT_Y_U_V) {
-		y = 1.16438356 * (texture2D(tex, v_texcoord).x - 0.0625);
-		u = texture2D(tex1, v_texcoord).x - 0.5;
-		v = texture2D(tex2, v_texcoord).x - 0.5;
-		gl_FragColor = yuva2rgba(y, u, v, alpha);
+		yuva.x = texture2D(tex, v_texcoord).x;
+		yuva.y = texture2D(tex1, v_texcoord).x;
+		yuva.z = texture2D(tex2, v_texcoord).x;
+		yuva.w = alpha;
+		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_Y_UV) {
-		y = 1.16438356 * (texture2D(tex, v_texcoord).x - 0.0625);
-		u = texture2D(tex1, v_texcoord).r - 0.5;
-		v = texture2D(tex1, v_texcoord).g - 0.5;
-		gl_FragColor = yuva2rgba(y, u, v, alpha);
+		yuva.x = texture2D(tex, v_texcoord).x;
+		yuva.y = texture2D(tex1, v_texcoord).r;
+		yuva.z = texture2D(tex1, v_texcoord).g;
+		yuva.w = alpha;
+		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_Y_XUXV) {
-		y = 1.16438356 * (texture2D(tex, v_texcoord).x - 0.0625);
-		u = texture2D(tex1, v_texcoord).g - 0.5;
-		v = texture2D(tex1, v_texcoord).a - 0.5;
-		gl_FragColor = yuva2rgba(y, u, v, alpha);
+		yuva.x = texture2D(tex, v_texcoord).x;
+		yuva.y = texture2D(tex1, v_texcoord).g;
+		yuva.z = texture2D(tex1, v_texcoord).a;
+		yuva.w = alpha;
+		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_XYUV) {
-		y = 1.16438356 * (texture2D(tex, v_texcoord).b - 0.0625);
-		u = texture2D(tex, v_texcoord).g - 0.5;
-		v = texture2D(tex, v_texcoord).r - 0.5;
-		gl_FragColor = yuva2rgba(y, u, v, alpha);
+		yuva.x = texture2D(tex, v_texcoord).b;
+		yuva.y = texture2D(tex, v_texcoord).g;
+		yuva.z = texture2D(tex, v_texcoord).r;
+		yuva.w = alpha;
+		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_SOLID) {
 		gl_FragColor = alpha * unicolor;
