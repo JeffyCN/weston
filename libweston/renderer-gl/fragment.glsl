@@ -106,22 +106,18 @@ main()
 
 	} else if (c_variant == SHADER_VARIANT_Y_UV) {
 		yuva.x = texture2D(tex, v_texcoord).x;
-		yuva.y = texture2D(tex1, v_texcoord).r;
-		yuva.z = texture2D(tex1, v_texcoord).g;
+		yuva.yz = texture2D(tex1, v_texcoord).rg;
 		yuva.w = alpha;
 		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_Y_XUXV) {
 		yuva.x = texture2D(tex, v_texcoord).x;
-		yuva.y = texture2D(tex1, v_texcoord).g;
-		yuva.z = texture2D(tex1, v_texcoord).a;
+		yuva.yz = texture2D(tex1, v_texcoord).ga;
 		yuva.w = alpha;
 		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_XYUV) {
-		yuva.x = texture2D(tex, v_texcoord).b;
-		yuva.y = texture2D(tex, v_texcoord).g;
-		yuva.z = texture2D(tex, v_texcoord).r;
+		yuva.xyz = texture2D(tex, v_texcoord).bgr;
 		yuva.w = alpha;
 		gl_FragColor = yuva2rgba(yuva);
 
