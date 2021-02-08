@@ -84,51 +84,64 @@ uniform sampler2D tex2;
 uniform float alpha;
 uniform vec4 unicolor;
 
-void
-main()
+vec4
+sample_input_texture()
 {
 	vec4 yuva;
 
+	/* Producing RGBA directly */
+
+	if (c_variant == SHADER_VARIANT_SOLID)
+		return alpha * unicolor;
+
 	if (c_variant == SHADER_VARIANT_RGBA ||
 	    c_variant == SHADER_VARIANT_EXTERNAL) {
-		gl_FragColor = alpha * texture2D(tex, v_texcoord);
+		return alpha * texture2D(tex, v_texcoord);
+	}
 
-	} else if (c_variant == SHADER_VARIANT_RGBX) {
-		gl_FragColor.rgb = alpha * texture2D(tex, v_texcoord).rgb;
-		gl_FragColor.a = alpha;
+	if (c_variant == SHADER_VARIANT_RGBX)
+		return vec4(alpha * texture2D(tex, v_texcoord).rgb, alpha);
 
-	} else if (c_variant == SHADER_VARIANT_Y_U_V) {
+	/* Requires conversion to RGBA */
+
+	if (c_variant == SHADER_VARIANT_Y_U_V) {
 		yuva.x = texture2D(tex, v_texcoord).x;
 		yuva.y = texture2D(tex1, v_texcoord).x;
 		yuva.z = texture2D(tex2, v_texcoord).x;
 		yuva.w = alpha;
-		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_Y_UV) {
 		yuva.x = texture2D(tex, v_texcoord).x;
 		yuva.yz = texture2D(tex1, v_texcoord).rg;
 		yuva.w = alpha;
-		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_Y_XUXV) {
 		yuva.x = texture2D(tex, v_texcoord).x;
 		yuva.yz = texture2D(tex1, v_texcoord).ga;
 		yuva.w = alpha;
-		gl_FragColor = yuva2rgba(yuva);
 
 	} else if (c_variant == SHADER_VARIANT_XYUV) {
 		yuva.xyz = texture2D(tex, v_texcoord).bgr;
 		yuva.w = alpha;
-		gl_FragColor = yuva2rgba(yuva);
-
-	} else if (c_variant == SHADER_VARIANT_SOLID) {
-		gl_FragColor = alpha * unicolor;
 
 	} else {
 		/* Never reached, bad variant value. */
-		gl_FragColor = vec4(1.0, 0.3, 1.0, 1.0);
+		return vec4(1.0, 0.3, 1.0, 1.0);
 	}
 
+	return yuva2rgba(yuva);
+}
+
+void
+main()
+{
+	vec4 color;
+
+	/* Electrical (non-linear) RGBA values, pre-multiplied */
+	color = sample_input_texture();
+
 	if (c_green_tint)
-		gl_FragColor = vec4(0.0, 0.3, 0.0, 0.2) + gl_FragColor * 0.8;
+		color = vec4(0.0, 0.3, 0.0, 0.2) + color * 0.8;
+
+	gl_FragColor = color;
 }
