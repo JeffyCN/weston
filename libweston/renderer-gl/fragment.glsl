@@ -57,12 +57,11 @@ yuva2rgba(float y, float u, float v, float a)
 {
 	vec4 color_out;
 
-	y *= a;
-	u *= a;
-	v *= a;
 	color_out.r = y + 1.59602678 * v;
 	color_out.g = y - 0.39176229 * u - 0.81296764 * v;
 	color_out.b = y + 2.01723214 * u;
+
+	color_out.rgb *= a;
 	color_out.a = a;
 
 	return color_out;
