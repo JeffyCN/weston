@@ -2078,6 +2078,17 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		gl_format[1] = GL_BGRA_EXT;
 		es->is_opaque = true;
 		break;
+	case WL_SHM_FORMAT_XYUV8888:
+		/*
+		 * [31:0] X:Y:Cb:Cr 8:8:8:8 little endian
+		 *        a:b: g: r in SHADER_VARIANT_XYUV
+		 */
+		gs->shader_requirements.variant = SHADER_VARIANT_XYUV;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = GL_RGBA;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = true;
+		break;
 	default:
 		weston_log("warning: unknown shm buffer format: %08x\n",
 			   wl_shm_buffer_get_format(shm_buffer));
@@ -3674,6 +3685,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
 
 	wl_signal_init(&gr->destroy_signal);
 

@@ -70,7 +70,6 @@ apt-get -y --no-install-recommends install \
 	libva-dev \
 	libvpx-dev \
 	libvulkan-dev \
-	libwayland-dev \
 	libwebp-dev \
 	libx11-dev \
 	libx11-xcb-dev \
@@ -132,7 +131,7 @@ git checkout -b snapshot 69e3cb83b3405edc99fcf9611f50012a4f210f78
 ./setup.py install
 cd ..
 
-git clone --branch 1.17.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayland
+git clone --branch 1.18.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayland
 export MAKEFLAGS="-j4"
 cd wayland
 git show -s HEAD
