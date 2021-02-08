@@ -6,7 +6,7 @@ project('weston',
 		'c_std=gnu99',
 		'b_lundef=true',
 	],
-	meson_version: '>= 0.47',
+	meson_version: '>= 0.52.1',
 	license: 'MIT/Expat',
 )
 
