@@ -320,7 +320,6 @@ create_render_sync(struct gl_renderer *gr)
 
 static void
 timeline_submit_render_sync(struct gl_renderer *gr,
-			    struct weston_compositor *ec,
 			    struct weston_output *output,
 			    EGLSyncKHR sync,
 			    enum timeline_render_point_type type)
@@ -330,13 +329,13 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 	int fd;
 	struct timeline_render_point *trp;
 
-	if (!weston_log_scope_is_enabled(ec->timeline) ||
+	if (!weston_log_scope_is_enabled(gr->compositor->timeline) ||
 	    !gr->has_native_fence_sync ||
 	    sync == EGL_NO_SYNC_KHR)
 		return;
 
 	go = get_output_state(output);
-	loop = wl_display_get_event_loop(ec->wl_display);
+	loop = wl_display_get_event_loop(gr->compositor->wl_display);
 
 	fd = gr->dup_native_fence_fd(gr->egl_display, sync);
 	if (fd == EGL_NO_NATIVE_FENCE_FD_ANDROID)
@@ -1802,10 +1801,9 @@ gl_renderer_repaint_output(struct weston_output *output,
 	/* We have to submit the render sync objects after swap buffers, since
 	 * the objects get assigned a valid sync file fd only after a gl flush.
 	 */
-	timeline_submit_render_sync(gr, compositor, output,
-				    go->begin_render_sync,
+	timeline_submit_render_sync(gr, output, go->begin_render_sync,
 				    TIMELINE_RENDER_POINT_TYPE_BEGIN);
-	timeline_submit_render_sync(gr, compositor, output, go->end_render_sync,
+	timeline_submit_render_sync(gr, output, go->end_render_sync,
 				    TIMELINE_RENDER_POINT_TYPE_END);
 
 	update_buffer_release_fences(compositor, output);
@@ -3608,10 +3606,11 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gr == NULL)
 		return -1;
 
+	gr->compositor = ec;
 	wl_list_init(&gr->shader_list);
 	gr->platform = options->egl_platform;
 
-	gr->shader_scope = gl_shader_scope_create(ec, gr);
+	gr->shader_scope = gl_shader_scope_create(gr);
 	if (!gr->shader_scope)
 		goto fail;
 

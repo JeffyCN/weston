@@ -86,6 +86,8 @@ struct gl_shader {
 
 struct gl_renderer {
 	struct weston_renderer base;
+	struct weston_compositor *compositor;
+
 	bool fragment_shader_debug;
 	bool fan_debug;
 	struct weston_binding *fragment_binding;
@@ -206,7 +208,6 @@ gl_shader_requirements_cmp(const struct gl_shader_requirements *a,
 			   const struct gl_shader_requirements *b);
 
 struct weston_log_scope *
-gl_shader_scope_create(struct weston_compositor *compositor,
-		       struct gl_renderer *gr);
+gl_shader_scope_create(struct gl_renderer *gr);
 
 #endif /* GL_RENDERER_INTERNAL_H */

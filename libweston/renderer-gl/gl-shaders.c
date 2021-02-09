@@ -294,11 +294,10 @@ gl_shader_scope_new_subscription(struct weston_log_subscription *subs,
 }
 
 struct weston_log_scope *
-gl_shader_scope_create(struct weston_compositor *compositor,
-		       struct gl_renderer *gr)
+gl_shader_scope_create(struct gl_renderer *gr)
 {
 
-	return weston_compositor_add_log_scope(compositor,
+	return weston_compositor_add_log_scope(gr->compositor,
 		"gl-shader-generator",
 		"GL renderer shader compilation and cache.\n",
 		gl_shader_scope_new_subscription,
