@@ -2,6 +2,13 @@ if not get_option('xwayland')
 	subdir_done()
 endif
 
+xwayland_dep = dependency('xwayland', required: false)
+if xwayland_dep.found()
+	if xwayland_dep.get_pkgconfig_variable('have_listenfd') == 'true'
+		config_h.set('HAVE_XWAYLAND_LISTENFD', '1')
+	endif
+endif
+
 srcs_xwayland = [
 	'launcher.c',
 	'window-manager.c',

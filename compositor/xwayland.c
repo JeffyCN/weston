@@ -123,14 +123,23 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 			  xserver,
 			  display,
 			  "-rootless",
+#ifdef HAVE_XWAYLAND_LISTENFD
+			  "-listenfd", abstract_fd_str,
+			  "-listenfd", unix_fd_str,
+#else
 			  "-listen", abstract_fd_str,
 			  "-listen", unix_fd_str,
+#endif
 			  "-wm", wm_fd_str,
 			  "-terminate",
 			  NULL) < 0)
 			weston_log("exec of '%s %s -rootless "
-				   "-listen %s -listen %s -wm %s "
-				   "-terminate' failed: %s\n",
+#ifdef HAVE_XWAYLAND_LISTENFD
+				   "-listenfd %s -listenfd %s "
+#else
+				   "-listen %s -listen %s "
+#endif
+				   "-wm %s -terminate' failed: %s\n",
 				   xserver, display,
 				   abstract_fd_str, unix_fd_str, wm_fd_str,
 				   strerror(errno));
