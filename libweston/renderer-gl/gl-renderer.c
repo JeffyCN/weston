@@ -519,8 +519,7 @@ merge_down(pixman_box32_t *a, pixman_box32_t *b, pixman_box32_t *merge)
 }
 
 static int
-compress_bands(pixman_box32_t *inrects, int nrects,
-		   pixman_box32_t **outrects)
+compress_bands(pixman_box32_t *inrects, int nrects, pixman_box32_t **outrects)
 {
 	bool merged = false;
 	pixman_box32_t *out, merge_rect;
@@ -555,8 +554,9 @@ compress_bands(pixman_box32_t *inrects, int nrects,
 }
 
 static int
-texture_region(struct weston_view *ev, pixman_region32_t *region,
-		pixman_region32_t *surf_region)
+texture_region(struct weston_view *ev,
+	       pixman_region32_t *region,
+	       pixman_region32_t *surf_region)
 {
 	struct gl_surface_state *gs = get_surface_state(ev->surface);
 	struct weston_compositor *ec = ev->surface->compositor;
@@ -1644,7 +1644,7 @@ blit_shadow_to_output(struct weston_output *output,
  */
 static void
 gl_renderer_repaint_output(struct weston_output *output,
-			      pixman_region32_t *output_damage)
+			   pixman_region32_t *output_damage)
 {
 	struct gl_output_state *go = get_output_state(output);
 	struct weston_compositor *compositor = output->compositor;
@@ -1813,9 +1813,9 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 static int
 gl_renderer_read_pixels(struct weston_output *output,
-			       pixman_format_code_t format, void *pixels,
-			       uint32_t x, uint32_t y,
-			       uint32_t width, uint32_t height)
+			pixman_format_code_t format, void *pixels,
+			uint32_t x, uint32_t y,
+			uint32_t width, uint32_t height)
 {
 	GLenum gl_format;
 	struct gl_output_state *go = get_output_state(output);
@@ -1844,7 +1844,8 @@ gl_renderer_read_pixels(struct weston_output *output,
 	return 0;
 }
 
-static GLenum gl_format_from_internal(GLenum internal_format)
+static GLenum
+gl_format_from_internal(GLenum internal_format)
 {
 	switch (internal_format) {
 	case GL_R8_EXT:
@@ -2932,7 +2933,7 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 
 static void
 gl_renderer_surface_set_color(struct weston_surface *surface,
-		 float red, float green, float blue, float alpha)
+			      float red, float green, float blue, float alpha)
 {
 	struct gl_surface_state *gs = get_surface_state(surface);
 
