@@ -87,20 +87,20 @@ uniform vec4 unicolor;
 vec4
 sample_input_texture()
 {
-	vec4 yuva;
+	vec4 yuva = vec4(0.0, 0.0, 0.0, 1.0);
 
 	/* Producing RGBA directly */
 
 	if (c_variant == SHADER_VARIANT_SOLID)
-		return alpha * unicolor;
+		return unicolor;
 
 	if (c_variant == SHADER_VARIANT_RGBA ||
 	    c_variant == SHADER_VARIANT_EXTERNAL) {
-		return alpha * texture2D(tex, v_texcoord);
+		return texture2D(tex, v_texcoord);
 	}
 
 	if (c_variant == SHADER_VARIANT_RGBX)
-		return vec4(alpha * texture2D(tex, v_texcoord).rgb, alpha);
+		return vec4(texture2D(tex, v_texcoord).rgb, 1.0);
 
 	/* Requires conversion to RGBA */
 
@@ -108,21 +108,17 @@ sample_input_texture()
 		yuva.x = texture2D(tex, v_texcoord).x;
 		yuva.y = texture2D(tex1, v_texcoord).x;
 		yuva.z = texture2D(tex2, v_texcoord).x;
-		yuva.w = alpha;
 
 	} else if (c_variant == SHADER_VARIANT_Y_UV) {
 		yuva.x = texture2D(tex, v_texcoord).x;
 		yuva.yz = texture2D(tex1, v_texcoord).rg;
-		yuva.w = alpha;
 
 	} else if (c_variant == SHADER_VARIANT_Y_XUXV) {
 		yuva.x = texture2D(tex, v_texcoord).x;
 		yuva.yz = texture2D(tex1, v_texcoord).ga;
-		yuva.w = alpha;
 
 	} else if (c_variant == SHADER_VARIANT_XYUV) {
 		yuva.xyz = texture2D(tex, v_texcoord).bgr;
-		yuva.w = alpha;
 
 	} else {
 		/* Never reached, bad variant value. */
@@ -139,6 +135,9 @@ main()
 
 	/* Electrical (non-linear) RGBA values, pre-multiplied */
 	color = sample_input_texture();
+
+	/* View alpha (opacity) */
+	color *= alpha;
 
 	if (c_green_tint)
 		color = vec4(0.0, 0.3, 0.0, 0.2) + color * 0.8;
