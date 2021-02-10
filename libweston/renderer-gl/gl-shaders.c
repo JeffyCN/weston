@@ -1,6 +1,6 @@
 /*
  * Copyright 2012 Intel Corporation
- * Copyright 2015,2019 Collabora, Ltd.
+ * Copyright 2015,2019,2021 Collabora, Ltd.
  * Copyright 2016 NVIDIA Corporation
  * Copyright 2019 Harish Krupo
  * Copyright 2019 Intel Corporation
@@ -42,6 +42,7 @@
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
 #include "shared/helpers.h"
+#include "shared/timespec-util.h"
 
 /* static const char vertex_shader[]; vertex.glsl */
 #include "vertex-shader.h"
@@ -281,8 +282,12 @@ gl_shader_scope_new_subscription(struct weston_log_subscription *subs,
 	static const char bar[] = "-----------------------------------------------------------------------------";
 	struct gl_renderer *gr = data;
 	struct gl_shader *shader;
+	struct timespec now;
+	int msecs;
 	int count = 0;
 	char *desc;
+
+	weston_compositor_read_presentation_clock(gr->compositor, &now);
 
 	weston_log_subscription_printf(subs,
 				       "Vertex shader body:\n"
@@ -292,13 +297,16 @@ gl_shader_scope_new_subscription(struct weston_log_subscription *subs,
 				       bar, vertex_shader,
 				       bar, fragment_shader, bar);
 
-	weston_log_subscription_printf(subs, "Cached GLSL programs:\n");
+	weston_log_subscription_printf(subs,
+		"Cached GLSL programs:\n    id: (used secs ago) description +/-flags\n");
 	wl_list_for_each(shader, &gr->shader_list, link) {
 		count++;
+		msecs = timespec_sub_to_msec(&now, &shader->last_used);
 		desc = create_shader_description_string(&shader->key);
 		weston_log_subscription_printf(subs,
-					       "%6u: %s\n",
-					       shader->program, desc);
+					       "%6u: (%.1f) %s\n",
+					       shader->program,
+					       msecs / 1000.0, desc);
 	}
 	weston_log_subscription_printf(subs, "Total: %d programs.\n", count);
 }
