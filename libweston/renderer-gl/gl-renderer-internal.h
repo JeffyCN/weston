@@ -197,7 +197,7 @@ int
 gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 
 void
-gl_shader_destroy(struct gl_shader *shader);
+gl_shader_destroy(struct gl_renderer *gr, struct gl_shader *shader);
 
 struct gl_shader *
 gl_shader_create(struct gl_renderer *gr,

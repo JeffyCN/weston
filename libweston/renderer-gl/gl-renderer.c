@@ -3513,10 +3513,10 @@ gl_renderer_destroy(struct weston_compositor *ec)
 		gr->unbind_display(gr->egl_display, ec->wl_display);
 
 	wl_list_for_each_safe(shader, next_shader, &gr->shader_list, link)
-		gl_shader_destroy(shader);
+		gl_shader_destroy(gr, shader);
 
 	if (gr->fallback_shader)
-		gl_shader_destroy(gr->fallback_shader);
+		gl_shader_destroy(gr, gr->fallback_shader);
 
 	/* Work around crash in egl_dri2.c's dri2_make_current() - when does this apply? */
 	eglMakeCurrent(gr->egl_display,

@@ -106,14 +106,6 @@ dump_program_with_line_numbers(int count, const char **sources)
 	free(dumpstr);
 }
 
-void
-gl_shader_destroy(struct gl_shader *shader)
-{
-	glDeleteProgram(shader->program);
-	wl_list_remove(&shader->link);
-	free(shader);
-}
-
 static GLuint
 compile_shader(GLenum type, int count, const char **sources)
 {
@@ -255,6 +247,24 @@ error_vertex:
 	free(conf);
 	free(shader);
 	return NULL;
+}
+
+void
+gl_shader_destroy(struct gl_renderer *gr, struct gl_shader *shader)
+{
+	char *desc;
+
+	if (weston_log_scope_is_enabled(gr->shader_scope)) {
+		desc = create_shader_description_string(&shader->key);
+		weston_log_scope_printf(gr->shader_scope,
+					"Deleting shader program for: %s\n",
+					desc);
+		free(desc);
+	}
+
+	glDeleteProgram(shader->program);
+	wl_list_remove(&shader->link);
+	free(shader);
 }
 
 int
