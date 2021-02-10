@@ -29,6 +29,7 @@
 #define GL_RENDERER_INTERNAL_H
 
 #include <stdbool.h>
+#include <time.h>
 
 #include <wayland-util.h>
 #include <GLES2/gl2.h>
@@ -82,6 +83,7 @@ struct gl_shader {
 	GLint alpha_uniform;
 	GLint color_uniform;
 	struct wl_list link; /* gl_renderer::shader_list */
+	struct timespec last_used;
 };
 
 struct gl_renderer {
@@ -158,9 +160,9 @@ struct gl_renderer {
 
 	GLint gl_half_float_type;
 
-	/** struct gl_shader::link
+	/** Shader program cache in most recently used order
 	 *
-	 * List constains cached shaders built from struct gl_shader_requirements
+	 * Uses struct gl_shader::link.
 	 */
 	struct wl_list shader_list;
 	struct weston_log_scope *shader_scope;

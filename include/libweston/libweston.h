@@ -1130,6 +1130,7 @@ struct weston_compositor {
 
 	clockid_t presentation_clock;
 	int32_t repaint_msec;
+	struct timespec last_repaint_start;
 
 	unsigned int activate_serial;
 

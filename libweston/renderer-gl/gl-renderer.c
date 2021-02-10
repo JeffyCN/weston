@@ -1,6 +1,6 @@
 /*
  * Copyright © 2012 Intel Corporation
- * Copyright © 2015,2019 Collabora, Ltd.
+ * Copyright © 2015,2019,2021 Collabora, Ltd.
  * Copyright © 2016 NVIDIA Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -774,9 +774,37 @@ gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader **shaderp)
 	if (gr->current_shader == shader)
 		return true;
 
+	if (shader != gr->fallback_shader) {
+		/* Update list order for most recently used. */
+		wl_list_remove(&shader->link);
+		wl_list_insert(&gr->shader_list, &shader->link);
+	}
+	shader->last_used = gr->compositor->last_repaint_start;
+
 	glUseProgram(shader->program);
 	gr->current_shader = shader;
 	return true;
+}
+
+static void
+gl_renderer_garbage_collect_programs(struct gl_renderer *gr)
+{
+	struct gl_shader *shader, *tmp;
+	unsigned count = 0;
+
+	wl_list_for_each_safe(shader, tmp, &gr->shader_list, link) {
+		/* Keep the 10 most recently used always. */
+		if (count++ < 10)
+			continue;
+
+		/* Keep everything used in the past 1 minute. */
+		if (timespec_sub_to_msec(&gr->compositor->last_repaint_start,
+					 &shader->last_used) < 60000)
+			continue;
+
+		/* The rest throw away. */
+		gl_shader_destroy(gr, shader);
+	}
 }
 
 static const struct gl_shader_requirements requirements_triangle_fan = {
@@ -1807,6 +1835,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 				    TIMELINE_RENDER_POINT_TYPE_END);
 
 	update_buffer_release_fences(compositor, output);
+
+	gl_renderer_garbage_collect_programs(gr);
 }
 
 static int

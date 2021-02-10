@@ -2919,6 +2919,7 @@ output_repaint_timer_handler(void *data)
 	int ret = 0;
 
 	weston_compositor_read_presentation_clock(compositor, &now);
+	compositor->last_repaint_start = now;
 
 	if (compositor->backend->repaint_begin)
 		repaint_data = compositor->backend->repaint_begin(compositor);
