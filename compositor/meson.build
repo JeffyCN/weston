@@ -123,7 +123,7 @@ endif
 
 if get_option('color-management-colord')
 	if not get_option('color-management-lcms')
-		error('LCMS must be enabled to support colord')
+		error('LCMS must be enabled to support colord. Or, you can use \'-Dcolor-management-colord=false\'.')
 	endif
 
 	srcs_colord = [
