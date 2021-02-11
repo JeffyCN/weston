@@ -2760,6 +2760,11 @@ wayland_backend_create(struct weston_compositor *compositor,
 	wl_registry_add_listener(b->parent.registry, &registry_listener, b);
 	wl_display_roundtrip(b->parent.wl_display);
 
+	if (b->parent.shm == NULL) {
+		weston_log("Error: Failed to retrieve wl_shm from parent Wayland compositor\n");
+		goto err_display;
+	}
+
 	create_cursor(b, new_config);
 
 #ifdef ENABLE_EGL
