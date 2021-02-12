@@ -96,17 +96,20 @@ cope with the way git log presents them.
 See [notes on commit messages] for a recommended reading on writing commit
 messages.
 
-Your patches should also include a Signed-off-by line with your name and
-email address which indicates that you agree to the
+Your patches must also include a Signed-off-by line with your name
+(or pseudonym) and email address which indicates that you agree to the
 [Developer's Certificate of Origin 1.1](DCO-1.1.txt).
 If you're not the patch's original author, you should
-also gather S-o-b's by them (and/or whomever gave the patch to you.) The
+also gather S-o-b's from them (and/or whomever gave the patch to you) in
+addition to your own S-o-b. The
 significance of this is that it certifies that you created the patch,
 that it was created under an appropriate open source license, or
 provided to you under those terms.  This lets us indicate a chain of
 responsibility for the copyright status of the code.
 
-We won't reject patches that lack S-o-b, but it is strongly recommended.
+**Agreeing to DCO 1.1 is mandatory.** Patches without a Signed-off-by cannot
+be accepted, but using a pseudonym is fine as long as the email address is
+yours personally.
 
 When you re-send patches, revised or not, it would be very good to document the
 changes compared to the previous revision in the commit message and/or the
