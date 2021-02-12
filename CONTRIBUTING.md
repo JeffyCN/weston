@@ -39,9 +39,8 @@ repository, and then submit these patches for review through a merge request.
 Weston formerly accepted patches via `git-send-email`, sent to
 **wayland-devel\@lists.freedesktop.org**; these were
 [tracked using Patchwork](https://patchwork.freedesktop.org/projects/wayland/).
-Some old patches continue to be sent this way, and we may accept small new
-patches sent to the list, but please send all new patches through GitLab merge
-requests.
+New email patches are no longer accepted.
+
 
 Formatting and separating commits
 ---------------------------------
