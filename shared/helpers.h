@@ -134,6 +134,14 @@ extern "C" {
 # endif
 #endif
 
+/** Ensure argument is of given type */
+#ifndef TYPEVERIFY
+#define TYPEVERIFY(type, arg) ({		\
+	typeof(arg) tmp___ = (arg);		\
+	(void)((type)0 == tmp___);		\
+	tmp___; })
+#endif
+
 #ifdef  __cplusplus
 }
 #endif
