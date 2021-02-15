@@ -76,6 +76,7 @@ struct wet_testsuite_data {
 
 	/* informational run state */
 	int fixture_iteration;
+	const char *fixture_name;
 
 	/* test counts */
 	unsigned counter;

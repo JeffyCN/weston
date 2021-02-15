@@ -116,6 +116,20 @@ fixture_setup_array_get_arg(const struct fixture_setup_array *fsa, int findex)
 	return NULL;
 }
 
+static const char *
+fixture_setup_array_get_name(const struct fixture_setup_array *fsa, int findex)
+{
+	const char *element_data = fixture_setup_array_get_arg(fsa, findex);
+	const struct fixture_metadata *meta;
+
+	if (!element_data)
+		return "";
+
+	meta = (const void *)(element_data + fsa->meta_offset);
+
+	return meta->name;
+}
+
 static const struct weston_test_entry *
 find_test(const char *name)
 {
@@ -238,8 +252,8 @@ run_case(struct wet_testsuite_data *suite_data,
 	int fixture_nr = suite_data->fixture_iteration + 1;
 	int iteration_nr = iteration + 1;
 
-	testlog("*** Run fixture %d, %s/%d\n",
-		fixture_nr, t->name, iteration_nr);
+	testlog("*** Run %s %s/%d\n",
+		suite_data->fixture_name, t->name, iteration_nr);
 
 	if (suite_data->type == TEST_TYPE_PLUGIN) {
 		ret = run_test(fixture_nr, t, suite_data->compositor,
@@ -263,12 +277,13 @@ run_case(struct wet_testsuite_data *suite_data,
 		break;
 	}
 
-	testlog("*** Result fixture %d, %s/%d: %s\n",
-		fixture_nr, t->name, iteration_nr, result_to_str(ret));
+	testlog("*** Result %s %s/%d: %s\n",
+		suite_data->fixture_name, t->name, iteration_nr,
+		result_to_str(ret));
 
 	suite_data->counter++;
-	printf("%sok %d fixture %d %s/%d%s\n", fail, suite_data->counter,
-	       fixture_nr, t->name, iteration_nr, skip);
+	printf("%sok %d %s %s/%d%s\n", fail, suite_data->counter,
+	       suite_data->fixture_name, t->name, iteration_nr, skip);
 }
 
 /* This function might run in a new thread */
@@ -302,12 +317,11 @@ skip_case(struct wet_testsuite_data *suite_data,
 	  const void *test_data,
 	  int iteration)
 {
-	int fixture_nr = suite_data->fixture_iteration + 1;
 	int iteration_nr = iteration + 1;
 
 	suite_data->counter++;
-	printf("ok %d fixture %d %s/%d # SKIP fixture\n", suite_data->counter,
-	       fixture_nr, t->name, iteration_nr);
+	printf("ok %d %s %s/%d # SKIP fixture\n", suite_data->counter,
+	       suite_data->fixture_name, t->name, iteration_nr);
 }
 
 static void
@@ -545,6 +559,7 @@ fixture_setup_array_get_(void)
 		.array = NULL,
 		.element_size = 0,
 		.n_elements = 1,
+		.meta_offset = 0,
 	};
 
 	return &default_fsa;
@@ -570,8 +585,8 @@ fixture_report(const struct wet_testsuite_data *d, enum test_result_code ret)
 {
 	int fixture_nr = d->fixture_iteration + 1;
 
-	testlog("--- Fixture %d %s: passed %d, skipped %d, failed %d, total %d\n",
-		fixture_nr, result_to_str(ret),
+	testlog("--- Fixture %d (%s) %s: passed %d, skipped %d, failed %d, total %d\n",
+		fixture_nr, d->fixture_name, result_to_str(ret),
 		d->passed, d->skipped, d->failed, d->total);
 }
 
@@ -603,11 +618,15 @@ main(int argc, char *argv[])
 	for (; fi < fi_end; fi++) {
 		const void *arg = fixture_setup_array_get_arg(fsa, fi);
 
-		testlog("--- Fixture %d...\n", fi + 1);
 		harness->data.fixture_iteration = fi;
+		harness->data.fixture_name = fixture_setup_array_get_name(fsa,
+									  fi);
 		harness->data.passed = 0;
 		harness->data.skipped = 0;
 		harness->data.failed = 0;
+
+		testlog("--- Fixture %d (%s)...\n",
+			fi + 1, harness->data.fixture_name);
 
 		ret = fixture_setup_run_(harness, arg);
 		fixture_report(&harness->data, ret);
