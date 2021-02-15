@@ -33,6 +33,7 @@
 #include "weston-test-fixture-compositor.h"
 
 struct setup_args {
+	struct fixture_metadata meta;
 	enum renderer_type renderer;
 };
 
@@ -40,8 +41,14 @@ static const int ALPHA_STEPS = 256;
 static const int BLOCK_WIDTH = 3;
 
 static const struct setup_args my_setup_args[] = {
-	{ RENDERER_PIXMAN },
-	{ RENDERER_GL },
+	{
+		.renderer = RENDERER_PIXMAN,
+		.meta.name = "pixman"
+	},
+	{
+		.renderer = RENDERER_GL,
+		.meta.name = "GL"
+	},
 };
 
 static enum test_result_code
@@ -57,7 +64,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
-DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args);
+DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args, meta);
 
 static void
 set_opaque_rect(struct client *client,

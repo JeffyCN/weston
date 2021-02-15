@@ -33,11 +33,24 @@
 #include "weston-test-fixture-compositor.h"
 
 #define TRANSFORM(x) WL_OUTPUT_TRANSFORM_ ## x, #x
-#define RENDERERS(s, t) \
-	{ RENDERER_PIXMAN, s, TRANSFORM(t) }, \
-	{ RENDERER_GL,     s, TRANSFORM(t) }
+#define RENDERERS(s, t)							\
+	{								\
+		.renderer = RENDERER_PIXMAN,				\
+		.scale = s,						\
+		.transform = WL_OUTPUT_TRANSFORM_ ## t,			\
+		.transform_name = #t,					\
+		.meta.name = "pixman " #s " " #t,			\
+	},								\
+	{								\
+		.renderer = RENDERER_GL,				\
+		.scale = s,						\
+		.transform = WL_OUTPUT_TRANSFORM_ ## t,			\
+		.transform_name = #t,					\
+		.meta.name = "GL " #s " " #t,				\
+	}
 
 struct setup_args {
+	struct fixture_metadata meta;
 	enum renderer_type renderer;
 	int scale;
 	enum wl_output_transform transform;
@@ -70,7 +83,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
-DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args);
+DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args, meta);
 
 struct buffer_args {
 	int scale;

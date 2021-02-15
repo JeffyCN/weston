@@ -33,24 +33,35 @@
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 
-static const enum renderer_type renderers[] = {
-	RENDERER_PIXMAN,
-	RENDERER_GL,
+struct setup_args {
+	struct fixture_metadata meta;
+	enum renderer_type renderer;
+};
+
+static const struct setup_args my_setup_args[] = {
+	{
+		.renderer = RENDERER_PIXMAN,
+		.meta.name = "pixman"
+	},
+	{
+		.renderer = RENDERER_GL,
+		.meta.name = "GL"
+	},
 };
 
 static enum test_result_code
 fixture_setup(struct weston_test_harness *harness,
-	      const enum renderer_type *renderer)
+	      const struct setup_args *arg)
 {
 	struct compositor_setup setup;
 
 	compositor_setup_defaults(&setup);
-	setup.renderer = *renderer;
+	setup.renderer = arg->renderer;
 	setup.shell = SHELL_TEST_DESKTOP;
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
-DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, renderers);
+DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args, meta);
 
 
 TEST(viewport_upscale_solid)

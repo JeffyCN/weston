@@ -146,6 +146,20 @@ get_test_name(void);
 int
 get_test_fixture_index(void);
 
+/** Metadata for fixture setup array elements
+ *
+ * Every type used as a fixture setup array's elements needs one member of
+ * this type, initialized.
+ *
+ * \sa DECLARE_FIXTURE_SETUP_WITH_ARG()
+ *
+ * \ingroup testharness
+ */
+struct fixture_metadata {
+	/** Human friendly name of the fixture setup */
+	const char *name;
+};
+
 /** Fixture setup array record
  *
  * Helper to store the attributes of the data array passed in to
@@ -157,6 +171,7 @@ struct fixture_setup_array {
 	const void *array;
 	size_t element_size;
 	int n_elements;
+	size_t meta_offset;
 };
 
 const struct fixture_setup_array *
@@ -222,18 +237,21 @@ fixture_setup_run_(struct weston_test_harness *harness, const void *arg_);
  *
  * \param func_ The function to be used as fixture setup.
  * \param array_ A static const array of arbitrary type.
+ * \param meta_ Name of the field with type struct fixture_metadata.
  *
  * \ingroup testharness
  */
-#define DECLARE_FIXTURE_SETUP_WITH_ARG(func_, array_)			\
+#define DECLARE_FIXTURE_SETUP_WITH_ARG(func_, array_, meta_)		\
 	const struct fixture_setup_array *				\
 	fixture_setup_array_get_(void)					\
 	{								\
 		static const struct fixture_setup_array arr = {		\
 			.array = array_,				\
 			.element_size = sizeof(array_[0]),		\
-			.n_elements = ARRAY_LENGTH(array_)		\
-		};							\
+			.n_elements = ARRAY_LENGTH(array_),		\
+			.meta_offset = offsetof(typeof(array_[0]), meta_),	\
+		};								\
+		TYPEVERIFY(const struct fixture_metadata *, &array_[0].meta_);	\
 		return &arr;						\
 	}								\
 									\
