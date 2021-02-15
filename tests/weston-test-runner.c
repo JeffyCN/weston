@@ -105,6 +105,17 @@ testlog(const char *fmt, ...)
 	va_end(argp);
 }
 
+static const void *
+fixture_setup_array_get_arg(const struct fixture_setup_array *fsa, int findex)
+{
+	const char *array_data = fsa->array;
+
+	if (array_data)
+		return array_data + findex * fsa->element_size;
+
+	return NULL;
+}
+
 static const struct weston_test_entry *
 find_test(const char *name)
 {
@@ -571,14 +582,12 @@ main(int argc, char *argv[])
 	enum test_result_code ret;
 	enum test_result_code result = RESULT_OK;
 	const struct fixture_setup_array *fsa;
-	const char *array_data;
 	int fi;
 	int fi_end;
 
 	harness = weston_test_harness_create(argc, argv);
 
 	fsa = fixture_setup_array_get_();
-	array_data = fsa->array;
 
 	if (harness->fixt_ind == -1) {
 		fi = 0;
@@ -592,7 +601,7 @@ main(int argc, char *argv[])
 	testlog("Iterating through %d fixtures.\n", fi_end - fi);
 
 	for (; fi < fi_end; fi++) {
-		const void *arg = array_data + fi * fsa->element_size;
+		const void *arg = fixture_setup_array_get_arg(fsa, fi);
 
 		testlog("--- Fixture %d...\n", fi + 1);
 		harness->data.fixture_iteration = fi;
