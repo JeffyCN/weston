@@ -174,11 +174,21 @@ list_tests(void)
 {
 	const struct fixture_setup_array *fsa;
 	const struct weston_test_entry *t;
+	int i;
 
 	fsa = fixture_setup_array_get_();
 
-	printf("Fixture setups: %d\n", fsa->n_elements);
+	if (fsa->n_elements > 1) {
+		printf("Fixture setups:\n");
+		for (i = 0; i < fsa->n_elements; i++) {
+			printf("%2d: %s\n", i + 1,
+			       fixture_setup_array_get_name(fsa, i));
+		}
+	} else {
+		printf("One fixture setup.\n");
+	}
 
+	printf("Test names:\n");
 	for (t = &__start_test_section; t < &__stop_test_section; t++) {
 		printf("  %s\n", t->name);
 		if (t->n_elements > 1)
