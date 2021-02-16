@@ -151,15 +151,25 @@ struct window_delete_data {
 
 struct gl_renderer_interface *gl_renderer;
 
+static void
+x11_head_destroy(struct weston_head *base);
+
 static inline struct x11_head *
 to_x11_head(struct weston_head *base)
 {
+	if (base->backend_id != x11_head_destroy)
+		return NULL;
 	return container_of(base, struct x11_head, base);
 }
+
+static void
+x11_output_destroy(struct weston_output *base);
 
 static inline struct x11_output *
 to_x11_output(struct weston_output *base)
 {
+	if (base->destroy != x11_output_destroy)
+		return NULL;
 	return container_of(base, struct x11_output, base);
 }
 
@@ -420,7 +430,11 @@ x11_output_repaint_gl(struct weston_output *output_base,
 		      pixman_region32_t *damage)
 {
 	struct x11_output *output = to_x11_output(output_base);
-	struct weston_compositor *ec = output->base.compositor;
+	struct weston_compositor *ec;
+
+	assert(output);
+
+	ec = output->base.compositor;
 
 	ec->renderer->repaint_output(output_base, damage);
 
@@ -435,14 +449,20 @@ static void
 set_clip_for_output(struct weston_output *output_base, pixman_region32_t *region)
 {
 	struct x11_output *output = to_x11_output(output_base);
-	struct weston_compositor *ec = output->base.compositor;
-	struct x11_backend *b = to_x11_backend(ec);
+	struct weston_compositor *ec;
+	struct x11_backend *b;
 	pixman_region32_t transformed_region;
 	pixman_box32_t *rects;
 	xcb_rectangle_t *output_rects;
 	xcb_void_cookie_t cookie;
 	int nrects, i;
 	xcb_generic_error_t *err;
+
+	if (!output)
+		return;
+
+	ec = output->base.compositor;
+	b = to_x11_backend(ec);
 
 	pixman_region32_init(&transformed_region);
 	pixman_region32_copy(&transformed_region, region);
@@ -488,10 +508,15 @@ x11_output_repaint_shm(struct weston_output *output_base,
 		       pixman_region32_t *damage)
 {
 	struct x11_output *output = to_x11_output(output_base);
-	struct weston_compositor *ec = output->base.compositor;
-	struct x11_backend *b = to_x11_backend(ec);
+	struct weston_compositor *ec;
+	struct x11_backend *b;
 	xcb_void_cookie_t cookie;
 	xcb_generic_error_t *err;
+
+	assert(output);
+
+	ec = output->base.compositor;
+	b = to_x11_backend(ec);
 
 	pixman_renderer_output_set_buffer(output_base, output->hw_surface);
 	ec->renderer->repaint_output(output_base, damage);
@@ -565,13 +590,13 @@ x11_output_set_wm_protocols(struct x11_backend *b,
 }
 
 struct wm_normal_hints {
-    	uint32_t flags;
+	uint32_t flags;
 	uint32_t pad[4];
 	int32_t min_width, min_height;
 	int32_t max_width, max_height;
-    	int32_t width_inc, height_inc;
-    	int32_t min_aspect_x, min_aspect_y;
-    	int32_t max_aspect_x, max_aspect_y;
+	int32_t width_inc, height_inc;
+	int32_t min_aspect_x, min_aspect_y;
+	int32_t max_aspect_x, max_aspect_y;
 	int32_t base_width, base_height;
 	int32_t win_gravity;
 };
@@ -801,12 +826,13 @@ static int
 x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 {
 	struct x11_backend *b;
-	struct x11_output *output;
+	struct x11_output *output = to_x11_output(base);
 	static uint32_t values[2];
 	int ret;
 
+	assert(output);
+
 	b = to_x11_backend(base->compositor);
-	output = to_x11_output(base);
 
 	if (mode->width == output->mode.width &&
 	    mode->height == output->mode.height)
@@ -878,7 +904,11 @@ static int
 x11_output_disable(struct weston_output *base)
 {
 	struct x11_output *output = to_x11_output(base);
-	struct x11_backend *backend = to_x11_backend(base->compositor);
+	struct x11_backend *backend;
+
+	assert(output);
+
+	backend = to_x11_backend(base->compositor);
 
 	if (!output->base.enabled)
 		return 0;
@@ -903,6 +933,8 @@ x11_output_destroy(struct weston_output *base)
 {
 	struct x11_output *output = to_x11_output(base);
 
+	assert(output);
+
 	x11_output_disable(&output->base);
 	weston_output_release(&output->base);
 
@@ -913,7 +945,11 @@ static int
 x11_output_enable(struct weston_output *base)
 {
 	struct x11_output *output = to_x11_output(base);
-	struct x11_backend *b = to_x11_backend(base->compositor);
+	struct x11_backend *b;
+
+	assert(output);
+
+	b = to_x11_backend(base->compositor);
 
 	static const char name[] = "Weston Compositor";
 	static const char class[] = "weston-1\0Weston Compositor";
@@ -1077,10 +1113,16 @@ static int
 x11_output_set_size(struct weston_output *base, int width, int height)
 {
 	struct x11_output *output = to_x11_output(base);
-	struct x11_backend *b = to_x11_backend(base->compositor);
+	struct x11_backend *b;
 	struct weston_head *head;
-	xcb_screen_t *scrn = b->screen;
+	xcb_screen_t *scrn;
 	int output_width, output_height;
+
+	if (!output)
+		return -1;
+
+	b = to_x11_backend(base->compositor);
+	scrn = b->screen;
 
 	/* We can only be called once. */
 	assert(!output->base.current_mode);
@@ -1163,6 +1205,9 @@ x11_head_create(struct weston_compositor *compositor, const char *name)
 		return -1;
 
 	weston_head_init(&head->base, name);
+
+	head->base.backend_id = x11_head_destroy;
+
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);
 
@@ -1170,8 +1215,12 @@ x11_head_create(struct weston_compositor *compositor, const char *name)
 }
 
 static void
-x11_head_destroy(struct x11_head *head)
+x11_head_destroy(struct weston_head *base)
 {
+	struct x11_head *head = to_x11_head(base);
+
+	assert(head);
+
 	weston_head_release(&head->base);
 	free(head);
 }
@@ -1790,8 +1839,10 @@ x11_destroy(struct weston_compositor *ec)
 
 	weston_compositor_shutdown(ec); /* destroys outputs, too */
 
-	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
-		x11_head_destroy(to_x11_head(base));
+	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
+		if (to_x11_head(base))
+			x11_head_destroy(base);
+	}
 
 	XCloseDisplay(backend->dpy);
 	free(backend);
