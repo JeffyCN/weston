@@ -676,6 +676,7 @@ usage(int error_code)
 #if defined(BUILD_X11_COMPOSITOR)
 			"\t\t\t\tx11\n"
 #endif
+		"  --backends\t\tLoad the comma-separated list of backends\n"
 		"  --renderer=NAME\tRenderer to use, one of\n"
 			"\t\t\t\tauto\tAutomatic selection of one of the below renderers\n"
 #if defined(ENABLE_EGL)
@@ -3841,6 +3842,33 @@ load_backend(struct weston_compositor *compositor, const char *name,
 	}
 }
 
+static int
+load_backends(struct weston_compositor *ec, const char *backends,
+	      int *argc, char *argv[], struct weston_config *config,
+	      const char *renderer)
+{
+	const char *p, *end;
+	char buffer[256];
+
+	if (backends == NULL)
+		return 0;
+
+	p = backends;
+	while (*p) {
+		end = strchrnul(p, ',');
+		snprintf(buffer, sizeof buffer, "%.*s", (int) (end - p), p);
+
+		if (load_backend(ec, buffer, argc, argv, config, renderer) < 0)
+			return -1;
+
+		p = end;
+		while (*p == ',')
+			p++;
+	}
+
+	return 0;
+}
+
 static char *
 copy_command_line(int argc, char * const argv[])
 {
@@ -3982,7 +4010,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	struct wl_event_source *signals[3];
 	struct wl_event_loop *loop;
 	int i, fd;
-	char *backend = NULL;
+	char *backends = NULL;
 	char *renderer = NULL;
 	char *shell = NULL;
 	bool xwayland = false;
@@ -4019,7 +4047,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	struct wl_protocol_logger *protologger = NULL;
 
 	const struct weston_option core_options[] = {
-		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
+		{ WESTON_OPTION_STRING, "backend", 'B', &backends },
+		{ WESTON_OPTION_STRING, "backends", 0, &backends },
 		{ WESTON_OPTION_STRING, "renderer", 0, &renderer },
 		{ WESTON_OPTION_STRING, "shell", 0, &shell },
 		{ WESTON_OPTION_STRING, "socket", 'S', &socket_name },
@@ -4161,11 +4190,15 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 						 &renderer, NULL);
 	}
 
-	if (!backend) {
-		weston_config_section_get_string(section, "backend", &backend,
+	if (!backends) {
+		weston_config_section_get_string(section, "backends", &backends,
 						 NULL);
-		if (!backend)
-			backend = weston_choose_default_backend();
+		if (!backends) {
+			weston_config_section_get_string(section, "backend",
+							 &backends, NULL);
+			if (!backends)
+				backends = weston_choose_default_backend();
+		}
 	}
 
 	wet.compositor = weston_compositor_create(display, log_ctx, &wet, test_data);
@@ -4209,8 +4242,9 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		free(require_outputs);
 	}
 
-	if (load_backend(wet.compositor, backend, &argc, argv, config,
-			 renderer) < 0) {
+	wet.compositor->multi_backend = backends && strchr(backends, ',');
+	if (load_backends(wet.compositor, backends, &argc, argv, config,
+			  renderer) < 0) {
 		weston_log("fatal: failed to create compositor backend\n");
 		goto out;
 	}
@@ -4364,7 +4398,7 @@ out_display:
 	if (config)
 		weston_config_destroy(config);
 	free(config_file);
-	free(backend);
+	free(backends);
 	free(renderer);
 	free(shell);
 	free(socket_name);
