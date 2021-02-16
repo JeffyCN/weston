@@ -77,13 +77,6 @@ weston_desktop_create(struct weston_compositor *compositor,
 		return NULL;
 	}
 
-	desktop->xdg_shell_v6 =
-		weston_desktop_xdg_shell_v6_create(desktop, display);
-	if (desktop->xdg_shell_v6 == NULL) {
-		weston_desktop_destroy(desktop);
-		return NULL;
-	}
-
 	desktop->wl_shell =
 		weston_desktop_wl_shell_create(desktop, display);
 	if (desktop->wl_shell == NULL) {
