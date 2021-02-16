@@ -1440,6 +1440,8 @@ struct weston_compositor {
 	const struct pixel_format_info *read_format;
 
 	struct weston_backend *backend;
+	struct wl_list backend_list;
+
 	struct weston_launcher *launcher;
 
 	struct weston_dmabuf_feedback *default_dmabuf_feedback;

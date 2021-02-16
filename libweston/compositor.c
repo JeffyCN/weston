@@ -8973,6 +8973,8 @@ weston_compositor_create(struct wl_display *display,
 	wl_list_init(&ec->debug_binding_list);
 	wl_list_init(&ec->tablet_manager_resource_list);
 
+	wl_list_init(&ec->backend_list);
+
 	wl_list_init(&ec->plugin_api_list);
 
 	wl_data_device_manager_init(ec->wl_display);
@@ -9399,6 +9401,25 @@ weston_compositor_add_destroy_listener_once(struct weston_compositor *compositor
 	return true;
 }
 
+static void
+weston_compositor_shutdown_backends(struct weston_compositor *compositor)
+{
+	struct weston_backend *backend;
+
+	wl_list_for_each(backend, &compositor->backend_list, link)
+		if (backend->shutdown)
+			backend->shutdown(backend);
+}
+
+static void
+weston_compositor_destroy_backends(struct weston_compositor *compositor)
+{
+	struct weston_backend *backend, *tmp;
+
+	wl_list_for_each_safe(backend, tmp, &compositor->backend_list, link)
+		backend->destroy(backend);
+}
+
 /** Destroys the compositor.
  *
  * This function cleans up the compositor state and then destroys it.
@@ -9417,13 +9438,11 @@ weston_compositor_destroy(struct weston_compositor *compositor)
 
 	weston_compositor_xkb_destroy(compositor);
 
-	if (compositor->backend && compositor->backend->shutdown)
-		compositor->backend->shutdown(compositor->backend);
+	weston_compositor_shutdown_backends(compositor);
 
 	weston_compositor_shutdown(compositor);
 
-	if (compositor->backend)
-		compositor->backend->destroy(compositor->backend);
+	weston_compositor_destroy_backends(compositor);
 
 	/* The backend is responsible for destroying the heads. */
 	assert(wl_list_empty(&compositor->head_list));
@@ -9529,6 +9548,8 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 		compositor->backend = NULL;
 		return -1;
 	}
+
+	wl_list_insert(&compositor->backend_list, &compositor->backend->link);
 
 	return 0;
 }
