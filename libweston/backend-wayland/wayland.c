@@ -231,15 +231,25 @@ struct wayland_input {
 
 struct gl_renderer_interface *gl_renderer;
 
+static void
+wayland_head_destroy(struct weston_head *base);
+
 static inline struct wayland_head *
 to_wayland_head(struct weston_head *base)
 {
+	if (base->backend_id != wayland_head_destroy)
+		return NULL;
 	return container_of(base, struct wayland_head, base);
 }
+
+static void
+wayland_output_destroy(struct weston_output *base);
 
 static inline struct wayland_output *
 to_wayland_output(struct weston_output *base)
 {
+	if (base->destroy != wayland_output_destroy)
+		return NULL;
 	return container_of(base, struct wayland_output, base);
 }
 
@@ -499,8 +509,11 @@ static int
 wayland_output_start_repaint_loop(struct weston_output *output_base)
 {
 	struct wayland_output *output = to_wayland_output(output_base);
-	struct wayland_backend *wb =
-		to_wayland_backend(output->base.compositor);
+	struct wayland_backend *wb;
+
+	assert(output);
+
+	wb = to_wayland_backend(output->base.compositor);
 
 	/* If this is the initial frame, we need to attach a buffer so that
 	 * the compositor can map the surface and include it in its render
@@ -527,7 +540,11 @@ wayland_output_repaint_gl(struct weston_output *output_base,
 			  pixman_region32_t *damage)
 {
 	struct wayland_output *output = to_wayland_output(output_base);
-	struct weston_compositor *ec = output->base.compositor;
+	struct weston_compositor *ec;
+
+	assert(output);
+
+	ec = output->base.compositor;
 
 	output->frame_cb = wl_surface_frame(output->parent.surface);
 	wl_callback_add_listener(output->frame_cb, &frame_listener, output);
@@ -638,9 +655,12 @@ wayland_output_repaint_pixman(struct weston_output *output_base,
 			      pixman_region32_t *damage)
 {
 	struct wayland_output *output = to_wayland_output(output_base);
-	struct wayland_backend *b =
-		to_wayland_backend(output->base.compositor);
+	struct wayland_backend *b;
 	struct wayland_shm_buffer *sb;
+
+	assert(output);
+
+	b = to_wayland_backend(output->base.compositor);
 
 	if (output->frame) {
 		if (frame_status(output->frame) & FRAME_STATUS_REPAINT)
@@ -709,7 +729,11 @@ static int
 wayland_output_disable(struct weston_output *base)
 {
 	struct wayland_output *output = to_wayland_output(base);
-	struct wayland_backend *b = to_wayland_backend(base->compositor);
+	struct wayland_backend *b;
+
+	assert(output);
+
+	b = to_wayland_backend(base->compositor);
 
 	if (!output->base.enabled)
 		return 0;
@@ -742,6 +766,8 @@ static void
 wayland_output_destroy(struct weston_output *base)
 {
 	struct wayland_output *output = to_wayland_output(base);
+
+	assert(output);
 
 	wayland_output_disable(&output->base);
 
@@ -1045,7 +1071,7 @@ static int
 wayland_output_switch_mode(struct weston_output *output_base,
 			   struct weston_mode *mode)
 {
-	struct wayland_output *output = to_wayland_output(output_base);
+	struct wayland_output *output;
 	struct wayland_backend *b;
 	struct wl_surface *old_surface;
 	struct weston_mode *old_mode;
@@ -1055,6 +1081,9 @@ wayland_output_switch_mode(struct weston_output *output_base,
 		weston_log("output is NULL.\n");
 		return -1;
 	}
+
+	output = to_wayland_output(output_base);
+	assert(output);
 
 	if (mode == NULL) {
 		weston_log("mode is NULL.\n");
@@ -1212,9 +1241,13 @@ static int
 wayland_output_enable(struct weston_output *base)
 {
 	struct wayland_output *output = to_wayland_output(base);
-	struct wayland_backend *b = to_wayland_backend(base->compositor);
+	struct wayland_backend *b;
 	enum mode_status mode_status;
 	int ret = 0;
+
+	assert(output);
+
+	b = to_wayland_backend(base->compositor);
 
 	wl_list_init(&output->shm.buffers);
 	wl_list_init(&output->shm.free_buffers);
@@ -1291,9 +1324,16 @@ static int
 wayland_output_attach_head(struct weston_output *output_base,
 			   struct weston_head *head_base)
 {
-	struct wayland_backend *b = to_wayland_backend(output_base->compositor);
 	struct wayland_output *output = to_wayland_output(output_base);
 	struct wayland_head *head = to_wayland_head(head_base);
+	struct wayland_backend *b;
+
+	assert(output);
+
+	if (!head)
+		return -1;
+
+	b = to_wayland_backend(output_base->compositor);
 
 	if (!wl_list_empty(&output->base.head_list))
 		return -1;
@@ -1317,6 +1357,8 @@ wayland_output_detach_head(struct weston_output *output_base,
 			   struct weston_head *head)
 {
 	struct wayland_output *output = to_wayland_output(output_base);
+
+	assert(output);
 
 	/* Rely on the disable hook if the output was enabled. We do not
 	 * support cloned heads, so detaching is guaranteed to disable the
@@ -1376,6 +1418,9 @@ wayland_head_create(struct weston_compositor *compositor, const char *name)
 		return NULL;
 
 	weston_head_init(&head->base, name);
+
+	head->base.backend_id = wayland_head_destroy;
+
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);
 
@@ -1423,8 +1468,12 @@ wayland_head_create_for_parent_output(struct weston_compositor *compositor,
 }
 
 static void
-wayland_head_destroy(struct wayland_head *head)
+wayland_head_destroy(struct weston_head *base)
 {
+	struct wayland_head *head = to_wayland_head(base);
+
+	assert(head);
+
 	if (head->parent_output)
 		head->parent_output->head = NULL;
 
@@ -1438,6 +1487,9 @@ wayland_output_set_size(struct weston_output *base, int width, int height)
 	struct wayland_output *output = to_wayland_output(base);
 	struct weston_head *head;
 	int output_width, output_height;
+
+	if (!output)
+		return -1;
 
 	/* We can only be called once. */
 	assert(!output->base.current_mode);
@@ -2555,7 +2607,7 @@ wayland_parent_output_destroy(struct wayland_parent_output *output)
 		wl_callback_destroy(output->sync_cb);
 
 	if (output->head)
-		wayland_head_destroy(output->head);
+		wayland_head_destroy(&output->head->base);
 
 	wl_output_destroy(output->global);
 	free(output->physical.make);
@@ -2670,8 +2722,10 @@ wayland_destroy(struct weston_compositor *ec)
 
 	weston_compositor_shutdown(ec);
 
-	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
-		wayland_head_destroy(to_wayland_head(base));
+	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
+		if (to_wayland_head(base))
+			wayland_head_destroy(base);
+	}
 
 	wl_list_for_each_safe(input, next_input, &b->input_list, link)
 		wayland_input_destroy(input);
