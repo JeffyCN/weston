@@ -77,12 +77,21 @@ weston_desktop_create(struct weston_compositor *compositor,
 		return NULL;
 	}
 
+#ifdef HAVE_DEPRECATED_WL_SHELL
+	weston_log("Warning: support for deprecated wl_shell interface is "
+		   "enabled. Please migrate legacy clients to xdg-shell.\n");
 	desktop->wl_shell =
 		weston_desktop_wl_shell_create(desktop, display);
 	if (desktop->wl_shell == NULL) {
 		weston_desktop_destroy(desktop);
 		return NULL;
 	}
+#else
+	weston_log("Note: support for the deprecated wl_shell interface is "
+		   "disabled. If a legacy client still needs it, it can be "
+		   "re-enabled by passing -Ddeprecated-wl-shell=true to Meson "
+		   "when building Weston.\n");
+#endif
 
 	weston_desktop_xwayland_init(desktop);
 

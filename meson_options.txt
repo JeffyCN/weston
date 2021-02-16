@@ -139,6 +139,13 @@ option(
 )
 
 option(
+	'deprecated-wl-shell',
+	type: 'boolean',
+	value: false,
+	description: 'Enable the deprecated wl_shell protocol'
+)
+
+option(
 	'color-management-lcms',
 	type: 'boolean',
 	value: true,
