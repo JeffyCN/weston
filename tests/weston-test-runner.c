@@ -344,15 +344,16 @@ static void
 help(const char *exe)
 {
 	printf(
-		"Usage: %s [options] [testname [index]]\n"
+		"Usage: %s [options] [testname [number]]\n"
 		"\n"
 		"This is a Weston test suite executable that runs some tests.\n"
 		"Options:\n"
-		"  -f, --fixture N  Run only fixture index N. Indices start from 1.\n"
+		"  -f, --fixture N  Run only fixture number N. 0 runs all (default).\n"
 		"  -h, --help       Print this help and exit with success.\n"
 		"  -l, --list       List all tests in this executable and exit with success.\n"
 		"testname:          Optional; name of the test to execute instead of all tests.\n"
-		"index:             Optional; for a multi-case test, run the given case only.\n",
+		"number:            Optional; for a multi-case test, run the given case only.\n"
+		"Both fixture and case numbering starts from 1.\n",
 		exe);
 }
 
