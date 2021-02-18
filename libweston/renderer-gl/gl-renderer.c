@@ -2726,9 +2726,13 @@ import_known_dmabuf(struct gl_renderer *gr,
 	switch (image->import_type) {
 	case IMPORT_TYPE_DIRECT:
 		image->images[0] = import_simple_dmabuf(gr, &image->dmabuf->attributes);
-		if (!image->images[0])
+		if (!image->images[0]) {
+			/* num_images is already set to 1 when doing the intial
+			 * import so reset it to 0 to avoid passing an empty
+			 * egl_image to dmabuf_destroy */
+			image->num_images = 0;
 			return false;
-		image->num_images = 1;
+		}
 		break;
 
 	case IMPORT_TYPE_GL_CONVERSION:
