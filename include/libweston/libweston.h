@@ -1046,6 +1046,7 @@ struct weston_touch_calibrator;
 struct weston_desktop_xwayland;
 struct weston_desktop_xwayland_interface;
 struct weston_debug_compositor;
+struct weston_color_manager;
 
 /** Main object, container-like structure which aggregates all other objects.
  *
@@ -1114,12 +1115,11 @@ struct weston_compositor {
 	struct weston_plane primary_plane;
 	uint32_t capabilities; /* combination of enum weston_capability */
 
+	struct weston_color_manager *color_manager;
 	struct weston_renderer *renderer;
-
 	pixman_format_code_t read_format;
 
 	struct weston_backend *backend;
-
 	struct weston_launcher *launcher;
 
 	struct wl_list plugin_api_list; /* struct weston_plugin_api::link */

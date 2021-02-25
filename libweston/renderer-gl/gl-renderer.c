@@ -44,6 +44,7 @@
 #include "linux-sync-file.h"
 #include "timeline.h"
 
+#include "color.h"
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
 #include "vertex-clipping.h"
@@ -977,6 +978,10 @@ gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
 {
 	struct gl_surface_state *gs = get_surface_state(pnode->surface);
 	struct gl_output_state *go = get_output_state(pnode->output);
+
+	if (!pnode->surf_xform_valid)
+		return false;
+	assert(pnode->surf_xform.transform == NULL);
 
 	*sconf = (struct gl_shader_config) {
 		.projection = go->output_matrix,

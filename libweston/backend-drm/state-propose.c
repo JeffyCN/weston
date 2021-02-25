@@ -38,6 +38,7 @@
 
 #include "drm-internal.h"
 
+#include "color.h"
 #include "linux-dmabuf.h"
 #include "presentation-time-server-protocol.h"
 
@@ -882,6 +883,13 @@ drm_output_propose_state(struct weston_output *output_base,
 			continue;
 		}
 
+		/* Cannot show anything without a color transform. */
+		if (!pnode->surf_xform_valid) {
+			drm_debug(b, "\t\t\t\t[view] ignoring view %p "
+			             "(color transform failed)\n", ev);
+			continue;
+		}
+
 		/* Ignore views we know to be totally occluded. */
 		pixman_region32_init(&clipped_view);
 		pixman_region32_intersect(&clipped_view,
@@ -914,6 +922,13 @@ drm_output_propose_state(struct weston_output *output_base,
 		if (!weston_view_has_valid_buffer(ev)) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 			             "(no buffer available)\n", ev);
+			force_renderer = true;
+		}
+
+		if (pnode->surf_xform.transform != NULL ||
+		    !pnode->surf_xform.identity_pipeline) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
+			             "(requires color transform)\n", ev);
 			force_renderer = true;
 		}
 

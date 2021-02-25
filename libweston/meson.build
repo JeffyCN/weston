@@ -12,6 +12,8 @@ srcs_libweston = [
 	'animation.c',
 	'bindings.c',
 	'clipboard.c',
+	'color.c',
+	'color-noop.c',
 	'compositor.c',
 	'content-protection.c',
 	'data-device.c',

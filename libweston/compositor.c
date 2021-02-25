@@ -74,6 +74,7 @@
 #include "pixel-formats.h"
 #include "backend.h"
 #include "libweston-internal.h"
+#include "color.h"
 
 #include "weston-log-internal.h"
 
@@ -105,12 +106,28 @@ weston_paint_node_create(struct weston_surface *surface,
 			 struct weston_output *output)
 {
 	struct weston_paint_node *pnode;
+	struct weston_paint_node *existing_node;
 
 	assert(view->surface == surface);
 
 	pnode = zalloc(sizeof *pnode);
 	if (!pnode)
 		return NULL;
+
+	/*
+	 * Invariant: all paint nodes with the same surface+output have the
+	 * same surf_xform state.
+	 */
+	wl_list_for_each(existing_node, &view->paint_node_list, view_link) {
+		assert(existing_node->surface == surface);
+		if (existing_node->output != output)
+			continue;
+
+		weston_surface_color_transform_copy(&pnode->surf_xform,
+						    &existing_node->surf_xform);
+		pnode->surf_xform_valid = existing_node->surf_xform_valid;
+		break;
+	}
 
 	pnode->surface = surface;
 	wl_list_insert(&surface->paint_node_list, &pnode->surface_link);
@@ -134,6 +151,8 @@ weston_paint_node_destroy(struct weston_paint_node *pnode)
 	wl_list_remove(&pnode->view_link);
 	wl_list_remove(&pnode->output_link);
 	wl_list_remove(&pnode->z_order_link);
+	assert(pnode->surf_xform_valid || !pnode->surf_xform.transform);
+	weston_surface_color_transform_fini(&pnode->surf_xform);
 	free(pnode);
 }
 
@@ -2695,6 +2714,12 @@ add_to_z_order_list(struct weston_output *output,
 	wl_list_remove(&pnode->z_order_link);
 	wl_list_insert(output->paint_node_z_order_list.prev,
 		       &pnode->z_order_link);
+
+	/*
+	 * Building weston_output::paint_node_z_order_list ensures all
+	 * necessary color transform objects are installed.
+	 */
+	weston_paint_node_ensure_color_transform(pnode);
 }
 
 static void
@@ -7743,6 +7768,12 @@ weston_compositor_shutdown(struct weston_compositor *ec)
 	wl_list_for_each_safe(output, next, &ec->pending_output_list, link)
 		output->destroy(output);
 
+	/* Color manager objects may have renderer hooks */
+	if (ec->color_manager) {
+		ec->color_manager->destroy(ec->color_manager);
+		ec->color_manager = NULL;
+	}
+
 	if (ec->renderer)
 		ec->renderer->destroy(ec);
 
@@ -8171,6 +8202,19 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 		compositor->backend = NULL;
 		return -1;
 	}
+
+	if (!compositor->color_manager) {
+		compositor->color_manager =
+			weston_color_manager_noop_create(compositor);
+	}
+
+	if (!compositor->color_manager)
+		return -1;
+
+	if (!compositor->color_manager->init(compositor->color_manager))
+		return -1;
+
+	weston_log("Color manager: %s\n", compositor->color_manager->name);
 
 	return 0;
 }

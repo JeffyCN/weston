@@ -41,6 +41,7 @@
  */
 
 #include <libweston/libweston.h>
+#include "color.h"
 
 /* weston_buffer */
 
@@ -260,7 +261,6 @@ weston_surface_to_buffer_float(struct weston_surface *surface,
 pixman_box32_t
 weston_surface_to_buffer_rect(struct weston_surface *surface,
 			      pixman_box32_t rect);
-
 void
 weston_surface_to_buffer_region(struct weston_surface *surface,
 				pixman_region32_t *surface_region,
@@ -416,6 +416,9 @@ struct weston_paint_node {
 
 	/* struct weston_output::paint_node_z_order_list */
 	struct wl_list z_order_link;
+
+	struct weston_surface_color_transform surf_xform;
+	bool surf_xform_valid;
 };
 
 struct weston_paint_node *

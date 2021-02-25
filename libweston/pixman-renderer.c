@@ -33,6 +33,7 @@
 #include <assert.h>
 
 #include "pixman-renderer.h"
+#include "color.h"
 #include "shared/helpers.h"
 
 #include <linux/input.h>
@@ -477,6 +478,11 @@ draw_paint_node(struct weston_paint_node *pnode,
 	struct pixman_surface_state *ps = get_surface_state(pnode->surface);
 	/* repaint bounding region in global coordinates: */
 	pixman_region32_t repaint;
+
+	if (!pnode->surf_xform_valid)
+		return;
+
+	assert(pnode->surf_xform.transform == NULL);
 
 	/* No buffer attached */
 	if (!ps->image)
