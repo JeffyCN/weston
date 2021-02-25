@@ -79,6 +79,7 @@ struct linux_dmabuf_buffer;
 struct weston_recorder;
 struct weston_pointer_constraint;
 struct ro_anonymous_file;
+struct weston_color_transform;
 
 enum weston_keyboard_modifier {
 	MODIFIER_CTRL = (1 << 0),
@@ -373,6 +374,8 @@ struct weston_output {
 	int scale;
 
 	bool use_renderer_shadow_buffer;
+	struct weston_color_transform *from_blend_to_output;
+	bool from_blend_to_output_by_backend;
 
 	int (*enable)(struct weston_output *output);
 	int (*disable)(struct weston_output *output);

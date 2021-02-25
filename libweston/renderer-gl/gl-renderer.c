@@ -1507,6 +1507,8 @@ blit_shadow_to_output(struct weston_output *output,
 	pixman_region32_t translated_damage;
 	GLfloat verts[4 * 2];
 
+	assert(output->from_blend_to_output == NULL);
+
 	pixman_region32_init(&translated_damage);
 
 	gl_renderer_use_program(gr, &sconf);
@@ -1568,6 +1570,9 @@ gl_renderer_repaint_output(struct weston_output *output,
 	pixman_region32_t total_damage;
 	enum gl_border_status border_status = BORDER_STATUS_CLEAN;
 	struct weston_paint_node *pnode;
+
+	assert(output->from_blend_to_output_by_backend ||
+	       output->from_blend_to_output == NULL);
 
 	if (use_output(output) < 0)
 		return;

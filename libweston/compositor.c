@@ -6269,6 +6269,13 @@ weston_output_transform_coordinate(struct weston_output *output,
 	*y = p.f[1] / p.f[3];
 }
 
+static void
+weston_output_reset_color_transforms(struct weston_output *output)
+{
+	weston_color_transform_unref(output->from_blend_to_output);
+	output->from_blend_to_output = NULL;
+}
+
 /** Removes output from compositor's list of enabled outputs
  *
  * \param output The weston_output object that is being removed.
@@ -6279,6 +6286,8 @@ weston_output_transform_coordinate(struct weston_output *output,
  *
  * - The output assignments of all views in the current scenegraph are
  *   recomputed.
+ *
+ * - Destroys output's color transforms.
  *
  * - Presentation feedback is discarded.
  *
@@ -6323,6 +6332,8 @@ weston_compositor_remove_output(struct weston_output *output)
 		if (view->output_mask & (1u << output->id))
 			weston_view_assign_output(view);
 	}
+
+	weston_output_reset_color_transforms(output);
 
 	weston_presentation_feedback_discard_list(&output->feedback_list);
 
@@ -6613,10 +6624,12 @@ WL_EXPORT int
 weston_output_enable(struct weston_output *output)
 {
 	struct weston_compositor *c = output->compositor;
+	struct weston_color_manager *cm = c->color_manager;
 	struct weston_output *iterator;
 	struct weston_head *head;
 	char *head_names;
 	int x = 0, y = 0;
+	bool ok;
 
 	if (output->enabled) {
 		weston_log("Error: attempt to enable an enabled output '%s'\n",
@@ -6672,12 +6685,23 @@ weston_output_enable(struct weston_output *output)
 	wl_list_init(&output->paint_node_list);
 	wl_list_init(&output->paint_node_z_order_list);
 
+	ok = cm->get_output_color_transform(cm, output,
+					    &output->from_blend_to_output);
+	if (!ok) {
+		weston_log("Creating color transformation for output \"%s\" failed.\n",
+			   output->name);
+		weston_output_reset_color_transforms(output);
+		return -1;
+	}
+	output->from_blend_to_output_by_backend = false;
+
 	/* Enable the output (set up the crtc or create a
 	 * window representing the output, set up the
 	 * renderer, etc)
 	 */
 	if (output->enable(output) < 0) {
 		weston_log("Enabling output \"%s\" failed.\n", output->name);
+		weston_output_reset_color_transforms(output);
 		return -1;
 	}
 
