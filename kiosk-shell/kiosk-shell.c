@@ -556,16 +556,12 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 {
 	struct kiosk_shell *shell = data;
 	struct kiosk_shell_surface *shsurf;
-	struct weston_seat *seat;
 
 	shsurf = kiosk_shell_surface_create(shell, desktop_surface);
 	if (!shsurf)
 		return;
 
 	kiosk_shell_surface_set_fullscreen(shsurf, NULL);
-
-	wl_list_for_each(seat, &shell->compositor->seat_list, link)
-		weston_view_activate(shsurf->view, seat, 0);
 }
 
 /* Return the view that should gain focus after the specified shsurf is
@@ -671,10 +667,15 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	}
 
 	if (!weston_surface_is_mapped(surface)) {
+		struct weston_seat *seat;
+
 		weston_layer_entry_insert(&shsurf->shell->normal_layer.view_list,
 					  &shsurf->view->layer_link);
 		shsurf->view->is_mapped = true;
 		surface->is_mapped = true;
+
+		wl_list_for_each(seat, &shsurf->shell->compositor->seat_list, link)
+			weston_view_activate(shsurf->view, seat, 0);
 	}
 
 	if (!is_fullscreen && (sx != 0 || sy != 0)) {
