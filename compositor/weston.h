@@ -95,6 +95,12 @@ text_backend_init(struct weston_compositor *ec);
 void
 text_backend_destroy(struct text_backend *text_backend);
 
+/*
+ * Return value from wet_main() when
+ * weston_testsuite_quirks::required_capabilities are not met.
+ */
+#define WET_MAIN_RET_MISSING_CAPS 77
+
 int
 wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data);
 

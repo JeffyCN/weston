@@ -42,6 +42,9 @@
 #include "weston.h"
 #include "test-config.h"
 
+static_assert(WET_MAIN_RET_MISSING_CAPS == RESULT_SKIP,
+	      "wet_main() return value for skip is wrong");
+
 struct prog_args {
 	int argc;
 	char **argv;

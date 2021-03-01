@@ -816,6 +816,33 @@ weston_compositor_log_capabilities(struct weston_compositor *compositor)
 				"presentation clock resolution: N/A\n");
 }
 
+static bool
+check_compositor_capabilities(struct weston_compositor *compositor,
+			      uint32_t mask)
+{
+	uint32_t missing = mask & ~compositor->capabilities;
+	unsigned i;
+
+	if (missing == 0)
+		return true;
+
+	weston_log("Quirk error, missing capabilities:\n");
+	for (i = 0; i < ARRAY_LENGTH(capability_strings); i++) {
+		if (!(missing & capability_strings[i].bit))
+			continue;
+
+		weston_log_continue(STAMP_SPACE "- %s\n",
+				    capability_strings[i].desc);
+		missing &= ~capability_strings[i].bit;
+	}
+	if (missing) {
+		weston_log_continue(STAMP_SPACE "- unlisted bits 0x%x\n",
+				    missing);
+	}
+
+	return false;
+}
+
 static void
 handle_primary_client_destroyed(struct wl_listener *listener, void *data)
 {
@@ -3352,6 +3379,12 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 
 	if (load_backend(wet.compositor, backend, &argc, argv, config) < 0) {
 		weston_log("fatal: failed to create compositor backend\n");
+		goto out;
+	}
+
+	if (!check_compositor_capabilities(wet.compositor,
+				test_data->test_quirks.required_capabilities)) {
+		ret = WET_MAIN_RET_MISSING_CAPS;
 		goto out;
 	}
 
