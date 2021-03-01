@@ -141,6 +141,10 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 		 * that step.
 		 */
 		setup.test_quirks.gl_force_full_redraw_of_shadow_fb = true;
+
+		/* To skip instead of fail the test if shadow not available */
+		setup.test_quirks.required_capabilities = WESTON_CAP_COLOR_OPS;
+
 		weston_ini_setup(&setup,
 				 cfgln("[output]"),
 				 cfgln("name=headless"),
