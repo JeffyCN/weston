@@ -779,9 +779,9 @@ static const struct {
 	uint32_t bit; /* enum weston_capability */
 	const char *desc;
 } capability_strings[] = {
-	{ WESTON_CAP_ROTATION_ANY, "arbitrary surface rotation:" },
-	{ WESTON_CAP_CAPTURE_YFLIP, "screen capture uses y-flip:" },
-	{ WESTON_CAP_COLOR_OPS, "color operations:" },
+	{ WESTON_CAP_ROTATION_ANY, "arbitrary surface rotation" },
+	{ WESTON_CAP_CAPTURE_YFLIP, "screen capture uses y-flip" },
+	{ WESTON_CAP_COLOR_OPS, "color operations" },
 };
 
 static void
@@ -794,7 +794,7 @@ weston_compositor_log_capabilities(struct weston_compositor *compositor)
 	weston_log("Compositor capabilities:\n");
 	for (i = 0; i < ARRAY_LENGTH(capability_strings); i++) {
 		yes = compositor->capabilities & capability_strings[i].bit;
-		weston_log_continue(STAMP_SPACE "%s %s\n",
+		weston_log_continue(STAMP_SPACE "%s: %s\n",
 				    capability_strings[i].desc,
 				    yes ? "yes" : "no");
 	}
