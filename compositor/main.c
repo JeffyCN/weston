@@ -781,6 +781,10 @@ static const struct {
 } capability_strings[] = {
 	{ WESTON_CAP_ROTATION_ANY, "arbitrary surface rotation" },
 	{ WESTON_CAP_CAPTURE_YFLIP, "screen capture uses y-flip" },
+	{ WESTON_CAP_CURSOR_PLANE, "cursor planes" },
+	{ WESTON_CAP_ARBITRARY_MODES, "arbitrary resolutions" },
+	{ WESTON_CAP_VIEW_CLIP_MASK, "view mask clipping" },
+	{ WESTON_CAP_EXPLICIT_SYNC, "explicit sync" },
 	{ WESTON_CAP_COLOR_OPS, "color operations" },
 };
 
