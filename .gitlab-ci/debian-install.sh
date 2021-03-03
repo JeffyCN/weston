@@ -154,9 +154,8 @@ cd ..
 rm -rf mesa
 
 rm -rf pipewire
-git clone --single-branch --branch master https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire
+git clone --depth=1 --branch 0.3.31 https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire
 cd pipewire
-git checkout -b snapshot db12f47505ddccb257acdc0fa2bb884aceb1b593
 meson build
 ninja -C build install
 cd ..
