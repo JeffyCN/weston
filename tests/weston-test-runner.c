@@ -35,6 +35,7 @@
 #include <signal.h>
 #include <getopt.h>
 
+#include "test-config.h"
 #include "weston-test-runner.h"
 #include "weston-testsuite-data.h"
 #include "shared/string-helpers.h"
@@ -243,7 +244,11 @@ result_to_str(enum test_result_code ret)
 		[RESULT_FAIL] = "fail",
 		[RESULT_HARD_ERROR] = "hard error",
 		[RESULT_OK] = "ok",
+#if WESTON_TEST_SKIP_IS_FAILURE
+		[RESULT_SKIP] = "skip error",
+#else
 		[RESULT_SKIP] = "skip",
+#endif
 	};
 
 	assert(ret >= 0 && ret < ARRAY_LENGTH(names));
@@ -284,6 +289,9 @@ run_case(struct wet_testsuite_data *suite_data,
 	case RESULT_SKIP:
 		suite_data->skipped++;
 		skip = " # SKIP";
+#if WESTON_TEST_SKIP_IS_FAILURE
+		fail = "not ";
+#endif
 		break;
 	}
 
@@ -327,10 +335,16 @@ skip_case(struct wet_testsuite_data *suite_data,
 	  const void *test_data,
 	  int iteration)
 {
+	const char *skip_error = "";
 	int iteration_nr = iteration + 1;
 
+#if WESTON_TEST_SKIP_IS_FAILURE
+	skip_error = "not ";
+#endif
+
 	suite_data->counter++;
-	printf("ok %d %s %s/%d # SKIP fixture\n", suite_data->counter,
+	printf("%sok %d %s %s/%d # SKIP fixture\n",
+	       skip_error, suite_data->counter,
 	       suite_data->fixture_name, t->name, iteration_nr);
 }
 
@@ -477,6 +491,11 @@ weston_test_harness_destroy(struct weston_test_harness *harness)
 static enum test_result_code
 counts_to_result(const struct wet_testsuite_data *data)
 {
+#if WESTON_TEST_SKIP_IS_FAILURE
+	if (data->skipped > 0)
+		return RESULT_FAIL;
+#endif
+
 	/* RESULT_SKIP is reserved for fixture setup itself skipping everything */
 	if (data->total == data->passed + data->skipped)
 		return RESULT_OK;
@@ -644,7 +663,11 @@ main(int argc, char *argv[])
 
 		if (ret == RESULT_SKIP) {
 			tap_skip_fixture(&harness->data);
+#if WESTON_TEST_SKIP_IS_FAILURE
+			ret = RESULT_FAIL;
+#else
 			continue;
+#endif
 		}
 
 		if (ret != RESULT_OK && result != RESULT_HARD_ERROR)

@@ -211,6 +211,12 @@ option(
 	description: 'Tests: output JUnit XML results'
 )
 option(
+	'test-skip-is-failure',
+	type: 'boolean',
+	value: false,
+	description: 'Tests: consider skip to be a failure'
+)
+option(
 	'test-gl-renderer',
 	type: 'boolean',
 	value: true,
