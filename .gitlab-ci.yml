@@ -109,6 +109,7 @@ build-native-meson-default-options:
   after_script:
   - ninja -C build-* coverage-html
   - ninja -C build-* coverage-xml
+  - sed -i -e 's/\/build-weston-build-native-meson-default-options//' -e 's/\"..\//\"/' build-*/meson-logs/coverage.xml
   artifacts:
     reports:
       cobertura: build-*/meson-logs/coverage.xml
