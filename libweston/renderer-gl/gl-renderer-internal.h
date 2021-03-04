@@ -108,6 +108,8 @@ struct gl_renderer {
 	struct wl_array vertices;
 	struct wl_array vtxcnt;
 
+	struct weston_drm_format_array supported_formats;
+
 	PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture_2d;
 	PFNEGLCREATEIMAGEKHRPROC create_image;
 	PFNEGLDESTROYIMAGEKHRPROC destroy_image;

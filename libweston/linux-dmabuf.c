@@ -477,12 +477,12 @@ bind_linux_dmabuf(struct wl_client *client,
 		  void *data, uint32_t version, uint32_t id)
 {
 	struct weston_compositor *compositor = data;
+	const struct weston_drm_format_array *supported_formats;
 	struct wl_resource *resource;
-	int *formats = NULL;
-	uint64_t *modifiers = NULL;
-	int num_formats, num_modifiers;
-	uint64_t modifier_invalid = DRM_FORMAT_MOD_INVALID;
-	int i, j;
+	struct weston_drm_format *fmt;
+	const uint64_t *modifiers;
+	unsigned int num_modifiers;
+	unsigned int i;
 
 	resource = wl_resource_create(client, &zwp_linux_dmabuf_v1_interface,
 				      version, id);
@@ -494,43 +494,25 @@ bind_linux_dmabuf(struct wl_client *client,
 	wl_resource_set_implementation(resource, &linux_dmabuf_implementation,
 				       compositor, NULL);
 
-	/*
-	 * Use EGL_EXT_image_dma_buf_import_modifiers to query and advertise
-	 * format/modifier codes.
-	 */
-	compositor->renderer->query_dmabuf_formats(compositor, &formats,
-						   &num_formats);
-
-	for (i = 0; i < num_formats; i++) {
-		compositor->renderer->query_dmabuf_modifiers(compositor,
-							     formats[i],
-							     &modifiers,
-							     &num_modifiers);
-
-		/* send DRM_FORMAT_MOD_INVALID token when no modifiers are supported
-		 * for this format */
-		if (num_modifiers == 0) {
-			num_modifiers = 1;
-			modifiers = &modifier_invalid;
-		}
-		for (j = 0; j < num_modifiers; j++) {
+	/* Advertise the formats/modifiers */
+	supported_formats = compositor->renderer->get_supported_formats(compositor);
+	wl_array_for_each(fmt, &supported_formats->arr) {
+		modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+		for (i = 0; i < num_modifiers; i++) {
 			if (version >= ZWP_LINUX_DMABUF_V1_MODIFIER_SINCE_VERSION) {
-				uint32_t modifier_lo = modifiers[j] & 0xFFFFFFFF;
-				uint32_t modifier_hi = modifiers[j] >> 32;
+				uint32_t modifier_lo = modifiers[i] & 0xFFFFFFFF;
+				uint32_t modifier_hi = modifiers[i] >> 32;
 				zwp_linux_dmabuf_v1_send_modifier(resource,
-								  formats[i],
+								  fmt->format,
 								  modifier_hi,
 								  modifier_lo);
-			} else if (modifiers[j] == DRM_FORMAT_MOD_LINEAR ||
-				   modifiers == &modifier_invalid) {
+			} else if (modifiers[i] == DRM_FORMAT_MOD_LINEAR ||
+				   modifiers[i] == DRM_FORMAT_MOD_INVALID) {
 				zwp_linux_dmabuf_v1_send_format(resource,
-								formats[i]);
+								fmt->format);
 			}
 		}
-		if (modifiers != &modifier_invalid)
-			free(modifiers);
 	}
-	free(formats);
 }
 
 /** Advertise linux_dmabuf support

@@ -2777,6 +2777,63 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	gs->shader_variant = image->shader_variant;
 }
 
+static const struct weston_drm_format_array *
+gl_renderer_get_supported_formats(struct weston_compositor *ec)
+{
+	struct gl_renderer *gr = get_renderer(ec);
+
+	return &gr->supported_formats;
+}
+
+static int
+populate_supported_formats(struct weston_compositor *ec,
+			   struct weston_drm_format_array *supported_formats)
+{
+	struct weston_drm_format *fmt;
+	int *formats = NULL;
+	uint64_t *modifiers = NULL;
+	unsigned int num_formats, num_modifiers;
+	unsigned int i, j;
+	int ret = 0;
+
+	/* Use EGL_EXT_image_dma_buf_import_modifiers to query the
+	 * list of formats/modifiers of the renderer. */
+	gl_renderer_query_dmabuf_formats(ec, &formats, &num_formats);
+	if (num_formats == 0)
+		return 0;
+
+	for (i = 0; i < num_formats; i++) {
+		fmt = weston_drm_format_array_add_format(supported_formats,
+							 formats[i]);
+		if (!fmt) {
+			ret = -1;
+			goto out;
+		}
+
+		gl_renderer_query_dmabuf_modifiers(ec, formats[i],
+						   &modifiers, &num_modifiers);
+		if (num_modifiers == 0) {
+			ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
+			if (ret < 0)
+				goto out;
+			continue;
+		}
+
+		for (j = 0; j < num_modifiers; j++) {
+			ret = weston_drm_format_add_modifier(fmt, modifiers[j]);
+			if (ret < 0) {
+				free(modifiers);
+				goto out;
+			}
+		}
+		free(modifiers);
+	}
+
+out:
+	free(formats);
+	return ret;
+}
+
 static void
 gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 {
@@ -3423,6 +3480,8 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	wl_list_for_each_safe(format, next_format, &gr->dmabuf_formats, link)
 		dmabuf_format_destroy(format);
 
+	weston_drm_format_array_fini(&gr->supported_formats);
+
 	if (gr->dummy_surface != EGL_NO_SURFACE)
 		weston_platform_destroy_egl_surface(gr->egl_display,
 						    gr->dummy_surface);
@@ -3495,6 +3554,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 			   const struct gl_renderer_display_options *options)
 {
 	struct gl_renderer *gr;
+	int ret;
 
 	gr = zalloc(sizeof *gr);
 	if (gr == NULL)
@@ -3523,6 +3583,8 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	if (gl_renderer_setup_egl_display(gr, options->egl_native_display) < 0)
 		goto fail;
+
+	weston_drm_format_array_init(&gr->supported_formats);
 
 	log_egl_info(gr->egl_display);
 
@@ -3557,10 +3619,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	wl_list_init(&gr->dmabuf_images);
 	if (gr->has_dmabuf_import) {
 		gr->base.import_dmabuf = gl_renderer_import_dmabuf;
-		gr->base.query_dmabuf_formats =
-			gl_renderer_query_dmabuf_formats;
-		gr->base.query_dmabuf_modifiers =
-			gl_renderer_query_dmabuf_modifiers;
+		gr->base.get_supported_formats = gl_renderer_get_supported_formats;
+		ret = populate_supported_formats(ec, &gr->supported_formats);
+		if (ret < 0)
+			goto fail_terminate;
 	}
 	wl_list_init(&gr->dmabuf_formats);
 
@@ -3598,6 +3660,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 fail_with_error:
 	gl_renderer_print_egl_error_state();
 fail_terminate:
+	weston_drm_format_array_fini(&gr->supported_formats);
 	eglTerminate(gr->egl_display);
 fail:
 	weston_log_scope_destroy(gr->shader_scope);

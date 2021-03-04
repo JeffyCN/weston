@@ -919,6 +919,8 @@ struct weston_plane {
 	struct wl_list link;
 };
 
+struct weston_drm_format_array;
+
 struct weston_renderer {
 	int (*read_pixels)(struct weston_output *output,
 			       pixman_format_code_t format, void *pixels,
@@ -948,14 +950,8 @@ struct weston_renderer {
 	bool (*import_dmabuf)(struct weston_compositor *ec,
 			      struct linux_dmabuf_buffer *buffer);
 
-	/** On error sets num_formats to zero */
-	void (*query_dmabuf_formats)(struct weston_compositor *ec,
-				int **formats, int *num_formats);
-
-	/** On error sets num_modifiers to zero */
-	void (*query_dmabuf_modifiers)(struct weston_compositor *ec,
-				int format, uint64_t **modifiers,
-				int *num_modifiers);
+	const struct weston_drm_format_array *
+			(*get_supported_formats)(struct weston_compositor *ec);
 };
 
 enum weston_capability {
