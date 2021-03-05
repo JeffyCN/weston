@@ -1873,14 +1873,14 @@ handle_pointer_focus(struct wl_listener *listener, void *data)
 }
 
 static void
-shell_surface_lose_keyboard_focus(struct shell_surface *shsurf)
+shell_surface_deactivate(struct shell_surface *shsurf)
 {
 	if (--shsurf->focus_count == 0)
 		weston_desktop_surface_set_activated(shsurf->desktop_surface, false);
 }
 
 static void
-shell_surface_gain_keyboard_focus(struct shell_surface *shsurf)
+shell_surface_activate(struct shell_surface *shsurf)
 {
 	if (shsurf->focus_count++ == 0)
 		weston_desktop_surface_set_activated(shsurf->desktop_surface, true);
@@ -1895,7 +1895,7 @@ handle_keyboard_focus(struct wl_listener *listener, void *data)
 	if (seat->focused_surface) {
 		struct shell_surface *shsurf = get_shell_surface(seat->focused_surface);
 		if (shsurf)
-			shell_surface_lose_keyboard_focus(shsurf);
+			shell_surface_deactivate(shsurf);
 	}
 
 	seat->focused_surface = weston_surface_get_main_surface(keyboard->focus);
@@ -1903,7 +1903,7 @@ handle_keyboard_focus(struct wl_listener *listener, void *data)
 	if (seat->focused_surface) {
 		struct shell_surface *shsurf = get_shell_surface(seat->focused_surface);
 		if (shsurf)
-			shell_surface_gain_keyboard_focus(shsurf);
+			shell_surface_activate(shsurf);
 	}
 }
 
