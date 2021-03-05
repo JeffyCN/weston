@@ -1626,9 +1626,9 @@ weston_view_from_global_fixed(struct weston_view *view,
 			      wl_fixed_t *vx, wl_fixed_t *vy);
 
 void
-weston_view_activate(struct weston_view *view,
-		     struct weston_seat *seat,
-		     uint32_t flags);
+weston_view_activate_input(struct weston_view *view,
+		           struct weston_seat *seat,
+		           uint32_t flags);
 
 void
 notify_modifiers(struct weston_seat *seat, uint32_t serial);

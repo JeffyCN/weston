@@ -3866,7 +3866,7 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 	if (shsurf->output)
 		lower_fullscreen_layer(shell, shsurf->output);
 
-	weston_view_activate(view, seat, flags);
+	weston_view_activate_input(view, seat, flags);
 
 	if (shseat->focused_surface) {
 		struct shell_surface *current_focus =

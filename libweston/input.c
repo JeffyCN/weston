@@ -1864,7 +1864,7 @@ inc_activate_serial(struct weston_compositor *c)
 }
 
 WL_EXPORT void
-weston_view_activate(struct weston_view *view,
+weston_view_activate_input(struct weston_view *view,
 		     struct weston_seat *seat,
 		     uint32_t flags)
 {

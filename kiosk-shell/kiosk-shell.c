@@ -664,7 +664,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 		wl_list_for_each(seat, &shell->compositor->seat_list, link) {
 			struct weston_keyboard *keyboard = seat->keyboard_state;
 			if (keyboard && keyboard->focus == surface)
-				weston_view_activate(focus_view, seat, 0);
+				weston_view_activate_input(focus_view, seat, 0);
 		}
 	}
 
@@ -719,7 +719,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		surface->is_mapped = true;
 
 		wl_list_for_each(seat, &shsurf->shell->compositor->seat_list, link)
-			weston_view_activate(shsurf->view, seat, 0);
+			weston_view_activate_input(shsurf->view, seat, 0);
 	}
 
 	if (!is_fullscreen && (sx != 0 || sy != 0)) {
@@ -927,7 +927,7 @@ kiosk_shell_activate_view(struct kiosk_shell *shell,
 		weston_surface_damage(view->surface);
 	}
 
-	weston_view_activate(view, seat, flags);
+	weston_view_activate_input(view, seat, flags);
 }
 
 static void
