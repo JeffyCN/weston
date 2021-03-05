@@ -2450,8 +2450,6 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 	wl_list_init(&shsurf->children_link);
 
 	weston_desktop_surface_set_user_data(desktop_surface, shsurf);
-	weston_desktop_surface_set_activated(desktop_surface,
-					     shsurf->focus_count > 0);
 }
 
 static void
