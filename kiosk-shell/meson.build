@@ -2,7 +2,6 @@ if get_option('shell-kiosk')
 	srcs_shell_kiosk = [
 		'kiosk-shell.c',
 		'kiosk-shell-grab.c',
-		'util.c',
 		'../shared/shell-utils.c',
 		weston_desktop_shell_server_protocol_h,
 		weston_desktop_shell_protocol_c,

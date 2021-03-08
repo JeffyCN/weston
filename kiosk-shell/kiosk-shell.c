@@ -34,7 +34,6 @@
 #include "compositor/weston.h"
 #include "shared/helpers.h"
 #include "shared/shell-utils.h"
-#include "util.h"
 
 #include <libweston/xwayland-api.h>
 
@@ -461,7 +460,7 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	struct weston_output *output = shoutput->output;
 	struct weston_config_section *shell_section = NULL;
 	uint32_t bg_color = 0x0;
-	float r, g, b;
+	struct weston_solid_color_surface solid_surface = {};
 
 	if (shoutput->background_view)
 		weston_surface_destroy(shoutput->background_view->surface);
@@ -475,21 +474,23 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 		weston_config_section_get_color(shell_section, "background-color",
 						&bg_color, 0x00000000);
 
-	r = ((bg_color >> 16) & 0xff) / 255.0;
-	g = ((bg_color >> 8) & 0xff) / 255.0;
-	b = ((bg_color >> 0) & 0xff) / 255.0;
+	solid_surface.r = ((bg_color >> 16) & 0xff) / 255.0;
+	solid_surface.g = ((bg_color >> 8) & 0xff) / 255.0;
+	solid_surface.b = ((bg_color >> 0) & 0xff) / 255.0;
+
+	solid_surface.get_label = kiosk_shell_background_surface_get_label;
+	solid_surface.surface_committed = NULL;
+	solid_surface.surface_private = NULL;
 
 	shoutput->background_view =
-			create_colored_surface(shoutput->shell->compositor,
-					       r, g, b,
-					       output->x, output->y,
-					       output->width,
-			                       output->height);
+			create_solid_color_surface(shoutput->shell->compositor,
+						   &solid_surface,
+						   output->x, output->y,
+						   output->width,
+						   output->height);
 
 	weston_surface_set_role(shoutput->background_view->surface,
 				"kiosk-shell-background", NULL, 0);
-	weston_surface_set_label_func(shoutput->background_view->surface,
-				      kiosk_shell_background_surface_get_label);
 
 	weston_layer_entry_insert(&shell->background_layer.view_list,
 				  &shoutput->background_view->layer_link);

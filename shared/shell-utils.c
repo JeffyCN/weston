@@ -26,6 +26,7 @@
 
 #include "config.h"
 #include "shared/shell-utils.h"
+#include <libweston-desktop/libweston-desktop.h>
 
 struct weston_output *
 get_default_output(struct weston_compositor *compositor)
@@ -119,4 +120,56 @@ center_on_output(struct weston_view *view, struct weston_output *output)
 	y = output->y + (output->height - height) / 2 - surf_y / 2;
 
 	weston_view_set_position(view, x, y);
+}
+
+int
+surface_get_label(struct weston_surface *surface, char *buf, size_t len)
+{
+	const char *t, *c;
+	struct weston_desktop_surface *desktop_surface =
+		weston_surface_get_desktop_surface(surface);
+
+	t = weston_desktop_surface_get_title(desktop_surface);
+	c = weston_desktop_surface_get_app_id(desktop_surface);
+
+	return snprintf(buf, len, "%s window%s%s%s%s%s",
+		"top-level",
+		t ? " '" : "", t ?: "", t ? "'" : "",
+		c ? " of " : "", c ?: "");
+}
+
+struct weston_view *
+create_solid_color_surface(struct weston_compositor *compositor,
+			   struct weston_solid_color_surface *ss,
+			   float x, float y, int w, int h)
+{
+	struct weston_surface *surface = NULL;
+	struct weston_view *view;
+
+	surface = weston_surface_create(compositor);
+	if (surface == NULL) {
+		weston_log("no memory\n");
+		return NULL;
+	}
+	view = weston_view_create(surface);
+	if (view == NULL) {
+		weston_log("no memory\n");
+		weston_surface_destroy(surface);
+		return NULL;
+	}
+
+	surface->committed = ss->surface_committed;
+	surface->committed_private = ss->surface_private;
+
+	weston_surface_set_color(surface, ss->r, ss->g, ss->b, 1.0);
+	weston_surface_set_label_func(surface, ss->get_label);
+	pixman_region32_fini(&surface->opaque);
+	pixman_region32_init_rect(&surface->opaque, 0, 0, w, h);
+	pixman_region32_fini(&surface->input);
+	pixman_region32_init_rect(&surface->input, 0, 0, w, h);
+
+	weston_surface_set_size(surface, w, h);
+	weston_view_set_position(view, x, y);
+
+	return view;
 }

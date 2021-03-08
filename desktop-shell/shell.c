@@ -220,22 +220,6 @@ get_output_panel_size(struct desktop_shell *shell,
 static void
 shell_surface_update_child_surface_layers(struct shell_surface *shsurf);
 
-static int
-shell_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
-{
-	const char *t, *c;
-	struct weston_desktop_surface *desktop_surface =
-		weston_surface_get_desktop_surface(surface);
-
-	t = weston_desktop_surface_get_title(desktop_surface);
-	c = weston_desktop_surface_get_app_id(desktop_surface);
-
-	return snprintf(buf, len, "%s window%s%s%s%s%s",
-		"top-level",
-		t ? " '" : "", t ?: "", t ? "'" : "",
-		c ? " of " : "", c ?: "");
-}
-
 static void
 destroy_shell_grab_shsurf(struct wl_listener *listener, void *data)
 {
@@ -2060,32 +2044,18 @@ create_black_surface(struct weston_compositor *ec,
 		     struct weston_view *fs_view,
 		     float x, float y, int w, int h)
 {
-	struct weston_surface *surface = NULL;
-	struct weston_view *view;
+	struct weston_solid_color_surface surface_data = {};
 
-	surface = weston_surface_create(ec);
-	if (surface == NULL) {
-		weston_log("no memory\n");
-		return NULL;
-	}
-	view = weston_view_create(surface);
-	if (surface == NULL) {
-		weston_log("no memory\n");
-		weston_surface_destroy(surface);
-		return NULL;
-	}
+	surface_data.surface_committed = black_surface_committed;
+	surface_data.get_label = black_surface_get_label;
+	surface_data.surface_private = fs_view;
 
-	surface->committed = black_surface_committed;
-	surface->committed_private = fs_view;
-	weston_surface_set_label_func(surface, black_surface_get_label);
-	weston_surface_set_color(surface, 0.0, 0.0, 0.0, 1);
-	pixman_region32_fini(&surface->opaque);
-	pixman_region32_init_rect(&surface->opaque, 0, 0, w, h);
-	pixman_region32_fini(&surface->input);
-	pixman_region32_init_rect(&surface->input, 0, 0, w, h);
+	surface_data.r = 0;
+	surface_data.g = 0;
+	surface_data.b = 0;
 
-	weston_surface_set_size(surface, w, h);
-	weston_view_set_position(view, x, y);
+	struct weston_view *view =
+		create_solid_color_surface(ec, &surface_data, x, y, w, h);
 
 	return view;
 }
@@ -2310,7 +2280,7 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 		return;
 	}
 
-	weston_surface_set_label_func(surface, shell_surface_get_label);
+	weston_surface_set_label_func(surface, surface_get_label);
 
 	shsurf->shell = (struct desktop_shell *) shell;
 	shsurf->unresponsive = 0;
