@@ -41,6 +41,7 @@
 #include "weston-desktop-shell-server-protocol.h"
 #include <libweston/config-parser.h>
 #include "shared/helpers.h"
+#include "shared/shell-utils.h"
 #include "shared/timespec-util.h"
 #include <libweston-desktop/libweston-desktop.h>
 
@@ -426,10 +427,6 @@ shell_touch_grab_end(struct shell_touch_grab *grab)
 	weston_touch_end_grab(grab->touch);
 }
 
-static void
-center_on_output(struct weston_view *view,
-		 struct weston_output *output);
-
 static enum weston_keyboard_modifier
 get_modifier(char *modifier)
 {
@@ -510,16 +507,6 @@ shell_configuration(struct desktop_shell *shell)
 	weston_config_section_get_uint(section, "num-workspaces",
 				       &shell->workspaces.num,
 				       DEFAULT_NUM_WORKSPACES);
-}
-
-struct weston_output *
-get_default_output(struct weston_compositor *compositor)
-{
-	if (wl_list_empty(&compositor->output_list))
-		return NULL;
-
-	return container_of(compositor->output_list.next,
-			    struct weston_output, link);
 }
 
 static int
@@ -1705,40 +1692,6 @@ static const struct weston_pointer_grab_interface resize_grab_interface = {
 	resize_grab_cancel,
 };
 
-/*
- * Returns the bounding box of a surface and all its sub-surfaces,
- * in surface-local coordinates. */
-static void
-surface_subsurfaces_boundingbox(struct weston_surface *surface, int32_t *x,
-				int32_t *y, int32_t *w, int32_t *h) {
-	pixman_region32_t region;
-	pixman_box32_t *box;
-	struct weston_subsurface *subsurface;
-
-	pixman_region32_init_rect(&region, 0, 0,
-	                          surface->width,
-	                          surface->height);
-
-	wl_list_for_each(subsurface, &surface->subsurface_list, parent_link) {
-		pixman_region32_union_rect(&region, &region,
-		                           subsurface->position.x,
-		                           subsurface->position.y,
-		                           subsurface->surface->width,
-		                           subsurface->surface->height);
-	}
-
-	box = pixman_region32_extents(&region);
-	if (x)
-		*x = box->x1;
-	if (y)
-		*y = box->y1;
-	if (w)
-		*w = box->x2 - box->x1;
-	if (h)
-		*h = box->y2 - box->y1;
-
-	pixman_region32_fini(&region);
-}
 
 static int
 surface_resize(struct shell_surface *shsurf,
@@ -2199,37 +2152,6 @@ static void
 shell_map_fullscreen(struct shell_surface *shsurf)
 {
 	shell_configure_fullscreen(shsurf);
-}
-
-static struct weston_output *
-get_focused_output(struct weston_compositor *compositor)
-{
-	struct weston_seat *seat;
-	struct weston_output *output = NULL;
-
-	wl_list_for_each(seat, &compositor->seat_list, link) {
-		struct weston_touch *touch = weston_seat_get_touch(seat);
-		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-		struct weston_keyboard *keyboard =
-			weston_seat_get_keyboard(seat);
-
-		/* Priority has touch focus, then pointer and
-		 * then keyboard focus. We should probably have
-		 * three for loops and check first for touch,
-		 * then for pointer, etc. but unless somebody has some
-		 * objections, I think this is sufficient. */
-		if (touch && touch->focus)
-			output = touch->focus->output;
-		else if (pointer && pointer->focus)
-			output = pointer->focus->output;
-		else if (keyboard && keyboard->focus)
-			output = keyboard->focus->output;
-
-		if (output)
-			break;
-	}
-
-	return output;
 }
 
 static void
@@ -4281,25 +4203,6 @@ transform_handler(struct wl_listener *listener, void *data)
 	y = shsurf->view->geometry.y;
 
 	api->send_position(surface, x, y);
-}
-
-static void
-center_on_output(struct weston_view *view, struct weston_output *output)
-{
-	int32_t surf_x, surf_y, width, height;
-	float x, y;
-
-	if (!output) {
-		weston_view_set_position(view, 0, 0);
-		return;
-	}
-
-	surface_subsurfaces_boundingbox(view->surface, &surf_x, &surf_y, &width, &height);
-
-	x = output->x + (output->width - width) / 2 - surf_x / 2;
-	y = output->y + (output->height - height) / 2 - surf_y / 2;
-
-	weston_view_set_position(view, x, y);
 }
 
 static void
