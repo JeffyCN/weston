@@ -47,6 +47,7 @@
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
 #include "shared/timespec-util.h"
+#include "shell-utils/shell-utils.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 
 struct shared_output {
@@ -1144,16 +1145,19 @@ share_output_binding(struct weston_keyboard *keyboard,
 	struct screen_share *ss = data;
 
 	pointer = weston_seat_get_pointer(keyboard->seat);
-	if (!pointer) {
-		weston_log("Cannot pick output: Seat does not have pointer\n");
-		return;
+	if (pointer) {
+		output = weston_output_find(pointer->seat->compositor,
+					    wl_fixed_to_int(pointer->x),
+					    wl_fixed_to_int(pointer->y));
+	} else {
+		output = get_focused_output(keyboard->seat->compositor);
+		if (!output)
+			output = get_default_output(keyboard->seat->compositor);
 	}
 
-	output = weston_output_find(pointer->seat->compositor,
-				    wl_fixed_to_int(pointer->x),
-				    wl_fixed_to_int(pointer->y));
 	if (!output) {
-		weston_log("Cannot pick output: Pointer not on any output\n");
+		weston_log("Cannot pick output: Pointer not on any output, "
+			    "or no focused/default output found\n");
 		return;
 	}
 
