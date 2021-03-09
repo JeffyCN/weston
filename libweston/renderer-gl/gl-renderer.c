@@ -987,7 +987,6 @@ gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
 
 	if (!pnode->surf_xform_valid)
 		return false;
-	assert(pnode->surf_xform.transform == NULL);
 
 	*sconf = (struct gl_shader_config) {
 		.projection = go->output_matrix,
@@ -996,6 +995,11 @@ gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
 	};
 
 	gl_shader_config_set_input_textures(sconf, gs);
+
+	if (!gl_shader_config_set_color_transform(sconf, pnode->surf_xform.transform)) {
+		weston_log("GL-renderer: failed to generate a color transformation.\n");
+		return false;
+	}
 
 	return true;
 }
@@ -3831,6 +3835,7 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		gr->has_egl_image_external = true;
 
 	if (gr->gl_version >= gr_gl_version(3, 0) &&
+	    weston_check_egl_extension(extensions, "GL_OES_texture_float_linear") &&
 	    weston_check_egl_extension(extensions, "GL_EXT_color_buffer_half_float")) {
 		gr->gl_supports_color_transforms = true;
 	}

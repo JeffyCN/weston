@@ -23,6 +23,7 @@ srcs_renderer_gl = [
 	fragment_glsl,
 	'gl-renderer.c',
 	'gl-shaders.c',
+	'gl-shader-config-color-transformation.c',
 	linux_dmabuf_unstable_v1_protocol_c,
 	linux_dmabuf_unstable_v1_server_protocol_h,
 	vertex_glsl,

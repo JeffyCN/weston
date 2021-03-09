@@ -40,7 +40,28 @@ enum weston_color_curve_type {
 
 /** LUT_3x1D parameters */
 struct weston_color_curve_lut_3x1d {
-	/* To be defined */
+	/**
+	 * Approximate a color curve with three 1D LUTs
+	 *
+	 * A 1D LUT is a mapping from [0.0, 1.0] to arbitrary values. The first
+	 * element in the LUT corresponds to input value 0.0, and the last
+	 * element corresponds to input value 1.0. The step from one element
+	 * to the next in input space is 1.0 / (len - 1). When input value is
+	 * between two elements, linear interpolation should be used.
+	 *
+	 * This function fills in the given array with the LUT values.
+	 *
+	 * \param xform This color transformation object.
+	 * \param len The number of elements in each 1D LUT.
+	 * \param values Array of 3 x len elements. First R channel
+	 * LUT, immediately followed by G channel LUT, and then B channel LUT.
+	 */
+	void
+	(*fill_in)(struct weston_color_transform *xform,
+		   float *values, unsigned len);
+
+	/** Optimal 1D LUT length for storage vs. precision */
+	unsigned optimal_len;
 };
 
 /**

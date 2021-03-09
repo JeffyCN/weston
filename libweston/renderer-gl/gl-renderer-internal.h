@@ -83,6 +83,7 @@ static_assert(sizeof(struct gl_shader_requirements) ==
 	      "struct gl_shader_requirements must not contain implicit padding");
 
 struct gl_shader;
+struct weston_color_transform;
 
 #define GL_SHADER_INPUT_TEX_MAX 3
 struct gl_shader_config {
@@ -233,5 +234,9 @@ gl_renderer_use_program(struct gl_renderer *gr,
 
 struct weston_log_scope *
 gl_shader_scope_create(struct gl_renderer *gr);
+
+bool
+gl_shader_config_set_color_transform(struct gl_shader_config *sconf,
+				     struct weston_color_transform *xform);
 
 #endif /* GL_RENDERER_INTERNAL_H */
