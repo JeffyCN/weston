@@ -1569,7 +1569,6 @@ weston_view_update_transform_enable(struct weston_view *view)
 	surfbox = pixman_region32_extents(&surfregion);
 
 	view_compute_bbox(view, surfbox, &view->transform.boundingbox);
-	pixman_region32_fini(&surfregion);
 
 	if (view->alpha == 1.0 &&
 	    matrix->type == WESTON_MATRIX_TRANSFORM_TRANSLATE) {
@@ -1587,7 +1586,19 @@ weston_view_update_transform_enable(struct weston_view *view)
 						  matrix->d[12],
 						  matrix->d[13]);
 		}
+	} else if (view->alpha == 1.0 &&
+		 matrix->type < WESTON_MATRIX_TRANSFORM_ROTATE &&
+		 pixman_region32_n_rects(&surfregion) == 1 &&
+		 (pixman_region32_equal(&surfregion, &view->surface->opaque) ||
+		  view->surface->is_opaque)) {
+		/* The whole surface is opaque and it is only translated and
+		 * scaled and after applying the scissor, the result is still
+		 * a single rectangle. In this case the boundingbox matches the
+		 * view exactly and can be used as opaque area. */
+		pixman_region32_copy(&view->transform.opaque,
+				     &view->transform.boundingbox);
 	}
+	pixman_region32_fini(&surfregion);
 
 	return 0;
 }
