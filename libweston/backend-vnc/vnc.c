@@ -874,6 +874,8 @@ vnc_destroy(struct weston_backend *base)
 	struct weston_compositor *ec = backend->compositor;
 	struct weston_head *head, *next;
 
+	wl_list_remove(&backend->base.link);
+
 	wl_event_source_remove(backend->aml_event);
 
 	aml_unref(backend->aml);
@@ -1144,6 +1146,8 @@ vnc_backend_create(struct weston_compositor *compositor,
 	if (backend == NULL)
 		return NULL;
 
+	wl_list_init(&backend->base.link);
+
 	backend->compositor = compositor;
 	backend->base.shutdown = vnc_shutdown;
 	backend->base.destroy = vnc_destroy;
@@ -1155,7 +1159,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 							 "Debug messages from VNC backend\n",
 							 NULL, NULL, NULL);
 
-	compositor->backend = &backend->base;
+	wl_list_insert(&compositor->backend_list, &backend->base.link);
 
 	backend->base.supported_presentation_clocks =
 			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
@@ -1163,30 +1167,31 @@ vnc_backend_create(struct weston_compositor *compositor,
 	backend->formats_count = ARRAY_LENGTH(vnc_formats);
 	backend->formats = pixel_format_get_array(vnc_formats,
 						  backend->formats_count);
-
-	switch (config->renderer) {
-	case WESTON_RENDERER_AUTO:
-	case WESTON_RENDERER_PIXMAN:
-		if (weston_compositor_init_renderer(compositor,
-						    WESTON_RENDERER_PIXMAN,
-						    NULL) < 0)
+	if (!compositor->renderer) {
+		switch (config->renderer) {
+		case WESTON_RENDERER_AUTO:
+		case WESTON_RENDERER_PIXMAN:
+			if (weston_compositor_init_renderer(compositor,
+							    WESTON_RENDERER_PIXMAN,
+							    NULL) < 0)
+				goto err_compositor;
+			break;
+		case WESTON_RENDERER_GL: {
+			const struct gl_renderer_display_options options = {
+				.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+				.formats = backend->formats,
+				.formats_count = backend->formats_count,
+			};
+			if (weston_compositor_init_renderer(compositor,
+							    WESTON_RENDERER_GL,
+							    &options.base) < 0)
+				goto err_compositor;
+			break;
+		}
+		default:
+			weston_log("Unsupported renderer requested\n");
 			goto err_compositor;
-		break;
-	case WESTON_RENDERER_GL: {
-		const struct gl_renderer_display_options options = {
-			.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
-			.formats = backend->formats,
-			.formats_count = backend->formats_count,
-		};
-		if (weston_compositor_init_renderer(compositor,
-						    WESTON_RENDERER_GL,
-						    &options.base) < 0)
-			goto err_compositor;
-		break;
-	}
-	default:
-		weston_log("Unsupported renderer requested\n");
-		goto err_compositor;
+		}
 	}
 
 	vnc_head_create(backend, "vnc");
@@ -1266,6 +1271,7 @@ err_output:
 	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link)
 		vnc_head_destroy(base);
 err_compositor:
+	wl_list_remove(&backend->base.link);
 	free(backend);
 	return NULL;
 }
@@ -1292,6 +1298,17 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_size > sizeof(struct weston_vnc_backend_config)) {
 		weston_log("VNC backend config structure is invalid\n");
 		return -1;
+	}
+
+	if (compositor->renderer) {
+		switch (compositor->renderer->type) {
+		case WESTON_RENDERER_PIXMAN:
+		case WESTON_RENDERER_GL:
+			break;
+		default:
+			weston_log("Renderer not supported by VNC backend\n");
+			return -1;
+		}
 	}
 
 	config_init_to_defaults(&config);
