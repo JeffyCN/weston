@@ -75,6 +75,7 @@ struct vnc_backend {
 
 struct vnc_output {
 	struct weston_output base;
+	struct vnc_backend *backend;
 	struct wl_event_source *finish_frame_timer;
 	struct nvnc_display *display;
 
@@ -612,7 +613,7 @@ vnc_output_enable(struct weston_output *base)
 
 	assert(output);
 
-	backend = to_vnc_backend(base->compositor);
+	backend = output->backend;
 	backend->output = output;
 
 	if (pixman_renderer_output_create(&output->base, &options) < 0)
@@ -651,7 +652,7 @@ vnc_output_disable(struct weston_output *base)
 
 	assert(output);
 
-	backend = to_vnc_backend(base->compositor);
+	backend = output->backend;
 
 	if (!output->base.enabled)
 		return 0;
@@ -697,6 +698,8 @@ vnc_create_output(struct weston_backend *backend, const char *name)
 	output->base.disable = vnc_output_disable;
 	output->base.enable = vnc_output_enable;
 	output->base.attach_head = NULL;
+
+	output->backend = b;
 
 	weston_compositor_add_pending_output(&output->base, b->compositor);
 
@@ -774,7 +777,7 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 {
 	struct vnc_output *output = to_vnc_output(base);
 	struct weston_compositor *ec = output->base.compositor;
-	struct vnc_backend *backend = to_vnc_backend(ec);
+	struct vnc_backend *backend = output->backend;
 	struct timespec now, target;
 	int refresh_nsec = millihz_to_nsec(output->base.current_mode->refresh);
 	int refresh_msec = refresh_nsec / 1000000;
@@ -837,19 +840,19 @@ vnc_insert_new_mode(struct weston_output *output, int width, int height,
 }
 
 static struct weston_mode *
-vnc_ensure_matching_mode(struct weston_output *output,
+vnc_ensure_matching_mode(struct vnc_output *output,
 			 struct weston_mode *target)
 {
-	struct vnc_backend *backend = to_vnc_backend(output->compositor);
+	struct vnc_backend *backend = output->backend;
 	struct weston_mode *local;
 
-	wl_list_for_each(local, &output->mode_list, link) {
+	wl_list_for_each(local, &output->base.mode_list, link) {
 		if ((local->width == target->width) &&
 		    (local->height == target->height))
 			return local;
 	}
 
-	return vnc_insert_new_mode(output, target->width, target->height,
+	return vnc_insert_new_mode(&output->base, target->width, target->height,
 				   backend->vnc_monitor_refresh_rate);
 }
 
@@ -862,7 +865,7 @@ vnc_switch_mode(struct weston_output *base, struct weston_mode *target_mode)
 
 	assert(output);
 
-	local_mode = vnc_ensure_matching_mode(base, target_mode);
+	local_mode = vnc_ensure_matching_mode(output, target_mode);
 
 	if (local_mode == base->current_mode)
 		return 0;
@@ -888,7 +891,7 @@ static int
 vnc_output_set_size(struct weston_output *base, int width, int height)
 {
 	struct vnc_output *output = to_vnc_output(base);
-	struct vnc_backend *backend = to_vnc_backend(base->compositor);
+	struct vnc_backend *backend = output->backend;
 	struct weston_mode *current_mode;
 	struct weston_mode init_mode;
 
@@ -901,7 +904,7 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 	init_mode.height = height;
 	init_mode.refresh = backend->vnc_monitor_refresh_rate;
 
-	current_mode = vnc_ensure_matching_mode(&output->base, &init_mode);
+	current_mode = vnc_ensure_matching_mode(output, &init_mode);
 	current_mode->flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
 
 	output->base.current_mode = output->base.native_mode = current_mode;
