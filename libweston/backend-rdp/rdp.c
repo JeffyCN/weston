@@ -273,6 +273,8 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 		next_frame_delta = refresh_msec;
 	}
 
+	assert(output);
+
 	pixman_renderer_output_set_buffer(output_base, output->shadow_surface);
 	ec->renderer->repaint_output(&output->base, damage);
 
@@ -344,6 +346,8 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	struct weston_mode *local_mode;
 	const struct pixman_renderer_output_options options = { .use_shadow = true, };
 
+	assert(output);
+
 	local_mode = ensure_matching_mode(output, target_mode);
 	if (!local_mode) {
 		rdp_debug(rdpBackend, "mode %dx%d not available\n", target_mode->width, target_mode->height);
@@ -396,6 +400,8 @@ rdp_output_set_size(struct weston_output *base,
 	struct weston_mode *currentMode;
 	struct weston_mode initMode;
 
+	assert(output);
+
 	/* We can only be called once. */
 	assert(!output->base.current_mode);
 
@@ -433,11 +439,15 @@ static int
 rdp_output_enable(struct weston_output *base)
 {
 	struct rdp_output *output = to_rdp_output(base);
-	struct rdp_backend *b = to_rdp_backend(base->compositor);
+	struct rdp_backend *b;
 	struct wl_event_loop *loop;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
 	};
+
+	assert(output);
+
+	b = to_rdp_backend(base->compositor);
 
 	output->shadow_surface = pixman_image_create_bits(PIXMAN_x8r8g8b8,
 							  output->base.current_mode->width,
@@ -466,7 +476,11 @@ static int
 rdp_output_disable(struct weston_output *base)
 {
 	struct rdp_output *output = to_rdp_output(base);
-	struct rdp_backend *b = to_rdp_backend(base->compositor);
+	struct rdp_backend *b;
+
+	assert(output);
+
+	b = to_rdp_backend(base->compositor);
 
 	if (!output->base.enabled)
 		return 0;
@@ -480,10 +494,12 @@ rdp_output_disable(struct weston_output *base)
 	return 0;
 }
 
-static void
+void
 rdp_output_destroy(struct weston_output *base)
 {
 	struct rdp_output *output = to_rdp_output(base);
+
+	assert(output);
 
 	rdp_output_disable(&output->base);
 	weston_output_release(&output->base);
@@ -522,15 +538,22 @@ rdp_head_create(struct weston_compositor *compositor, const char *name)
 		return -1;
 
 	weston_head_init(&head->base, name);
+
+	head->base.backend_id = rdp_head_destroy;
+
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);
 
 	return 0;
 }
 
-static void
-rdp_head_destroy(struct rdp_head *head)
+void
+rdp_head_destroy(struct weston_head *base)
 {
+	struct rdp_head *head = to_rdp_head(base);
+
+	assert(head);
+
 	weston_head_release(&head->base);
 	free(head);
 }
@@ -577,8 +600,10 @@ rdp_destroy(struct weston_compositor *ec)
 
 	weston_compositor_shutdown(ec);
 
-	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
-		rdp_head_destroy(to_rdp_head(base));
+	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
+		if (to_rdp_head(base))
+			rdp_head_destroy(base);
+	}
 
 	freerdp_listener_free(b->listener);
 
@@ -1734,8 +1759,10 @@ err_output:
 	if (b->output)
 		weston_output_release(&b->output->base);
 err_compositor:
-	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link)
-		rdp_head_destroy(to_rdp_head(base));
+	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link) {
+		if (to_rdp_head(base))
+			rdp_head_destroy(base);
+	}
 
 	weston_compositor_shutdown(compositor);
 err_free_strings:

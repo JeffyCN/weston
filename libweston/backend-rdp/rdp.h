@@ -232,15 +232,25 @@ rdp_clipboard_init(freerdp_peer *client);
 void
 rdp_clipboard_destroy(RdpPeerContext *peerCtx);
 
+void
+rdp_head_destroy(struct weston_head *base);
+
 static inline struct rdp_head *
 to_rdp_head(struct weston_head *base)
 {
+	if (base->backend_id != rdp_head_destroy)
+		return NULL;
 	return container_of(base, struct rdp_head, base);
 }
+
+void
+rdp_output_destroy(struct weston_output *base);
 
 static inline struct rdp_output *
 to_rdp_output(struct weston_output *base)
 {
+	if (base->destroy != rdp_output_destroy)
+		return NULL;
 	return container_of(base, struct rdp_output, base);
 }
 
