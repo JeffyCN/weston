@@ -233,12 +233,12 @@ void
 rdp_clipboard_destroy(RdpPeerContext *peerCtx);
 
 void
-rdp_head_destroy(struct weston_head *base);
+rdp_destroy(struct weston_compositor *ec);
 
 static inline struct rdp_head *
 to_rdp_head(struct weston_head *base)
 {
-	if (base->backend_id != rdp_head_destroy)
+	if (base->backend->destroy != rdp_destroy)
 		return NULL;
 	return container_of(base, struct rdp_head, base);
 }

@@ -152,12 +152,12 @@ struct window_delete_data {
 struct gl_renderer_interface *gl_renderer;
 
 static void
-x11_head_destroy(struct weston_head *base);
+x11_destroy(struct weston_compositor *ec);
 
 static inline struct x11_head *
 to_x11_head(struct weston_head *base)
 {
-	if (base->backend_id != x11_head_destroy)
+	if (base->backend->destroy != x11_destroy)
 		return NULL;
 	return container_of(base, struct x11_head, base);
 }
@@ -1175,6 +1175,7 @@ x11_output_create(struct weston_compositor *compositor, const char *name)
 static int
 x11_head_create(struct weston_compositor *compositor, const char *name)
 {
+	struct x11_backend *backend = to_x11_backend(compositor);
 	struct x11_head *head;
 
 	assert(name);
@@ -1185,7 +1186,7 @@ x11_head_create(struct weston_compositor *compositor, const char *name)
 
 	weston_head_init(&head->base, name);
 
-	head->base.backend_id = x11_head_destroy;
+	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);

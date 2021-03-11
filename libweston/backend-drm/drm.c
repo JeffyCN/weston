@@ -2272,7 +2272,7 @@ drm_head_create(struct drm_device *device, drmModeConnector *conn,
 	weston_head_init(&head->base, name);
 	free(name);
 
-	head->base.backend_id = drm_head_destroy;
+	head->base.backend = &backend->base;
 
 	ret = drm_head_update_info(head, conn);
 	if (ret < 0)
@@ -2303,7 +2303,7 @@ err:
 	return -1;
 }
 
-void
+static void
 drm_head_destroy(struct weston_head *base)
 {
 	struct drm_head *head = to_drm_head(base);
@@ -2692,7 +2692,7 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 	return 1;
 }
 
-static void
+void
 drm_destroy(struct weston_compositor *ec)
 {
 	struct drm_backend *b = to_drm_backend(ec);

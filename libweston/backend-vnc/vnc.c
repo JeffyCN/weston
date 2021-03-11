@@ -122,10 +122,13 @@ to_vnc_output(struct weston_output *base)
 static void
 vnc_head_destroy(struct weston_head *base);
 
+static void
+vnc_destroy(struct weston_compositor *ec);
+
 static inline struct vnc_head *
 to_vnc_head(struct weston_head *base)
 {
-	if (base->backend_id != vnc_head_destroy)
+	if (base->backend->destroy != vnc_destroy)
 		return NULL;
 	return container_of(base, struct vnc_head, base);
 }
@@ -723,6 +726,7 @@ vnc_destroy(struct weston_compositor *ec)
 static void
 vnc_head_create(struct weston_compositor *compositor, const char *name)
 {
+	struct vnc_backend *backend = to_vnc_backend(compositor);
 	struct vnc_head *head;
 
 	head = xzalloc(sizeof *head);
@@ -731,7 +735,7 @@ vnc_head_create(struct weston_compositor *compositor, const char *name)
 	weston_head_set_monitor_strings(&head->base, "weston", "vnc", NULL);
 	weston_head_set_physical_size(&head->base, 0, 0);
 
-	head->base.backend_id = vnc_head_destroy;
+	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);

@@ -88,12 +88,12 @@ static const uint32_t headless_formats[] = {
 };
 
 static void
-headless_head_destroy(struct weston_head *base);
+headless_destroy(struct weston_compositor *ec);
 
 static inline struct headless_head *
 to_headless_head(struct weston_head *base)
 {
-	if (base->backend_id != headless_head_destroy)
+	if (base->backend->destroy != headless_destroy)
 		return NULL;
 	return container_of(base, struct headless_head, base);
 }
@@ -505,6 +505,7 @@ static int
 headless_head_create(struct weston_compositor *compositor,
 		     const char *name)
 {
+	struct headless_backend *backend = to_headless_backend(compositor);
 	struct headless_head *head;
 
 	/* name can't be NULL. */
@@ -516,7 +517,7 @@ headless_head_create(struct weston_compositor *compositor,
 
 	weston_head_init(&head->base, name);
 
-	head->base.backend_id = headless_head_destroy;
+	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_head_set_supported_eotf_mask(&head->base,

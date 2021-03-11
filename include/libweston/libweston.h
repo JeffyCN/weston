@@ -375,6 +375,7 @@ struct weston_color_characteristics {
  */
 struct weston_head {
 	struct weston_compositor *compositor;	/**< owning compositor */
+	struct weston_backend *backend;	/**< owning backend */
 	struct wl_list compositor_link;	/**< in weston_compositor::head_list */
 	struct wl_signal destroy_signal;	/**< destroy callbacks */
 
@@ -406,9 +407,6 @@ struct weston_head {
 
 	/** Current content protection status */
 	enum weston_hdcp_protection current_protection;
-
-	/** Opaque pointer used by backends to identify heads as theirs */
-	const void *backend_id;
 };
 
 /** Output properties derived from its color characteristics and profile

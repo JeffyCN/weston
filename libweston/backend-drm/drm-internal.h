@@ -601,12 +601,12 @@ struct drm_output {
 };
 
 void
-drm_head_destroy(struct weston_head *head_base);
+drm_destroy(struct weston_compositor *ec);
 
 static inline struct drm_head *
 to_drm_head(struct weston_head *base)
 {
-	if (base->backend_id != drm_head_destroy)
+	if (base->backend->destroy != drm_destroy)
 		return NULL;
 	return container_of(base, struct drm_head, base);
 }

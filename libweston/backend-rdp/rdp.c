@@ -534,6 +534,7 @@ rdp_output_create(struct weston_compositor *compositor, const char *name)
 static int
 rdp_head_create(struct weston_compositor *compositor, const char *name)
 {
+	struct rdp_backend *backend = to_rdp_backend(compositor);
 	struct rdp_head *head;
 
 	head = zalloc(sizeof *head);
@@ -542,7 +543,7 @@ rdp_head_create(struct weston_compositor *compositor, const char *name)
 
 	weston_head_init(&head->base, name);
 
-	head->base.backend_id = rdp_head_destroy;
+	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);
@@ -550,7 +551,7 @@ rdp_head_create(struct weston_compositor *compositor, const char *name)
 	return 0;
 }
 
-void
+static void
 rdp_head_destroy(struct weston_head *base)
 {
 	struct rdp_head *head = to_rdp_head(base);
@@ -561,7 +562,7 @@ rdp_head_destroy(struct weston_head *base)
 	free(head);
 }
 
-static void
+void
 rdp_destroy(struct weston_compositor *ec)
 {
 	struct rdp_backend *b = to_rdp_backend(ec);

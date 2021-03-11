@@ -231,12 +231,12 @@ struct wayland_input {
 struct gl_renderer_interface *gl_renderer;
 
 static void
-wayland_head_destroy(struct weston_head *base);
+wayland_destroy(struct weston_compositor *ec);
 
 static inline struct wayland_head *
 to_wayland_head(struct weston_head *base)
 {
-	if (base->backend_id != wayland_head_destroy)
+	if (base->backend->destroy != wayland_destroy)
 		return NULL;
 	return container_of(base, struct wayland_head, base);
 }
@@ -1417,6 +1417,7 @@ wayland_output_create(struct weston_compositor *compositor, const char *name)
 static struct wayland_head *
 wayland_head_create(struct weston_compositor *compositor, const char *name)
 {
+	struct wayland_backend *backend = to_wayland_backend(compositor);
 	struct wayland_head *head;
 
 	assert(name);
@@ -1427,7 +1428,7 @@ wayland_head_create(struct weston_compositor *compositor, const char *name)
 
 	weston_head_init(&head->base, name);
 
-	head->base.backend_id = wayland_head_destroy;
+	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);
