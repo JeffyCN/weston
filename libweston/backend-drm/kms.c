@@ -487,6 +487,8 @@ drm_output_set_gamma(struct weston_output *output_base,
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_device *device = output->device;
 
+	assert(output);
+
 	/* check */
 	if (output_base->gamma_size != size)
 		return;

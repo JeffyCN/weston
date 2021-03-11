@@ -164,9 +164,6 @@ drm_output_pageflip_timer_create(struct drm_output *output)
 	return 0;
 }
 
-static void
-drm_output_destroy(struct weston_output *output_base);
-
 /**
  * Returns true if the plane can be used on the given output for its current
  * repaint cycle.
@@ -214,6 +211,8 @@ drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id)
 	wl_list_for_each(base,
 			 &backend->compositor->head_list, compositor_link) {
 		head = to_drm_head(base);
+		if (!head)
+			continue;
 		if (head->connector.connector_id == connector_id)
 			return head;
 	}
@@ -451,6 +450,7 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	struct drm_pending_state *pending_state;
 	struct drm_device *device;
 
+	assert(output);
 	assert(!output->virtual);
 
 	device = output->device;
@@ -689,8 +689,11 @@ drm_output_switch_mode(struct weston_output *output_base, struct weston_mode *mo
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_device *device = output->device;
 	struct drm_backend *b = device->backend;
-	struct drm_mode *drm_mode = drm_output_choose_mode(output, mode);
+	struct drm_mode *drm_mode;
 
+	assert(output);
+
+	drm_mode = drm_output_choose_mode(output, mode);
 	if (!drm_mode) {
 		weston_log("%s: invalid resolution %dx%d\n",
 			   output_base->name, mode->width, mode->height);
@@ -1053,6 +1056,7 @@ drm_set_dpms(struct weston_output *output_base, enum dpms_enum level)
 	struct drm_output_state *state;
 	int ret;
 
+	assert(output);
 	assert(!output->virtual);
 
 	if (output->state_cur->dpms == level)
@@ -1491,6 +1495,8 @@ drm_output_pick_crtc(struct drm_output *output)
 		match = false;
 		wl_list_for_each(base, &compositor->head_list, compositor_link) {
 			head = to_drm_head(base);
+			if (!head)
+				continue;
 
 			if (head->base.output == &output->base)
 				continue;
@@ -1808,6 +1814,7 @@ drm_output_enable(struct weston_output *base)
 	struct drm_backend *b = device->backend;
 	int ret;
 
+	assert(output);
 	assert(!output->virtual);
 
 	if (output->gbm_format == DRM_FORMAT_INVALID) {
@@ -1885,15 +1892,13 @@ drm_output_deinit(struct weston_output *base)
 	}
 }
 
-static void
-drm_head_destroy(struct drm_head *head);
-
-static void
+void
 drm_output_destroy(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
 	struct drm_device *device = output->device;
 
+	assert(output);
 	assert(!output->virtual);
 
 	if (output->page_flip_pending || output->atomic_complete_pending) {
@@ -1927,6 +1932,7 @@ drm_output_disable(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
 
+	assert(output);
 	assert(!output->virtual);
 
 	if (output->page_flip_pending || output->atomic_complete_pending) {
@@ -2197,6 +2203,8 @@ drm_head_create(struct drm_device *device, drmModeConnector *conn,
 	weston_head_init(&head->base, name);
 	free(name);
 
+	head->base.backend_id = drm_head_destroy;
+
 	ret = drm_head_update_info(head, conn);
 	if (ret < 0)
 		goto err_update;
@@ -2226,9 +2234,13 @@ err:
 	return -1;
 }
 
-static void
-drm_head_destroy(struct drm_head *head)
+void
+drm_head_destroy(struct weston_head *base)
 {
+	struct drm_head *head = to_drm_head(base);
+
+	assert(head);
+
 	weston_head_release(&head->base);
 
 	drm_connector_fini(&head->connector);
@@ -2466,6 +2478,8 @@ drm_backend_update_connectors(struct drm_device *device,
 	wl_list_for_each_safe(base, base_next,
 			      &b->compositor->head_list, compositor_link) {
 		head = to_drm_head(base);
+		if (!head)
+			continue;
 		connector_id = head->connector.connector_id;
 
 		if (head->connector.device != device)
@@ -2476,7 +2490,7 @@ drm_backend_update_connectors(struct drm_device *device,
 
 		weston_log("DRM: head '%s' (connector %d) disappeared.\n",
 			   head->base.name, connector_id);
-		drm_head_destroy(head);
+		drm_head_destroy(base);
 	}
 
 	/* Destroy writeback objects of writeback connectors that have
@@ -2630,8 +2644,10 @@ drm_destroy(struct weston_compositor *ec)
 	wl_list_for_each_safe(crtc, crtc_tmp, &b->drm->crtc_list, link)
 		drm_crtc_destroy(crtc);
 
-	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
-		drm_head_destroy(to_drm_head(base));
+	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
+		if (to_drm_head(base))
+			drm_head_destroy(base);
+	}
 
 	wl_list_for_each_safe(writeback, writeback_tmp,
 			      &b->drm->writeback_connector_list, link)

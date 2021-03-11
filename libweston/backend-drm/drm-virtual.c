@@ -245,7 +245,7 @@ drm_virtual_output_deinit(struct weston_output *base)
 	drm_virtual_crtc_destroy(output->crtc);
 }
 
-static void
+void
 drm_virtual_output_destroy(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
