@@ -119,6 +119,18 @@ struct wet_layoutput {
 	struct wet_head_array add;	/**< tmp: heads to add as clones */
 };
 
+/** Per-backend listeners and callbacks
+ *
+ * Contains the backend specific head change listener and
+ * output configure callback.
+ */
+struct wet_backend {
+	struct weston_backend *backend;
+	struct wl_listener heads_changed_listener;
+	int (*simple_output_configure)(struct weston_output *output);
+	struct wl_list compositor_link; /**< in wet_compositor::backend_list */
+};
+
 enum require_outputs {
         REQUIRE_OUTPUTS_ALL_FOUND,
         REQUIRE_OUTPUTS_ANY,
@@ -130,9 +142,8 @@ struct wet_compositor {
 	struct weston_config *config;
 	struct wet_output_config *parsed_options;
 	bool drm_use_current_mode;
-	struct wl_listener heads_changed_listener;
-	int (*simple_output_configure)(struct weston_output *output);
 	bool init_failed;
+	struct wl_list backend_list;	/**< wet_backend::compositor_link */
 	struct wl_list layoutput_list;	/**< wet_layoutput::compositor_link */
 	struct wl_list child_process_list;
 	pid_t autolaunch_pid;
@@ -1774,7 +1785,8 @@ weston_output_lazy_align(struct weston_output *output)
 }
 
 static void
-simple_head_enable(struct wet_compositor *wet, struct weston_head *head)
+simple_head_enable(struct wet_compositor *wet, struct wet_backend *wb,
+		   struct weston_head *head)
 {
 	struct weston_output *output;
 	int ret = 0;
@@ -1791,8 +1803,8 @@ simple_head_enable(struct wet_compositor *wet, struct weston_head *head)
 
 	weston_output_lazy_align(output);
 
-	if (wet->simple_output_configure)
-		ret = wet->simple_output_configure(output);
+	if (wb->simple_output_configure)
+		ret = wb->simple_output_configure(output);
 	if (ret < 0) {
 		weston_log("Cannot configure output \"%s\".\n",
 			   weston_head_get_name(head));
@@ -1831,25 +1843,39 @@ simple_head_disable(struct weston_head *head)
 	weston_output_destroy(output);
 }
 
+static struct weston_head *
+wet_backend_iterate_heads(struct wet_compositor *wet, struct wet_backend *wb,
+                          struct weston_head *iter)
+{
+       while ((iter = weston_compositor_iterate_heads(wet->compositor, iter))) {
+               if (iter->backend == wb->backend)
+                       break;
+       }
+
+       return iter;
+}
+
 static void
 simple_heads_changed(struct wl_listener *listener, void *arg)
 {
 	struct weston_compositor *compositor = arg;
 	struct wet_compositor *wet = to_wet_compositor(compositor);
+	struct wet_backend *wb = container_of(listener, struct wet_backend,
+					      heads_changed_listener);
 	struct weston_head *head = NULL;
 	bool connected;
 	bool enabled;
 	bool changed;
 	bool non_desktop;
 
-	while ((head = weston_compositor_iterate_heads(wet->compositor, head))) {
+	while ((head = wet_backend_iterate_heads(wet, wb, head))) {
 		connected = weston_head_is_connected(head);
 		enabled = weston_head_is_enabled(head);
 		changed = weston_head_is_device_changed(head);
 		non_desktop = weston_head_is_non_desktop(head);
 
 		if (connected && !enabled && !non_desktop) {
-			simple_head_enable(wet, head);
+			simple_head_enable(wet, wb, head);
 		} else if (!connected && enabled) {
 			simple_head_disable(head);
 		} else if (enabled && changed) {
@@ -1859,19 +1885,6 @@ simple_heads_changed(struct wl_listener *listener, void *arg)
 		}
 		weston_head_reset_device_changed(head);
 	}
-}
-
-static void
-wet_set_simple_head_configurator(struct weston_compositor *compositor,
-				 int (*fn)(struct weston_output *))
-{
-	struct wet_compositor *wet = to_wet_compositor(compositor);
-
-	wet->simple_output_configure = fn;
-
-	wet->heads_changed_listener.notify = simple_heads_changed;
-	weston_compositor_add_heads_changed_listener(compositor,
-						&wet->heads_changed_listener);
 }
 
 static void
@@ -2243,6 +2256,14 @@ wet_layoutput_destroy(struct wet_layoutput *lo)
 }
 
 static void
+wet_backend_destroy(struct wet_backend *b)
+{
+	wl_list_remove(&b->compositor_link);
+	wl_list_remove(&b->heads_changed_listener.link);
+	free(b);
+}
+
+static void
 wet_output_handle_destroy(struct wl_listener *listener, void *data)
 {
 	struct wet_output *output;
@@ -2360,6 +2381,15 @@ wet_compositor_destroy_layout(struct wet_compositor *wet)
 		}
 		wet_layoutput_destroy(lo);
 	}
+}
+
+static void
+wet_compositor_destroy_backend_callbacks(struct wet_compositor *wet)
+{
+	struct wet_backend *b, *tmp;
+
+	wl_list_for_each_safe(b, tmp, &wet->backend_list, compositor_link)
+		wet_backend_destroy(b);
 }
 
 static void
@@ -2609,6 +2639,8 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 {
 	struct weston_compositor *compositor = arg;
 	struct wet_compositor *wet = to_wet_compositor(compositor);
+	struct wet_backend *wb = container_of(listener, struct wet_backend,
+					      heads_changed_listener);
 	struct weston_head *head = NULL;
 	bool connected;
 	bool enabled;
@@ -2618,7 +2650,7 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 	/* We need to collect all cloned heads into outputs before enabling the
 	 * output.
 	 */
-	while ((head = weston_compositor_iterate_heads(compositor, head))) {
+	while ((head = wet_backend_iterate_heads(wet, wb, head))) {
 		connected = weston_head_is_connected(head);
 		enabled = weston_head_is_enabled(head);
 		changed = weston_head_is_device_changed(head);
@@ -2929,6 +2961,44 @@ load_pipewire(struct weston_compositor *c, struct weston_config *wc)
 	}
 }
 
+static struct wet_backend *
+wet_compositor_load_backend(struct weston_compositor *compositor,
+			    enum weston_compositor_backend backend,
+			    struct weston_backend_config *config_base,
+			    void (*heads_changed)(struct wl_listener *, void *),
+			    int (*simple_output_configure)(struct weston_output *))
+{
+	struct wet_compositor *wet = to_wet_compositor(compositor);
+	struct wet_backend *wb;
+	int ret;
+
+	wb = xzalloc(sizeof *wb);
+
+	if (heads_changed) {
+		wb->simple_output_configure = simple_output_configure;
+
+		wb->heads_changed_listener.notify = heads_changed;
+		weston_compositor_add_heads_changed_listener(compositor,
+							     &wb->heads_changed_listener);
+	}
+
+	ret = weston_compositor_load_backend(compositor, backend, config_base);
+
+	if (ret == 0) {
+		/*
+		 * At this point compositor->backend should point to the last
+		 * loaded backend.
+		 */
+		wb->backend = compositor->backend;
+		wl_list_insert(wet->backend_list.prev, &wb->compositor_link);
+	} else {
+		free(wb);
+		return NULL;
+	}
+
+	return wb;
+}
+
 static int
 load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 		 struct weston_config *wc, enum weston_renderer_type renderer)
@@ -2936,9 +3006,9 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	struct weston_drm_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
 	struct wet_compositor *wet = to_wet_compositor(c);
+	struct wet_backend *wb;
 	bool without_input = false;
 	bool force_pixman = false;
-	int ret = 0;
 
 	wet->drm_use_current_mode = false;
 
@@ -2982,12 +3052,11 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	config.base.struct_size = sizeof(struct weston_drm_backend_config);
 	config.configure_device = configure_input_device;
 
-	wet->heads_changed_listener.notify = drm_heads_changed;
-	weston_compositor_add_heads_changed_listener(c,
-						&wet->heads_changed_listener);
+	wb = wet_compositor_load_backend(c, WESTON_BACKEND_DRM, &config.base,
+					 drm_heads_changed, NULL);
 
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_DRM,
-					     &config.base);
+	if (!wb)
+		return -1;
 
 	/* remoting */
 	load_remoting(c, wc);
@@ -2999,7 +3068,7 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	free(config.seat_id);
 	free(config.specific_device);
 
-	return ret;
+	return 0;
 }
 
 static int
@@ -3032,10 +3101,10 @@ load_headless_backend(struct weston_compositor *c,
 	const struct weston_windowed_output_api *api;
 	struct weston_headless_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
+	struct wet_backend *wb;
 	bool force_pixman;
 	bool force_gl;
 	bool no_outputs = false;
-	int ret = 0;
 	char *transform = NULL;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
@@ -3085,14 +3154,13 @@ load_headless_backend(struct weston_compositor *c,
 	config.base.struct_version = WESTON_HEADLESS_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_headless_backend_config);
 
-	wet_set_simple_head_configurator(c, headless_backend_output_configure);
-
 	/* load the actual wayland backend and configure it */
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_HEADLESS,
-					     &config.base);
+	wb = wet_compositor_load_backend(c, WESTON_BACKEND_HEADLESS,
+					 &config.base, simple_heads_changed,
+					 headless_backend_output_configure);
 
-	if (ret < 0)
-		return ret;
+	if (!wb)
+		return -1;
 
 	if (!no_outputs) {
 		api = weston_windowed_output_get_api(c);
@@ -3102,7 +3170,7 @@ load_headless_backend(struct weston_compositor *c,
 			return -1;
 		}
 
-		if (api->create_head(c->backend, "headless") < 0)
+		if (api->create_head(wb->backend, "headless") < 0)
 			return -1;
 	}
 
@@ -3172,6 +3240,7 @@ load_pipewire_backend(struct weston_compositor *c,
 	struct weston_pipewire_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
+	struct wet_backend *wb;
 
 	if (!parsed_options)
 		return -1;
@@ -3187,8 +3256,6 @@ load_pipewire_backend(struct weston_compositor *c,
 
 	config.renderer = renderer;
 
-	wet_set_simple_head_configurator(c, pipewire_backend_output_configure);
-
 	section = weston_config_get_section(wc, "core", NULL, NULL);
 	weston_config_section_get_string(section, "gbm-format",
 					 &config.gbm_format, NULL);
@@ -3197,8 +3264,13 @@ load_pipewire_backend(struct weston_compositor *c,
 	weston_config_section_get_int(section, "num-outputs",
 				      &config.num_outputs, 1);
 
-	return weston_compositor_load_backend(c, WESTON_BACKEND_PIPEWIRE,
-					      &config.base);
+	wb = wet_compositor_load_backend(c, WESTON_BACKEND_PIPEWIRE,
+					 &config.base, simple_heads_changed,
+					 pipewire_backend_output_configure);
+	if (!wb)
+		return -1;
+
+	return 0;
 }
 
 static void
@@ -3222,7 +3294,7 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 }
 
 static void
-rdp_handle_layout(struct weston_compositor *ec)
+rdp_handle_layout(struct weston_compositor *ec, struct wet_backend *wb)
 {
 	struct wet_compositor *wc = to_wet_compositor(ec);
 	struct wet_output_config *parsed_options = wc->parsed_options;
@@ -3233,7 +3305,7 @@ rdp_handle_layout(struct weston_compositor *ec)
 	int height;
 	int scale = 1;
 
-	while ((head = weston_compositor_iterate_heads(ec, head))) {
+	while ((head = wet_backend_iterate_heads(wc, wb, head))) {
 		struct weston_coord_global pos;
 		struct weston_output *output = head->output;
 		struct weston_mode new_mode = {};
@@ -3275,9 +3347,11 @@ rdp_heads_changed(struct wl_listener *listener, void *arg)
 {
 	struct weston_compositor *compositor = arg;
 	struct wet_compositor *wet = to_wet_compositor(compositor);
+	struct wet_backend *wb = container_of(listener, struct wet_backend,
+					      heads_changed_listener);
 	struct weston_head *head = NULL;
 
-	while ((head = weston_compositor_iterate_heads(compositor, head))) {
+	while ((head = wet_backend_iterate_heads(wet, wb, head))) {
 		if (head->output)
 			continue;
 
@@ -3290,9 +3364,9 @@ rdp_heads_changed(struct wl_listener *listener, void *arg)
 		weston_output_attach_head(out, head);
 	}
 
-	rdp_handle_layout(compositor);
+	rdp_handle_layout(compositor, wb);
 
-	while ((head = weston_compositor_iterate_heads(compositor, head))) {
+	while ((head = wet_backend_iterate_heads(wet, wb, head))) {
 		if (!head->output->enabled)
 			weston_output_enable(head->output);
 
@@ -3307,10 +3381,9 @@ load_rdp_backend(struct weston_compositor *c,
 {
 	struct weston_rdp_backend_config config  = {{ 0, }};
 	struct weston_config_section *section;
-	int ret = 0;
+	struct wet_backend *wb;
 	bool no_remotefx_codec = false;
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
-	struct wet_compositor *wet = to_wet_compositor(c);
 
 	if (!parsed_options)
 		return -1;
@@ -3347,19 +3420,18 @@ load_rdp_backend(struct weston_compositor *c,
 	weston_config_section_get_string(section, "tls-key",
 					 &config.server_key, config.server_key);
 
-	wet->heads_changed_listener.notify = rdp_heads_changed;
-	weston_compositor_add_heads_changed_listener(c,
-						     &wet->heads_changed_listener);
-
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_RDP,
-					     &config.base);
+	wb = wet_compositor_load_backend(c, WESTON_BACKEND_RDP, &config.base,
+					 rdp_heads_changed, NULL);
 
 	free(config.bind_address);
 	free(config.rdp_key);
 	free(config.server_cert);
 	free(config.server_key);
 
-	return ret;
+	if (!wb)
+		return -1;
+
+	return 0;
 }
 
 static int
@@ -3422,7 +3494,7 @@ load_vnc_backend(struct weston_compositor *c,
 {
 	struct weston_vnc_backend_config config  = {{ 0, }};
 	struct weston_config_section *section;
-	int ret = 0;
+	struct wet_backend *wb;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
 	if (!parsed_options)
@@ -3443,7 +3515,6 @@ load_vnc_backend(struct weston_compositor *c,
 
 	config.renderer = renderer;
 
-	wet_set_simple_head_configurator(c, vnc_backend_output_configure);
 	section = weston_config_get_section(wc, "vnc", NULL, NULL);
 	weston_config_section_get_int(section, "refresh-rate",
 				      &config.refresh_rate,
@@ -3454,14 +3525,18 @@ load_vnc_backend(struct weston_compositor *c,
 	weston_config_section_get_string(section, "tls-key",
 					 &config.server_key, config.server_key);
 
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_VNC,
-					     &config.base);
+	wb = wet_compositor_load_backend(c, WESTON_BACKEND_VNC, &config.base,
+					 simple_heads_changed,
+					 vnc_backend_output_configure);
 
 	free(config.bind_address);
 	free(config.server_cert);
 	free(config.server_key);
 
-	return ret;
+	if (!wb)
+		return -1;
+
+	return 0;
 }
 
 static int
@@ -3486,8 +3561,8 @@ load_x11_backend(struct weston_compositor *c,
 	const struct weston_windowed_output_api *api;
 	struct weston_x11_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
+	struct wet_backend *wb;
 	bool force_pixman;
-	int ret = 0;
 	int option_count = 1;
 	int output_count = 0;
 	char const *section_name;
@@ -3525,14 +3600,13 @@ load_x11_backend(struct weston_compositor *c,
 		config.renderer = renderer;
 	}
 
-	wet_set_simple_head_configurator(c, x11_backend_output_configure);
-
 	/* load the actual backend and configure it */
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_X11,
-					     &config.base);
+	wb = wet_compositor_load_backend(c, WESTON_BACKEND_X11, &config.base,
+					 simple_heads_changed,
+					 x11_backend_output_configure);
 
-	if (ret < 0)
-		return ret;
+	if (!wb)
+		return -1;
 
 	api = weston_windowed_output_get_api(c);
 
@@ -3558,7 +3632,7 @@ load_x11_backend(struct weston_compositor *c,
 			continue;
 		}
 
-		if (api->create_head(c->backend, output_name) < 0) {
+		if (api->create_head(wb->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -3574,7 +3648,7 @@ load_x11_backend(struct weston_compositor *c,
 			return -1;
 		}
 
-		if (api->create_head(c->backend, default_output) < 0) {
+		if (api->create_head(wb->backend, default_output) < 0) {
 			free(default_output);
 			return -1;
 		}
@@ -3606,10 +3680,10 @@ load_wayland_backend(struct weston_compositor *c,
 	struct weston_config_section *section;
 	const struct weston_windowed_output_api *api;
 	const char *section_name;
+	struct wet_backend *wb;
 	char *output_name = NULL;
 	bool force_pixman = false;
 	int count = 1;
-	int ret = 0;
 	int i;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
@@ -3656,14 +3730,15 @@ load_wayland_backend(struct weston_compositor *c,
 	}
 
 	/* load the actual wayland backend and configure it */
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_WAYLAND,
-					     &config.base);
+	wb = wet_compositor_load_backend(c, WESTON_BACKEND_WAYLAND,
+					 &config.base, simple_heads_changed,
+					 NULL);
 
 	free(config.cursor_theme);
 	free(config.display_name);
 
-	if (ret < 0)
-		return ret;
+	if (!wb)
+		return -1;
 
 	api = weston_windowed_output_get_api(c);
 
@@ -3673,12 +3748,10 @@ load_wayland_backend(struct weston_compositor *c,
 		 * started with --sprawl or runs on fullscreen-shell.
 		 * In this case, all values are hardcoded, so nothing can be
 		 * configured; simply create and enable an output. */
-		wet_set_simple_head_configurator(c, NULL);
-
 		return 0;
 	}
 
-	wet_set_simple_head_configurator(c, wayland_backend_output_configure);
+	wb->simple_output_configure = wayland_backend_output_configure;
 
 	section = NULL;
 	while (weston_config_next_section(wc, &section, &section_name)) {
@@ -3699,7 +3772,7 @@ load_wayland_backend(struct weston_compositor *c,
 			continue;
 		}
 
-		if (api->create_head(c->backend, output_name) < 0) {
+		if (api->create_head(wb->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -3712,7 +3785,7 @@ load_wayland_backend(struct weston_compositor *c,
 		if (asprintf(&output_name, "wayland%d", i) < 0)
 			return -1;
 
-		if (api->create_head(c->backend, output_name) < 0) {
+		if (api->create_head(wb->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -3967,6 +4040,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	};
 
 	wl_list_init(&wet.layoutput_list);
+	wl_list_init(&wet.backend_list);
 
 	os_fd_set_cloexec(fileno(stdin));
 
@@ -4252,6 +4326,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	ret = wet.compositor->exit_code;
 
 out:
+	wet_compositor_destroy_backend_callbacks(&wet);
+
 	/* free(NULL) is valid, and it won't be NULL if it's used */
 	free(wet.parsed_options);
 
