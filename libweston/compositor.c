@@ -3530,6 +3530,7 @@ static int
 output_repaint_timer_handler(void *data)
 {
 	struct weston_compositor *compositor = data;
+	struct weston_backend *backend;
 	struct weston_output *output;
 	struct timespec now;
 	int ret = 0;
@@ -3537,8 +3538,10 @@ output_repaint_timer_handler(void *data)
 	weston_compositor_read_presentation_clock(compositor, &now);
 	compositor->last_repaint_start = now;
 
-	if (compositor->backend->repaint_begin)
-		compositor->backend->repaint_begin(compositor->backend);
+	wl_list_for_each(backend, &compositor->backend_list, link) {
+		if (backend->repaint_begin)
+			backend->repaint_begin(backend);
+	}
 
 	wl_list_for_each(output, &compositor->output_list, link) {
 		ret = weston_output_maybe_repaint(output, &now);
@@ -3547,11 +3550,15 @@ output_repaint_timer_handler(void *data)
 	}
 
 	if (ret == 0) {
-		if (compositor->backend->repaint_flush)
-			ret = compositor->backend->repaint_flush(compositor->backend);
+		wl_list_for_each(backend, &compositor->backend_list, link) {
+			if (backend->repaint_flush)
+				ret = backend->repaint_flush(backend);
+		}
 	} else {
-		if (compositor->backend->repaint_cancel)
-			compositor->backend->repaint_cancel(compositor->backend);
+		wl_list_for_each(backend, &compositor->backend_list, link) {
+			if (backend->repaint_cancel)
+				backend->repaint_cancel(backend);
+		}
 	}
 
 	if (ret != 0) {
@@ -9136,7 +9143,8 @@ weston_compositor_set_presentation_clock(struct weston_compositor *compositor,
 WL_EXPORT int
 weston_compositor_backends_loaded(struct weston_compositor *compositor)
 {
-	struct weston_backend *backend = compositor->backend;
+	struct weston_backend *backend =
+		wl_container_of(compositor->backend_list.next, backend, link);
 	uint32_t supported_clocks = backend->supported_presentation_clocks;
 
 	if (weston_compositor_set_presentation_clock(compositor,
@@ -9236,12 +9244,17 @@ WL_EXPORT bool
 weston_compositor_dmabuf_can_scanout(struct weston_compositor *compositor,
 		struct linux_dmabuf_buffer *buffer)
 {
-	struct weston_backend *backend = compositor->backend;
+	struct weston_backend *backend;
 
-	if (backend->can_scanout_dmabuf == NULL)
-		return false;
+	wl_list_for_each(backend, &compositor->backend_list, link) {
+		if (backend->can_scanout_dmabuf == NULL)
+			return false;
 
-	return backend->can_scanout_dmabuf(backend, buffer);
+		if (!backend->can_scanout_dmabuf(backend, buffer))
+			return false;
+	}
+
+	return true;
 }
 
 WL_EXPORT void
