@@ -2775,6 +2775,8 @@ wayland_destroy(struct weston_backend *backend)
 	struct wayland_parent_output *output, *next_output;
 	struct wayland_input *input, *next_input;
 
+	wl_list_remove(&b->base.link);
+
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
 		if (to_wayland_head(base))
 			wayland_head_destroy(base);
@@ -2887,7 +2889,7 @@ wayland_backend_create(struct weston_compositor *compositor,
 		return NULL;
 
 	b->compositor = compositor;
-	compositor->backend = &b->base;
+	wl_list_insert(&compositor->backend_list, &b->base.link);
 
 	b->base.supported_presentation_clocks =
 		WESTON_PRESENTATION_CLOCKS_SOFTWARE;
@@ -2987,6 +2989,7 @@ err_renderer:
 err_display:
 	wl_display_disconnect(b->parent.wl_display);
 err_compositor:
+	wl_list_remove(&b->base.link);
 	free(b->formats);
 	free(b);
 	return NULL;
@@ -3003,6 +3006,7 @@ wayland_backend_destroy(struct wayland_backend *b)
 		cairo_device_destroy(b->frame_device);
 	wl_cursor_theme_destroy(b->cursor_theme);
 
+	wl_list_remove(&b->base.link);
 	cleanup_after_cairo();
 	free(b->formats);
 	free(b);
@@ -3031,6 +3035,11 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_version != WESTON_WAYLAND_BACKEND_CONFIG_VERSION ||
 	    config_base->struct_size > sizeof(struct weston_wayland_backend_config)) {
 		weston_log("wayland backend config structure is invalid\n");
+		return -1;
+	}
+
+	if (compositor->renderer) {
+		weston_log("wayland backend must be the primary backend\n");
 		return -1;
 	}
 
