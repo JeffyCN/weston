@@ -1297,6 +1297,8 @@ rdp_backend_create(struct weston_compositor *compositor,
 	char *fd_tail;
 	int fd, ret;
 
+	struct weston_head *base, *next;
+
 	b = zalloc(sizeof *b);
 	if (b == NULL)
 		return NULL;
@@ -1369,8 +1371,12 @@ rdp_backend_create(struct weston_compositor *compositor,
 err_listener:
 	freerdp_listener_free(b->listener);
 err_output:
-	weston_output_release(&b->output->base);
+	if (b->output)
+		weston_output_release(&b->output->base);
 err_compositor:
+	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link)
+		rdp_head_destroy(to_rdp_head(base));
+
 	weston_compositor_shutdown(compositor);
 err_free_strings:
 	free(b->rdp_key);
