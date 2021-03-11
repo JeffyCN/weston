@@ -103,6 +103,7 @@ struct wayland_backend {
 
 struct wayland_output {
 	struct weston_output base;
+	struct wayland_backend *backend;
 
 	struct {
 		bool draw_initial_frame;
@@ -289,8 +290,7 @@ static const struct wl_buffer_listener buffer_listener = {
 static struct wayland_shm_buffer *
 wayland_output_get_shm_buffer(struct wayland_output *output)
 {
-	struct wayland_backend *b =
-		to_wayland_backend(output->base.compositor);
+	struct wayland_backend *b = output->backend;
 	struct wl_shm *shm = b->parent.shm;
 	struct wayland_shm_buffer *sb;
 
@@ -457,7 +457,7 @@ wayland_output_start_repaint_loop(struct weston_output *output_base)
 
 	assert(output);
 
-	wb = to_wayland_backend(output->base.compositor);
+	wb = output->backend;
 
 	/* If this is the initial frame, we need to attach a buffer so that
 	 * the compositor can map the surface and include it in its render
@@ -596,7 +596,7 @@ wayland_output_repaint_pixman(struct weston_output *output_base,
 
 	assert(output);
 
-	b = to_wayland_backend(output->base.compositor);
+	b = output->backend;
 
 	if (output->frame) {
 		if (frame_status(output->frame) & FRAME_STATUS_REPAINT)
@@ -773,7 +773,7 @@ wayland_output_init_pixman_renderer(struct wayland_output *output)
 static void
 wayland_output_resize_surface(struct wayland_output *output)
 {
-	struct wayland_backend *b = to_wayland_backend(output->base.compositor);
+	struct wayland_backend *b = output->backend;
 	/* Defaults for without frame: */
 	struct weston_size fb_size = {
 		.width = output->base.current_mode->width,
@@ -846,8 +846,7 @@ wayland_output_resize_surface(struct wayland_output *output)
 static int
 wayland_output_set_windowed(struct wayland_output *output)
 {
-	struct wayland_backend *b =
-		to_wayland_backend(output->base.compositor);
+	struct wayland_backend *b = output->backend;
 
 	if (output->frame)
 		return 0;
@@ -965,7 +964,7 @@ static enum mode_status
 wayland_output_fullscreen_shell_mode_feedback(struct wayland_output *output,
 					      struct weston_mode *mode)
 {
-	struct wayland_backend *b = to_wayland_backend(output->base.compositor);
+	struct wayland_backend *b = output->backend;
 	struct zwp_fullscreen_shell_mode_feedback_v1 *mode_feedback;
 	enum mode_status mode_status;
 	int ret = 0;
@@ -1016,7 +1015,7 @@ wayland_output_switch_mode(struct weston_output *output_base,
 		return -1;
 	}
 
-	b = to_wayland_backend(output_base->compositor);
+	b = output->backend;
 
 	if (output->parent.xdg_surface || !b->parent.fshell)
 		return -1;
@@ -1123,7 +1122,7 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 static int
 wayland_backend_create_output_surface(struct wayland_output *output)
 {
-	struct wayland_backend *b = to_wayland_backend(output->base.compositor);
+	struct wayland_backend *b = output->backend;
 
 	assert(!output->parent.surface);
 
@@ -1173,7 +1172,7 @@ wayland_output_enable(struct weston_output *base)
 
 	assert(output);
 
-	b = to_wayland_backend(base->compositor);
+	b = output->backend;
 
 	wl_list_init(&output->shm.buffers);
 	wl_list_init(&output->shm.free_buffers);
@@ -1259,7 +1258,7 @@ wayland_output_attach_head(struct weston_output *output_base,
 	if (!head)
 		return -1;
 
-	b = to_wayland_backend(output_base->compositor);
+	b = output->backend;
 
 	if (!wl_list_empty(&output->base.head_list))
 		return -1;
@@ -1328,6 +1327,8 @@ wayland_output_create(struct weston_backend *backend, const char *name)
 	output->base.enable = wayland_output_enable;
 	output->base.attach_head = wayland_output_attach_head;
 	output->base.detach_head = wayland_output_detach_head;
+
+	output->backend = b;
 
 	weston_compositor_add_pending_output(&output->base, compositor);
 
@@ -1500,7 +1501,7 @@ static int
 wayland_output_setup_fullscreen(struct wayland_output *output,
 				struct wayland_head *head)
 {
-	struct wayland_backend *b = to_wayland_backend(output->base.compositor);
+	struct wayland_backend *b = output->backend;
 	int width = 0, height = 0;
 
 	output->base.scale = 1;
