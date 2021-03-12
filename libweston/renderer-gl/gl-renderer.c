@@ -738,6 +738,7 @@ triangle_fan_debug(struct gl_renderer *gr,
 	alt = (struct gl_shader_config) {
 		.req = {
 			.variant = SHADER_VARIANT_SOLID,
+			.input_is_premult = true,
 		},
 		.projection = sconf->projection,
 		.view_alpha = 1.0f,
@@ -925,6 +926,7 @@ maybe_censor_override(struct gl_shader_config *sconf,
 	const struct gl_shader_config alt = {
 		.req = {
 			.variant = SHADER_VARIANT_SOLID,
+			.input_is_premult = true,
 		},
 		.projection = sconf->projection,
 		.view_alpha = sconf->view_alpha,
@@ -960,6 +962,8 @@ gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 	int i;
 
 	sconf->req.variant = gs->shader_variant;
+	sconf->req.input_is_premult =
+		gl_shader_texture_variant_can_be_premult(gs->shader_variant);
 
 	for (i = 0; i < 4; i++)
 		sconf->unicolor[i] = gs->color[i];
@@ -1264,6 +1268,7 @@ draw_output_borders(struct weston_output *output,
 	struct gl_shader_config sconf = {
 		.req = {
 			.variant = SHADER_VARIANT_RGBA,
+			.input_is_premult = true,
 		},
 		.view_alpha = 1.0f,
 	};
@@ -1488,6 +1493,7 @@ blit_shadow_to_output(struct weston_output *output,
 	const struct gl_shader_config sconf = {
 		.req = {
 			.variant = SHADER_VARIANT_RGBA,
+			.input_is_premult = true,
 		},
 		.projection = {
 			.d = { /* transpose */

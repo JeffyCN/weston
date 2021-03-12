@@ -62,13 +62,14 @@ enum gl_shader_texture_variant {
 struct gl_shader_requirements
 {
 	unsigned variant:4; /* enum gl_shader_texture_variant */
+	bool input_is_premult:1;
 	bool green_tint:1;
 
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:27;
+	unsigned pad_bits_:26;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
@@ -201,6 +202,9 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 
 GLenum
 gl_shader_texture_variant_get_target(enum gl_shader_texture_variant v);
+
+bool
+gl_shader_texture_variant_can_be_premult(enum gl_shader_texture_variant v);
 
 void
 gl_shader_destroy(struct gl_renderer *gr, struct gl_shader *shader);

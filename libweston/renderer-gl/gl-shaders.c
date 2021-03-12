@@ -147,8 +147,9 @@ create_shader_description_string(const struct gl_shader_requirements *req)
 	int size;
 	char *str;
 
-	size = asprintf(&str, "%s %cgreen",
+	size = asprintf(&str, "%s %cinput_is_premult %cgreen",
 			gl_shader_texture_variant_to_string(req->variant),
+			req->input_is_premult ? '+' : '-',
 			req->green_tint ? '+' : '-');
 	if (size < 0)
 		return NULL;
@@ -163,8 +164,10 @@ create_shader_config_string(const struct gl_shader_requirements *req)
 
 	size = asprintf(&str,
 			"#define DEF_GREEN_TINT %s\n"
+			"#define DEF_INPUT_IS_PREMULT %s\n"
 			"#define DEF_VARIANT %s\n",
 			req->green_tint ? "true" : "false",
+			req->input_is_premult ? "true" : "false",
 			gl_shader_texture_variant_to_string(req->variant));
 	if (size < 0)
 		return NULL;
@@ -349,6 +352,7 @@ gl_renderer_create_fallback_shader(struct gl_renderer *gr)
 {
 	static const struct gl_shader_requirements fallback_requirements = {
 		.variant = SHADER_VARIANT_SOLID,
+		.input_is_premult = true,
 	};
 	struct gl_shader *shader;
 
@@ -413,6 +417,25 @@ gl_renderer_garbage_collect_programs(struct gl_renderer *gr)
 		/* The rest throw away. */
 		gl_shader_destroy(gr, shader);
 	}
+}
+
+bool
+gl_shader_texture_variant_can_be_premult(enum gl_shader_texture_variant v)
+{
+	switch (v) {
+	case SHADER_VARIANT_SOLID:
+	case SHADER_VARIANT_RGBA:
+	case SHADER_VARIANT_EXTERNAL:
+		return true;
+	case SHADER_VARIANT_NONE:
+	case SHADER_VARIANT_RGBX:
+	case SHADER_VARIANT_Y_U_V:
+	case SHADER_VARIANT_Y_UV:
+	case SHADER_VARIANT_Y_XUXV:
+	case SHADER_VARIANT_XYUV:
+		return false;
+	}
+	return true;
 }
 
 GLenum

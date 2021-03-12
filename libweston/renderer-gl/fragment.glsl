@@ -53,6 +53,7 @@ precision mediump float;
  * snippet.
  */
 compile_const int c_variant = DEF_VARIANT;
+compile_const bool c_input_is_premult = DEF_INPUT_IS_PREMULT;
 compile_const bool c_green_tint = DEF_GREEN_TINT;
 
 vec4
@@ -79,7 +80,6 @@ yuva2rgba(vec4 yuva)
 	color_out.g = Y - 0.39176229 * su - 0.81296764 * sv;
 	color_out.b = Y + 2.01723214 * su;
 
-	color_out.rgb *= yuva.w;
 	color_out.a = yuva.w;
 
 	return color_out;
@@ -146,11 +146,18 @@ main()
 {
 	vec4 color;
 
-	/* Electrical (non-linear) RGBA values, pre-multiplied */
+	/* Electrical (non-linear) RGBA values, may be premult or not */
 	color = sample_input_texture();
 
-	/* View alpha (opacity) */
-	color *= alpha;
+	/* Ensure premultiplied alpha, apply view alpha (opacity) */
+	if (c_input_is_premult) {
+		color *= alpha;
+	} else {
+		color.a *= alpha;
+		color.rgb *= color.a;
+	}
+
+	/* color is guaranteed premult here */
 
 	if (c_green_tint)
 		color = vec4(0.0, 0.3, 0.0, 0.2) + color * 0.8;
