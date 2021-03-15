@@ -1513,15 +1513,20 @@ weston_view_update_transform_disable(struct weston_view *view)
 				  view->geometry.x, view->geometry.y);
 
 	if (view->alpha == 1.0) {
-		pixman_region32_copy(&view->transform.opaque,
-				     &view->surface->opaque);
-		if (view->geometry.scissor_enabled)
-			pixman_region32_intersect(&view->transform.opaque,
-						  &view->transform.opaque,
-						  &view->geometry.scissor);
-		pixman_region32_translate(&view->transform.opaque,
-					  view->geometry.x,
-					  view->geometry.y);
+		if (view->surface->is_opaque) {
+			pixman_region32_copy(&view->transform.opaque,
+					     &view->transform.boundingbox);
+		} else {
+			pixman_region32_copy(&view->transform.opaque,
+					     &view->surface->opaque);
+			if (view->geometry.scissor_enabled)
+				pixman_region32_intersect(&view->transform.opaque,
+							  &view->transform.opaque,
+							  &view->geometry.scissor);
+			pixman_region32_translate(&view->transform.opaque,
+						  view->geometry.x,
+						  view->geometry.y);
+		}
 	}
 }
 
@@ -1568,15 +1573,20 @@ weston_view_update_transform_enable(struct weston_view *view)
 
 	if (view->alpha == 1.0 &&
 	    matrix->type == WESTON_MATRIX_TRANSFORM_TRANSLATE) {
-		pixman_region32_copy(&view->transform.opaque,
-				     &view->surface->opaque);
-		if (view->geometry.scissor_enabled)
-			pixman_region32_intersect(&view->transform.opaque,
-						  &view->transform.opaque,
-						  &view->geometry.scissor);
-		pixman_region32_translate(&view->transform.opaque,
-					  matrix->d[12],
-					  matrix->d[13]);
+		if (view->surface->is_opaque) {
+			pixman_region32_copy(&view->transform.opaque,
+					     &view->transform.boundingbox);
+		} else {
+			pixman_region32_copy(&view->transform.opaque,
+					     &view->surface->opaque);
+			if (view->geometry.scissor_enabled)
+				pixman_region32_intersect(&view->transform.opaque,
+							  &view->transform.opaque,
+							  &view->geometry.scissor);
+			pixman_region32_translate(&view->transform.opaque,
+						  matrix->d[12],
+						  matrix->d[13]);
+		}
 	}
 
 	return 0;
