@@ -122,6 +122,10 @@ tests = [
 	{	'name': 'bad-buffer', },
 	{	'name': 'buffer-transforms', },
 	{	'name': 'devices', },
+	{
+		'name': 'drm-formats',
+		'dep_objs': dep_libdrm_headers,
+	},
 	{	'name': 'drm-smoke', },
 	{	'name': 'event', },
 	{	'name': 'internal-screenshot', },
