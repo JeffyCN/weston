@@ -27,6 +27,9 @@
 
 /* GLSL version 1.00 ES, defined in gl-shaders.c */
 
+/* For annotating shader compile-time constant arguments */
+#define compile_const const
+
 /*
  * Enumeration of shader variants, must match enum gl_shader_texture_variant.
  */
@@ -49,8 +52,8 @@ precision mediump float;
  * These undeclared identifiers will be #defined by a runtime generated code
  * snippet.
  */
-const int c_variant = DEF_VARIANT;
-const bool c_green_tint = DEF_GREEN_TINT;
+compile_const int c_variant = DEF_VARIANT;
+compile_const bool c_green_tint = DEF_GREEN_TINT;
 
 vec4
 yuva2rgba(vec4 yuva)
