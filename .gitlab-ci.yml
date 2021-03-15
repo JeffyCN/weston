@@ -139,6 +139,9 @@ docs-and-coverage:
   script:
   - mv prefix-weston-build-docs/share/doc/weston Documentation
   - mv build-weston-build-native-meson-default-options/meson-logs/coveragereport Test_Coverage
+  - rm Test_Coverage/gcov.css
+  - cp doc/style/lcov-style.css Test_Coverage/gcov.css
+  - cp doc/style/*.png Test_Coverage/
   - rm -rf build-* prefix-*
   dependencies:
     - build-docs
