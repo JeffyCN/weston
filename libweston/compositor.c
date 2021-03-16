@@ -9545,13 +9545,11 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 	int (*backend_init)(struct weston_compositor *c,
 			    struct weston_backend_config *config_base);
 
-	if (compositor->backend) {
-		weston_log("Error: attempt to load a backend when one is already loaded\n");
-		return -1;
-	}
-
 	if (backend >= ARRAY_LENGTH(backend_map))
 		return -1;
+
+	/* Clear backend pointer to catch multi-backend incapable backends. */
+	compositor->backend = NULL;
 
 	backend_init = weston_load_module(backend_map[backend],
 					  "weston_backend_init",
@@ -9564,7 +9562,19 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 		return -1;
 	}
 
-	wl_list_insert(&compositor->backend_list, &compositor->backend->link);
+	/* Multi-backend capable backends add themselves to the backend_list. */
+	if (compositor->backend) {
+		if (compositor->multi_backend) {
+			weston_log("error: backend does not support multi-backend operation\n");
+			return -1;
+		}
+		wl_list_insert(&compositor->backend_list,
+			       &compositor->backend->link);
+	}
+
+	/* Point compositor->backend to the last loaded backend. */
+	compositor->backend = wl_container_of(compositor->backend_list.next,
+					      compositor->backend, link);
 
 	return 0;
 }

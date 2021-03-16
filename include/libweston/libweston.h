@@ -1480,6 +1480,9 @@ struct weston_compositor {
 	/* Whether to let the compositor run without any input device. */
 	bool require_input;
 
+	/* Whether to load multiple backends. */
+	bool multi_backend;
+
 	/* Test suite data */
 	struct weston_testsuite_data test_data;
 
