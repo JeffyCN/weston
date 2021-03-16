@@ -159,7 +159,7 @@ struct gl_renderer {
 	bool has_wait_sync;
 	PFNEGLWAITSYNCKHRPROC wait_sync;
 
-	GLint gl_half_float_type;
+	bool gl_supports_color_transforms;
 
 	/** Shader program cache in most recently used order
 	 *

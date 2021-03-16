@@ -3294,7 +3294,6 @@ gl_renderer_output_create(struct weston_output *output,
 	struct gl_output_state *go;
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	const struct weston_testsuite_quirks *quirks;
-	GLint internal_format;
 	bool ret;
 	int i;
 
@@ -3315,19 +3314,12 @@ gl_renderer_output_create(struct weston_output *output,
 	go->end_render_sync = EGL_NO_SYNC_KHR;
 
 	if (output->use_renderer_shadow_buffer) {
-		assert(gr->gl_half_float_type);
-
-		if (gr->gl_half_float_type == GL_HALF_FLOAT_OES)
-			internal_format = GL_RGBA;
-		else
-			internal_format = GL_RGBA16F;
+		assert(gr->gl_supports_color_transforms);
 
 		ret = gl_fbo_texture_init(&go->shadow,
 					  output->current_mode->width,
 					  output->current_mode->height,
-					  internal_format,
-					  GL_RGBA,
-					  gr->gl_half_float_type);
+					  GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
 		if (ret) {
 			weston_log("Output %s uses 16F shadow.\n",
 				   output->name);
@@ -3661,7 +3653,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 	}
 
-	if (gr->gl_half_float_type != 0)
+	if (gr->gl_supports_color_transforms)
 		ec->capabilities |= WESTON_CAP_COLOR_OPS;
 
 	return 0;
@@ -3829,11 +3821,9 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	if (weston_check_egl_extension(extensions, "GL_OES_EGL_image_external"))
 		gr->has_egl_image_external = true;
 
-	if (weston_check_egl_extension(extensions, "GL_EXT_color_buffer_half_float")) {
-		if (gr->gl_version >= gr_gl_version(3, 0))
-			gr->gl_half_float_type = GL_HALF_FLOAT;
-		else if (weston_check_egl_extension(extensions, "GL_OES_texture_half_float"))
-			gr->gl_half_float_type = GL_HALF_FLOAT_OES;
+	if (gr->gl_version >= gr_gl_version(3, 0) &&
+	    weston_check_egl_extension(extensions, "GL_EXT_color_buffer_half_float")) {
+		gr->gl_supports_color_transforms = true;
 	}
 
 	glActiveTexture(GL_TEXTURE0);
