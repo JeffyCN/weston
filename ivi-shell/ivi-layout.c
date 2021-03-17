@@ -1882,7 +1882,6 @@ ivi_layout_surface_set_id(struct ivi_layout_surface *ivisurf,
 
 	ivisurf->id_surface = id_surface;
 
-	wl_signal_emit(&layout->surface_notification.created, ivisurf);
 	wl_signal_emit(&layout->surface_notification.configure_changed,
 		       ivisurf);
 
@@ -1979,9 +1978,20 @@ ivi_layout_desktop_surface_configure(struct ivi_layout_surface *ivisurf,
 }
 
 struct ivi_layout_surface*
-ivi_layout_desktop_surface_create(struct weston_surface *wl_surface)
+ivi_layout_desktop_surface_create(struct weston_surface *wl_surface,
+				  struct weston_desktop_surface *surface)
 {
-	return surface_create(wl_surface, IVI_INVALID_ID);
+	struct ivi_layout *layout = get_instance();
+	struct ivi_layout_surface *ivisurf;
+
+	ivisurf =  surface_create(wl_surface, IVI_INVALID_ID);
+
+	if (ivisurf) {
+		ivisurf->weston_desktop_surface = surface;
+		wl_signal_emit(&layout->surface_notification.created, ivisurf);
+	}
+
+	return ivisurf;
 }
 
 void
