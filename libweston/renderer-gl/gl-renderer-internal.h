@@ -74,16 +74,17 @@ static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
 	      "struct gl_shader_requirements must not contain implicit padding");
 
-struct gl_shader {
-	struct gl_shader_requirements key;
-	GLuint program;
-	GLuint vertex_shader, fragment_shader;
-	GLint proj_uniform;
-	GLint tex_uniforms[3];
-	GLint alpha_uniform;
-	GLint color_uniform;
-	struct wl_list link; /* gl_renderer::shader_list */
-	struct timespec last_used;
+struct gl_shader;
+
+#define GL_SHADER_INPUT_TEX_MAX 3
+struct gl_shader_config {
+	struct gl_shader_requirements req;
+
+	struct weston_matrix projection;
+	float view_alpha;
+	GLfloat unicolor[4];
+	GLint input_tex_filter; /* GL_NEAREST or GL_LINEAR */
+	GLuint input_tex[GL_SHADER_INPUT_TEX_MAX];
 };
 
 struct gl_renderer {
@@ -198,6 +199,9 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr);
 int
 gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 
+GLenum
+gl_shader_texture_variant_get_target(enum gl_shader_texture_variant v);
+
 void
 gl_shader_destroy(struct gl_renderer *gr, struct gl_shader *shader);
 
@@ -211,11 +215,8 @@ void
 gl_renderer_garbage_collect_programs(struct gl_renderer *gr);
 
 bool
-gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader **shaderp);
-
-struct gl_shader *
-gl_renderer_get_program(struct gl_renderer *gr,
-			const struct gl_shader_requirements *requirements);
+gl_renderer_use_program(struct gl_renderer *gr,
+			const struct gl_shader_config *sconf);
 
 struct weston_log_scope *
 gl_shader_scope_create(struct gl_renderer *gr);

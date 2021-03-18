@@ -50,6 +50,18 @@
 /* static const char fragment_shader[]; fragment.glsl */
 #include "fragment-shader.h"
 
+struct gl_shader {
+	struct gl_shader_requirements key;
+	GLuint program;
+	GLuint vertex_shader, fragment_shader;
+	GLint proj_uniform;
+	GLint tex_uniforms[3];
+	GLint alpha_uniform;
+	GLint color_uniform;
+	struct wl_list link; /* gl_renderer::shader_list */
+	struct timespec last_used;
+};
+
 static const char *
 gl_shader_texture_variant_to_string(enum gl_shader_texture_variant v)
 {
@@ -354,7 +366,7 @@ gl_renderer_create_fallback_shader(struct gl_renderer *gr)
 	return shader;
 }
 
-struct gl_shader *
+static struct gl_shader *
 gl_renderer_get_program(struct gl_renderer *gr,
 			const struct gl_shader_requirements *requirements)
 {
@@ -379,7 +391,6 @@ gl_renderer_get_program(struct gl_renderer *gr,
 	if (shader)
 		return shader;
 
-	weston_log("warning: failed to generate gl program\n");
 	return NULL;
 }
 
@@ -404,25 +415,60 @@ gl_renderer_garbage_collect_programs(struct gl_renderer *gr)
 	}
 }
 
+GLenum
+gl_shader_texture_variant_get_target(enum gl_shader_texture_variant v)
+{
+	if (v == SHADER_VARIANT_EXTERNAL)
+		return GL_TEXTURE_EXTERNAL_OES;
+	else
+		return GL_TEXTURE_2D;
+}
+
+static void
+gl_shader_load_config(struct gl_shader *shader,
+		      const struct gl_shader_config *sconf)
+{
+	GLint in_filter = sconf->input_tex_filter;
+	GLenum in_tgt;
+	int i;
+
+	glUniformMatrix4fv(shader->proj_uniform,
+			   1, GL_FALSE, sconf->projection.d);
+	glUniform4fv(shader->color_uniform, 1, sconf->unicolor);
+	glUniform1f(shader->alpha_uniform, sconf->view_alpha);
+
+	in_tgt = gl_shader_texture_variant_get_target(sconf->req.variant);
+	for (i = 0; i < GL_SHADER_INPUT_TEX_MAX; i++) {
+		if (sconf->input_tex[i] == 0)
+			continue;
+
+		assert(shader->tex_uniforms[i] != -1);
+		glUniform1i(shader->tex_uniforms[i], i);
+		glActiveTexture(GL_TEXTURE0 + i);
+
+		glBindTexture(in_tgt, sconf->input_tex[i]);
+		glTexParameteri(in_tgt, GL_TEXTURE_MIN_FILTER, in_filter);
+		glTexParameteri(in_tgt, GL_TEXTURE_MAG_FILTER, in_filter);
+	}
+}
+
 bool
-gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader **shaderp)
+gl_renderer_use_program(struct gl_renderer *gr,
+			const struct gl_shader_config *sconf)
 {
 	static const GLfloat fallback_shader_color[4] = { 0.2, 0.1, 0.0, 1.0 };
-	struct gl_shader *shader = *shaderp;
+	struct gl_shader *shader;
 
+	shader = gl_renderer_get_program(gr, &sconf->req);
 	if (!shader) {
-		weston_log("Error: trying to use NULL GL shader.\n");
+		weston_log("Error: failed to generate shader program.\n");
 		gr->current_shader = NULL;
 		shader = gr->fallback_shader;
 		glUseProgram(shader->program);
 		glUniform4fv(shader->color_uniform, 1, fallback_shader_color);
 		glUniform1f(shader->alpha_uniform, 1.0f);
-		*shaderp = shader;
 		return false;
 	}
-
-	if (gr->current_shader == shader)
-		return true;
 
 	if (shader != gr->fallback_shader) {
 		/* Update list order for most recently used. */
@@ -431,7 +477,12 @@ gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader **shaderp)
 	}
 	shader->last_used = gr->compositor->last_repaint_start;
 
-	glUseProgram(shader->program);
-	gr->current_shader = shader;
+	if (gr->current_shader != shader) {
+		glUseProgram(shader->program);
+		gr->current_shader = shader;
+	}
+
+	gl_shader_load_config(shader, sconf);
+
 	return true;
 }
