@@ -202,12 +202,17 @@ void
 gl_shader_destroy(struct gl_renderer *gr, struct gl_shader *shader);
 
 struct gl_shader *
-gl_shader_create(struct gl_renderer *gr,
-		 const struct gl_shader_requirements *requirements);
+gl_renderer_create_fallback_shader(struct gl_renderer *gr);
 
-int
-gl_shader_requirements_cmp(const struct gl_shader_requirements *a,
-			   const struct gl_shader_requirements *b);
+void
+gl_renderer_garbage_collect_programs(struct gl_renderer *gr);
+
+bool
+gl_renderer_use_program(struct gl_renderer *gr, struct gl_shader **shaderp);
+
+struct gl_shader *
+gl_renderer_get_program(struct gl_renderer *gr,
+			const struct gl_shader_requirements *requirements);
 
 struct weston_log_scope *
 gl_shader_scope_create(struct gl_renderer *gr);
