@@ -6272,6 +6272,8 @@ weston_output_transform_coordinate(struct weston_output *output,
 static void
 weston_output_reset_color_transforms(struct weston_output *output)
 {
+	weston_color_transform_unref(output->from_sRGB_to_output);
+	output->from_sRGB_to_output = NULL;
 	weston_color_transform_unref(output->from_blend_to_output);
 	output->from_blend_to_output = NULL;
 }
@@ -6687,6 +6689,8 @@ weston_output_enable(struct weston_output *output)
 
 	ok = cm->get_output_color_transform(cm, output,
 					    &output->from_blend_to_output);
+	ok = ok && cm->get_sRGB_to_output_color_transform(cm, output,
+							  &output->from_sRGB_to_output);
 	if (!ok) {
 		weston_log("Creating color transformation for output \"%s\" failed.\n",
 			   output->name);

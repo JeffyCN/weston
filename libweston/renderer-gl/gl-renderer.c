@@ -1272,6 +1272,8 @@ draw_output_borders(struct weston_output *output,
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
 
+	assert(output->from_sRGB_to_output == NULL);
+
 	top = &go->borders[GL_RENDERER_BORDER_TOP];
 	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
 	left = &go->borders[GL_RENDERER_BORDER_LEFT];
