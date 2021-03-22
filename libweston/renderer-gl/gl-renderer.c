@@ -1100,6 +1100,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 	if (pixman_region32_not_empty(&surface_opaque)) {
 		struct gl_shader_config alt = sconf;
 
+#if 0
 		if (alt.req.variant == SHADER_VARIANT_RGBA) {
 			/* Special case for RGBA textures with possibly
 			 * bad data in alpha channel: use the shader
@@ -1108,6 +1109,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 			 */
 			alt.req.variant = SHADER_VARIANT_RGBX;
 		}
+#endif
 
 		if (pnode->view->alpha < 1.0)
 			glEnable(GL_BLEND);
