@@ -665,6 +665,8 @@ rdp_destroy(struct weston_backend *backend)
 		b->verbose = NULL;
 	}
 
+	wl_list_remove(&b->base.link);
+
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
 		if (to_rdp_head(base))
 			rdp_head_destroy(base);
@@ -1845,7 +1847,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 							    "Debug messages from RDP backend clipboard\n",
 							    NULL, NULL, NULL);
 
-	compositor->backend = &b->base;
+	wl_list_insert(&compositor->backend_list, &b->base.link);
 
 	if (config->server_cert && config->server_key) {
 		b->server_cert = strdup(config->server_cert);
@@ -1878,29 +1880,31 @@ rdp_backend_create(struct weston_compositor *compositor,
 	b->formats_count = ARRAY_LENGTH(rdp_formats);
 	b->formats = pixel_format_get_array(rdp_formats, b->formats_count);
 
-	switch (config->renderer) {
-	case WESTON_RENDERER_PIXMAN:
-	case WESTON_RENDERER_AUTO:
-		if (weston_compositor_init_renderer(compositor, WESTON_RENDERER_PIXMAN,
-						    NULL) < 0)
-			goto err_compositor;
-		break;
-	case WESTON_RENDERER_GL: {
-		const struct gl_renderer_display_options options = {
-		        .egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
-		        .formats = b->formats,
-		        .formats_count = b->formats_count,
-		};
-
-		if (weston_compositor_init_renderer(compositor,
-						    WESTON_RENDERER_GL,
-						    &options.base) < 0)
+	if (!compositor->renderer) {
+		switch (config->renderer) {
+		case WESTON_RENDERER_PIXMAN:
+		case WESTON_RENDERER_AUTO:
+			if (weston_compositor_init_renderer(compositor, WESTON_RENDERER_PIXMAN,
+							    NULL) < 0)
 				goto err_compositor;
-		break;
-	}
-	default:
-		weston_log("Unsupported renderer requested\n");
-		goto err_free_strings;
+			break;
+		case WESTON_RENDERER_GL: {
+			const struct gl_renderer_display_options options = {
+				.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+				.formats = b->formats,
+				.formats_count = b->formats_count,
+			};
+
+			if (weston_compositor_init_renderer(compositor,
+							    WESTON_RENDERER_GL,
+							    &options.base) < 0)
+					goto err_compositor;
+			break;
+		}
+		default:
+			weston_log("Unsupported renderer requested\n");
+			goto err_free_strings;
+		}
 	}
 
 	rdp_head_create(b, NULL);
@@ -1959,6 +1963,7 @@ err_compositor:
 			rdp_head_destroy(base);
 	}
 err_free_strings:
+	wl_list_remove(&b->base.link);
 	if (b->clipboard_debug)
 		weston_log_scope_destroy(b->clipboard_debug);
 	if (b->clipboard_verbose)
@@ -2014,6 +2019,17 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_size > sizeof(struct weston_rdp_backend_config)) {
 		weston_log("RDP backend config structure is invalid\n");
 		return -1;
+	}
+
+	if (compositor->renderer) {
+		switch (compositor->renderer->type) {
+		case WESTON_RENDERER_PIXMAN:
+		case WESTON_RENDERER_GL:
+			break;
+		default:
+			weston_log("Renderer not supported by RDP backend\n");
+			return -1;
+		}
 	}
 
 	config_init_to_defaults(&config);
