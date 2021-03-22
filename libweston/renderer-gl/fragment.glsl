@@ -46,7 +46,13 @@
 #extension GL_OES_EGL_image_external : require
 #endif
 
-precision mediump float;
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+#define HIGHPRECISION highp
+#else
+#define HIGHPRECISION mediump
+#endif
+
+precision HIGHPRECISION float;
 
 /*
  * These undeclared identifiers will be #defined by a runtime generated code
