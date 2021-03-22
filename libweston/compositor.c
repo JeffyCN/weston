@@ -2284,8 +2284,6 @@ static void
 weston_surface_reset_pending_buffer(struct weston_surface *surface)
 {
 	weston_surface_state_set_buffer(&surface->pending, NULL);
-	surface->pending.sx = 0;
-	surface->pending.sy = 0;
 	surface->pending.newly_attached = 0;
 	surface->pending.buffer_viewport.changed = 0;
 }
@@ -3796,6 +3794,14 @@ surface_attach(struct wl_client *client,
 		}
 	}
 
+	if (wl_resource_get_version(resource) >= WL_SURFACE_OFFSET_SINCE_VERSION &&
+	    (sx != 0 || sy != 0)) {
+		wl_resource_post_error(resource,
+				       WL_SURFACE_ERROR_INVALID_OFFSET,
+				       "Can't attach with an offset");
+		return;
+	}
+
 	/* Attach, attach, without commit in between does not send
 	 * wl_buffer.release. */
 	weston_surface_state_set_buffer(&surface->pending, buffer);
@@ -4184,7 +4190,8 @@ weston_surface_commit_state(struct weston_surface *surface,
 	weston_matrix_invert(&surface->buffer_to_surface_matrix,
 			     &surface->surface_to_buffer_matrix);
 
-	if (state->newly_attached || state->buffer_viewport.changed) {
+	if (state->newly_attached || state->buffer_viewport.changed ||
+	    state->sx != 0 || state->sy != 0) {
 		weston_surface_update_size(surface);
 		if (surface->committed)
 			surface->committed(surface, state->sx, state->sy);
@@ -4380,6 +4387,18 @@ surface_set_buffer_scale(struct wl_client *client,
 	surface->pending.buffer_viewport.changed = 1;
 }
 
+static void
+surface_offset(struct wl_client *client,
+	       struct wl_resource *resource,
+	       int32_t sx,
+	       int32_t sy)
+{
+	struct weston_surface *surface = wl_resource_get_user_data(resource);
+
+	surface->pending.sx = sx;
+	surface->pending.sy = sy;
+}
+
 static const struct wl_surface_interface surface_interface = {
 	surface_destroy,
 	surface_attach,
@@ -4390,7 +4409,8 @@ static const struct wl_surface_interface surface_interface = {
 	surface_commit,
 	surface_set_buffer_transform,
 	surface_set_buffer_scale,
-	surface_damage_buffer
+	surface_damage_buffer,
+	surface_offset,
 };
 
 static void
@@ -4567,6 +4587,9 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 		surface->pending.buffer_viewport.surface;
 
 	weston_surface_reset_pending_buffer(surface);
+
+	surface->pending.sx = 0;
+	surface->pending.sy = 0;
 
 	pixman_region32_copy(&sub->cached.opaque, &surface->pending.opaque);
 
@@ -8327,7 +8350,7 @@ weston_compositor_create(struct wl_display *display,
 
 	ec->content_protection = NULL;
 
-	if (!wl_global_create(ec->wl_display, &wl_compositor_interface, 4,
+	if (!wl_global_create(ec->wl_display, &wl_compositor_interface, 5,
 			      ec, compositor_bind))
 		goto fail;
 

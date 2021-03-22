@@ -1538,6 +1538,7 @@ struct weston_surface_state {
 	int newly_attached;
 	struct weston_buffer *buffer;
 	struct wl_listener buffer_destroy_listener;
+
 	int32_t sx;
 	int32_t sy;
 
