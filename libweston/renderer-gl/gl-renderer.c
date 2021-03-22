@@ -703,6 +703,19 @@ gl_fbo_texture_fini(struct gl_fbo_texture *fbotex)
 	fbotex->tex = 0;
 }
 
+static void
+gl_renderer_send_shader_error(struct weston_view *view)
+{
+	struct wl_resource *resource = view->surface->resource;
+
+	if (!resource)
+		return;
+
+	wl_client_post_implementation_error(wl_resource_get_client(resource),
+		"Weston GL-renderer shader failed for wl_surface@%u",
+		wl_resource_get_id(resource));
+}
+
 static const struct gl_shader_requirements requirements_triangle_fan = {
 	.variant = SHADER_VARIANT_SOLID,
 };
@@ -819,19 +832,6 @@ use_output(struct weston_output *output)
 	}
 
 	return 0;
-}
-
-static void
-gl_renderer_send_shader_error(struct weston_view *view)
-{
-	struct wl_resource *resource = view->surface->resource;
-
-	if (!resource)
-		return;
-
-	wl_client_post_implementation_error(wl_resource_get_client(resource),
-		"Weston GL-renderer shader failed for wl_surface@%u",
-		wl_resource_get_id(resource));
 }
 
 static void
