@@ -721,10 +721,9 @@ static const struct gl_shader_requirements requirements_triangle_fan = {
 };
 
 static void
-triangle_fan_debug(struct weston_view *view, int first, int count)
+triangle_fan_debug(struct gl_renderer *gr,
+		   int first, int count)
 {
-	struct weston_compositor *compositor = view->surface->compositor;
-	struct gl_renderer *gr = get_renderer(compositor);
 	int i;
 	GLushort *buffer;
 	GLushort *index;
@@ -767,11 +766,11 @@ triangle_fan_debug(struct weston_view *view, int first, int count)
 }
 
 static void
-repaint_region(struct weston_view *ev, pixman_region32_t *region,
-		pixman_region32_t *surf_region)
+repaint_region(struct gl_renderer *gr,
+	       struct weston_view *ev,
+	       pixman_region32_t *region,
+	       pixman_region32_t *surf_region)
 {
-	struct weston_compositor *ec = ev->surface->compositor;
-	struct gl_renderer *gr = get_renderer(ec);
 	GLfloat *v;
 	unsigned int *vtxcnt;
 	int i, first, nfans;
@@ -800,7 +799,7 @@ repaint_region(struct weston_view *ev, pixman_region32_t *region,
 	for (i = 0, first = 0; i < nfans; i++) {
 		glDrawArrays(GL_TRIANGLE_FAN, first, vtxcnt[i]);
 		if (gr->fan_debug)
-			triangle_fan_debug(ev, first, vtxcnt[i]);
+			triangle_fan_debug(gr, first, vtxcnt[i]);
 		first += vtxcnt[i];
 	}
 
@@ -1086,14 +1085,14 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 		else
 			glDisable(GL_BLEND);
 
-		repaint_region(ev, &repaint, &surface_opaque);
+		repaint_region(gr, ev, &repaint, &surface_opaque);
 		gs->used_in_output_repaint = true;
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
 		gl_renderer_use_program(gr, &shader);
 		glEnable(GL_BLEND);
-		repaint_region(ev, &repaint, &surface_blend);
+		repaint_region(gr, ev, &repaint, &surface_blend);
 		gs->used_in_output_repaint = true;
 	}
 
