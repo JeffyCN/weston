@@ -58,6 +58,8 @@ struct gl_shader {
 	GLint tex_uniforms[3];
 	GLint alpha_uniform;
 	GLint color_uniform;
+	GLint color_pre_curve_lut_2d_uniform;
+	GLint color_pre_curve_lut_scale_offset_uniform;
 	struct wl_list link; /* gl_renderer::shader_list */
 	struct timespec last_used;
 };
@@ -76,6 +78,19 @@ gl_shader_texture_variant_to_string(enum gl_shader_texture_variant v)
 	CASERET(SHADER_VARIANT_XYUV)
 	CASERET(SHADER_VARIANT_SOLID)
 	CASERET(SHADER_VARIANT_EXTERNAL)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
+
+static const char *
+gl_shader_color_curve_to_string(enum gl_shader_color_curve kind)
+{
+	switch (kind) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_COLOR_CURVE_IDENTITY)
+	CASERET(SHADER_COLOR_CURVE_LUT_3x1D)
 #undef CASERET
 	}
 
@@ -147,8 +162,9 @@ create_shader_description_string(const struct gl_shader_requirements *req)
 	int size;
 	char *str;
 
-	size = asprintf(&str, "%s %cinput_is_premult %cgreen",
+	size = asprintf(&str, "%s %s %cinput_is_premult %cgreen",
 			gl_shader_texture_variant_to_string(req->variant),
+			gl_shader_color_curve_to_string(req->color_pre_curve),
 			req->input_is_premult ? '+' : '-',
 			req->green_tint ? '+' : '-');
 	if (size < 0)
@@ -165,9 +181,11 @@ create_shader_config_string(const struct gl_shader_requirements *req)
 	size = asprintf(&str,
 			"#define DEF_GREEN_TINT %s\n"
 			"#define DEF_INPUT_IS_PREMULT %s\n"
+			"#define DEF_COLOR_PRE_CURVE %s\n"
 			"#define DEF_VARIANT %s\n",
 			req->green_tint ? "true" : "false",
 			req->input_is_premult ? "true" : "false",
+			gl_shader_color_curve_to_string(req->color_pre_curve),
 			gl_shader_texture_variant_to_string(req->variant));
 	if (size < 0)
 		return NULL;
@@ -245,6 +263,10 @@ gl_shader_create(struct gl_renderer *gr,
 	shader->alpha_uniform = glGetUniformLocation(shader->program, "alpha");
 	shader->color_uniform = glGetUniformLocation(shader->program,
 						     "unicolor");
+	shader->color_pre_curve_lut_2d_uniform =
+		glGetUniformLocation(shader->program, "color_pre_curve_lut_2d");
+	shader->color_pre_curve_lut_scale_offset_uniform =
+		glGetUniformLocation(shader->program, "color_pre_curve_lut_scale_offset");
 
 	free(conf);
 
@@ -353,6 +375,7 @@ gl_renderer_create_fallback_shader(struct gl_renderer *gr)
 	static const struct gl_shader_requirements fallback_requirements = {
 		.variant = SHADER_VARIANT_SOLID,
 		.input_is_premult = true,
+		.color_pre_curve = SHADER_COLOR_CURVE_IDENTITY,
 	};
 	struct gl_shader *shader;
 
@@ -472,6 +495,25 @@ gl_shader_load_config(struct gl_shader *shader,
 		glBindTexture(in_tgt, sconf->input_tex[i]);
 		glTexParameteri(in_tgt, GL_TEXTURE_MIN_FILTER, in_filter);
 		glTexParameteri(in_tgt, GL_TEXTURE_MAG_FILTER, in_filter);
+	}
+
+	/* Fixed texture unit for color_pre_curve LUT */
+	i = GL_SHADER_INPUT_TEX_MAX;
+	glActiveTexture(GL_TEXTURE0 + i);
+	switch (sconf->req.color_pre_curve) {
+	case SHADER_COLOR_CURVE_IDENTITY:
+		assert(sconf->color_pre_curve_lut_tex == 0);
+		break;
+	case SHADER_COLOR_CURVE_LUT_3x1D:
+		assert(sconf->color_pre_curve_lut_tex != 0);
+		assert(shader->color_pre_curve_lut_2d_uniform != -1);
+		assert(shader->color_pre_curve_lut_scale_offset_uniform != -1);
+
+		glBindTexture(GL_TEXTURE_2D, sconf->color_pre_curve_lut_tex);
+		glUniform1i(shader->color_pre_curve_lut_2d_uniform, i);
+		glUniform2fv(shader->color_pre_curve_lut_scale_offset_uniform,
+			     1, sconf->color_pre_curve_lut_scale_offset);
+		break;
 	}
 }
 

@@ -42,6 +42,10 @@
 #define SHADER_VARIANT_SOLID    7
 #define SHADER_VARIANT_EXTERNAL 8
 
+/* enum gl_shader_color_curve */
+#define SHADER_COLOR_CURVE_IDENTITY 0
+#define SHADER_COLOR_CURVE_LUT_3x1D 1
+
 #if DEF_VARIANT == SHADER_VARIANT_EXTERNAL
 #extension GL_OES_EGL_image_external : require
 #endif
@@ -61,6 +65,7 @@ precision HIGHPRECISION float;
 compile_const int c_variant = DEF_VARIANT;
 compile_const bool c_input_is_premult = DEF_INPUT_IS_PREMULT;
 compile_const bool c_green_tint = DEF_GREEN_TINT;
+compile_const int c_color_pre_curve = DEF_COLOR_PRE_CURVE;
 
 vec4
 yuva2rgba(vec4 yuva)
@@ -102,6 +107,8 @@ uniform sampler2D tex1;
 uniform sampler2D tex2;
 uniform float alpha;
 uniform vec4 unicolor;
+uniform HIGHPRECISION sampler2D color_pre_curve_lut_2d;
+uniform HIGHPRECISION vec2 color_pre_curve_lut_scale_offset;
 
 vec4
 sample_input_texture()
@@ -147,6 +154,62 @@ sample_input_texture()
 	return yuva2rgba(yuva);
 }
 
+/*
+ * Texture coordinates go from 0.0 to 1.0 corresponding to texture edges.
+ * When we do LUT look-ups with linear filtering, the correct range to sample
+ * from is not from edge to edge, but center of first texel to center of last
+ * texel. This follows because with LUTs, you have the exact end points given,
+ * you never extrapolate but only interpolate.
+ * The scale and offset are precomputed to achieve this mapping.
+ */
+float
+lut_texcoord(float x, vec2 scale_offset)
+{
+	return x * scale_offset.s + scale_offset.t;
+}
+
+/*
+ * Sample a 1D LUT which is a single row of a 2D texture. The 2D texture has
+ * four rows so that the centers of texels have precise y-coordinates.
+ */
+float
+sample_color_pre_curve_lut_2d(float x, compile_const int row)
+{
+	float tx = lut_texcoord(x, color_pre_curve_lut_scale_offset);
+
+	return texture2D(color_pre_curve_lut_2d,
+			 vec2(tx, (float(row) + 0.5) / 4.0)).x;
+}
+
+vec3
+color_pre_curve(vec3 color)
+{
+	vec3 ret;
+
+	if (c_color_pre_curve == SHADER_COLOR_CURVE_IDENTITY) {
+		return color;
+	} else if (c_color_pre_curve == SHADER_COLOR_CURVE_LUT_3x1D) {
+		ret.r = sample_color_pre_curve_lut_2d(color.r, 0);
+		ret.g = sample_color_pre_curve_lut_2d(color.g, 1);
+		ret.b = sample_color_pre_curve_lut_2d(color.b, 2);
+		return ret;
+	} else {
+		/* Never reached, bad c_color_pre_curve. */
+		return vec3(1.0, 0.3, 1.0);
+	}
+}
+
+vec4
+color_pipeline(vec4 color)
+{
+	/* View alpha (opacity) */
+	color.a *= alpha;
+
+	color.rgb = color_pre_curve(color.rgb);
+
+	return color;
+}
+
 void
 main()
 {
@@ -155,15 +218,18 @@ main()
 	/* Electrical (non-linear) RGBA values, may be premult or not */
 	color = sample_input_texture();
 
-	/* Ensure premultiplied alpha, apply view alpha (opacity) */
+	/* Ensure straight alpha */
 	if (c_input_is_premult) {
-		color *= alpha;
-	} else {
-		color.a *= alpha;
-		color.rgb *= color.a;
+		if (color.a == 0.0)
+			color.rgb = vec3(0, 0, 0);
+		else
+			color.rgb *= 1.0 / color.a;
 	}
 
-	/* color is guaranteed premult here */
+	color = color_pipeline(color);
+
+	/* pre-multiply for blending */
+	color.rgb *= color.a;
 
 	if (c_green_tint)
 		color = vec4(0.0, 0.3, 0.0, 0.2) + color * 0.8;

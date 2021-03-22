@@ -50,6 +50,12 @@ enum gl_shader_texture_variant {
 	SHADER_VARIANT_EXTERNAL,
 };
 
+/* Keep the following in sync with fragment.glsl. */
+enum gl_shader_color_curve {
+	SHADER_COLOR_CURVE_IDENTITY = 0,
+	SHADER_COLOR_CURVE_LUT_3x1D,
+};
+
 /** GL shader requirements key
  *
  * This structure is used as a binary blob key for building and searching
@@ -64,12 +70,13 @@ struct gl_shader_requirements
 	unsigned variant:4; /* enum gl_shader_texture_variant */
 	bool input_is_premult:1;
 	bool green_tint:1;
+	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
 
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:26;
+	unsigned pad_bits_:25;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
@@ -86,6 +93,8 @@ struct gl_shader_config {
 	GLfloat unicolor[4];
 	GLint input_tex_filter; /* GL_NEAREST or GL_LINEAR */
 	GLuint input_tex[GL_SHADER_INPUT_TEX_MAX];
+	GLuint color_pre_curve_lut_tex;
+	GLfloat color_pre_curve_lut_scale_offset[2];
 };
 
 struct gl_renderer {
