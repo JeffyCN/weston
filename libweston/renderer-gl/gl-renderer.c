@@ -3430,16 +3430,13 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	struct gl_renderer *gr = get_renderer(ec);
 	struct dmabuf_image *image, *next;
 	struct dmabuf_format *format, *next_format;
-	struct gl_shader *shader, *next_shader;
 
 	wl_signal_emit(&gr->destroy_signal, gr);
 
 	if (gr->has_bind_display)
 		gr->unbind_display(gr->egl_display, ec->wl_display);
 
-	wl_list_for_each_safe(shader, next_shader, &gr->shader_list, link)
-		gl_shader_destroy(gr, shader);
-
+	gl_renderer_shader_list_destroy(gr);
 	if (gr->fallback_shader)
 		gl_shader_destroy(gr, gr->fallback_shader);
 

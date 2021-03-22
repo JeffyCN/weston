@@ -268,6 +268,15 @@ gl_shader_destroy(struct gl_renderer *gr, struct gl_shader *shader)
 	free(shader);
 }
 
+void
+gl_renderer_shader_list_destroy(struct gl_renderer *gr)
+{
+	struct gl_shader *shader, *next_shader;
+
+	wl_list_for_each_safe(shader, next_shader, &gr->shader_list, link)
+		gl_shader_destroy(gr, shader);
+}
+
 static int
 gl_shader_requirements_cmp(const struct gl_shader_requirements *a,
 			   const struct gl_shader_requirements *b)

@@ -201,6 +201,9 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec);
 void
 gl_shader_destroy(struct gl_renderer *gr, struct gl_shader *shader);
 
+void
+gl_renderer_shader_list_destroy(struct gl_renderer *gr);
+
 struct gl_shader *
 gl_renderer_create_fallback_shader(struct gl_renderer *gr);
 
