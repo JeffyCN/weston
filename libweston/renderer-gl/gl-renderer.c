@@ -1294,7 +1294,6 @@ draw_output_borders(struct weston_output *output,
 		.req = {
 			.variant = SHADER_VARIANT_RGBA,
 			.input_is_premult = true,
-			.color_pre_curve = SHADER_COLOR_CURVE_IDENTITY,
 		},
 		.view_alpha = 1.0f,
 	};
@@ -1306,7 +1305,10 @@ draw_output_borders(struct weston_output *output,
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
 
-	assert(output->from_sRGB_to_output == NULL);
+	if (!gl_shader_config_set_color_transform(&sconf, output->from_sRGB_to_output)) {
+		weston_log("GL-renderer: %s failed to generate a color transformation.\n", __func__);
+		return;
+	}
 
 	top = &go->borders[GL_RENDERER_BORDER_TOP];
 	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
