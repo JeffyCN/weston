@@ -169,7 +169,11 @@ drm_output_plane_cursor_has_valid_format(struct weston_view *ev)
 	struct wl_shm_buffer *shmbuf =
 		wl_shm_buffer_get(ev->surface->buffer_ref.buffer->resource);
 
-	if (shmbuf && wl_shm_buffer_get_format(shmbuf) == WL_SHM_FORMAT_ARGB8888)
+	/* When we have cursor planes we've already checked for wl_shm buffer in
+	 * the view before calling this function. */
+	assert(shmbuf);
+
+	if (wl_shm_buffer_get_format(shmbuf) == WL_SHM_FORMAT_ARGB8888)
 		return true;
 
 	return false;
@@ -657,6 +661,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	struct drm_plane_zpos *p_zpos, *p_zpos_next;
 	struct wl_list zpos_candidate_list;
 
+	struct weston_buffer *buffer;
+	struct wl_shm_buffer *shmbuf;
 	struct drm_fb *fb;
 
 	wl_list_init(&zpos_candidate_list);
@@ -665,6 +671,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	if (!weston_view_has_valid_buffer(ev))
 		return ps;
 
+	buffer = ev->surface->buffer_ref.buffer;
+	shmbuf = wl_shm_buffer_get(buffer->resource);
 	fb = drm_fb_get_from_view(state, ev);
 
 	/* assemble a list with possible candidates */
@@ -716,6 +724,14 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 				     "candidate list: sprites are broken!\n",
 				     plane->plane_id,
 				     drm_output_get_plane_type_name(plane));
+			continue;
+		}
+
+		if (plane->type == WDRM_PLANE_TYPE_CURSOR && !shmbuf) {
+			drm_debug(b, "\t\t\t\t[plane] not adding plane %d, type cursor to "
+				     "candidate list: cursor planes only support wl_shm "
+				     "buffers and the view buffer is of another type\n",
+				     plane->plane_id);
 			continue;
 		}
 
