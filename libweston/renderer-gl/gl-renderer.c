@@ -1518,11 +1518,10 @@ blit_shadow_to_output(struct weston_output *output,
 		      pixman_region32_t *output_damage)
 {
 	struct gl_output_state *go = get_output_state(output);
-	const struct gl_shader_config sconf = {
+	struct gl_shader_config sconf = {
 		.req = {
 			.variant = SHADER_VARIANT_RGBA,
 			.input_is_premult = true,
-			.color_pre_curve = SHADER_COLOR_CURVE_IDENTITY,
 		},
 		.projection = {
 			.d = { /* transpose */
@@ -1547,7 +1546,10 @@ blit_shadow_to_output(struct weston_output *output,
 	pixman_region32_t translated_damage;
 	GLfloat verts[4 * 2];
 
-	assert(output->from_blend_to_output == NULL);
+	if (!gl_shader_config_set_color_transform(&sconf, output->from_blend_to_output)) {
+		weston_log("GL-renderer: %s failed to generate a color transformation.\n", __func__);
+		return;
+	}
 
 	pixman_region32_init(&translated_damage);
 
@@ -1612,7 +1614,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 	struct weston_paint_node *pnode;
 
 	assert(output->from_blend_to_output_by_backend ||
-	       output->from_blend_to_output == NULL);
+	       output->from_blend_to_output == NULL || shadow_exists(go));
 
 	if (use_output(output) < 0)
 		return;
