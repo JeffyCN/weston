@@ -718,6 +718,7 @@ gl_renderer_send_shader_error(struct weston_view *view)
 static void
 triangle_fan_debug(struct gl_renderer *gr,
 		   const struct gl_shader_config *sconf,
+		   struct weston_output *output,
 		   int first, int count)
 {
 	int i;
@@ -739,12 +740,18 @@ triangle_fan_debug(struct gl_renderer *gr,
 		.req = {
 			.variant = SHADER_VARIANT_SOLID,
 			.input_is_premult = true,
-			.color_pre_curve = SHADER_COLOR_CURVE_IDENTITY,
 		},
 		.projection = sconf->projection,
 		.view_alpha = 1.0f,
 		.unicolor = { col[0], col[1], col[2], col[3] },
 	};
+
+	if (!gl_shader_config_set_color_transform(&alt,
+						  output->from_sRGB_to_blend)) {
+		weston_log("GL-renderer: %s failed to generate a color transformation.\n",
+			   __func__);
+		return;
+	}
 
 	gl_renderer_use_program(gr, &alt);
 
@@ -773,6 +780,7 @@ triangle_fan_debug(struct gl_renderer *gr,
 static void
 repaint_region(struct gl_renderer *gr,
 	       struct weston_view *ev,
+	       struct weston_output *output,
 	       pixman_region32_t *region,
 	       pixman_region32_t *surf_region,
 	       const struct gl_shader_config *sconf)
@@ -810,7 +818,7 @@ repaint_region(struct gl_renderer *gr,
 	for (i = 0, first = 0; i < nfans; i++) {
 		glDrawArrays(GL_TRIANGLE_FAN, first, vtxcnt[i]);
 		if (gr->fan_debug)
-			triangle_fan_debug(gr, sconf, first, vtxcnt[i]);
+			triangle_fan_debug(gr, sconf, output, first, vtxcnt[i]);
 		first += vtxcnt[i];
 	}
 
@@ -910,6 +918,28 @@ ensure_surface_buffer_is_ready(struct gl_renderer *gr,
 	return (wait_ret == EGL_TRUE && destroy_ret == EGL_TRUE) ? 0 : -1;
 }
 
+static void
+censor_override(struct gl_shader_config *sconf,
+		struct weston_output *output)
+{
+	struct gl_shader_config alt = {
+		.req = {
+			.variant = SHADER_VARIANT_SOLID,
+			.input_is_premult = true,
+		},
+		.projection = sconf->projection,
+		.view_alpha = sconf->view_alpha,
+		.unicolor = { 0.40, 0.0, 0.0, 1.0 },
+	};
+
+	if (!gl_shader_config_set_color_transform(&alt,
+						  output->from_sRGB_to_blend)) {
+		weston_log("GL-renderer: %s failed to generate a color transformation.\n",
+			   __func__);
+	}
+
+	*sconf = alt;
+}
 
  /* Checks if a view needs to be censored on an output
   * Checks for 2 types of censor requirements
@@ -924,16 +954,6 @@ maybe_censor_override(struct gl_shader_config *sconf,
 		      struct weston_output *output,
 		      struct weston_view *ev)
 {
-	const struct gl_shader_config alt = {
-		.req = {
-			.variant = SHADER_VARIANT_SOLID,
-			.input_is_premult = true,
-			.color_pre_curve = SHADER_COLOR_CURVE_IDENTITY,
-		},
-		.projection = sconf->projection,
-		.view_alpha = sconf->view_alpha,
-		.unicolor = { 0.40, 0.0, 0.0, 1.0 },
-	};
 	struct gl_surface_state *gs = get_surface_state(ev->surface);
 	bool recording_censor =
 		(output->disable_planes > 0) &&
@@ -943,7 +963,7 @@ maybe_censor_override(struct gl_shader_config *sconf,
 		(ev->surface->desired_protection > output->current_protection);
 
 	if (gs->direct_display) {
-		*sconf = alt;
+		censor_override(sconf, output);
 		return;
 	}
 
@@ -954,7 +974,7 @@ maybe_censor_override(struct gl_shader_config *sconf,
 		return;
 
 	if (recording_censor || unprotected_censor)
-		*sconf = alt;
+		censor_override(sconf, output);
 }
 
 static void
@@ -1044,9 +1064,6 @@ draw_paint_node(struct weston_paint_node *pnode,
 	else
 		filter = GL_NEAREST;
 
-	/* for triangle_fan_debug(), maybe_censor_override() */
-	assert(pnode->output->from_sRGB_to_blend == NULL);
-
 	if (!gl_shader_config_init_for_paint_node(&sconf, pnode, filter))
 		goto out;
 
@@ -1087,13 +1104,15 @@ draw_paint_node(struct weston_paint_node *pnode,
 		else
 			glDisable(GL_BLEND);
 
-		repaint_region(gr, pnode->view, &repaint, &surface_opaque, &alt);
+		repaint_region(gr, pnode->view, pnode->output,
+			       &repaint, &surface_opaque, &alt);
 		gs->used_in_output_repaint = true;
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
 		glEnable(GL_BLEND);
-		repaint_region(gr, pnode->view, &repaint, &surface_blend, &sconf);
+		repaint_region(gr, pnode->view, pnode->output,
+			       &repaint, &surface_blend, &sconf);
 		gs->used_in_output_repaint = true;
 	}
 
