@@ -1879,16 +1879,6 @@ shell_set_view_fullscreen(struct shell_surface *shsurf)
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 	struct weston_compositor *ec = surface->compositor;
-	struct weston_output *output = shsurf->fullscreen_output;
-	struct weston_curtain_params curtain_params = {
-		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.pos = output->pos,
-		.width = output->width, .height = output->height,
-		.surface_committed = black_surface_committed,
-		.get_label = black_surface_get_label,
-		.surface_private = shsurf->view,
-		.capture_input = true,
-	};
 
 	assert(weston_desktop_surface_get_fullscreen(shsurf->desktop_surface));
 
@@ -1898,15 +1888,29 @@ shell_set_view_fullscreen(struct shell_surface *shsurf)
 
 	weston_shell_utils_center_on_output(shsurf->view, shsurf->output);
 
-	if (!shsurf->fullscreen.black_view) {
-		shsurf->fullscreen.black_view =
-			weston_shell_utils_curtain_create(ec, &curtain_params);
-	}
+	if (shsurf->fullscreen_output &&
+	    getenv("WESTON_FULLSCREEN_BLACK_BACKGROUND")) {
+		struct weston_output *output = shsurf->fullscreen_output;
+		struct weston_curtain_params curtain_params = {
+			.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
+			.pos = output->pos,
+			.width = output->width, .height = output->height,
+			.surface_committed = black_surface_committed,
+			.get_label = black_surface_get_label,
+			.surface_private = shsurf->view,
+			.capture_input = true,
+		};
+		if (!shsurf->fullscreen.black_view) {
+			shsurf->fullscreen.black_view =
+				weston_shell_utils_curtain_create(ec,
+								  &curtain_params);
+		}
 
-	weston_view_set_output(shsurf->fullscreen.black_view->view,
-			       shsurf->fullscreen_output);
-	weston_view_move_to_layer(shsurf->fullscreen.black_view->view,
-				  &shsurf->view->layer_link);
+		weston_view_set_output(shsurf->fullscreen.black_view->view,
+				       shsurf->fullscreen_output);
+		weston_view_move_to_layer(shsurf->fullscreen.black_view->view,
+					  &shsurf->view->layer_link);
+	}
 }
 
 static void
@@ -4342,7 +4346,9 @@ switcher_next(struct switcher *switcher)
 		weston_view_set_alpha(view, 1.0);
 
 	shsurf = get_shell_surface(switcher->current->surface);
-	if (shsurf && weston_desktop_surface_get_fullscreen(shsurf->desktop_surface))
+	if (shsurf &&
+	    weston_desktop_surface_get_fullscreen(shsurf->desktop_surface) &&
+	    shsurf->fullscreen.black_view)
 		weston_view_set_alpha(shsurf->fullscreen.black_view->view, 1.0);
 }
 
