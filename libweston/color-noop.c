@@ -89,6 +89,19 @@ cmnoop_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
 }
 
 static bool
+cmnoop_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
+					 struct weston_output *output,
+					 struct weston_color_transform **xform_out)
+{
+	/* TODO: Assert output has no colorspace set */
+
+	/* Identity transform */
+	*xform_out = NULL;
+
+	return true;
+}
+
+static bool
 cmnoop_init(struct weston_color_manager *cm_base)
 {
 	/* No renderer requirements to check. */
@@ -124,6 +137,8 @@ weston_color_manager_noop_create(struct weston_compositor *compositor)
 	cm->base.get_output_color_transform = cmnoop_get_output_color_transform;
 	cm->base.get_sRGB_to_output_color_transform =
 	      cmnoop_get_sRGB_to_output_color_transform;
+	cm->base.get_sRGB_to_blend_color_transform =
+	      cmnoop_get_sRGB_to_blend_color_transform;
 
 	return &cm->base;
 }

@@ -375,6 +375,7 @@ struct weston_output {
 
 	bool use_renderer_shadow_buffer;
 	struct weston_color_transform *from_sRGB_to_output;
+	struct weston_color_transform *from_sRGB_to_blend;
 	struct weston_color_transform *from_blend_to_output;
 	bool from_blend_to_output_by_backend;
 

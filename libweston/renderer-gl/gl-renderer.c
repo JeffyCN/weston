@@ -1034,6 +1034,9 @@ draw_paint_node(struct weston_paint_node *pnode,
 	else
 		filter = GL_NEAREST;
 
+	/* for triangle_fan_debug(), maybe_censor_override() */
+	assert(pnode->output->from_sRGB_to_blend == NULL);
+
 	if (!gl_shader_config_init_for_paint_node(&sconf, pnode, filter))
 		goto out;
 
