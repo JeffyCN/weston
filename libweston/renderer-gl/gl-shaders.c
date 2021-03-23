@@ -463,6 +463,15 @@ gl_renderer_use_program(struct gl_renderer *gr,
 	if (!shader) {
 		weston_log("Error: failed to generate shader program.\n");
 		gr->current_shader = NULL;
+
+		/*
+		 * We only have one fallback shader, so it cannot do correct
+		 * color on color managed outputs. Hence, what is painted
+		 * with this one will have undefined look. Therefore the
+		 * fallback is important to not be too bright as that might
+		 * be shocking on a monitor in HDR mode.
+		 */
+
 		shader = gr->fallback_shader;
 		glUseProgram(shader->program);
 		glUniform4fv(shader->color_uniform, 1, fallback_shader_color);
