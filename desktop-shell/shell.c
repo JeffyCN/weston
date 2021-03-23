@@ -2146,7 +2146,8 @@ shell_configure_fullscreen(struct shell_surface *shsurf)
 		return;
 	}
 
-	shell_ensure_fullscreen_black_view(shsurf);
+	if (getenv("WESTON_FULLSCREEN_BLACK_BACKGROUND"))
+		shell_ensure_fullscreen_black_view(shsurf);
 
 	surface_subsurfaces_boundingbox(surface, &surf_x, &surf_y,
 	                                &surf_width, &surf_height);
@@ -3750,7 +3751,7 @@ lower_fullscreen_layer(struct desktop_shell *shell,
 
 		/* We can have a non-fullscreen popup for a fullscreen surface
 		 * in the fullscreen layer. */
-		if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface)) {
+		if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface) && shsurf->fullscreen.black_view) {
 			/* Hide the black view */
 			weston_layer_entry_remove(&shsurf->fullscreen.black_view->layer_link);
 			wl_list_init(&shsurf->fullscreen.black_view->layer_link.link);
@@ -4517,7 +4518,7 @@ switcher_next(struct switcher *switcher)
 		view->alpha = 1.0;
 
 	shsurf = get_shell_surface(switcher->current->surface);
-	if (shsurf && weston_desktop_surface_get_fullscreen(shsurf->desktop_surface))
+	if (shsurf && weston_desktop_surface_get_fullscreen(shsurf->desktop_surface) && shsurf->fullscreen.black_view)
 		shsurf->fullscreen.black_view->alpha = 1.0;
 }
 
