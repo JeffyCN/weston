@@ -2152,7 +2152,9 @@ wet_output_handle_destroy(struct wl_listener *listener, void *data)
 }
 
 static struct wet_output *
-wet_layoutput_create_output(struct wet_layoutput *lo, const char *name)
+wet_layoutput_create_output_with_head(struct wet_layoutput *lo,
+				      const char *name,
+				      struct weston_head *head)
 {
 	struct wet_output *output;
 
@@ -2162,7 +2164,7 @@ wet_layoutput_create_output(struct wet_layoutput *lo, const char *name)
 
 	output->output =
 		weston_compositor_create_output(lo->compositor->compositor,
-						NULL, name);
+						head, name);
 	if (!output->output) {
 		free(output);
 		return NULL;
@@ -2315,8 +2317,8 @@ drm_try_attach(struct weston_output *output,
 {
 	unsigned i;
 
-	/* try to attach all heads, this probably succeeds */
-	for (i = 0; i < add->n; i++) {
+	/* try to attach remaining heads, this probably succeeds */
+	for (i = 1; i < add->n; i++) {
 		if (!add->heads[i])
 			continue;
 
@@ -2432,7 +2434,8 @@ drm_process_layoutput(struct wet_compositor *wet, struct wet_layoutput *lo)
 			if (ret < 0)
 				return -1;
 		}
-		output = wet_layoutput_create_output(lo, name);
+		output = wet_layoutput_create_output_with_head(lo, name,
+							       lo->add.heads[0]);
 		free(name);
 		name = NULL;
 
