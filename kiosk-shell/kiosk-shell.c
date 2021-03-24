@@ -35,6 +35,8 @@
 #include "shared/helpers.h"
 #include "util.h"
 
+#include <libweston/xwayland-api.h>
+
 static struct kiosk_shell_surface *
 get_kiosk_shell_surface(struct weston_surface *surface)
 {
@@ -61,6 +63,35 @@ get_kiosk_shell_seat(struct weston_seat *seat)
 
 	return container_of(listener,
 			    struct kiosk_shell_seat, seat_destroy_listener);
+}
+
+static void
+transform_handler(struct wl_listener *listener, void *data)
+{
+	struct weston_surface *surface = data;
+	struct kiosk_shell_surface *shsurf = get_kiosk_shell_surface(surface);
+	const struct weston_xwayland_surface_api *api;
+	int x, y;
+
+	if (!shsurf)
+		return;
+
+	api = shsurf->shell->xwayland_surface_api;
+	if (!api) {
+		api = weston_xwayland_surface_get_api(shsurf->shell->compositor);
+		shsurf->shell->xwayland_surface_api = api;
+	}
+
+	if (!api || !api->is_xwayland_surface(surface))
+		return;
+
+	if (!weston_view_is_mapped(shsurf->view))
+		return;
+
+	x = shsurf->view->geometry.x;
+	y = shsurf->view->geometry.y;
+
+	api->send_position(surface, x, y);
 }
 
 /*
@@ -1015,6 +1046,7 @@ kiosk_shell_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->output_resized_listener.link);
 	wl_list_remove(&shell->output_moved_listener.link);
 	wl_list_remove(&shell->seat_created_listener.link);
+	wl_list_remove(&shell->transform_listener.link);
 
 	wl_list_for_each_safe(shoutput, tmp, &shell->output_list, link) {
 		kiosk_shell_output_destroy(shoutput);
@@ -1049,6 +1081,9 @@ wet_shell_init(struct weston_compositor *ec,
 		free(shell);
 		return 0;
 	}
+
+	shell->transform_listener.notify = transform_handler;
+	wl_signal_add(&ec->transform_signal, &shell->transform_listener);
 
 	weston_layer_init(&shell->background_layer, ec);
 	weston_layer_init(&shell->normal_layer, ec);
