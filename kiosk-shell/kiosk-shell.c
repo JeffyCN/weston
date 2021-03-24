@@ -1084,6 +1084,8 @@ wet_shell_init(struct weston_compositor *ec,
 	shell->output_moved_listener.notify = kiosk_shell_handle_output_moved;
 	wl_signal_add(&ec->output_moved_signal, &shell->output_moved_listener);
 
+	screenshooter_create(ec);
+
 	kiosk_shell_add_bindings(shell);
 
 	return 0;
