@@ -3263,6 +3263,8 @@ drm_destroy(struct weston_backend *backend)
 	struct drm_crtc *crtc, *crtc_tmp;
 	struct drm_writeback *writeback, *writeback_tmp;
 
+	wl_list_remove(&b->base.link);
+
 	wl_list_for_each_safe(crtc, crtc_tmp, &b->drm->crtc_list, link)
 		drm_crtc_destroy(crtc);
 
@@ -3802,7 +3804,7 @@ drm_backend_create(struct weston_compositor *compositor,
 						   "Debug messages from DRM/KMS backend\n",
 						   NULL, NULL, NULL);
 
-	compositor->backend = &b->base;
+	wl_list_insert(&compositor->backend_list, &b->base.link);
 
 	if (parse_gbm_format(config->gbm_format,
 			     pixel_format_get_info(DRM_FORMAT_XRGB8888),
@@ -4021,6 +4023,7 @@ err_udev:
 err_launcher:
 	weston_launcher_destroy(compositor->launcher);
 err_compositor:
+	wl_list_remove(&b->base.link);
 #ifdef BUILD_DRM_GBM
 	if (b->gbm)
 		gbm_device_destroy(b->gbm);
@@ -4047,6 +4050,11 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_version != WESTON_DRM_BACKEND_CONFIG_VERSION ||
 	    config_base->struct_size > sizeof(struct weston_drm_backend_config)) {
 		weston_log("drm backend config structure is invalid\n");
+		return -1;
+	}
+
+	if (compositor->renderer) {
+		weston_log("drm backend must be the primary backend\n");
 		return -1;
 	}
 

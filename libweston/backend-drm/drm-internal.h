@@ -739,7 +739,14 @@ to_drm_output(struct weston_output *base)
 static inline struct drm_backend *
 to_drm_backend(struct weston_compositor *base)
 {
-	return container_of(base->backend, struct drm_backend, base);
+	struct weston_backend *backend;
+
+	wl_list_for_each(backend, &base->backend_list, link) {
+		if (backend->destroy == drm_destroy)
+			return container_of(backend, struct drm_backend, base);
+	}
+
+	return NULL;
 }
 
 static inline struct drm_mode *
