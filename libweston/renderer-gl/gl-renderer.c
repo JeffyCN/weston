@@ -184,6 +184,7 @@ struct gl_surface_state {
 	struct egl_image* images[3];
 	GLenum target;
 	int num_images;
+	enum gl_shader_texture_variant shader_variant;
 
 	struct weston_buffer_reference buffer_ref;
 	struct weston_buffer_release_reference buffer_release_ref;
@@ -206,7 +207,6 @@ struct gl_surface_state {
 
 	struct wl_listener surface_destroy_listener;
 	struct wl_listener renderer_destroy_listener;
-	struct gl_shader_requirements shader_requirements;
 };
 
 enum timeline_render_point_type {
@@ -960,7 +960,7 @@ gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 {
 	int i;
 
-	sconf->req.variant = gs->shader_requirements.variant;
+	sconf->req.variant = gs->shader_variant;
 
 	for (i = 0; i < 4; i++)
 		sconf->unicolor[i] = gs->color[i];
@@ -1011,8 +1011,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 	/* In case of a runtime switch of renderers, we may not have received
 	 * an attach for this surface since the switch. In that case we don't
 	 * have a valid buffer or a proper shader set up so skip rendering. */
-	if (gs->shader_requirements.variant == SHADER_VARIANT_NONE &&
-	    !gs->direct_display)
+	if (gs->shader_variant == SHADER_VARIANT_NONE && !gs->direct_display)
 		return;
 
 	pixman_region32_init(&repaint);
@@ -1909,28 +1908,28 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 
 	switch (wl_shm_buffer_get_format(shm_buffer)) {
 	case WL_SHM_FORMAT_XRGB8888:
-		gs->shader_requirements.variant = SHADER_VARIANT_RGBX;
+		gs->shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_ARGB8888:
-		gs->shader_requirements.variant = SHADER_VARIANT_RGBA;
+		gs->shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		es->is_opaque = false;
 		break;
 	case WL_SHM_FORMAT_RGB565:
-		gs->shader_requirements.variant = SHADER_VARIANT_RGBX;
+		gs->shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_format[0] = GL_RGB;
 		gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
 		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_YUV420:
-		gs->shader_requirements.variant = SHADER_VARIANT_Y_U_V;
+		gs->shader_variant = SHADER_VARIANT_Y_U_V;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 3;
@@ -1962,18 +1961,18 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		gs->hsub[1] = 2;
 		gs->vsub[1] = 2;
 		if (gr->has_gl_texture_rg) {
-			gs->shader_requirements.variant = SHADER_VARIANT_Y_UV;
+			gs->shader_variant = SHADER_VARIANT_Y_UV;
 			gl_format[0] = GL_R8_EXT;
 			gl_format[1] = GL_RG8_EXT;
 		} else {
-			gs->shader_requirements.variant = SHADER_VARIANT_Y_XUXV;
+			gs->shader_variant = SHADER_VARIANT_Y_XUXV;
 			gl_format[0] = GL_LUMINANCE;
 			gl_format[1] = GL_LUMINANCE_ALPHA;
 		}
 		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_YUYV:
-		gs->shader_requirements.variant = SHADER_VARIANT_Y_XUXV;
+		gs->shader_variant = SHADER_VARIANT_Y_XUXV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 2;
@@ -1992,7 +1991,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		 * [31:0] X:Y:Cb:Cr 8:8:8:8 little endian
 		 *        a:b: g: r in SHADER_VARIANT_XYUV
 		 */
-		gs->shader_requirements.variant = SHADER_VARIANT_XYUV;
+		gs->shader_variant = SHADER_VARIANT_XYUV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_RGBA;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
@@ -2064,26 +2063,26 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 	case EGL_TEXTURE_RGBA:
 	default:
 		num_planes = 1;
-		gs->shader_requirements.variant = SHADER_VARIANT_RGBA;
+		gs->shader_variant = SHADER_VARIANT_RGBA;
 		break;
 	case EGL_TEXTURE_EXTERNAL_WL:
 		num_planes = 1;
 		gs->target = GL_TEXTURE_EXTERNAL_OES;
-		gs->shader_requirements.variant = SHADER_VARIANT_EXTERNAL;
+		gs->shader_variant = SHADER_VARIANT_EXTERNAL;
 		break;
 	case EGL_TEXTURE_Y_UV_WL:
 		num_planes = 2;
-		gs->shader_requirements.variant = SHADER_VARIANT_Y_UV;
+		gs->shader_variant = SHADER_VARIANT_Y_UV;
 		es->is_opaque = true;
 		break;
 	case EGL_TEXTURE_Y_U_V_WL:
 		num_planes = 3;
-		gs->shader_requirements.variant = SHADER_VARIANT_Y_U_V;
+		gs->shader_variant = SHADER_VARIANT_Y_U_V;
 		es->is_opaque = true;
 		break;
 	case EGL_TEXTURE_Y_XUXV_WL:
 		num_planes = 2;
-		gs->shader_requirements.variant = SHADER_VARIANT_Y_XUXV;
+		gs->shader_variant = SHADER_VARIANT_Y_XUXV;
 		es->is_opaque = true;
 		break;
 	}
@@ -2780,7 +2779,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 		gr->image_target_texture_2d(gs->target, gs->images[i]->image);
 	}
 
-	gs->shader_requirements.variant = image->shader_variant;
+	gs->shader_variant = image->shader_variant;
 }
 
 static void
@@ -2853,7 +2852,7 @@ gl_renderer_surface_set_color(struct weston_surface *surface,
 	gs->pitch = 1;
 	gs->height = 1;
 
-	gs->shader_requirements.variant = SHADER_VARIANT_SOLID;
+	gs->shader_variant = SHADER_VARIANT_SOLID;
 }
 
 static void
