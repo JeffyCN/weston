@@ -132,7 +132,6 @@ struct dmabuf_image {
 	struct wl_list link;
 
 	enum import_type import_type;
-	GLenum target;
 	enum gl_shader_texture_variant shader_variant;
 };
 
@@ -182,7 +181,6 @@ struct gl_surface_state {
 	GLenum gl_pixel_type;
 
 	struct egl_image* images[3];
-	GLenum target;
 	int num_images;
 	enum gl_shader_texture_variant shader_variant;
 
@@ -1864,7 +1862,7 @@ done:
 }
 
 static void
-ensure_textures(struct gl_surface_state *gs, int num_textures)
+ensure_textures(struct gl_surface_state *gs, GLenum target, int num_textures)
 {
 	int i;
 
@@ -1875,14 +1873,12 @@ ensure_textures(struct gl_surface_state *gs, int num_textures)
 
 	for (i = gs->num_textures; i < num_textures; i++) {
 		glGenTextures(1, &gs->textures[i]);
-		glBindTexture(gs->target, gs->textures[i]);
-		glTexParameteri(gs->target,
-				GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(gs->target,
-				GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glBindTexture(target, gs->textures[i]);
+		glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	}
 	gs->num_textures = num_textures;
-	glBindTexture(gs->target, 0);
+	glBindTexture(target, 0);
 }
 
 static void
@@ -2015,7 +2011,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 	    gs->buffer_type != BUFFER_TYPE_SHM) {
 		gs->pitch = pitch;
 		gs->height = buffer->height;
-		gs->target = GL_TEXTURE_2D;
 		gs->gl_format[0] = gl_format[0];
 		gs->gl_format[1] = gl_format[1];
 		gs->gl_format[2] = gl_format[2];
@@ -2027,7 +2022,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 
 		gs->surface = es;
 
-		ensure_textures(gs, num_planes);
+		ensure_textures(gs, GL_TEXTURE_2D, num_planes);
 	}
 }
 
@@ -2039,6 +2034,7 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(es);
 	EGLint attribs[3];
+	GLenum target;
 	int i, num_planes;
 
 	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
@@ -2054,7 +2050,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 		gs->images[i] = NULL;
 	}
 	gs->num_images = 0;
-	gs->target = GL_TEXTURE_2D;
 	es->is_opaque = false;
 	switch (format) {
 	case EGL_TEXTURE_RGB:
@@ -2067,7 +2062,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 		break;
 	case EGL_TEXTURE_EXTERNAL_WL:
 		num_planes = 1;
-		gs->target = GL_TEXTURE_EXTERNAL_OES;
 		gs->shader_variant = SHADER_VARIANT_EXTERNAL;
 		break;
 	case EGL_TEXTURE_Y_UV_WL:
@@ -2087,7 +2081,8 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 		break;
 	}
 
-	ensure_textures(gs, num_planes);
+	target = gl_shader_texture_variant_get_target(gs->shader_variant);
+	ensure_textures(gs, target, num_planes);
 	for (i = 0; i < num_planes; i++) {
 		attribs[0] = EGL_WAYLAND_PLANE_WL;
 		attribs[1] = i;
@@ -2103,9 +2098,8 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 		gs->num_images++;
 
 		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(gs->target, gs->textures[i]);
-		gr->image_target_texture_2d(gs->target,
-					    gs->images[i]->image);
+		glBindTexture(target, gs->textures[i]);
+		gr->image_target_texture_2d(target, gs->images[i]->image);
 	}
 
 	gs->pitch = buffer->width;
@@ -2499,6 +2493,7 @@ import_dmabuf(struct gl_renderer *gr,
 {
 	struct egl_image *egl_image;
 	struct dmabuf_image *image;
+	GLenum target;
 
 	image = dmabuf_image_create();
 	image->dmabuf = dmabuf;
@@ -2508,9 +2503,9 @@ import_dmabuf(struct gl_renderer *gr,
 		image->num_images = 1;
 		image->images[0] = egl_image;
 		image->import_type = IMPORT_TYPE_DIRECT;
-		image->target = choose_texture_target(gr, &dmabuf->attributes);
+		target = choose_texture_target(gr, &dmabuf->attributes);
 
-		switch (image->target) {
+		switch (target) {
 		case GL_TEXTURE_2D:
 			image->shader_variant = SHADER_VARIANT_RGBA;
 			break;
@@ -2523,7 +2518,6 @@ import_dmabuf(struct gl_renderer *gr,
 			return NULL;
 		}
 		image->import_type = IMPORT_TYPE_GL_CONVERSION;
-		image->target = GL_TEXTURE_2D;
 	}
 
 	return image;
@@ -2713,6 +2707,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct dmabuf_image *image;
+	GLenum target;
 	int i;
 
 	if (!gr->has_dmabuf_import) {
@@ -2771,12 +2766,12 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	for (i = 0; i < gs->num_images; ++i)
 		gs->images[i] = egl_image_ref(image->images[i]);
 
-	gs->target = image->target;
-	ensure_textures(gs, gs->num_images);
+	target = gl_shader_texture_variant_get_target(image->shader_variant);
+	ensure_textures(gs, target, gs->num_images);
 	for (i = 0; i < gs->num_images; ++i) {
 		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(gs->target, gs->textures[i]);
-		gr->image_target_texture_2d(gs->target, gs->images[i]->image);
+		glBindTexture(target, gs->textures[i]);
+		gr->image_target_texture_2d(target, gs->images[i]->image);
 	}
 
 	gs->shader_variant = image->shader_variant;
