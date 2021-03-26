@@ -458,6 +458,9 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 {
 	struct kiosk_shell *shell = shoutput->shell;
 	struct weston_output *output = shoutput->output;
+	struct weston_config_section *shell_section = NULL;
+	uint32_t bg_color = 0x0;
+	float r, g, b;
 
 	if (shoutput->background_view)
 		weston_surface_destroy(shoutput->background_view->surface);
@@ -465,9 +468,19 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	if (!output)
 		return;
 
+	if (shell->config)
+		shell_section = weston_config_get_section(shell->config, "shell", NULL, NULL);
+	if (shell_section)
+		weston_config_section_get_color(shell_section, "background-color",
+						&bg_color, 0x00000000);
+
+	r = ((bg_color >> 16) & 0xff) / 255.0;
+	b = ((bg_color >> 8) & 0xff) / 255.0,
+	g = ((bg_color >> 0) & 0xff) / 255.0;
+
 	shoutput->background_view =
 			create_colored_surface(shoutput->shell->compositor,
-					       0.5, 0.5, 0.5,
+					       r, g, b,
 					       output->x, output->y,
 					       output->width,
 			                       output->height);
@@ -1068,6 +1081,7 @@ wet_shell_init(struct weston_compositor *ec,
 	struct kiosk_shell *shell;
 	struct weston_seat *seat;
 	struct weston_output *output;
+	const char *config_file;
 
 	shell = zalloc(sizeof *shell);
 	if (shell == NULL)
@@ -1084,6 +1098,9 @@ wet_shell_init(struct weston_compositor *ec,
 
 	shell->transform_listener.notify = transform_handler;
 	wl_signal_add(&ec->transform_signal, &shell->transform_listener);
+
+	config_file = weston_config_get_name_from_env();
+	shell->config = weston_config_parse(config_file);
 
 	weston_layer_init(&shell->background_layer, ec);
 	weston_layer_init(&shell->normal_layer, ec);

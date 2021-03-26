@@ -26,6 +26,7 @@
 
 #include <libweston-desktop/libweston-desktop.h>
 #include <libweston/libweston.h>
+#include <libweston/config-parser.h>
 
 struct kiosk_shell {
 	struct weston_compositor *compositor;
@@ -45,6 +46,7 @@ struct kiosk_shell {
 	struct wl_list seat_list;
 
 	const struct weston_xwayland_surface_api *xwayland_surface_api;
+	struct weston_config *config;
 };
 
 struct kiosk_shell_surface {
