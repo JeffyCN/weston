@@ -31,7 +31,6 @@ enum weston_launcher_opcode {
 };
 
 enum weston_launcher_event {
-	WESTON_LAUNCHER_SUCCESS,
 	WESTON_LAUNCHER_ACTIVATE,
 	WESTON_LAUNCHER_DEACTIVATE,
 	WESTON_LAUNCHER_DEACTIVATE_DONE,
