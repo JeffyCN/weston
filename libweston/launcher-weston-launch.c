@@ -93,6 +93,7 @@ struct launcher_weston_launch {
 	struct wl_event_source *source;
 
 	int kb_mode, tty, drm_fd;
+	int deferred_deactivate;
 };
 
 static ssize_t
@@ -107,12 +108,36 @@ launcher_weston_launch_send(int sockfd, void *buf, size_t buflen)
 	return len;
 }
 
+static void
+handle_deactivate(struct launcher_weston_launch *launcher)
+{
+	int reply;
+
+	launcher->compositor->session_active = false;
+	wl_signal_emit(&launcher->compositor->session_signal,
+		       launcher->compositor);
+
+	reply = WESTON_LAUNCHER_DEACTIVATE_DONE;
+	launcher_weston_launch_send(launcher->fd, &reply, sizeof reply);
+}
+
+static void
+idle_deactivate(void *data)
+{
+	struct launcher_weston_launch *launcher = data;
+
+	if (launcher->deferred_deactivate) {
+		launcher->deferred_deactivate = 0;
+		handle_deactivate((struct launcher_weston_launch*)data);
+	}
+}
+
 static int
 launcher_weston_launch_open(struct weston_launcher *launcher_base,
 		     const char *path, int flags)
 {
 	struct launcher_weston_launch *launcher = wl_container_of(launcher_base, launcher, base);
-	int n, ret;
+	int n;
 	struct msghdr msg;
 	struct cmsghdr *cmsg;
 	struct iovec iov;
@@ -120,6 +145,7 @@ launcher_weston_launch_open(struct weston_launcher *launcher_base,
 	char control[CMSG_SPACE(sizeof data->fd)];
 	ssize_t len;
 	struct weston_launcher_open *message;
+	struct { int id; int ret; } event;
 
 	n = sizeof(*message) + strlen(path) + 1;
 	message = malloc(n);
@@ -134,19 +160,33 @@ launcher_weston_launch_open(struct weston_launcher *launcher_base,
 	free(message);
 
 	memset(&msg, 0, sizeof msg);
-	iov.iov_base = &ret;
-	iov.iov_len = sizeof ret;
+	iov.iov_base = &event;
+	iov.iov_len = sizeof event;
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 	msg.msg_control = control;
-	msg.msg_controllen = sizeof control;
 
-	do {
-		len = recvmsg(launcher->fd, &msg, MSG_CMSG_CLOEXEC);
-	} while (len < 0 && errno == EINTR);
+	while (1) {
+		msg.msg_controllen = sizeof control;
 
-	if (len != sizeof ret ||
-	    ret < 0)
+		do {
+			len = recvmsg(launcher->fd, &msg, MSG_CMSG_CLOEXEC);
+		} while (len < 0 && errno == EINTR);
+
+		// Only OPEN_REPLY and up to one DEACTIVATE message should be possible here
+		if ((len == sizeof event) && (event.id == WESTON_LAUNCHER_OPEN_REPLY))
+			break;
+
+		if ((len == sizeof event.id) && (event.id == WESTON_LAUNCHER_DEACTIVATE) && (launcher->deferred_deactivate == 0)) {
+			wl_event_loop_add_idle(wl_display_get_event_loop(launcher->compositor->wl_display), idle_deactivate, launcher);
+			launcher->deferred_deactivate = 1;
+		} else {
+			weston_log("unexpected event %d (len=%zd) from weston-launch\n", event.id, len);
+			return -1;
+		}
+	}
+
+	if (event.ret < 0)
 		return -1;
 
 	cmsg = CMSG_FIRSTHDR(&msg);
@@ -201,7 +241,7 @@ static int
 launcher_weston_launch_data(int fd, uint32_t mask, void *data)
 {
 	struct launcher_weston_launch *launcher = data;
-	int len, ret, reply;
+	int len, ret;
 
 	if (mask & (WL_EVENT_HANGUP | WL_EVENT_ERROR)) {
 		weston_log("launcher socket closed, exiting\n");
@@ -210,6 +250,12 @@ launcher_weston_launch_data(int fd, uint32_t mask, void *data)
 		 * we don't end up with a stuck vt. */
 		launcher_weston_launch_restore(&launcher->base);
 		exit(-1);
+	}
+
+	if (launcher->deferred_deactivate) {
+		launcher->deferred_deactivate = 0;
+		handle_deactivate(launcher);
+		return 1;
 	}
 
 	do {
@@ -223,13 +269,7 @@ launcher_weston_launch_data(int fd, uint32_t mask, void *data)
 			       launcher->compositor);
 		break;
 	case WESTON_LAUNCHER_DEACTIVATE:
-		launcher->compositor->session_active = false;
-		wl_signal_emit(&launcher->compositor->session_signal,
-			       launcher->compositor);
-
-		reply = WESTON_LAUNCHER_DEACTIVATE_DONE;
-		launcher_weston_launch_send(launcher->fd, &reply, sizeof reply);
-
+		handle_deactivate(launcher);
 		break;
 	default:
 		weston_log("unexpected event from weston-launch\n");
@@ -287,6 +327,7 @@ launcher_weston_launch_connect(struct weston_launcher **out, struct weston_compo
 	* (struct launcher_weston_launch **) out = launcher;
 	launcher->compositor = compositor;
 	launcher->drm_fd = -1;
+	launcher->deferred_deactivate = 0;
 	launcher->fd = launcher_weston_environment_get_fd("WESTON_LAUNCHER_SOCK");
 	if (launcher->fd != -1) {
 		launcher->tty = launcher_weston_environment_get_fd("WESTON_TTY_FD");

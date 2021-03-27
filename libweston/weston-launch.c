@@ -377,8 +377,9 @@ err0:
 		nmsg.msg_controllen = cmsg->cmsg_len;
 		ret = 0;
 	}
-	iov.iov_base = &ret;
-	iov.iov_len = sizeof ret;
+	struct { int reply_id; int ret; } reply_iov_data = { WESTON_LAUNCHER_OPEN_REPLY, ret };
+	iov.iov_base = &reply_iov_data;
+	iov.iov_len = sizeof reply_iov_data;
 
 	if (wl->verbose)
 		fprintf(stderr, "weston-launch: opened %s: ret: %d, fd: %d\n",
