@@ -2228,11 +2228,7 @@ weston_compositor_find_output_by_name(struct weston_compositor *compositor,
 
 struct weston_output *
 weston_compositor_create_output(struct weston_compositor *compositor,
-				const char *name);
-
-struct weston_output *
-weston_compositor_create_output_with_head(struct weston_compositor *compositor,
-					  struct weston_head *head);
+				struct weston_head *head, const char *name);
 
 void
 weston_output_destroy(struct weston_output *output);

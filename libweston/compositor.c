@@ -7306,13 +7306,15 @@ weston_compositor_find_output_by_name(struct weston_compositor *compositor,
 	return NULL;
 }
 
-/** Create a named output
+/** Create a named output for an unused head
  *
  * \param compositor The compositor.
+ * \param head The head to attach to the output.
  * \param name The name for the output.
  * \return A new \c weston_output, or NULL on failure.
  *
- * This creates a new weston_output that starts with no heads attached.
+ * This creates a new weston_output that starts with the given head attached.
+ * The head must not be already attached to another output.
  *
  * An output must be configured and it must have at least one head before
  * it can be enabled.
@@ -7321,8 +7323,11 @@ weston_compositor_find_output_by_name(struct weston_compositor *compositor,
  */
 WL_EXPORT struct weston_output *
 weston_compositor_create_output(struct weston_compositor *compositor,
+				struct weston_head *head,
 				const char *name)
 {
+	struct weston_output *output;
+
 	assert(compositor->backend->create_output);
 
 	if (weston_compositor_find_output_by_name(compositor, name)) {
@@ -7331,34 +7336,11 @@ weston_compositor_create_output(struct weston_compositor *compositor,
 		return NULL;
 	}
 
-	return compositor->backend->create_output(compositor, name);
-}
-
-/** Create an output for an unused head
- *
- * \param compositor The compositor.
- * \param head The head to attach to the output.
- * \return A new \c weston_output, or NULL on failure.
- *
- * This creates a new weston_output that starts with the given head attached.
- * The output inherits the name of the head. The head must not be already
- * attached to another output.
- *
- * An output must be configured before it can be enabled.
- *
- * \ingroup compositor
- */
-WL_EXPORT struct weston_output *
-weston_compositor_create_output_with_head(struct weston_compositor *compositor,
-					  struct weston_head *head)
-{
-	struct weston_output *output;
-
-	output = weston_compositor_create_output(compositor, head->name);
+	output = compositor->backend->create_output(compositor, name);
 	if (!output)
 		return NULL;
 
-	if (weston_output_attach_head(output, head) < 0) {
+	if (head && weston_output_attach_head(output, head) < 0) {
 		weston_output_destroy(output);
 		return NULL;
 	}

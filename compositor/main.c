@@ -1696,8 +1696,8 @@ simple_head_enable(struct wet_compositor *wet, struct weston_head *head)
 	struct weston_output *output;
 	int ret = 0;
 
-	output = weston_compositor_create_output_with_head(wet->compositor,
-							   head);
+	output = weston_compositor_create_output(wet->compositor, head,
+						 head->name);
 	if (!output) {
 		weston_log("Could not create an output for head \"%s\".\n",
 			   weston_head_get_name(head));
@@ -2162,7 +2162,7 @@ wet_layoutput_create_output(struct wet_layoutput *lo, const char *name)
 
 	output->output =
 		weston_compositor_create_output(lo->compositor->compositor,
-						name);
+						NULL, name);
 	if (!output->output) {
 		free(output);
 		return NULL;
