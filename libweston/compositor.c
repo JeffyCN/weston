@@ -7379,7 +7379,7 @@ weston_compositor_create_output(struct weston_compositor *compositor,
 {
 	struct weston_output *output;
 
-	assert(compositor->backend->create_output);
+	assert(head->backend->create_output);
 
 	if (weston_compositor_find_output_by_name(compositor, name)) {
 		weston_log("Warning: attempted to create an output with a "
@@ -7387,7 +7387,7 @@ weston_compositor_create_output(struct weston_compositor *compositor,
 		return NULL;
 	}
 
-	output = compositor->backend->create_output(compositor, name);
+	output = head->backend->create_output(compositor, name);
 	if (!output)
 		return NULL;
 
