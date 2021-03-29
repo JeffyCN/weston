@@ -395,6 +395,9 @@ struct weston_head {
 
 	/** Current content protection status */
 	enum weston_hdcp_protection current_protection;
+
+	/** Opaque pointer used by backends to identify heads as theirs */
+	const void *backend_id;
 };
 
 /** Output properties derived from its color characteristics and profile
