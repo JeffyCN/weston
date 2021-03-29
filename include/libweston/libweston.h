@@ -2001,6 +2001,9 @@ weston_keyboard_send_keymap(struct weston_keyboard *kbd,
 int
 weston_compositor_load_xwayland(struct weston_compositor *compositor);
 
+int
+weston_compositor_load_color_manager(struct weston_compositor *compositor);
+
 bool
 weston_head_is_connected(struct weston_head *head);
 

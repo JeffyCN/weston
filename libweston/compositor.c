@@ -8267,6 +8267,41 @@ weston_compositor_load_xwayland(struct weston_compositor *compositor)
 	return 0;
 }
 
+/** Load Little CMS color manager plugin
+ *
+ * Calling this function before loading any backend sets Little CMS
+ * as the active color matching module (CMM) instead of the default no-op
+ * color manager.
+ *
+ * \ingroup compositor
+ */
+WL_EXPORT int
+weston_compositor_load_color_manager(struct weston_compositor *compositor)
+{
+	struct weston_color_manager *
+	(*cm_create)(struct weston_compositor *compositor);
+
+	if (compositor->color_manager) {
+		weston_log("Error: Color manager '%s' is loaded, cannot load another.\n",
+			   compositor->color_manager->name);
+		return -1;
+	}
+
+	cm_create = weston_load_module("color-lcms.so", "weston_color_manager_create");
+	if (!cm_create) {
+		weston_log("Error: Could not load color-lcms.so.\n");
+		return -1;
+	}
+
+	compositor->color_manager = cm_create(compositor);
+	if (!compositor->color_manager) {
+		weston_log("Error: loading color-lcms.so failed.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 /** Resolve an internal compositor error by disconnecting the client.
  *
  * This function is used in cases when the wl_buffer turns out

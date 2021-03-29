@@ -246,6 +246,7 @@ if get_option('weston-launch')
 	meson.add_install_script('echo', 'REMINDER: You are installing weston-launch, please make it setuid-root.')
 endif
 
+subdir('color-lcms')
 subdir('renderer-gl')
 subdir('backend-drm')
 subdir('backend-fbdev')

@@ -142,7 +142,7 @@ option(
 	'color-management-lcms',
 	type: 'boolean',
 	value: true,
-	description: 'Compositor color management: lcms'
+	description: 'Compositor color management: Little CMS'
 )
 option(
 	'color-management-colord',

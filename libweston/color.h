@@ -235,4 +235,8 @@ weston_paint_node_ensure_color_transform(struct weston_paint_node *pnode);
 struct weston_color_manager *
 weston_color_manager_noop_create(struct weston_compositor *compositor);
 
+/* DSO module entrypoint */
+struct weston_color_manager *
+weston_color_manager_create(struct weston_compositor *compositor);
+
 #endif /* WESTON_COLOR_H */
