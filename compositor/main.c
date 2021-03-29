@@ -1086,6 +1086,7 @@ weston_compositor_init_config(struct weston_compositor *ec,
 	struct xkb_rule_names xkb_names;
 	struct weston_config_section *s;
 	int repaint_msec;
+	bool color_management;
 	bool cal;
 
 	/* weston.ini [keyboard] */
@@ -1124,6 +1125,13 @@ weston_compositor_init_config(struct weston_compositor *ec,
 	}
 	weston_log("Output repaint window is %d ms maximum.\n",
 		   ec->repaint_msec);
+
+	weston_config_section_get_bool(s, "color-management",
+				       &color_management, false);
+	if (color_management) {
+		if (weston_compositor_load_color_manager(ec) < 0)
+			return -1;
+	}
 
 	/* weston.ini [libinput] */
 	s = weston_config_get_section(config, "libinput", NULL, NULL);

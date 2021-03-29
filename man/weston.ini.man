@@ -207,6 +207,20 @@ Enables pixman-based rendering for all outputs on backends that support it.
 Boolean, defaults to
 .BR false .
 There is also a command line option to do the same.
+.RE
+.TP 7
+.BI "color-management=" true
+Enables color management and requires using GL-renderer.
+Boolean, defaults to
+.BR false .
+
+.I TENTATIVE, EXPERIMENTAL, WORK IN PROGRESS:
+Color management enables the use of ICC files to describe monitor color
+behavior, Wayland protocol extensions for clients to describe their color
+spaces and perform monitor profiling, and tone mapping required to enable HDR
+video modes. This extended functionality comes at the cost of heavier image
+processing and sometimes a loss of some hardware off-loading features like
+composite-bypass.
 
 .SH "LIBINPUT SECTION"
 The
