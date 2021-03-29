@@ -121,6 +121,7 @@ tests = [
 	{	'name': 'alpha-blending', },
 	{	'name': 'bad-buffer', },
 	{	'name': 'buffer-transforms', },
+	{	'name': 'color-manager', },
 	{	'name': 'devices', },
 	{
 		'name': 'drm-formats',
