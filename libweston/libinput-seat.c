@@ -150,6 +150,9 @@ device_removed(struct udev_input *input, struct libinput_device *libinput_device
 	struct evdev_device *device;
 
 	device = libinput_device_get_user_data(libinput_device);
+	if (!device)
+		return;
+
 	evdev_device_destroy(device);
 }
 

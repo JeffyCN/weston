@@ -523,6 +523,9 @@ evdev_device_process_event(struct libinput_event *event)
 	int handled = 1;
 	bool need_frame = false;
 
+	if (!device)
+		return 0;
+
 	switch (libinput_event_get_type(event)) {
 	case LIBINPUT_EVENT_KEYBOARD_KEY:
 		handle_keyboard_key(libinput_device,
@@ -728,13 +731,27 @@ evdev_device_create(struct libinput_device *libinput_device,
 
 	if (libinput_device_has_capability(libinput_device,
 					   LIBINPUT_DEVICE_CAP_KEYBOARD)) {
-		weston_seat_init_keyboard(seat, NULL);
+		if (weston_seat_init_keyboard(seat, NULL) < 0) {
+			free(device);
+			return NULL;
+		}
+
 		device->seat_caps |= EVDEV_SEAT_KEYBOARD;
 	}
 
 	if (libinput_device_has_capability(libinput_device,
 					   LIBINPUT_DEVICE_CAP_TOUCH)) {
-		weston_seat_init_touch(seat);
+		if (weston_seat_init_touch(seat) < 0) {
+			/* maybe we're a keyboard + touch device thus we need
+			 * to release the keyboard in case we couldn't make use
+			 * of the touch */
+			if (device->seat_caps & EVDEV_SEAT_KEYBOARD)
+				weston_seat_release_keyboard(seat);
+
+			free(device);
+			return NULL;
+		}
+
 		device->seat_caps |= EVDEV_SEAT_TOUCH;
 		device->touch_device = create_touch_device(device);
 	}

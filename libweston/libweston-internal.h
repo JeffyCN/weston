@@ -188,13 +188,13 @@ weston_seat_release(struct weston_seat *seat);
 void
 weston_seat_send_selection(struct weston_seat *seat, struct wl_client *client);
 
-void
+int
 weston_seat_init_pointer(struct weston_seat *seat);
 
 int
 weston_seat_init_keyboard(struct weston_seat *seat, struct xkb_keymap *keymap);
 
-void
+int
 weston_seat_init_touch(struct weston_seat *seat);
 
 void
