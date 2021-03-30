@@ -9,6 +9,7 @@ endif
 
 srcs_color_lcms = [
 	'color-lcms.c',
+	'color-transform.c',
 ]
 
 deps_color_lcms = [

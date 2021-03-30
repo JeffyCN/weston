@@ -1,5 +1,6 @@
 /*
  * Copyright 2021 Collabora, Ltd.
+ * Copyright 2021 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -26,6 +27,7 @@
 #ifndef WESTON_COLOR_LCMS_H
 #define WESTON_COLOR_LCMS_H
 
+#include <lcms2.h>
 #include <libweston/libweston.h>
 
 #include "color.h"
@@ -33,6 +35,9 @@
 
 struct weston_color_manager_lcms {
 	struct weston_color_manager base;
+	cmsContext lcms_ctx;
+
+	struct wl_list color_transform_list; /* cmlcms_color_transform::link */
 };
 
 static inline struct weston_color_manager_lcms *
@@ -40,5 +45,44 @@ get_cmlcms(struct weston_color_manager *cm_base)
 {
 	return container_of(cm_base, struct weston_color_manager_lcms, base);
 }
+
+/*
+ * Perhaps a placeholder, until we get actual color spaces involved and
+ * see how this would work better.
+ */
+enum cmlcms_color_transform_type {
+	CMLCMS_TYPE_EOTF_sRGB = 0,
+	CMLCMS_TYPE_EOTF_sRGB_INV,
+	CMLCMS_TYPE__END,
+};
+
+struct cmlcms_color_transform_search_param {
+	enum cmlcms_color_transform_type type;
+};
+
+struct cmlcms_color_transform {
+	struct weston_color_transform base;
+
+	/* weston_color_manager_lcms::color_transform_list */
+	struct wl_list link;
+
+	struct cmlcms_color_transform_search_param search_key;
+
+	/* for EOTF types */
+	cmsToneCurve *curve;
+};
+
+static inline struct cmlcms_color_transform *
+get_xform(struct weston_color_transform *xform_base)
+{
+	return container_of(xform_base, struct cmlcms_color_transform, base);
+}
+
+struct cmlcms_color_transform *
+cmlcms_color_transform_get(struct weston_color_manager_lcms *cm,
+			   const struct cmlcms_color_transform_search_param *param);
+
+void
+cmlcms_color_transform_destroy(struct cmlcms_color_transform *xform);
 
 #endif /* WESTON_COLOR_LCMS_H */

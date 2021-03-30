@@ -1,5 +1,6 @@
 /*
  * Copyright 2021 Collabora, Ltd.
+ * Copyright 2021 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,8 +26,7 @@
 
 #include "config.h"
 
-#include <lcms2.h>
-
+#include <assert.h>
 #include <libweston/libweston.h>
 
 #include "color.h"
@@ -36,6 +36,9 @@
 static void
 cmlcms_destroy_color_transform(struct weston_color_transform *xform_base)
 {
+	struct cmlcms_color_transform *xform = get_xform(xform_base);
+
+	cmlcms_color_transform_destroy(xform);
 }
 
 static bool
@@ -44,8 +47,21 @@ cmlcms_get_surface_color_transform(struct weston_color_manager *cm_base,
 				   struct weston_output *output,
 				   struct weston_surface_color_transform *surf_xform)
 {
-	/* Identity transform */
-	surf_xform->transform = NULL;
+	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
+	struct cmlcms_color_transform_search_param param = {
+		/*
+		 * Assumes both content and output color spaces are sRGB SDR.
+		 * This defines the blending space as optical sRGB SDR.
+		 */
+		.type = CMLCMS_TYPE_EOTF_sRGB,
+	};
+	struct cmlcms_color_transform *xform;
+
+	xform = cmlcms_color_transform_get(cm, &param);
+	if (!xform)
+		return false;
+
+	surf_xform->transform = &xform->base;
 	surf_xform->identity_pipeline = true;
 
 	return true;
@@ -56,9 +72,21 @@ cmlcms_get_output_color_transform(struct weston_color_manager *cm_base,
 				  struct weston_output *output,
 				  struct weston_color_transform **xform_out)
 {
-	/* Identity transform */
-	*xform_out = NULL;
+	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
+	struct cmlcms_color_transform_search_param param = {
+		/*
+		 * Assumes blending space is optical sRGB SDR and
+		 * output color space is sRGB SDR.
+		 */
+		.type = CMLCMS_TYPE_EOTF_sRGB_INV,
+	};
+	struct cmlcms_color_transform *xform;
 
+	xform = cmlcms_color_transform_get(cm, &param);
+	if (!xform)
+		return false;
+
+	*xform_out = &xform->base;
 	return true;
 }
 
@@ -67,6 +95,7 @@ cmlcms_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
 					  struct weston_output *output,
 					  struct weston_color_transform **xform_out)
 {
+	/* Assumes output color space is sRGB SDR */
 	/* Identity transform */
 	*xform_out = NULL;
 
@@ -78,19 +107,48 @@ cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
 					 struct weston_output *output,
 					 struct weston_color_transform **xform_out)
 {
-	/* Identity transform */
-	*xform_out = NULL;
+	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
+	struct cmlcms_color_transform_search_param param = {
+		/* Assumes blending space is optical sRGB SDR */
+		.type = CMLCMS_TYPE_EOTF_sRGB,
+	};
+	struct cmlcms_color_transform *xform;
 
+	xform = cmlcms_color_transform_get(cm, &param);
+	if (!xform)
+		return false;
+
+	*xform_out = &xform->base;
 	return true;
+}
+
+static void
+lcms_error_logger(cmsContext context_id,
+		  cmsUInt32Number error_code,
+		  const char *text)
+{
+	weston_log("LittleCMS error: %s\n", text);
 }
 
 static bool
 cmlcms_init(struct weston_color_manager *cm_base)
 {
-	if (!(cm_base->compositor->capabilities & WESTON_CAP_COLOR_OPS)) {
+	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
+
+	if (!(cm->base.compositor->capabilities & WESTON_CAP_COLOR_OPS)) {
 		weston_log("color-lcms: error: color operations capability missing. Is GL-renderer not in use?\n");
 		return false;
 	}
+
+	cm->lcms_ctx = cmsCreateContext(NULL, cm);
+	if (!cm->lcms_ctx) {
+		weston_log("color-lcms error: creating LittCMS context failed.\n");
+		return false;
+	}
+
+	cmsSetLogErrorHandlerTHR(cm->lcms_ctx, lcms_error_logger);
+
+	weston_log("LittleCMS %d initialized.\n", cmsGetEncodedCMMversion());
 
 	return true;
 }
@@ -98,9 +156,12 @@ cmlcms_init(struct weston_color_manager *cm_base)
 static void
 cmlcms_destroy(struct weston_color_manager *cm_base)
 {
-	struct weston_color_manager_lcms *cmlcms = get_cmlcms(cm_base);
+	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
 
-	free(cmlcms);
+	assert(wl_list_empty(&cm->color_transform_list));
+
+	cmsDeleteContext(cm->lcms_ctx);
+	free(cm);
 }
 
 WL_EXPORT struct weston_color_manager *
@@ -125,6 +186,8 @@ weston_color_manager_create(struct weston_compositor *compositor)
 	      cmlcms_get_sRGB_to_output_color_transform;
 	cm->base.get_sRGB_to_blend_color_transform =
 	      cmlcms_get_sRGB_to_blend_color_transform;
+
+	wl_list_init(&cm->color_transform_list);
 
 	return &cm->base;
 }
