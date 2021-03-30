@@ -3165,6 +3165,9 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now)
 	if (!output->repaint_needed)
 		goto err;
 
+	if (output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF)
+		goto err;
+
 	/* If repaint fails, we aren't going to get weston_output_finish_frame
 	 * to trigger a new repaint, so drop it from repaint and hope
 	 * something schedules a successful repaint later. As repainting may
@@ -3569,6 +3572,9 @@ weston_output_schedule_repaint(struct weston_output *output)
 
 	if (compositor->state == WESTON_COMPOSITOR_SLEEPING ||
 	    compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
+		return;
+
+	if (output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF)
 		return;
 
 	if (!output->repaint_needed)
@@ -5148,10 +5154,13 @@ weston_compositor_dpms(struct weston_compositor *compositor,
 		       enum dpms_enum state)
 {
 	struct weston_output *output;
+	enum dpms_enum dpms;
 
-	wl_list_for_each(output, &compositor->output_list, link)
+	wl_list_for_each(output, &compositor->output_list, link) {
+		dpms = output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF ? WESTON_DPMS_OFF : state;
 		if (output->set_dpms)
-			output->set_dpms(output, state);
+			output->set_dpms(output, dpms);
+	}
 }
 
 /** Restores the compositor to active status
@@ -6452,6 +6461,7 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 	wl_list_remove(&output->link);
 	wl_list_insert(compositor->output_list.prev, &output->link);
 	output->enabled = true;
+	output->power_state = WESTON_OUTPUT_POWER_NORMAL;
 
 	wl_list_for_each(head, &output->head_list, output_link)
 		weston_head_add_global(head);
@@ -7493,6 +7503,67 @@ weston_output_get_supported_eotf_modes(struct weston_output *output)
 		eotf_modes = eotf_modes & head->supported_eotf_mask;
 
 	return eotf_modes;
+}
+
+/* Set the forced-power state of output
+ *
+ * \param output The output to set power state.
+ * \param state The power state to set for output.
+ *
+ * Set the forced-power state of output, then update DPMS mode for output
+ * when compositor is active.
+ *
+ * \ingroup output
+ */
+static void
+weston_output_force_power(struct weston_output *output,
+			  enum weston_output_power_state power)
+{
+	enum dpms_enum dpms;
+
+	output->power_state = power;
+
+	if (output->compositor->state == WESTON_COMPOSITOR_SLEEPING ||
+	    output->compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
+		return;
+
+	if (!output->set_dpms)
+		return;
+
+	dpms = (power == WESTON_OUTPUT_POWER_NORMAL) ? WESTON_DPMS_ON : WESTON_DPMS_OFF;
+	output->set_dpms(output, dpms);
+}
+
+/* Set the power state of output to normal mode
+ *
+ * \param output The output to set on.
+ *
+ * This function will make the forced-off power of the output to normal state.
+ * In case when compositor is sleeping or offscreen, the power state will be
+ * applied once the compositor wakes up.
+ *
+ * \ingroup output
+ */
+WL_EXPORT void
+weston_output_power_on(struct weston_output *output)
+{
+	weston_output_force_power(output, WESTON_OUTPUT_POWER_NORMAL);
+}
+
+/* Force the power state of output to off mode
+ *
+ * \param output The output to set off.
+ *
+ * This function ceases rendering on a given output and will power it off
+ * via DPMS when compositor is active. Otherwise the output is forced off
+ * when the compositor wakes up.
+ *
+ * \ingroup output
+ */
+WL_EXPORT void
+weston_output_power_off(struct weston_output *output)
+{
+	weston_output_force_power(output, WESTON_OUTPUT_POWER_FORCED_OFF);
 }
 
 static void

@@ -433,6 +433,13 @@ struct weston_output_color_outcome {
 	struct weston_hdr_metadata_type1 hdr_meta;
 };
 
+enum weston_output_power_state {
+	/** No rendering and dpms off */
+	WESTON_OUTPUT_POWER_FORCED_OFF = 0,
+	/** Normal rendering and dpms on */
+	WESTON_OUTPUT_POWER_NORMAL
+};
+
 /** Content producer for heads
  *
  * \rst
@@ -519,6 +526,8 @@ struct weston_output {
 	enum weston_hdcp_protection desired_protection;
 	enum weston_hdcp_protection current_protection;
 	bool allow_protection;
+
+	enum weston_output_power_state power_state;
 
 	struct weston_log_pacer repaint_delay_pacer;
 	struct weston_log_pacer pixman_overdraw_pacer;
@@ -2340,6 +2349,12 @@ weston_output_disable(struct weston_output *output);
 
 uint32_t
 weston_output_get_supported_eotf_modes(struct weston_output *output);
+
+void
+weston_output_power_off(struct weston_output *output);
+
+void
+weston_output_power_on(struct weston_output *output);
 
 void
 weston_compositor_flush_heads_changed(struct weston_compositor *compositor);
