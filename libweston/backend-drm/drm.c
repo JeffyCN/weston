@@ -3203,10 +3203,6 @@ err_drm_source:
 err_udev_input:
 	udev_input_destroy(&b->input);
 err_sprite:
-#ifdef BUILD_DRM_GBM
-	if (b->gbm)
-		gbm_device_destroy(b->gbm);
-#endif
 	destroy_sprites(b);
 err_create_crtc_list:
 	drmModeFreeResources(res);
@@ -3218,6 +3214,10 @@ err_launcher:
 	weston_launcher_destroy(compositor->launcher);
 err_compositor:
 	weston_compositor_shutdown(compositor);
+#ifdef BUILD_DRM_GBM
+	if (b->gbm)
+		gbm_device_destroy(b->gbm);
+#endif
 	free(b);
 	return NULL;
 }
