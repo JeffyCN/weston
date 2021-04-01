@@ -51,6 +51,9 @@
 static void
 set_maximized_position(struct desktop_shell *shell, struct shell_surface *shsurf);
 
+static void
+handle_output_resized_shsurfs(struct desktop_shell *shell);
+
 struct focus_state {
 	struct desktop_shell *shell;
 	struct weston_seat *seat;
@@ -2933,6 +2936,7 @@ panel_committed(struct weston_surface *es,
 	struct weston_output *output = sh_output->output;
 	struct weston_coord_global pos = output->pos;
 	struct desktop_shell *shell = sh_output->shell;
+	pixman_rectangle32_t old_area, new_area;
 
 	if (!weston_surface_has_content(es))
 		return;
@@ -2955,6 +2959,7 @@ panel_committed(struct weston_surface *es,
 		break;
 	}
 
+	get_output_work_area(shell, output, &old_area);
 	if (!weston_surface_is_mapped(es)) {
 		weston_surface_map(es);
 		assert(wl_list_empty(&es->views));
@@ -2965,10 +2970,16 @@ panel_committed(struct weston_surface *es,
 
 		weston_view_set_output(sh_output->panel_view, output);
 	}
+	get_output_work_area(shell, output, &new_area);
 
 	assert(sh_output->panel_view);
 	pos = weston_coord_global_add(output->pos, sh_output->panel_offset);
 	weston_view_set_position(sh_output->panel_view, pos);
+
+	if (old_area.x != new_area.x || old_area.y != new_area.y ||
+	    old_area.width != new_area.width ||
+	    old_area.height != new_area.height)
+		handle_output_resized_shsurfs(shell);
 }
 
 static void
