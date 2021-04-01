@@ -48,6 +48,10 @@
 #define DEFAULT_NUM_WORKSPACES 1
 #define DEFAULT_WORKSPACE_CHANGE_ANIMATION_LENGTH 200
 
+static void
+handle_output_resize_layer(struct desktop_shell *shell,
+			   struct weston_layer *layer, void *data);
+
 struct focus_state {
 	struct desktop_shell *shell;
 	struct weston_seat *seat;
@@ -2985,6 +2989,7 @@ panel_committed(struct weston_surface *es,
 	struct desktop_shell *shell = es->committed_private;
 	struct weston_output *output;
 	struct weston_view *view;
+	pixman_rectangle32_t old_area, new_area;
 	int width, height;
 	int x = 0, y = 0;
 
@@ -3013,7 +3018,16 @@ panel_committed(struct weston_surface *es,
 		break;
 	}
 
+	get_output_work_area(shell, view->output, &old_area);
 	configure_static_view(view, &shell->panel_layer, x, y);
+	get_output_work_area(shell, view->output, &new_area);
+
+	if (old_area.x == new_area.x && old_area.y == new_area.y &&
+	    old_area.width == new_area.width &&
+	    old_area.height == new_area.height)
+		return;
+
+	shell_for_each_layer(shell, handle_output_resize_layer, view->output);
 }
 
 static void
