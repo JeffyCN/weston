@@ -2002,6 +2002,7 @@ setup_output_seat_constraint(struct drm_backend *b,
 			return;
 
 		seat->base.output = output;
+		seat->has_output = true;
 
 		pointer = weston_seat_get_pointer(&seat->base);
 		if (pointer)
