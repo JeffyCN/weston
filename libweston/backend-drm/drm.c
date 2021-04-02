@@ -187,6 +187,16 @@ drm_plane_is_available(struct drm_plane *plane, struct drm_output *output)
 	if (plane->state_cur->output && plane->state_cur->output != output)
 		return false;
 
+	/* The plane is not the primary plane for this CRTC. */
+	if (plane->type == WDRM_PLANE_TYPE_PRIMARY &&
+	    plane->plane_id != output->crtc->primary_plane_id)
+		return false;
+
+	/* The plane is not the cursor plane for this CRTC. */
+	if (plane->type == WDRM_PLANE_TYPE_CURSOR &&
+	    plane->plane_id != output->crtc->cursor_plane_id)
+		return false;
+
 	/* Check whether the plane can be used with this CRTC; possible_crtcs
 	 * is a bitmask of CRTC indices (pipe), rather than CRTC object ID. */
 	return !!(plane->possible_crtcs & (1 << output->crtc->pipe));
@@ -1253,14 +1263,16 @@ drm_plane_destroy(struct drm_plane *plane)
  * @param device DRM device
  */
 static void
-create_sprites(struct drm_device *device)
+create_sprites(struct drm_device *device, drmModeRes *resources)
 {
 	struct drm_backend *b = device->backend;
 	drmModePlaneRes *kplane_res;
 	drmModePlane *kplane;
 	struct drm_plane *drm_plane;
+	struct drm_crtc *drm_crtc;
 	uint32_t i;
 	uint32_t next_plane_idx = 0;
+	uint32_t num_primary = 0, num_cursor = 0, crtc_pipe;
 	kplane_res = drmModeGetPlaneResources(device->drm.fd);
 
 	if (!kplane_res) {
@@ -1279,10 +1291,30 @@ create_sprites(struct drm_device *device)
 		if (!drm_plane)
 			continue;
 
-		if (drm_plane->type == WDRM_PLANE_TYPE_OVERLAY)
+		/**
+		 * Assuming the Nth primary or cursor plane is for the Nth CRTC.
+		 * See:
+		 * https://lore.kernel.org/dri-devel/20200807090706.GA2352366@phenom.ffwll.local/
+		 */
+		if (drm_plane->type == WDRM_PLANE_TYPE_PRIMARY) {
+			num_primary++;
+			crtc_pipe = num_primary - 1;
+			drm_crtc = drm_crtc_find(device,
+						 resources->crtcs[crtc_pipe]);
+			assert(drm_crtc);
+			drm_crtc->primary_plane_id = drm_plane->plane_id;
+		} else if (drm_plane->type == WDRM_PLANE_TYPE_CURSOR) {
+			num_cursor++;
+			crtc_pipe = num_cursor - 1;
+			drm_crtc = drm_crtc_find(device,
+						 resources->crtcs[crtc_pipe]);
+			assert(drm_crtc);
+			drm_crtc->cursor_plane_id = drm_plane->plane_id;
+		} else if (drm_plane->type == WDRM_PLANE_TYPE_OVERLAY) {
 			weston_compositor_stack_plane(b->compositor,
 						      &drm_plane->base,
 						      NULL);
+		}
 	}
 
 	wl_list_for_each (drm_plane, &device->plane_list, link)
@@ -3786,7 +3818,7 @@ drm_device_create(struct drm_backend *backend, const char *name)
 			     WL_EVENT_READABLE, on_drm_input, device);
 
 	wl_list_init(&device->plane_list);
-	create_sprites(device);
+	create_sprites(device, res);
 
 	wl_list_init(&device->writeback_connector_list);
 	if (drm_backend_discover_connectors(device, udev_device, res) < 0) {
@@ -3973,7 +4005,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	}
 
 	wl_list_init(&device->plane_list);
-	create_sprites(b->drm);
+	create_sprites(b->drm, res);
 
 	if (udev_input_init(&b->input,
 			    compositor, b->udev, seat_id,
