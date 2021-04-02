@@ -373,6 +373,11 @@ drm_plane_is_available(struct drm_plane *plane, struct drm_output *output)
 	if (plane->state_cur->handle && plane->state_cur->handle->output != output)
 		return false;
 
+	/* This plane is not the primary plane for this CRTC. */
+	if (plane->type == WDRM_PLANE_TYPE_PRIMARY &&
+	    plane->plane_id != output->crtc->primary_plane_id)
+		return false;
+
 	/* Check whether the plane can be used with this CRTC; possible_crtcs
 	 * is a bitmask of CRTC indices (pipe), rather than CRTC object ID. */
 	return !!(plane->possible_crtcs & (1 << output->crtc->pipe));
@@ -1624,13 +1629,15 @@ drm_plane_create_handle(struct drm_plane *plane, struct drm_output *output)
  * @param device DRM device
  */
 static void
-create_planes(struct drm_device *device)
+create_planes(struct drm_device *device, drmModeRes *resources)
 {
 	drmModePlaneRes *kplane_res;
 	drmModePlane *kplane;
 	struct drm_plane *drm_plane;
+	struct drm_crtc *drm_crtc;
 	uint32_t i;
 	uint32_t next_plane_idx = 0;
+	uint32_t num_primary = 0, crtc_pipe;
 
 	kplane_res = drmModeGetPlaneResources(device->kms_device->fd);
 
@@ -1647,6 +1654,20 @@ create_planes(struct drm_device *device)
 
 		drm_plane = drm_plane_create(device, kplane);
 		drmModeFreePlane(kplane);
+
+		/**
+		 * Assume that the Nth primary plane is meant for the Nth CRTC.
+		 * See:
+		 * https://lore.kernel.org/dri-devel/20200807090706.GA2352366@phenom.ffwll.local/
+		 */
+		if (drm_plane->type == WDRM_PLANE_TYPE_PRIMARY) {
+			num_primary++;
+			crtc_pipe = num_primary - 1;
+			drm_crtc = drm_crtc_find(device,
+						 resources->crtcs[crtc_pipe]);
+			assert(drm_crtc);
+			drm_crtc->primary_plane_id = drm_plane->plane_id;
+		}
 	}
 
 	wl_list_for_each (drm_plane, &device->plane_list, link)
@@ -4551,9 +4572,6 @@ drm_device_create(struct drm_backend *backend,
 		wl_event_loop_add_fd(loop, device->kms_device->fd,
 				     WL_EVENT_READABLE, on_drm_input, device);
 
-	wl_list_init(&device->plane_list);
-	create_planes(device);
-
 	wl_list_init(&device->drm_colorop_3x1d_lut_list);
 
 	wl_list_init(&device->writeback_connector_list);
@@ -4567,6 +4585,9 @@ drm_device_create(struct drm_backend *backend,
 		weston_log("Failed to create CRTC list for DRM-backend\n");
 		goto err_res;
 	}
+
+	wl_list_init(&device->plane_list);
+	create_planes(device, res);
 
 	/* 'compute' faked zpos values in case HW doesn't expose any */
 	drm_backend_create_faked_zpos(device);

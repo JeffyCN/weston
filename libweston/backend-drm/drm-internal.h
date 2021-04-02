@@ -589,6 +589,8 @@ struct drm_crtc {
 	uint32_t crtc_id; /* object ID to pass to DRM functions */
 	int pipe; /* index of CRTC in resource array / bitmasks */
 
+	uint32_t primary_plane_id; /* ID of the corresponding primary plane */
+
 	/* Holds the properties for the CRTC */
 	struct drm_property_info props_crtc[WDRM_CRTC__COUNT];
 
