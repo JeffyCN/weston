@@ -37,8 +37,11 @@ struct libinput_device;
 
 struct udev_seat {
 	struct weston_seat base;
+	bool has_output;
 	struct wl_list devices_list;
-	struct wl_listener output_create_listener;
+	struct wl_listener output_created_listener;
+	struct wl_listener output_destroyed_listener;
+	struct wl_listener output_moved_listener;
 	struct wl_listener output_heads_listener;
 };
 
