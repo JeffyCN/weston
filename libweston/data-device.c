@@ -640,7 +640,8 @@ data_device_end_pointer_drag_grab(struct weston_pointer_drag *drag)
 
 	data_device_end_drag_grab(&drag->base, pointer->seat);
 	weston_pointer_end_grab(pointer);
-	weston_keyboard_end_grab(keyboard);
+	if (keyboard)
+		weston_keyboard_end_grab(keyboard);
 	free(drag);
 }
 
@@ -740,7 +741,8 @@ data_device_end_touch_drag_grab(struct weston_touch_drag *drag)
 
 	data_device_end_drag_grab(&drag->base, touch->seat);
 	weston_touch_end_grab(touch);
-	weston_keyboard_end_grab(keyboard);
+	if (keyboard)
+		weston_keyboard_end_grab(keyboard);
 	free(drag);
 }
 
@@ -954,10 +956,12 @@ weston_pointer_start_drag(struct weston_pointer *pointer,
 	}
 
 	weston_pointer_clear_focus(pointer);
-	weston_keyboard_set_focus(keyboard, NULL);
+	if (keyboard)
+		weston_keyboard_set_focus(keyboard, NULL);
 
 	weston_pointer_start_grab(pointer, &drag->grab);
-	weston_keyboard_start_grab(keyboard, &drag->base.keyboard_grab);
+	if (keyboard)
+		weston_keyboard_start_grab(keyboard, &drag->base.keyboard_grab);
 
 	return 0;
 }
@@ -1014,10 +1018,12 @@ weston_touch_start_drag(struct weston_touch *touch,
 			      &drag->base.data_source_listener);
 	}
 
-	weston_keyboard_set_focus(keyboard, NULL);
+	if (keyboard)
+		weston_keyboard_set_focus(keyboard, NULL);
 
 	weston_touch_start_grab(touch, &drag->grab);
-	weston_keyboard_start_grab(keyboard, &drag->base.keyboard_grab);
+	if (keyboard)
+		weston_keyboard_start_grab(keyboard, &drag->base.keyboard_grab);
 
 	drag_grab_touch_focus(drag);
 
