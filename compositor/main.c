@@ -1224,8 +1224,11 @@ load_configuration(struct weston_config **config, int32_t noconfig,
 	if (config_file)
 		file = config_file;
 
-	if (noconfig == 0)
+	if (noconfig == 0) {
+		setenv("WESTON_MAIN_PARSE", "1", 1);
 		*config = weston_config_parse(file);
+		unsetenv("WESTON_MAIN_PARSE");
+	}
 
 	if (*config) {
 		full_path = weston_config_get_full_path(*config);
