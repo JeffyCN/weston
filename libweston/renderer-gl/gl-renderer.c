@@ -3442,8 +3442,7 @@ gl_renderer_output_destroy(struct weston_output *output)
 		gl_fbo_texture_fini(&go->shadow);
 
 	eglMakeCurrent(gr->egl_display,
-		       EGL_NO_SURFACE, EGL_NO_SURFACE,
-		       EGL_NO_CONTEXT);
+		       gr->dummy_surface, gr->dummy_surface, gr->egl_context);
 
 	weston_platform_destroy_egl_surface(gr->egl_display, go->egl_surface);
 
