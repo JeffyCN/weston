@@ -3514,8 +3514,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	eglTerminate(gr->egl_display);
 	eglReleaseThread();
 
-	wl_list_remove(&gr->output_destroy_listener.link);
-
 	wl_array_release(&gr->vertices);
 	wl_array_release(&gr->vtxcnt);
 
@@ -3526,20 +3524,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 
 	weston_log_scope_destroy(gr->shader_scope);
 	free(gr);
-}
-
-static void
-output_handle_destroy(struct wl_listener *listener, void *data)
-{
-	struct gl_renderer *gr;
-	struct weston_output *output = data;
-
-	gr = container_of(listener, struct gl_renderer,
-			  output_destroy_listener);
-
-	if (wl_list_empty(&output->compositor->output_list))
-		eglMakeCurrent(gr->egl_display, gr->dummy_surface,
-			       gr->dummy_surface, gr->egl_context);
 }
 
 static int
@@ -3868,10 +3852,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		weston_compositor_add_debug_binding(ec, KEY_F,
 						    fan_debug_repaint_binding,
 						    ec);
-
-	gr->output_destroy_listener.notify = output_handle_destroy;
-	wl_signal_add(&ec->output_destroyed_signal,
-		      &gr->output_destroy_listener);
 
 	weston_log("GL ES %d.%d - renderer features:\n",
 		   gr_gl_version_major(gr->gl_version),

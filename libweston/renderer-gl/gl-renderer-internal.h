@@ -147,8 +147,6 @@ struct gl_renderer {
 
 	struct wl_signal destroy_signal;
 
-	struct wl_listener output_destroy_listener;
-
 	bool has_dmabuf_import_modifiers;
 	PFNEGLQUERYDMABUFFORMATSEXTPROC query_dmabuf_formats;
 	PFNEGLQUERYDMABUFMODIFIERSEXTPROC query_dmabuf_modifiers;
