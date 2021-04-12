@@ -88,7 +88,6 @@ union cmsg_data { unsigned char b[4]; int fd; };
 struct launcher_weston_launch {
 	struct weston_launcher base;
 	struct weston_compositor *compositor;
-	struct wl_event_loop *loop;
 	int fd;
 	struct wl_event_source *source;
 
