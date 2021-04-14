@@ -20,7 +20,7 @@ stages:
   variables:
     FDO_DISTRIBUTION_VERSION: buster
     FDO_DISTRIBUTION_EXEC: 'bash .gitlab-ci/debian-install.sh'
-    FDO_DISTRIBUTION_TAG: '2021-03-04.1'
+    FDO_DISTRIBUTION_TAG: '2021-04-15.2'
 
 
 container_prep:
@@ -106,6 +106,7 @@ build-native-meson-default-options:
       -Db_coverage=true
       -Dwerror=true
       -Dtest-skip-is-failure=true
+      -Dlauncher-libseat=true
   extends: .build-native-meson
   after_script:
   - ninja -C build-* coverage-html
@@ -130,6 +131,7 @@ build-native-meson-no-gl-renderer:
       -Dremoting=false
       -Dpipewire=false
       -Dwerror=true
+      -Dlauncher-libseat=true
   extends: .build-native-meson
 
 docs-and-coverage:

@@ -162,5 +162,14 @@ ninja -C build install
 cd ..
 rm -rf pipewire
 
+git clone --depth=1 --branch 0.5.0 https://git.sr.ht/~kennylevinsen/seatd
+cd seatd
+meson build -Dauto_features=disabled \
+	-Dseatd=enabled -Dlogind=enabled -Dserver=enabled \
+	-Dexamples=disabled -Dman-pages=disabled
+ninja -C build install
+cd ..
+rm -rf seatd
+
 apt-get -y --autoremove purge $LINUX_DEV_PKGS
 apt-get -y --autoremove purge $MESA_DEV_PKGS
