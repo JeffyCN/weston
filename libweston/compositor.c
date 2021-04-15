@@ -6464,39 +6464,6 @@ weston_output_set_transform(struct weston_output *output,
 	}
 }
 
-/** Make the output use renderer shadow buffer.
- *
- * \param output The weston_output object to modify.
- * \return True on success, false if unsupported.
- *
- * This can only be set on a disabled output object.
- *
- * This is a temporary API to demonstrate WESTON_CAP_COLOR_OPS and allow
- * testing related features. This will be superseded with color management
- * API.
- *
- * By default, a renderer is not using a shadow buffer of its own. Enabling
- * a shadow buffer may enable other color related features.
- *
- * Support depends on the chosen renderer and the graphics driver stack in use.
- *
- * \ingroup output
- */
-WL_EXPORT bool
-weston_output_set_renderer_shadow_buffer(struct weston_output *output)
-{
-	struct weston_compositor *compositor = output->compositor;
-
-	assert(!output->enabled);
-
-	if (compositor->capabilities & WESTON_CAP_COLOR_OPS) {
-		output->use_renderer_shadow_buffer = true;
-		return true;
-	}
-
-	return false;
-}
-
 /** Initializes a weston_output object with enough data so
  ** an output can be configured.
  *
