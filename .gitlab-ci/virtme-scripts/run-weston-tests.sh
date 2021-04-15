@@ -8,12 +8,17 @@ chmod -R 0700 /tmp
 # set environment variables to run Weston tests
 export XDG_RUNTIME_DIR=/tmp/tests
 export WESTON_TEST_SUITE_DRM_DEVICE=card0
+export LIBSEAT_BACKEND=seatd
 
 # ninja test depends on meson, and meson itself looks for its modules on folder
 # $HOME/.local/lib/pythonX.Y/site-packages (the Python version may differ).
 # virtme starts with HOME=/tmp/roothome, but as we installed meson on user root,
 # meson can not find its modules. So we change the HOME env var to fix that.
 export HOME=/root
+
+# start seatd and wait for its socket to be available before running the test
+/usr/local/bin/seatd &
+while ! [ -e /run/seatd.sock ]; do sleep 0.1; done
 
 # run the tests and save the exit status
 ninja test
