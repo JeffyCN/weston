@@ -27,6 +27,7 @@ container_prep:
   extends:
     - .debian
     - .fdo.container-build@debian
+  timeout: 30m
   stage: container_prep
 
 
@@ -34,6 +35,7 @@ container_prep:
   extends:
     - .debian
     - .fdo.distribution-image@debian
+  timeout: 5m
   stage: build
   before_script:
   - git clone --depth=1 https://gitlab.freedesktop.org/wayland/wayland-protocols
@@ -136,6 +138,7 @@ build-native-meson-no-gl-renderer:
 
 docs-and-coverage:
   stage: pages
+  timeout: 5m
   script:
   - mv prefix-weston-build-docs/share/doc/weston Documentation
   - mv build-weston-build-native-meson-default-options/meson-logs/coveragereport Test_Coverage
@@ -154,6 +157,7 @@ docs-and-coverage:
 
 pages:
   stage: pages
+  timeout: 5m
   dependencies:
     - build-docs
   script:
