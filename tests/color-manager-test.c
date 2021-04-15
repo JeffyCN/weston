@@ -39,10 +39,7 @@ fixture_setup(struct weston_test_harness *harness)
 
 	weston_ini_setup(&setup,
 			 cfgln("[core]"),
-			 cfgln("color-management=true"),
-			 cfgln("[output]"),
-			 cfgln("name=headless"),
-			 cfgln("use-renderer-shadow=true"));
+			 cfgln("color-management=true"));
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }

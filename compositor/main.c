@@ -1290,29 +1290,6 @@ wet_output_set_transform(struct weston_output *output,
 	return 0;
 }
 
-static int
-wet_output_set_renderer_shadow(struct weston_output *output,
-			       struct weston_config_section *section)
-{
-	bool use_shadow = false;
-
-	if (section) {
-		weston_config_section_get_bool(section,
-					       "use-renderer-shadow",
-					       &use_shadow, false);
-	}
-
-	if (use_shadow) {
-		if (!weston_output_set_renderer_shadow_buffer(output)) {
-			weston_log("Output \"%s\" does not support use-renderer-shadow.\n",
-				   output->name);
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
 static void
 allow_content_protection(struct weston_output *output,
 			struct weston_config_section *section)
@@ -1829,9 +1806,6 @@ drm_backend_output_configure(struct weston_output *output,
 	free(seat);
 
 	allow_content_protection(output, section);
-
-	if (wet_output_set_renderer_shadow(output, section) < 0)
-		return -1;
 
 	return 0;
 }
@@ -2643,12 +2617,6 @@ headless_backend_output_configure(struct weston_output *output)
 		.scale = 1,
 		.transform = WL_OUTPUT_TRANSFORM_NORMAL
 	};
-	struct weston_config *wc = wet_get_config(output->compositor);
-	struct weston_config_section *section;
-
-	section = weston_config_get_section(wc, "output", "name", output->name);
-	if (wet_output_set_renderer_shadow(output, section) < 0)
-		return -1;
 
 	return wet_configure_windowed_output_from_config(output, &defaults);
 }
