@@ -3313,7 +3313,9 @@ gl_renderer_output_create(struct weston_output *output,
 	go->begin_render_sync = EGL_NO_SYNC_KHR;
 	go->end_render_sync = EGL_NO_SYNC_KHR;
 
-	if (output->use_renderer_shadow_buffer) {
+	if ((output->from_blend_to_output != NULL &&
+	     output->from_blend_to_output_by_backend == false) ||
+	    quirks->gl_force_full_redraw_of_shadow_fb) {
 		assert(gr->gl_supports_color_transforms);
 
 		ret = gl_fbo_texture_init(&go->shadow,
@@ -3329,9 +3331,6 @@ gl_renderer_output_create(struct weston_output *output,
 			free(go);
 			return -1;
 		}
-	} else if (quirks->gl_force_full_redraw_of_shadow_fb) {
-		weston_log("ERROR: gl_force_full_redraw_of_shadow_fb quirk used but shadow fb was not enabled.\n");
-		abort();
 	}
 
 	output->renderer_state = go;

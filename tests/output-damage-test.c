@@ -139,16 +139,14 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 		 * color regardless of damage. The blit uses damage too, and
 		 * the damage pattern that is tested for needs to appear in
 		 * that step.
+		 *
+		 * The quirk also ensures the shadow framebuffer is created
+		 * even if not needed.
 		 */
 		setup.test_quirks.gl_force_full_redraw_of_shadow_fb = true;
 
 		/* To skip instead of fail the test if shadow not available */
 		setup.test_quirks.required_capabilities = WESTON_CAP_COLOR_OPS;
-
-		weston_ini_setup(&setup,
-				 cfgln("[output]"),
-				 cfgln("name=headless"),
-				 cfgln("use-renderer-shadow=true"));
 	}
 
 	return weston_test_harness_execute_as_client(harness, &setup);
