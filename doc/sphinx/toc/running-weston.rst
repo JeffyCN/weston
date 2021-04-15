@@ -85,14 +85,22 @@ multiple seats.
 By default Weston will use the default seat named ``seat0``, but there's an
 option to specify which seat Weston must use by passing ``--seat`` argument.
 
-You can start Weston from a VT, assuming that there's a `logind
-<https://www.freedesktop.org/wiki/Software/systemd/logind/>`_ instance running
-on the machine. If that's not available, you can use the ``weston-launch``
-application that can handle VT switching.
+You can start Weston from a VT assuming that there's a seat manager supported by
+`libseat <https://sr.ht/~kennylevinsen/seatd>`_ running, such as ``seatd`` or
+`logind <https://www.freedesktop.org/wiki/Software/systemd/logind/>`_.  The
+backend to be used by ``libseat`` can optionally be selected with
+``$LIBSEAT_BACKEND``.  If ``libseat`` and ``seatd`` are both installed, but
+``seatd`` is not already running, it can be started with ``sudo -- seatd -g
+video``.  If no seat manager supported by ``libseat`` is available, you can use
+the ``weston-launch`` application that can handle VT switching.
 
-Another way of launching Weston is via ssh or a serial terminal but is
-currently a pain to do.  One way is to run everything as root and issue
-``weston --tty 2`` while TTY 2 is active for example.
+Another way of launching Weston is via ssh or a serial terminal.  The simplest
+option here is to use the ``libseat`` launcher with ``seatd``.  The process for
+setting that up is identical to the one described above, where one just need to
+ensure that ``seatd`` is running with the appropriate arguments, after which one
+can just run ``weston``.  Alternatively and as a last resort, one can run Weston
+as root, specifying the tty to use on the command line: If TTY 2 is active, one
+would run ``weston --tty 2`` as root.
 
 Running Weston on a different seat on a stand-alone back-end
 ------------------------------------------------------------
