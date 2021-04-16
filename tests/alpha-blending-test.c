@@ -33,6 +33,7 @@
 struct setup_args {
 	struct fixture_metadata meta;
 	enum renderer_type renderer;
+	bool color_management;
 };
 
 static const int ALPHA_STEPS = 256;
@@ -41,11 +42,18 @@ static const int BLOCK_WIDTH = 3;
 static const struct setup_args my_setup_args[] = {
 	{
 		.renderer = RENDERER_PIXMAN,
+		.color_management = false,
 		.meta.name = "pixman"
 	},
 	{
 		.renderer = RENDERER_GL,
+		.color_management = false,
 		.meta.name = "GL"
+	},
+	{
+		.renderer = RENDERER_GL,
+		.color_management = true,
+		.meta.name = "GL sRGB EOTF"
 	},
 };
 
@@ -59,6 +67,12 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 	setup.width = BLOCK_WIDTH * ALPHA_STEPS;
 	setup.height = 16;
 	setup.shell = SHELL_TEST_DESKTOP;
+
+	if (arg->color_management) {
+		weston_ini_setup(&setup,
+				 cfgln("[core]"),
+				 cfgln("color-management=true"));
+	}
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
@@ -154,6 +168,46 @@ unpremult_float(struct color_float *cf)
 	}
 }
 
+static float
+sRGB_EOTF(float e)
+{
+	assert(e >= 0.0f);
+	assert(e <= 1.0f);
+
+	if (e <= 0.04045)
+		return e / 12.92;
+	else
+		return pow((e + 0.055) / 1.055, 2.4);
+}
+
+static void
+sRGB_linearize(struct color_float *cf)
+{
+	cf->r = sRGB_EOTF(cf->r);
+	cf->g = sRGB_EOTF(cf->g);
+	cf->b = sRGB_EOTF(cf->b);
+}
+
+static float
+sRGB_EOTF_inv(float o)
+{
+	assert(o >= 0.0f);
+	assert(o <= 1.0f);
+
+	if (o <= 0.04045 / 12.92)
+		return o * 12.92;
+	else
+		return pow(o, 1.0 / 2.4) * 1.055 - 0.055;
+}
+
+static void
+sRGB_delinearize(struct color_float *cf)
+{
+	cf->r = sRGB_EOTF_inv(cf->r);
+	cf->g = sRGB_EOTF_inv(cf->g);
+	cf->b = sRGB_EOTF_inv(cf->b);
+}
+
 static bool
 compare_float(float ref, float dst, int x, const char *chan, float *max_diff)
 {
@@ -188,7 +242,18 @@ compare_float(float ref, float dst, int x, const char *chan, float *max_diff)
 	if (diff > *max_diff)
 		*max_diff = diff;
 
-	if (diff < 0.5f / 255.f)
+	/*
+	 * Allow for +/- 1.5 code points of error in non-linear 8-bit channel
+	 * value. This is necessary for the BLEND_LINEAR case.
+	 *
+	 * With llvmpipe, we could go as low as +/- 0.65 code points of error
+	 * and still pass.
+	 *
+	 * AMD Polaris 11 would be ok with +/- 1.0 code points error threshold
+	 * if not for one particular case of blending (a=254, r=0) into r=255,
+	 * which results in error of 1.29 code points.
+	 */
+	if (diff < 1.5f / 255.f)
 		return true;
 
 	testlog("x=%d %s: ref %f != dst %f, delta %f\n",
@@ -197,9 +262,15 @@ compare_float(float ref, float dst, int x, const char *chan, float *max_diff)
 	return false;
 }
 
+enum blend_space {
+	BLEND_NONLINEAR,
+	BLEND_LINEAR,
+};
+
 static bool
 verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
-			   int x, struct color_float *max_diff)
+			   int x, struct color_float *max_diff,
+			   enum blend_space space)
 {
 	struct color_float bg = a8r8g8b8_to_float(bg32);
 	struct color_float fg = a8r8g8b8_to_float(fg32);
@@ -211,9 +282,17 @@ verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
 	unpremult_float(&fg);
 	unpremult_float(&dst);
 
+	if (space == BLEND_LINEAR) {
+		sRGB_linearize(&bg);
+		sRGB_linearize(&fg);
+	}
+
 	ref.r = (1.0f - fg.a) * bg.r + fg.a * fg.r;
 	ref.g = (1.0f - fg.a) * bg.g + fg.a * fg.g;
 	ref.b = (1.0f - fg.a) * bg.b + fg.a * fg.b;
+
+	if (space == BLEND_LINEAR)
+		sRGB_delinearize(&ref);
 
 	ok = compare_float(ref.r, dst.r, x, "r", &max_diff->r) && ok;
 	ok = compare_float(ref.g, dst.g, x, "g", &max_diff->g) && ok;
@@ -268,7 +347,8 @@ get_middle_row(struct buffer *buf)
 }
 
 static bool
-check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot)
+check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot,
+		    enum blend_space space)
 {
 	uint32_t *bg_row = get_middle_row(bg);
 	uint32_t *fg_row = get_middle_row(fg);
@@ -282,7 +362,8 @@ check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot)
 			ret = false;
 
 		if (!verify_sRGB_blend_a8r8g8b8(bg_row[x], fg_row[x],
-						shot_row[x], x, &max_diff))
+						shot_row[x], x, &max_diff,
+						space))
 			ret = false;
 	}
 
@@ -309,6 +390,24 @@ check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot)
  * - red goes from 1.0 to 0.0, monotonic
  * - green is not monotonic
  * - blue goes from 0.0 to 1.0, monotonic
+ *
+ * This test has two modes: BLEND_NONLINEAR and BLEND_LINEAR.
+ *
+ * BLEND_NONLINEAR does blending with pixel values as is, which are non-linear,
+ * and therefore result in "physically incorrect" blending result. Yet, people
+ * have accustomed to seeing this effect. This mode hits pipeline_premult()
+ * in fragment.glsl.
+ *
+ * BLEND_LINEAR has sRGB encoded pixels (non-linear). These are converted to
+ * linear light (optical) values, blended, and converted back to non-linear
+ * (electrical) values. This results in "physically more correct" blending
+ * result for some value of "physical". This mode hits pipeline_straight()
+ * in fragment.glsl, and tests even more things:
+ * - gl-renderer implementation of 1D LUT is correct
+ * - color-lcms instantiates the correct sRGB EOTF and inverse LUTs
+ * - color space conversions do not happen when both content and output are
+ *   using their default color spaces
+ * - blending through gl-renderer shadow framebuffer
  */
 TEST(alpha_blend)
 {
@@ -320,6 +419,7 @@ TEST(alpha_blend)
 		.blue  = 0x0000,
 		.alpha = 0xffff
 	};
+	const struct setup_args *args;
 	struct client *client;
 	struct buffer *bg;
 	struct buffer *fg;
@@ -328,6 +428,17 @@ TEST(alpha_blend)
 	struct wl_subsurface *sub;
 	struct buffer *shot;
 	bool match;
+	int seq_no;
+	enum blend_space space;
+
+	args = &my_setup_args[get_test_fixture_index()];
+	if (args->color_management) {
+		seq_no = 1;
+		space = BLEND_LINEAR;
+	} else {
+		seq_no = 0;
+		space = BLEND_NONLINEAR;
+	}
 
 	client = create_client();
 	subco = bind_to_singleton_global(client, &wl_subcompositor_interface, 1);
@@ -361,10 +472,10 @@ TEST(alpha_blend)
 
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
-	match = verify_image(shot, "alpha_blend", 0, NULL, 0);
+	match = verify_image(shot, "alpha_blend", seq_no, NULL, seq_no);
+	assert(check_blend_pattern(bg, fg, shot, space));
 	assert(match);
 
-	assert(check_blend_pattern(bg, fg, shot));
 	buffer_destroy(shot);
 
 	wl_subsurface_destroy(sub);
