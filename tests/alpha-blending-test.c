@@ -25,9 +25,7 @@
 
 #include "config.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <sys/mman.h>
+#include <math.h>
 
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
@@ -125,6 +123,105 @@ fill_alpha_pattern(struct buffer *buf)
 	}
 }
 
+struct color_float {
+	float r, g, b, a;
+};
+
+static struct color_float
+a8r8g8b8_to_float(uint32_t v)
+{
+	struct color_float cf;
+
+	cf.a = ((v >> 24) & 0xff) / 255.f;
+	cf.r = ((v >> 16) & 0xff) / 255.f;
+	cf.g = ((v >>  8) & 0xff) / 255.f;
+	cf.b = ((v >>  0) & 0xff) / 255.f;
+
+	return cf;
+}
+
+static void
+unpremult_float(struct color_float *cf)
+{
+	if (cf->a == 0.0f) {
+		cf->r = 0.0f;
+		cf->g = 0.0f;
+		cf->b = 0.0f;
+	} else {
+		cf->r /= cf->a;
+		cf->g /= cf->a;
+		cf->b /= cf->a;
+	}
+}
+
+static bool
+compare_float(float ref, float dst, int x, const char *chan, float *max_diff)
+{
+#if 0
+	/*
+	 * This file can be loaded in Octave for visualization.
+	 *
+	 * S = load('compare_float_dump.txt');
+	 *
+	 * rvec = S(S(:,1)==114, 2:3);
+	 * gvec = S(S(:,1)==103, 2:3);
+	 * bvec = S(S(:,1)==98, 2:3);
+	 *
+	 * figure
+	 * subplot(3, 1, 1);
+	 * plot(rvec(:,1), rvec(:,2) .* 255, 'r');
+	 * subplot(3, 1, 2);
+	 * plot(gvec(:,1), gvec(:,2) .* 255, 'g');
+	 * subplot(3, 1, 3);
+	 * plot(bvec(:,1), bvec(:,2) .* 255, 'b');
+	 */
+	static FILE *fp = NULL;
+
+	if (!fp)
+		fp = fopen("compare_float_dump.txt", "w");
+	fprintf(fp, "%d %d %f\n", chan[0], x, dst - ref);
+	fflush(fp);
+#endif
+
+	float diff = fabsf(ref - dst);
+
+	if (diff > *max_diff)
+		*max_diff = diff;
+
+	if (diff < 0.5f / 255.f)
+		return true;
+
+	testlog("x=%d %s: ref %f != dst %f, delta %f\n",
+		x, chan, ref, dst, dst - ref);
+
+	return false;
+}
+
+static bool
+verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
+			   int x, struct color_float *max_diff)
+{
+	struct color_float bg = a8r8g8b8_to_float(bg32);
+	struct color_float fg = a8r8g8b8_to_float(fg32);
+	struct color_float dst = a8r8g8b8_to_float(dst32);
+	struct color_float ref;
+	bool ok = true;
+
+	unpremult_float(&bg);
+	unpremult_float(&fg);
+	unpremult_float(&dst);
+
+	ref.r = (1.0f - fg.a) * bg.r + fg.a * fg.r;
+	ref.g = (1.0f - fg.a) * bg.g + fg.a * fg.g;
+	ref.b = (1.0f - fg.a) * bg.b + fg.a * fg.b;
+
+	ok = compare_float(ref.r, dst.r, x, "r", &max_diff->r) && ok;
+	ok = compare_float(ref.g, dst.g, x, "g", &max_diff->g) && ok;
+	ok = compare_float(ref.b, dst.b, x, "b", &max_diff->b) && ok;
+
+	return ok;
+}
+
 static uint8_t
 red(uint32_t v)
 {
@@ -171,16 +268,26 @@ get_middle_row(struct buffer *buf)
 }
 
 static bool
-check_blend_pattern(struct buffer *shot)
+check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot)
 {
+	uint32_t *bg_row = get_middle_row(bg);
+	uint32_t *fg_row = get_middle_row(fg);
 	uint32_t *shot_row = get_middle_row(shot);
+	struct color_float max_diff = { 0.0f, 0.0f, 0.0f, 0.0f };
 	bool ret = true;
 	int x;
 
 	for (x = 0; x < BLOCK_WIDTH * ALPHA_STEPS - 1; x++) {
 		if (!pixels_monotonic(shot_row, x))
 			ret = false;
+
+		if (!verify_sRGB_blend_a8r8g8b8(bg_row[x], fg_row[x],
+						shot_row[x], x, &max_diff))
+			ret = false;
 	}
+
+	testlog("%s max diff: r=%f, g=%f, b=%f\n",
+		__func__, max_diff.r, max_diff.g, max_diff.b);
 
 	return ret;
 }
@@ -203,7 +310,7 @@ check_blend_pattern(struct buffer *shot)
  * - green is not monotonic
  * - blue goes from 0.0 to 1.0, monotonic
  */
-TEST(alpha_blend_monotonic)
+TEST(alpha_blend)
 {
 	const int width = BLOCK_WIDTH * ALPHA_STEPS;
 	const int height = BLOCK_WIDTH;
@@ -254,10 +361,10 @@ TEST(alpha_blend_monotonic)
 
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
-	match = verify_image(shot, "alpha_blend_monotonic", 0, NULL, 0);
+	match = verify_image(shot, "alpha_blend", 0, NULL, 0);
 	assert(match);
 
-	assert(check_blend_pattern(shot));
+	assert(check_blend_pattern(bg, fg, shot));
 	buffer_destroy(shot);
 
 	wl_subsurface_destroy(sub);

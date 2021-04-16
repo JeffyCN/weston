@@ -118,7 +118,10 @@ dep_zucmain = declare_dependency(
 )
 
 tests = [
-	{	'name': 'alpha-blending', },
+	{
+		'name': 'alpha-blending',
+		'dep_objs': dep_libm,
+	},
 	{	'name': 'bad-buffer', },
 	{	'name': 'buffer-transforms', },
 	{	'name': 'color-manager', },
