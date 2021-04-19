@@ -1864,6 +1864,10 @@ gl_renderer_flush_damage(struct weston_surface *surface)
 	texture_used = false;
 	wl_list_for_each(view, &surface->views, surface_link) {
 		if (view->plane == &surface->compositor->primary_plane) {
+			/* HACK: Mali needs a valid context for uploading */
+			if (gr->is_mali_egl && view->output)
+				use_output(view->output);
+
 			texture_used = true;
 			break;
 		}
