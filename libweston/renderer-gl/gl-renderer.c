@@ -2171,6 +2171,10 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 	if (!texture_used)
 		return;
 
+	/* HACK: Mali needs a valid context for uploading */
+	if (gr->is_mali_egl && output)
+		use_output(output);
+
 	if (!pixman_region32_not_empty(&gb->texture_damage) &&
 	    !gb->needs_full_upload)
 		goto done;
