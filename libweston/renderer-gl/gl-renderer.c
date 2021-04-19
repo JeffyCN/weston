@@ -3402,6 +3402,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 static void
 gl_renderer_flush_damage(struct weston_paint_node *pnode)
 {
+	struct weston_output *output = pnode->output;
 	struct weston_surface *surface = pnode->surface;
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	const struct weston_testsuite_quirks *quirks =
@@ -3426,6 +3427,12 @@ gl_renderer_flush_damage(struct weston_paint_node *pnode)
 	 * underneath us */
 	if (!buffer->shm_buffer)
 		return;
+
+	/* HACK: Ensure a valid context is bound for texture uploads.
+	 * Without this, Mali GPUs may hang during hotplug events when
+	 * uploading texture data without a proper context. */
+	if (output)
+		use_output(output);
 
 	if (!pixman_region32_not_empty(&gb->texture_damage) &&
 	    !gb->needs_full_upload)
