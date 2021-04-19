@@ -2523,6 +2523,7 @@ gl_format_from_internal(GLenum internal_format)
 static void
 gl_renderer_flush_damage(struct weston_paint_node *pnode)
 {
+	struct weston_output *output = pnode->output;
 	struct weston_surface *surface = pnode->surface;
 	const struct weston_testsuite_quirks *quirks =
 		&surface->compositor->test_data.test_quirks;
@@ -2547,6 +2548,10 @@ gl_renderer_flush_damage(struct weston_paint_node *pnode)
 	 * underneath us */
 	if (!buffer->shm_buffer)
 		return;
+
+	/* HACK: Mali needs a valid context for uploading */
+	if (gr->is_mali_egl && output)
+		use_output(output);
 
 	if (!pixman_region32_not_empty(&gb->texture_damage) &&
 	    !gb->needs_full_upload)
