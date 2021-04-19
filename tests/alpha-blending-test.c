@@ -155,26 +155,32 @@ pixels_monotonic(const uint32_t *row, int x)
 	return ret;
 }
 
+static void *
+get_middle_row(struct buffer *buf)
+{
+	const int y = (BLOCK_WIDTH - 1) / 2; /* middle row */
+	void *pixels;
+	int stride_bytes;
+
+	assert(pixman_image_get_width(buf->image) >= BLOCK_WIDTH * ALPHA_STEPS);
+	assert(pixman_image_get_height(buf->image) >= BLOCK_WIDTH);
+
+	pixels = pixman_image_get_data(buf->image);
+	stride_bytes = pixman_image_get_stride(buf->image);
+	return pixels + y * stride_bytes;
+}
+
 static bool
 check_blend_pattern(struct buffer *shot)
 {
+	uint32_t *shot_row = get_middle_row(shot);
 	bool ret = true;
-	const int y = (BLOCK_WIDTH - 1) / 2; /* middle row */
 	int x;
-	void *pixels;
-	int stride_bytes;
-	uint32_t *row;
 
-	assert(pixman_image_get_width(shot->image) >= BLOCK_WIDTH * ALPHA_STEPS);
-	assert(pixman_image_get_height(shot->image) >= BLOCK_WIDTH);
-
-	pixels = pixman_image_get_data(shot->image);
-	stride_bytes = pixman_image_get_stride(shot->image);
-	row = pixels + y * stride_bytes;
-
-	for (x = 0; x < BLOCK_WIDTH * ALPHA_STEPS - 1; x++)
-		if (!pixels_monotonic(row, x))
+	for (x = 0; x < BLOCK_WIDTH * ALPHA_STEPS - 1; x++) {
+		if (!pixels_monotonic(shot_row, x))
 			ret = false;
+	}
 
 	return ret;
 }
@@ -208,7 +214,8 @@ TEST(alpha_blend_monotonic)
 		.alpha = 0xffff
 	};
 	struct client *client;
-	struct buffer *buf;
+	struct buffer *bg;
+	struct buffer *fg;
 	struct wl_subcompositor *subco;
 	struct wl_surface *surf;
 	struct wl_subsurface *sub;
@@ -219,26 +226,26 @@ TEST(alpha_blend_monotonic)
 	subco = bind_to_singleton_global(client, &wl_subcompositor_interface, 1);
 
 	/* background window content */
-	buf = create_shm_buffer_a8r8g8b8(client, width, height);
-	fill_image_with_color(buf->image, &background_color);
+	bg = create_shm_buffer_a8r8g8b8(client, width, height);
+	fill_image_with_color(bg->image, &background_color);
 
 	/* background window, main surface */
 	client->surface = create_test_surface(client);
 	client->surface->width = width;
 	client->surface->height = height;
-	client->surface->buffer = buf; /* pass ownership */
+	client->surface->buffer = bg; /* pass ownership */
 	set_opaque_rect(client, client->surface,
 			&(struct rectangle){ 0, 0, width, height });
 
 	/* foreground blended content */
-	buf = create_shm_buffer_a8r8g8b8(client, width, height);
-	fill_alpha_pattern(buf);
+	fg = create_shm_buffer_a8r8g8b8(client, width, height);
+	fill_alpha_pattern(fg);
 
 	/* foreground window, sub-surface */
 	surf = wl_compositor_create_surface(client->wl_compositor);
 	sub = wl_subcompositor_get_subsurface(subco, surf, client->surface->wl_surface);
 	/* sub-surface defaults to position 0, 0, top-most, synchronized */
-	wl_surface_attach(surf, buf->proxy, 0, 0);
+	wl_surface_attach(surf, fg->proxy, 0, 0);
 	wl_surface_damage(surf, 0, 0, width, height);
 	wl_surface_commit(surf);
 
@@ -255,7 +262,7 @@ TEST(alpha_blend_monotonic)
 
 	wl_subsurface_destroy(sub);
 	wl_surface_destroy(surf);
-	buffer_destroy(buf);
+	buffer_destroy(fg);
 	wl_subcompositor_destroy(subco);
-	client_destroy(client);
+	client_destroy(client); /* destroys bg */
 }
