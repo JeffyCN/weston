@@ -205,9 +205,14 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 	}
 #endif
 
-	/* If allocating with modifiers fails, try again without. This can
-	 * happen when the KMS display device supports modifiers but the
-	 * GBM driver does not, e.g. the old i915 Mesa driver. */
+	/* We may allocate with no modifiers in the following situations:
+	 *
+	 * 1. old GBM version, so HAVE_GBM_MODIFIERS is false;
+	 * 2. the KMS driver does not support modifiers;
+	 * 3. if allocating with modifiers failed, what can happen when the KMS
+	 *    display device supports modifiers but the GBM driver does not,
+	 *    e.g. the old i915 Mesa driver.
+	 */
 	if (!output->gbm_surface)
 		output->gbm_surface = gbm_surface_create(gbm,
 							 mode->width, mode->height,
