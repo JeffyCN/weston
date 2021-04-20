@@ -177,14 +177,48 @@ err:
 	return -1;
 }
 
-/* Init output state that depends on gl or gbm */
-int
-drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
+static void
+create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 {
+	struct weston_mode *mode = output->base.current_mode;
+	struct drm_plane *plane = output->scanout_plane;
 	struct weston_drm_format *fmt;
 	const uint64_t *modifiers;
 	unsigned int num_modifiers;
 
+	fmt = weston_drm_format_array_find_format(&plane->formats,
+						  output->gbm_format);
+	if (!fmt) {
+		weston_log("format 0x%x not supported by output %s\n",
+			   output->gbm_format, output->base.name);
+		return;
+	}
+
+#ifdef HAVE_GBM_MODIFIERS
+	modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+	if (num_modifiers > 0) {
+		output->gbm_surface =
+			gbm_surface_create_with_modifiers(gbm,
+							  mode->width, mode->height,
+							  output->gbm_format,
+							  modifiers, num_modifiers);
+	}
+#endif
+
+	/* If allocating with modifiers fails, try again without. This can
+	 * happen when the KMS display device supports modifiers but the
+	 * GBM driver does not, e.g. the old i915 Mesa driver. */
+	if (!output->gbm_surface)
+		output->gbm_surface = gbm_surface_create(gbm,
+							 mode->width, mode->height,
+							 output->gbm_format,
+							 output->gbm_bo_flags);
+}
+
+/* Init output state that depends on gl or gbm */
+int
+drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
+{
 	uint32_t format[2] = {
 		output->gbm_format,
 		fallback_format_for(output->gbm_format),
@@ -193,42 +227,9 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 		.drm_formats = format,
 		.drm_formats_count = 1,
 	};
-	struct weston_mode *mode = output->base.current_mode;
-	struct drm_plane *plane = output->scanout_plane;
 
 	assert(output->gbm_surface == NULL);
-
-	fmt = weston_drm_format_array_find_format(&plane->formats, output->gbm_format);
-	if (!fmt) {
-		weston_log("format 0x%x not supported by output %s\n",
-			   output->gbm_format, output->base.name);
-		return -1;
-	}
-
-#ifdef HAVE_GBM_MODIFIERS
-	modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
-	if (num_modifiers > 0) {
-		output->gbm_surface =
-			gbm_surface_create_with_modifiers(b->gbm,
-							  mode->width,
-							  mode->height,
-							  output->gbm_format,
-							  modifiers,
-							  num_modifiers);
-	}
-
-	/* If allocating with modifiers fails, try again without. This can
-	 * happen when the KMS display device supports modifiers but the
-	 * GBM driver does not, e.g. the old i915 Mesa driver. */
-	if (!output->gbm_surface)
-#endif
-	{
-		output->gbm_surface =
-		    gbm_surface_create(b->gbm, mode->width, mode->height,
-				       output->gbm_format,
-				       output->gbm_bo_flags);
-	}
-
+	create_gbm_surface(b->gbm, output);
 	if (!output->gbm_surface) {
 		weston_log("failed to create gbm surface\n");
 		return -1;
