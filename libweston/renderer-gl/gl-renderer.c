@@ -2810,16 +2810,21 @@ populate_supported_formats(struct weston_compositor *ec,
 			goto out;
 		}
 
+		/* Always add DRM_FORMAT_MOD_INVALID, as EGL implementations
+		 * support implicit modifiers. */
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
+		if (ret < 0)
+			goto out;
+
 		gl_renderer_query_dmabuf_modifiers(ec, formats[i],
 						   &modifiers, &num_modifiers);
-		if (num_modifiers == 0) {
-			ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
-			if (ret < 0)
-				goto out;
+		if (num_modifiers == 0)
 			continue;
-		}
 
 		for (j = 0; j < num_modifiers; j++) {
+			/* Skip MOD_INVALID, as it has already been added. */
+			if (modifiers[j] == DRM_FORMAT_MOD_INVALID)
+				continue;
 			ret = weston_drm_format_add_modifier(fmt, modifiers[j]);
 			if (ret < 0) {
 				free(modifiers);
