@@ -482,11 +482,8 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 				goto out;
 		}
 
-		if (fmt->modifiers.size == 0) {
-			ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
-			if (ret < 0)
-				goto out;
-		}
+		if (fmt->modifiers.size == 0)
+			weston_drm_format_array_remove_latest_format(&plane->formats);
 	}
 
 out:
