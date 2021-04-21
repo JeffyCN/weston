@@ -760,6 +760,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 	struct drm_plane *plane;
 	drmModeObjectProperties *props;
 	uint64_t *zpos_range_values;
+	struct weston_drm_format *fmt;
 
 	plane = zalloc(sizeof(*plane));
 	if (!plane) {
@@ -816,7 +817,14 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane,
 		plane->type = type;
 		plane->zpos_max = DRM_PLANE_ZPOS_INVALID_PLANE;
 		plane->zpos_min = DRM_PLANE_ZPOS_INVALID_PLANE;
-		if (!weston_drm_format_array_add_format(&plane->formats, format))
+
+		/* Without universal planes support we can't tell the formats
+		 * and modifiers that the plane support, as we don't know
+		 * anything about the planes. So modifiers are not supported. */
+		fmt = weston_drm_format_array_add_format(&plane->formats, format);
+		if (!fmt)
+			goto err;
+		if (!weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID))
 			goto err;
 	}
 

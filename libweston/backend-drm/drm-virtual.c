@@ -94,7 +94,7 @@ drm_virtual_plane_create(struct drm_backend *b, struct drm_output *output)
 {
 	struct drm_plane *plane;
 	struct weston_drm_format *fmt;
-	int ret;
+	uint64_t mod;
 
 	plane = zalloc(sizeof(*plane));
 	if (!plane) {
@@ -112,11 +112,16 @@ drm_virtual_plane_create(struct drm_backend *b, struct drm_output *output)
 	if (!fmt)
 		goto err;
 
-	if ((output->gbm_bo_flags & GBM_BO_USE_LINEAR) && b->fb_modifiers) {
-		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
-		if (ret < 0)
-			goto err;
-	}
+	/* If output supports linear modifier, we add it to the plane.
+	 * Otherwise we add DRM_FORMAT_MOD_INVALID, as explicit modifiers
+	 * are not supported. */
+	if ((output->gbm_bo_flags & GBM_BO_USE_LINEAR) && b->fb_modifiers)
+		mod = DRM_FORMAT_MOD_LINEAR;
+	else
+		mod = DRM_FORMAT_MOD_INVALID;
+
+	if (weston_drm_format_add_modifier(fmt, mod) < 0)
+		goto err;
 
 	weston_plane_init(&plane->base, b->compositor, 0, 0);
 	wl_list_insert(&b->plane_list, &plane->link);

@@ -195,8 +195,8 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 	}
 
 #ifdef HAVE_GBM_MODIFIERS
-	modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
-	if (num_modifiers > 0) {
+	if (!weston_drm_format_has_modifier(fmt, DRM_FORMAT_MOD_INVALID)) {
+		modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
 		output->gbm_surface =
 			gbm_surface_create_with_modifiers(gbm,
 							  mode->width, mode->height,

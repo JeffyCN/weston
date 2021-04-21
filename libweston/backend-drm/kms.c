@@ -483,7 +483,7 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 		}
 
 		if (fmt->modifiers.size == 0) {
-			ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
+			ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
 			if (ret < 0)
 				goto out;
 		}
@@ -500,7 +500,7 @@ fallback:
 							 kplane->formats[i]);
 		if (!fmt)
 			return -1;
-		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_LINEAR);
+		ret = weston_drm_format_add_modifier(fmt, DRM_FORMAT_MOD_INVALID);
 		if (ret < 0)
 			return -1;
 	}
