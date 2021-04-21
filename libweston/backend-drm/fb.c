@@ -222,15 +222,14 @@ static struct drm_fb *
 drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		       struct drm_backend *backend, bool is_opaque)
 {
+#ifndef HAVE_GBM_FD_IMPORT
+	/* Importing a buffer to KMS requires explicit modifiers, so
+	 * we can't continue with the legacy GBM_BO_IMPORT_FD instead
+	 * of GBM_BO_IMPORT_FD_MODIFIER. */
+	return NULL;
+#else
 	struct drm_fb *fb;
-	struct gbm_import_fd_data import_legacy = {
-		.width = dmabuf->attributes.width,
-		.height = dmabuf->attributes.height,
-		.format = dmabuf->attributes.format,
-		.stride = dmabuf->attributes.stride[0],
-		.fd = dmabuf->attributes.fd[0],
-	};
-#ifdef HAVE_GBM_FD_IMPORT
+	int i;
 	struct gbm_import_fd_modifier_data import_mod = {
 		.width = dmabuf->attributes.width,
 		.height = dmabuf->attributes.height,
@@ -238,9 +237,16 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		.num_fds = dmabuf->attributes.n_planes,
 		.modifier = dmabuf->attributes.modifier[0],
 	};
-#endif /* HAVE_GBM_FD_IMPORT */
 
-	int i;
+        /* We should not import to KMS a buffer that has been allocated using no
+         * modifiers. Usually drivers use linear layouts to allocate with no
+         * modifiers, but this is not a rule. The driver could use, for
+         * instance, a tiling layout under the hood - and both Weston and the
+         * KMS driver can't know. So giving the buffer to KMS is not safe, as
+         * not knowing its layout can result in garbage being displayed. In
+         * short, importing a buffer to KMS requires explicit modifiers. */
+	if (dmabuf->attributes.modifier[0] == DRM_FORMAT_MOD_INVALID)
+		return NULL;
 
 	/* XXX: TODO:
 	 *
@@ -261,7 +267,6 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	fb->refcnt = 1;
 	fb->type = BUFFER_DMABUF;
 
-#ifdef HAVE_GBM_FD_IMPORT
 	static_assert(ARRAY_LENGTH(import_mod.fds) ==
 		      ARRAY_LENGTH(dmabuf->attributes.fd),
 		      "GBM and linux_dmabuf FD size must match");
@@ -286,27 +291,9 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		      "GBM and linux_dmabuf offset size must match");
 	memcpy(import_mod.offsets, dmabuf->attributes.offset,
 	       sizeof(import_mod.offsets));
-#endif /* NOT HAVE_GBM_FD_IMPORT */
 
-	/* The legacy FD-import path does not allow us to supply modifiers,
-	 * multiple planes, or buffer offsets. */
-	if (dmabuf->attributes.modifier[0] != DRM_FORMAT_MOD_INVALID ||
-	    dmabuf->attributes.n_planes > 1 ||
-	    dmabuf->attributes.offset[0] > 0) {
-#ifdef HAVE_GBM_FD_IMPORT
-		fb->bo = gbm_bo_import(backend->gbm, GBM_BO_IMPORT_FD_MODIFIER,
-				       &import_mod,
-				       GBM_BO_USE_SCANOUT);
-#else /* NOT HAVE_GBM_FD_IMPORT */
-		drm_debug(backend, "\t\t\t[dmabuf] Unsupported use of modifiers.\n");
-		goto err_free;
-#endif /* NOT HAVE_GBM_FD_IMPORT */
-	} else {
-		fb->bo = gbm_bo_import(backend->gbm, GBM_BO_IMPORT_FD,
-				       &import_legacy,
-				       GBM_BO_USE_SCANOUT);
-	}
-
+	fb->bo = gbm_bo_import(backend->gbm, GBM_BO_IMPORT_FD_MODIFIER,
+			       &import_mod, GBM_BO_USE_SCANOUT);
 	if (!fb->bo)
 		goto err_free;
 
@@ -347,7 +334,6 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		goto err_free;
 	}
 
-#ifdef HAVE_GBM_MODIFIERS
 	fb->num_planes = dmabuf->attributes.n_planes;
 	for (i = 0; i < dmabuf->attributes.n_planes; i++) {
 		union gbm_bo_handle handle;
@@ -357,20 +343,6 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 			goto err_free;
 		fb->handles[i] = handle.u32;
 	}
-#else /* NOT HAVE_GBM_MODIFIERS */
-	{
-		union gbm_bo_handle handle;
-
-		fb->num_planes = 1;
-
-	        handle = gbm_bo_get_handle(fb->bo);
-
-		if (handle.s32 == -1)
-			goto err_free;
-		fb->handles[0] = handle.u32;
-	}
-#endif /* NOT HAVE_GBM_MODIFIERS */
-
 
 	if (drm_fb_addfb(backend, fb) != 0)
 		goto err_free;
@@ -380,6 +352,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 err_free:
 	drm_fb_destroy_dmabuf(fb);
 	return NULL;
+#endif
 }
 
 struct drm_fb *
