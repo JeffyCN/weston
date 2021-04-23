@@ -757,8 +757,10 @@ drag_grab_touch_up(struct weston_touch_grab *grab,
 
 	if (touch_drag->base.focus_resource)
 		wl_data_device_send_drop(touch_drag->base.focus_resource);
-	if (touch_drag->base.data_source)
+	if (touch_drag->base.data_source) {
+		touch_drag->base.data_source->seat = NULL;
 		wl_list_remove(&touch_drag->base.data_source_listener.link);
+	}
 	data_device_end_touch_drag_grab(touch_drag);
 }
 
