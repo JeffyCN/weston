@@ -138,8 +138,16 @@ drm_output_plane_has_valid_format(struct drm_plane *plane,
 	fmt = weston_drm_format_array_find_format(&plane->formats,
 						  fb->format->format);
 	if (fmt) {
+		/* We never try to promote a dmabuf with DRM_FORMAT_MOD_INVALID
+                 * to a KMS plane (see drm_fb_get_from_dmabuf() for more details).
+                 * So if fb->modifier == DRM_FORMAT_MOD_INVALID, we are sure
+                 * that this is for the legacy GBM import path, in which a
+                 * wl_drm is being used for scanout. Mesa is the only user we
+                 * care in this case (even though recent versions are also using
+                 * dmabufs), and it should know better what works or not. */
 		if (fb->modifier == DRM_FORMAT_MOD_INVALID)
 			return true;
+
 		if (weston_drm_format_has_modifier(fmt, fb->modifier))
 			return true;
 	}
