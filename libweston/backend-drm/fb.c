@@ -267,30 +267,9 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	fb->refcnt = 1;
 	fb->type = BUFFER_DMABUF;
 
-	static_assert(ARRAY_LENGTH(import_mod.fds) ==
-		      ARRAY_LENGTH(dmabuf->attributes.fd),
-		      "GBM and linux_dmabuf FD size must match");
-	static_assert(sizeof(import_mod.fds) == sizeof(dmabuf->attributes.fd),
-		      "GBM and linux_dmabuf FD size must match");
-	memcpy(import_mod.fds, dmabuf->attributes.fd, sizeof(import_mod.fds));
-
-	static_assert(ARRAY_LENGTH(import_mod.strides) ==
-		      ARRAY_LENGTH(dmabuf->attributes.stride),
-		      "GBM and linux_dmabuf stride size must match");
-	static_assert(sizeof(import_mod.strides) ==
-		      sizeof(dmabuf->attributes.stride),
-		      "GBM and linux_dmabuf stride size must match");
-	memcpy(import_mod.strides, dmabuf->attributes.stride,
-	       sizeof(import_mod.strides));
-
-	static_assert(ARRAY_LENGTH(import_mod.offsets) ==
-		      ARRAY_LENGTH(dmabuf->attributes.offset),
-		      "GBM and linux_dmabuf offset size must match");
-	static_assert(sizeof(import_mod.offsets) ==
-		      sizeof(dmabuf->attributes.offset),
-		      "GBM and linux_dmabuf offset size must match");
-	memcpy(import_mod.offsets, dmabuf->attributes.offset,
-	       sizeof(import_mod.offsets));
+	ARRAY_COPY(import_mod.fds, dmabuf->attributes.fd);
+	ARRAY_COPY(import_mod.strides, dmabuf->attributes.stride);
+	ARRAY_COPY(import_mod.offsets, dmabuf->attributes.offset);
 
 	fb->bo = gbm_bo_import(backend->gbm, GBM_BO_IMPORT_FD_MODIFIER,
 			       &import_mod, GBM_BO_USE_SCANOUT);
@@ -303,18 +282,8 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	fb->size = 0;
 	fb->fd = backend->drm.fd;
 
-	static_assert(ARRAY_LENGTH(fb->strides) ==
-		      ARRAY_LENGTH(dmabuf->attributes.stride),
-		      "drm_fb and dmabuf stride size must match");
-	static_assert(sizeof(fb->strides) == sizeof(dmabuf->attributes.stride),
-		      "drm_fb and dmabuf stride size must match");
-	memcpy(fb->strides, dmabuf->attributes.stride, sizeof(fb->strides));
-	static_assert(ARRAY_LENGTH(fb->offsets) ==
-		      ARRAY_LENGTH(dmabuf->attributes.offset),
-		      "drm_fb and dmabuf offset size must match");
-	static_assert(sizeof(fb->offsets) == sizeof(dmabuf->attributes.offset),
-		      "drm_fb and dmabuf offset size must match");
-	memcpy(fb->offsets, dmabuf->attributes.offset, sizeof(fb->offsets));
+	ARRAY_COPY(fb->strides, dmabuf->attributes.stride);
+	ARRAY_COPY(fb->offsets, dmabuf->attributes.offset);
 
 	fb->format = pixel_format_get_info(dmabuf->attributes.format);
 	if (!fb->format) {

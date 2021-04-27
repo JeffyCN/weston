@@ -41,6 +41,25 @@ extern "C" {
 #define ARRAY_LENGTH(a) (sizeof (a) / sizeof (a)[0])
 #endif
 
+#define STRING(s) #s
+
+/**
+ * Compile-time copy of hardcoded arrays.
+ *
+ * @param dst the array to copy to.
+ * @param src the source array.
+ */
+#ifndef ARRAY_COPY
+#define ARRAY_COPY(dst, src) \
+do { \
+	static_assert(ARRAY_LENGTH(src) == ARRAY_LENGTH(dst), \
+		      "src and dst sizes must match"); \
+	static_assert(sizeof(src) == sizeof(dst), \
+		      "src and dst sizes must match"); \
+	memcpy((src), (dst), sizeof(src)); \
+} while (0)
+#endif
+
 /**
  * Returns the smaller of two values.
  *
