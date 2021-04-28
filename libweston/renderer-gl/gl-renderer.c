@@ -3021,9 +3021,9 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	glViewport(0, 0, cw, ch);
 	glDisable(GL_BLEND);
 	if (gs->y_inverted)
-		memcpy(sconf.projection.d, projmat_normal, sizeof projmat_normal);
+		ARRAY_COPY(sconf.projection.d, projmat_normal);
 	else
-		memcpy(sconf.projection.d, projmat_yinvert, sizeof projmat_yinvert);
+		ARRAY_COPY(sconf.projection.d, projmat_yinvert);
 	sconf.projection.type = WESTON_MATRIX_TRANSFORM_SCALE |
 				WESTON_MATRIX_TRANSFORM_TRANSLATE;
 

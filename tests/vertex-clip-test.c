@@ -176,8 +176,8 @@ static void
 deep_copy_polygon8(const struct polygon8 *src, struct polygon8 *dst)
 {
 	dst->n = src->n;
-	memcpy((void *) dst->x, src->x, sizeof (src->x));
-	memcpy((void *) dst->y, src->y, sizeof (src->y));
+	ARRAY_COPY(dst->x, src->x);
+	ARRAY_COPY(dst->y, src->y);
 }
 
 TEST_P(clip_polygon_n_vertices_emitted, test_data)
