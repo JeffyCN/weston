@@ -73,6 +73,8 @@ struct kiosk_shell_surface {
 		int32_t x;
 		int32_t y;
 	} xwayland;
+
+	bool appid_output_assigned;
 };
 
 struct kiosk_shell_seat {

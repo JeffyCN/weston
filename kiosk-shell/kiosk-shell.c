@@ -173,8 +173,10 @@ kiosk_shell_surface_find_best_output(struct kiosk_shell_surface *shsurf)
 	app_id = weston_desktop_surface_get_app_id(shsurf->desktop_surface);
 	if (app_id) {
 		wl_list_for_each(shoutput, &shsurf->shell->output_list, link) {
-			if (kiosk_shell_output_has_app_id(shoutput, app_id))
+			if (kiosk_shell_output_has_app_id(shoutput, app_id)) {
+				shsurf->appid_output_assigned = true;
 				return shoutput->output;
+			}
 		}
 	}
 
@@ -354,6 +356,7 @@ kiosk_shell_surface_create(struct kiosk_shell *shell,
 	shsurf->desktop_surface = desktop_surface;
 	shsurf->view = view;
 	shsurf->shell = shell;
+	shsurf->appid_output_assigned = false;
 
 	weston_desktop_surface_set_user_data(desktop_surface, shsurf);
 
@@ -721,6 +724,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_user_data(desktop_surface);
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(desktop_surface);
+	const char *app_id =
+		weston_desktop_surface_get_app_id(desktop_surface);
 	bool is_resized;
 	bool is_fullscreen;
 
@@ -728,6 +733,24 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	if (surface->width == 0)
 		return;
+
+	if (!shsurf->appid_output_assigned && app_id) {
+		struct weston_output *output = NULL;
+
+		/* reset previous output being set in _added() as the output is
+		 * being cached */
+		shsurf->output = NULL;
+		output = kiosk_shell_surface_find_best_output(shsurf);
+
+		kiosk_shell_surface_set_output(shsurf, output);
+		weston_desktop_surface_set_size(shsurf->desktop_surface,
+						shsurf->output->width,
+						shsurf->output->height);
+		/* even if we couldn't find an appid set for a particular
+		 * output still flag the shsurf as to a avoid changing the
+		 * output every time */
+		shsurf->appid_output_assigned = true;
+	}
 
 	/* TODO: When the top-level surface is committed with a new size after an
 	 * output resize, sometimes the view appears scaled. What state are we not
