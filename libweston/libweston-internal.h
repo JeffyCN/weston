@@ -398,6 +398,8 @@ weston_drm_format_get_modifiers(const struct weston_drm_format *format,
  * A generic data structure unique for surface-view-output combination.
  */
 struct weston_paint_node {
+	/* Immutable members: */
+
 	/* struct weston_surface::paint_node_list */
 	struct wl_list surface_link;
 	struct weston_surface *surface;
@@ -409,6 +411,11 @@ struct weston_paint_node {
 	/* struct weston_output::paint_node_list */
 	struct wl_list output_link;
 	struct weston_output *output;
+
+	/* Mutable members: */
+
+	/* struct weston_output::paint_node_z_order_list */
+	struct wl_list z_order_link;
 };
 
 struct weston_paint_node *

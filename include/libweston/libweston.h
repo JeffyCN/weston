@@ -291,6 +291,12 @@ struct weston_output {
 	struct wl_list animation_list;
 	int32_t x, y, width, height;
 
+	/** List of paint nodes in z-order, from top to bottom, maybe pruned
+	 *
+	 *  struct weston_paint_node::z_order_link
+	 */
+	struct wl_list paint_node_z_order_list;
+
 	/** Output area in global coordinates, simple rect */
 	pixman_region32_t region;
 
