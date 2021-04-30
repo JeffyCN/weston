@@ -1,7 +1,7 @@
 /*
  * Copyright © 2010-2011 Intel Corporation
  * Copyright © 2008-2011 Kristian Høgsberg
- * Copyright © 2012-2018 Collabora, Ltd.
+ * Copyright © 2012-2018, 2021 Collabora, Ltd.
  * Copyright © 2017, 2018 General Electric Company
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -93,10 +93,46 @@ weston_output_transform_scale_init(struct weston_output *output,
 				   uint32_t transform, uint32_t scale);
 
 static void
-weston_compositor_build_view_list(struct weston_compositor *compositor);
+weston_compositor_build_view_list(struct weston_compositor *compositor,
+				  struct weston_output *output);
 
 static char *
 weston_output_create_heads_string(struct weston_output *output);
+
+static struct weston_paint_node *
+weston_paint_node_create(struct weston_surface *surface,
+			 struct weston_view *view,
+			 struct weston_output *output)
+{
+	struct weston_paint_node *pnode;
+
+	assert(view->surface == surface);
+
+	pnode = zalloc(sizeof *pnode);
+	if (!pnode)
+		return NULL;
+
+	pnode->surface = surface;
+	wl_list_insert(&surface->paint_node_list, &pnode->surface_link);
+
+	pnode->view = view;
+	wl_list_insert(&view->paint_node_list, &pnode->view_link);
+
+	pnode->output = output;
+	wl_list_insert(&output->paint_node_list, &pnode->output_link);
+
+	return pnode;
+}
+
+static void
+weston_paint_node_destroy(struct weston_paint_node *pnode)
+{
+	assert(pnode->view->surface == pnode->surface);
+	wl_list_remove(&pnode->surface_link);
+	wl_list_remove(&pnode->view_link);
+	wl_list_remove(&pnode->output_link);
+	free(pnode);
+}
 
 /** Send wl_output events for mode and scale changes
  *
@@ -336,6 +372,7 @@ weston_view_create(struct weston_surface *surface)
 	wl_signal_init(&view->destroy_signal);
 	wl_list_init(&view->link);
 	wl_list_init(&view->layer_link.link);
+	wl_list_init(&view->paint_node_list);
 
 	pixman_region32_init(&view->clip);
 
@@ -553,6 +590,7 @@ weston_surface_create(struct weston_compositor *compositor)
 	region_init_infinite(&surface->input);
 
 	wl_list_init(&surface->views);
+	wl_list_init(&surface->paint_node_list);
 
 	wl_list_init(&surface->frame_callback_list);
 	wl_list_init(&surface->feedback_list);
@@ -1951,6 +1989,23 @@ weston_view_matches_output_entirely(struct weston_view *ev,
 	return true;
 }
 
+/** Find paint node for the given view and output
+ */
+WL_EXPORT struct weston_paint_node *
+weston_view_find_paint_node(struct weston_view *view,
+			    struct weston_output *output)
+{
+	struct weston_paint_node *pnode;
+
+	wl_list_for_each(pnode, &view->paint_node_list, view_link) {
+		assert(pnode->surface == view->surface);
+		if (pnode->output == output)
+			return pnode;
+	}
+
+	return NULL;
+}
+
 /* Check if a surface has a view assigned to it
  *
  * The indicator is set manually when mapping
@@ -2192,14 +2247,20 @@ weston_surface_reset_pending_buffer(struct weston_surface *surface)
 WL_EXPORT void
 weston_view_destroy(struct weston_view *view)
 {
+	struct weston_paint_node *pnode, *pntmp;
+
 	wl_signal_emit(&view->destroy_signal, view);
 
 	assert(wl_list_empty(&view->geometry.child_list));
 
 	if (weston_view_is_mapped(view)) {
 		weston_view_unmap(view);
-		weston_compositor_build_view_list(view->surface->compositor);
+		weston_compositor_build_view_list(view->surface->compositor,
+						  NULL);
 	}
+
+	wl_list_for_each_safe(pnode, pntmp, &view->paint_node_list, view_link)
+		weston_paint_node_destroy(pnode);
 
 	wl_list_remove(&view->link);
 	weston_layer_entry_remove(&view->layer_link);
@@ -2223,6 +2284,7 @@ weston_surface_destroy(struct weston_surface *surface)
 	struct weston_frame_callback *cb, *next;
 	struct weston_view *ev, *nv;
 	struct weston_pointer_constraint *constraint, *next_constraint;
+	struct weston_paint_node *pnode, *pntmp;
 
 	if (--surface->ref_count > 0)
 		return;
@@ -2236,6 +2298,11 @@ weston_surface_destroy(struct weston_surface *surface)
 
 	wl_list_for_each_safe(ev, nv, &surface->views, surface_link)
 		weston_view_destroy(ev);
+
+	wl_list_for_each_safe(pnode, pntmp,
+			      &surface->paint_node_list, surface_link) {
+		weston_paint_node_destroy(pnode);
+	}
 
 	weston_surface_state_fini(&surface->pending);
 
@@ -2594,10 +2661,26 @@ surface_free_unused_subsurface_views(struct weston_surface *surface)
 	}
 }
 
+static struct weston_paint_node *
+view_ensure_paint_node(struct weston_view *view, struct weston_output *output)
+{
+	struct weston_paint_node *pnode;
+
+	if (!output)
+		return NULL;
+
+	pnode = weston_view_find_paint_node(view, output);
+	if (pnode)
+		return pnode;
+
+	return weston_paint_node_create(view->surface, view, output);
+}
+
 static void
 view_list_add_subsurface_view(struct weston_compositor *compositor,
 			      struct weston_subsurface *sub,
-			      struct weston_view *parent)
+			      struct weston_view *parent,
+			      struct weston_output *output)
 {
 	struct weston_subsurface *child;
 	struct weston_view *view = NULL, *iv;
@@ -2627,6 +2710,7 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 	view->parent_view = parent;
 	weston_view_update_transform(view);
 	view->is_mapped = true;
+	view_ensure_paint_node(view, output);
 
 	if (wl_list_empty(&sub->surface->subsurface_list)) {
 		wl_list_insert(compositor->view_list.prev, &view->link);
@@ -2637,7 +2721,7 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 		if (child->surface == sub->surface)
 			wl_list_insert(compositor->view_list.prev, &view->link);
 		else
-			view_list_add_subsurface_view(compositor, child, view);
+			view_list_add_subsurface_view(compositor, child, view, output);
 	}
 }
 
@@ -2649,11 +2733,13 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
  */
 static void
 view_list_add(struct weston_compositor *compositor,
-	      struct weston_view *view)
+	      struct weston_view *view,
+	      struct weston_output *output)
 {
 	struct weston_subsurface *sub;
 
 	weston_view_update_transform(view);
+	view_ensure_paint_node(view, output);
 
 	if (wl_list_empty(&view->surface->subsurface_list)) {
 		wl_list_insert(compositor->view_list.prev, &view->link);
@@ -2664,12 +2750,13 @@ view_list_add(struct weston_compositor *compositor,
 		if (sub->surface == view->surface)
 			wl_list_insert(compositor->view_list.prev, &view->link);
 		else
-			view_list_add_subsurface_view(compositor, sub, view);
+			view_list_add_subsurface_view(compositor, sub, view, output);
 	}
 }
 
 static void
-weston_compositor_build_view_list(struct weston_compositor *compositor)
+weston_compositor_build_view_list(struct weston_compositor *compositor,
+				  struct weston_output *output)
 {
 	struct weston_view *view, *tmp;
 	struct weston_layer *layer;
@@ -2684,7 +2771,7 @@ weston_compositor_build_view_list(struct weston_compositor *compositor)
 
 	wl_list_for_each(layer, &compositor->layer_list, link) {
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
-			view_list_add(compositor, view);
+			view_list_add(compositor, view, output);
 		}
 	}
 
@@ -2737,7 +2824,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 	TL_POINT(ec, "core_repaint_begin", TLP_OUTPUT(output), TLP_END);
 
 	/* Rebuild the surface list and update surface transforms up front. */
-	weston_compositor_build_view_list(ec);
+	weston_compositor_build_view_list(ec, output);
 
 	/* Find the highest protection desired for an output */
 	wl_list_for_each(ev, &ec->view_list, link) {
@@ -6102,6 +6189,8 @@ weston_output_transform_coordinate(struct weston_output *output,
  *
  * The following happens:
  *
+ * - Destroys all paint nodes related to the output.
+ *
  * - The output assignments of all views in the current scenegraph are
  *   recomputed.
  *
@@ -6127,11 +6216,17 @@ static void
 weston_compositor_remove_output(struct weston_output *output)
 {
 	struct weston_compositor *compositor = output->compositor;
+	struct weston_paint_node *pnode, *pntmp;
 	struct weston_view *view;
 	struct weston_head *head;
 
 	assert(output->destroying);
 	assert(output->enabled);
+
+	wl_list_for_each_safe(pnode, pntmp,
+			      &output->paint_node_list, output_link) {
+		weston_paint_node_destroy(pnode);
+	}
 
 	wl_list_for_each(view, &compositor->view_list, link) {
 		if (view->output_mask & (1u << output->id))
@@ -6483,6 +6578,7 @@ weston_output_enable(struct weston_output *output)
 
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->feedback_list);
+	wl_list_init(&output->paint_node_list);
 
 	/* Enable the output (set up the crtc or create a
 	 * window representing the output, set up the
@@ -6644,6 +6740,8 @@ weston_output_release(struct weston_output *output)
 
 	if (output->enabled)
 		weston_compositor_remove_output(output);
+
+	assert(wl_list_empty(&output->paint_node_list));
 
 	pixman_region32_fini(&output->region);
 	wl_list_remove(&output->link);

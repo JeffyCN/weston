@@ -1,7 +1,7 @@
 /*
  * Copyright © 2008-2011 Kristian Høgsberg
  * Copyright © 2017, 2018 General Electric Company
- * Copyright © 2012, 2017-2019 Collabora, Ltd.
+ * Copyright © 2012, 2017-2019, 2021 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -40,6 +40,7 @@
  * features should either provide their own (internal) header or use this one.
  */
 
+#include <libweston/libweston.h>
 
 /* weston_buffer */
 
@@ -390,6 +391,29 @@ weston_drm_format_has_modifier(const struct weston_drm_format *format,
 const uint64_t *
 weston_drm_format_get_modifiers(const struct weston_drm_format *format,
 				unsigned int *count_out);
+
+/**
+ * paint node
+ *
+ * A generic data structure unique for surface-view-output combination.
+ */
+struct weston_paint_node {
+	/* struct weston_surface::paint_node_list */
+	struct wl_list surface_link;
+	struct weston_surface *surface;
+
+	/* struct weston_view::paint_node_list */
+	struct wl_list view_link;
+	struct weston_view *view;
+
+	/* struct weston_output::paint_node_list */
+	struct wl_list output_link;
+	struct weston_output *output;
+};
+
+struct weston_paint_node *
+weston_view_find_paint_node(struct weston_view *view,
+			    struct weston_output *output);
 
 /* others */
 int

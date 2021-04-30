@@ -1,6 +1,6 @@
 /*
  * Copyright © 2008-2011 Kristian Høgsberg
- * Copyright © 2012, 2017, 2018 Collabora, Ltd.
+ * Copyright © 2012, 2017, 2018, 2021 Collabora, Ltd.
  * Copyright © 2017, 2018 General Electric Company
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -279,6 +279,9 @@ struct weston_output {
 
 	struct wl_list link;
 	struct weston_compositor *compositor;
+
+	/* struct weston_paint_node::output_link */
+	struct wl_list paint_node_list;
 
 	/** From global to output buffer coordinates. */
 	struct weston_matrix matrix;
@@ -1268,6 +1271,9 @@ struct weston_view {
 	struct wl_list surface_link;
 	struct wl_signal destroy_signal;
 
+	/* struct weston_paint_node::view_link */
+	struct wl_list paint_node_list;
+
 	struct wl_list link;             /* weston_compositor::view_list */
 	struct weston_layer_entry layer_link; /* part of geometry */
 	struct weston_plane *plane;
@@ -1426,6 +1432,9 @@ struct weston_surface {
 	struct wl_signal destroy_signal; /* callback argument: this surface */
 	struct weston_compositor *compositor;
 	struct wl_signal commit_signal;
+
+	/* struct weston_paint_node::surface_link */
+	struct wl_list paint_node_list;
 
 	/** Damage in local coordinates from the client, for tex upload. */
 	pixman_region32_t damage;
