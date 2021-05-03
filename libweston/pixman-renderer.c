@@ -517,11 +517,13 @@ static void
 repaint_surfaces(struct weston_output *output, pixman_region32_t *damage)
 {
 	struct weston_compositor *compositor = output->compositor;
-	struct weston_view *view;
+	struct weston_paint_node *pnode;
 
-	wl_list_for_each_reverse(view, &compositor->view_list, link)
-		if (view->plane == &compositor->primary_plane)
-			draw_view(view, output, damage);
+	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
+				 z_order_link) {
+		if (pnode->view->plane == &compositor->primary_plane)
+			draw_view(pnode->view, output, damage);
+	}
 }
 
 static void
