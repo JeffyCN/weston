@@ -2577,7 +2577,7 @@ output_accumulate_damage(struct weston_output *output)
 {
 	struct weston_compositor *ec = output->compositor;
 	struct weston_plane *plane;
-	struct weston_view *ev;
+	struct weston_paint_node *pnode;
 	pixman_region32_t opaque, clip;
 
 	pixman_region32_init(&clip);
@@ -2587,11 +2587,12 @@ output_accumulate_damage(struct weston_output *output)
 
 		pixman_region32_init(&opaque);
 
-		wl_list_for_each(ev, &ec->view_list, link) {
-			if (ev->plane != plane)
+		wl_list_for_each(pnode, &output->paint_node_z_order_list,
+				 z_order_link) {
+			if (pnode->view->plane != plane)
 				continue;
 
-			view_accumulate_damage(ev, &opaque);
+			view_accumulate_damage(pnode->view, &opaque);
 		}
 
 		pixman_region32_union(&clip, &clip, &opaque);
@@ -2600,18 +2601,22 @@ output_accumulate_damage(struct weston_output *output)
 
 	pixman_region32_fini(&clip);
 
-	wl_list_for_each(ev, &ec->view_list, link)
-		ev->surface->touched = false;
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link) {
+		pnode->surface->touched = false;
+	}
 
-	wl_list_for_each(ev, &ec->view_list, link) {
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link) {
 		/* Ignore views not visible on the current output */
-		if (!(ev->output_mask & (1u << output->id)))
+		/* TODO: turn this into assert once z_order_list is pruned. */
+		if (!(pnode->view->output_mask & (1u << output->id)))
 			continue;
-		if (ev->surface->touched)
+		if (pnode->surface->touched)
 			continue;
-		ev->surface->touched = true;
+		pnode->surface->touched = true;
 
-		surface_flush_damage(ev->surface);
+		surface_flush_damage(pnode->surface);
 
 		/* Both the renderer and the backend have seen the buffer
 		 * by now. If renderer needs the buffer, it has its own
@@ -2621,10 +2626,10 @@ output_accumulate_damage(struct weston_output *output)
 		 * reference now, and allow early buffer release. This enables
 		 * clients to use single-buffering.
 		 */
-		if (!ev->surface->keep_buffer) {
-			weston_buffer_reference(&ev->surface->buffer_ref, NULL);
+		if (!pnode->surface->keep_buffer) {
+			weston_buffer_reference(&pnode->surface->buffer_ref, NULL);
 			weston_buffer_release_reference(
-				&ev->surface->buffer_release_ref, NULL);
+				&pnode->surface->buffer_release_ref, NULL);
 		}
 	}
 }
