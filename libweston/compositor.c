@@ -2837,7 +2837,7 @@ static int
 weston_output_repaint(struct weston_output *output, void *repaint_data)
 {
 	struct weston_compositor *ec = output->compositor;
-	struct weston_view *ev;
+	struct weston_paint_node *pnode;
 	struct weston_animation *animation, *next;
 	struct weston_frame_callback *cb, *cnext;
 	struct wl_list frame_callback_list;
@@ -2855,18 +2855,20 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 	weston_compositor_build_view_list(ec, output);
 
 	/* Find the highest protection desired for an output */
-	wl_list_for_each(ev, &ec->view_list, link) {
-		if (ev->surface->output_mask & (1u << output->id)) {
-			/*
-			 * The desired_protection of the output should be the
-			 * maximum of the desired_protection of the surfaces,
-			 * that are displayed on that output, to avoid
-			 * reducing the protection for existing surfaces.
-			 */
-			if (ev->surface->desired_protection > highest_requested)
-				highest_requested =
-						ev->surface->desired_protection;
-		}
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link) {
+		/* TODO: turn this into assert once z_order_list is pruned. */
+		if ((pnode->surface->output_mask & (1u << output->id)) == 0)
+			continue;
+
+		/*
+		 * The desired_protection of the output should be the
+		 * maximum of the desired_protection of the surfaces,
+		 * that are displayed on that output, to avoid
+		 * reducing the protection for existing surfaces.
+		 */
+		if (pnode->surface->desired_protection > highest_requested)
+			highest_requested = pnode->surface->desired_protection;
 	}
 
 	output->desired_protection = highest_requested;
@@ -2874,23 +2876,25 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 	if (output->assign_planes && !output->disable_planes) {
 		output->assign_planes(output, repaint_data);
 	} else {
-		wl_list_for_each(ev, &ec->view_list, link) {
-			weston_view_move_to_plane(ev, &ec->primary_plane);
-			ev->psf_flags = 0;
+		wl_list_for_each(pnode, &output->paint_node_z_order_list,
+				 z_order_link) {
+			weston_view_move_to_plane(pnode->view, &ec->primary_plane);
+			pnode->view->psf_flags = 0;
 		}
 	}
 
 	wl_list_init(&frame_callback_list);
-	wl_list_for_each(ev, &ec->view_list, link) {
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link) {
 		/* Note: This operation is safe to do multiple times on the
 		 * same surface.
 		 */
-		if (ev->surface->output == output) {
+		if (pnode->surface->output == output) {
 			wl_list_insert_list(&frame_callback_list,
-					    &ev->surface->frame_callback_list);
-			wl_list_init(&ev->surface->frame_callback_list);
+					    &pnode->surface->frame_callback_list);
+			wl_list_init(&pnode->surface->frame_callback_list);
 
-			weston_output_take_feedback_list(output, ev->surface);
+			weston_output_take_feedback_list(output, pnode->surface);
 		}
 	}
 
