@@ -2150,6 +2150,7 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 	int ix = wl_fixed_to_int(x);
 	int iy = wl_fixed_to_int(y);
 
+	/* Can't use paint node list: occlusion by input regions, not opaque. */
 	wl_list_for_each(view, &compositor->view_list, link) {
 		if (!pixman_region32_contains_point(
 				&view->transform.boundingbox, ix, iy, NULL))
@@ -5041,6 +5042,10 @@ weston_plane_release(struct weston_plane *plane)
 	pixman_region32_fini(&plane->damage);
 	pixman_region32_fini(&plane->clip);
 
+	/*
+	 * Can't use paint node list here, weston_plane is not specific to an
+	 * output.
+	 */
 	wl_list_for_each(view, &plane->compositor->view_list, link) {
 		if (view->plane == plane)
 			view->plane = NULL;
@@ -6184,6 +6189,10 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 
 	wl_signal_emit(&compositor->output_created_signal, output);
 
+	/*
+	 * Use view_list, as paint nodes have not been created for this
+	 * output yet. Any existing view might touch this new output.
+	 */
 	wl_list_for_each_safe(view, next, &compositor->view_list, link)
 		weston_view_geometry_dirty(view);
 }
@@ -6266,6 +6275,10 @@ weston_compositor_remove_output(struct weston_output *output)
 	}
 	assert(wl_list_empty(&output->paint_node_z_order_list));
 
+	/*
+	 * Use view_list in case the output did not go through repaint
+	 * after a view came on it, lacking a paint node. Just to be sure.
+	 */
 	wl_list_for_each(view, &compositor->view_list, link) {
 		if (view->output_mask & (1u << output->id))
 			weston_view_assign_output(view);
