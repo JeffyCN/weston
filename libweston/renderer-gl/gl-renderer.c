@@ -1092,11 +1092,13 @@ static void
 repaint_views(struct weston_output *output, pixman_region32_t *damage)
 {
 	struct weston_compositor *compositor = output->compositor;
-	struct weston_view *view;
+	struct weston_paint_node *pnode;
 
-	wl_list_for_each_reverse(view, &compositor->view_list, link)
-		if (view->plane == &compositor->primary_plane)
-			draw_view(view, output, damage);
+	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
+				 z_order_link) {
+		if (pnode->view->plane == &compositor->primary_plane)
+			draw_view(pnode->view, output, damage);
+	}
 }
 
 static int
@@ -1110,9 +1112,11 @@ static void
 update_buffer_release_fences(struct weston_compositor *compositor,
 			     struct weston_output *output)
 {
-	struct weston_view *view;
+	struct weston_paint_node *pnode;
 
-	wl_list_for_each_reverse(view, &compositor->view_list, link) {
+	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
+				 z_order_link) {
+		struct weston_view *view = pnode->view;
 		struct gl_surface_state *gs;
 		struct weston_buffer_release *buffer_release;
 		int fence_fd;
@@ -1560,17 +1564,18 @@ gl_renderer_repaint_output(struct weston_output *output,
 	/* total area we need to repaint this time */
 	pixman_region32_t total_damage;
 	enum gl_border_status border_status = BORDER_STATUS_CLEAN;
-	struct weston_view *view;
+	struct weston_paint_node *pnode;
 
 	if (use_output(output) < 0)
 		return;
 
 	/* Clear the used_in_output_repaint flag, so that we can properly track
 	 * which surfaces were used in this output repaint. */
-	wl_list_for_each_reverse(view, &compositor->view_list, link) {
-		if (view->plane == &compositor->primary_plane) {
+	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
+				 z_order_link) {
+		if (pnode->view->plane == &compositor->primary_plane) {
 			struct gl_surface_state *gs =
-				get_surface_state(view->surface);
+				get_surface_state(pnode->view->surface);
 			gs->used_in_output_repaint = false;
 		}
 	}
