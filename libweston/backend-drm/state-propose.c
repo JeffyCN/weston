@@ -784,9 +784,9 @@ drm_output_propose_state(struct weston_output *output_base,
 {
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct weston_paint_node *pnode;
 	struct drm_output_state *state;
 	struct drm_plane_state *scanout_state = NULL;
-	struct weston_view *ev;
 
 	pixman_region32_t renderer_region;
 	pixman_region32_t occluded_region;
@@ -859,7 +859,9 @@ drm_output_propose_state(struct weston_output *output_base,
 	pixman_region32_init(&renderer_region);
 	pixman_region32_init(&occluded_region);
 
-	wl_list_for_each(ev, &output_base->compositor->view_list, link) {
+	wl_list_for_each(pnode, &output->base.paint_node_z_order_list,
+			 z_order_link) {
+		struct weston_view *ev = pnode->view;
 		struct drm_plane_state *ps = NULL;
 		bool force_renderer = false;
 		pixman_region32_t clipped_view;
@@ -873,6 +875,7 @@ drm_output_propose_state(struct weston_output *output_base,
 
 		/* If this view doesn't touch our output at all, there's no
 		 * reason to do anything with it. */
+		/* TODO: turn this into assert once z_order_list is pruned. */
 		if (!(ev->output_mask & (1u << output->base.id))) {
 			drm_debug(b, "\t\t\t\t[view] ignoring view %p "
 			             "(not on our output)\n", ev);
@@ -1028,7 +1031,7 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *plane_state;
-	struct weston_view *ev;
+	struct weston_paint_node *pnode;
 	struct weston_plane *primary = &output_base->compositor->primary_plane;
 	enum drm_output_propose_state_mode mode = DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY;
 
@@ -1064,11 +1067,14 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 	drm_debug(b, "\t[repaint] Using %s composition\n",
 		  drm_propose_state_mode_to_string(mode));
 
-	wl_list_for_each(ev, &output_base->compositor->view_list, link) {
+	wl_list_for_each(pnode, &output->base.paint_node_z_order_list,
+			 z_order_link) {
+		struct weston_view *ev = pnode->view;
 		struct drm_plane *target_plane = NULL;
 
 		/* If this view doesn't touch our output at all, there's no
 		 * reason to do anything with it. */
+		/* TODO: turn this into assert once z_order_list is pruned. */
 		if (!(ev->output_mask & (1u << output->base.id)))
 			continue;
 
