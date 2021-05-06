@@ -159,7 +159,7 @@ drm_output_plane_has_valid_format(struct drm_plane *plane,
 		  drm_output_get_plane_type_name(plane),
 		  drm_output_get_plane_type_name(plane),
 		  fb->format->drm_format_name,
-		  (unsigned long) fb->format,
+		  (unsigned long) fb->format->format,
 		  (unsigned long long) fb->modifier);
 
 	return false;
