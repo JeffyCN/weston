@@ -63,10 +63,10 @@ container_prep:
   script:
   - export PATH=~/.local/bin:$PATH
   - cd "$BUILDDIR"
-  - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
+  - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ..
   - ninja -k0
   - ninja install
-  - virtme-run --rw --pwd --kimg /weston-virtme/bzImage --script-dir ../.gitlab-ci/virtme-scripts
+  - virtme-run --rw --pwd --kimg /weston-virtme/bzImage --script-dir ../.gitlab-ci/virtme-scripts --qemu-opts -m 1024
   - TEST_RES=$(cat $TESTS_RES_PATH)
   - rm $TESTS_RES_PATH
   - cp -R /weston-virtme ./

@@ -21,7 +21,7 @@ export HOME=/root
 while ! [ -e /run/seatd.sock ]; do sleep 0.1; done
 
 # run the tests and save the exit status
-ninja test
+ASAN_OPTIONS=detect_leaks=0,atexit=1 ninja test
 TEST_RES=$?
 
 # create a file to keep the result of this script:
