@@ -849,6 +849,9 @@ unbind_input_method(struct wl_resource *resource)
 {
 	struct input_method *input_method = wl_resource_get_user_data(resource);
 
+	if (!input_method)
+		return;
+
 	input_method->input_method_binding = NULL;
 	input_method->context = NULL;
 }
@@ -896,8 +899,12 @@ input_method_notifier_destroy(struct wl_listener *listener, void *data)
 	if (input_method->input)
 		deactivate_input_method(input_method);
 
+	if (input_method->input_method_binding)
+		wl_resource_set_user_data(input_method->input_method_binding, NULL);
+
 	wl_global_destroy(input_method->input_method_global);
 	wl_list_remove(&input_method->destroy_listener.link);
+	input_method->seat->input_method = NULL;
 
 	free(input_method);
 }
