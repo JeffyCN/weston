@@ -60,6 +60,7 @@
 
 #include <libweston/backend-drm.h>
 #include <libweston/backend-headless.h>
+#include <libweston/backend-pipewire.h>
 #include <libweston/backend-rdp.h>
 #include <libweston/backend-vnc.h>
 #include <libweston/backend-x11.h>
@@ -658,6 +659,9 @@ usage(int error_code)
 #if defined(BUILD_HEADLESS_COMPOSITOR)
 			"\t\t\t\theadless\n"
 #endif
+#if defined(BUILD_PIPEWIRE_COMPOSITOR)
+			"\t\t\t\tpipewire\n"
+#endif
 #if defined(BUILD_RDP_COMPOSITOR)
 			"\t\t\t\trdp\n"
 #endif
@@ -718,6 +722,14 @@ usage(int error_code)
 		"  --use-pixman\t\tUse the pixman (CPU) renderer (deprecated alias for --renderer=pixman)\n"
 		"  --use-gl\t\tUse the GL renderer (deprecated alias for --renderer=gl)\n"
 		"  --no-outputs\t\tDo not create any virtual outputs\n"
+		"\n");
+#endif
+
+#if defined(BUILD_PIPEWIRE_COMPOSITOR)
+	fprintf(out,
+		"Options for pipewire\n\n"
+		"  --width=WIDTH\t\tWidth of desktop\n"
+		"  --height=HEIGHT\tHeight of desktop\n"
 		"\n");
 #endif
 
@@ -3071,6 +3083,98 @@ load_headless_backend(struct weston_compositor *c,
 	return 0;
 }
 
+static int
+pipewire_backend_output_configure(struct weston_output *output)
+{
+	struct wet_output_config defaults = {
+		.width = 640,
+		.height = 480,
+	};
+	struct wet_compositor *compositor = to_wet_compositor(output->compositor);
+	struct wet_output_config *parsed_options = compositor->parsed_options;
+	const struct weston_pipewire_output_api *api = weston_pipewire_output_get_api(output->compositor);
+	struct weston_config *wc = wet_get_config(output->compositor);
+	struct weston_config_section *section;
+	char *gbm_format = NULL;
+	int width;
+	int height;
+
+	assert(parsed_options);
+
+	if (!api) {
+		weston_log("Cannot use weston_pipewire_output_api.\n");
+		return -1;
+	}
+
+	section = weston_config_get_section(wc, "output", "name", output->name);
+
+	parse_simple_mode(output, section, &width, &height, &defaults,
+			  parsed_options);
+
+	if (section)
+		weston_config_section_get_string(section, "gbm-format",
+						 &gbm_format, NULL);
+
+	weston_output_set_scale(output, 1);
+	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
+
+	api->set_gbm_format(output, gbm_format);
+	free(gbm_format);
+
+	if (api->output_set_size(output, width, height) < 0) {
+		weston_log("Cannot configure output \"%s\" using weston_pipewire_output_api.\n",
+			   output->name);
+		return -1;
+	}
+	weston_log("pipewire_backend_output_configure.. Done\n");
+
+	return 0;
+}
+
+static void
+weston_pipewire_backend_config_init(struct weston_pipewire_backend_config *config)
+{
+	config->base.struct_version = WESTON_PIPEWIRE_BACKEND_CONFIG_VERSION;
+	config->base.struct_size = sizeof(struct weston_pipewire_backend_config);
+}
+
+static int
+load_pipewire_backend(struct weston_compositor *c,
+		      int *argc, char *argv[], struct weston_config *wc,
+		      enum weston_renderer_type renderer)
+{
+	struct weston_pipewire_backend_config config = {{ 0, }};
+	struct weston_config_section *section;
+	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
+
+	if (!parsed_options)
+		return -1;
+
+	weston_pipewire_backend_config_init(&config);
+
+	const struct weston_option pipewire_options[] = {
+		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
+		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
+	};
+
+	parse_options(pipewire_options, ARRAY_LENGTH(pipewire_options), argc, argv);
+
+	config.renderer = renderer;
+
+	wet_set_simple_head_configurator(c, pipewire_backend_output_configure);
+
+	section = weston_config_get_section(wc, "core", NULL, NULL);
+	weston_config_section_get_string(section, "gbm-format",
+					 &config.gbm_format, NULL);
+
+	section = weston_config_get_section(wc, "pipewire", NULL, NULL);
+	weston_config_section_get_int(section, "num-outputs",
+				      &config.num_outputs, 1);
+
+	return weston_compositor_load_backend(c, WESTON_BACKEND_PIPEWIRE,
+					      &config.base);
+}
+
 static void
 weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 {
@@ -3607,6 +3711,9 @@ load_backend(struct weston_compositor *compositor, const char *name,
 					renderer);
 	case WESTON_BACKEND_HEADLESS:
 		return load_headless_backend(compositor, argc, argv, config,
+					     renderer);
+	case WESTON_BACKEND_PIPEWIRE:
+		return load_pipewire_backend(compositor, argc, argv, config,
 					     renderer);
 	case WESTON_BACKEND_RDP:
 		return load_rdp_backend(compositor, argc, argv, config,

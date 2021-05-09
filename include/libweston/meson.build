@@ -15,6 +15,7 @@ install_headers(
 
 backend_drm_h =      files('backend-drm.h')
 backend_headless_h = files('backend-headless.h')
+backend_pipewire_h = files('backend-pipewire.h')
 backend_rdp_h =      files('backend-rdp.h')
 backend_vnc_h =      files('backend-vnc.h')
 backend_wayland_h =  files('backend-wayland.h')

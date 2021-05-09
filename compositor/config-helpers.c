@@ -40,6 +40,7 @@ struct {
 } backend_name_map[] = {
 	{ "drm", "drm-backend.so", WESTON_BACKEND_DRM },
 	{ "headless", "headless-backend.so", WESTON_BACKEND_HEADLESS },
+	{ "pipewire", "pipewire-backend.so", WESTON_BACKEND_PIPEWIRE },
 	{ "rdp", "rdp-backend.so", WESTON_BACKEND_RDP },
 	{ "vnc", "vnc-backend.so", WESTON_BACKEND_VNC },
 	{ "wayland", "wayland-backend.so", WESTON_BACKEND_WAYLAND },

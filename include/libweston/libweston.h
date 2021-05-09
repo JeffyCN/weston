@@ -2252,6 +2252,7 @@ weston_compositor_add_destroy_listener_once(struct weston_compositor *compositor
 enum weston_compositor_backend {
 	WESTON_BACKEND_DRM,
 	WESTON_BACKEND_HEADLESS,
+	WESTON_BACKEND_PIPEWIRE,
 	WESTON_BACKEND_RDP,
 	WESTON_BACKEND_VNC,
 	WESTON_BACKEND_WAYLAND,

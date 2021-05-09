@@ -21,6 +21,12 @@ option(
 	description: 'Weston backend: headless (testing)'
 )
 option(
+	'backend-pipewire',
+	type: 'boolean',
+	value: true,
+	description: 'PipeWire backend: screencasting via PipeWire'
+)
+option(
 	'backend-rdp',
 	type: 'boolean',
 	value: true,
