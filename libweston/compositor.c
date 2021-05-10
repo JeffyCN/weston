@@ -7652,8 +7652,6 @@ weston_compositor_set_presentation_clock_software(
 		CLOCK_MONOTONIC_RAW,	/* no jumps, no crawling */
 		CLOCK_MONOTONIC_COARSE,	/* no jumps, may crawl, fast & coarse */
 		CLOCK_MONOTONIC,	/* no jumps, may crawl */
-		CLOCK_REALTIME_COARSE,	/* may jump and crawl, fast & coarse */
-		CLOCK_REALTIME		/* may jump and crawl */
 	};
 	unsigned i;
 
