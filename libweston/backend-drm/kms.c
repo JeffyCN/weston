@@ -1421,19 +1421,17 @@ init_kms_caps(struct drm_backend *b)
 {
 	uint64_t cap;
 	int ret;
-	clockid_t clk_id;
 
 	weston_log("using %s\n", b->drm.filename);
 
 	ret = drmGetCap(b->drm.fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap);
-	if (ret == 0 && cap == 1)
-		clk_id = CLOCK_MONOTONIC;
-	else
-		clk_id = CLOCK_REALTIME;
+	if (ret != 0 || cap != 1) {
+		weston_log("Error: kernel DRM KMS does not support DRM_CAP_TIMESTAMP_MONOTONIC.\n");
+		return -1;
+	}
 
-	if (weston_compositor_set_presentation_clock(b->compositor, clk_id) < 0) {
-		weston_log("Error: failed to set presentation clock %d.\n",
-			   clk_id);
+	if (weston_compositor_set_presentation_clock(b->compositor, CLOCK_MONOTONIC) < 0) {
+		weston_log("Error: failed to set presentation clock to CLOCK_MONOTONIC.\n");
 		return -1;
 	}
 
