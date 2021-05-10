@@ -3003,7 +3003,15 @@ weston_output_finish_frame(struct weston_output *output,
 	int64_t msec_rel;
 
 	assert(output->repaint_status == REPAINT_AWAITING_COMPLETION);
-	assert(stamp || (presented_flags & WP_PRESENTATION_FEEDBACK_INVALID));
+
+	/*
+	 * If timestamp of latest vblank is given, it must always go forwards.
+	 * If not given, INVALID flag must be set.
+	 */
+	if (stamp)
+		assert(timespec_sub_to_nsec(stamp, &output->frame_time) >= 0);
+	else
+		assert(presented_flags & WP_PRESENTATION_FEEDBACK_INVALID);
 
 	weston_compositor_read_presentation_clock(compositor, &now);
 
