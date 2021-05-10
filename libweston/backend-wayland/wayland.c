@@ -1239,6 +1239,9 @@ wayland_output_enable(struct weston_output *base)
 	enum mode_status mode_status;
 	int ret = 0;
 
+	wl_list_init(&output->shm.buffers);
+	wl_list_init(&output->shm.free_buffers);
+
 	weston_log("Creating %dx%d wayland output at (%d, %d)\n",
 		   output->base.current_mode->width,
 		   output->base.current_mode->height,
@@ -1249,9 +1252,6 @@ wayland_output_enable(struct weston_output *base)
 
 	if (ret < 0)
 		return -1;
-
-	wl_list_init(&output->shm.buffers);
-	wl_list_init(&output->shm.free_buffers);
 
 	if (b->use_pixman) {
 		if (wayland_output_init_pixman_renderer(output) < 0)
