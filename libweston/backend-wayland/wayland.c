@@ -2627,6 +2627,11 @@ wayland_backend_handle_event(int fd, uint32_t mask, void *data)
 		wl_display_flush(b->parent.wl_display);
 	}
 
+	if (count < 0) {
+		weston_compositor_exit(b->compositor);
+		return 0;
+	}
+
 	return count;
 }
 
