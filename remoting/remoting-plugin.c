@@ -95,7 +95,6 @@ static const struct remoted_output_support_gbm_format supported_formats[] = {
 
 struct remoted_output {
 	struct weston_output *output;
-	void (*saved_destroy)(struct weston_output *output);
 	int (*saved_enable)(struct weston_output *output);
 	int (*saved_disable)(struct weston_output *output);
 	int (*saved_start_repaint_loop)(struct weston_output *output);
@@ -642,8 +641,6 @@ remoting_output_destroy(struct weston_output *output)
 		free(mode);
 	}
 
-	remoted_output->saved_destroy(output);
-
 	remoting_gst_pipeline_deinit(remoted_output);
 	remoting_gstpipe_release(&remoted_output->gstpipe);
 
@@ -763,14 +760,12 @@ remoting_output_create(struct weston_compositor *c, char *name)
 		goto err;
 	}
 
-	output->output = api->create_output(c, name);
+	output->output = api->create_output(c, name, remoting_output_destroy);
 	if (!output->output) {
 		weston_log("Can not create virtual output\n");
 		goto err;
 	}
 
-	output->saved_destroy = output->output->destroy;
-	output->output->destroy = remoting_output_destroy;
 	output->saved_enable = output->output->enable;
 	output->output->enable = remoting_output_enable;
 	output->saved_disable = output->output->disable;

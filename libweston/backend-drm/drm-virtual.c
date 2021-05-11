@@ -259,6 +259,9 @@ drm_virtual_output_destroy(struct weston_output *base)
 
 	drm_output_state_free(output->state_cur);
 
+	if (output->virtual_destroy)
+		output->virtual_destroy(base);
+
 	free(output);
 }
 
@@ -324,7 +327,8 @@ drm_virtual_output_disable(struct weston_output *base)
 }
 
 static struct weston_output *
-drm_virtual_output_create(struct weston_compositor *c, char *name)
+drm_virtual_output_create(struct weston_compositor *c, char *name,
+			  void (*destroy_func)(struct weston_output *))
 {
 	struct drm_output *output;
 	struct drm_backend *b = to_drm_backend(c);
@@ -343,6 +347,7 @@ drm_virtual_output_create(struct weston_compositor *c, char *name)
 	}
 
 	output->virtual = true;
+	output->virtual_destroy = destroy_func;
 	output->gbm_bo_flags = GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING;
 
 	weston_output_init(&output->base, c, name);

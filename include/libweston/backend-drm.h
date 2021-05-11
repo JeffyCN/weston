@@ -90,7 +90,7 @@ weston_drm_output_get_api(struct weston_compositor *compositor)
 	return (const struct weston_drm_output_api *)api;
 }
 
-#define WESTON_DRM_VIRTUAL_OUTPUT_API_NAME "weston_drm_virtual_output_api_v1"
+#define WESTON_DRM_VIRTUAL_OUTPUT_API_NAME "weston_drm_virtual_output_api_v2"
 
 struct drm_fb;
 typedef int (*submit_frame_cb)(struct weston_output *output, int fd,
@@ -101,12 +101,16 @@ struct weston_drm_virtual_output_api {
 	 * This is a low-level function, where the caller is expected to wrap
 	 * the weston_output function pointers as necessary to make the virtual
 	 * output useful. The caller must set up output make, model, serial,
-	 * physical size, the mode list and current mode.
+	 * physical size, the mode list and current mode. The destroy function
+	 * pointer must not be overwritten, as it is used by the DRM backend to
+	 * recognize its outputs. Instead, an auxiliary destroy callback has to
+	 * be provided as a parameter.
 	 *
 	 * Returns output on success, NULL on failure.
 	 */
 	struct weston_output* (*create_output)(struct weston_compositor *c,
-					       char *name);
+					       char *name,
+					       void (*destroy_func)(struct weston_output *base));
 
 	/** Set pixel format same as drm_output set_gbm_format().
 	 *

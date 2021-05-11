@@ -579,6 +579,7 @@ struct drm_output {
 	struct wl_event_source *pageflip_timer;
 
 	bool virtual;
+	void (*virtual_destroy)(struct weston_output *base);
 
 	submit_frame_cb virtual_submit_frame;
 };
