@@ -2399,7 +2399,7 @@ gl_renderer_destroy_dmabuf(struct linux_dmabuf_buffer *dmabuf)
 
 static EGLImageKHR
 import_simple_dmabuf(struct gl_renderer *gr,
-                     struct dmabuf_attributes *attributes)
+                     const struct dmabuf_attributes *attributes)
 {
 	EGLint attribs[52];
 	int atti = 0;
