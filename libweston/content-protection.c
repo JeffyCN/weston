@@ -190,6 +190,7 @@ cp_destroy_listener(struct wl_listener *listener, void *data)
 	weston_log_scope_destroy(cp->debug);
 	cp->debug = NULL;
 	cp->surface_protection_update = NULL;
+	cp->compositor->content_protection = NULL;
 	free(cp);
 }
 
