@@ -31,7 +31,7 @@ container_prep:
   stage: container_prep
 
 
-.build-native:
+.build-env:
   extends:
     - .debian
     - .fdo.distribution-image@debian
@@ -56,8 +56,8 @@ container_prep:
   - export TESTS_RES_PATH="$BUILDDIR/tests-res.txt"
   - mkdir "$BUILDDIR" "$PREFIX"
 
-.build-native-meson:
-  extends: .build-native
+.build-and-test:
+  extends: .build-env
   tags:
     - kvm
   script:
@@ -83,8 +83,8 @@ container_prep:
     reports:
       junit: $BUILDDIR/meson-logs/testlog.junit.xml
 
-.build-native-meson-no-test:
-  extends: .build-native
+.build-no-test:
+  extends: .build-env
   tags:
     - kvm
   script:
@@ -101,7 +101,7 @@ container_prep:
     - $BUILDDIR/meson-logs
     - $PREFIX
 
-build-native-meson-default-options:
+build-full:
   variables:
     MESON_OPTIONS: >
       -Doptimization=0
@@ -109,11 +109,11 @@ build-native-meson-default-options:
       -Dwerror=true
       -Dtest-skip-is-failure=true
       -Dlauncher-libseat=true
-  extends: .build-native-meson
+  extends: .build-and-test
   after_script:
   - ninja -C "$BUILDDIR" coverage-html > "$BUILDDIR/meson-logs/ninja-coverage-html.txt"
   - ninja -C "$BUILDDIR" coverage-xml
-  - sed -i -e 's/\/build-weston-build-native-meson-default-options//' -e 's/\"..\//\"/' "$BUILDDIR/meson-logs/coverage.xml"
+  - sed -i -e 's/\/build-weston-build-full//' -e 's/\"..\//\"/' "$BUILDDIR/meson-logs/coverage.xml"
   artifacts:
     reports:
       cobertura: $BUILDDIR/meson-logs/coverage.xml
@@ -123,9 +123,9 @@ build-docs:
     MESON_OPTIONS: >
       -Dwerror=true
       -Ddoc=true
-  extends: .build-native-meson-no-test
+  extends: .build-no-test
 
-build-native-meson-no-gl-renderer:
+build-no-gl:
   variables:
     MESON_OPTIONS: >
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
@@ -134,21 +134,21 @@ build-native-meson-no-gl-renderer:
       -Dpipewire=false
       -Dwerror=true
       -Dlauncher-libseat=true
-  extends: .build-native-meson
+  extends: .build-and-test
 
 docs-and-coverage:
   stage: pages
   timeout: 5m
   script:
   - mv prefix-weston-build-docs/share/doc/weston Documentation
-  - mv build-weston-build-native-meson-default-options/meson-logs/coveragereport Test_Coverage
+  - mv build-weston-build-full/meson-logs/coveragereport Test_Coverage
   - rm Test_Coverage/gcov.css
   - cp doc/style/lcov-style.css Test_Coverage/gcov.css
   - cp doc/style/*.png Test_Coverage/
   - rm -rf build-* prefix-*
   dependencies:
     - build-docs
-    - build-native-meson-default-options
+    - build-full
   artifacts:
     expose_as: 'Documentation preview and test coverage report'
     paths:
