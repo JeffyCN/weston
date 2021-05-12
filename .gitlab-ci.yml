@@ -111,7 +111,7 @@ build-native-meson-default-options:
       -Dlauncher-libseat=true
   extends: .build-native-meson
   after_script:
-  - ninja -C "$BUILDDIR" coverage-html
+  - ninja -C "$BUILDDIR" coverage-html > "$BUILDDIR/meson-logs/ninja-coverage-html.txt"
   - ninja -C "$BUILDDIR" coverage-xml
   - sed -i -e 's/\/build-weston-build-native-meson-default-options//' -e 's/\"..\//\"/' "$BUILDDIR/meson-logs/coverage.xml"
   artifacts:
