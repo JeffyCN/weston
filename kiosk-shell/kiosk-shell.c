@@ -1071,6 +1071,9 @@ kiosk_shell_destroy(struct wl_listener *listener, void *data)
 
 	weston_desktop_destroy(shell->desktop);
 
+	weston_layer_fini(&shell->background_layer);
+	weston_layer_fini(&shell->normal_layer);
+
 	free(shell);
 }
 
