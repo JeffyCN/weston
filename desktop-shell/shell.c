@@ -894,6 +894,8 @@ workspace_destroy(struct workspace *ws)
 	if (ws->fsurf_back)
 		focus_surface_destroy(ws->fsurf_back);
 
+	weston_layer_fini(&ws->layer);
+
 	free(ws);
 }
 
@@ -4632,7 +4634,7 @@ switcher_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 	switcher = malloc(sizeof *switcher);
 	if (!switcher)
 		return;
-	
+
 	switcher->shell = shell;
 	switcher->current = NULL;
 	switcher->listener.notify = switcher_handle_view_destroy;
@@ -5025,6 +5027,13 @@ shell_destroy(struct wl_listener *listener, void *data)
 	wl_array_for_each(ws, &shell->workspaces.array)
 		workspace_destroy(*ws);
 	wl_array_release(&shell->workspaces.array);
+
+	weston_layer_fini(&shell->fullscreen_layer);
+	weston_layer_fini(&shell->panel_layer);
+	weston_layer_fini(&shell->background_layer);
+	weston_layer_fini(&shell->lock_layer);
+	weston_layer_fini(&shell->input_panel_layer);
+	weston_layer_fini(&shell->minimized_layer);
 
 	free(shell->client);
 	free(shell);
