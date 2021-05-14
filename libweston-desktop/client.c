@@ -24,6 +24,7 @@
 #include "config.h"
 
 #include <wayland-server.h>
+#include <assert.h>
 
 #include <libweston/libweston.h>
 #include <libweston/zalloc.h>
@@ -48,13 +49,13 @@ weston_desktop_client_add_destroy_listener(struct weston_desktop_client *client,
 	wl_signal_add(&client->destroy_signal, listener);
 }
 
-static void
-weston_desktop_client_handle_destroy(struct wl_resource *resource)
+void
+weston_desktop_client_destroy(struct weston_desktop_client *client)
 {
-	struct weston_desktop_client *client =
-		wl_resource_get_user_data(resource);
 	struct wl_list *list = &client->surface_list;
 	struct wl_list *link, *tmp;
+
+	assert(client->resource == NULL);
 
 	wl_signal_emit(&client->destroy_signal, client);
 
@@ -69,6 +70,18 @@ weston_desktop_client_handle_destroy(struct wl_resource *resource)
 		wl_event_source_remove(client->ping_timer);
 
 	free(client);
+}
+
+static void
+weston_desktop_client_handle_destroy(struct wl_resource *resource)
+{
+	struct weston_desktop_client *client =
+		wl_resource_get_user_data(resource);
+
+	assert(client->resource == resource);
+	client->resource = NULL;
+
+	weston_desktop_client_destroy(client);
 }
 
 static int

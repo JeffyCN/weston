@@ -134,6 +134,8 @@ weston_desktop_client_create(struct weston_desktop *desktop,
 			     const struct wl_interface *interface,
 			     const void *implementation, uint32_t version,
 			     uint32_t id);
+void
+weston_desktop_client_destroy(struct weston_desktop_client *client);
 
 void
 weston_desktop_client_add_destroy_listener(struct weston_desktop_client *client,
