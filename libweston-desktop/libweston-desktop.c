@@ -95,6 +95,8 @@ weston_desktop_destroy(struct weston_desktop *desktop)
 	if (desktop == NULL)
 		return;
 
+	weston_desktop_xwayland_fini(desktop);
+
 	if (desktop->wl_shell != NULL)
 		wl_global_destroy(desktop->wl_shell);
 	if (desktop->xdg_shell_v6 != NULL)

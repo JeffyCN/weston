@@ -240,5 +240,7 @@ weston_desktop_wl_shell_create(struct weston_desktop *desktop,
 
 void
 weston_desktop_xwayland_init(struct weston_desktop *desktop);
+void
+weston_desktop_xwayland_fini(struct weston_desktop *desktop);
 
 #endif /* WESTON_DESKTOP_INTERNAL_H */
