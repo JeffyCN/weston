@@ -3243,6 +3243,21 @@ weston_layer_init(struct weston_layer *layer,
 	weston_layer_set_mask_infinite(layer);
 }
 
+/** Finalize the weston_layer struct.
+ *
+ * \param layer The layer to finalize.
+ */
+WL_EXPORT void
+weston_layer_fini(struct weston_layer *layer)
+{
+	wl_list_remove(&layer->link);
+
+	if (!wl_list_empty(&layer->view_list.link))
+		weston_log("BUG: finalizing a layer with views still on it.\n");
+
+	wl_list_remove(&layer->view_list.link);
+}
+
 /** Sets the position of the layer in the layer list. The layer will be placed
  * below any layer with the same position value, if any.
  * This function is safe to call if the layer is already on the list, but the
@@ -7738,6 +7753,12 @@ weston_compositor_shutdown(struct weston_compositor *ec)
 	weston_binding_list_destroy_all(&ec->debug_binding_list);
 
 	weston_plane_release(&ec->primary_plane);
+
+	weston_layer_fini(&ec->fade_layer);
+	weston_layer_fini(&ec->cursor_layer);
+
+	if (!wl_list_empty(&ec->layer_list))
+		weston_log("BUG: layer_list is not empty after shutdown. Calls to weston_layer_fini() are missing somwhere.\n");
 }
 
 /** weston_compositor_exit_with_code

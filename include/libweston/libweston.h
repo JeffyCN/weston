@@ -1637,6 +1637,8 @@ void
 weston_layer_init(struct weston_layer *layer,
 		  struct weston_compositor *compositor);
 void
+weston_layer_fini(struct weston_layer *layer);
+void
 weston_layer_set_position(struct weston_layer *layer,
 			  enum weston_layer_position position);
 void
