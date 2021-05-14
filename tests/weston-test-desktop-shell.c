@@ -170,6 +170,10 @@ shell_destroy(struct wl_listener *listener, void *data)
 	weston_desktop_destroy(dts->desktop);
 	weston_view_destroy(dts->background_view);
 	weston_surface_destroy(dts->background_surface);
+
+	weston_layer_fini(&dts->layer);
+	weston_layer_fini(&dts->background_layer);
+
 	free(dts);
 }
 
