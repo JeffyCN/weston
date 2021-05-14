@@ -256,5 +256,6 @@ TEST(alpha_blend_monotonic)
 	wl_subsurface_destroy(sub);
 	wl_surface_destroy(surf);
 	buffer_destroy(buf);
+	wl_subcompositor_destroy(subco);
 	client_destroy(client);
 }
