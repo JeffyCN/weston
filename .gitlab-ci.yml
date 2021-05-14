@@ -37,6 +37,9 @@ container_prep:
     - .fdo.distribution-image@debian
   timeout: 5m
   stage: build
+  variables:
+    BUILDDIR: $CI_PROJECT_DIR/build-weston-$CI_JOB_NAME
+    PREFIX: $CI_PROJECT_DIR/prefix-weston-$CI_JOB_NAME
   before_script:
   - git clone --depth=1 https://gitlab.freedesktop.org/wayland/wayland-protocols
   - export WAYLAND_PROTOCOLS_DIR="$(pwd)/prefix-wayland-protocols"
@@ -50,9 +53,6 @@ container_prep:
   - make install
   - cd ../../
   - export XDG_RUNTIME_DIR="$(mktemp -p $(pwd) -d xdg-runtime-XXXXXX)"
-  - export BUILD_ID="weston-$CI_JOB_NAME"
-  - export PREFIX="$(pwd)/prefix-$BUILD_ID"
-  - export BUILDDIR="$(pwd)/build-$BUILD_ID"
   - export TESTS_RES_PATH="$BUILDDIR/tests-res.txt"
   - mkdir "$BUILDDIR" "$PREFIX"
 
@@ -76,12 +76,12 @@ container_prep:
     name: weston-$CI_COMMIT_SHA
     when: always
     paths:
-    - build-*/*.png
-    - build-*/meson-logs
-    - build-*/weston-virtme
-    - prefix-*
+    - $BUILDDIR/*.png
+    - $BUILDDIR/meson-logs
+    - $BUILDDIR/weston-virtme
+    - $PREFIX
     reports:
-      junit: build-*/meson-logs/testlog.junit.xml
+      junit: $BUILDDIR/meson-logs/testlog.junit.xml
 
 .build-native-meson-no-test:
   extends: .build-native
@@ -98,8 +98,8 @@ container_prep:
     name: weston-$CI_COMMIT_SHA
     when: always
     paths:
-    - build-*/meson-logs
-    - prefix-*
+    - $BUILDDIR/meson-logs
+    - $PREFIX
 
 build-native-meson-default-options:
   variables:
@@ -111,12 +111,12 @@ build-native-meson-default-options:
       -Dlauncher-libseat=true
   extends: .build-native-meson
   after_script:
-  - ninja -C build-* coverage-html
-  - ninja -C build-* coverage-xml
-  - sed -i -e 's/\/build-weston-build-native-meson-default-options//' -e 's/\"..\//\"/' build-*/meson-logs/coverage.xml
+  - ninja -C "$BUILDDIR" coverage-html
+  - ninja -C "$BUILDDIR" coverage-xml
+  - sed -i -e 's/\/build-weston-build-native-meson-default-options//' -e 's/\"..\//\"/' "$BUILDDIR/meson-logs/coverage.xml"
   artifacts:
     reports:
-      cobertura: build-*/meson-logs/coverage.xml
+      cobertura: $BUILDDIR/meson-logs/coverage.xml
 
 build-docs:
   variables:
