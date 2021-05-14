@@ -49,7 +49,7 @@ weston_desktop_client_add_destroy_listener(struct weston_desktop_client *client,
 }
 
 static void
-weston_desktop_client_destroy(struct wl_resource *resource)
+weston_desktop_client_handle_destroy(struct wl_resource *resource)
 {
 	struct weston_desktop_client *client =
 		wl_resource_get_user_data(resource);
@@ -117,13 +117,12 @@ weston_desktop_client_create(struct weston_desktop *desktop,
 
 	if (dispatcher != NULL)
 		wl_resource_set_dispatcher(client->resource, dispatcher,
-					   weston_desktop_client_destroy, client,
-					   weston_desktop_client_destroy);
+					   weston_desktop_client_handle_destroy, client,
+					   weston_desktop_client_handle_destroy);
 	else
 		wl_resource_set_implementation(client->resource, implementation,
 					       client,
-					       weston_desktop_client_destroy);
-
+					       weston_desktop_client_handle_destroy);
 
 	display = wl_client_get_display(client->client);
 	loop = wl_display_get_event_loop(display);
