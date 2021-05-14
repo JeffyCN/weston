@@ -1069,6 +1069,8 @@ client_destroy(struct client *client)
 		free(client->test);
 	}
 
+	if (client->screenshooter)
+		weston_screenshooter_destroy(client->screenshooter);
 	if (client->wl_shm)
 		wl_shm_destroy(client->wl_shm);
 	if (client->wl_compositor)
