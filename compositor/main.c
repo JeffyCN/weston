@@ -582,8 +582,8 @@ static const char xdg_wrong_message[] =
 
 static const char xdg_wrong_mode_message[] =
 	"warning: XDG_RUNTIME_DIR \"%s\" is not configured\n"
-	"correctly.  Unix access mode must be 0700 (current mode is %o),\n"
-	"and must be owned by the user (current owner is UID %d).\n";
+	"correctly.  Unix access mode must be 0700 (current mode is %04o),\n"
+	"and must be owned by the user UID %d (current owner is UID %d).\n";
 
 static const char xdg_detail_message[] =
 	"Refer to your distribution on how to get it, or\n"
@@ -610,7 +610,7 @@ verify_xdg_runtime_dir(void)
 
 	if ((s.st_mode & 0777) != 0700 || s.st_uid != getuid()) {
 		weston_log(xdg_wrong_mode_message,
-			   dir, s.st_mode & 0777, s.st_uid);
+			   dir, s.st_mode & 0777, getuid(), s.st_uid);
 		weston_log_continue(xdg_detail_message);
 	}
 }
