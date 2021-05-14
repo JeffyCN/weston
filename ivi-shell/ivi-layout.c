@@ -2053,6 +2053,16 @@ ivi_layout_init_with_compositor(struct weston_compositor *ec)
 				   sizeof(struct ivi_layout_interface));
 }
 
+void
+ivi_layout_fini(void)
+{
+	struct ivi_layout *layout = get_instance();
+
+	weston_layer_fini(&layout->layout_layer);
+
+	/* XXX: tear down everything else */
+}
+
 static struct ivi_layout_interface ivi_layout_interface = {
 	/**
 	 * commit all changes

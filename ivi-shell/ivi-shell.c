@@ -353,6 +353,8 @@ shell_destroy(struct wl_listener *listener, void *data)
 		free(ivisurf);
 	}
 
+	ivi_layout_fini();
+
 	free(shell);
 }
 
