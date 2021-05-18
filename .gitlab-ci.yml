@@ -44,7 +44,7 @@ container_prep:
   - git clone --depth=1 https://gitlab.freedesktop.org/wayland/wayland-protocols
   - export WAYLAND_PROTOCOLS_DIR="$(pwd)/prefix-wayland-protocols"
   - export PKG_CONFIG_PATH="$WAYLAND_PROTOCOLS_DIR/share/pkgconfig:$PKG_CONFIG_PATH"
-  - export MAKEFLAGS="-j4"
+  - export MAKEFLAGS="-j${FDO_CI_CONCURRENT:-4}"
   - cd wayland-protocols
   - git show -s HEAD
   - mkdir build
@@ -64,9 +64,9 @@ container_prep:
   - export PATH=~/.local/bin:$PATH
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ..
-  - ninja -k0
+  - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
   - ninja install
-  - virtme-run --rw --pwd --kimg /weston-virtme/bzImage --kopt quiet --script-dir ../.gitlab-ci/virtme-scripts --qemu-opts -m 1024
+  - virtme-run --rw --pwd --kimg /weston-virtme/bzImage --kopt quiet --script-dir ../.gitlab-ci/virtme-scripts --qemu-opts -m 4096 -smp ${FDO_CI_CONCURRENT:-4}
   - TEST_RES=$(cat $TESTS_RES_PATH)
   - rm $TESTS_RES_PATH
   - cp -R /weston-virtme ./
@@ -91,7 +91,7 @@ container_prep:
   - export PATH=~/.local/bin:$PATH
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
-  - ninja -k0
+  - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
   - ninja install
   - ninja clean
   artifacts:
