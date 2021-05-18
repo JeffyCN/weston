@@ -1422,6 +1422,13 @@ weston_desktop_xdg_shell_protocol_get_xdg_surface(struct wl_client *wl_client,
 		wl_resource_get_user_data(surface_resource);
 	struct weston_desktop_xdg_surface *surface;
 
+	if (wsurface->buffer_ref.buffer != NULL) {
+		wl_resource_post_error(resource,
+				       XDG_SURFACE_ERROR_UNCONFIGURED_BUFFER,
+				       "xdg_surface must not have a buffer at creation");
+		return;
+	}
+
 	surface = zalloc(weston_desktop_surface_role_biggest_size);
 	if (surface == NULL) {
 		wl_client_post_no_memory(wl_client);
@@ -1449,13 +1456,6 @@ weston_desktop_xdg_shell_protocol_get_xdg_surface(struct wl_client *wl_client,
 						    id, weston_desktop_xdg_surface_resource_destroy);
 	if (surface->resource == NULL)
 		return;
-
-	if (wsurface->buffer_ref.buffer != NULL) {
-		wl_resource_post_error(surface->resource,
-				       XDG_SURFACE_ERROR_UNCONFIGURED_BUFFER,
-				       "xdg_surface must not have a buffer at creation");
-		return;
-	}
 }
 
 static void
