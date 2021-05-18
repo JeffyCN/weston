@@ -171,7 +171,14 @@ tests = [
 			presentation_time_protocol_c,
 		],
 	},
-	{	'name': 'roles', },
+	{
+		'name': 'roles',
+		'sources': [
+			'roles-test.c',
+			xdg_shell_client_protocol_h,
+			xdg_shell_protocol_c,
+		],
+	},
 	{	'name': 'string', },
 	{	'name': 'subsurface', },
 	{	'name': 'subsurface-shot', },

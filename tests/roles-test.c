@@ -32,6 +32,8 @@
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 
+#include "xdg-shell-client-protocol.h"
+
 static enum test_result_code
 fixture_setup(struct weston_test_harness *harness)
 {
@@ -72,30 +74,30 @@ get_subcompositor(struct client *client)
 	return sub;
 }
 
-static struct wl_shell *
-get_wl_shell(struct client *client)
+static struct xdg_wm_base *
+get_xdg_wm_base(struct client *client)
 {
 	struct global *g;
 	struct global *global = NULL;
-	struct wl_shell *shell;
+	struct xdg_wm_base *xdg_wm_base;
 
 	wl_list_for_each(g, &client->global_list, link) {
-		if (strcmp(g->interface, "wl_shell"))
+		if (strcmp(g->interface, "xdg_wm_base"))
 			continue;
 
 		if (global)
-			assert(0 && "multiple wl_shell objects");
+			assert(0 && "multiple xdg_wm_base objects");
 
 		global = g;
 	}
 
-	assert(global && "no wl_shell found");
+	assert(global && "no xdg_wm_base found");
 
-	shell = wl_registry_bind(client->wl_registry, global->name,
-				 &wl_shell_interface, 1);
-	assert(shell);
+	xdg_wm_base = wl_registry_bind(client->wl_registry, global->name,
+				 &xdg_wm_base_interface, 1);
+	assert(xdg_wm_base);
 
-	return shell;
+	return xdg_wm_base;
 }
 
 TEST(test_role_conflict_sub_wlshell)
@@ -104,14 +106,14 @@ TEST(test_role_conflict_sub_wlshell)
 	struct wl_subcompositor *subco;
 	struct wl_surface *child;
 	struct wl_subsurface *sub;
-	struct wl_shell *shell;
-	struct wl_shell_surface *shsurf;
+	struct xdg_wm_base *xdg_wm_base;
+	struct xdg_surface *xdg_surface;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
 
 	subco = get_subcompositor(client);
-	shell = get_wl_shell(client);
+	xdg_wm_base = get_xdg_wm_base(client);
 
 	child = wl_compositor_create_surface(client->wl_compositor);
 	assert(child);
@@ -119,17 +121,17 @@ TEST(test_role_conflict_sub_wlshell)
 					      client->surface->wl_surface);
 	assert(sub);
 
-	shsurf = wl_shell_get_shell_surface(shell, child);
-	assert(shsurf);
+	xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, child);
+	assert(xdg_surface);
 
-	expect_protocol_error(client, &wl_shell_interface,
-			      WL_SHELL_ERROR_ROLE);
+	expect_protocol_error(client, &xdg_wm_base_interface,
+			      XDG_WM_BASE_ERROR_ROLE);
 
-	wl_shell_surface_destroy(shsurf);
+	xdg_surface_destroy(xdg_surface);
 	wl_subsurface_destroy(sub);
 	wl_surface_destroy(child);
-	wl_shell_destroy(shell);
 	wl_subcompositor_destroy(subco);
+	xdg_wm_base_destroy(xdg_wm_base);
 	client_destroy(client);
 }
 
@@ -139,19 +141,22 @@ TEST(test_role_conflict_wlshell_sub)
 	struct wl_subcompositor *subco;
 	struct wl_surface *child;
 	struct wl_subsurface *sub;
-	struct wl_shell *shell;
-	struct wl_shell_surface *shsurf;
+	struct xdg_wm_base *xdg_wm_base;
+	struct xdg_surface *xdg_surface;
+	struct xdg_toplevel *xdg_toplevel;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
 
 	subco = get_subcompositor(client);
-	shell = get_wl_shell(client);
+	xdg_wm_base = get_xdg_wm_base(client);
 
 	child = wl_compositor_create_surface(client->wl_compositor);
 	assert(child);
-	shsurf = wl_shell_get_shell_surface(shell, child);
-	assert(shsurf);
+	xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, child);
+	assert(xdg_surface);
+	xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
+	assert(xdg_toplevel);
 
 	sub = wl_subcompositor_get_subsurface(subco, child,
 					      client->surface->wl_surface);
@@ -160,10 +165,11 @@ TEST(test_role_conflict_wlshell_sub)
 	expect_protocol_error(client, &wl_subcompositor_interface,
 			      WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE);
 
-	wl_shell_surface_destroy(shsurf);
 	wl_subsurface_destroy(sub);
+	xdg_toplevel_destroy(xdg_toplevel);
+	xdg_surface_destroy(xdg_surface);
 	wl_surface_destroy(child);
-	wl_shell_destroy(shell);
+	xdg_wm_base_destroy(xdg_wm_base);
 	wl_subcompositor_destroy(subco);
 	client_destroy(client);
 }
