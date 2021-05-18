@@ -2464,22 +2464,28 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	weston_desktop_surface_unlink_view(shsurf->view);
 	if (weston_surface_is_mapped(surface) &&
 	    shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
+
+	    if (shsurf->shell->compositor->state == WESTON_COMPOSITOR_ACTIVE) {
 		pixman_region32_fini(&surface->pending.input);
 		pixman_region32_init(&surface->pending.input);
 		pixman_region32_fini(&surface->input);
 		pixman_region32_init(&surface->input);
 		weston_fade_run(shsurf->view, 1.0, 0.0, 300.0,
 				fade_out_done, shsurf);
-	} else {
-		weston_view_destroy(shsurf->view);
-
-		if (shsurf->output_destroy_listener.notify) {
-			wl_list_remove(&shsurf->output_destroy_listener.link);
-			shsurf->output_destroy_listener.notify = NULL;
-		}
-
-		free(shsurf);
+		return;
+	    } else {
+		--surface->ref_count;
+	    }
 	}
+
+	weston_surface_destroy(surface);
+
+	if (shsurf->output_destroy_listener.notify) {
+	    wl_list_remove(&shsurf->output_destroy_listener.link);
+	    shsurf->output_destroy_listener.notify = NULL;
+	}
+
+	free(shsurf);
 }
 
 static void
