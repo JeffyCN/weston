@@ -1422,6 +1422,13 @@ weston_desktop_xdg_shell_protocol_get_xdg_surface(struct wl_client *wl_client,
 		wl_resource_get_user_data(surface_resource);
 	struct weston_desktop_xdg_surface *surface;
 
+	if (wsurface->committed) {
+		wl_resource_post_error(resource,
+				       XDG_WM_BASE_ERROR_ROLE,
+				       "xdg_surface must not have any other role");
+		return;
+	}
+
 	if (wsurface->buffer_ref.buffer != NULL) {
 		wl_resource_post_error(resource,
 				       XDG_SURFACE_ERROR_UNCONFIGURED_BUFFER,
