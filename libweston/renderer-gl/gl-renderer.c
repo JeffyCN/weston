@@ -971,17 +971,16 @@ gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 }
 
 static bool
-gl_shader_config_init_for_view(struct gl_shader_config *sconf,
-			       struct weston_view *view,
-			       struct weston_output *output,
-			       GLint filter)
+gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
+				     struct weston_paint_node *pnode,
+				     GLint filter)
 {
-	struct gl_surface_state *gs = get_surface_state(view->surface);
-	struct gl_output_state *go = get_output_state(output);
+	struct gl_surface_state *gs = get_surface_state(pnode->surface);
+	struct gl_output_state *go = get_output_state(pnode->output);
 
 	*sconf = (struct gl_shader_config) {
 		.projection = go->output_matrix,
-		.view_alpha = view->alpha,
+		.view_alpha = pnode->view->alpha,
 		.input_tex_filter = filter,
 	};
 
@@ -991,12 +990,11 @@ gl_shader_config_init_for_view(struct gl_shader_config *sconf,
 }
 
 static void
-draw_view(struct weston_view *ev, struct weston_output *output,
-	  pixman_region32_t *damage) /* in global coordinates */
+draw_paint_node(struct weston_paint_node *pnode,
+		pixman_region32_t *damage /* in global coordinates */)
 {
-	struct weston_compositor *ec = ev->surface->compositor;
-	struct gl_renderer *gr = get_renderer(ec);
-	struct gl_surface_state *gs = get_surface_state(ev->surface);
+	struct gl_renderer *gr = get_renderer(pnode->surface->compositor);
+	struct gl_surface_state *gs = get_surface_state(pnode->surface);
 	/* repaint bounding region in global coordinates: */
 	pixman_region32_t repaint;
 	/* opaque region in surface coordinates: */
@@ -1014,8 +1012,8 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 
 	pixman_region32_init(&repaint);
 	pixman_region32_intersect(&repaint,
-				  &ev->transform.boundingbox, damage);
-	pixman_region32_subtract(&repaint, &repaint, &ev->clip);
+				  &pnode->view->transform.boundingbox, damage);
+	pixman_region32_subtract(&repaint, &repaint, &pnode->view->clip);
 
 	if (!pixman_region32_not_empty(&repaint))
 		goto out;
@@ -1025,34 +1023,34 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-	if (ev->transform.enabled || output->zoom.active ||
-	    output->current_scale != ev->surface->buffer_viewport.buffer.scale)
+	if (pnode->view->transform.enabled || pnode->output->zoom.active ||
+	    pnode->output->current_scale != pnode->surface->buffer_viewport.buffer.scale)
 		filter = GL_LINEAR;
 	else
 		filter = GL_NEAREST;
 
-	if (!gl_shader_config_init_for_view(&sconf, ev, output, filter))
+	if (!gl_shader_config_init_for_paint_node(&sconf, pnode, filter))
 		goto out;
 
 	/* blended region is whole surface minus opaque region: */
 	pixman_region32_init_rect(&surface_blend, 0, 0,
-				  ev->surface->width, ev->surface->height);
-	if (ev->geometry.scissor_enabled)
+				  pnode->surface->width, pnode->surface->height);
+	if (pnode->view->geometry.scissor_enabled)
 		pixman_region32_intersect(&surface_blend, &surface_blend,
-					  &ev->geometry.scissor);
+					  &pnode->view->geometry.scissor);
 	pixman_region32_subtract(&surface_blend, &surface_blend,
-				 &ev->surface->opaque);
+				 &pnode->surface->opaque);
 
 	/* XXX: Should we be using ev->transform.opaque here? */
 	pixman_region32_init(&surface_opaque);
-	if (ev->geometry.scissor_enabled)
+	if (pnode->view->geometry.scissor_enabled)
 		pixman_region32_intersect(&surface_opaque,
-					  &ev->surface->opaque,
-					  &ev->geometry.scissor);
+					  &pnode->surface->opaque,
+					  &pnode->view->geometry.scissor);
 	else
-		pixman_region32_copy(&surface_opaque, &ev->surface->opaque);
+		pixman_region32_copy(&surface_opaque, &pnode->surface->opaque);
 
-	maybe_censor_override(&sconf, output, ev);
+	maybe_censor_override(&sconf, pnode->output, pnode->view);
 
 	if (pixman_region32_not_empty(&surface_opaque)) {
 		struct gl_shader_config alt = sconf;
@@ -1066,18 +1064,18 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 			alt.req.variant = SHADER_VARIANT_RGBX;
 		}
 
-		if (ev->alpha < 1.0)
+		if (pnode->view->alpha < 1.0)
 			glEnable(GL_BLEND);
 		else
 			glDisable(GL_BLEND);
 
-		repaint_region(gr, ev, &repaint, &surface_opaque, &alt);
+		repaint_region(gr, pnode->view, &repaint, &surface_opaque, &alt);
 		gs->used_in_output_repaint = true;
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
 		glEnable(GL_BLEND);
-		repaint_region(gr, ev, &repaint, &surface_blend, &sconf);
+		repaint_region(gr, pnode->view, &repaint, &surface_blend, &sconf);
 		gs->used_in_output_repaint = true;
 	}
 
@@ -1097,7 +1095,7 @@ repaint_views(struct weston_output *output, pixman_region32_t *damage)
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
 		if (pnode->view->plane == &compositor->primary_plane)
-			draw_view(pnode->view, output, damage);
+			draw_paint_node(pnode, damage);
 	}
 }
 
