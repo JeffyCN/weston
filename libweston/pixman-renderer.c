@@ -471,10 +471,10 @@ draw_view_source_clipped(struct weston_view *view,
 }
 
 static void
-draw_view(struct weston_view *ev, struct weston_output *output,
-	  pixman_region32_t *damage) /* in global coordinates */
+draw_paint_node(struct weston_paint_node *pnode,
+		pixman_region32_t *damage /* in global coordinates */)
 {
-	struct pixman_surface_state *ps = get_surface_state(ev->surface);
+	struct pixman_surface_state *ps = get_surface_state(pnode->surface);
 	/* repaint bounding region in global coordinates: */
 	pixman_region32_t repaint;
 
@@ -484,13 +484,13 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 
 	pixman_region32_init(&repaint);
 	pixman_region32_intersect(&repaint,
-				  &ev->transform.boundingbox, damage);
-	pixman_region32_subtract(&repaint, &repaint, &ev->clip);
+				  &pnode->view->transform.boundingbox, damage);
+	pixman_region32_subtract(&repaint, &repaint, &pnode->view->clip);
 
 	if (!pixman_region32_not_empty(&repaint))
 		goto out;
 
-	if (view_transformation_is_translation(ev)) {
+	if (view_transformation_is_translation(pnode->view)) {
 		/* The simple case: The surface regions opaque, non-opaque,
 		 * etc. are convertible to global coordinate space.
 		 * There is no need to use a source clip region.
@@ -498,7 +498,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 		 * Also the boundingbox is accurate rather than an
 		 * approximation.
 		 */
-		draw_view_translated(ev, output, &repaint);
+		draw_view_translated(pnode->view, pnode->output, &repaint);
 	} else {
 		/* The complex case: the view transformation does not allow
 		 * converting opaque etc. regions into global coordinate space.
@@ -507,7 +507,7 @@ draw_view(struct weston_view *ev, struct weston_output *output,
 		 * to be used whole. Source clipping does not work with
 		 * PIXMAN_OP_SRC.
 		 */
-		draw_view_source_clipped(ev, output, &repaint);
+		draw_view_source_clipped(pnode->view, pnode->output, &repaint);
 	}
 
 out:
@@ -522,7 +522,7 @@ repaint_surfaces(struct weston_output *output, pixman_region32_t *damage)
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
 		if (pnode->view->plane == &compositor->primary_plane)
-			draw_view(pnode->view, output, damage);
+			draw_paint_node(pnode, damage);
 	}
 }
 
