@@ -1375,7 +1375,8 @@ create_cursors(struct display *display)
 static void
 destroy_cursors(struct display *display)
 {
-	wl_cursor_theme_destroy(display->cursor_theme);
+	if (display->cursor_theme)
+		wl_cursor_theme_destroy(display->cursor_theme);
 	free(display->cursors);
 }
 
@@ -6245,6 +6246,12 @@ display_create(int *argc, char *argv[])
 	if (d == NULL)
 		return NULL;
 
+	wl_list_init(&d->window_list);
+	wl_list_init(&d->deferred_list);
+	wl_list_init(&d->input_list);
+	wl_list_init(&d->output_list);
+	wl_list_init(&d->global_list);
+
 	d->display = wl_display_connect(NULL);
 	if (d->display == NULL) {
 		fprintf(stderr, "failed to connect to Wayland display: %s\n",
@@ -6266,17 +6273,13 @@ display_create(int *argc, char *argv[])
 	display_watch_fd(d, d->display_fd, EPOLLIN | EPOLLERR | EPOLLHUP,
 			 &d->display_task);
 
-	wl_list_init(&d->deferred_list);
-	wl_list_init(&d->input_list);
-	wl_list_init(&d->output_list);
-	wl_list_init(&d->global_list);
-
 	d->registry = wl_display_get_registry(d->display);
 	wl_registry_add_listener(d->registry, &registry_listener, d);
 
 	if (wl_display_roundtrip(d->display) < 0) {
 		fprintf(stderr, "Failed to process Wayland connection: %s\n",
 			strerror(errno));
+		display_destroy(d);
 		return NULL;
 	}
 
@@ -6289,8 +6292,6 @@ display_create(int *argc, char *argv[])
 	create_cursors(d);
 
 	d->theme = theme_create();
-
-	wl_list_init(&d->window_list);
 
 	init_dummy_surface(d);
 
@@ -6327,15 +6328,18 @@ display_destroy(struct display *display)
 	if (!wl_list_empty(&display->deferred_list))
 		fprintf(stderr, "toytoolkit warning: deferred tasks exist.\n");
 
-	cairo_surface_destroy(display->dummy_surface);
-	free(display->dummy_surface_data);
+	if (display->dummy_surface)
+		cairo_surface_destroy(display->dummy_surface);
+	if (display->dummy_surface_data)
+		free(display->dummy_surface_data);
 
 	display_destroy_outputs(display);
 	display_destroy_inputs(display);
 
 	xkb_context_unref(display->xkb_context);
 
-	theme_destroy(display->theme);
+	if (display->theme)
+		theme_destroy(display->theme);
 	destroy_cursors(display);
 
 #ifdef HAVE_CAIRO_EGL
@@ -6355,7 +6359,8 @@ display_destroy(struct display *display)
 	if (display->data_device_manager)
 		wl_data_device_manager_destroy(display->data_device_manager);
 
-	wl_compositor_destroy(display->compositor);
+	if (display->compositor)
+		wl_compositor_destroy(display->compositor);
 	wl_registry_destroy(display->registry);
 
 	close(display->epoll_fd);
