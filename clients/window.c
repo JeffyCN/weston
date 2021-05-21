@@ -5998,6 +5998,19 @@ static const struct xdg_wm_base_listener wm_base_listener = {
 };
 
 static void
+global_destroy(struct display *disp, struct global *g)
+{
+	if (disp->global_handler_remove) {
+		disp->global_handler_remove(disp, g->name, g->interface,
+					    g->version, disp->user_data);
+	}
+
+	wl_list_remove(&g->link);
+	free(g->interface);
+	free(g);
+}
+
+static void
 registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 		       const char *interface, uint32_t version)
 {
@@ -6072,13 +6085,7 @@ registry_handle_global_remove(void *data, struct wl_registry *registry,
 
 		/* XXX: Should destroy remaining bound globals */
 
-		if (d->global_handler_remove)
-			d->global_handler_remove(d, name, global->interface,
-					global->version, d->user_data);
-
-		wl_list_remove(&global->link);
-		free(global->interface);
-		free(global);
+		global_destroy(d, global);
 	}
 }
 
