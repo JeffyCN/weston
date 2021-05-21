@@ -1011,6 +1011,20 @@ keyboard_create(struct virtual_keyboard *virtual_keyboard)
 					     display_output_handler);
 }
 
+static void
+keyboard_destroy(struct virtual_keyboard *virtual_keyboard)
+{
+	if (virtual_keyboard->input_panel)
+		zwp_input_panel_v1_destroy(virtual_keyboard->input_panel);
+
+	if (virtual_keyboard->input_method)
+		zwp_input_method_v1_destroy(virtual_keyboard->input_method);
+
+	widget_destroy(virtual_keyboard->keyboard->widget);
+	window_destroy(virtual_keyboard->keyboard->window);
+	free(virtual_keyboard->keyboard);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -1036,6 +1050,9 @@ main(int argc, char *argv[])
 	keyboard_create(&virtual_keyboard);
 
 	display_run(virtual_keyboard.display);
+
+	keyboard_destroy(&virtual_keyboard);
+	display_destroy(virtual_keyboard.display);
 
 	return 0;
 }
