@@ -67,6 +67,7 @@ struct weston_test {
 
 struct weston_test_surface {
 	struct weston_surface *surface;
+	struct wl_listener surface_destroy_listener;
 	struct weston_view *view;
 	int32_t x, y;
 	struct weston_test *test;
@@ -167,6 +168,84 @@ test_surface_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
 	test_surface->view->is_mapped = true;
 }
 
+static int
+test_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
+{
+        return snprintf(buf, len, "test suite surface");
+}
+
+static void
+test_surface_destroy(struct weston_test_surface *test_surface)
+{
+	weston_view_destroy(test_surface->view);
+
+	test_surface->surface->committed = NULL;
+	test_surface->surface->committed_private = NULL;
+	weston_surface_set_label_func(test_surface->surface, NULL);
+
+	wl_list_remove(&test_surface->surface_destroy_listener.link);
+	free(test_surface);
+}
+
+static void
+test_surface_handle_surface_destroy(struct wl_listener *l, void *data)
+{
+	struct weston_test_surface *test_surface =
+		wl_container_of(l, test_surface, surface_destroy_listener);
+
+	assert(test_surface->surface == data);
+
+	test_surface_destroy(test_surface);
+}
+
+static struct weston_test_surface *
+weston_test_surface_create(struct wl_resource *test_resource,
+			   struct weston_surface *surface)
+{
+	struct wl_client *client = wl_resource_get_client(test_resource);
+	struct wl_resource *display_resource;
+	struct weston_test_surface *test_surface;
+
+	test_surface = zalloc(sizeof *test_surface);
+	if (!test_surface)
+		goto err_post_no_mem;
+
+	test_surface->surface = surface;
+	test_surface->test = wl_resource_get_user_data(test_resource);
+
+	test_surface->view = weston_view_create(surface);
+	if (!test_surface->view)
+		goto err_free_surface;
+
+	/* Protocol does not define this error so abuse wl_display */
+	display_resource = wl_client_get_object(client, 1);
+	if (weston_surface_set_role(surface, "weston_test_surface",
+				    display_resource,
+				    WL_DISPLAY_ERROR_INVALID_OBJECT) < 0)
+		goto err_free_view;
+
+	surface->committed_private = test_surface;
+	surface->committed = test_surface_committed;
+	weston_surface_set_label_func(surface, test_surface_get_label);
+
+	test_surface->surface_destroy_listener.notify =
+		test_surface_handle_surface_destroy;
+	wl_signal_add(&surface->destroy_signal,
+		      &test_surface->surface_destroy_listener);
+
+	return test_surface;
+
+err_free_view:
+	weston_view_destroy(test_surface->view);
+
+err_free_surface:
+	free(test_surface);
+
+err_post_no_mem:
+	wl_resource_post_no_memory(test_resource);
+	return NULL;
+}
+
 static void
 move_surface(struct wl_client *client, struct wl_resource *resource,
 	     struct wl_resource *surface_resource,
@@ -175,28 +254,24 @@ move_surface(struct wl_client *client, struct wl_resource *resource,
 	struct weston_surface *surface =
 		wl_resource_get_user_data(surface_resource);
 	struct weston_test_surface *test_surface;
+	struct wl_resource *display_resource;
 
-	test_surface = surface->committed_private;
-	if (!test_surface) {
-		test_surface = malloc(sizeof *test_surface);
-		if (!test_surface) {
-			wl_resource_post_no_memory(resource);
-			return;
-		}
-
-		test_surface->view = weston_view_create(surface);
-		if (!test_surface->view) {
-			wl_resource_post_no_memory(resource);
-			free(test_surface);
-			return;
-		}
-
-		surface->committed_private = test_surface;
-		surface->committed = test_surface_committed;
+	if (surface->committed &&
+	    surface->committed != test_surface_committed) {
+		display_resource = wl_client_get_object(client, 1);
+		wl_resource_post_error(display_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "weston_test.move_surface: wl_surface@%u has a role.",
+				       wl_resource_get_id(surface_resource));
+		return;
 	}
 
-	test_surface->surface = surface;
-	test_surface->test = wl_resource_get_user_data(resource);
+	test_surface = surface->committed_private;
+	if (!test_surface)
+		test_surface = weston_test_surface_create(resource, surface);
+	if (!test_surface)
+		return;
+
 	test_surface->x = x;
 	test_surface->y = y;
 }
