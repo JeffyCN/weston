@@ -6083,8 +6083,6 @@ registry_handle_global_remove(void *data, struct wl_registry *registry,
 		if (strcmp(global->interface, "wl_output") == 0)
 			display_destroy_output(d, name);
 
-		/* XXX: Should destroy remaining bound globals */
-
 		global_destroy(d, global);
 	}
 }
@@ -6328,6 +6326,8 @@ display_destroy_inputs(struct display *display)
 void
 display_destroy(struct display *display)
 {
+	struct global *global, *tmp;
+
 	if (!wl_list_empty(&display->window_list))
 		fprintf(stderr, "toytoolkit warning: %d windows exist.\n",
 			wl_list_length(&display->window_list));
@@ -6343,6 +6343,9 @@ display_destroy(struct display *display)
 	display_destroy_outputs(display);
 	display_destroy_inputs(display);
 
+	wl_list_for_each_safe(global, tmp, &display->global_list, link)
+		global_destroy(display, global);
+
 	xkb_context_unref(display->xkb_context);
 
 	if (display->theme)
@@ -6353,6 +6356,15 @@ display_destroy(struct display *display)
 	if (display->argb_device)
 		fini_egl(display);
 #endif
+
+	if (display->relative_pointer_manager)
+		zwp_relative_pointer_manager_v1_destroy(display->relative_pointer_manager);
+
+	if (display->pointer_constraints)
+		zwp_pointer_constraints_v1_destroy(display->pointer_constraints);
+
+	if (display->viewporter)
+		wp_viewporter_destroy(display->viewporter);
 
 	if (display->subcompositor)
 		wl_subcompositor_destroy(display->subcompositor);
