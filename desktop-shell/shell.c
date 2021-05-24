@@ -4868,19 +4868,19 @@ shell_output_changed_move_layer(struct desktop_shell *shell,
 static void
 handle_output_destroy(struct wl_listener *listener, void *data)
 {
-	struct shell_output *output_listener =
+	struct shell_output *shell_output =
 		container_of(listener, struct shell_output, destroy_listener);
-	struct desktop_shell *shell = output_listener->shell;
+	struct desktop_shell *shell = shell_output->shell;
 
 	shell_for_each_layer(shell, shell_output_changed_move_layer, NULL);
 
-	if (output_listener->panel_surface)
-		wl_list_remove(&output_listener->panel_surface_listener.link);
-	if (output_listener->background_surface)
-		wl_list_remove(&output_listener->background_surface_listener.link);
-	wl_list_remove(&output_listener->destroy_listener.link);
-	wl_list_remove(&output_listener->link);
-	free(output_listener);
+	if (shell_output->panel_surface)
+		wl_list_remove(&shell_output->panel_surface_listener.link);
+	if (shell_output->background_surface)
+		wl_list_remove(&shell_output->background_surface_listener.link);
+	wl_list_remove(&shell_output->destroy_listener.link);
+	wl_list_remove(&shell_output->link);
+	free(shell_output);
 }
 
 static void
