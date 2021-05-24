@@ -4866,13 +4866,24 @@ shell_output_changed_move_layer(struct desktop_shell *shell,
 }
 
 static void
-handle_output_destroy(struct wl_listener *listener, void *data)
+shell_output_destroy(struct shell_output *shell_output)
 {
-	struct shell_output *shell_output =
-		container_of(listener, struct shell_output, destroy_listener);
 	struct desktop_shell *shell = shell_output->shell;
 
 	shell_for_each_layer(shell, shell_output_changed_move_layer, NULL);
+
+	if (shell_output->fade.animation) {
+		weston_view_animation_destroy(shell_output->fade.animation);
+		shell_output->fade.animation = NULL;
+	}
+
+	if (shell_output->fade.view) {
+		/* destroys the view as well */
+		weston_surface_destroy(shell_output->fade.view->surface);
+	}
+
+	if (shell_output->fade.startup_timer)
+		wl_event_source_remove(shell_output->fade.startup_timer);
 
 	if (shell_output->panel_surface)
 		wl_list_remove(&shell_output->panel_surface_listener.link);
@@ -4881,6 +4892,15 @@ handle_output_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell_output->destroy_listener.link);
 	wl_list_remove(&shell_output->link);
 	free(shell_output);
+}
+
+static void
+handle_output_destroy(struct wl_listener *listener, void *data)
+{
+	struct shell_output *shell_output =
+		container_of(listener, struct shell_output, destroy_listener);
+
+	shell_output_destroy(shell_output);
 }
 
 static void
@@ -5014,11 +5034,8 @@ shell_destroy(struct wl_listener *listener, void *data)
 	text_backend_destroy(shell->text_backend);
 	input_panel_destroy(shell);
 
-	wl_list_for_each_safe(shell_output, tmp, &shell->output_list, link) {
-		wl_list_remove(&shell_output->destroy_listener.link);
-		wl_list_remove(&shell_output->link);
-		free(shell_output);
-	}
+	wl_list_for_each_safe(shell_output, tmp, &shell->output_list, link)
+		shell_output_destroy(shell_output);
 
 	wl_list_remove(&shell->output_create_listener.link);
 	wl_list_remove(&shell->output_move_listener.link);
