@@ -42,6 +42,13 @@
 
 struct client {
 	struct wl_display *wl_display;
+
+	/*
+	 * Have successfully received an expected protocol error, the
+	 * connection is in error state, and that is ok.
+	 */
+	bool errored_ok;
+
 	struct wl_registry *wl_registry;
 	struct wl_compositor *wl_compositor;
 	struct wl_shm *wl_shm;

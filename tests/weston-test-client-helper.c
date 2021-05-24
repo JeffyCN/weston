@@ -927,6 +927,8 @@ expect_protocol_error(struct client *client,
 	/* all OK */
 	testlog("Got expected protocol error on '%s' (object id: %d) "
 		"with code %d\n", interface->name, id, errcode);
+
+	client->errored_ok = true;
 }
 
 static void
@@ -1046,6 +1048,8 @@ create_client_and_test_surface(int x, int y, int width, int height)
 void
 client_destroy(struct client *client)
 {
+	int ret;
+
 	if (client->surface)
 		surface_destroy(client->surface);
 
@@ -1078,10 +1082,12 @@ client_destroy(struct client *client)
 	if (client->wl_registry)
 		wl_registry_destroy(client->wl_registry);
 
-	client_roundtrip(client);
-
-	if (client->wl_display)
+	if (client->wl_display) {
+		ret = wl_display_roundtrip(client->wl_display);
+		assert(client->errored_ok || ret >= 0);
 		wl_display_disconnect(client->wl_display);
+	}
+
 	free(client);
 }
 
