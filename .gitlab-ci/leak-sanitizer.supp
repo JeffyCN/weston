@@ -1,0 +1,5 @@
+# AddressSanitizer memory leak suppressions
+
+# Cairo internal leaks from weston-keyboard
+leak:cairo_select_font_face
+leak:cairo_text_extents
