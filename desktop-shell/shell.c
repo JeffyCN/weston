@@ -5024,6 +5024,8 @@ shell_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->output_move_listener.link);
 	wl_list_remove(&shell->resized_listener.link);
 
+	weston_desktop_destroy(shell->desktop);
+
 	wl_array_for_each(ws, &shell->workspaces.array)
 		workspace_destroy(*ws);
 	wl_array_release(&shell->workspaces.array);
