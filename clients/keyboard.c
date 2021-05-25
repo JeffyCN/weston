@@ -60,6 +60,7 @@ struct virtual_keyboard {
 	uint32_t surrounding_cursor;
 	struct keyboard *keyboard;
 	bool toplevel;
+	struct zwp_input_panel_surface_v1 *ips;
 };
 
 enum key_type {
@@ -969,6 +970,7 @@ set_toplevel(struct output *output, struct virtual_keyboard *virtual_keyboard)
 						ZWP_INPUT_PANEL_SURFACE_V1_POSITION_CENTER_BOTTOM);
 
 	virtual_keyboard->toplevel = true;
+	virtual_keyboard->ips = ips;
 }
 
 static void
@@ -1014,6 +1016,9 @@ keyboard_create(struct virtual_keyboard *virtual_keyboard)
 static void
 keyboard_destroy(struct virtual_keyboard *virtual_keyboard)
 {
+	if (virtual_keyboard->ips)
+		zwp_input_panel_surface_v1_destroy(virtual_keyboard->ips);
+
 	if (virtual_keyboard->input_panel)
 		zwp_input_panel_v1_destroy(virtual_keyboard->input_panel);
 
