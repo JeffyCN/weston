@@ -344,9 +344,21 @@ rounded_rect(cairo_t *cr, int x0, int y0, int x1, int y1, int radius)
 	cairo_close_path(cr);
 }
 
+static void
+loaded_cairo_surface_destructor(void *data)
+{
+	pixman_image_t *image = data;
+
+	pixman_image_unref(image);
+}
+
+static const cairo_user_data_key_t weston_cairo_util_load_cairo_surface_key;
+
 cairo_surface_t *
 load_cairo_surface(const char *filename)
 {
+	cairo_surface_t *surface;
+	cairo_status_t ret;
 	pixman_image_t *image;
 	int width, height, stride;
 	void *data;
@@ -361,8 +373,25 @@ load_cairo_surface(const char *filename)
 	height = pixman_image_get_height(image);
 	stride = pixman_image_get_stride(image);
 
-	return cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32,
-						   width, height, stride);
+	surface = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32,
+						      width, height, stride);
+	ret = cairo_surface_status(surface);
+	if (ret != CAIRO_STATUS_SUCCESS)
+		goto fail;
+
+	ret = cairo_surface_set_user_data(surface,
+					  &weston_cairo_util_load_cairo_surface_key,
+					  image,
+					  loaded_cairo_surface_destructor);
+	if (ret != CAIRO_STATUS_SUCCESS)
+		goto fail;
+
+	return surface;
+
+fail:
+	cairo_surface_destroy(surface);
+	pixman_image_unref(image);
+	return NULL;
 }
 
 void
