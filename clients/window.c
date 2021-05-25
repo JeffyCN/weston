@@ -5878,6 +5878,8 @@ output_get_model(struct output *output)
 static void
 fini_xkb(struct input *input)
 {
+	xkb_compose_state_unref(input->xkb.compose_state);
+	xkb_compose_table_unref(input->xkb.compose_table);
 	xkb_state_unref(input->xkb.state);
 	xkb_keymap_unref(input->xkb.keymap);
 }
