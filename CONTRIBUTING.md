@@ -18,7 +18,7 @@ If you have picked an issue you would like to work on, you may want to mention
 in the issue tracker that you would like to pick it up. You can also discuss
 it with the developers in the issue tracker, or on the
 [mailing list](https://lists.freedesktop.org/mailman/listinfo/wayland-devel).
-Many developers also use IRC through [Freenode](https://freenode.net)'s
+Many developers also use IRC through [OFTC](https://www.oftc.net/)'s
 `#wayland` channel; however you may need to wait some time for a response on
 IRC, which requires keeping your client connected. If you cannot stay for a
 long time (potentially some hours due to timezone differences), then you
