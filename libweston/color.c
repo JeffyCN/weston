@@ -32,6 +32,77 @@
 #include "libweston-internal.h"
 
 /**
+ * Increase reference count of the color profile object
+ *
+ * \param cprof The color profile. NULL is accepted too.
+ * \return cprof.
+ */
+WL_EXPORT struct weston_color_profile *
+weston_color_profile_ref(struct weston_color_profile *cprof)
+{
+	/* NULL is a valid color space: sRGB */
+	if (!cprof)
+		return NULL;
+
+	assert(cprof->ref_count > 0);
+	cprof->ref_count++;
+	return cprof;
+}
+
+/**
+ * Decrease reference count and potentially destroy the color profile object
+ *
+ * \param cprof The color profile. NULL is accepted too.
+ */
+WL_EXPORT void
+weston_color_profile_unref(struct weston_color_profile *cprof)
+{
+	if (!cprof)
+		return;
+
+	assert(cprof->ref_count > 0);
+	if (--cprof->ref_count > 0)
+		return;
+
+	cprof->cm->destroy_color_profile(cprof);
+}
+
+/**
+ * Get color profile description
+ *
+ * A description of the profile is meant for human readable logs.
+ *
+ * \param cprof The color profile, NULL is accepted too.
+ * \returns The color profile description, valid as long as the
+ * color profile itself is.
+ */
+WL_EXPORT const char *
+weston_color_profile_get_description(struct weston_color_profile *cprof)
+{
+	if (cprof)
+		return cprof->description;
+	else
+		return "built-in default sRGB SDR profile";
+}
+
+/**
+ * Initializes a newly allocated color profile object
+ *
+ * This is used only by color managers. They sub-class weston_color_profile.
+ *
+ * The reference count starts at 1.
+ *
+ * To destroy a weston_color_profile, use weston_color_profile_unref().
+ */
+WL_EXPORT void
+weston_color_profile_init(struct weston_color_profile *cprof,
+			  struct weston_color_manager *cm)
+{
+	cprof->cm = cm;
+	cprof->ref_count = 1;
+}
+
+/**
  * Increase reference count of the color transform object
  *
  * \param xform The color transform. NULL is accepted too.

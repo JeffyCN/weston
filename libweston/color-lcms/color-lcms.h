@@ -38,6 +38,7 @@ struct weston_color_manager_lcms {
 	cmsContext lcms_ctx;
 
 	struct wl_list color_transform_list; /* cmlcms_color_transform::link */
+	struct wl_list color_profile_list; /* cmlcms_color_profile::link */
 };
 
 static inline struct weston_color_manager_lcms *
@@ -45,6 +46,37 @@ get_cmlcms(struct weston_color_manager *cm_base)
 {
 	return container_of(cm_base, struct weston_color_manager_lcms, base);
 }
+
+struct cmlcms_md5_sum {
+	uint8_t bytes[16];
+};
+
+struct cmlcms_color_profile {
+	struct weston_color_profile base;
+
+	/* struct weston_color_manager_lcms::color_profile_list */
+	struct wl_list link;
+
+	cmsHPROFILE profile;
+	struct cmlcms_md5_sum md5sum;
+};
+
+static inline struct cmlcms_color_profile *
+get_cprof(struct weston_color_profile *cprof_base)
+{
+	return container_of(cprof_base, struct cmlcms_color_profile, base);
+}
+
+bool
+cmlcms_get_color_profile_from_icc(struct weston_color_manager *cm,
+				  const void *icc_data,
+				  size_t icc_len,
+				  const char *name_part,
+				  struct weston_color_profile **cprof_out,
+				  char **errmsg);
+
+void
+cmlcms_destroy_color_profile(struct weston_color_profile *cprof_base);
 
 /*
  * Perhaps a placeholder, until we get actual color spaces involved and

@@ -27,7 +27,19 @@
 #define WESTON_COLOR_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <libweston/libweston.h>
+
+/**
+ * Represents a color profile description (an ICC color profile)
+ *
+ * Sub-classed by the color manager that created this.
+ */
+struct weston_color_profile {
+	struct weston_color_manager *cm;
+	int ref_count;
+	char *description;
+};
 
 /** Type or formula for a curve */
 enum weston_color_curve_type {
@@ -161,6 +173,35 @@ struct weston_color_manager {
 	void
 	(*destroy)(struct weston_color_manager *cm);
 
+	/** Destroy a color profile after refcount fell to zero */
+	void
+	(*destroy_color_profile)(struct weston_color_profile *cprof);
+
+	/** Create a color profile from ICC data
+	 *
+	 * \param cm The color manager.
+	 * \param icc_data Pointer to the ICC binary data.
+	 * \param icc_len Length of the ICC data in bytes.
+	 * \param name_part A string to be used in describing the profile.
+	 * \param cprof_out On success, the created object is returned here.
+	 * On failure, untouched.
+	 * \param errmsg On success, untouched. On failure, a pointer to a
+	 * string describing the error is stored here. The string must be
+	 * free()'d.
+	 * \return True on success, false on failure.
+	 *
+	 * This may return a new reference to an existing color profile if
+	 * that profile is identical to the one that would be created, apart
+	 * from name_part.
+	 */
+	bool
+	(*get_color_profile_from_icc)(struct weston_color_manager *cm,
+				      const void *icc_data,
+				      size_t icc_len,
+				      const char *name_part,
+				      struct weston_color_profile **cprof_out,
+				      char **errmsg);
+
 	/** Destroy a color transform after refcount fell to zero */
 	void
 	(*destroy_color_transform)(struct weston_color_transform *xform);
@@ -230,6 +271,10 @@ struct weston_color_manager {
 					     struct weston_output *output,
 					     struct weston_color_transform **xform_out);
 };
+
+void
+weston_color_profile_init(struct weston_color_profile *cprof,
+			  struct weston_color_manager *cm);
 
 struct weston_color_transform *
 weston_color_transform_ref(struct weston_color_transform *xform);

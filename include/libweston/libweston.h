@@ -79,6 +79,7 @@ struct linux_dmabuf_buffer;
 struct weston_recorder;
 struct weston_pointer_constraint;
 struct ro_anonymous_file;
+struct weston_color_profile;
 struct weston_color_transform;
 
 enum weston_keyboard_modifier {
@@ -2125,6 +2126,15 @@ weston_compositor_enable_content_protection(struct weston_compositor *compositor
 void
 weston_timeline_refresh_subscription_objects(struct weston_compositor *wc,
 					     void *object);
+
+struct weston_color_profile *
+weston_color_profile_ref(struct weston_color_profile *cprof);
+
+void
+weston_color_profile_unref(struct weston_color_profile *cprof);
+
+const char *
+weston_color_profile_get_description(struct weston_color_profile *cprof);
 
 #ifdef  __cplusplus
 }

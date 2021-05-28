@@ -159,6 +159,7 @@ cmlcms_destroy(struct weston_color_manager *cm_base)
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
 
 	assert(wl_list_empty(&cm->color_transform_list));
+	assert(wl_list_empty(&cm->color_profile_list));
 
 	cmsDeleteContext(cm->lcms_ctx);
 	free(cm);
@@ -178,6 +179,8 @@ weston_color_manager_create(struct weston_compositor *compositor)
 	cm->base.supports_client_protocol = true;
 	cm->base.init = cmlcms_init;
 	cm->base.destroy = cmlcms_destroy;
+	cm->base.destroy_color_profile = cmlcms_destroy_color_profile;
+	cm->base.get_color_profile_from_icc = cmlcms_get_color_profile_from_icc;
 	cm->base.destroy_color_transform = cmlcms_destroy_color_transform;
 	cm->base.get_surface_color_transform =
 	      cmlcms_get_surface_color_transform;
@@ -188,6 +191,7 @@ weston_color_manager_create(struct weston_compositor *compositor)
 	      cmlcms_get_sRGB_to_blend_color_transform;
 
 	wl_list_init(&cm->color_transform_list);
+	wl_list_init(&cm->color_profile_list);
 
 	return &cm->base;
 }
