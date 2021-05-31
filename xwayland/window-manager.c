@@ -1555,6 +1555,10 @@ weston_wm_window_destroy(struct weston_wm_window *window)
 	if (window->surface)
 		wl_list_remove(&window->surface_destroy_listener.link);
 
+	free(window->class);
+	free(window->name);
+	free(window->machine);
+
 	hash_table_remove(window->wm->window_hash, window->id);
 	free(window);
 }
