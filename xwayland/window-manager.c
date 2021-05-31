@@ -2668,6 +2668,7 @@ weston_wm_destroy(struct weston_wm *wm)
 	/* FIXME: Free windows in hash. */
 	hash_table_destroy(wm->window_hash);
 	weston_wm_destroy_cursors(wm);
+	theme_destroy(wm->theme);
 	xcb_disconnect(wm->conn);
 	wl_event_source_remove(wm->source);
 	wl_list_remove(&wm->selection_listener.link);
