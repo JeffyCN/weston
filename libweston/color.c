@@ -1,4 +1,5 @@
 /*
+ * Copyright 2019 Sebastian Wick
  * Copyright 2021 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -27,6 +28,13 @@
 
 #include <libweston/libweston.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <string.h>
 
 #include "color.h"
 #include "libweston-internal.h"
@@ -219,4 +227,71 @@ weston_paint_node_ensure_color_transform(struct weston_paint_node *pnode)
 			wl_resource_post_no_memory(surface->resource);
 		weston_log("Failed to create color transformation for a surface.\n");
 	}
+}
+
+/**
+ * Load ICC profile file
+ *
+ * Loads an ICC profile file, ensures it is fit for use, and returns a
+ * new reference to the weston_color_profile. Use weston_color_profile_unref()
+ * to free it.
+ *
+ * \param compositor The compositor instance, identifies the color manager.
+ * \param path Path to the ICC file to be open()'d.
+ * \return A color profile reference, or NULL on failure.
+ *
+ * Error messages are printed to libweston log.
+ *
+ * This function is not meant for loading profiles on behalf of Wayland
+ * clients.
+ */
+WL_EXPORT struct weston_color_profile *
+weston_compositor_load_icc_file(struct weston_compositor *compositor,
+				const char *path)
+{
+	struct weston_color_manager *cm = compositor->color_manager;
+	struct weston_color_profile *cprof = NULL;
+	int fd;
+	struct stat icc_stat;
+	void *icc_data;
+	size_t len;
+	char *errmsg = NULL;
+
+	fd = open(path, O_RDONLY);
+	if (fd == -1) {
+		weston_log("Error: Cannot open ICC profile \"%s\" for reading: %s\n",
+			   path, strerror(errno));
+		return NULL;
+	}
+
+	if (fstat(fd, &icc_stat) != 0) {
+		weston_log("Error: Cannot fstat ICC profile \"%s\": %s\n",
+			   path, strerror(errno));
+		goto out_close;
+	}
+	len = icc_stat.st_size;
+	if (len < 1) {
+		weston_log("Error: ICC profile \"%s\" has no size.\n", path);
+		goto out_close;
+	}
+
+	icc_data = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (icc_data == MAP_FAILED) {
+		weston_log("Error: Cannot mmap ICC profile \"%s\": %s\n",
+			   path, strerror(errno));
+		goto out_close;
+	}
+
+	if (!cm->get_color_profile_from_icc(cm, icc_data, len,
+					    path, &cprof, &errmsg)) {
+		weston_log("Error: loading ICC profile \"%s\" failed: %s\n",
+			   path, errmsg);
+		free(errmsg);
+	}
+
+	munmap(icc_data, len);
+
+out_close:
+	close(fd);
+	return cprof;
 }
