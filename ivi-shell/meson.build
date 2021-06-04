@@ -50,7 +50,10 @@ if get_option('shell-ivi')
 
 	ivi_test_config = configuration_data()
 	ivi_test_config.set('bindir', dir_bin)
-	ivi_test_config.set('libexecdir', dir_libexec)
-	ivi_test_config.set('plugin_prefix', meson.current_build_dir())
-	ivi_test_config.set('westondatadir', join_paths(dir_data, 'weston'))
+	ivi_test_config.set('westondatadir', dir_data / 'weston')
+	configure_file(
+		input: 'weston.ini.in',
+		output: 'weston.ini',
+		configuration: ivi_test_config
+	)
 endif
