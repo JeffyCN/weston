@@ -937,5 +937,6 @@ wet_shell_init(struct weston_compositor *compositor,
 			 &zwp_fullscreen_shell_v1_interface, 1, shell,
 			 bind_fullscreen_shell);
 
+	screenshooter_create(compositor);
 	return 0;
 }
