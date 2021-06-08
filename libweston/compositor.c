@@ -6273,6 +6273,39 @@ weston_output_reset_color_transforms(struct weston_output *output)
 	output->from_blend_to_output = NULL;
 }
 
+static bool
+weston_output_set_color_transforms(struct weston_output *output)
+{
+	struct weston_color_manager *cm = output->compositor->color_manager;
+	struct weston_color_transform *blend_to_output = NULL;
+	struct weston_color_transform *sRGB_to_output = NULL;
+	struct weston_color_transform *sRGB_to_blend = NULL;
+	bool ok;
+
+	ok = cm->get_output_color_transform(cm, output, &blend_to_output);
+	ok = ok && cm->get_sRGB_to_output_color_transform(cm, output,
+							  &sRGB_to_output);
+	ok = ok && cm->get_sRGB_to_blend_color_transform(cm, output,
+							 &sRGB_to_blend);
+	if (!ok) {
+		weston_log("Creating color transformation for output \"%s\" failed.\n",
+			   output->name);
+		weston_color_transform_unref(blend_to_output);
+		weston_color_transform_unref(sRGB_to_output);
+		weston_color_transform_unref(sRGB_to_blend);
+
+		return false;
+	}
+
+	weston_output_reset_color_transforms(output);
+	output->from_blend_to_output = blend_to_output;
+	output->from_blend_to_output_by_backend = false;
+	output->from_sRGB_to_output = sRGB_to_output;
+	output->from_sRGB_to_blend = sRGB_to_blend;
+
+	return true;
+}
+
 /** Removes output from compositor's list of enabled outputs
  *
  * \param output The weston_output object that is being removed.
@@ -6588,12 +6621,10 @@ WL_EXPORT int
 weston_output_enable(struct weston_output *output)
 {
 	struct weston_compositor *c = output->compositor;
-	struct weston_color_manager *cm = c->color_manager;
 	struct weston_output *iterator;
 	struct weston_head *head;
 	char *head_names;
 	int x = 0, y = 0;
-	bool ok;
 
 	if (output->enabled) {
 		weston_log("Error: attempt to enable an enabled output '%s'\n",
@@ -6649,19 +6680,8 @@ weston_output_enable(struct weston_output *output)
 	wl_list_init(&output->paint_node_list);
 	wl_list_init(&output->paint_node_z_order_list);
 
-	ok = cm->get_output_color_transform(cm, output,
-					    &output->from_blend_to_output);
-	ok = ok && cm->get_sRGB_to_output_color_transform(cm, output,
-							  &output->from_sRGB_to_output);
-	ok = ok && cm->get_sRGB_to_blend_color_transform(cm, output,
-							 &output->from_sRGB_to_blend);
-	if (!ok) {
-		weston_log("Creating color transformation for output \"%s\" failed.\n",
-			   output->name);
-		weston_output_reset_color_transforms(output);
+	if (!weston_output_set_color_transforms(output))
 		return -1;
-	}
-	output->from_blend_to_output_by_backend = false;
 
 	/* Enable the output (set up the crtc or create a
 	 * window representing the output, set up the
