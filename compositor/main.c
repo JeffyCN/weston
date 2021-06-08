@@ -126,6 +126,7 @@ struct wet_compositor {
 	struct wl_list child_process_list;
 	pid_t autolaunch_pid;
 	bool autolaunch_watch;
+	bool use_color_manager;
 };
 
 static FILE *weston_logfile = NULL;
@@ -1095,6 +1096,7 @@ static int
 weston_compositor_init_config(struct weston_compositor *ec,
 			      struct weston_config *config)
 {
+	struct wet_compositor *compositor = to_wet_compositor(ec);
 	struct xkb_rule_names xkb_names;
 	struct weston_config_section *s;
 	int repaint_msec;
@@ -1143,6 +1145,8 @@ weston_compositor_init_config(struct weston_compositor *ec,
 	if (color_management) {
 		if (weston_compositor_load_color_manager(ec) < 0)
 			return -1;
+		else
+			compositor->use_color_manager = true;
 	}
 
 	/* weston.ini [libinput] */
@@ -1302,6 +1306,48 @@ wet_output_set_transform(struct weston_output *output,
 	return 0;
 }
 
+static int
+wet_output_set_color_profile(struct weston_output *output,
+			     struct weston_config_section *section,
+			     struct weston_color_profile *parent_winsys_profile)
+{
+	struct wet_compositor *compositor = to_wet_compositor(output->compositor);
+	struct weston_color_profile *cprof;
+	char *icc_file = NULL;
+	bool ok;
+
+	if (!compositor->use_color_manager)
+		return 0;
+
+	if (section) {
+		weston_config_section_get_string(section, "icc_profile",
+						 &icc_file, NULL);
+	}
+
+	if (icc_file) {
+		cprof = weston_compositor_load_icc_file(output->compositor,
+							icc_file);
+		free(icc_file);
+	} else if (parent_winsys_profile) {
+		cprof = weston_color_profile_ref(parent_winsys_profile);
+	} else {
+		return 0;
+	}
+
+	if (!cprof)
+		return -1;
+
+	ok = weston_output_set_color_profile(output, cprof);
+	if (!ok) {
+		weston_log("Error: failed to set color profile '%s' for output %s\n",
+			   weston_color_profile_get_description(cprof),
+			   output->name);
+	}
+
+	weston_color_profile_unref(cprof);
+	return ok ? 0 : -1;
+}
+
 static void
 allow_content_protection(struct weston_output *output,
 			struct weston_config_section *section)
@@ -1365,6 +1411,9 @@ wet_configure_windowed_output_from_config(struct weston_output *output,
 				     parsed_options->transform) < 0) {
 		return -1;
 	}
+
+	if (wet_output_set_color_profile(output, section, NULL) < 0)
+		return -1;
 
 	if (api->output_set_size(output, width, height) < 0) {
 		weston_log("Cannot configure output \"%s\" using weston_windowed_output_api.\n",
@@ -1805,6 +1854,9 @@ drm_backend_output_configure(struct weston_output *output,
 				     UINT32_MAX) < 0) {
 		return -1;
 	}
+
+	if (wet_output_set_color_profile(output, section, NULL) < 0)
+		return -1;
 
 	weston_config_section_get_string(section,
 					 "gbm-format", &gbm_format, NULL);
@@ -2305,6 +2357,9 @@ drm_backend_remoted_output_configure(struct weston_output *output,
 		return -1;
 	};
 
+	if (wet_output_set_color_profile(output, section, NULL) < 0)
+		return -1;
+
 	weston_config_section_get_string(section, "gbm-format", &gbm_format,
 					 NULL);
 	api->set_gbm_format(output, gbm_format);
@@ -2455,6 +2510,9 @@ drm_backend_pipewire_output_configure(struct weston_output *output,
 				     UINT32_MAX) < 0) {
 		return -1;
 	}
+
+	if (wet_output_set_color_profile(output, section, NULL) < 0)
+		return -1;
 
 	weston_config_section_get_string(section, "seat", &seat, "");
 

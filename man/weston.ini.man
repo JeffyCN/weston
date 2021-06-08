@@ -545,6 +545,14 @@ An integer, 1 by default, typically configured as 2 or higher when needed,
 denoting the scaling multiplier for the output.
 .RE
 .TP 7
+.BI "icc_profile=" file
+If option
+.B color-management
+is true, load the given ICC file as the output color profile. This works only
+on DRM, headless, wayland, and x11 backends, and for remoting and pipewire
+outputs.
+.RE
+.TP 7
 .BI "seat=" name
 The logical seat name that this output should be associated with. If this
 is set then the seat's input will be confined to the output that has the seat
