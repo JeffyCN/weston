@@ -72,7 +72,7 @@ cmnoop_get_surface_color_transform(struct weston_color_manager *cm_base,
 				   struct weston_surface_color_transform *surf_xform)
 {
 	/* TODO: Assert surface has no colorspace set */
-	/* TODO: Assert output has no colorspace set */
+	assert(output->color_profile == NULL);
 
 	/* Identity transform */
 	surf_xform->transform = NULL;
@@ -86,7 +86,7 @@ cmnoop_get_output_color_transform(struct weston_color_manager *cm_base,
 				  struct weston_output *output,
 				  struct weston_color_transform **xform_out)
 {
-	/* TODO: Assert output has no colorspace set */
+	assert(output->color_profile == NULL);
 
 	/* Identity transform */
 	*xform_out = NULL;
@@ -99,7 +99,7 @@ cmnoop_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
 					  struct weston_output *output,
 					  struct weston_color_transform **xform_out)
 {
-	/* TODO: Assert output has no colorspace set */
+	assert(output->color_profile == NULL);
 
 	/* Identity transform */
 	*xform_out = NULL;
@@ -112,7 +112,7 @@ cmnoop_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
 					 struct weston_output *output,
 					 struct weston_color_transform **xform_out)
 {
-	/* TODO: Assert output has no colorspace set */
+	assert(output->color_profile == NULL);
 
 	/* Identity transform */
 	*xform_out = NULL;

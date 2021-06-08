@@ -57,6 +57,10 @@ cmlcms_get_surface_color_transform(struct weston_color_manager *cm_base,
 	};
 	struct cmlcms_color_transform *xform;
 
+	/* TODO: use output color profile */
+	if (output->color_profile)
+		return false;
+
 	xform = cmlcms_color_transform_get(cm, &param);
 	if (!xform)
 		return false;
@@ -82,6 +86,10 @@ cmlcms_get_output_color_transform(struct weston_color_manager *cm_base,
 	};
 	struct cmlcms_color_transform *xform;
 
+	/* TODO: use output color profile */
+	if (output->color_profile)
+		return false;
+
 	xform = cmlcms_color_transform_get(cm, &param);
 	if (!xform)
 		return false;
@@ -96,6 +104,11 @@ cmlcms_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
 					  struct weston_color_transform **xform_out)
 {
 	/* Assumes output color space is sRGB SDR */
+
+	/* TODO: use output color profile */
+	if (output->color_profile)
+		return false;
+
 	/* Identity transform */
 	*xform_out = NULL;
 
@@ -113,6 +126,10 @@ cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
 		.type = CMLCMS_TYPE_EOTF_sRGB,
 	};
 	struct cmlcms_color_transform *xform;
+
+	/* TODO: use output color profile */
+	if (output->color_profile)
+		return false;
 
 	xform = cmlcms_color_transform_get(cm, &param);
 	if (!xform)

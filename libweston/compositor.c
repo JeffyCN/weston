@@ -6303,6 +6303,9 @@ weston_output_set_color_transforms(struct weston_output *output)
 	output->from_sRGB_to_output = sRGB_to_output;
 	output->from_sRGB_to_blend = sRGB_to_blend;
 
+	weston_log("Output '%s' using color profile: %s\n", output->name,
+		   weston_color_profile_get_description(output->color_profile));
+
 	return true;
 }
 
@@ -6488,6 +6491,52 @@ weston_output_set_transform(struct weston_output *output,
 							      NULL))
 			weston_pointer_move(pointer, &ev);
 	}
+}
+
+/** Set output's color profile
+ *
+ * \param output The output to change.
+ * \param cprof The color profile to set. Can be NULL for default sRGB profile.
+ * \return True on success, or false on failure.
+ *
+ * Calling this function changes the color profile of the output. This causes
+ * all existing weston_color_transform objects related to this output via
+ * paint nodes to be unreferenced and later re-created on demand.
+ *
+ * This function may not be called from within weston_output_repaint().
+ *
+ * On failure, nothing is changed.
+ *
+ * \ingroup output
+ */
+WL_EXPORT bool
+weston_output_set_color_profile(struct weston_output *output,
+				struct weston_color_profile *cprof)
+{
+	struct weston_color_profile *old;
+	struct weston_paint_node *pnode;
+
+	old = output->color_profile;
+	output->color_profile = weston_color_profile_ref(cprof);
+
+	if (output->enabled) {
+		if (!weston_output_set_color_transforms(output)) {
+			/* Failed, roll back */
+			weston_color_profile_unref(output->color_profile);
+			output->color_profile = old;
+			return false;
+		}
+
+		/* Remove outdated cached color transformations */
+		wl_list_for_each(pnode, &output->paint_node_list, output_link) {
+			weston_surface_color_transform_fini(&pnode->surf_xform);
+			pnode->surf_xform_valid = false;
+		}
+	}
+
+	weston_color_profile_unref(old);
+
+	return true;
 }
 
 /** Initializes a weston_output object with enough data so
@@ -6847,6 +6896,8 @@ weston_output_release(struct weston_output *output)
 
 	if (output->enabled)
 		weston_compositor_remove_output(output);
+
+	weston_color_profile_unref(output->color_profile);
 
 	pixman_region32_fini(&output->region);
 	wl_list_remove(&output->link);

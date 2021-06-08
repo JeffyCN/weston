@@ -374,6 +374,7 @@ struct weston_output {
 	bool enabled; /**< is in the output_list, not pending list */
 	int scale;
 
+	struct weston_color_profile *color_profile;
 	struct weston_color_transform *from_sRGB_to_output;
 	struct weston_color_transform *from_sRGB_to_blend;
 	struct weston_color_transform *from_blend_to_output;
@@ -2082,6 +2083,10 @@ weston_output_set_scale(struct weston_output *output,
 void
 weston_output_set_transform(struct weston_output *output,
 			    uint32_t transform);
+
+bool
+weston_output_set_color_profile(struct weston_output *output,
+				struct weston_color_profile *cprof);
 
 void
 weston_output_init(struct weston_output *output,

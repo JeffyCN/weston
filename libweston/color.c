@@ -179,6 +179,8 @@ void
 weston_surface_color_transform_fini(struct weston_surface_color_transform *surf_xform)
 {
 	weston_color_transform_unref(surf_xform->transform);
+	surf_xform->transform = NULL;
+	surf_xform->identity_pipeline = false;
 }
 
 /**
