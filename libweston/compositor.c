@@ -6719,8 +6719,11 @@ weston_output_disable(struct weston_output *output)
 	if (output->disable(output) < 0)
 		return;
 
-	if (output->enabled)
+	if (output->enabled) {
 		weston_compositor_remove_output(output);
+
+		assert(wl_list_empty(&output->paint_node_list));
+	}
 
 	output->destroying = 0;
 }
@@ -6815,8 +6818,6 @@ weston_output_release(struct weston_output *output)
 
 	if (output->enabled)
 		weston_compositor_remove_output(output);
-
-	assert(wl_list_empty(&output->paint_node_list));
 
 	pixman_region32_fini(&output->region);
 	wl_list_remove(&output->link);
