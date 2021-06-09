@@ -130,6 +130,7 @@ pointer_handle_enter(void *data, struct wl_pointer *wl_pointer,
 	else
 		pointer->focus = NULL;
 
+	pointer->serial = serial;
 	pointer->x = wl_fixed_to_int(x);
 	pointer->y = wl_fixed_to_int(y);
 
@@ -143,6 +144,7 @@ pointer_handle_leave(void *data, struct wl_pointer *wl_pointer,
 {
 	struct pointer *pointer = data;
 
+	pointer->serial = serial;
 	pointer->focus = NULL;
 
 	testlog("test-client: got pointer leave, surface %p\n",
@@ -172,6 +174,7 @@ pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
 {
 	struct pointer *pointer = data;
 
+	pointer->serial = serial;
 	pointer->button = button;
 	pointer->state = state;
 	pointer->button_time_msec = time_msec;

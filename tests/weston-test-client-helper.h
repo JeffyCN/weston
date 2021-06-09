@@ -99,6 +99,7 @@ struct input {
 struct pointer {
 	struct wl_pointer *wl_pointer;
 	struct surface *focus;
+	uint32_t serial;
 	int x;
 	int y;
 	uint32_t button;
