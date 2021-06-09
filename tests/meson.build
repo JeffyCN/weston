@@ -158,6 +158,7 @@ tests = [
 			input_timestamps_unstable_v1_protocol_c,
 		],
 	},
+	{	'name': 'pointer-shot', },
 	{
 		'name': 'presentation',
 		'sources': [
