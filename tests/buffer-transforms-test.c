@@ -147,4 +147,5 @@ TEST_P(buffer_transform, my_buffer_args)
 	assert(match);
 
 	client_destroy(client);
+	free(refname);
 }
