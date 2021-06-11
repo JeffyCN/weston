@@ -388,8 +388,18 @@ egl_image_ref(struct egl_image *image)
 static int
 egl_image_unref(struct egl_image *image)
 {
-	struct gl_renderer *gr = image->renderer;
+	struct gl_renderer *gr;
 
+	/* in multi-planar cases, egl_image_create() might fail on an
+	 * intermediary step resulting in egl_image being NULL. In order to go
+	 * over all successful ones, and avoid leaking one of them (the last
+	 * one), we'll have to guard against it -- until we'll have a correct
+	 * way of disposing of any previous created images.
+	 */
+	if (!image)
+		return 0;
+
+	gr = image->renderer;
 	assert(image->refcount > 0);
 
 	image->refcount--;
@@ -2107,7 +2117,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 		egl_image_unref(gs->images[i]);
 		gs->images[i] = NULL;
 	}
-	gs->num_images = 0;
 	es->is_opaque = false;
 	switch (format) {
 	case EGL_TEXTURE_RGB:
@@ -2139,6 +2148,7 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 		break;
 	}
 
+	gs->num_images = num_planes;
 	target = gl_shader_texture_variant_get_target(gs->shader_variant);
 	ensure_textures(gs, target, num_planes);
 	for (i = 0; i < num_planes; i++) {
@@ -2153,7 +2163,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 			weston_log("failed to create img for plane %d\n", i);
 			continue;
 		}
-		gs->num_images++;
 
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(target, gs->textures[i]);
