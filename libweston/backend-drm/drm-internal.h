@@ -511,6 +511,7 @@ struct drm_output {
 	struct drm_fb *gbm_cursor_fb[2];
 	struct drm_plane *cursor_plane;
 	struct weston_view *cursor_view;
+	struct wl_listener cursor_view_destroy_listener;
 	int current_cursor;
 
 	struct gbm_surface *gbm_surface;
@@ -687,6 +688,9 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 struct drm_fb *
 drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 		   bool is_opaque, enum drm_fb_type type);
+
+void
+drm_output_set_cursor_view(struct drm_output *output, struct weston_view *ev);
 
 #ifdef BUILD_DRM_GBM
 extern struct drm_fb *

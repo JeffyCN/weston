@@ -381,7 +381,7 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 		needs_update = true;
 	}
 
-	output->cursor_view = ev;
+	drm_output_set_cursor_view(output, ev);
 	plane_state->ev = ev;
 
 	plane_state->fb =
@@ -1156,6 +1156,41 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 			drm_output_state_get_existing_plane(state,
 							    output->cursor_plane);
 		if (!plane_state || !plane_state->fb)
-			output->cursor_view = NULL;
+			drm_output_set_cursor_view(output, NULL);
+	}
+}
+
+static void
+drm_output_handle_cursor_view_destroy(struct wl_listener *listener, void *data)
+{
+	struct drm_output *output =
+		container_of(listener, struct drm_output,
+			     cursor_view_destroy_listener);
+
+	drm_output_set_cursor_view(output, NULL);
+}
+
+/** Set the current cursor view used for an output.
+ *
+ * Ensure the stored value will be properly cleared if the view is destroyed.
+ * The stored cursor view helps avoid unnecessary uploads of cursor data to
+ * cursor plane buffer objects (see drm_output_prepare_cursor_view).
+ */
+void
+drm_output_set_cursor_view(struct drm_output *output, struct weston_view *ev)
+{
+	if (output->cursor_view == ev)
+		return;
+
+	if (output->cursor_view)
+		wl_list_remove(&output->cursor_view_destroy_listener.link);
+
+	output->cursor_view = ev;
+
+	if (ev) {
+		output->cursor_view_destroy_listener.notify =
+			drm_output_handle_cursor_view_destroy;
+		wl_signal_add(&ev->destroy_signal,
+			      &output->cursor_view_destroy_listener);
 	}
 }

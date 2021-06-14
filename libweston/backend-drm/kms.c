@@ -669,7 +669,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	 * cursor plane set up.
 	 */
 	if (output->base.disable_planes) {
-		output->cursor_view = NULL;
+		drm_output_set_cursor_view(output, NULL);
 		if (output->cursor_plane) {
 			output->cursor_plane->base.x = INT32_MIN;
 			output->cursor_plane->base.y = INT32_MIN;
@@ -777,7 +777,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	return 0;
 
 err:
-	output->cursor_view = NULL;
+	drm_output_set_cursor_view(output, NULL);
 	drm_output_state_free(state);
 	return -1;
 }

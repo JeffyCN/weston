@@ -1793,6 +1793,8 @@ drm_output_destroy(struct weston_output *base)
 		return;
 	}
 
+	drm_output_set_cursor_view(output, NULL);
+
 	if (output->base.enabled)
 		drm_output_deinit(&output->base);
 
