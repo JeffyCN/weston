@@ -179,5 +179,6 @@ TEST(ivi_application_exists)
 
 	testlog("Successful bind: %p\n", iviapp);
 
+	ivi_application_destroy(iviapp);
 	client_destroy(client);
 }
