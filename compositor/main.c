@@ -3493,6 +3493,7 @@ out_display:
 	free(socket_name);
 	free(option_modules);
 	free(log);
+	free(log_scopes);
 	free(modules);
 
 	return ret;
