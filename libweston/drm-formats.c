@@ -440,6 +440,7 @@ weston_drm_format_array_subtract(struct weston_drm_format_array *formats_A,
 	if (ret < 0)
 		goto err;
 
+	weston_drm_format_array_destroy(formats_result);
 	return 0;
 
 err:
