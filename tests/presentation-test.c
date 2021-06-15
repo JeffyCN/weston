@@ -247,4 +247,6 @@ TEST(test_presentation_feedback_simple)
 	testlog("\n");
 
 	feedback_destroy(fb);
+	wp_presentation_destroy(pres);
+	client_destroy(client);
 }
