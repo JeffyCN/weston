@@ -349,11 +349,9 @@ TEST(intersect_arrays)
         format_array_A = weston_drm_format_array_create();
         format_array_B = weston_drm_format_array_create();
         format_array_C = weston_drm_format_array_create();
-        format_array_result = weston_drm_format_array_create();
         assert(format_array_A);
         assert(format_array_B);
         assert(format_array_C);
-        assert(format_array_result);
 
         ADD_FORMATS_AND_MODS(format_array_A, formats_A, modifiers_A);
         ADD_FORMATS_AND_MODS(format_array_B, formats_B, modifiers_B);
@@ -393,7 +391,7 @@ TEST(intersect_arrays_same_content)
         assert(format_array_result);
         assert(format_array_result->arr.size == 0);
 
-        weston_drm_format_array_fini(format_array_result);
+        weston_drm_format_array_destroy(format_array_result);
 
         /* DRM-format arrays A and B have the same content, so the intersection
          * should be equal to them. */
