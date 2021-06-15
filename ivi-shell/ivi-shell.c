@@ -346,6 +346,8 @@ shell_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->destroy_listener.link);
 	wl_list_remove(&shell->wake_listener.link);
 
+	weston_desktop_destroy(shell->desktop);
+
 	wl_list_for_each_safe(ivisurf, next, &shell->ivi_surface_list, link) {
 		if (ivisurf->layout_surface != NULL)
 			layout_surface_cleanup(ivisurf);
