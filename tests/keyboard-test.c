@@ -105,6 +105,8 @@ TEST(simple_keyboard_test)
 			break;
 		}
 	}
+
+	client_destroy(client);
 }
 
 TEST(keyboard_key_event_time)
@@ -123,6 +125,8 @@ TEST(keyboard_key_event_time)
 	assert(timespec_eq(&keyboard->key_time_timespec, &t2));
 
 	input_timestamps_destroy(input_ts);
+
+	client_destroy(client);
 }
 
 TEST(keyboard_timestamps_stop_after_input_timestamps_object_is_destroyed)
@@ -141,6 +145,8 @@ TEST(keyboard_timestamps_stop_after_input_timestamps_object_is_destroyed)
 	send_key(client, &t2, 1, WL_KEYBOARD_KEY_STATE_RELEASED);
 	assert(keyboard->key_time_msec == timespec_to_msec(&t2));
 	assert(timespec_is_zero(&keyboard->key_time_timespec));
+
+	client_destroy(client);
 }
 
 TEST(keyboard_timestamps_stop_after_client_releases_wl_keyboard)
@@ -166,4 +172,8 @@ TEST(keyboard_timestamps_stop_after_client_releases_wl_keyboard)
 	assert(timespec_eq(&keyboard->input_timestamp, &t_other));
 
 	input_timestamps_destroy(input_ts);
+
+	free(client->input->keyboard);
+	client->input->keyboard = NULL;
+	client_destroy(client);
 }
