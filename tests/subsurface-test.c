@@ -98,6 +98,22 @@ populate_compound_surface(struct compound_surface *com, struct client *client)
 	}
 }
 
+static void
+fini_compound_surface(struct compound_surface *com)
+{
+	int i;
+
+	for (i = 0; i < NUM_SUBSURFACES; i++) {
+		if (com->sub[i])
+			wl_subsurface_destroy(com->sub[i]);
+		if (com->child[i])
+			wl_surface_destroy(com->child[i]);
+	}
+
+	wl_surface_destroy(com->parent);
+	wl_subcompositor_destroy(com->subco);
+}
+
 TEST(test_subsurface_basic_protocol)
 {
 	struct client *client;
@@ -111,6 +127,10 @@ TEST(test_subsurface_basic_protocol)
 	populate_compound_surface(&com2, client);
 
 	client_roundtrip(client);
+
+	fini_compound_surface(&com1);
+	fini_compound_surface(&com2);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_position_protocol)
@@ -128,6 +148,9 @@ TEST(test_subsurface_position_protocol)
 					   (i + 2) * 20, (i + 2) * 10);
 
 	client_roundtrip(client);
+
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_placement_protocol)
@@ -146,6 +169,9 @@ TEST(test_subsurface_placement_protocol)
 	wl_subsurface_place_below(com.sub[1], com.parent);
 
 	client_roundtrip(client);
+
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_paradox)
@@ -153,6 +179,7 @@ TEST(test_subsurface_paradox)
 	struct client *client;
 	struct wl_surface *parent;
 	struct wl_subcompositor *subco;
+	struct wl_subsurface *sub;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -161,16 +188,22 @@ TEST(test_subsurface_paradox)
 	parent = wl_compositor_create_surface(client->wl_compositor);
 
 	/* surface is its own parent */
-	wl_subcompositor_get_subsurface(subco, parent, parent);
+	sub = wl_subcompositor_get_subsurface(subco, parent, parent);
 
 	expect_protocol_error(client, &wl_subcompositor_interface,
 			      WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(parent);
+	wl_subcompositor_destroy(subco);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_identical_link)
 {
 	struct client *client;
 	struct compound_surface com;
+	struct wl_subsurface *sub;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -178,10 +211,14 @@ TEST(test_subsurface_identical_link)
 	populate_compound_surface(&com, client);
 
 	/* surface is already a subsurface */
-	wl_subcompositor_get_subsurface(com.subco, com.child[0], com.parent);
+	sub = wl_subcompositor_get_subsurface(com.subco, com.child[0], com.parent);
 
 	expect_protocol_error(client, &wl_subcompositor_interface,
 			      WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_change_link)
@@ -189,6 +226,7 @@ TEST(test_subsurface_change_link)
 	struct client *client;
 	struct compound_surface com;
 	struct wl_surface *stranger;
+	struct wl_subsurface *sub;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -197,10 +235,15 @@ TEST(test_subsurface_change_link)
 	populate_compound_surface(&com, client);
 
 	/* surface is already a subsurface */
-	wl_subcompositor_get_subsurface(com.subco, com.child[0], stranger);
+	sub = wl_subcompositor_get_subsurface(com.subco, com.child[0], stranger);
 
 	expect_protocol_error(client, &wl_subcompositor_interface,
 			      WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE);
+
+	fini_compound_surface(&com);
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(stranger);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_nesting)
@@ -208,6 +251,7 @@ TEST(test_subsurface_nesting)
 	struct client *client;
 	struct compound_surface com;
 	struct wl_surface *stranger;
+	struct wl_subsurface *sub;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -216,9 +260,14 @@ TEST(test_subsurface_nesting)
 	populate_compound_surface(&com, client);
 
 	/* parent is a sub-surface */
-	wl_subcompositor_get_subsurface(com.subco, stranger, com.child[0]);
+	sub = wl_subcompositor_get_subsurface(com.subco, stranger, com.child[0]);
 
 	client_roundtrip(client);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(stranger);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_nesting_parent)
@@ -226,6 +275,7 @@ TEST(test_subsurface_nesting_parent)
 	struct client *client;
 	struct compound_surface com;
 	struct wl_surface *stranger;
+	struct wl_subsurface *sub;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -234,16 +284,23 @@ TEST(test_subsurface_nesting_parent)
 	populate_compound_surface(&com, client);
 
 	/* surface is already a parent */
-	wl_subcompositor_get_subsurface(com.subco, com.parent, stranger);
+	sub = wl_subcompositor_get_subsurface(com.subco, com.parent, stranger);
 
 	client_roundtrip(client);
+
+	wl_subsurface_destroy(sub);
+	fini_compound_surface(&com);
+	wl_surface_destroy(stranger);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_loop_paradox)
 {
 	struct client *client;
 	struct wl_surface *surface[3];
+	struct wl_subsurface *sub[3];
 	struct wl_subcompositor *subco;
+	unsigned i;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -254,12 +311,20 @@ TEST(test_subsurface_loop_paradox)
 	surface[2] = wl_compositor_create_surface(client->wl_compositor);
 
 	/* create a nesting loop */
-	wl_subcompositor_get_subsurface(subco, surface[1], surface[0]);
-	wl_subcompositor_get_subsurface(subco, surface[2], surface[1]);
-	wl_subcompositor_get_subsurface(subco, surface[0], surface[2]);
+	sub[0] = wl_subcompositor_get_subsurface(subco, surface[1], surface[0]);
+	sub[1] = wl_subcompositor_get_subsurface(subco, surface[2], surface[1]);
+	sub[2] = wl_subcompositor_get_subsurface(subco, surface[0], surface[2]);
 
 	expect_protocol_error(client, &wl_subcompositor_interface,
 			      WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE);
+
+	for (i = 0; i < ARRAY_LENGTH(sub); i++) {
+		wl_subsurface_destroy(sub[i]);
+		wl_surface_destroy(surface[i]);
+	}
+
+	wl_subcompositor_destroy(subco);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_above_nested_parent)
@@ -282,6 +347,12 @@ TEST(test_subsurface_place_above_nested_parent)
 	wl_subsurface_place_above(sub, com.child[0]);
 
 	client_roundtrip(client);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_above_grandparent)
@@ -306,6 +377,12 @@ TEST(test_subsurface_place_above_grandparent)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_above_great_aunt)
@@ -330,6 +407,12 @@ TEST(test_subsurface_place_above_great_aunt)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_above_child)
@@ -338,6 +421,7 @@ TEST(test_subsurface_place_above_child)
 	struct compound_surface com;
 	struct wl_surface *grandchild;
 	struct wl_subcompositor *subco;
+	struct wl_subsurface *sub;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -346,13 +430,19 @@ TEST(test_subsurface_place_above_child)
 
 	subco = get_subcompositor(client);
 	grandchild = wl_compositor_create_surface(client->wl_compositor);
-	wl_subcompositor_get_subsurface(subco, grandchild, com.child[0]);
+	sub = wl_subcompositor_get_subsurface(subco, grandchild, com.child[0]);
 
 	/* can't place a subsurface above its own child subsurface */
 	wl_subsurface_place_above(com.sub[0], grandchild);
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_below_nested_parent)
@@ -375,6 +465,12 @@ TEST(test_subsurface_place_below_nested_parent)
 	wl_subsurface_place_below(sub, com.child[0]);
 
 	client_roundtrip(client);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_below_grandparent)
@@ -399,6 +495,12 @@ TEST(test_subsurface_place_below_grandparent)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_below_great_aunt)
@@ -423,6 +525,12 @@ TEST(test_subsurface_place_below_great_aunt)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_below_child)
@@ -431,6 +539,7 @@ TEST(test_subsurface_place_below_child)
 	struct compound_surface com;
 	struct wl_surface *grandchild;
 	struct wl_subcompositor *subco;
+	struct wl_subsurface *sub;
 
 	client = create_client_and_test_surface(100, 50, 123, 77);
 	assert(client);
@@ -439,13 +548,19 @@ TEST(test_subsurface_place_below_child)
 
 	subco = get_subcompositor(client);
 	grandchild = wl_compositor_create_surface(client->wl_compositor);
-	wl_subcompositor_get_subsurface(subco, grandchild, com.child[0]);
+	sub = wl_subcompositor_get_subsurface(subco, grandchild, com.child[0]);
 
 	/* can't place a subsurface below its own child subsurface */
 	wl_subsurface_place_below(com.sub[0], grandchild);
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(grandchild);
+	wl_subcompositor_destroy(subco);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_above_stranger)
@@ -465,6 +580,10 @@ TEST(test_subsurface_place_above_stranger)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_surface_destroy(stranger);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_below_stranger)
@@ -484,6 +603,10 @@ TEST(test_subsurface_place_below_stranger)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	wl_surface_destroy(stranger);
+	fini_compound_surface(&com);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_above_foreign)
@@ -503,6 +626,10 @@ TEST(test_subsurface_place_above_foreign)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	fini_compound_surface(&com1);
+	fini_compound_surface(&com2);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_place_below_foreign)
@@ -522,6 +649,10 @@ TEST(test_subsurface_place_below_foreign)
 
 	expect_protocol_error(client, &wl_subsurface_interface,
 			      WL_SUBSURFACE_ERROR_BAD_SURFACE);
+
+	fini_compound_surface(&com1);
+	fini_compound_surface(&com2);
+	client_destroy(client);
 }
 
 TEST(test_subsurface_destroy_protocol)
@@ -555,6 +686,8 @@ TEST(test_subsurface_destroy_protocol)
 	wl_subsurface_destroy(com.sub[1]);
 
 	client_roundtrip(client);
+
+	client_destroy(client);
 }
 
 static void
@@ -621,6 +754,8 @@ create_subsurface_tree(struct client *client, struct wl_surface **surfs,
 
 #undef SUB_LINK
 	};
+
+	wl_subcompositor_destroy(subco);
 }
 
 static void
@@ -765,4 +900,6 @@ TEST(test_subsurface_destroy_permutations)
 
 	client_roundtrip(client);
 	testlog("tried %d destroy permutations\n", counter);
+
+	client_destroy(client);
 }
