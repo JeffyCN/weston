@@ -124,6 +124,13 @@ TEST(test_role_conflict_sub_wlshell)
 
 	expect_protocol_error(client, &wl_shell_interface,
 			      WL_SHELL_ERROR_ROLE);
+
+	wl_shell_surface_destroy(shsurf);
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(child);
+	wl_shell_destroy(shell);
+	wl_subcompositor_destroy(subco);
+	client_destroy(client);
 }
 
 TEST(test_role_conflict_wlshell_sub)
@@ -152,4 +159,11 @@ TEST(test_role_conflict_wlshell_sub)
 
 	expect_protocol_error(client, &wl_subcompositor_interface,
 			      WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE);
+
+	wl_shell_surface_destroy(shsurf);
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(child);
+	wl_shell_destroy(shell);
+	wl_subcompositor_destroy(subco);
+	client_destroy(client);
 }
