@@ -323,33 +323,35 @@ launcher_weston_launch_connect(struct weston_launcher **out, struct weston_compo
 		return -ENOMEM;
 
 	launcher->base.iface = &launcher_weston_launch_iface;
-	* (struct launcher_weston_launch **) out = launcher;
 	launcher->compositor = compositor;
 	launcher->drm_fd = -1;
 	launcher->deferred_deactivate = 0;
 	launcher->fd = launcher_weston_environment_get_fd("WESTON_LAUNCHER_SOCK");
-	if (launcher->fd != -1) {
-		launcher->tty = launcher_weston_environment_get_fd("WESTON_TTY_FD");
-		/* We don't get a chance to read out the original kb
-		 * mode for the tty, so just hard code K_UNICODE here
-		 * in case we have to clean if weston-launch dies. */
-		launcher->kb_mode = K_UNICODE;
-
-		loop = wl_display_get_event_loop(compositor->wl_display);
-		launcher->source = wl_event_loop_add_fd(loop, launcher->fd,
-							WL_EVENT_READABLE,
-							launcher_weston_launch_data,
-							launcher);
-		if (launcher->source == NULL) {
-			free(launcher);
-			weston_log("failed to get weston-launcher socket fd event source\n");
-			return -ENOMEM;
-		}
-
-		return 0;
-	} else {
+	if (launcher->fd == -1) {
+		free(launcher);
 		return -1;
 	}
+
+	launcher->tty = launcher_weston_environment_get_fd("WESTON_TTY_FD");
+	/* We don't get a chance to read out the original kb
+	 * mode for the tty, so just hard code K_UNICODE here
+	 * in case we have to clean if weston-launch dies. */
+	launcher->kb_mode = K_UNICODE;
+
+	loop = wl_display_get_event_loop(compositor->wl_display);
+	launcher->source = wl_event_loop_add_fd(loop, launcher->fd,
+						WL_EVENT_READABLE,
+						launcher_weston_launch_data,
+						launcher);
+	if (launcher->source == NULL) {
+		free(launcher);
+		weston_log("failed to get weston-launcher socket fd event source\n");
+		return -ENOMEM;
+	}
+
+	* (struct launcher_weston_launch **) out = launcher;
+
+	return 0;
 }
 
 static void
