@@ -89,6 +89,8 @@ TEST(touch_events)
 	assert(timespec_eq(&touch->up_time_timespec, &t3));
 
 	input_timestamps_destroy(input_ts);
+
+	client_destroy(client);
 }
 
 TEST(touch_timestamps_stop_after_input_timestamps_object_is_destroyed)
@@ -107,6 +109,8 @@ TEST(touch_timestamps_stop_after_input_timestamps_object_is_destroyed)
 	send_touch(client, &t2, WL_TOUCH_UP);
 	assert(touch->up_time_msec == timespec_to_msec(&t2));
 	assert(timespec_is_zero(&touch->up_time_timespec));
+
+	client_destroy(client);
 }
 
 TEST(touch_timestamps_stop_after_client_releases_wl_touch)
@@ -132,4 +136,8 @@ TEST(touch_timestamps_stop_after_client_releases_wl_touch)
 	assert(timespec_eq(&touch->input_timestamp, &t_other));
 
 	input_timestamps_destroy(input_ts);
+
+	free(client->input->touch);
+	client->input->touch = NULL;
+	client_destroy(client);
 }
