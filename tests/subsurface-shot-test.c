@@ -152,6 +152,7 @@ TEST(subsurface_z_order)
 
 	/* make the parent surface red */
 	surf[0] = client->surface->wl_surface;
+	client->surface->wl_surface = NULL; /* we stole it and destroy it */
 	bufs[0] = surface_commit_color(client, surf[0], &red, 100, 100);
 	/* sub[0] is not used */
 
@@ -208,4 +209,7 @@ TEST(subsurface_z_order)
 	for (i = 0; i < ARRAY_LENGTH(bufs); i++)
 		if (bufs[i])
 			buffer_destroy(bufs[i]);
+
+	wl_subcompositor_destroy(subco);
+	client_destroy(client);
 }
