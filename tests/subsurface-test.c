@@ -31,6 +31,8 @@
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 
+#define VERBOSE 0
+
 static enum test_result_code
 fixture_setup(struct weston_test_harness *harness)
 {
@@ -841,11 +843,13 @@ destroy_permu_object(struct wl_surface **surfs,
 	int h = (i + 1) / 2;
 
 	if (i & 1) {
-		testlog(" [sub  %2d]", h);
+		if (VERBOSE)
+			testlog(" [sub  %2d]", h);
 		wl_subsurface_destroy(subs[h]);
 		subs[h] = NULL;
 	} else {
-		testlog(" [surf %2d]", h);
+		if (VERBOSE)
+			testlog(" [surf %2d]", h);
 		wl_surface_destroy(surfs[h]);
 		surfs[h] = NULL;
 	}
@@ -883,15 +887,18 @@ TEST(test_subsurface_destroy_permutations)
 
 		create_subsurface_tree(client, surfs, subs, test_size);
 
-		testlog("permu");
+		if (VERBOSE)
+			testlog("permu");
 
-		for (i = 0; i < NSTEPS; i++)
-			testlog(" %2d", per.cnt[i]);
+		if (VERBOSE)
+			for (i = 0; i < NSTEPS; i++)
+				testlog(" %2d", per.cnt[i]);
 
 		for (i = 0; i < NSTEPS; i++)
 			destroy_permu_object(surfs, subs, per.cnt[i]);
 
-		testlog("\n");
+		if (VERBOSE)
+			testlog("\n");
 		client_roundtrip(client);
 
 		destroy_subsurface_tree(surfs, subs, test_size);
