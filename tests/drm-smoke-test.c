@@ -67,6 +67,7 @@ TEST(drm_smoke) {
 		frame_callback_wait(client, &frame);
 	}
 
+	buffer_destroy(buffer);
 	client_destroy(client);
 }
 
