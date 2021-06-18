@@ -231,4 +231,8 @@ TEST(text_test)
 	weston_test_activate_surface(client->test->weston_test, NULL);
 	client_roundtrip(client);
 	assert(state.activated == 2 && state.deactivated == 2);
+
+	zwp_text_input_v1_destroy(text_input);
+	zwp_text_input_manager_v1_destroy(factory);
+	client_destroy(client);
 }
