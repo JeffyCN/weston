@@ -489,5 +489,6 @@ TEST_P(yuv_buffer_shm, yuv_cases)
 	assert(match);
 
 	yuv_buffer_destroy(buf);
+	pixman_image_unref(img);
 	client_destroy(client);
 }
