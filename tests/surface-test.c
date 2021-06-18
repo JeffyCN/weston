@@ -68,4 +68,7 @@ PLUGIN_TEST(surface_transform)
 	weston_view_update_transform(view);
 	weston_view_to_global_float(view, 50, 40, &x, &y);
 	assert(x == 200 && y == 340);
+
+	/* Destroys all views too. */
+	weston_surface_destroy(surface);
 }
