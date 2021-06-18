@@ -2674,6 +2674,7 @@ load_drm_backend(struct weston_compositor *c,
 
 	free(config.gbm_format);
 	free(config.seat_id);
+	free(config.specific_device);
 
 	return ret;
 }
