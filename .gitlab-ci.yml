@@ -180,6 +180,9 @@ x86_64-debian-container_prep:
     - .debian-x86_64
     - .fdo.suffixed-image@debian
     - .build-env
+  needs:
+    - job: x86_64-debian-container_prep
+      artifacts: false
 
 .test-env-debian-x86_64:
   tags:
@@ -187,9 +190,13 @@ x86_64-debian-container_prep:
   extends:
     - .build-env-debian-x86_64
     - .build-and-test
+  needs:
+    - job: x86_64-debian-container_prep
+      artifacts: false
 
 # Full build, used for testing under KVM.
 x86_64-debian-full-build:
+  extends: .test-env-debian-x86_64
   variables:
     MESON_OPTIONS: >
       -Doptimization=0
@@ -197,7 +204,6 @@ x86_64-debian-full-build:
       -Dwerror=true
       -Dtest-skip-is-failure=true
       -Dlauncher-libseat=true
-  extends: .test-env-debian-x86_64
   after_script:
   - ninja -C "$BUILDDIR" coverage-html > "$BUILDDIR/meson-logs/ninja-coverage-html.txt"
   - ninja -C "$BUILDDIR" coverage-xml
@@ -219,6 +225,7 @@ docs-build:
 
 # Building without gl-renderer, to make sure this keeps working.
 x86_64-debian-no-gl-build:
+  extends: .test-env-debian-x86_64
   variables:
     MESON_OPTIONS: >
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
@@ -227,7 +234,6 @@ x86_64-debian-no-gl-build:
       -Dpipewire=false
       -Dwerror=true
       -Dlauncher-libseat=true
-  extends: .test-env-debian-x86_64
 
 # Expose docs and coverage reports, so we can show users any changes to these
 # inside their merge requests, letting us check them before merge.
@@ -242,6 +248,11 @@ docs-and-coverage:
     - .debian-x86_64
     - .fdo.suffixed-image@debian
   stage: pages
+  needs:
+    - job: docs-build
+      artifacts: true
+    - job: x86_64-debian-full-build
+      artifacts: true
   timeout: 5m
   script:
   - mv prefix-weston-docs-build/share/doc/weston Documentation
@@ -250,9 +261,6 @@ docs-and-coverage:
   - cp doc/style/lcov-style.css Test_Coverage/gcov.css
   - cp doc/style/*.png Test_Coverage/
   - rm -rf build-* prefix-*
-  dependencies:
-    - docs-build
-    - x86_64-debian-full-build
   artifacts:
     expose_as: 'Documentation preview and test coverage report'
     paths:
@@ -270,8 +278,9 @@ pages:
     - .fdo.suffixed-image@debian
   stage: pages
   timeout: 5m
-  dependencies:
-    - docs-build
+  needs:
+    - job: docs-build
+      artifacts: true
   script:
   - export PREFIX=$(pwd)/prefix-weston-docs-build
   - mkdir public
