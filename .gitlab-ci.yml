@@ -120,6 +120,7 @@ container_prep:
     BUILDDIR: $CI_PROJECT_DIR/build-weston-$CI_JOB_NAME
     PREFIX: $CI_PROJECT_DIR/prefix-weston-$CI_JOB_NAME
   before_script:
+  - export PATH=~/.local/bin:$PATH
   - export XDG_RUNTIME_DIR="$(mktemp -p $(pwd) -d xdg-runtime-XXXXXX)"
   - export TESTS_RES_PATH="$BUILDDIR/tests-res.txt"
   - mkdir "$BUILDDIR" "$PREFIX"
@@ -132,7 +133,6 @@ container_prep:
   tags:
     - kvm
   script:
-  - export PATH=~/.local/bin:$PATH
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ..
   - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
@@ -160,7 +160,6 @@ container_prep:
   tags:
     - kvm
   script:
-  - export PATH=~/.local/bin:$PATH
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
   - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
