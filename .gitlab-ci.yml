@@ -104,6 +104,12 @@ check-commit:
     KERNEL_IMAGE: "bzImage"
     KERNEL_DEFCONFIG: "x86_64_defconfig"
 
+.debian-aarch64:
+  extends:
+    - .os-debian
+  variables:
+    BUILD_ARCH: "aarch64"
+
 # Build our base container image, which contains the core distribution, the
 # toolchain, and all our build dependencies. This will be reused in the build
 # stage.
@@ -115,6 +121,15 @@ x86_64-debian-container_prep:
   timeout: 30m
   stage: container_prep
 
+aarch64-debian-container_prep:
+  extends:
+    - .ci-rules
+    - .debian-aarch64
+    - .fdo.container-build@debian
+  tags:
+    - aarch64
+  timeout: 30m
+  stage: container_prep
 
 # Core templates for all of our build steps. These are reused by all build jobs
 # through the `extends` keyword.
@@ -186,6 +201,17 @@ x86_64-debian-container_prep:
     - job: x86_64-debian-container_prep
       artifacts: false
 
+.build-env-debian-aarch64:
+  tags:
+    - aarch64
+  extends:
+    - .debian-aarch64
+    - .fdo.suffixed-image@debian
+    - .build-env
+  needs:
+    - job: aarch64-debian-container_prep
+      artifacts: false
+
 .test-env-debian-x86_64:
   tags:
     - kvm
@@ -226,8 +252,7 @@ docs-build:
     - .build-no-test
 
 # Building without gl-renderer, to make sure this keeps working.
-x86_64-debian-no-gl-build:
-  extends: .test-env-debian-x86_64
+.build-options-no-gl:
   variables:
     MESON_OPTIONS: >
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
@@ -236,6 +261,17 @@ x86_64-debian-no-gl-build:
       -Dpipewire=false
       -Dwerror=true
       -Dlauncher-libseat=true
+  
+x86_64-debian-no-gl-build:
+  extends:
+    - .test-env-debian-x86_64
+    - .build-options-no-gl
+
+aarch64-debian-no-gl-build:
+  extends:
+    - .build-env-debian-aarch64
+    - .build-no-test
+    - .build-options-no-gl
 
 # Expose docs and coverage reports, so we can show users any changes to these
 # inside their merge requests, letting us check them before merge.

@@ -29,31 +29,8 @@ pip3 install sphinx_rtd_theme==0.4.3 --user
 # Build a Linux kernel for use in testing. We enable the VKMS module so we can
 # predictably test the DRM backend in the absence of real hardware. We lock the
 # version here so we see predictable results.
-git clone --depth=1 --branch=drm-next-2020-06-11-1 https://anongit.freedesktop.org/git/drm/drm.git linux
-cd linux
-if [[ "${BUILD_ARCH}" = "x86-64" ]]; then
-	LINUX_ARCH=x86
-fi
-if [[ -z "${KERNEL_DEFCONFIG}" ]]; then
-	echo "Invalid or missing \$KERNEL_DEFCONFIG"
-	exit
-fi
-if [[ -z "${KERNEL_IMAGE}" ]]; then
-	echo "Invalid or missing \$KERNEL_IMAGE"
-	exit
-fi
-make ARCH=${LINUX_ARCH} ${KERNEL_DEFCONFIG}
-make ARCH=${LINUX_ARCH} kvmconfig
-./scripts/config --enable CONFIG_DRM_VKMS
-make ARCH=${LINUX_ARCH} oldconfig
-make ARCH=${LINUX_ARCH}
-cd ..
-mkdir /weston-virtme
-mv linux/arch/${LINUX_ARCH}/boot/${KERNEL_IMAGE} /weston-virtme/
-mv linux/.config /weston-virtme/.config
-rm -rf linux
-
-# Build virtme, a QEMU wrapper: https://github.com/amluto/virtme
+#
+# To run this we use virtme, a QEMU wrapper: https://github.com/amluto/virtme
 # 
 # virtme makes our lives easier by abstracting handling of the console,
 # filesystem, etc, so we can pretend that the VM we execute in is actually
@@ -67,12 +44,43 @@ rm -rf linux
 # results: --script-sh and --script-exec. Unfornutately they are not completely
 # implemented yet, so we had some trouble to use them and it was becoming
 # hackery.
-#
-git clone https://github.com/ezequielgarcia/virtme
-cd virtme
-git checkout -b snapshot 69e3cb83b3405edc99fcf9611f50012a4f210f78
-./setup.py install
-cd ..
+if [[ -n "${KERNEL_DEFCONFIG}" ]]; then
+	git clone --depth=1 --branch=drm-next-2020-06-11-1 https://anongit.freedesktop.org/git/drm/drm.git linux
+	cd linux
+
+	if [[ "${BUILD_ARCH}" = "x86-64" ]]; then
+		LINUX_ARCH=x86
+	else
+		echo "Invalid or missing \$BUILD_ARCH"
+		exit 1
+	fi
+
+	if [[ -z "${KERNEL_DEFCONFIG}" ]]; then
+		echo "Invalid or missing \$KERNEL_DEFCONFIG"
+		exit
+	fi
+	if [[ -z "${KERNEL_IMAGE}" ]]; then
+		echo "Invalid or missing \$KERNEL_IMAGE"
+		exit
+	fi
+
+	make ARCH=${LINUX_ARCH} ${KERNEL_DEFCONFIG}
+	make ARCH=${LINUX_ARCH} kvmconfig
+	./scripts/config --enable CONFIG_DRM_VKMS
+	make ARCH=${LINUX_ARCH} oldconfig
+	make ARCH=${LINUX_ARCH}
+	cd ..
+	mkdir /weston-virtme
+	mv linux/arch/${LINUX_ARCH}/boot/${KERNEL_IMAGE} /weston-virtme/
+	mv linux/.config /weston-virtme/.config
+	rm -rf linux
+
+	git clone https://github.com/ezequielgarcia/virtme
+	cd virtme
+	git checkout -b snapshot 69e3cb83b3405edc99fcf9611f50012a4f210f78
+	./setup.py install
+	cd ..
+fi
 
 # Build and install Wayland; keep this version in sync with our dependency
 # in meson.build.
