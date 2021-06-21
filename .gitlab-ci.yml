@@ -104,6 +104,12 @@ check-commit:
     KERNEL_IMAGE: "bzImage"
     KERNEL_DEFCONFIG: "x86_64_defconfig"
 
+.debian-armv7:
+  extends:
+    - .os-debian
+  variables:
+    BUILD_ARCH: "armv7"
+
 .debian-aarch64:
   extends:
     - .os-debian
@@ -121,6 +127,18 @@ x86_64-debian-container_prep:
     - .ci-rules
     - .debian-x86_64
     - .fdo.container-build@debian
+  timeout: 30m
+  stage: container_prep
+
+armv7-debian-container_prep:
+  extends:
+    - .ci-rules
+    - .debian-armv7
+    - .fdo.container-build@debian
+  tags:
+    - aarch64
+  variables:
+    FDO_BASE_IMAGE: "arm32v7/debian:$FDO_DISTRIBUTION_VERSION"
   timeout: 30m
   stage: container_prep
 
@@ -203,6 +221,17 @@ aarch64-debian-container_prep:
     - .build-env
   needs:
     - job: x86_64-debian-container_prep
+      artifacts: false
+
+.build-env-debian-armv7:
+  tags:
+    - aarch64
+  extends:
+    - .debian-armv7
+    - .fdo.suffixed-image@debian
+    - .build-env
+  needs:
+    - job: armv7-debian-container_prep
       artifacts: false
 
 .build-env-debian-aarch64:
@@ -288,6 +317,12 @@ docs-build:
 x86_64-debian-no-gl-build:
   extends:
     - .test-env-debian-x86_64
+    - .build-options-no-gl
+
+armv7-debian-no-gl-build:
+  extends:
+    - .build-env-debian-armv7
+    - .build-no-test
     - .build-options-no-gl
 
 aarch64-debian-no-gl-build:
