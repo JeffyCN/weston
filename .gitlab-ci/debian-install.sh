@@ -25,7 +25,6 @@ MESA_DEV_PKGS="
 	llvm-8-dev
 	python-mako
 	python3-mako
-	wayland-protocols
 "
 
 # Needed for running the custom-built mesa
@@ -146,6 +145,16 @@ cd build
 ../autogen.sh --disable-documentation
 make install
 cd ../../
+
+git clone --branch 1.19 https://gitlab.freedesktop.org/wayland/wayland-protocols
+cd wayland-protocols
+git show -s HEAD
+mkdir build
+cd build
+../autogen.sh
+make install
+cd ../../
+rm -rf wayland-protocols
 
 apt-get -y --no-install-recommends install $MESA_DEV_PKGS
 git clone --single-branch --branch 20.3 --shallow-since='2020-12-15' https://gitlab.freedesktop.org/mesa/mesa.git mesa
