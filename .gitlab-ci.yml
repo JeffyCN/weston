@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2021-08-02.2-meson'
+  FDO_DISTRIBUTION_TAG: '2021-08-02.3-aarch64-virt'
 
 
 include:
@@ -109,6 +109,9 @@ check-commit:
     - .os-debian
   variables:
     BUILD_ARCH: "aarch64"
+    KERNEL_IMAGE: "Image"
+    KERNEL_DEFCONFIG: "defconfig"
+    QEMU_SMP: 8 # built-in QEmu limit
 
 # Build our base container image, which contains the core distribution, the
 # toolchain, and all our build dependencies. This will be reused in the build
@@ -156,7 +159,8 @@ aarch64-debian-container_prep:
   - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ..
   - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
   - ninja install
-  - virtme-run --rw --pwd --kimg /weston-virtme/${KERNEL_IMAGE} --kopt quiet --script-dir ../.gitlab-ci/virtme-scripts --qemu-opts -m 4096 -smp ${FDO_CI_CONCURRENT:-4}
+  - test -n "${QEMU_SMP}" || QEMU_SMP=${FDO_CI_CONCURRENT:-4}
+  - virtme-run --rw --pwd --kimg /weston-virtme/${KERNEL_IMAGE} --kopt quiet --script-dir ../.gitlab-ci/virtme-scripts --qemu-opts -m 4096 -smp ${QEMU_SMP}
   - TEST_RES=$(cat $TESTS_RES_PATH)
   - rm $TESTS_RES_PATH
   - cp -R /weston-virtme ./
@@ -222,9 +226,18 @@ aarch64-debian-container_prep:
     - job: x86_64-debian-container_prep
       artifacts: false
 
+.test-env-debian-aarch64:
+  tags:
+    - kvm-aarch64
+  extends:
+    - .build-env-debian-aarch64
+    - .build-and-test
+  needs:
+    - job: aarch64-debian-container_prep
+      artifacts: false
+
 # Full build, used for testing under KVM.
-x86_64-debian-full-build:
-  extends: .test-env-debian-x86_64
+.build-options-full:
   variables:
     MESON_OPTIONS: >
       -Doptimization=0
@@ -239,6 +252,16 @@ x86_64-debian-full-build:
   artifacts:
     reports:
       cobertura: $BUILDDIR/meson-logs/coverage.xml
+
+x86_64-debian-full-build:
+  extends:
+    - .test-env-debian-x86_64
+    - .build-options-full
+
+aarch64-debian-full-build:
+  extends:
+    - .test-env-debian-aarch64
+    - .build-options-full
 
 # Docs should be invariant on all architectures, so we only do it on Debian
 # x86-64.
@@ -269,8 +292,7 @@ x86_64-debian-no-gl-build:
 
 aarch64-debian-no-gl-build:
   extends:
-    - .build-env-debian-aarch64
-    - .build-no-test
+    - .test-env-debian-aarch64
     - .build-options-no-gl
 
 # Expose docs and coverage reports, so we can show users any changes to these

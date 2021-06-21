@@ -44,12 +44,17 @@ pip3 install sphinx_rtd_theme==0.4.3 --user
 # results: --script-sh and --script-exec. Unfornutately they are not completely
 # implemented yet, so we had some trouble to use them and it was becoming
 # hackery.
-if [[ -n "${KERNEL_DEFCONFIG}" ]]; then
+#
+# The fork pulls in this support from the original GitHub PR, rebased on top of
+# a newer upstream version which fixes AArch64 support.
+if [[ -n "$KERNEL_DEFCONFIG" ]]; then
 	git clone --depth=1 --branch=drm-next-2020-06-11-1 https://anongit.freedesktop.org/git/drm/drm.git linux
 	cd linux
 
 	if [[ "${BUILD_ARCH}" = "x86-64" ]]; then
 		LINUX_ARCH=x86
+	elif [[ "$BUILD_ARCH" = "aarch64" ]]; then
+		LINUX_ARCH=arm64
 	else
 		echo "Invalid or missing \$BUILD_ARCH"
 		exit 1
@@ -66,18 +71,23 @@ if [[ -n "${KERNEL_DEFCONFIG}" ]]; then
 
 	make ARCH=${LINUX_ARCH} ${KERNEL_DEFCONFIG}
 	make ARCH=${LINUX_ARCH} kvmconfig
-	./scripts/config --enable CONFIG_DRM_VKMS
+	./scripts/config \
+		--enable CONFIG_DRM \
+		--enable CONFIG_DRM_KMS_HELPER \
+		--enable CONFIG_DRM_KMS_FB_HELPER \
+		--enable CONFIG_DRM_VKMS
 	make ARCH=${LINUX_ARCH} oldconfig
 	make ARCH=${LINUX_ARCH}
+
 	cd ..
 	mkdir /weston-virtme
 	mv linux/arch/${LINUX_ARCH}/boot/${KERNEL_IMAGE} /weston-virtme/
 	mv linux/.config /weston-virtme/.config
 	rm -rf linux
 
-	git clone https://github.com/ezequielgarcia/virtme
+	git clone https://github.com/fooishbar/virtme
 	cd virtme
-	git checkout -b snapshot 69e3cb83b3405edc99fcf9611f50012a4f210f78
+	git checkout -b snapshot 70e390c564cd09e0da287a7f2c04a6592e59e379
 	./setup.py install
 	cd ..
 fi
