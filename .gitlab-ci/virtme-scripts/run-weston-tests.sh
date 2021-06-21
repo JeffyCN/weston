@@ -23,7 +23,7 @@ while ! [ -e /run/seatd.sock ]; do sleep 0.1; done
 
 # run the tests and save the exit status
 # we give ourselves a very generous timeout multiplier due to ASan overhead
-ASAN_OPTIONS=detect_leaks=0,atexit=1 meson test --timeout-multiplier 4
+ASAN_OPTIONS=detect_leaks=0,atexit=1 meson test --no-rebuild --timeout-multiplier 4
 TEST_RES=$?
 
 # create a file to keep the result of this script:
