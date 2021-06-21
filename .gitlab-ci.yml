@@ -157,8 +157,6 @@ container_prep:
 # Same as above, but without running any tests.
 .build-no-test:
   extends: .build-env
-  tags:
-    - kvm
   script:
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
