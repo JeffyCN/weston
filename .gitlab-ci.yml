@@ -1,12 +1,54 @@
 # vim: set expandtab shiftwidth=2 tabstop=8 textwidth=0:
 
 .templates_sha: &template_sha 567700e483aabed992d0a4fea84994a0472deff6 # see https://docs.gitlab.com/ee/ci/yaml/#includefile
+# This file uses the freedesktop ci-templates to build Weston and run our
+# tests in CI.
+# 
+# ci-templates uses a multi-stage build process. First, the base container
+# image is built which contains the core distribution, the toolchain, and
+# all our build dependencies. This container is aggressively cached; if a
+# container image matching $FDO_DISTRIBUTION_TAG is found in either the
+# upstream repo (wayland/weston) or the user's downstream repo, it is
+# reused for the build. This gives us predictability of build and far
+# quicker runtimes, however it means that any changes to the base container
+# must also change $FDO_DISTRIBUTION_TAG. When changing this, please use
+# the current date as well as a unique build identifier.
+#
+# After the container is either rebuilt (tag mismatch) or reused (tag
+# previously used), the build stage executes within this container.
+#
+# The final stage is used to expose documentation and coverage information,
+# including publishing documentation to the public site when built on the
+# main branch.
+#
+# Apart from the 'variables', 'include', and 'stages' top-level anchors,
+# everything not beginning with a dot ('.') is the name of a job which will
+# be executed as part of CI, unless the rules specify that it should not be
+# run.
+#
+# Variables prefixed with CI_ are generally provided by GitLab itself;
+# variables prefixed with FDO_ and templates prefixed by .fdo are provided
+# by the ci-templates.
+#
+# For more information on GitLab CI, including the YAML syntax, see:
+#   https://docs.gitlab.com/ee/ci/yaml/README.html
+#
+# Note that freedesktop.org uses the 'Community Edition' of GitLab, so features
+# marked as 'premium' or 'ultimate' are not available to us.
+#
+# For more information on ci-templates, see:
+#   - documentation at https://freedesktop.pages.freedesktop.org/ci-templates/
+#   - repo at https://gitlab.freedesktop.org/freedesktop/ci-templates/
 
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
 
 
 include:
+  # Here we use a fixed ref in order to isolate ourselves from ci-templates
+  # API changes. If you need new features from ci-templates you must bump
+  # this to the current SHA you require from the ci-templates repo, however
+  # be aware that you may need to account for API changes when doing so.
   - project: 'freedesktop/ci-templates'
     ref: *template_sha
     file: '/templates/debian.yml'
@@ -15,6 +57,8 @@ include:
     file: '/templates/ci-fairy.yml'
 
 
+# Define the build stages. These are used for UI grouping as well as
+# dependencies.
 stages:
   - review
   - container_prep
@@ -22,6 +66,7 @@ stages:
   - pages
 
 
+# Base variables used for anything using a Debian environment
 .debian:
   variables:
     FDO_DISTRIBUTION_VERSION: buster
@@ -50,6 +95,9 @@ check-commit:
       junit: results.xml
 
 
+# Build our base container image, which contains the core distribution, the
+# toolchain, and all our build dependencies. This will be reused in the build
+# stage.
 container_prep:
   extends:
     - .ci-rules
@@ -59,6 +107,8 @@ container_prep:
   stage: container_prep
 
 
+# Core templates for all of our build steps. These are reused by all build jobs
+# through the `extends` keyword.
 .build-env:
   extends:
     - .ci-rules
@@ -74,6 +124,9 @@ container_prep:
   - export TESTS_RES_PATH="$BUILDDIR/tests-res.txt"
   - mkdir "$BUILDDIR" "$PREFIX"
 
+# Extends the core build templates to also provide for running our testing. We
+# run this inside a virtme (qemu wrapper) VM environment so we can test the DRM
+# backend using the 'vkms' virtual driver under Linux.
 .build-and-test:
   extends: .build-env
   tags:
@@ -101,6 +154,7 @@ container_prep:
     reports:
       junit: $BUILDDIR/meson-logs/testlog.junit.xml
 
+# Same as above, but without running any tests.
 .build-no-test:
   extends: .build-env
   tags:
@@ -154,6 +208,13 @@ build-no-gl:
       -Dlauncher-libseat=true
   extends: .build-and-test
 
+# Expose docs and coverage reports, so we can show users any changes to these
+# inside their merge requests, letting us check them before merge.
+#
+# This does not build the docs or coverage information itself, but just reuses
+# the docs and coverage information from the x86-64 Debian builds as the
+# canonical sources of coverage information; the docs themselves should be
+# invariant across any architecture or OS.
 docs-and-coverage:
   extends:
     - .ci-rules
@@ -177,7 +238,11 @@ docs-and-coverage:
     - Documentation/
     - Test_Coverage/
 
-# does not inherit .ci-rules
+# Generate the documentation for https://wayland.pages.freedesktop.org/weston/
+# Anything under public/ is published to this URL.
+#
+# Does not inherit .ci-rules as it should only run in our default branch for
+# the upstream repo.
 pages:
   extends:
     - .debian
