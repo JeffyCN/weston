@@ -31,14 +31,25 @@ pip3 install sphinx_rtd_theme==0.4.3 --user
 # version here so we see predictable results.
 git clone --depth=1 --branch=drm-next-2020-06-11-1 https://anongit.freedesktop.org/git/drm/drm.git linux
 cd linux
-make x86_64_defconfig
-make kvmconfig
+if [[ "${BUILD_ARCH}" = "x86-64" ]]; then
+	LINUX_ARCH=x86
+fi
+if [[ -z "${KERNEL_DEFCONFIG}" ]]; then
+	echo "Invalid or missing \$KERNEL_DEFCONFIG"
+	exit
+fi
+if [[ -z "${KERNEL_IMAGE}" ]]; then
+	echo "Invalid or missing \$KERNEL_IMAGE"
+	exit
+fi
+make ARCH=${LINUX_ARCH} ${KERNEL_DEFCONFIG}
+make ARCH=${LINUX_ARCH} kvmconfig
 ./scripts/config --enable CONFIG_DRM_VKMS
-make oldconfig
-make
+make ARCH=${LINUX_ARCH} oldconfig
+make ARCH=${LINUX_ARCH}
 cd ..
 mkdir /weston-virtme
-mv linux/arch/x86/boot/bzImage /weston-virtme/bzImage
+mv linux/arch/${LINUX_ARCH}/boot/${KERNEL_IMAGE} /weston-virtme/
 mv linux/.config /weston-virtme/.config
 rm -rf linux
 

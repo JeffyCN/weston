@@ -73,7 +73,7 @@ stages:
   variables:
     BUILD_OS: debian
     FDO_DISTRIBUTION_VERSION: buster
-    FDO_DISTRIBUTION_EXEC: 'env FDO_CI_CONCURRENT=${FDO_CI_CONCURRENT} bash .gitlab-ci/debian-install.sh'
+    FDO_DISTRIBUTION_EXEC: 'env FDO_CI_CONCURRENT=${FDO_CI_CONCURRENT} BUILD_ARCH=${BUILD_ARCH} KERNEL_IMAGE=${KERNEL_IMAGE} KERNEL_DEFCONFIG=${KERNEL_DEFCONFIG} bash .gitlab-ci/debian-install.sh'
 
 .ci-rules:
   rules:
@@ -101,6 +101,8 @@ check-commit:
     - .os-debian
   variables:
     BUILD_ARCH: "x86-64"
+    KERNEL_IMAGE: "bzImage"
+    KERNEL_DEFCONFIG: "x86_64_defconfig"
 
 # Build our base container image, which contains the core distribution, the
 # toolchain, and all our build dependencies. This will be reused in the build
@@ -139,11 +141,11 @@ x86_64-debian-container_prep:
   - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ..
   - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
   - ninja install
-  - virtme-run --rw --pwd --kimg /weston-virtme/bzImage --kopt quiet --script-dir ../.gitlab-ci/virtme-scripts --qemu-opts -m 4096 -smp ${FDO_CI_CONCURRENT:-4}
+  - virtme-run --rw --pwd --kimg /weston-virtme/${KERNEL_IMAGE} --kopt quiet --script-dir ../.gitlab-ci/virtme-scripts --qemu-opts -m 4096 -smp ${FDO_CI_CONCURRENT:-4}
   - TEST_RES=$(cat $TESTS_RES_PATH)
   - rm $TESTS_RES_PATH
   - cp -R /weston-virtme ./
-  - rm weston-virtme/bzImage
+  - rm weston-virtme/${KERNEL_IMAGE}
   - exit $TEST_RES
   artifacts:
     name: weston-$CI_COMMIT_SHA
