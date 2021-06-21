@@ -2,6 +2,11 @@
 
 set -o xtrace -o errexit
 
+# Set concurrency to an appropriate level for our shared runners, falling back
+# to the conservative default from before we had this variable.
+export MAKEFLAGS="-j${FDO_CI_CONCURRENT:-4}"
+export NINJAFLAGS="-j${FDO_CI_CONCURRENT:-4}"
+
 # These get temporary installed for building Linux and then force-removed.
 LINUX_DEV_PKGS="
 	bc
@@ -109,7 +114,7 @@ make x86_64_defconfig
 make kvmconfig
 ./scripts/config --enable CONFIG_DRM_VKMS
 make oldconfig
-make -j8
+make
 cd ..
 mkdir /weston-virtme
 mv linux/arch/x86/boot/bzImage /weston-virtme/bzImage
@@ -134,7 +139,6 @@ git checkout -b snapshot 69e3cb83b3405edc99fcf9611f50012a4f210f78
 cd ..
 
 git clone --branch 1.18.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayland
-export MAKEFLAGS="-j4"
 cd wayland
 git show -s HEAD
 mkdir build
@@ -149,7 +153,7 @@ cd mesa
 git checkout -b snapshot mesa-20.3.1
 meson build -Dauto_features=disabled \
 	-Dgallium-drivers=swrast -Dvulkan-drivers= -Ddri-drivers=
-ninja -C build install
+ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf mesa
 
@@ -157,7 +161,7 @@ rm -rf pipewire
 git clone --depth=1 --branch 0.3.31 https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire
 cd pipewire
 meson build
-ninja -C build install
+ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf pipewire
 
@@ -166,7 +170,7 @@ cd seatd
 meson build -Dauto_features=disabled \
 	-Dseatd=enabled -Dlogind=enabled -Dserver=enabled \
 	-Dexamples=disabled -Dman-pages=disabled
-ninja -C build install
+ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf seatd
 
