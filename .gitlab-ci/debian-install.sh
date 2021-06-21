@@ -98,7 +98,8 @@ apt-get -y --no-install-recommends install \
 	qemu-system \
 	sysvinit-core \
 	xwayland \
-	$MESA_RUNTIME_PKGS
+	$MESA_RUNTIME_PKGS \
+	$LINUX_DEV_PKGS \
 
 apt-get -y --no-install-recommends -t buster-backports install \
 	freerdp2-dev
@@ -120,7 +121,6 @@ pip3 install sphinx_rtd_theme==0.4.3 --user
 # Build a Linux kernel for use in testing. We enable the VKMS module so we can
 # predictably test the DRM backend in the absence of real hardware. We lock the
 # version here so we see predictable results.
-apt-get -y --no-install-recommends install $LINUX_DEV_PKGS
 git clone --depth=1 --branch=drm-next-2020-06-11-1 https://anongit.freedesktop.org/git/drm/drm.git linux
 cd linux
 make x86_64_defconfig
@@ -219,5 +219,4 @@ ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf seatd
 
-apt-get -y --autoremove purge $LINUX_DEV_PKGS
-apt-get -y --autoremove purge $MESA_DEV_PKGS
+apt-get -y --autoremove purge $LINUX_DEV_PKGS $MESA_DEV_PKGS
