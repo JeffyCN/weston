@@ -173,7 +173,7 @@ container_prep:
     - $BUILDDIR/meson-logs
     - $PREFIX
 
-build-full:
+full-build:
   variables:
     MESON_OPTIONS: >
       -Doptimization=0
@@ -190,14 +190,14 @@ build-full:
     reports:
       cobertura: $BUILDDIR/meson-logs/coverage.xml
 
-build-docs:
+docs-build:
   variables:
     MESON_OPTIONS: >
       -Dwerror=true
       -Ddoc=true
   extends: .build-no-test
 
-build-no-gl:
+no-gl-build:
   variables:
     MESON_OPTIONS: >
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
@@ -223,15 +223,15 @@ docs-and-coverage:
   stage: pages
   timeout: 5m
   script:
-  - mv prefix-weston-build-docs/share/doc/weston Documentation
-  - mv build-weston-build-full/meson-logs/coveragereport Test_Coverage
+  - mv prefix-weston-docs-build/share/doc/weston Documentation
+  - mv build-weston-full-build/meson-logs/coveragereport Test_Coverage
   - rm Test_Coverage/gcov.css
   - cp doc/style/lcov-style.css Test_Coverage/gcov.css
   - cp doc/style/*.png Test_Coverage/
   - rm -rf build-* prefix-*
   dependencies:
-    - build-docs
-    - build-full
+    - docs-build
+    - full-build
   artifacts:
     expose_as: 'Documentation preview and test coverage report'
     paths:
@@ -250,9 +250,9 @@ pages:
   stage: pages
   timeout: 5m
   dependencies:
-    - build-docs
+    - docs-build
   script:
-  - export PREFIX=$(pwd)/prefix-weston-build-docs
+  - export PREFIX=$(pwd)/prefix-weston-docs-build
   - mkdir public
   - cp -R $PREFIX/share/doc/weston/* public/
   artifacts:
