@@ -42,6 +42,8 @@
 
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
+  FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
+  FDO_DISTRIBUTION_TAG: '2021-07-31.1-wayland-protocols'
 
 
 include:
@@ -67,17 +69,17 @@ stages:
 
 
 # Base variables used for anything using a Debian environment
-.debian:
+.os-debian:
   variables:
+    BUILD_OS: debian
     FDO_DISTRIBUTION_VERSION: buster
     FDO_DISTRIBUTION_EXEC: 'env FDO_CI_CONCURRENT=${FDO_CI_CONCURRENT} bash .gitlab-ci/debian-install.sh'
-    FDO_DISTRIBUTION_TAG: '2021-07-31.1-wayland-protocols'
 
 .ci-rules:
   rules:
     - when: on_success
 
-# does not inherit .ci-rules
+# Does not inherit .ci-rules as we only want it to run in MR context.
 check-commit:
   extends:
     - .fdo.ci-fairy
@@ -94,14 +96,19 @@ check-commit:
     reports:
       junit: results.xml
 
+.debian-x86_64:
+  extends:
+    - .os-debian
+  variables:
+    BUILD_ARCH: "x86-64"
 
 # Build our base container image, which contains the core distribution, the
 # toolchain, and all our build dependencies. This will be reused in the build
 # stage.
-container_prep:
+x86_64-debian-container_prep:
   extends:
     - .ci-rules
-    - .debian
+    - .debian-x86_64
     - .fdo.container-build@debian
   timeout: 30m
   stage: container_prep
@@ -110,10 +117,6 @@ container_prep:
 # Core templates for all of our build steps. These are reused by all build jobs
 # through the `extends` keyword.
 .build-env:
-  extends:
-    - .ci-rules
-    - .debian
-    - .fdo.distribution-image@debian
   timeout: 5m
   stage: build
   variables:
@@ -129,9 +132,8 @@ container_prep:
 # run this inside a virtme (qemu wrapper) VM environment so we can test the DRM
 # backend using the 'vkms' virtual driver under Linux.
 .build-and-test:
-  extends: .build-env
-  tags:
-    - kvm
+  extends:
+  - .ci-rules
   script:
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ..
@@ -156,7 +158,9 @@ container_prep:
 
 # Same as above, but without running any tests.
 .build-no-test:
-  extends: .build-env
+  extends:
+  - .ci-rules
+  - .build-env
   script:
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
@@ -170,7 +174,22 @@ container_prep:
     - $BUILDDIR/meson-logs
     - $PREFIX
 
-full-build:
+# OS/architecture-specific variants
+.build-env-debian-x86_64:
+  extends:
+    - .debian-x86_64
+    - .fdo.suffixed-image@debian
+    - .build-env
+
+.test-env-debian-x86_64:
+  tags:
+    - kvm
+  extends:
+    - .build-env-debian-x86_64
+    - .build-and-test
+
+# Full build, used for testing under KVM.
+x86_64-debian-full-build:
   variables:
     MESON_OPTIONS: >
       -Doptimization=0
@@ -178,7 +197,7 @@ full-build:
       -Dwerror=true
       -Dtest-skip-is-failure=true
       -Dlauncher-libseat=true
-  extends: .build-and-test
+  extends: .test-env-debian-x86_64
   after_script:
   - ninja -C "$BUILDDIR" coverage-html > "$BUILDDIR/meson-logs/ninja-coverage-html.txt"
   - ninja -C "$BUILDDIR" coverage-xml
@@ -187,14 +206,19 @@ full-build:
     reports:
       cobertura: $BUILDDIR/meson-logs/coverage.xml
 
+# Docs should be invariant on all architectures, so we only do it on Debian
+# x86-64.
 docs-build:
   variables:
     MESON_OPTIONS: >
       -Dwerror=true
       -Ddoc=true
-  extends: .build-no-test
+  extends:
+    - .build-env-debian-x86_64
+    - .build-no-test
 
-no-gl-build:
+# Building without gl-renderer, to make sure this keeps working.
+x86_64-debian-no-gl-build:
   variables:
     MESON_OPTIONS: >
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
@@ -203,7 +227,7 @@ no-gl-build:
       -Dpipewire=false
       -Dwerror=true
       -Dlauncher-libseat=true
-  extends: .build-and-test
+  extends: .test-env-debian-x86_64
 
 # Expose docs and coverage reports, so we can show users any changes to these
 # inside their merge requests, letting us check them before merge.
@@ -215,20 +239,20 @@ no-gl-build:
 docs-and-coverage:
   extends:
     - .ci-rules
-    - .debian
-    - .fdo.distribution-image@debian
+    - .debian-x86_64
+    - .fdo.suffixed-image@debian
   stage: pages
   timeout: 5m
   script:
   - mv prefix-weston-docs-build/share/doc/weston Documentation
-  - mv build-weston-full-build/meson-logs/coveragereport Test_Coverage
+  - mv build-weston-x86_64-debian-full-build/meson-logs/coveragereport Test_Coverage
   - rm Test_Coverage/gcov.css
   - cp doc/style/lcov-style.css Test_Coverage/gcov.css
   - cp doc/style/*.png Test_Coverage/
   - rm -rf build-* prefix-*
   dependencies:
     - docs-build
-    - full-build
+    - x86_64-debian-full-build
   artifacts:
     expose_as: 'Documentation preview and test coverage report'
     paths:
@@ -242,8 +266,8 @@ docs-and-coverage:
 # the upstream repo.
 pages:
   extends:
-    - .debian
-    - .fdo.distribution-image@debian
+    - .debian-x86_64
+    - .fdo.suffixed-image@debian
   stage: pages
   timeout: 5m
   dependencies:
