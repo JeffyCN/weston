@@ -62,9 +62,11 @@ include:
 # Define the build stages. These are used for UI grouping as well as
 # dependencies.
 stages:
-  - review
-  - container_prep
-  - build
+  - "Merge request checks"
+  - "Base container"
+  - "Full build and test"
+  - "No-GL build and test"
+  - "Other builds"
   - pages
 
 
@@ -83,7 +85,7 @@ stages:
 check-commit:
   extends:
     - .fdo.ci-fairy
-  stage: review
+  stage: "Merge request checks"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: always
@@ -128,7 +130,7 @@ x86_64-debian-container_prep:
     - .debian-x86_64
     - .fdo.container-build@debian
   timeout: 30m
-  stage: container_prep
+  stage: "Base container"
 
 armv7-debian-container_prep:
   extends:
@@ -140,7 +142,7 @@ armv7-debian-container_prep:
   variables:
     FDO_BASE_IMAGE: "arm32v7/debian:$FDO_DISTRIBUTION_VERSION"
   timeout: 30m
-  stage: container_prep
+  stage: "Base container"
 
 aarch64-debian-container_prep:
   extends:
@@ -150,13 +152,12 @@ aarch64-debian-container_prep:
   tags:
     - aarch64
   timeout: 30m
-  stage: container_prep
+  stage: "Base container"
 
 # Core templates for all of our build steps. These are reused by all build jobs
 # through the `extends` keyword.
 .build-env:
   timeout: 5m
-  stage: build
   variables:
     BUILDDIR: $CI_PROJECT_DIR/build-weston-$CI_JOB_NAME
     PREFIX: $CI_PROJECT_DIR/prefix-weston-$CI_JOB_NAME
@@ -267,6 +268,7 @@ aarch64-debian-container_prep:
 
 # Full build, used for testing under KVM.
 .build-options-full:
+  stage: "Full build and test"
   variables:
     MESON_OPTIONS: >
       -Doptimization=0
@@ -295,6 +297,7 @@ aarch64-debian-full-build:
 # Docs should be invariant on all architectures, so we only do it on Debian
 # x86-64.
 docs-build:
+  stage: "Other builds"
   variables:
     MESON_OPTIONS: >
       -Dwerror=true
@@ -305,6 +308,7 @@ docs-build:
 
 # Building without gl-renderer, to make sure this keeps working.
 .build-options-no-gl:
+  stage: "No-GL build and test"
   variables:
     MESON_OPTIONS: >
       -Dsimple-clients=damage,im,shm,touch,dmabuf-v4l
