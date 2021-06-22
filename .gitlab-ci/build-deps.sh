@@ -69,10 +69,9 @@ git clone --branch 1.18.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayla
 cd wayland
 git show -s HEAD
 mkdir build
-cd build
-../autogen.sh --disable-documentation
-make install
-cd ../../
+meson build -Ddocumentation=false
+ninja ${NINJAFLAGS} -C build install
+cd ..
 
 # Keep this version in sync with our dependency in meson.build. If you wish to
 # raise a MR against custom protocol, please change this reference to clone
