@@ -2515,9 +2515,9 @@ drm_destroy(struct weston_compositor *ec)
 	udev_monitor_unref(b->udev_monitor);
 	udev_unref(b->udev);
 
+	weston_launcher_close(ec->launcher, b->drm.fd);
 	weston_launcher_destroy(ec->launcher);
 
-	close(b->drm.fd);
 	free(b->drm.filename);
 	free(b);
 }
