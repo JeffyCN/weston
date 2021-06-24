@@ -78,6 +78,7 @@ The section headers are:
 .BR "terminal       " "Terminal application options"
 .BR "xwayland       " "XWayland options"
 .BR "screen-share   " "Screen sharing options"
+.BR "autolaunch     " "Autolaunch options"
 .fi
 .RE
 .PP
@@ -659,6 +660,18 @@ sets the path to the xserver to run (string).
 .BI "command=" "@weston_bindir@/weston --backend=rdp-backend.so \
 --shell=fullscreen-shell.so --no-clients-resize"
 sets the command to start a fullscreen-shell server for screen sharing (string).
+.RE
+.RE
+.SH "AUTOLAUNCH SECTION"
+.TP 7
+.BI "path=" "/usr/bin/echo"
+Path to an executable file to run after startup. This file is executed in
+parallel to Weston, so it does not have to immediately exit. Defaults to empty.
+.RE
+.TP 7
+.BI "watch=" "false"
+If set to true, quit Weston after the auto-launched executable exits. Set to false
+by default.
 .RE
 .RE
 .SH "SEE ALSO"

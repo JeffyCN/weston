@@ -123,6 +123,8 @@ struct wet_compositor {
 	bool init_failed;
 	struct wl_list layoutput_list;	/**< wet_layoutput::compositor_link */
 	struct wl_list child_process_list;
+	pid_t autolaunch_pid;
+	bool autolaunch_watch;
 };
 
 static FILE *weston_logfile = NULL;
@@ -360,6 +362,13 @@ sigchld_handler(int signal_number, void *data)
 	pid_t pid;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		if (wet->autolaunch_pid != -1 && wet->autolaunch_pid == pid) {
+			if (wet->autolaunch_watch)
+				wl_display_terminate(wet->compositor->wl_display);
+			wet->autolaunch_pid = -1;
+			continue;
+		}
+
 		wl_list_for_each(p, &wet->child_process_list, link) {
 			if (p->pid == pid)
 				break;
@@ -3116,6 +3125,45 @@ wet_load_xwayland(struct weston_compositor *comp)
 }
 #endif
 
+static int
+execute_autolaunch(struct wet_compositor *wet, struct weston_config *config)
+{
+	int ret = -1;
+	pid_t tmp_pid = -1;
+	char *autolaunch_path = NULL;
+	struct weston_config_section *section = NULL;
+
+	section = weston_config_get_section(config, "autolaunch", NULL, NULL);
+	weston_config_section_get_string(section, "path", &autolaunch_path, "");
+	weston_config_section_get_bool(section, "watch", &wet->autolaunch_watch, false);
+
+	if (!strlen(autolaunch_path))
+		goto out_ok;
+
+	if (access(autolaunch_path, X_OK) != 0) {
+		weston_log("Specified autolaunch path (%s) is not executable\n", autolaunch_path);
+		goto out;
+	}
+
+	tmp_pid = fork();
+	if (tmp_pid == -1) {
+		weston_log("Failed to fork autolaunch process: %s\n", strerror(errno));
+		goto out;
+	} else if (tmp_pid == 0) {
+		execl(autolaunch_path, autolaunch_path, NULL);
+		/* execl shouldn't return */
+		fprintf(stderr, "Failed to execute autolaunch: %s\n", strerror(errno));
+		_exit(1);
+	}
+
+out_ok:
+	ret = 0;
+out:
+	wet->autolaunch_pid = tmp_pid;
+	free(autolaunch_path);
+	return ret;
+}
+
 static void
 weston_log_setup_scopes(struct weston_log_context *log_ctx,
 			struct weston_log_subscriber *subscriber,
@@ -3448,6 +3496,9 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		goto out;
 
 	weston_compositor_wake(wet.compositor);
+
+	if (execute_autolaunch(&wet, config) < 0)
+		goto out;
 
 	wl_display_run(display);
 
