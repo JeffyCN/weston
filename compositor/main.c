@@ -122,6 +122,7 @@ struct wet_compositor {
 	int (*simple_output_configure)(struct weston_output *output);
 	bool init_failed;
 	struct wl_list layoutput_list;	/**< wet_layoutput::compositor_link */
+	struct wl_list child_process_list;
 };
 
 static FILE *weston_logfile = NULL;
@@ -344,22 +345,27 @@ protocol_log_fn(void *user_data,
 	free(logstr);
 }
 
-static struct wl_list child_process_list;
+static struct wet_compositor *
+to_wet_compositor(struct weston_compositor *compositor)
+{
+	return weston_compositor_get_user_data(compositor);
+}
 
 static int
 sigchld_handler(int signal_number, void *data)
 {
 	struct weston_process *p;
+	struct wet_compositor *wet = data;
 	int status;
 	pid_t pid;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		wl_list_for_each(p, &child_process_list, link) {
+		wl_list_for_each(p, &wet->child_process_list, link) {
 			if (p->pid == pid)
 				break;
 		}
 
-		if (&p->link == &child_process_list) {
+		if (&p->link == &wet->child_process_list) {
 			weston_log("unknown child process exited\n");
 			continue;
 		}
@@ -454,15 +460,17 @@ weston_client_launch(struct weston_compositor *compositor,
 
 	proc->pid = pid;
 	proc->cleanup = cleanup;
-	weston_watch_process(proc);
+	wet_watch_process(compositor, proc);
 
 	return client;
 }
 
 WL_EXPORT void
-weston_watch_process(struct weston_process *process)
+wet_watch_process(struct weston_compositor *compositor,
+		  struct weston_process *process)
 {
-	wl_list_insert(&child_process_list, &process->link);
+	struct wet_compositor *wet = to_wet_compositor(compositor);
+	wl_list_insert(&wet->child_process_list, &process->link);
 }
 
 struct process_info {
@@ -534,12 +542,6 @@ log_uname(void)
 
 	weston_log("OS: %s, %s, %s, %s\n", usys.sysname, usys.release,
 						usys.version, usys.machine);
-}
-
-static struct wet_compositor *
-to_wet_compositor(struct weston_compositor *compositor)
-{
-	return weston_compositor_get_user_data(compositor);
 }
 
 static struct wet_output_config *
@@ -3286,9 +3288,9 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	signals[2] = wl_event_loop_add_signal(loop, SIGQUIT, on_term_signal,
 					      display);
 
-	wl_list_init(&child_process_list);
+	wl_list_init(&wet.child_process_list);
 	signals[3] = wl_event_loop_add_signal(loop, SIGCHLD, sigchld_handler,
-					      NULL);
+					      &wet);
 
 	if (!signals[0] || !signals[1] || !signals[2] || !signals[3])
 		goto out_signals;

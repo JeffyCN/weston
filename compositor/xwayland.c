@@ -154,7 +154,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		wxw->wm_fd = wm[0];
 
 		wxw->process.pid = pid;
-		weston_watch_process(&wxw->process);
+		wet_watch_process(wxw->compositor, &wxw->process);
 		break;
 
 	case -1:
