@@ -19,6 +19,11 @@ dep_backlight = declare_dependency(
 
 config_h.set('BUILD_DRM_COMPOSITOR', '1')
 
+config_h.set10(
+	'HAVE_LIBDRM_HDR',
+	dep_libdrm.version().version_compare('>= 2.4.104')
+)
+
 srcs_drm = [
 	'drm.c',
 	'fb.c',
