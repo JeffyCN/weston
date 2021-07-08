@@ -5437,6 +5437,7 @@ weston_head_init(struct weston_head *head, const char *name)
 	wl_list_init(&head->resource_list);
 	wl_list_init(&head->xdg_output_resource_list);
 	head->name = strdup(name);
+	head->supported_eotf_mask = WESTON_EOTF_MODE_SDR;
 	head->current_protection = WESTON_HDCP_DISABLE;
 }
 
@@ -5958,6 +5959,31 @@ weston_head_set_connection_status(struct weston_head *head, bool connected)
 		return;
 
 	head->connected = connected;
+
+	weston_head_set_device_changed(head);
+}
+
+/** Store the set of supported EOTF modes
+ *
+ * \param head The head to modify.
+ * \param eotf_mask A bit mask with the possible bits or'ed together from
+ * enum weston_eotf_mode.
+ *
+ * This may set the device_changed flag.
+ *
+ * \ingroup head
+ * \internal
+ */
+WL_EXPORT void
+weston_head_set_supported_eotf_mask(struct weston_head *head,
+				    uint32_t eotf_mask)
+{
+	assert((eotf_mask & ~WESTON_EOTF_MODE_ALL_MASK) == 0);
+
+	if (head->supported_eotf_mask == eotf_mask)
+		return;
+
+	head->supported_eotf_mask = eotf_mask;
 
 	weston_head_set_device_changed(head);
 }
@@ -6714,6 +6740,50 @@ weston_output_set_color_profile(struct weston_output *output,
 	return true;
 }
 
+/** Set EOTF mode on an output
+ *
+ * \param output The output to modify, must be in disabled state.
+ * \param eotf_mode The EOTF mode to set.
+ *
+ * Setting the output EOTF mode is used for turning HDR on/off. There are
+ * multiple modes for HDR on, see enum weston_eotf_mode. This is the high level
+ * choice on how to drive a video sink (monitor), either in the traditional
+ * SDR mode or in one of the HDR modes.
+ *
+ * After attaching heads to an output, you can find out the possibly supported
+ * EOTF modes with weston_output_get_supported_eotf_modes().
+ *
+ * This function does not check whether the given eotf_mode is actually
+ * supported on the output. Enabling an output with an unsupported EOTF mode
+ * has undefined visual results.
+ *
+ * The initial EOTF mode is SDR.
+ *
+ * \ingroup output
+ */
+WL_EXPORT void
+weston_output_set_eotf_mode(struct weston_output *output,
+			    enum weston_eotf_mode eotf_mode)
+{
+	assert(!output->enabled);
+
+	output->eotf_mode = eotf_mode;
+}
+
+/** Get EOTF mode of an output
+ *
+ * \param output The output to query.
+ * \return The EOTF mode.
+ *
+ * \sa weston_output_set_eotf_mode
+ * \ingroup output
+ */
+WL_EXPORT enum weston_eotf_mode
+weston_output_get_eotf_mode(const struct weston_output *output)
+{
+	return output->eotf_mode;
+}
+
 /** Initializes a weston_output object with enough data so
  ** an output can be configured.
  *
@@ -6741,6 +6811,7 @@ weston_output_init(struct weston_output *output,
 	wl_list_init(&output->link);
 	wl_signal_init(&output->user_destroy_signal);
 	output->enabled = false;
+	output->eotf_mode = WESTON_EOTF_MODE_SDR;
 	output->desired_protection = WESTON_HDCP_DISABLE;
 	output->allow_protection = true;
 
@@ -6902,6 +6973,9 @@ weston_output_enable(struct weston_output *output)
 	wl_list_init(&output->feedback_list);
 	wl_list_init(&output->paint_node_list);
 	wl_list_init(&output->paint_node_z_order_list);
+
+	weston_log("Output '%s' attempts EOTF mode: %s\n", output->name,
+		   weston_eotf_mode_to_str(output->eotf_mode));
 
 	if (!weston_output_set_color_transforms(output))
 		return -1;
@@ -7220,6 +7294,34 @@ weston_output_allow_protection(struct weston_output *output,
 			       bool allow_protection)
 {
 	output->allow_protection = allow_protection;
+}
+
+/** Get supported EOTF modes as a bit mask
+ *
+ * \param output The output to query.
+ * \return A bit mask with values from enum weston_eotf_mode or'ed together.
+ *
+ * Returns the bit mask of the EOTF modes that all the currently attached
+ * heads claim to support. Adding or removing heads may change the result.
+ * An output can be queried regrdless of whether it is enabled or disabled.
+ *
+ * If no heads are attached, no EOTF modes are deemed supported.
+ *
+ * \ingroup output
+ */
+WL_EXPORT uint32_t
+weston_output_get_supported_eotf_modes(struct weston_output *output)
+{
+	uint32_t eotf_modes = WESTON_EOTF_MODE_ALL_MASK;
+	struct weston_head *head;
+
+	if (wl_list_empty(&output->head_list))
+		return WESTON_EOTF_MODE_NONE;
+
+	wl_list_for_each(head, &output->head_list, output_link)
+		eotf_modes = eotf_modes & head->supported_eotf_mask;
+
+	return eotf_modes;
 }
 
 static void

@@ -379,4 +379,7 @@ weston_color_manager_noop_create(struct weston_compositor *compositor);
 struct weston_color_manager *
 weston_color_manager_create(struct weston_compositor *compositor);
 
+const char *
+weston_eotf_mode_to_str(enum weston_eotf_mode e);
+
 #endif /* WESTON_COLOR_H */

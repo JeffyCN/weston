@@ -297,3 +297,20 @@ out_close:
 	close(fd);
 	return cprof;
 }
+
+/** Get a string naming the EOTF mode
+ *
+ * \internal
+ */
+WL_EXPORT const char *
+weston_eotf_mode_to_str(enum weston_eotf_mode e)
+{
+	switch (e) {
+	case WESTON_EOTF_MODE_NONE:		return "(none)";
+	case WESTON_EOTF_MODE_SDR:		return "SDR";
+	case WESTON_EOTF_MODE_TRADITIONAL_HDR:	return "traditional gamma HDR";
+	case WESTON_EOTF_MODE_ST2084:		return "ST2084";
+	case WESTON_EOTF_MODE_HLG:		return "HLG";
+	}
+	return "???";
+}

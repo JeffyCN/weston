@@ -207,6 +207,40 @@ struct weston_testsuite_data {
 	void *test_private_data;
 };
 
+/** EOTF mode for outputs and heads
+ *
+ * A list of EOTF modes for driving displays, defined by CTA-861-G for
+ * Dynamic Range and Mastering InfoFrame.
+ *
+ * On heads, a bitmask of one or more entries shows which modes are claimed
+ * supported.
+ *
+ * On outputs, the mode to be used for driving the video sink.
+ *
+ * For traditional non-HDR sRGB, use WESTON_EOTF_MODE_SDR.
+ */
+enum weston_eotf_mode {
+	/** Invalid EOTF mode, or none supported. */
+	WESTON_EOTF_MODE_NONE			= 0,
+
+	/** Traditional gamma, SDR luminance range */
+	WESTON_EOTF_MODE_SDR			= 0x01,
+
+	/** Traditional gamma, HDR luminance range */
+	WESTON_EOTF_MODE_TRADITIONAL_HDR	= 0x02,
+
+	/** Preceptual quantizer, SMPTE ST 2084 */
+	WESTON_EOTF_MODE_ST2084			= 0x04,
+
+	/** Hybrid log-gamma, ITU-R BT.2100 */
+	WESTON_EOTF_MODE_HLG			= 0x08,
+};
+
+/** Bitmask of all defined EOTF modes */
+#define WESTON_EOTF_MODE_ALL_MASK \
+	((uint32_t)(WESTON_EOTF_MODE_SDR | WESTON_EOTF_MODE_TRADITIONAL_HDR | \
+		    WESTON_EOTF_MODE_ST2084 | WESTON_EOTF_MODE_HLG))
+
 /** Represents a head, usually a display connector
  *
  * \rst
@@ -243,6 +277,7 @@ struct weston_head {
 	char *name;			/**< head name, e.g. connector name */
 	bool connected;			/**< is physically connected */
 	bool non_desktop;		/**< non-desktop display, e.g. HMD */
+	uint32_t supported_eotf_mask;	/**< supported weston_eotf_mode bits */
 
 	/** Current content protection status */
 	enum weston_hdcp_protection current_protection;
@@ -361,6 +396,7 @@ struct weston_output {
 	struct weston_color_transform *from_sRGB_to_blend;
 	struct weston_color_transform *from_blend_to_output;
 	bool from_blend_to_output_by_backend;
+	enum weston_eotf_mode eotf_mode;
 
 	int (*enable)(struct weston_output *output);
 	int (*disable)(struct weston_output *output);
@@ -2108,6 +2144,13 @@ weston_output_set_color_profile(struct weston_output *output,
 				struct weston_color_profile *cprof);
 
 void
+weston_output_set_eotf_mode(struct weston_output *output,
+			    enum weston_eotf_mode eotf_mode);
+
+enum weston_eotf_mode
+weston_output_get_eotf_mode(const struct weston_output *output);
+
+void
 weston_output_init(struct weston_output *output,
 		   struct weston_compositor *compositor,
 		   const char *name);
@@ -2120,6 +2163,9 @@ weston_output_enable(struct weston_output *output);
 
 void
 weston_output_disable(struct weston_output *output);
+
+uint32_t
+weston_output_get_supported_eotf_modes(struct weston_output *output);
 
 void
 weston_compositor_flush_heads_changed(struct weston_compositor *compositor);
