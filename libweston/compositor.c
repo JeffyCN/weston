@@ -7379,13 +7379,17 @@ debug_scene_view_print_buffer(FILE *fp, struct weston_view *view)
 
 	dmabuf = linux_dmabuf_buffer_get(buffer->resource);
 	if (dmabuf) {
+		uint64_t modifier = dmabuf->attributes.modifier[0];
+		char *modifier_name = pixel_format_get_modifier(modifier);
 		pixel_info = pixel_format_get_info(dmabuf->attributes.format);
 		fprintf(fp, "\t\tdmabuf buffer\n");
 		fprintf(fp, "\t\t\tformat: 0x%lx %s\n",
 			(unsigned long) dmabuf->attributes.format,
 			pixel_info ? pixel_info->drm_format_name : "UNKNOWN");
-		fprintf(fp, "\t\t\tmodifier: 0x%llx\n",
-			(unsigned long long) dmabuf->attributes.modifier[0]);
+
+		fprintf(fp, "\t\t\tmodifier: %s\n", modifier_name ? modifier_name :
+				"Failed to convert to a modifier name");
+		free(modifier_name);
 		return;
 	}
 

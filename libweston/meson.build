@@ -3,7 +3,7 @@ deps_libweston = [
 	dep_pixman,
 	dep_libm,
 	dep_libdl,
-	dep_libdrm_headers,
+	dep_libdrm,
 	dep_xkbcommon,
 	dep_matrix_c
 ]

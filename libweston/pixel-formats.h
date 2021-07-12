@@ -260,3 +260,15 @@ unsigned int
 pixel_format_height_for_plane(const struct pixel_format_info *format,
 			      unsigned int plane,
 			      unsigned int height);
+/**
+ * Return a human-readable format modifier. Comprised from the modifier name,
+ * the vendor name, and the original encoded value in hexadecimal, using
+ * 'VENDOR_NAME_MODIFIER_NAME (modifier_encoded_value)' pattern. In case the
+ * modifier name (and the vendor name) isn't found, this returns the original
+ * encoded value, as a string value.
+ *
+ * @param modifier  the modifier in question
+ * @returns a malloc'ed string, caller responsible for freeing after use.
+ */
+char *
+pixel_format_get_modifier(uint64_t modifier);

@@ -150,6 +150,12 @@ dep_libdrm = dependency('libdrm', version: '>= 2.4.95')
 dep_libdrm_headers = dep_libdrm.partial_dependency(compile_args: true)
 dep_threads = dependency('threads')
 
+dep_libdrm_version = dep_libdrm.version()
+if dep_libdrm_version.version_compare('>=2.4.107')
+  message('Found libdrm with human format modifier support.')
+  config_h.set('HAVE_HUMAN_FORMAT_MODIFIER', '1')
+endif
+
 prog_python = import('python').find_installation('python3')
 files_xxd_py = files('tools/xxd.py')
 cmd_xxd = [ prog_python, files_xxd_py, '@INPUT@', '@OUTPUT@' ]

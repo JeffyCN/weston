@@ -30,10 +30,15 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <wayland-client-protocol.h>
 
+#include <xf86drm.h>
+
 #include "shared/helpers.h"
+#include "shared/string-helpers.h"
 #include "shared/weston-drm-fourcc.h"
 #include "wayland-util.h"
 #include "pixel-formats.h"
@@ -514,3 +519,53 @@ pixel_format_height_for_plane(const struct pixel_format_info *info,
 
 	return height / info->vsub;
 }
+
+#ifdef HAVE_HUMAN_FORMAT_MODIFIER
+WL_EXPORT char *
+pixel_format_get_modifier(uint64_t modifier)
+{
+	char *modifier_name;
+	char *vendor_name;
+	char *mod_str;
+
+	modifier_name = drmGetFormatModifierName(modifier);
+	vendor_name = drmGetFormatModifierVendor(modifier);
+
+	if (!modifier_name) {
+		if (vendor_name)
+			str_printf(&mod_str, "%s_%s (0x%llx)",
+				   vendor_name, "UNKNOWN_MODIFIER",
+				   (unsigned long long) modifier);
+		else
+			str_printf(&mod_str, "0x%llx",
+				 (unsigned long long) modifier);
+
+		free(vendor_name);
+		return mod_str;
+	}
+
+	if (modifier == DRM_FORMAT_MOD_LINEAR) {
+		str_printf(&mod_str, "%s (0x%llx)", modifier_name,
+			   (unsigned long long) modifier);
+		free(modifier_name);
+		free(vendor_name);
+		return mod_str;
+	}
+
+	str_printf(&mod_str, "%s_%s (0x%llx)", vendor_name, modifier_name,
+		   (unsigned long long) modifier);
+
+	free(modifier_name);
+	free(vendor_name);
+
+	return mod_str;
+}
+#else
+WL_EXPORT char *
+pixel_format_get_modifier(uint64_t modifier)
+{
+	char *mod_str;
+	str_printf(&mod_str, "0x%llx", (unsigned long long) modifier);
+	return mod_str;
+}
+#endif
