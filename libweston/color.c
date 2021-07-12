@@ -314,3 +314,38 @@ weston_eotf_mode_to_str(enum weston_eotf_mode e)
 	}
 	return "???";
 }
+
+/** A list of EOTF modes as a string
+ *
+ * \param eotf_mask Bitwise-or'd enum weston_eotf_mode values.
+ * \return Comma separated names of the listed EOTF modes. Must be free()'d by
+ * the caller.
+ */
+WL_EXPORT char *
+weston_eotf_mask_to_str(uint32_t eotf_mask)
+{
+	FILE *fp;
+	char *str = NULL;
+	size_t size = 0;
+	unsigned i;
+	const char *sep = "";
+
+	fp = open_memstream(&str, &size);
+	if (!fp)
+		return NULL;
+
+	for (i = 0; eotf_mask; i++) {
+		uint32_t bitmask = 1u << i;
+
+		if (eotf_mask & bitmask) {
+			fprintf(fp, "%s%s", sep,
+				weston_eotf_mode_to_str(bitmask));
+			sep = ", ";
+		}
+
+		eotf_mask &= ~bitmask;
+	}
+	fclose(fp);
+
+	return str;
+}

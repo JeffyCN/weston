@@ -304,6 +304,8 @@ edid_parse(struct drm_edid *edid, const uint8_t *data, size_t length)
  * \param[out] make The monitor make (PNP ID).
  * \param[out] model The monitor model (name).
  * \param[out] serial_number The monitor serial number.
+ * \param[out] eotf_mask The monitor supported EOTF modes, combination of
+ * enum weston_eotf_mode bits.
  *
  * Each of \c *make, \c *model and \c *serial_number are set only if the
  * information is found in the EDID. The pointers they are set to must not
@@ -315,7 +317,8 @@ find_and_parse_output_edid(struct drm_head *head,
 			   drmModeObjectPropertiesPtr props,
 			   const char **make,
 			   const char **model,
-			   const char **serial_number)
+			   const char **serial_number,
+			   uint32_t *eotf_mask)
 {
 	drmModePropertyBlobPtr edid_blob = NULL;
 	uint32_t blob_id;
@@ -344,6 +347,21 @@ find_and_parse_output_edid(struct drm_head *head,
 			*serial_number = head->edid.serial_number;
 	}
 	drmModeFreePropertyBlob(edid_blob);
+
+	/* TODO: parse this from EDID */
+	*eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
+}
+
+static void
+prune_eotf_modes_by_kms_support(struct drm_head *head, uint32_t *eotf_mask)
+{
+	const struct drm_property_info *info;
+
+	/* Without the KMS property, cannot do anything but SDR. */
+
+	info = &head->connector.props[WDRM_CONNECTOR_HDR_OUTPUT_METADATA];
+	if (info->prop_id == 0)
+		*eotf_mask = WESTON_EOTF_MODE_SDR;
 }
 
 static uint32_t
@@ -515,9 +533,12 @@ update_head_from_connector(struct drm_head *head)
 	const char *make = "unknown";
 	const char *model = "unknown";
 	const char *serial_number = "unknown";
+	uint32_t eotf_mask = WESTON_EOTF_MODE_SDR;
 
-	find_and_parse_output_edid(head, props, &make, &model, &serial_number);
+	find_and_parse_output_edid(head, props, &make, &model, &serial_number, &eotf_mask);
 	weston_head_set_monitor_strings(&head->base, make, model, serial_number);
+	prune_eotf_modes_by_kms_support(head, &eotf_mask);
+	weston_head_set_supported_eotf_mask(&head->base, eotf_mask);
 	weston_head_set_non_desktop(&head->base,
 				    check_non_desktop(connector, props));
 	weston_head_set_subpixel(&head->base,

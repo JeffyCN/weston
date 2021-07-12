@@ -143,6 +143,9 @@ const struct drm_property_info connector_props[] = {
 		.enum_values = panel_orientation_enums,
 		.num_enum_values = WDRM_PANEL_ORIENTATION__COUNT,
 	},
+	[WDRM_CONNECTOR_HDR_OUTPUT_METADATA] = {
+		.name = "HDR_OUTPUT_METADATA",
+	},
 };
 
 const struct drm_property_info crtc_props[] = {
