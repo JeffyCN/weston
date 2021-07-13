@@ -4799,6 +4799,8 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_drm_device;
 	}
 
+	device->cursors_are_broken |= config->use_sw_cursor;
+
 	/* A this point we have some idea of whether or not we have a working
 	 * cursor plane. */
 	if (!device->cursors_are_broken)
