@@ -2997,6 +2997,8 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	                               &config.pageflip_timeout, 0);
 	weston_config_section_get_bool(section, "pixman-shadow",
 				       &config.use_pixman_shadow, true);
+	weston_config_section_get_bool(section, "sw-cursor",
+				       &config.use_sw_cursor, false);
 	if (without_input)
 		c->require_input = !without_input;
 
