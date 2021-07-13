@@ -10,7 +10,7 @@ srcs_wlwl = [
 	fullscreen_shell_unstable_v1_protocol_c,
 	presentation_time_protocol_c,
 	presentation_time_server_protocol_h,
-	xdg_shell_server_protocol_h,
+	xdg_shell_client_protocol_h,
 	xdg_shell_protocol_c,
 ]
 
