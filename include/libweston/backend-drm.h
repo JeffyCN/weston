@@ -258,6 +258,8 @@ struct weston_drm_backend_config {
 	 * rendering device.
 	 */
 	char *additional_devices;
+
+	bool use_sw_cursor;
 };
 
 #ifdef  __cplusplus
