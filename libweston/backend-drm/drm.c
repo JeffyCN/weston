@@ -4364,6 +4364,8 @@ drm_backend_create(struct weston_compositor *compositor,
 	/* 'compute' faked zpos values in case HW doesn't expose any */
 	drm_backend_create_faked_zpos(b);
 
+	b->cursors_are_broken |= config->use_sw_cursor;
+
 	/* A this point we have some idea of whether or not we have a working
 	 * cursor plane. */
 	if (!b->cursors_are_broken)
