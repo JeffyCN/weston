@@ -266,6 +266,8 @@ struct weston_drm_backend_config {
 	 * "color-management" to be enabled.
 	 */
 	bool offload_blend_to_output;
+
+	bool use_sw_cursor;
 };
 
 #ifdef  __cplusplus
