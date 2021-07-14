@@ -360,7 +360,7 @@ prune_eotf_modes_by_kms_support(struct drm_head *head, uint32_t *eotf_mask)
 	/* Without the KMS property, cannot do anything but SDR. */
 
 	info = &head->connector.props[WDRM_CONNECTOR_HDR_OUTPUT_METADATA];
-	if (info->prop_id == 0)
+	if (!head->backend->atomic_modeset || info->prop_id == 0)
 		*eotf_mask = WESTON_EOTF_MODE_SDR;
 }
 

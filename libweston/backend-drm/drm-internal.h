@@ -549,6 +549,8 @@ struct drm_output {
 	uint32_t gbm_format;
 	uint32_t gbm_bo_flags;
 
+	uint32_t hdr_output_metadata_blob_id;
+
 	/* Plane being displayed directly on the CRTC */
 	struct drm_plane *scanout_plane;
 

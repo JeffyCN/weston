@@ -973,9 +973,17 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 						  WDRM_CONNECTOR_CRTC_ID, 0);
 	}
 
-	wl_list_for_each(head, &output->base.head_list, base.output_link)
+	wl_list_for_each(head, &output->base.head_list, base.output_link) {
 		drm_connector_set_hdcp_property(&head->connector,
 						state->protection, req);
+
+		if (drm_connector_has_prop(&head->connector,
+					   WDRM_CONNECTOR_HDR_OUTPUT_METADATA)) {
+			ret |= connector_add_prop(req, &head->connector,
+						  WDRM_CONNECTOR_HDR_OUTPUT_METADATA,
+						  output->hdr_output_metadata_blob_id);
+		}
+	}
 
 	if (ret != 0) {
 		weston_log("couldn't set atomic CRTC/connector state\n");
