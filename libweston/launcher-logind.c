@@ -735,6 +735,29 @@ launcher_logind_activate(struct launcher_logind *wl)
 }
 
 static int
+launcher_logind_get_session(char **session)
+{
+	int r;
+
+	r = sd_pid_get_session(getpid(), session);
+	if (r < 0) {
+		if (r != -ENODATA) {
+			weston_log("logind: not running in a systemd session: %d\n", r);
+			return r;
+		}
+	} else {
+		return r;
+	}
+
+	/* When not inside a systemd session look if there is a suitable one */
+	r = sd_uid_get_display(getuid(), session);
+	if (r < 0)
+		weston_log("logind: cannot find systemd session for uid: %d %d\n", getuid(), r);
+
+	return r;
+}
+
+static int
 launcher_logind_connect(struct weston_launcher **out, struct weston_compositor *compositor,
 			int tty, const char *seat_id, bool sync_drm)
 {
@@ -759,11 +782,9 @@ launcher_logind_connect(struct weston_launcher **out, struct weston_compositor *
 		goto err_wl;
 	}
 
-	r = sd_pid_get_session(getpid(), &wl->sid);
-	if (r < 0) {
-		weston_log("logind: not running in a systemd session\n");
+	r = launcher_logind_get_session(&wl->sid);
+	if (r < 0)
 		goto err_seat;
-	}
 
 	t = NULL;
 	r = sd_session_get_seat(wl->sid, &t);
