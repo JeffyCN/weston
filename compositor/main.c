@@ -1316,6 +1316,73 @@ wet_output_set_color_profile(struct weston_output *output,
 	return ok ? 0 : -1;
 }
 
+static int
+wet_output_set_eotf_mode(struct weston_output *output,
+			 struct weston_config_section *section)
+{
+	static const struct {
+		const char *name;
+		enum weston_eotf_mode eotf_mode;
+	} modes[] = {
+		{ "sdr",	WESTON_EOTF_MODE_SDR },
+		{ "hdr-gamma",	WESTON_EOTF_MODE_TRADITIONAL_HDR },
+		{ "st2084",	WESTON_EOTF_MODE_ST2084 },
+		{ "hlg",	WESTON_EOTF_MODE_HLG },
+	};
+	struct wet_compositor *compositor;
+	enum weston_eotf_mode eotf_mode = WESTON_EOTF_MODE_SDR;
+	char *str = NULL;
+	unsigned i;
+
+	compositor = to_wet_compositor(output->compositor);
+
+	if (section) {
+		weston_config_section_get_string(section, "eotf-mode",
+						 &str, NULL);
+	}
+
+	if (!str) {
+		/* The default SDR mode is always supported. */
+		assert(weston_output_get_supported_eotf_modes(output) & eotf_mode);
+		weston_output_set_eotf_mode(output, eotf_mode);
+		return 0;
+	}
+
+	for (i = 0; i < ARRAY_LENGTH(modes); i++)
+		if (strcmp(str, modes[i].name) == 0)
+			break;
+
+	if (i == ARRAY_LENGTH(modes)) {
+		weston_log("Error in config for output '%s': '%s' is not a valid EOTF mode. Try one of:",
+			   output->name, str);
+		for (i = 0; i < ARRAY_LENGTH(modes); i++)
+			weston_log_continue(" %s", modes[i].name);
+		weston_log_continue("\n");
+		return -1;
+	}
+	eotf_mode = modes[i].eotf_mode;
+
+	if ((weston_output_get_supported_eotf_modes(output) & eotf_mode) == 0) {
+		weston_log("Error: output '%s' does not support EOTF mode %s.\n",
+			   output->name, str);
+		free(str);
+		return -1;
+	}
+
+	if (eotf_mode != WESTON_EOTF_MODE_SDR &&
+	    !compositor->use_color_manager) {
+		weston_log("Error: EOTF mode %s on output '%s' requires color-management=true in weston.ini\n",
+			   str, output->name);
+		free(str);
+		return -1;
+	}
+
+	weston_output_set_eotf_mode(output, eotf_mode);
+
+	free(str);
+	return 0;
+}
+
 static void
 allow_content_protection(struct weston_output *output,
 			struct weston_config_section *section)
@@ -1838,6 +1905,9 @@ drm_backend_output_configure(struct weston_output *output,
 	free(seat);
 
 	allow_content_protection(output, section);
+
+	if (wet_output_set_eotf_mode(output, section) < 0)
+		return -1;
 
 	return 0;
 }
@@ -2655,6 +2725,12 @@ headless_backend_output_configure(struct weston_output *output)
 		.scale = 1,
 		.transform = WL_OUTPUT_TRANSFORM_NORMAL
 	};
+	struct weston_config *wc = wet_get_config(output->compositor);
+	struct weston_config_section *section;
+
+	section = weston_config_get_section(wc, "output", "name", output->name);
+	if (wet_output_set_eotf_mode(output, section) < 0)
+		return -1;
 
 	return wet_configure_windowed_output_from_config(output, &defaults);
 }

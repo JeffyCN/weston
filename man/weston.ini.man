@@ -548,6 +548,25 @@ of content-protection protocol. Currently, HDCP is supported by drm-backend.
 A comma separated list of the IDs of applications to place on this output.
 These IDs should match the application IDs as set with the xdg_shell.set_app_id
 request. Currently, this option is supported by kiosk-shell.
+.TP 7
+.BI "eotf-mode=" sdr
+Sets the EOTF mode on the output. This is used for choosing between standard
+dynamic range (SDR) mode and the various high dynamic range (HDR) modes. The
+display driver, the graphics card, and the video sink (monitor) need to support
+the chosen mode, otherwise the result is undefined.
+The mode can be one of the following strings:
+.PP
+.RS 10
+.nf
+.BR  "sdr                  " "traditional gamma, SDR"
+.BR  "hdr-gamma            " "traditional gamma, HDR"
+.BR  "st2084               " "SMPTE ST 2084, a.k.a Perceptual Quantizer"
+.BR  "hlg                  " "Hybrid Log-Gamma (ITU-R BT.2100)"
+.fi
+.RE
+.IP
+Defaults to
+.BR sdr ". Non-SDR modes require " "color-management=true" .
 .\"---------------------------------------------------------------------
 .SH "INPUT-METHOD SECTION"
 .TP 7
