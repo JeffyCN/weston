@@ -79,9 +79,6 @@ struct kiosk_shell_seat {
 	struct wl_listener seat_destroy_listener;
 	struct weston_surface *focused_surface;
 
-	struct wl_listener caps_changed_listener;
-	struct wl_listener keyboard_focus_listener;
-
 	struct wl_list link;	/** kiosk_shell::seat_list */
 };
 

@@ -397,18 +397,9 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
  */
 
 static void
-kiosk_shell_seat_handle_keyboard_focus(struct wl_listener *listener, void *data)
-{
-	/* FIXME: To be removed later. */
-}
-
-static void
 kiosk_shell_seat_destroy(struct kiosk_shell_seat *shseat)
 {
-	wl_list_remove(&shseat->keyboard_focus_listener.link);
-	wl_list_remove(&shseat->caps_changed_listener.link);
 	wl_list_remove(&shseat->seat_destroy_listener.link);
-
 	wl_list_remove(&shseat->link);
 	free(shseat);
 }
@@ -421,26 +412,6 @@ kiosk_shell_seat_handle_destroy(struct wl_listener *listener, void *data)
 			     struct kiosk_shell_seat, seat_destroy_listener);
 
 	kiosk_shell_seat_destroy(shseat);
-}
-
-static void
-kiosk_shell_seat_handle_caps_changed(struct wl_listener *listener, void *data)
-{
-	struct weston_keyboard *keyboard;
-	struct kiosk_shell_seat *shseat;
-
-	shseat = container_of(listener, struct kiosk_shell_seat,
-			      caps_changed_listener);
-	keyboard = weston_seat_get_keyboard(shseat->seat);
-
-	if (keyboard &&
-	    wl_list_empty(&shseat->keyboard_focus_listener.link)) {
-		wl_signal_add(&keyboard->focus_signal,
-			      &shseat->keyboard_focus_listener);
-	} else if (!keyboard) {
-		wl_list_remove(&shseat->keyboard_focus_listener.link);
-		wl_list_init(&shseat->keyboard_focus_listener.link);
-	}
 }
 
 static struct kiosk_shell_seat *
@@ -464,14 +435,6 @@ kiosk_shell_seat_create(struct kiosk_shell *shell, struct weston_seat *seat)
 
 	shseat->seat_destroy_listener.notify = kiosk_shell_seat_handle_destroy;
 	wl_signal_add(&seat->destroy_signal, &shseat->seat_destroy_listener);
-
-	shseat->keyboard_focus_listener.notify = kiosk_shell_seat_handle_keyboard_focus;
-	wl_list_init(&shseat->keyboard_focus_listener.link);
-
-	shseat->caps_changed_listener.notify = kiosk_shell_seat_handle_caps_changed;
-	wl_signal_add(&seat->updated_caps_signal,
-		      &shseat->caps_changed_listener);
-	kiosk_shell_seat_handle_caps_changed(&shseat->caps_changed_listener, NULL);
 
 	wl_list_insert(&shell->seat_list, &shseat->link);
 
