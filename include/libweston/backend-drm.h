@@ -78,6 +78,20 @@ struct weston_drm_output_api {
 	 */
 	void (*set_seat)(struct weston_output *output,
 			 const char *seat);
+
+	/** Set the "max bpc" KMS connector property
+	 *
+	 * The property is used for working around faulty sink hardware like
+	 * monitors or media converters that mishandle the kernel driver
+	 * chosen bits-per-channel on the physical link. When having trouble,
+	 * try a lower value like 8.
+	 *
+	 * The value actually used in KMS is silently clamped to the range the
+	 * KMS driver claims to support. The default value is 16.
+	 *
+	 * This can be set only while the output is disabled.
+	 */
+	void (*set_max_bpc)(struct weston_output *output, unsigned max_bpc);
 };
 
 static inline const struct weston_drm_output_api *

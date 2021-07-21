@@ -187,6 +187,7 @@ enum wdrm_connector_property {
 	WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
 	WDRM_CONNECTOR_PANEL_ORIENTATION,
 	WDRM_CONNECTOR_HDR_OUTPUT_METADATA,
+	WDRM_CONNECTOR_MAX_BPC,
 	WDRM_CONNECTOR__COUNT
 };
 
@@ -558,6 +559,8 @@ struct drm_output {
 
 	uint32_t hdr_output_metadata_blob_id;
 	uint64_t ackd_color_outcome_serial;
+
+	unsigned max_bpc;
 
 	/* Plane being displayed directly on the CRTC */
 	struct drm_plane *scanout_plane;

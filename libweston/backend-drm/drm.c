@@ -1389,6 +1389,17 @@ drm_output_set_seat(struct weston_output *base,
 				     seat ? seat : "");
 }
 
+static void
+drm_output_set_max_bpc(struct weston_output *base, unsigned max_bpc)
+{
+	struct drm_output *output = to_drm_output(base);
+
+	assert(output);
+	assert(!output->base.enabled);
+
+	output->max_bpc = max_bpc;
+}
+
 static int
 drm_output_init_gamma_size(struct drm_output *output)
 {
@@ -2278,6 +2289,7 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
 	output->device = device;
 	output->crtc = NULL;
 
+	output->max_bpc = 16;
 	output->gbm_format = DRM_FORMAT_INVALID;
 #ifdef BUILD_DRM_GBM
 	output->gbm_bo_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
@@ -3055,6 +3067,7 @@ static const struct weston_drm_output_api api = {
 	drm_output_set_mode,
 	drm_output_set_gbm_format,
 	drm_output_set_seat,
+	drm_output_set_max_bpc,
 };
 
 static struct drm_backend *
