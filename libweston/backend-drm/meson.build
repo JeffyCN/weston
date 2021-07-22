@@ -38,6 +38,7 @@ srcs_drm = [
 ]
 
 deps_drm = [
+	dep_libm,
 	dep_libdl,
 	dep_libweston_private,
 	dep_session_helper,
