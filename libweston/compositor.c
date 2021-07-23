@@ -6449,6 +6449,57 @@ weston_output_transform_coordinate(struct weston_output *output,
 	*y = p.f[1] / p.f[3];
 }
 
+static bool
+validate_float_range(float val, float min, float max)
+{
+	return val >= min && val <= max;
+}
+
+/* Based on CTA-861-G, HDR static metadata type 1 */
+static bool
+weston_hdr_metadata_type1_validate(const struct weston_hdr_metadata_type1 *md)
+{
+	unsigned i;
+
+	if (md->group_mask & WESTON_HDR_METADATA_TYPE1_GROUP_PRIMARIES) {
+		for (i = 0; i < ARRAY_LENGTH(md->primary); i++) {
+			if (!validate_float_range(md->primary[i].x, 0.0, 1.0))
+				return false;
+			if (!validate_float_range(md->primary[i].y, 0.0, 1.0))
+				return false;
+		}
+	}
+
+	if (md->group_mask & WESTON_HDR_METADATA_TYPE1_GROUP_WHITE) {
+		if (!validate_float_range(md->white.x, 0.0, 1.0))
+			return false;
+		if (!validate_float_range(md->white.y, 0.0, 1.0))
+			return false;
+	}
+
+	if (md->group_mask & WESTON_HDR_METADATA_TYPE1_GROUP_MAXDML) {
+		if (!validate_float_range(md->maxDML, 1.0, 65535.0))
+			return false;
+	}
+
+	if (md->group_mask & WESTON_HDR_METADATA_TYPE1_GROUP_MINDML) {
+		if (!validate_float_range(md->minDML, 0.0001, 6.5535))
+			return false;
+	}
+
+	if (md->group_mask & WESTON_HDR_METADATA_TYPE1_GROUP_MAXCLL) {
+		if (!validate_float_range(md->maxCLL, 1.0, 65535.0))
+			return false;
+	}
+
+	if (md->group_mask & WESTON_HDR_METADATA_TYPE1_GROUP_MAXFALL) {
+		if (!validate_float_range(md->maxFALL, 1.0, 65535.0))
+			return false;
+	}
+
+	return true;
+}
+
 WL_EXPORT void
 weston_output_color_outcome_destroy(struct weston_output_color_outcome **pco)
 {
@@ -6475,8 +6526,13 @@ weston_output_set_color_outcome(struct weston_output *output)
 	if (!colorout) {
 		weston_log("Creating color transformation for output \"%s\" failed.\n",
 			   output->name);
-
 		return false;
+	}
+
+	if (!weston_hdr_metadata_type1_validate(&colorout->hdr_meta)) {
+		weston_log("Internal color manager error creating Metadata Type 1 for output \"%s\".\n",
+			   output->name);
+		goto out_error;
 	}
 
 	weston_output_color_outcome_destroy(&output->color_outcome);
@@ -6488,6 +6544,11 @@ weston_output_set_color_outcome(struct weston_output *output)
 		   weston_color_profile_get_description(output->color_profile));
 
 	return true;
+
+out_error:
+	weston_output_color_outcome_destroy(&colorout);
+
+	return false;
 }
 
 /** Removes output from compositor's list of enabled outputs
@@ -6762,6 +6823,23 @@ WL_EXPORT enum weston_eotf_mode
 weston_output_get_eotf_mode(const struct weston_output *output)
 {
 	return output->eotf_mode;
+}
+
+/** Get HDR static metadata type 1
+ *
+ * \param output The output to query.
+ * \return Pointer to the metadata stored in weston_output.
+ *
+ * This function is meant to be used by libweston backends.
+ *
+ * \ingroup output
+ * \internal
+ */
+WL_EXPORT const struct weston_hdr_metadata_type1 *
+weston_output_get_hdr_metadata_type1(const struct weston_output *output)
+{
+	assert(output->color_outcome);
+	return &output->color_outcome->hdr_meta;
 }
 
 /** Set display or monitor basic color characteristics

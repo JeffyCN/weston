@@ -208,6 +208,8 @@ cmlcms_create_output_color_outcome(struct weston_color_manager *cm_base,
 						       &co->from_sRGB_to_output))
 		goto out_fail;
 
+	co->hdr_meta.group_mask = 0;
+
 	return co;
 
 out_fail:

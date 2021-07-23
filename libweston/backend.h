@@ -32,6 +32,8 @@
 #ifndef LIBWESTON_BACKEND_INTERNAL_H
 #define LIBWESTON_BACKEND_INTERNAL_H
 
+struct weston_hdr_metadata_type1;
+
 struct weston_backend {
 	void (*destroy)(struct weston_compositor *compositor);
 
@@ -172,6 +174,9 @@ weston_output_transform_coordinate(struct weston_output *output,
 void
 weston_output_region_from_global(struct weston_output *output,
 				 pixman_region32_t *region);
+
+const struct weston_hdr_metadata_type1 *
+weston_output_get_hdr_metadata_type1(const struct weston_output *output);
 
 /* weston_seat */
 
