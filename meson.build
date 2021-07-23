@@ -27,6 +27,10 @@ else
 	error('Bad versions in meson.build: libweston_major is too low')
 endif
 
+if not (get_option('launcher-logind') or get_option('launcher-libseat'))
+       error('At least one launcher must be enabled')
+endif
+
 dir_prefix = get_option('prefix')
 dir_bin = join_paths(dir_prefix, get_option('bindir'))
 dir_data = join_paths(dir_prefix, get_option('datadir'))

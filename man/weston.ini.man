@@ -482,10 +482,7 @@ currently only recognized by the drm and x11 backends.
 .BI "name=" name
 sets a name for the output (string). The backend uses the name to
 identify the output. All X11 output names start with a letter X.  All
-Wayland output names start with the letters WL.  The available
-output names for DRM backend are listed in the
-.B "weston-launch(1)"
-output.
+Wayland output names start with the letters WL.
 Examples of usage:
 .PP
 .RS 10

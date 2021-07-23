@@ -66,13 +66,6 @@ option(
 )
 
 option(
-	'deprecated-weston-launch',
-	type: 'boolean',
-	value: false,
-	description: 'Deprecated weston launcher for systems without logind'
-)
-
-option(
 	'xwayland',
 	type: 'boolean',
 	value: true,

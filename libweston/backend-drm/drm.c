@@ -3017,13 +3017,12 @@ drm_backend_create(struct weston_compositor *compositor,
 	if (parse_gbm_format(config->gbm_format, DRM_FORMAT_XRGB8888, &b->gbm_format) < 0)
 		goto err_compositor;
 
-	/* Check if we run drm-backend using weston-launch */
+	/* Check if we run drm-backend using a compatible launcher */
 	compositor->launcher = weston_launcher_connect(compositor, config->tty,
 						       seat_id, true);
 	if (compositor->launcher == NULL) {
-		weston_log("fatal: drm backend should be run using "
-			   "weston-launch binary, or your system should "
-			   "provide the logind D-Bus API.\n");
+		weston_log("fatal: your system should either provide the "
+			   "logind D-Bus API, or use seatd.\n");
 		goto err_compositor;
 	}
 

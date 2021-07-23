@@ -926,9 +926,8 @@ fbdev_backend_create(struct weston_compositor *compositor,
 	compositor->launcher =
 		weston_launcher_connect(compositor, param->tty, seat_id, false);
 	if (!compositor->launcher) {
-		weston_log("fatal: fbdev backend should be run using "
-			   "weston-launch binary, or your system should "
-			   "provide the logind D-Bus API.\n");
+		weston_log("fatal: your system should either provide the "
+			   "logind D-Bus API, or use seatd.\n");
 		goto out_udev;
 	}
 

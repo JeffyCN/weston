@@ -93,13 +93,6 @@ the available configuration options and display backends. It can also be
 configured through a file on disk; more information on this can be found through
 `man weston.ini`.
 
-In some special cases, such as when running remotely or without logind's session
-control, Weston may not be able to run directly from a text console. In these
-situations, you can instead execute the `weston-launch` helper, which will gain
-privileged access to input and output devices by running as root, then granting
-access to the main Weston binary running as your user. Running Weston this way
-is not recommended unless necessary.
-
 Documentation
 =============
 
@@ -307,11 +300,6 @@ Details:
 - plugin design ???
 
 - xwayland ???
-
-- weston-launch is still with libweston even though it can only launch
-  Weston and nothing else. We would like to allow it to launch any compositor,
-  but since it gives by design root access to input devices and DRM, how can
-  we restrict it to intended programs?
 
 There are still many more details to be decided.
 

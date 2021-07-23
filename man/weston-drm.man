@@ -2,8 +2,6 @@
 .SH NAME
 weston-drm \- the DRM backend for Weston
 .SH SYNOPSIS
-.B weston-launch
-.LP
 .B weston --backend=drm-backend.so
 .
 .\" ***************************************************************
@@ -32,19 +30,6 @@ that was used in boot. If that is not found, it finally chooses
 the first DRM device returned by
 .BR udev (7).
 Combining multiple graphics devices is not supported yet.
-
-The DRM backend relies on
-.B weston-launch
-for managing input device access and DRM master status, so that
-.B weston
-can be run without root privileges. On switching away from the
-virtual terminal (VT) hosting Weston, all input devices are closed and
-the DRM master capability is dropped, so that other servers,
-including
-.BR Xorg (1),
-can run on other VTs. On switching back to Weston's VT, input devices
-and DRM master are re-acquired through the parent process
-.BR weston-launch .
 
 The DRM backend also supports virtual outputs that are transmitted over
 an RTP session as a series of JPEG images (RTP payload type 26) to a remote
@@ -218,23 +203,10 @@ The minimum libinput verbosity level to be printed to Weston's log.
 Valid values are
 .BR debug ", " info ", and " error ". Default is " info .
 .TP
-.B WESTON_TTY_FD
-The file descriptor (integer) of the opened tty where
-.B weston
-will run. Set by
-.BR weston-launch .
-.TP
-.B WESTON_LAUNCHER_SOCK
-The file descriptor (integer) where
-.B weston-launch
-is listening. Automatically set by
-.BR weston-launch .
-.TP
 .B XDG_SEAT
 The seat Weston will start on, unless overridden on the command line.
 .
 .\" ***************************************************************
 .SH "SEE ALSO"
 .BR weston (1)
-.\".BR weston-launch (1),
 .\".BR weston.ini (5)

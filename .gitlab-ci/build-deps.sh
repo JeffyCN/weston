@@ -143,9 +143,8 @@ ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf pipewire-src
 
-# seatd lets us avoid the pain of handling VTs manually through weston-launch
-# or open-coding TTY assignment within Weston. We use this for our tests using
-# the DRM backend.
+# seatd lets us avoid the pain of open-coding TTY assignment within Weston.
+# We use this for our tests using the DRM backend.
 git clone --depth=1 --branch 0.6.1 https://git.sr.ht/~kennylevinsen/seatd
 cd seatd
 meson build -Dauto_features=disabled \

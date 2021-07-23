@@ -91,17 +91,14 @@ You can start Weston from a VT assuming that there's a seat manager supported by
 backend to be used by ``libseat`` can optionally be selected with
 ``$LIBSEAT_BACKEND``.  If ``libseat`` and ``seatd`` are both installed, but
 ``seatd`` is not already running, it can be started with ``sudo -- seatd -g
-video``.  If no seat manager supported by ``libseat`` is available, you can use
-the ``weston-launch`` application that can handle VT switching.
+video``.
 
 Another way of launching Weston is via ssh or a serial terminal.  The simplest
 option here is to use the ``libseat`` launcher with ``seatd``.  The process for
 setting that up is identical to the one described above, where one just need to
 ensure that ``seatd`` is running with the appropriate arguments, after which one
 can just run ``weston``.  Another option, is to rely on logind and start weston
-as systemd user service: :ref:`weston-user-service`. Alternatively and as a last
-resort, one can run Weston as root, specifying the tty to use on the command
-line: If TTY 2 is active, one would run ``weston --tty 2`` as root.
+as systemd user service: :ref:`weston-user-service`.
 
 Running Weston on a different seat on a stand-alone back-end
 ------------------------------------------------------------

@@ -17,14 +17,6 @@ Weston supports fundamentally different graphical user interface paradigms via
 shell plugins. Two plugins are provided: the desktop shell, and the tablet
 shell.
 
-When weston is started as the first windowing system (i.e. not under X nor
-under another Wayland server), it should be done with the command
-.B weston-launch
-to set up proper privileged access to devices. If your system supports
-the logind D-Bus API and the support has been built into weston as well,
-it is possible to start weston with just
-.BR weston .
-
 Weston also supports X clients via
 .BR XWayland ", see below."
 .
@@ -361,9 +353,9 @@ http://wayland.freedesktop.org/
 .\" ***************************************************************
 .SH EXAMPLES
 .IP "Launch Weston with the DRM backend on a VT"
-weston-launch
+weston
 .IP "Launch Weston with the DRM backend and XWayland support"
-weston-launch -- --xwayland
+weston --xwayland
 .IP "Launch Weston (wayland-1) nested in another Weston instance (wayland-0)"
 WAYLAND_DISPLAY=wayland-0 weston -Swayland-1
 .IP "From an X terminal, launch Weston with the x11 backend"

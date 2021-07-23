@@ -143,9 +143,7 @@ pkgconfig.generate(
 )
 
 srcs_session_helper = [
-	'launcher-direct.c',
 	'launcher-util.c',
-	'launcher-weston-launch.c',
 ]
 deps_session_helper = [ dep_libweston_private_h ]
 
@@ -221,25 +219,6 @@ dep_vertex_clipping = declare_dependency(
 	sources: 'vertex-clipping.c',
 	include_directories: include_directories('.')
 )
-
-if get_option('deprecated-weston-launch')
-	warning('weston-launch is deprecated and will be removed in a future release. Please migrate to libseat and seatd-launch.')
-	dep_pam = cc.find_library('pam')
-
-	if not cc.has_function('pam_open_session', dependencies: dep_pam)
-		error('pam_open_session not found for weston-launch')
-	endif
-
-	executable(
-		'weston-launch',
-		'weston-launch.c',
-		dependencies: [dep_pam, systemd_dep, dep_libdrm],
-		include_directories: common_inc,
-		install: true
-	)
-
-	meson.add_install_script('echo', 'REMINDER: You are installing weston-launch, please make it setuid-root.')
-endif
 
 subdir('color-lcms')
 subdir('renderer-gl')

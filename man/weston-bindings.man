@@ -165,7 +165,6 @@ Enable repaint debugging for pixman:
 
 .SH "SEE ALSO"
 .BR weston (1),
-.BR weston-launch (1),
 .BR weston-drm (7),
 .BR weston.ini (5),
 .BR xkeyboard-config (7)

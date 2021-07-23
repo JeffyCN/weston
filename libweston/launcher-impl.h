@@ -47,5 +47,3 @@ struct weston_launcher {
 
 extern const struct launcher_interface launcher_libseat_iface;
 extern const struct launcher_interface launcher_logind_iface;
-extern const struct launcher_interface launcher_weston_launch_iface;
-extern const struct launcher_interface launcher_direct_iface;
