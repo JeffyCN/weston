@@ -26,6 +26,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <pixman.h>
 
 /**
  * Contains information about pixel formats, mapping format codes from
@@ -69,6 +70,9 @@ struct pixel_format_info {
 
 	/** GL data type, if data can be natively/directly uploaded. */
 	int gl_type;
+
+	/** Pixman data type, if it agrees exactly with the wl_shm format */
+	pixman_format_code_t pixman_format;
 
 	/** If set, this format can be used with the legacy drmModeAddFB()
 	 *  function (not AddFB2), using this and the bpp member. */
@@ -141,6 +145,27 @@ pixel_format_get_info(uint32_t format);
  */
 const struct pixel_format_info *
 pixel_format_get_info_shm(uint32_t format);
+
+/**
+ * Get pixel format information by table index
+ *
+ * Given a 0-based index in the format table, return the corresponding
+ * DRM pixel format info structure.
+ *
+ * @param index Index of the pixel format in the table
+ * @returns A pixel format structure (must not be freed), or NULL if the
+ *          index is out of range.
+ */
+const struct pixel_format_info *
+pixel_format_get_info_by_index(unsigned int index);
+
+/**
+ * Return the size of the pixel format table
+ *
+ * @returns The number of entries in the pixel format table
+ */
+unsigned int
+pixel_format_get_info_count(void);
 
 /**
  * Get pixel format information for a named DRM format

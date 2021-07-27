@@ -34,6 +34,7 @@
 
 #include "pixman-renderer.h"
 #include "color.h"
+#include "pixel-formats.h"
 #include "shared/helpers.h"
 
 #include <linux/input.h>
@@ -623,7 +624,7 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct pixman_surface_state *ps = get_surface_state(es);
 	struct wl_shm_buffer *shm_buffer;
-	pixman_format_code_t pixman_format;
+	const struct pixel_format_info *pixel_info;
 
 	weston_buffer_reference(&ps->buffer_ref, buffer);
 	weston_buffer_release_reference(&ps->buffer_release_ref,
@@ -651,20 +652,8 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		return;
 	}
 
-	switch (wl_shm_buffer_get_format(shm_buffer)) {
-	case WL_SHM_FORMAT_XRGB8888:
-		pixman_format = PIXMAN_x8r8g8b8;
-		es->is_opaque = true;
-		break;
-	case WL_SHM_FORMAT_ARGB8888:
-		pixman_format = PIXMAN_a8r8g8b8;
-		es->is_opaque = false;
-		break;
-	case WL_SHM_FORMAT_RGB565:
-		pixman_format = PIXMAN_r5g6b5;
-		es->is_opaque = true;
-		break;
-	default:
+	pixel_info = pixel_format_get_info_shm(wl_shm_buffer_get_format(shm_buffer));
+	if (!pixel_info || !pixman_format_supported_source(pixel_info->pixman_format)) {
 		weston_log("Unsupported SHM buffer format 0x%x\n",
 			wl_shm_buffer_get_format(shm_buffer));
 		weston_buffer_reference(&ps->buffer_ref, NULL);
@@ -672,14 +661,15 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		weston_buffer_send_server_error(buffer,
 			"disconnecting due to unhandled buffer type");
 		return;
-	break;
 	}
+
+	es->is_opaque = pixel_format_is_opaque(pixel_info);
 
 	buffer->shm_buffer = shm_buffer;
 	buffer->width = wl_shm_buffer_get_width(shm_buffer);
 	buffer->height = wl_shm_buffer_get_height(shm_buffer);
 
-	ps->image = pixman_image_create_bits(pixman_format,
+	ps->image = pixman_image_create_bits(pixel_info->pixman_format,
 		buffer->width, buffer->height,
 		wl_shm_buffer_get_data(shm_buffer),
 		wl_shm_buffer_get_stride(shm_buffer));
@@ -864,6 +854,8 @@ WL_EXPORT int
 pixman_renderer_init(struct weston_compositor *ec)
 {
 	struct pixman_renderer *renderer;
+	const struct pixel_format_info *pixel_info, *info_argb8888, *info_xrgb8888;
+	unsigned int i, num_formats;
 
 	renderer = zalloc(sizeof *renderer);
 	if (renderer == NULL)
@@ -889,7 +881,21 @@ pixman_renderer_init(struct weston_compositor *ec)
 		weston_compositor_add_debug_binding(ec, KEY_R,
 						    debug_binding, ec);
 
-	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
+	info_argb8888 = pixel_format_get_info_shm(WL_SHM_FORMAT_ARGB8888);
+	info_xrgb8888 = pixel_format_get_info_shm(WL_SHM_FORMAT_XRGB8888);
+
+	num_formats = pixel_format_get_info_count();
+	for (i = 0; i < num_formats; i++) {
+		pixel_info = pixel_format_get_info_by_index(i);
+		if (!pixman_format_supported_source(pixel_info->pixman_format))
+			continue;
+
+		/* skip formats which libwayland registers by default */
+		if (pixel_info == info_argb8888 || pixel_info == info_xrgb8888)
+			continue;
+
+		wl_display_add_shm_format(ec->wl_display, pixel_info->format);
+	}
 
 	wl_signal_init(&renderer->destroy_signal);
 
