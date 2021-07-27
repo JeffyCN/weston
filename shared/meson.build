@@ -22,6 +22,26 @@ dep_libshared = declare_dependency(
 	dependencies: deps_libshared
 )
 
+xcb_dep = dependency('xcb', required: false)
+
+xcb_xwayland_srcs = [
+	'xcb-xwayland.c',
+]
+
+lib_xcb_xwayland = static_library(
+	'xcb-xwayland',
+	xcb_xwayland_srcs,
+	include_directories: common_inc,
+	dependencies: [ xcb_dep ],
+	install: false,
+	build_by_default: false,
+)
+
+dep_xcb_xwayland = declare_dependency(
+	link_with: lib_xcb_xwayland,
+	include_directories: public_inc,
+)
+
 srcs_cairo_shared = [
 	'image-loader.c',
 	'cairo-util.c',

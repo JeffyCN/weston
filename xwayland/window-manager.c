@@ -48,6 +48,7 @@
 #include "shared/cairo-util.h"
 #include "hash.h"
 #include "shared/helpers.h"
+#include "shared/xcb-xwayland.h"
 
 struct wm_size_hints {
 	uint32_t flags;
@@ -268,32 +269,6 @@ wm_lookup_window(struct weston_wm *wm, xcb_window_t hash,
 	return false;
 }
 
-const char *
-get_atom_name(xcb_connection_t *c, xcb_atom_t atom)
-{
-	xcb_get_atom_name_cookie_t cookie;
-	xcb_get_atom_name_reply_t *reply;
-	xcb_generic_error_t *e;
-	static char buffer[64];
-
-	if (atom == XCB_ATOM_NONE)
-		return "None";
-
-	cookie = xcb_get_atom_name (c, atom);
-	reply = xcb_get_atom_name_reply (c, cookie, &e);
-
-	if (reply) {
-		snprintf(buffer, sizeof buffer, "%.*s",
-			 xcb_get_atom_name_name_length (reply),
-			 xcb_get_atom_name_name (reply));
-	} else {
-		snprintf(buffer, sizeof buffer, "(atom %u)", atom);
-	}
-
-	free(reply);
-
-	return buffer;
-}
 
 static xcb_cursor_t
 xcb_cursor_image_load_cursor(struct weston_wm *wm, const XcursorImage *img)
@@ -2387,84 +2362,8 @@ weston_wm_get_visual_and_colormap(struct weston_wm *wm)
 static void
 weston_wm_get_resources(struct weston_wm *wm)
 {
-
-#define F(field) offsetof(struct weston_wm, field)
-
-	static const struct { const char *name; int offset; } atoms[] = {
-		{ "WM_PROTOCOLS",	F(atom.wm_protocols) },
-		{ "WM_NORMAL_HINTS",	F(atom.wm_normal_hints) },
-		{ "WM_TAKE_FOCUS",	F(atom.wm_take_focus) },
-		{ "WM_DELETE_WINDOW",	F(atom.wm_delete_window) },
-		{ "WM_STATE",		F(atom.wm_state) },
-		{ "WM_S0",		F(atom.wm_s0) },
-		{ "WM_CLIENT_MACHINE",	F(atom.wm_client_machine) },
-		{ "_NET_WM_CM_S0",	F(atom.net_wm_cm_s0) },
-		{ "_NET_WM_NAME",	F(atom.net_wm_name) },
-		{ "_NET_WM_PID",	F(atom.net_wm_pid) },
-		{ "_NET_WM_ICON",	F(atom.net_wm_icon) },
-		{ "_NET_WM_STATE",	F(atom.net_wm_state) },
-		{ "_NET_WM_STATE_MAXIMIZED_VERT", F(atom.net_wm_state_maximized_vert) },
-		{ "_NET_WM_STATE_MAXIMIZED_HORZ", F(atom.net_wm_state_maximized_horz) },
-		{ "_NET_WM_STATE_FULLSCREEN", F(atom.net_wm_state_fullscreen) },
-		{ "_NET_WM_USER_TIME", F(atom.net_wm_user_time) },
-		{ "_NET_WM_ICON_NAME", F(atom.net_wm_icon_name) },
-		{ "_NET_WM_DESKTOP", F(atom.net_wm_desktop) },
-		{ "_NET_WM_WINDOW_TYPE", F(atom.net_wm_window_type) },
-
-		{ "_NET_WM_WINDOW_TYPE_DESKTOP", F(atom.net_wm_window_type_desktop) },
-		{ "_NET_WM_WINDOW_TYPE_DOCK", F(atom.net_wm_window_type_dock) },
-		{ "_NET_WM_WINDOW_TYPE_TOOLBAR", F(atom.net_wm_window_type_toolbar) },
-		{ "_NET_WM_WINDOW_TYPE_MENU", F(atom.net_wm_window_type_menu) },
-		{ "_NET_WM_WINDOW_TYPE_UTILITY", F(atom.net_wm_window_type_utility) },
-		{ "_NET_WM_WINDOW_TYPE_SPLASH", F(atom.net_wm_window_type_splash) },
-		{ "_NET_WM_WINDOW_TYPE_DIALOG", F(atom.net_wm_window_type_dialog) },
-		{ "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU", F(atom.net_wm_window_type_dropdown) },
-		{ "_NET_WM_WINDOW_TYPE_POPUP_MENU", F(atom.net_wm_window_type_popup) },
-		{ "_NET_WM_WINDOW_TYPE_TOOLTIP", F(atom.net_wm_window_type_tooltip) },
-		{ "_NET_WM_WINDOW_TYPE_NOTIFICATION", F(atom.net_wm_window_type_notification) },
-		{ "_NET_WM_WINDOW_TYPE_COMBO", F(atom.net_wm_window_type_combo) },
-		{ "_NET_WM_WINDOW_TYPE_DND", F(atom.net_wm_window_type_dnd) },
-		{ "_NET_WM_WINDOW_TYPE_NORMAL",	F(atom.net_wm_window_type_normal) },
-
-		{ "_NET_WM_MOVERESIZE", F(atom.net_wm_moveresize) },
-		{ "_NET_SUPPORTING_WM_CHECK",
-					F(atom.net_supporting_wm_check) },
-		{ "_NET_SUPPORTED",     F(atom.net_supported) },
-		{ "_NET_ACTIVE_WINDOW",     F(atom.net_active_window) },
-		{ "_MOTIF_WM_HINTS",	F(atom.motif_wm_hints) },
-		{ "CLIPBOARD",		F(atom.clipboard) },
-		{ "CLIPBOARD_MANAGER",	F(atom.clipboard_manager) },
-		{ "TARGETS",		F(atom.targets) },
-		{ "UTF8_STRING",	F(atom.utf8_string) },
-		{ "_WL_SELECTION",	F(atom.wl_selection) },
-		{ "INCR",		F(atom.incr) },
-		{ "TIMESTAMP",		F(atom.timestamp) },
-		{ "MULTIPLE",		F(atom.multiple) },
-		{ "UTF8_STRING"	,	F(atom.utf8_string) },
-		{ "COMPOUND_TEXT",	F(atom.compound_text) },
-		{ "TEXT",		F(atom.text) },
-		{ "STRING",		F(atom.string) },
-		{ "WINDOW",		F(atom.window) },
-		{ "text/plain;charset=utf-8",	F(atom.text_plain_utf8) },
-		{ "text/plain",		F(atom.text_plain) },
-		{ "XdndSelection",	F(atom.xdnd_selection) },
-		{ "XdndAware",		F(atom.xdnd_aware) },
-		{ "XdndEnter",		F(atom.xdnd_enter) },
-		{ "XdndLeave",		F(atom.xdnd_leave) },
-		{ "XdndDrop",		F(atom.xdnd_drop) },
-		{ "XdndStatus",		F(atom.xdnd_status) },
-		{ "XdndFinished",	F(atom.xdnd_finished) },
-		{ "XdndTypeList",	F(atom.xdnd_type_list) },
-		{ "XdndActionCopy",	F(atom.xdnd_action_copy) },
-		{ "_XWAYLAND_ALLOW_COMMITS",	F(atom.allow_commits) },
-		{ "WL_SURFACE_ID",	F(atom.wl_surface_id) }
-	};
-#undef F
-
 	xcb_xfixes_query_version_cookie_t xfixes_cookie;
 	xcb_xfixes_query_version_reply_t *xfixes_reply;
-	xcb_intern_atom_cookie_t cookies[ARRAY_LENGTH(atoms)];
-	xcb_intern_atom_reply_t *reply;
 	xcb_render_query_pict_formats_reply_t *formats_reply;
 	xcb_render_query_pict_formats_cookie_t formats_cookie;
 	xcb_render_pictforminfo_t *formats;
@@ -2475,17 +2374,7 @@ weston_wm_get_resources(struct weston_wm *wm)
 
 	formats_cookie = xcb_render_query_pict_formats(wm->conn);
 
-	for (i = 0; i < ARRAY_LENGTH(atoms); i++)
-		cookies[i] = xcb_intern_atom (wm->conn, 0,
-					      strlen(atoms[i].name),
-					      atoms[i].name);
-
-	for (i = 0; i < ARRAY_LENGTH(atoms); i++) {
-		reply = xcb_intern_atom_reply (wm->conn, cookies[i], NULL);
-		*(xcb_atom_t *) ((char *) wm + atoms[i].offset) = reply->atom;
-		free(reply);
-	}
-
+	x11_get_atoms(wm->conn, &wm->atom);
 	wm->xfixes = xcb_get_extension_data(wm->conn, &xcb_xfixes_id);
 	if (!wm->xfixes || !wm->xfixes->present)
 		weston_log("xfixes not available\n");

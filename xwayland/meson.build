@@ -26,7 +26,7 @@ dep_names_xwayland = [
 	'cairo-xcb',
 ]
 
-deps_xwayland = [ dep_libweston_public ]
+deps_xwayland = [ dep_libweston_public, dep_xcb_xwayland ]
 
 foreach name : dep_names_xwayland
 	d = dependency(name, required: false)
