@@ -159,6 +159,9 @@ docs-and-coverage:
     - Test_Coverage/
 
 pages:
+  extends:
+    - .debian
+    - .fdo.distribution-image@debian
   stage: pages
   timeout: 5m
   dependencies:
