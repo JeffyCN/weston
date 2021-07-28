@@ -2100,7 +2100,7 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 	struct weston_compositor *ec = es->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(es);
-	EGLint attribs[3];
+	EGLint attribs[5];
 	GLenum target;
 	int i, num_planes;
 
@@ -2153,7 +2153,10 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 	for (i = 0; i < num_planes; i++) {
 		attribs[0] = EGL_WAYLAND_PLANE_WL;
 		attribs[1] = i;
-		attribs[2] = EGL_NONE;
+		attribs[2] = EGL_IMAGE_PRESERVED_KHR;
+		attribs[3] = EGL_TRUE;
+		attribs[4] = EGL_NONE;
+
 		gs->images[i] = egl_image_create(gr,
 						 EGL_WAYLAND_BUFFER_WL,
 						 buffer->legacy_buffer,
@@ -2187,7 +2190,7 @@ import_simple_dmabuf(struct gl_renderer *gr,
                      struct dmabuf_attributes *attributes)
 {
 	struct egl_image *image;
-	EGLint attribs[50];
+	EGLint attribs[52];
 	int atti = 0;
 	bool has_modifier;
 
@@ -2205,6 +2208,8 @@ import_simple_dmabuf(struct gl_renderer *gr,
 	attribs[atti++] = attributes->height;
 	attribs[atti++] = EGL_LINUX_DRM_FOURCC_EXT;
 	attribs[atti++] = attributes->format;
+	attribs[atti++] = EGL_IMAGE_PRESERVED_KHR;
+	attribs[atti++] = EGL_TRUE;
 
 	if (attributes->modifier[0] != DRM_FORMAT_MOD_INVALID) {
 		if (!gr->has_dmabuf_import_modifiers)
