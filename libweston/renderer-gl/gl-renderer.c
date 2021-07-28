@@ -2733,35 +2733,6 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 }
 
 static bool
-import_known_dmabuf(struct gl_renderer *gr,
-                    struct dmabuf_image *image)
-{
-	switch (image->import_type) {
-	case IMPORT_TYPE_DIRECT:
-		image->images[0] = import_simple_dmabuf(gr, &image->dmabuf->attributes);
-		if (!image->images[0]) {
-			/* num_images is already set to 1 when doing the intial
-			 * import so reset it to 0 to avoid passing an empty
-			 * egl_image to dmabuf_destroy */
-			image->num_images = 0;
-			return false;
-		}
-		break;
-
-	case IMPORT_TYPE_GL_CONVERSION:
-		if (!import_yuv_dmabuf(gr, image))
-			return false;
-		break;
-
-	default:
-		weston_log("Invalid import type for dmabuf\n");
-		return false;
-	}
-
-	return true;
-}
-
-static bool
 dmabuf_is_opaque(struct linux_dmabuf_buffer *dmabuf)
 {
 	const struct pixel_format_info *info;
@@ -2828,14 +2799,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 
 	/* The dmabuf_image should have been created during the import */
 	assert(image != NULL);
-
-	for (i = 0; i < image->num_images; ++i)
-		egl_image_unref(image->images[i]);
-
-	if (!import_known_dmabuf(gr, image)) {
-		linux_dmabuf_buffer_send_server_error(dmabuf, "EGL dmabuf import failed");
-		return;
-	}
 
 	gs->num_images = image->num_images;
 	for (i = 0; i < gs->num_images; ++i)
