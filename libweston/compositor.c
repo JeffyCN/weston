@@ -413,11 +413,6 @@ weston_view_create(struct weston_surface *surface)
 	return view;
 }
 
-struct weston_frame_callback {
-	struct wl_resource *resource;
-	struct wl_list link;
-};
-
 struct weston_presentation_feedback {
 	struct wl_resource *resource;
 
@@ -549,11 +544,10 @@ weston_surface_state_init(struct weston_surface_state *state)
 static void
 weston_surface_state_fini(struct weston_surface_state *state)
 {
-	struct weston_frame_callback *cb, *next;
+	struct wl_resource *cb, *next;
 
-	wl_list_for_each_safe(cb, next,
-			      &state->frame_callback_list, link)
-		wl_resource_destroy(cb->resource);
+	wl_resource_for_each_safe(cb, next, &state->frame_callback_list)
+		wl_resource_destroy(cb);
 
 	weston_presentation_feedback_discard_list(&state->feedback_list);
 
@@ -2304,7 +2298,7 @@ weston_view_destroy(struct weston_view *view)
 WL_EXPORT void
 weston_surface_destroy(struct weston_surface *surface)
 {
-	struct weston_frame_callback *cb, *next;
+	struct wl_resource *cb, *next;
 	struct weston_view *ev, *nv;
 	struct weston_pointer_constraint *constraint, *next_constraint;
 	struct weston_paint_node *pnode, *pntmp;
@@ -2336,8 +2330,8 @@ weston_surface_destroy(struct weston_surface *surface)
 	pixman_region32_fini(&surface->opaque);
 	pixman_region32_fini(&surface->input);
 
-	wl_list_for_each_safe(cb, next, &surface->frame_callback_list, link)
-		wl_resource_destroy(cb->resource);
+	wl_resource_for_each_safe(cb, next, &surface->frame_callback_list)
+		wl_resource_destroy(cb);
 
 	weston_presentation_feedback_discard_list(&surface->feedback_list);
 
@@ -2870,7 +2864,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 	struct weston_compositor *ec = output->compositor;
 	struct weston_paint_node *pnode;
 	struct weston_animation *animation, *next;
-	struct weston_frame_callback *cb, *cnext;
+	struct wl_resource *cb, *cnext;
 	struct wl_list frame_callback_list;
 	pixman_region32_t output_damage;
 	int r;
@@ -2952,9 +2946,9 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 
 	frame_time_msec = timespec_to_msec(&output->frame_time);
 
-	wl_list_for_each_safe(cb, cnext, &frame_callback_list, link) {
-		wl_callback_send_done(cb->resource, frame_time_msec);
-		wl_resource_destroy(cb->resource);
+	wl_resource_for_each_safe(cb, cnext, &frame_callback_list) {
+		wl_callback_send_done(cb, frame_time_msec);
+		wl_resource_destroy(cb);
 	}
 
 	wl_list_for_each_safe(animation, next, &output->animation_list, link) {
@@ -3473,37 +3467,27 @@ surface_damage_buffer(struct wl_client *client,
 static void
 destroy_frame_callback(struct wl_resource *resource)
 {
-	struct weston_frame_callback *cb = wl_resource_get_user_data(resource);
-
-	wl_list_remove(&cb->link);
-	free(cb);
+	wl_list_remove(wl_resource_get_link(resource));
 }
 
 static void
 surface_frame(struct wl_client *client,
 	      struct wl_resource *resource, uint32_t callback)
 {
-	struct weston_frame_callback *cb;
+	struct wl_resource *cb;
 	struct weston_surface *surface = wl_resource_get_user_data(resource);
 
-	cb = malloc(sizeof *cb);
+	cb = wl_resource_create(client, &wl_callback_interface, 1, callback);
 	if (cb == NULL) {
 		wl_resource_post_no_memory(resource);
 		return;
 	}
 
-	cb->resource = wl_resource_create(client, &wl_callback_interface, 1,
-					  callback);
-	if (cb->resource == NULL) {
-		free(cb);
-		wl_resource_post_no_memory(resource);
-		return;
-	}
-
-	wl_resource_set_implementation(cb->resource, NULL, cb,
+	wl_resource_set_implementation(cb, NULL, NULL,
 				       destroy_frame_callback);
 
-	wl_list_insert(surface->pending.frame_callback_list.prev, &cb->link);
+	wl_list_insert(surface->pending.frame_callback_list.prev,
+		       wl_resource_get_link(cb));
 }
 
 static void
