@@ -312,7 +312,12 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 
 	ts.tv_sec = sec;
 	ts.tv_nsec = usec * 1000;
-	weston_output_finish_frame(&output->base, &ts, flags);
+
+	if (output->state_cur->dpms != WESTON_DPMS_OFF)
+		weston_output_finish_frame(&output->base, &ts, flags);
+	else
+		weston_output_finish_frame(&output->base, NULL,
+					   WP_PRESENTATION_FEEDBACK_INVALID);
 
 	/* We can't call this from frame_notify, because the output's
 	 * repaint needed flag is cleared just after that */
