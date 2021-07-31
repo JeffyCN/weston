@@ -12,9 +12,10 @@ export MAKEFLAGS="-j${FDO_CI_CONCURRENT:-4}"
 export NINJAFLAGS="-j${FDO_CI_CONCURRENT:-4}"
 
 # Build and install Meson. Generally we want to keep this in sync with what
-# we require inside meson.build, however per wayland/weston@bcf37c937a36,
-# we use a higher version here 
-pip3 install --user git+https://github.com/mesonbuild/meson.git@0.57.0
+# we require inside meson.build, however we require at least 0.57.0 per
+# wayland/weston@bcf37c937a36, and 0.57.1 to fix the TAP parser when a test
+# exits unsuccessfully
+pip3 install --user git+https://github.com/mesonbuild/meson.git@0.57.1
 export PATH=$HOME/.local/bin:$PATH
 
 # Our docs are built using Sphinx (top-level organisation and final HTML/CSS
