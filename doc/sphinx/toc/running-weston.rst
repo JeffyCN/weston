@@ -42,6 +42,17 @@ by your GPU when suitable drivers are installed. The other uses the
 rendered. You can select between these with the ``--renderer=gl`` and
 ``--renderer=pixman`` arguments when starting Weston.
 
+Multi-back-end support
+----------------------
+
+Some back-ends can be selected via a comma-separated list to run in parallel,
+for example ``-B drm,vnc``. The first back-end in the list is the *primary*
+back-end. It creates the renderer and creates its outputs first. The following
+back-ends are *secondary* backends. They reuse the renderer and create their
+outputs afterwards. Currently, all back-ends support being loaded as the primary
+back-end. The PipeWire and VNC backends support being loaded as secondary
+backends.
+
 Additional set-up steps
 -----------------------
 

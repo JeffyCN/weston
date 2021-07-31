@@ -110,17 +110,18 @@ and
 .
 .SS Weston core options:
 .TP
-\fB\-\^B\fR\fIbackend\fR, \fB\-\-backend\fR=\fIbackend\fR
-Load
-.I backend
-instead of the default backend, see
+\fB\-\^B\fR\fIbackend1,backend2\fR, \fB\-\-backend\fR=\fIbackend1,backend2\fR
+Load the comma-separated list of backends instead of the default backend, see
 .IR BACKENDS .
-The backend module is searched for in
+The backend modules are searched for in
 .IR "@weston_modules_dir@" .
 The default backend is
 .I @weston_native_backend@
 unless the environment suggests otherwise, see
 .IR DISPLAY " and " WAYLAND_DISPLAY .
+The first backend is the primary backend, and it provides the renderer. Not all
+backends support being loaded as secondary backends, which reuse the primary
+backend's renderer.
 .TP
 \fB\-\^c\fR\fIconfig.ini\fR, \fB\-\-config\fR=\fIconfig.ini\fR
 Load
