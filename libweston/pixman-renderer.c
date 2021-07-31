@@ -669,7 +669,7 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 			wl_shm_buffer_get_format(shm_buffer));
 		weston_buffer_reference(&ps->buffer_ref, NULL);
 		weston_buffer_release_reference(&ps->buffer_release_ref, NULL);
-                weston_buffer_send_server_error(buffer,
+		weston_buffer_send_server_error(buffer,
 			"disconnecting due to unhandled buffer type");
 		return;
 	break;

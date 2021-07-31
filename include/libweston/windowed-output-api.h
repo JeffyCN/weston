@@ -47,7 +47,7 @@ struct weston_windowed_output_api {
 	 * Returns 0 on success, -1 on failure.
 	 *
 	 * This assigns a desired width and height to a windowed
-         * output. The backend decides what should be done and applies
+	 * output. The backend decides what should be done and applies
 	 * the desired configuration. After using this function and
 	 * generic weston_output_set_*, a windowed
 	 * output should be in a state where weston_output_enable()

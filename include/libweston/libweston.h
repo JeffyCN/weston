@@ -848,11 +848,11 @@ struct weston_seat {
 };
 
 enum {
-	WESTON_COMPOSITOR_ACTIVE,	/* normal rendering and events */
-	WESTON_COMPOSITOR_IDLE,		/* shell->unlock called on activity */
-	WESTON_COMPOSITOR_OFFSCREEN,	/* no rendering, no frame events */
-	WESTON_COMPOSITOR_SLEEPING	/* same as offscreen, but also set dpms
-                                         * to off */
+	WESTON_COMPOSITOR_ACTIVE,    /* normal rendering and events */
+	WESTON_COMPOSITOR_IDLE,      /* shell->unlock called on activity */
+	WESTON_COMPOSITOR_OFFSCREEN, /* no rendering, no frame events */
+	WESTON_COMPOSITOR_SLEEPING   /* same as offscreen, but also set dpms
+	                              * to off */
 };
 
 struct weston_layer_entry {
@@ -1012,22 +1012,22 @@ enum weston_capability {
  * \endrststar
  */
 struct weston_backend_config {
-   /** Major version for the backend-specific config struct
-    *
-    * This version must match exactly what the backend expects, otherwise
-    * the struct is incompatible.
-    */
-   uint32_t struct_version;
+	/** Major version for the backend-specific config struct
+	 *
+	 * This version must match exactly what the backend expects, otherwise
+	 * the struct is incompatible.
+	 */
+	uint32_t struct_version;
 
-   /** Minor version of the backend-specific config struct
-    *
-    * This must be set to sizeof(struct backend-specific config).
-    * If the value here is smaller than what the backend expects, the
-    * extra config members will assume their default values.
-    *
-    * A value greater than what the backend expects is incompatible.
-    */
-   size_t struct_size;
+	/** Minor version of the backend-specific config struct
+	 *
+	 * This must be set to sizeof(struct backend-specific config).
+	 * If the value here is smaller than what the backend expects, the
+	 * extra config members will assume their default values.
+	 *
+	 * A value greater than what the backend expects is incompatible.
+	 */
+	size_t struct_size;
 };
 
 struct weston_backend;

@@ -523,8 +523,8 @@ pointer_send_motion(struct weston_pointer *pointer,
 	msecs = timespec_to_msec(time);
 	wl_resource_for_each(resource, resource_list) {
 		send_timestamps_for_input_resource(resource,
-                                                   &pointer->timestamps_list,
-                                                   time);
+		                                   &pointer->timestamps_list,
+		                                   time);
 		wl_pointer_send_motion(resource, msecs, sx, sy);
 	}
 }
@@ -609,8 +609,8 @@ weston_pointer_send_button(struct weston_pointer *pointer,
 	msecs = timespec_to_msec(time);
 	wl_resource_for_each(resource, resource_list) {
 		send_timestamps_for_input_resource(resource,
-                                                   &pointer->timestamps_list,
-                                                   time);
+		                                   &pointer->timestamps_list,
+		                                   time);
 		wl_pointer_send_button(resource, serial, msecs, button, state);
 	}
 }
@@ -1965,7 +1965,7 @@ weston_keyboard_set_locks(struct weston_keyboard *keyboard,
 	mods_locked = xkb_state_serialize_mods(keyboard->xkb_state.state,
 						XKB_STATE_LOCKED);
 	group = xkb_state_serialize_group(keyboard->xkb_state.state,
-                                      XKB_STATE_EFFECTIVE);
+	                                  XKB_STATE_EFFECTIVE);
 
 	num = (1 << keyboard->xkb_info->mod2_mod);
 	caps = (1 << keyboard->xkb_info->caps_mod);
@@ -2783,7 +2783,7 @@ seat_get_pointer(struct wl_client *client, struct wl_resource *resource,
 	struct wl_resource *cr;
 	struct weston_pointer_client *pointer_client;
 
-        cr = wl_resource_create(client, &wl_pointer_interface,
+	cr = wl_resource_create(client, &wl_pointer_interface,
 				wl_resource_get_version(resource), id);
 	if (cr == NULL) {
 		wl_client_post_no_memory(client);
@@ -2864,7 +2864,7 @@ seat_get_keyboard(struct wl_client *client, struct wl_resource *resource,
 	struct weston_keyboard *keyboard = seat ? seat->keyboard_state : NULL;
 	struct wl_resource *cr;
 
-        cr = wl_resource_create(client, &wl_keyboard_interface,
+	cr = wl_resource_create(client, &wl_keyboard_interface,
 				wl_resource_get_version(resource), id);
 	if (cr == NULL) {
 		wl_client_post_no_memory(client);
@@ -2957,7 +2957,7 @@ seat_get_touch(struct wl_client *client, struct wl_resource *resource,
 	struct weston_touch *touch = seat ? seat->touch_state : NULL;
 	struct wl_resource *cr;
 
-        cr = wl_resource_create(client, &wl_touch_interface,
+	cr = wl_resource_create(client, &wl_touch_interface,
 				wl_resource_get_version(resource), id);
 	if (cr == NULL) {
 		wl_client_post_no_memory(client);

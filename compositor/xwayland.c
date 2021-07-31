@@ -175,7 +175,7 @@ xserver_cleanup(struct weston_process *process, int status)
 
 	wxw->api->xserver_exited(wxw->xwayland, status);
 	wxw->sigusr1_source = wl_event_loop_add_signal(loop, SIGUSR1,
-                                                       handle_sigusr1, wxw);
+	                                               handle_sigusr1, wxw);
 	wxw->client = NULL;
 }
 

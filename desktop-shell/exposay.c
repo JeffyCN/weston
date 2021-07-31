@@ -183,8 +183,8 @@ exposay_pick(struct desktop_shell *shell, int x, int y)
 {
 	struct exposay_surface *esurface;
 
-        if (exposay_is_animating(shell))
-            return;
+	if (exposay_is_animating(shell))
+		return;
 
 	wl_list_for_each(esurface, &shell->exposay.surface_list, link) {
 		if (x < esurface->x || x > esurface->x + esurface->width)

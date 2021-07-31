@@ -238,13 +238,13 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		.modifier = dmabuf->attributes.modifier[0],
 	};
 
-        /* We should not import to KMS a buffer that has been allocated using no
-         * modifiers. Usually drivers use linear layouts to allocate with no
-         * modifiers, but this is not a rule. The driver could use, for
-         * instance, a tiling layout under the hood - and both Weston and the
-         * KMS driver can't know. So giving the buffer to KMS is not safe, as
-         * not knowing its layout can result in garbage being displayed. In
-         * short, importing a buffer to KMS requires explicit modifiers. */
+	/* We should not import to KMS a buffer that has been allocated using no
+	 * modifiers. Usually drivers use linear layouts to allocate with no
+	 * modifiers, but this is not a rule. The driver could use, for
+	 * instance, a tiling layout under the hood - and both Weston and the
+	 * KMS driver can't know. So giving the buffer to KMS is not safe, as
+	 * not knowing its layout can result in garbage being displayed. In
+	 * short, importing a buffer to KMS requires explicit modifiers. */
 	if (dmabuf->attributes.modifier[0] == DRM_FORMAT_MOD_INVALID)
 		return NULL;
 

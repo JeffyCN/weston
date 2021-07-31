@@ -807,14 +807,14 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	static uint32_t values[2];
 	int ret;
 
-        b = to_x11_backend(base->compositor);
-        output = to_x11_output(base);
+	b = to_x11_backend(base->compositor);
+	output = to_x11_output(base);
 
-        if (mode->width == output->mode.width &&
+	if (mode->width == output->mode.width &&
 	    mode->height == output->mode.height)
-	        return 0;
+		return 0;
 
-        if (mode->width < WINDOW_MIN_WIDTH || mode->width > WINDOW_MAX_WIDTH)
+	if (mode->width < WINDOW_MIN_WIDTH || mode->width > WINDOW_MAX_WIDTH)
 		return -1;
 
 	if (mode->height < WINDOW_MIN_HEIGHT || mode->height > WINDOW_MAX_HEIGHT)

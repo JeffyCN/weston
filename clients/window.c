@@ -2214,9 +2214,9 @@ widget_set_tooltip(struct widget *parent, char *entry, float x, float y)
 	if (parent->tooltip_count > 1)
 		return 0;
 
-        tooltip = malloc(sizeof *tooltip);
-        if (!tooltip)
-                return -1;
+	tooltip = malloc(sizeof *tooltip);
+	if (!tooltip)
+		return -1;
 
 	parent->tooltip = tooltip;
 	tooltip->parent = parent;

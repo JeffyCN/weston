@@ -593,7 +593,7 @@ texture_region(struct weston_view *ev,
 	vtxcnt = wl_array_add(&gr->vtxcnt, nrects * nsurf * sizeof *vtxcnt);
 
 	inv_width = 1.0 / gs->pitch;
-        inv_height = 1.0 / gs->height;
+	inv_height = 1.0 / gs->height;
 
 	for (i = 0; i < nrects; i++) {
 		pixman_box32_t *rect = &rects[i];
@@ -2960,7 +2960,7 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		gs->buffer_type = BUFFER_TYPE_NULL;
 		gs->y_inverted = true;
 		es->is_opaque = false;
-                weston_buffer_send_server_error(buffer,
+		weston_buffer_send_server_error(buffer,
 			"disconnecting due to unhandled buffer type");
 	}
 }

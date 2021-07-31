@@ -192,8 +192,8 @@ handle_pointer_button(struct libinput_device *libinput_device,
 			   libinput_event_pointer_get_time_usec(pointer_event));
 
 	notify_button(device->seat, &time,
-		      libinput_event_pointer_get_button(pointer_event),
-                      button_state);
+	              libinput_event_pointer_get_button(pointer_event),
+	              button_state);
 
 	return true;
 }

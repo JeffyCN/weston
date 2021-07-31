@@ -4927,9 +4927,9 @@ static void
 weston_compositor_dpms(struct weston_compositor *compositor,
 		       enum dpms_enum state)
 {
-        struct weston_output *output;
+	struct weston_output *output;
 
-        wl_list_for_each(output, &compositor->output_list, link)
+	wl_list_for_each(output, &compositor->output_list, link)
 		if (output->set_dpms)
 			output->set_dpms(output, state);
 }

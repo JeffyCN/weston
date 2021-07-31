@@ -1497,7 +1497,7 @@ weston_wm_window_create(struct weston_wm *wm,
 	geometry_cookie = xcb_get_geometry(wm->conn, id);
 
 	values[0] = XCB_EVENT_MASK_PROPERTY_CHANGE |
-                    XCB_EVENT_MASK_FOCUS_CHANGE;
+	            XCB_EVENT_MASK_FOCUS_CHANGE;
 	xcb_change_window_attributes(wm->conn, id, XCB_CW_EVENT_MASK, values);
 
 	window->wm = wm;

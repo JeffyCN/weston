@@ -114,7 +114,7 @@ drm_output_destroy_zpos_plane(struct drm_plane_zpos *plane_zpos)
 
 static bool
 drm_output_check_plane_has_view_assigned(struct drm_plane *plane,
-                                        struct drm_output_state *output_state)
+                                         struct drm_output_state *output_state)
 {
 	struct drm_plane_state *ps;
 	wl_list_for_each(ps, &output_state->plane_list, link) {
@@ -140,12 +140,12 @@ drm_output_plane_has_valid_format(struct drm_plane *plane,
 						  fb->format->format);
 	if (fmt) {
 		/* We never try to promote a dmabuf with DRM_FORMAT_MOD_INVALID
-                 * to a KMS plane (see drm_fb_get_from_dmabuf() for more details).
-                 * So if fb->modifier == DRM_FORMAT_MOD_INVALID, we are sure
-                 * that this is for the legacy GBM import path, in which a
-                 * wl_drm is being used for scanout. Mesa is the only user we
-                 * care in this case (even though recent versions are also using
-                 * dmabufs), and it should know better what works or not. */
+		 * to a KMS plane (see drm_fb_get_from_dmabuf() for more details).
+		 * So if fb->modifier == DRM_FORMAT_MOD_INVALID, we are sure
+		 * that this is for the legacy GBM import path, in which a
+		 * wl_drm is being used for scanout. Mesa is the only user we
+		 * care in this case (even though recent versions are also using
+		 * dmabufs), and it should know better what works or not. */
 		if (fb->modifier == DRM_FORMAT_MOD_INVALID)
 			return true;
 

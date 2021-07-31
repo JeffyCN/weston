@@ -416,9 +416,9 @@ data_source_dnd_finished(void *data, struct wl_data_source *source)
 	delete_item =
 		dnd_drag->dnd_action == WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE;
 
-        /* The operation is already finished, we can destroy all
-         * related data.
-         */
+	/* The operation is already finished, we can destroy all
+	 * related data.
+	 */
 	dnd_drag_destroy(dnd_drag, delete_item);
 	window_schedule_redraw(dnd->window);
 }

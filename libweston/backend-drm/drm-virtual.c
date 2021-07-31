@@ -62,8 +62,8 @@ drm_virtual_crtc_create(struct drm_backend *b, struct drm_output *output)
 	crtc->pipe = 0;
 
 	/* Poisoning the pointers as CRTC's of virtual outputs should not be
-         * added to the DRM-backend CRTC list. With this we can assure (in
-         * function drm_virtual_crtc_destroy()) that this did not happen. */
+	 * added to the DRM-backend CRTC list. With this we can assure (in
+	 * function drm_virtual_crtc_destroy()) that this did not happen. */
 	crtc->link.prev = POISON_PTR;
 	crtc->link.next = POISON_PTR;
 

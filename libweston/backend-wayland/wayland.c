@@ -2212,8 +2212,8 @@ input_handle_touch_up(void *data, struct wl_touch *wl_touch,
 
 static void
 input_handle_touch_motion(void *data, struct wl_touch *wl_touch,
-                        uint32_t time, int32_t id,
-                        wl_fixed_t fixed_x, wl_fixed_t fixed_y)
+                          uint32_t time, int32_t id,
+                          wl_fixed_t fixed_x, wl_fixed_t fixed_y)
 {
 	struct wayland_input *input = data;
 	struct wayland_output *output = input->touch_focus;

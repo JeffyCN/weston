@@ -1460,7 +1460,7 @@ panel_add_launchers(struct panel *panel, struct desktop *desktop)
 	}
 
 	if (count == 0) {
-                char *name = file_name_with_datadir("terminal.png");
+		char *name = file_name_with_datadir("terminal.png");
 
 		/* add default launcher */
 		panel_add_launcher(panel,

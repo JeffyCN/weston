@@ -171,7 +171,7 @@ test_surface_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
 static int
 test_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 {
-        return snprintf(buf, len, "test suite surface");
+	return snprintf(buf, len, "test suite surface");
 }
 
 static void
