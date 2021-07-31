@@ -1,12 +1,14 @@
 # vim: set expandtab shiftwidth=2 tabstop=8 textwidth=0:
 
+.templates_sha: &template_sha 567700e483aabed992d0a4fea84994a0472deff6 # see https://docs.gitlab.com/ee/ci/yaml/#includefile
+
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
 
 
 include:
   - project: 'freedesktop/ci-templates'
-    ref: 59de540b620c45739871d1a073d76d5521989d11
+    ref: *template_sha
     file: '/templates/debian.yml'
 
 
