@@ -28,6 +28,7 @@ Available back-ends:
 * **x11** -- run as a x11 application, nested in a X11 display server instance
 * **rdp** -- run as an RDP server without local input or output
 * **headless** -- run without input or output, useful for test suite
+* **pipewire** -- run without input, output into a PipeWire node
 
 The job of gathering all the surfaces (windows) being displayed on an output and
 stitching them together is performed by a *renderer*. By doing so, it is

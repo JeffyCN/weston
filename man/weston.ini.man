@@ -135,6 +135,7 @@ overrides defaults backend. Available backends are:
 .BR drm
 .BR headless
 .BR rdp
+.BR pipewire
 .BR vnc
 .BR wayland
 .BR x11

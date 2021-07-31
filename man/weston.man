@@ -52,6 +52,11 @@ to the desktop is done by using the RFB protocol. Currently only one
 connecting client is supported. See
 .BR weston-vnc (7),
 if installed.
+.TP
+.I pipewire
+The PipeWire backend runs in memory without the need of graphical hardware and
+creates a PipeWire node for each output. It can be used to capture Weston
+outputs for processing with another application.
 .
 .\" ***************************************************************
 .SH SHELLS
