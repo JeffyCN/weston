@@ -10,9 +10,13 @@ include:
   - project: 'freedesktop/ci-templates'
     ref: *template_sha
     file: '/templates/debian.yml'
+  - project: 'freedesktop/ci-templates'
+    ref: *template_sha
+    file: '/templates/ci-fairy.yml'
 
 
 stages:
+  - review
   - container_prep
   - build
   - pages
@@ -27,6 +31,23 @@ stages:
 .ci-rules:
   rules:
     - when: on_success
+
+# does not inherit .ci-rules
+check-commit:
+  extends:
+    - .fdo.ci-fairy
+  stage: review
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
+  script:
+    - ci-fairy check-commits --signed-off-by --junit-xml=results.xml
+  variables:
+    GIT_DEPTH: 100
+  artifacts:
+    reports:
+      junit: results.xml
 
 
 container_prep:
