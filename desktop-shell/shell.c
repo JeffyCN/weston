@@ -2474,11 +2474,11 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 					fade_out_done, shsurf);
 			return;
 		} else {
-			--surface->ref_count;
+			weston_surface_destroy(surface);
 		}
 	}
 
-	weston_surface_destroy(surface);
+	weston_view_destroy(shsurf->view);
 
 	if (shsurf->output_destroy_listener.notify) {
 	    wl_list_remove(&shsurf->output_destroy_listener.link);
