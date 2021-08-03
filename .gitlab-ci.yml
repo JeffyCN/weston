@@ -200,7 +200,6 @@ aarch64-debian-container_prep:
 .build-no-test:
   extends:
   - .ci-rules
-  - .build-env
   script:
   - cd "$BUILDDIR"
   - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
