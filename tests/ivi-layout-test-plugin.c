@@ -47,7 +47,7 @@ struct test_context;
 struct runner_test {
 	const char *name;
 	void (*run)(struct test_context *);
-} __attribute__ ((aligned (32)));
+} __attribute__ ((aligned (64)));
 
 #define RUNNER_TEST(name)					\
 	static void runner_func_##name(struct test_context *);	\

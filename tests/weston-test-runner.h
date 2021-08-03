@@ -55,7 +55,7 @@ struct weston_test_entry {
 	const void *table_data;
 	size_t element_size;
 	int n_elements;
-} __attribute__ ((aligned (32)));
+} __attribute__ ((aligned (64)));
 
 #define TEST_BEGIN(name, arg)						\
 	static void name(arg)
