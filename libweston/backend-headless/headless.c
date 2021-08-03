@@ -399,7 +399,7 @@ headless_gl_renderer_init(struct headless_backend *b)
 {
 	const struct gl_renderer_display_options options = {
 		.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
-		.egl_native_display = EGL_DEFAULT_DISPLAY,
+		.egl_native_display = NULL,
 		.egl_surface_type = EGL_PBUFFER_BIT,
 		.drm_formats = headless_formats,
 		.drm_formats_count = ARRAY_LENGTH(headless_formats),
