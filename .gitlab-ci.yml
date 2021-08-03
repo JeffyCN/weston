@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2021-08-02.3-aarch64-virt'
+  FDO_DISTRIBUTION_TAG: '2021-08-03.2-clang'
 
 
 include:
@@ -167,6 +167,12 @@ aarch64-debian-container_prep:
   - export TESTS_RES_PATH="$BUILDDIR/tests-res.txt"
   - mkdir "$BUILDDIR" "$PREFIX"
 
+.build-with-clang:
+  variables:
+    CC: clang-8
+    CC_LD: lld-8
+    MESON_TOOLCHAIN_OPTIONS: "$MESON_OPTIONS -Db_lundef=false" # clang+ASan+undef=boom
+
 # Extends the core build templates to also provide for running our testing. We
 # run this inside a virtme (qemu wrapper) VM environment so we can test the DRM
 # backend using the 'vkms' virtual driver under Linux.
@@ -175,7 +181,7 @@ aarch64-debian-container_prep:
   - .ci-rules
   script:
   - cd "$BUILDDIR"
-  - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ..
+  - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ${MESON_TOOLCHAIN_OPTIONS} ..
   - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
   - ninja install
   - test -n "${QEMU_SMP}" || QEMU_SMP=${FDO_CI_CONCURRENT:-4}
@@ -293,6 +299,18 @@ aarch64-debian-full-build:
     - .test-env-debian-aarch64
     - .build-options-full
 
+x86_64-clang-debian-full-build:
+  extends:
+    - .test-env-debian-x86_64
+    - .build-with-clang
+    - .build-options-full
+
+aarch64-clang-debian-full-build:
+  extends:
+    - .test-env-debian-aarch64
+    - .build-with-clang
+    - .build-options-full
+
 # Docs should be invariant on all architectures, so we only do it on Debian
 # x86-64.
 docs-build:
@@ -325,6 +343,13 @@ x86_64-debian-no-gl-build:
 armv7-debian-no-gl-build:
   extends:
     - .build-env-debian-armv7
+    - .build-no-test
+    - .build-options-no-gl
+
+armv7-clang-debian-no-gl-build:
+  extends:
+    - .build-env-debian-armv7
+    - .build-with-clang
     - .build-no-test
     - .build-options-no-gl
 

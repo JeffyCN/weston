@@ -37,6 +37,7 @@ apt-get -y --no-install-recommends install \
 	autoconf \
 	automake \
 	build-essential \
+	clang-8 \
 	curl \
 	doxygen \
 	gcovr \
@@ -85,6 +86,8 @@ apt-get -y --no-install-recommends install \
 	libxcursor-dev \
 	libxkbcommon-dev \
 	libxml2-dev \
+	lld-8 \
+	llvm-8 \
 	mesa-common-dev \
 	ninja-build \
 	pkg-config \
