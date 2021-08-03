@@ -134,9 +134,12 @@ rm -rf mesa
 # PipeWire is used for remoting support. Unlike our other dependencies its
 # behaviour will be stable, however as a pre-1.0 project its API is not yet
 # stable, so again we lock it to a fixed version.
+#
+# ... the version chosen is 0.3.32 with a small Clang-specific build fix.
 rm -rf pipewire
-git clone --single-branch --branch 0.3.31 https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire
+git clone --single-branch --branch master https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire
 cd pipewire
+git checkout -b snapshot bf112940d0bf8f526dd6229a619c1283835b49c2
 meson build
 ninja ${NINJAFLAGS} -C build install
 cd ..
