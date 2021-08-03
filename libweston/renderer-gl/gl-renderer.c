@@ -2862,8 +2862,8 @@ populate_supported_formats(struct weston_compositor *ec,
 	struct weston_drm_format *fmt;
 	int *formats = NULL;
 	uint64_t *modifiers = NULL;
-	unsigned int num_formats, num_modifiers;
-	unsigned int i, j;
+	int num_formats, num_modifiers;
+	int i, j;
 	int ret = 0;
 
 	/* Use EGL_EXT_image_dma_buf_import_modifiers to query the
