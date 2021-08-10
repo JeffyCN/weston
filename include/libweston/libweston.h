@@ -834,6 +834,7 @@ struct weston_seat {
 	enum weston_keyboard_modifier modifier_state;
 	struct weston_surface *saved_kbd_focus;
 	struct wl_listener saved_kbd_focus_listener;
+	bool use_saved_kbd_focus;
 	struct wl_list drag_resource_list;
 
 	uint32_t selection_serial;

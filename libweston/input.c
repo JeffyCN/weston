@@ -1571,10 +1571,13 @@ weston_keyboard_set_focus(struct weston_keyboard *keyboard,
 		keyboard->focus_serial = serial;
 	}
 
-	if (seat->saved_kbd_focus) {
-		wl_list_remove(&seat->saved_kbd_focus_listener.link);
-		seat->saved_kbd_focus = NULL;
-	}
+	/* Since this function gets called from the surface destroy handler
+	 * we can't just remove the kbd focus listener, or we might corrupt
+	 * the list it's in.
+	 * Instead, we'll just set a flag to ignore the focus when the
+	 * compositor regains kbd focus.
+	 */
+	seat->use_saved_kbd_focus = false;
 
 	wl_list_remove(&keyboard->focus_resource_listener.link);
 	wl_list_init(&keyboard->focus_resource_listener.link);
@@ -2267,6 +2270,9 @@ destroy_device_saved_kbd_focus(struct wl_listener *listener, void *data)
 			  saved_kbd_focus_listener);
 
 	ws->saved_kbd_focus = NULL;
+
+	wl_list_remove(&ws->saved_kbd_focus_listener.link);
+	ws->saved_kbd_focus_listener.notify = NULL;
 }
 
 WL_EXPORT void
@@ -2289,7 +2295,11 @@ notify_keyboard_focus_in(struct weston_seat *seat, struct wl_array *keys,
 
 	surface = seat->saved_kbd_focus;
 	if (surface) {
-		weston_keyboard_set_focus(keyboard, surface);
+		wl_list_remove(&seat->saved_kbd_focus_listener.link);
+		seat->saved_kbd_focus_listener.notify = NULL;
+		seat->saved_kbd_focus = NULL;
+		if (seat->use_saved_kbd_focus)
+			weston_keyboard_set_focus(keyboard, surface);
 	}
 }
 
@@ -2317,6 +2327,7 @@ notify_keyboard_focus_out(struct weston_seat *seat)
 		weston_pointer_cancel_grab(pointer);
 
 	if (focus) {
+		seat->use_saved_kbd_focus = true;
 		seat->saved_kbd_focus = focus;
 		seat->saved_kbd_focus_listener.notify =
 			destroy_device_saved_kbd_focus;
