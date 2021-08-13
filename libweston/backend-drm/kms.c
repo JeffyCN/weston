@@ -1400,6 +1400,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 	struct drm_backend *b = device->backend;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
+	int has_error = 0;
 
 	if (device->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
@@ -1451,6 +1452,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 				drm_output_fini_egl(output);
 				drm_output_init_egl(output, b);
 			}
+			has_error = 1;
 		}
 	}
 
@@ -1458,7 +1460,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 
 	drm_pending_state_free(pending_state);
 
-	return 0;
+	return has_error ? -EACCES : 0;
 }
 
 /**
@@ -1474,6 +1476,7 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 	struct drm_device *device = pending_state->device;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
+	int has_error = 0;
 
 	if (device->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
@@ -1502,6 +1505,7 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 		if (ret != 0) {
 			weston_log("Couldn't apply state for output %s\n",
 				   output_state->output->base.name);
+			has_error = 1;
 		}
 	}
 
@@ -1509,7 +1513,7 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 
 	drm_pending_state_free(pending_state);
 
-	return 0;
+	return has_error ? -EACCES : 0;
 }
 
 void
