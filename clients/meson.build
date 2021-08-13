@@ -268,7 +268,13 @@ demo_clients = [
 		]
 	},
 	{ 'basename': 'image' },
-	{ 'basename': 'multi-resource' },
+	{
+		'basename': 'multi-resource',
+		'add_sources': [
+			xdg_shell_client_protocol_h,
+			xdg_shell_protocol_c,
+		]
+	},
 	{
 		'basename': 'presentation-shm',
 		'add_sources': [
