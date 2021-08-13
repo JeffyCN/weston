@@ -42,6 +42,10 @@
 #include "pixel-formats.h"
 #include "presentation-time-server-protocol.h"
 
+#ifndef ERESTARTSYS
+#define ERESTARTSYS  512
+#endif
+
 struct drm_property_enum_info plane_type_enums[] = {
 	[WDRM_PLANE_TYPE_PRIMARY] = {
 		.name = "Primary",
@@ -876,10 +880,13 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 			   crtc->crtc_id, scanout_state->plane->plane_id,
 			   pinfo ? pinfo->drm_format_name : "UNKNOWN");
 
-	if (drmModePageFlip(device->drm.fd, crtc->crtc_id,
-			    scanout_state->fb->fb_id,
-			    DRM_MODE_PAGE_FLIP_EVENT, output) < 0) {
-		weston_log("queueing pageflip failed: %s\n", strerror(errno));
+	ret = drmModePageFlip(device->drm.fd, crtc->crtc_id,
+			      scanout_state->fb->fb_id,
+			      DRM_MODE_PAGE_FLIP_EVENT, output);
+	if (ret) {
+		if (ret != -ERESTARTSYS)
+			weston_log("queueing pageflip failed: %s\n",
+				   strerror(errno));
 		goto err;
 	}
 
@@ -913,6 +920,10 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	return 0;
 
 err:
+	/* Retry when getting interrupted */
+	if (ret == -ERESTARTSYS)
+		return drm_output_apply_state_legacy(state);
+
 	drm_output_set_cursor_view(output, NULL);
 	drm_output_state_free(state);
 	return -1;
@@ -1502,8 +1513,9 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 			if (drm_output_get_writeback_state(output_state->output) != DRM_OUTPUT_WB_SCREENSHOT_OFF)
 				drm_writeback_fail_screenshot(output_state->output->wb_state,
 							      "drm: atomic commit failed");
-		weston_log("atomic: couldn't commit new state: %s\n",
-			   strerror(errno));
+		if (ret != -ERESTARTSYS)
+			weston_log("atomic: couldn't commit new state: %s\n",
+				   strerror(errno));
 		goto out;
 	}
 
@@ -1517,6 +1529,11 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 
 out:
 	drmModeAtomicFree(req);
+
+	/* Retry when getting interrupted */
+	if (ret == -ERESTARTSYS)
+		return drm_pending_state_apply_atomic(pending_state, mode);
+
 	drm_pending_state_free(pending_state);
 	return ret;
 }
