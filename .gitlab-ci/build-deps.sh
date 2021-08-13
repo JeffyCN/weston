@@ -70,7 +70,7 @@ if [[ -n "$KERNEL_DEFCONFIG" ]]; then
 	fi
 
 	make ARCH=${LINUX_ARCH} ${KERNEL_DEFCONFIG}
-	make ARCH=${LINUX_ARCH} kvmconfig
+	make ARCH=${LINUX_ARCH} kvm_guest.config
 	./scripts/config \
 		--enable CONFIG_DRM \
 		--enable CONFIG_DRM_KMS_HELPER \
