@@ -1,6 +1,7 @@
 /*
  * Copyright © 2011 Benjamin Franzke
  * Copyright © 2011 Intel Corporation
+ * Copyright © 2021 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,10 +34,14 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <signal.h>
 
 #include <wayland-client.h>
 #include "shared/helpers.h"
+#include "shared/xalloc.h"
 #include "shared/os-compatibility.h"
+
+#include "xdg-shell-client-protocol.h"
 
 struct seat {
 	struct touch *touch;
@@ -44,27 +49,37 @@ struct seat {
 	struct wl_touch *wl_touch;
 };
 
+struct buffer {
+	struct wl_buffer *buffer;
+	void *data;
+};
+
 struct touch {
 	struct wl_display *display;
 	struct wl_registry *registry;
 	struct wl_compositor *compositor;
-	struct wl_shell *shell;
+	struct xdg_wm_base *wm_base;
 	struct wl_shm *shm;
-	struct wl_pointer *pointer;
-	struct wl_keyboard *keyboard;
 	struct wl_surface *surface;
-	struct wl_shell_surface *shell_surface;
-	struct wl_buffer *buffer;
-	int has_argb;
+	struct xdg_surface *xdg_surface;
+	struct xdg_toplevel *xdg_toplevel;
+	struct buffer *buffer;
+	bool has_argb;
 	int width, height;
-	void *data;
+	bool wait_for_configure;
 };
 
-static void
+static struct buffer *
 create_shm_buffer(struct touch *touch)
 {
 	struct wl_shm_pool *pool;
 	int fd, size, stride;
+	void *data;
+	struct buffer *buffer = NULL;
+
+	buffer = zalloc(sizeof(*buffer));
+	if (!buffer)
+		return NULL;
 
 	stride = touch->width * 4;
 	size = stride * touch->height;
@@ -76,22 +91,44 @@ create_shm_buffer(struct touch *touch)
 		exit(1);
 	}
 
-	touch->data =
-		mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	if (touch->data == MAP_FAILED) {
+	data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (data == MAP_FAILED) {
 		fprintf(stderr, "mmap failed: %s\n", strerror(errno));
 		close(fd);
-		exit(1);
+		return NULL;
 	}
 
 	pool = wl_shm_create_pool(touch->shm, fd, size);
-	touch->buffer =
+	buffer->buffer =
 		wl_shm_pool_create_buffer(pool, 0,
 					  touch->width, touch->height, stride,
 					  WL_SHM_FORMAT_ARGB8888);
+
 	wl_shm_pool_destroy(pool);
 
+	buffer->data = data;
 	close(fd);
+
+	return buffer;
+}
+
+static void
+initial_redraw(void *data)
+{
+	struct touch *touch = data;
+	struct buffer *buffer = NULL;
+
+	buffer = create_shm_buffer(touch);
+	assert(buffer);
+
+	touch->buffer = buffer;
+
+	/* paint the "work-area" */
+	memset(buffer->data, 64, touch->width * touch->height * 4);
+
+	wl_surface_attach(touch->surface, buffer->buffer, 0, 0);
+	wl_surface_damage(touch->surface, 0, 0, touch->width, touch->height);
+	wl_surface_commit(touch->surface);
 }
 
 static void
@@ -130,7 +167,7 @@ touch_paint(struct touch *touch, int32_t x, int32_t y, int32_t id)
 	    y < 2 || y >= touch->height - 2)
 		return;
 
-	p = (uint32_t *) touch->data + (x - 2) + (y - 2) * touch->width;
+	p = ((uint32_t *) touch->buffer->data) + (x - 2) + (y - 2) * touch->width;
 	p[2] = c;
 	p += touch->width;
 	p[1] = c;
@@ -149,7 +186,7 @@ touch_paint(struct touch *touch, int32_t x, int32_t y, int32_t id)
 	p += touch->width;
 	p[2] = c;
 
-	wl_surface_attach(touch->surface, touch->buffer, 0, 0);
+	wl_surface_attach(touch->surface, touch->buffer->buffer, 0, 0);
 	wl_surface_damage(touch->surface, x - 2, y - 2, 5, 5);
 	/* todo: We could queue up more damage before committing, if there
 	 * are more input events to handle.
@@ -241,27 +278,31 @@ add_seat(struct touch *touch, uint32_t name, uint32_t version)
 }
 
 static void
-handle_ping(void *data, struct wl_shell_surface *shell_surface,
-	    uint32_t serial)
+handle_xdg_surface_configure(void *data, struct xdg_surface *surface,
+			     uint32_t serial)
 {
-	wl_shell_surface_pong(shell_surface, serial);
+	struct touch *touch = data;
+
+	xdg_surface_ack_configure(surface, serial);
+
+	if (touch->wait_for_configure) {
+		initial_redraw(touch);
+		touch->wait_for_configure = false;
+	}
 }
+
+static const struct xdg_surface_listener xdg_surface_listener = {
+	handle_xdg_surface_configure,
+};
 
 static void
-handle_configure(void *data, struct wl_shell_surface *shell_surface,
-		 uint32_t edges, int32_t width, int32_t height)
+xdg_wm_base_ping(void *data, struct xdg_wm_base *shell, uint32_t serial)
 {
+	xdg_wm_base_pong(shell, serial);
 }
 
-static void
-handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
-{
-}
-
-static const struct wl_shell_surface_listener shell_surface_listener = {
-	handle_ping,
-	handle_configure,
-	handle_popup_done
+static const struct xdg_wm_base_listener wm_base_listener = {
+	xdg_wm_base_ping,
 };
 
 static void
@@ -274,10 +315,12 @@ handle_global(void *data, struct wl_registry *registry,
 		touch->compositor =
 			wl_registry_bind(registry, name,
 					 &wl_compositor_interface, 1);
-	} else if (strcmp(interface, "wl_shell") == 0) {
-		touch->shell =
+	} else if (strcmp(interface, "xdg_wm_base") == 0) {
+		touch->wm_base =
 			wl_registry_bind(registry, name,
-					 &wl_shell_interface, 1);
+					 &xdg_wm_base_interface, 1);
+		xdg_wm_base_add_listener(touch->wm_base,
+					 &wm_base_listener, touch);
 	} else if (strcmp(interface, "wl_shm") == 0) {
 		touch->shm = wl_registry_bind(registry, name,
 					      &wl_shm_interface, 1);
@@ -295,6 +338,23 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 static const struct wl_registry_listener registry_listener = {
 	handle_global,
 	handle_global_remove
+};
+
+static void
+handle_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
+			      int32_t width, int32_t height,
+			      struct wl_array *state)
+{
+}
+
+static void
+handle_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
+{
+}
+
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+	handle_toplevel_configure,
+	handle_toplevel_close,
 };
 
 static struct touch *
@@ -321,28 +381,54 @@ touch_create(int width, int height)
 		exit(1);
 	}
 
+	if (!touch->wm_base) {
+		fprintf(stderr, "xdg-shell required!\n");
+		exit(1);
+	}
+
 	touch->width = width;
 	touch->height = height;
 	touch->surface = wl_compositor_create_surface(touch->compositor);
-	touch->shell_surface = wl_shell_get_shell_surface(touch->shell,
-							  touch->surface);
-	create_shm_buffer(touch);
 
-	if (touch->shell_surface) {
-		wl_shell_surface_add_listener(touch->shell_surface,
-					      &shell_surface_listener, touch);
-		wl_shell_surface_set_toplevel(touch->shell_surface);
-	}
+	touch->xdg_surface =
+		xdg_wm_base_get_xdg_surface(touch->wm_base, touch->surface);
+	assert(touch->xdg_surface);
 
-	wl_surface_set_user_data(touch->surface, touch);
-	wl_shell_surface_set_title(touch->shell_surface, "simple-touch");
+	xdg_surface_add_listener(touch->xdg_surface, &xdg_surface_listener, touch);
 
-	memset(touch->data, 64, width * height * 4);
-	wl_surface_attach(touch->surface, touch->buffer, 0, 0);
-	wl_surface_damage(touch->surface, 0, 0, width, height);
+	touch->xdg_toplevel = xdg_surface_get_toplevel(touch->xdg_surface);
+	assert(touch->xdg_toplevel);
+	xdg_toplevel_add_listener(touch->xdg_toplevel,
+				  &xdg_toplevel_listener, touch);
+	xdg_toplevel_set_title(touch->xdg_toplevel, "simple-touch");
+	xdg_toplevel_set_app_id(touch->xdg_toplevel, "simple-touch");
+	touch->wait_for_configure = true;
 	wl_surface_commit(touch->surface);
 
 	return touch;
+}
+
+static void
+destroy_touch(struct touch *touch)
+{
+	if (touch->buffer->buffer)
+		wl_buffer_destroy(touch->buffer->buffer);
+
+	if (touch->xdg_toplevel)
+		xdg_toplevel_destroy(touch->xdg_toplevel);
+	if (touch->xdg_surface)
+		xdg_surface_destroy(touch->xdg_surface);
+	if (touch->wm_base)
+		xdg_wm_base_destroy(touch->wm_base);
+	if (touch->shm)
+		wl_shm_destroy(touch->shm);
+	if (touch->compositor)
+		wl_compositor_destroy(touch->compositor);
+
+
+	wl_surface_destroy(touch->surface);
+	free(touch->buffer);
+	free(touch);
 }
 
 int
@@ -356,5 +442,6 @@ main(int argc, char **argv)
 	while (ret != -1)
 		ret = wl_display_dispatch(touch->display);
 
+	destroy_touch(touch);
 	return 0;
 }
