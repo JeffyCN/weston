@@ -848,6 +848,11 @@ main(int argc, char **argv)
 
 	wl_display_roundtrip(display.display);
 
+	if (!display.wm_base) {
+		fprintf(stderr, "xdg-shell support required. simple-egl exiting\n");
+		goto out_no_xdg_shell;
+	}
+
 	init_egl(&display, &window);
 	create_surface(&window);
 	init_gl(&window);
@@ -879,6 +884,7 @@ main(int argc, char **argv)
 	fini_egl(&display);
 
 	wl_surface_destroy(display.cursor_surface);
+out_no_xdg_shell:
 	if (display.cursor_theme)
 		wl_cursor_theme_destroy(display.cursor_theme);
 
