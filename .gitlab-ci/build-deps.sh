@@ -137,14 +137,13 @@ rm -rf mesa
 # stable, so again we lock it to a fixed version.
 #
 # ... the version chosen is 0.3.32 with a small Clang-specific build fix.
-rm -rf pipewire
-git clone --single-branch --branch master https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire
-cd pipewire
+git clone --single-branch --branch master https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire-src
+cd pipewire-src
 git checkout -b snapshot bf112940d0bf8f526dd6229a619c1283835b49c2
 meson build
 ninja ${NINJAFLAGS} -C build install
 cd ..
-rm -rf pipewire
+rm -rf pipewire-src
 
 # seatd lets us avoid the pain of handling VTs manually through weston-launch
 # or open-coding TTY assignment within Weston. We use this for our tests using
