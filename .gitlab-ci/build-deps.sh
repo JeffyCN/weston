@@ -101,6 +101,7 @@ mkdir build
 meson build -Ddocumentation=false
 ninja ${NINJAFLAGS} -C build install
 cd ..
+rm -rf wayland
 
 # Keep this version in sync with our dependency in meson.build. If you wish to
 # raise a MR against custom protocol, please change this reference to clone
