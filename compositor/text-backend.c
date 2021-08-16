@@ -676,6 +676,9 @@ input_method_context_grab_keyboard(struct wl_client *client,
 	struct weston_seat *seat = context->input_method->seat;
 	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat);
 
+	if (!keyboard)
+		return;
+
 	cr = wl_resource_create(client, &wl_keyboard_interface, 1, id);
 	wl_resource_set_implementation(cr, NULL, context, unbind_keyboard);
 
