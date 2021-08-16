@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2021-11-24.0-kernel-v5.14'
+  FDO_DISTRIBUTION_TAG: '2021-11-25.2-bullseye-sphinx'
 
 
 include:
@@ -74,7 +74,7 @@ stages:
 .os-debian:
   variables:
     BUILD_OS: debian
-    FDO_DISTRIBUTION_VERSION: buster
+    FDO_DISTRIBUTION_VERSION: bullseye
     FDO_DISTRIBUTION_EXEC: 'env FDO_CI_CONCURRENT=${FDO_CI_CONCURRENT} BUILD_ARCH=${BUILD_ARCH} KERNEL_IMAGE=${KERNEL_IMAGE} KERNEL_DEFCONFIG=${KERNEL_DEFCONFIG} bash .gitlab-ci/debian-install.sh'
 
 .ci-rules:
@@ -170,8 +170,8 @@ aarch64-debian-container_prep:
 
 .build-with-clang:
   variables:
-    CC: clang-8
-    CC_LD: lld-8
+    CC: clang-11
+    CC_LD: lld-11
     MESON_TOOLCHAIN_OPTIONS: "$MESON_OPTIONS -Db_lundef=false" # clang+ASan+undef=boom
 
 # Extends the core build templates to also provide for running our testing. We

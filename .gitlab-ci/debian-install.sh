@@ -11,7 +11,6 @@ LINUX_DEV_PKGS="
 	bc
 	bison
 	flex
-	libelf-dev
 "
 
 # These get temporary installed for building Mesa and then force-removed.
@@ -21,25 +20,26 @@ MESA_DEV_PKGS="
 	gettext
 	libwayland-egl-backend-dev
 	libxrandr-dev
-	llvm-8-dev
-	python-mako
+	libxshmfence-dev
+	libxrandr-dev
+	llvm-11-dev
 	python3-mako
 "
 
 # Needed for running the custom-built mesa
 MESA_RUNTIME_PKGS="
-	libllvm8
+	libllvm11
 "
 
-echo 'deb http://deb.debian.org/debian buster-backports main' >> /etc/apt/sources.list
 apt-get update
 apt-get -y --no-install-recommends install \
 	autoconf \
 	automake \
 	build-essential \
-	clang-8 \
+	clang-11 \
 	curl \
 	doxygen \
+	freerdp2-dev \
 	gcovr \
 	git \
 	lcov \
@@ -48,7 +48,9 @@ apt-get -y --no-install-recommends install \
 	libcairo2-dev \
 	libcolord-dev \
 	libdbus-1-dev \
+	libdrm-dev \
 	libegl1-mesa-dev \
+	libelf-dev \
 	libevdev-dev \
 	libexpat1-dev \
 	libffi-dev \
@@ -81,27 +83,38 @@ apt-get -y --no-install-recommends install \
 	libx11-xcb-dev \
 	libxcb1-dev \
 	libxcb-composite0-dev \
+	libxcb-dri2-0-dev \
+	libxcb-dri3-dev \
+	libxcb-glx0-dev \
+	libxcb-present-dev \
+	libxcb-randr0-dev \
+	libxcb-shm0-dev \
+	libxcb-sync-dev \
 	libxcb-xfixes0-dev \
 	libxcb-xkb-dev \
 	libxcursor-dev \
+	libxdamage-dev \
+	libxext-dev \
+	libxfixes-dev \
 	libxkbcommon-dev \
 	libxml2-dev \
-	lld-8 \
-	llvm-8 \
+	libxxf86vm-dev \
+	lld-11 \
+	llvm-11 \
+	llvm-11-dev \
 	mesa-common-dev \
 	ninja-build \
 	pkg-config \
 	python3-pip \
+	python3-pygments \
 	python3-setuptools \
 	qemu-system \
 	sysvinit-core \
+	x11proto-dev \
 	xwayland \
 	$MESA_DEV_PKGS \
 	$MESA_RUNTIME_PKGS \
 	$LINUX_DEV_PKGS \
-
-apt-get -y --no-install-recommends -t buster-backports install \
-	freerdp2-dev
 
 
 # Actually build our dependencies ...
