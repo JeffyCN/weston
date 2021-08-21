@@ -223,6 +223,7 @@ struct wayland_input {
 	struct weston_pointer_axis_event vert, horiz;
 
 	bool seat_initialized;
+	char *name;
 	enum wl_seat_capability caps;
 };
 
@@ -2354,10 +2355,11 @@ input_handle_name(void *data, struct wl_seat *seat,
 		  const char *name)
 {
 	struct wayland_input *input = data;
-	struct wayland_backend *b = input->backend;
 
-	weston_seat_init(&input->base, b->compositor, name);
-	input->seat_initialized = true;
+	if (!input->seat_initialized) {
+		assert(!input->name);
+		input->name = strdup(name);
+	}
 }
 
 static const struct wl_seat_listener seat_listener = {
@@ -2366,9 +2368,42 @@ static const struct wl_seat_listener seat_listener = {
 };
 
 static void
-display_add_seat(struct wayland_backend *b, uint32_t id, uint32_t available_version)
+display_finish_add_seat(void *data, struct wl_callback *wl_callback,
+			uint32_t callback_data)
+{
+	struct wayland_input *input = data;
+	char *name;
+
+	wl_callback_destroy(wl_callback);
+	input->seat_initialized = true;
+
+	wl_list_insert(input->backend->input_list.prev, &input->link);
+
+	name = input->name ? input->name : "default";
+	weston_seat_init(&input->base, input->backend->compositor, name);
+	free(input->name);
+	input->name = NULL;
+
+	input_update_capabilities(input, input->caps);
+
+	/* Because this happens one roundtrip after wl_seat is bound,
+	 * wl_compositor will also have been bound by this time. */
+	input->parent.cursor.surface =
+		wl_compositor_create_surface(input->backend->parent.compositor);
+
+	input->vert.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
+	input->horiz.axis = WL_POINTER_AXIS_HORIZONTAL_SCROLL;
+}
+
+static const struct wl_callback_listener seat_callback_listener = {
+	display_finish_add_seat
+};
+
+static void
+display_start_add_seat(struct wayland_backend *b, uint32_t id, uint32_t available_version)
 {
 	struct wayland_input *input;
+	struct wl_callback *callback;
 	uint32_t version = MIN(available_version, 4);
 
 	input = zalloc(sizeof *input);
@@ -2379,23 +2414,14 @@ display_add_seat(struct wayland_backend *b, uint32_t id, uint32_t available_vers
 	input->parent.seat = wl_registry_bind(b->parent.registry, id,
 					      &wl_seat_interface, version);
 	input->seat_version = version;
-	wl_list_insert(b->input_list.prev, &input->link);
 
 	wl_seat_add_listener(input->parent.seat, &seat_listener, input);
 	wl_seat_set_user_data(input->parent.seat, input);
 
-	wl_display_roundtrip(b->parent.wl_display);
-	if (!input->seat_initialized) {
-		weston_seat_init(&input->base, b->compositor, "default");
-		input->seat_initialized = true;
-	}
-	input_update_capabilities(input, input->caps);
-
-	input->parent.cursor.surface =
-		wl_compositor_create_surface(b->parent.compositor);
-
-	input->vert.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
-	input->horiz.axis = WL_POINTER_AXIS_HORIZONTAL_SCROLL;
+	/* Wait one roundtrip for the compositor to provide the seat name
+	 * and initial capabilities */
+	callback = wl_display_sync(b->parent.wl_display);
+	wl_callback_add_listener(callback, &seat_callback_listener, input);
 }
 
 static void
@@ -2603,7 +2629,7 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t name,
 			wl_registry_bind(registry, name,
 					 &zwp_fullscreen_shell_v1_interface, 1);
 	} else if (strcmp(interface, "wl_seat") == 0) {
-		display_add_seat(b, name, version);
+		display_start_add_seat(b, name, version);
 	} else if (strcmp(interface, "wl_output") == 0) {
 		wayland_backend_register_output(b, name);
 	} else if (strcmp(interface, "wl_shm") == 0) {
