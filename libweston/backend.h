@@ -161,6 +161,10 @@ void
 weston_output_finish_frame(struct weston_output *output,
 			   const struct timespec *stamp,
 			   uint32_t presented_flags);
+
+void
+weston_output_repaint_failed(struct weston_output *output);
+
 int
 weston_output_mode_set_native(struct weston_output *output,
 			      struct weston_mode *mode,

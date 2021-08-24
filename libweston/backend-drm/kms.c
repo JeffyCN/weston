@@ -1271,6 +1271,14 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 		if (ret != 0) {
 			weston_log("Couldn't apply state for output %s\n",
 				   output->base.name);
+			weston_output_repaint_failed(&output->base);
+			drm_output_state_free(output->state_cur);
+			output->state_cur = drm_output_state_alloc(output, NULL);
+			b->state_invalid = true;
+			if (!b->use_pixman) {
+				drm_output_fini_egl(output);
+				drm_output_init_egl(output, b);
+			}
 		}
 	}
 

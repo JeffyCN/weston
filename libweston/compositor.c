@@ -3215,6 +3215,15 @@ out:
 	output_repaint_timer_arm(compositor);
 }
 
+
+WL_EXPORT void
+weston_output_repaint_failed(struct weston_output *output)
+{
+	weston_log("Clearing repaint status.\n");
+	assert(output->repaint_status == REPAINT_AWAITING_COMPLETION);
+	output->repaint_status = REPAINT_NOT_SCHEDULED;
+}
+
 static void
 idle_repaint(void *data)
 {
