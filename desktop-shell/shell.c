@@ -188,6 +188,8 @@ struct shell_seat {
 	struct wl_listener caps_changed_listener;
 	struct wl_listener pointer_focus_listener;
 	struct wl_listener keyboard_focus_listener;
+
+	struct wl_list link;	/** shell::seat_list */
 };
 
 
@@ -2252,14 +2254,22 @@ get_focused_output(struct weston_compositor *compositor)
 }
 
 static void
+desktop_shell_destroy_seat(struct shell_seat *shseat)
+{
+	wl_list_remove(&shseat->seat_destroy_listener.link);
+
+	wl_list_remove(&shseat->link);
+	free(shseat);
+}
+
+static void
 destroy_shell_seat(struct wl_listener *listener, void *data)
 {
 	struct shell_seat *shseat =
 		container_of(listener,
 			     struct shell_seat, seat_destroy_listener);
 
-	wl_list_remove(&shseat->seat_destroy_listener.link);
-	free(shseat);
+	desktop_shell_destroy_seat(shseat);
 }
 
 static void
@@ -2293,7 +2303,7 @@ shell_seat_caps_changed(struct wl_listener *listener, void *data)
 }
 
 static struct shell_seat *
-create_shell_seat(struct weston_seat *seat)
+create_shell_seat(struct desktop_shell *shell, struct weston_seat *seat)
 {
 	struct shell_seat *shseat;
 
@@ -2319,6 +2329,8 @@ create_shell_seat(struct weston_seat *seat)
 	wl_signal_add(&seat->updated_caps_signal,
 		      &shseat->caps_changed_listener);
 	shell_seat_caps_changed(&shseat->caps_changed_listener, NULL);
+
+	wl_list_insert(&shell->seat_list, &shseat->link);
 
 	return shseat;
 }
@@ -5028,6 +5040,7 @@ shell_destroy(struct wl_listener *listener, void *data)
 		container_of(listener, struct desktop_shell, destroy_listener);
 	struct workspace **ws;
 	struct shell_output *shell_output, *tmp;
+	struct shell_seat *shseat, *shseat_next;
 
 	/* Force state to unlocked so we don't try to fade */
 	shell->locked = false;
@@ -5052,6 +5065,9 @@ shell_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->output_create_listener.link);
 	wl_list_remove(&shell->output_move_listener.link);
 	wl_list_remove(&shell->resized_listener.link);
+
+	wl_list_for_each_safe(shseat, shseat_next, &shell->seat_list, link)
+		desktop_shell_destroy_seat(shseat);
 
 	weston_desktop_destroy(shell->desktop);
 
@@ -5173,8 +5189,10 @@ static void
 handle_seat_created(struct wl_listener *listener, void *data)
 {
 	struct weston_seat *seat = data;
+	struct desktop_shell *shell =
+		container_of(listener, struct desktop_shell, seat_create_listener);
 
-	create_shell_seat(seat);
+	create_shell_seat(shell, seat);
 }
 
 WL_EXPORT int
@@ -5222,6 +5240,7 @@ wet_shell_init(struct weston_compositor *ec,
 
 	wl_array_init(&shell->workspaces.array);
 	wl_list_init(&shell->workspaces.client_list);
+	wl_list_init(&shell->seat_list);
 
 	if (input_panel_setup(shell) < 0)
 		return -1;
@@ -5271,7 +5290,7 @@ wet_shell_init(struct weston_compositor *ec,
 	wl_event_loop_add_idle(loop, launch_desktop_shell_process, shell);
 
 	wl_list_for_each(seat, &ec->seat_list, link)
-		handle_seat_created(NULL, seat);
+		create_shell_seat(shell, seat);
 	shell->seat_create_listener.notify = handle_seat_created;
 	wl_signal_add(&ec->seat_created_signal, &shell->seat_create_listener);
 
