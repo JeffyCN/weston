@@ -2256,6 +2256,9 @@ get_focused_output(struct weston_compositor *compositor)
 static void
 desktop_shell_destroy_seat(struct shell_seat *shseat)
 {
+	wl_list_remove(&shseat->keyboard_focus_listener.link);
+	wl_list_remove(&shseat->caps_changed_listener.link);
+	wl_list_remove(&shseat->pointer_focus_listener.link);
 	wl_list_remove(&shseat->seat_destroy_listener.link);
 
 	wl_list_remove(&shseat->link);
