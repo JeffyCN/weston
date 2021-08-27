@@ -89,7 +89,7 @@ output_find_by_head_name(struct weston_compositor *compositor,
 	return NULL;
 }
 
-static void
+static int
 device_added(struct udev_input *input, struct libinput_device *libinput_device)
 {
 	struct weston_compositor *c;
@@ -103,13 +103,17 @@ device_added(struct udev_input *input, struct libinput_device *libinput_device)
 	c = input->compositor;
 
 	udev_seat = get_udev_seat(input, libinput_device);
-	if (!udev_seat)
-		return;
+	if (!udev_seat) {
+		weston_log("Failed to get a seat\n");
+		return 1;
+	}
 
 	seat = &udev_seat->base;
 	device = evdev_device_create(libinput_device, seat);
-	if (device == NULL)
-		return;
+	if (device == NULL) {
+		weston_log("Failed to create a device\n");
+		return 1;
+	}
 
 	if (input->configure_device != NULL)
 		input->configure_device(c, device->device);
@@ -142,18 +146,23 @@ device_added(struct udev_input *input, struct libinput_device *libinput_device)
 		if (seat->led_update && seat->keyboard_state)
 			seat->led_update(seat, seat->keyboard_state->xkb_state.leds);
 	}
+
+	return 0;
 }
 
-static void
+static int
 device_removed(struct udev_input *input, struct libinput_device *libinput_device)
 {
 	struct evdev_device *device;
 
 	device = libinput_device_get_user_data(libinput_device);
-	if (!device)
-		return;
+	if (!device) {
+		weston_log("Failed to retrieve device\n");
+		return 1;
+	}
 
 	evdev_device_destroy(device);
+	return 0;
 }
 
 static void
@@ -186,29 +195,28 @@ udev_input_process_event(struct libinput_event *event)
 	struct libinput_device *libinput_device =
 		libinput_event_get_device(event);
 	struct udev_input *input = libinput_get_user_data(libinput);
-	int handled = 1;
+	int ret = 0;
 
 	switch (libinput_event_get_type(event)) {
 	case LIBINPUT_EVENT_DEVICE_ADDED:
-		device_added(input, libinput_device);
+		ret = device_added(input, libinput_device);
 		break;
 	case LIBINPUT_EVENT_DEVICE_REMOVED:
-		device_removed(input, libinput_device);
+		ret = device_removed(input, libinput_device);
 		break;
 	default:
-		handled = 0;
+		evdev_device_process_event(event);
+		break;
 	}
 
-	return handled;
+	return ret;
 }
 
 static void
 process_event(struct libinput_event *event)
 {
 	if (udev_input_process_event(event))
-		return;
-	if (evdev_device_process_event(event))
-		return;
+		exit(EXIT_FAILURE);
 }
 
 static void
