@@ -337,14 +337,8 @@ struct weston_drm_format_array {
 	struct wl_array arr;
 };
 
-struct weston_drm_format_array *
-weston_drm_format_array_create(void);
-
 void
 weston_drm_format_array_init(struct weston_drm_format_array *formats);
-
-void
-weston_drm_format_array_destroy(struct weston_drm_format_array *formats);
 
 void
 weston_drm_format_array_fini(struct weston_drm_format_array *formats);

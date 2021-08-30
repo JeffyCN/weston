@@ -32,27 +32,6 @@
 #include "shared/weston-drm-fourcc.h"
 
 /**
- * Create and initialize a weston_drm_format_array
- *
- * @return The weston_drm_format_array, or NULL on failure
- */
-WL_EXPORT struct weston_drm_format_array *
-weston_drm_format_array_create(void)
-{
-	struct weston_drm_format_array *formats;
-
-	formats = zalloc(sizeof(*formats));
-	if (!formats) {
-		weston_log("%s: out of memory\n", __func__);
-		return NULL;
-	}
-
-	weston_drm_format_array_init(formats);
-
-	return formats;
-}
-
-/**
  * Initialize a weston_drm_format_array
  *
  * @param formats The weston_drm_format_array to initialize
@@ -61,18 +40,6 @@ WL_EXPORT void
 weston_drm_format_array_init(struct weston_drm_format_array *formats)
 {
 	wl_array_init(&formats->arr);
-}
-
-/**
- * Fini and destroy a weston_drm_format_array
- *
- * @param formats The weston_drm_format_array to destroy
- */
-WL_EXPORT void
-weston_drm_format_array_destroy(struct weston_drm_format_array *formats)
-{
-	weston_drm_format_array_fini(formats);
-	free(formats);
 }
 
 /**
@@ -330,13 +297,11 @@ WL_EXPORT int
 weston_drm_format_array_intersect(struct weston_drm_format_array *formats_A,
 				  const struct weston_drm_format_array *formats_B)
 {
-	struct weston_drm_format_array *formats_result;
+	struct weston_drm_format_array formats_result;
 	struct weston_drm_format *fmt_result, *fmt_A, *fmt_B;
 	int ret;
 
-	formats_result = weston_drm_format_array_create();
-	if (!formats_result)
-		return -1;
+	weston_drm_format_array_init(&formats_result);
 
 	wl_array_for_each(fmt_A, &formats_A->arr) {
 		fmt_B = weston_drm_format_array_find_format(formats_B,
@@ -344,7 +309,7 @@ weston_drm_format_array_intersect(struct weston_drm_format_array *formats_A,
 		if (!fmt_B)
 			continue;
 
-		fmt_result = weston_drm_format_array_add_format(formats_result,
+		fmt_result = weston_drm_format_array_add_format(&formats_result,
 								fmt_A->format);
 		if (!fmt_result)
 			goto err;
@@ -354,18 +319,18 @@ weston_drm_format_array_intersect(struct weston_drm_format_array *formats_A,
 			goto err;
 
 		if (fmt_result->modifiers.size == 0)
-			weston_drm_format_array_remove_latest_format(formats_result);
+			weston_drm_format_array_remove_latest_format(&formats_result);
 	}
 
-	ret = weston_drm_format_array_replace(formats_A, formats_result);
+	ret = weston_drm_format_array_replace(formats_A, &formats_result);
 	if (ret < 0)
 		goto err;
 
-	weston_drm_format_array_destroy(formats_result);
+	weston_drm_format_array_fini(&formats_result);
 	return 0;
 
 err:
-	weston_drm_format_array_destroy(formats_result);
+	weston_drm_format_array_fini(&formats_result);
 	return -1;
 }
 
@@ -405,19 +370,17 @@ WL_EXPORT int
 weston_drm_format_array_subtract(struct weston_drm_format_array *formats_A,
 				 const struct weston_drm_format_array *formats_B)
 {
-	struct weston_drm_format_array *formats_result;
+	struct weston_drm_format_array formats_result;
 	struct weston_drm_format *fmt_result, *fmt_A, *fmt_B;
 	int ret;
 
-	formats_result = weston_drm_format_array_create();
-	if (!formats_result)
-		return -1;
+	weston_drm_format_array_init(&formats_result);
 
 	wl_array_for_each(fmt_A, &formats_A->arr) {
 		fmt_B = weston_drm_format_array_find_format(formats_B,
 							    fmt_A->format);
 		if (!fmt_B) {
-			ret = add_format_and_modifiers(formats_result, fmt_A->format,
+			ret = add_format_and_modifiers(&formats_result, fmt_A->format,
 						       &fmt_A->modifiers);
 			if (ret < 0)
 				goto err;
@@ -425,7 +388,7 @@ weston_drm_format_array_subtract(struct weston_drm_format_array *formats_A,
 			continue;
 		}
 
-		fmt_result = weston_drm_format_array_add_format(formats_result,
+		fmt_result = weston_drm_format_array_add_format(&formats_result,
 								fmt_A->format);
 		if (!fmt_result)
 			goto err;
@@ -435,18 +398,18 @@ weston_drm_format_array_subtract(struct weston_drm_format_array *formats_A,
 			goto err;
 
 		if (fmt_result->modifiers.size == 0)
-			weston_drm_format_array_remove_latest_format(formats_result);
+			weston_drm_format_array_remove_latest_format(&formats_result);
 	}
 
-	ret = weston_drm_format_array_replace(formats_A, formats_result);
+	ret = weston_drm_format_array_replace(formats_A, &formats_result);
 	if (ret < 0)
 		goto err;
 
-	weston_drm_format_array_destroy(formats_result);
+	weston_drm_format_array_fini(&formats_result);
 	return 0;
 
 err:
-	weston_drm_format_array_destroy(formats_result);
+	weston_drm_format_array_fini(&formats_result);
 	return -1;
 }
 
