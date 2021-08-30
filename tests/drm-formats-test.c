@@ -339,12 +339,13 @@ TEST(join_arrays_modifier_invalid)
 TEST(intersect_arrays)
 {
         struct weston_drm_format_array *format_array_A, *format_array_B;
-        struct weston_drm_format_array *format_array_C, *format_array_result;
+        struct weston_drm_format_array *format_array_C;
         uint32_t formats_A[] = {1, 2, 6, 9, 10};
         uint32_t formats_B[] = {2, 5, 7, 9, 10};
         uint64_t modifiers_A[] = {1, 2, 3, 4, 7};
         uint64_t modifiers_B[] = {0, 2, 3, 5, 6};
         uint64_t modifiers_intersect[] = {2, 3};
+        int ret;
 
         format_array_A = weston_drm_format_array_create();
         format_array_B = weston_drm_format_array_create();
@@ -355,26 +356,24 @@ TEST(intersect_arrays)
 
         ADD_FORMATS_AND_MODS(format_array_A, formats_A, modifiers_A);
         ADD_FORMATS_AND_MODS(format_array_B, formats_B, modifiers_B);
-        format_array_result = weston_drm_format_array_intersect(format_array_A,
-                                                                format_array_B);
-        assert(format_array_result);
+        ret = weston_drm_format_array_intersect(format_array_A, format_array_B);
+        assert(ret == 0);
 
-        /* The result of the intersection should have the same content as C. */
+        /* The result of the intersection (stored in A) should have the same
+         * content as C. */
         ADD_FORMATS_AND_MODS(format_array_C, (uint32_t[]){2}, modifiers_intersect);
         ADD_FORMATS_AND_MODS(format_array_C, (uint32_t[]){9}, modifiers_intersect);
         ADD_FORMATS_AND_MODS(format_array_C, (uint32_t[]){10}, modifiers_intersect);
-        assert(weston_drm_format_array_equal(format_array_result, format_array_C));
+        assert(weston_drm_format_array_equal(format_array_A, format_array_C));
 
         weston_drm_format_array_destroy(format_array_A);
         weston_drm_format_array_destroy(format_array_B);
         weston_drm_format_array_destroy(format_array_C);
-        weston_drm_format_array_destroy(format_array_result);
 }
 
 TEST(intersect_arrays_same_content)
 {
         struct weston_drm_format_array *format_array_A, *format_array_B;
-        struct weston_drm_format_array *format_array_result;
         uint32_t formats[] = {1, 2, 3, 4, 5};
         uint64_t modifiers[] = {11, 12, 13, 14, 15};
         int ret;
@@ -386,36 +385,31 @@ TEST(intersect_arrays_same_content)
 
         /* The intersection between two empty arrays must be an
          * empty array. */
-        format_array_result = weston_drm_format_array_intersect(format_array_A,
-                                                                format_array_B);
-        assert(format_array_result);
-        assert(format_array_result->arr.size == 0);
-
-        weston_drm_format_array_destroy(format_array_result);
+        ret = weston_drm_format_array_intersect(format_array_A, format_array_B);
+        assert(ret == 0);
+        assert(format_array_A->arr.size == 0);
 
         /* DRM-format arrays A and B have the same content, so the intersection
-         * should be equal to them. */
+         * should be equal to them. A keeps the result of the intersection, and B
+         * does not change. So we compare them. */
         ADD_FORMATS_AND_MODS(format_array_A, formats, modifiers);
         ret = weston_drm_format_array_replace(format_array_B, format_array_A);
         assert(ret == 0);
-        format_array_result = weston_drm_format_array_intersect(format_array_A,
-                                                                format_array_B);
-        assert(format_array_result);
-        assert(weston_drm_format_array_equal(format_array_result,
-                                             format_array_A));
+        ret = weston_drm_format_array_intersect(format_array_A, format_array_B);
+        assert(ret == 0);
+        assert(weston_drm_format_array_equal(format_array_A, format_array_B));
 
         weston_drm_format_array_destroy(format_array_A);
         weston_drm_format_array_destroy(format_array_B);
-        weston_drm_format_array_destroy(format_array_result);
 }
 
 TEST(intersect_arrays_exclusive_formats)
 {
         struct weston_drm_format_array *format_array_A, *format_array_B;
-        struct weston_drm_format_array *format_array_result;
         uint64_t formats_A[] = {1, 2, 3, 4, 5};
         uint64_t formats_B[] = {6, 7, 8, 9, 10};
         uint64_t modifiers[] = {11, 12, 13, 14, 15};
+        int ret;
 
         format_array_A = weston_drm_format_array_create();
         format_array_B = weston_drm_format_array_create();
@@ -423,25 +417,23 @@ TEST(intersect_arrays_exclusive_formats)
         assert(format_array_B);
 
         /* DRM-format arrays A and B have formats that are mutually exclusive,
-         * so the intersection must be empty. */
+         * so the intersection (which is stored in A) must be empty. */
         ADD_FORMATS_AND_MODS(format_array_A, formats_A, modifiers);
         ADD_FORMATS_AND_MODS(format_array_B, formats_B, modifiers);
-        format_array_result = weston_drm_format_array_intersect(format_array_A,
-                                                                format_array_B);
-        assert(format_array_result);
-        assert(format_array_result->arr.size == 0);
+        ret = weston_drm_format_array_intersect(format_array_A, format_array_B);
+        assert(ret ==  0);
+        assert(format_array_A->arr.size == 0);
 
         weston_drm_format_array_destroy(format_array_A);
         weston_drm_format_array_destroy(format_array_B);
-        weston_drm_format_array_destroy(format_array_result);
 }
 
 TEST(intersect_arrays_exclusive_modifiers)
 {
         struct weston_drm_format_array *format_array_A, *format_array_B;
-        struct weston_drm_format_array *format_array_result;
         uint64_t modifiers_A[] = {1, 2, 3, 4, 5};
         uint64_t modifiers_B[] = {6, 7, 8, 9, 10};
+        int ret;
 
         format_array_A = weston_drm_format_array_create();
         format_array_B = weston_drm_format_array_create();
@@ -449,19 +441,18 @@ TEST(intersect_arrays_exclusive_modifiers)
         assert(format_array_B);
 
         /* Both DRM-format arrays A and B have the same format but with modifier
-         * sets that are mutually exclusive. The intersection between mutually
-         * exclusive modifier must be empty, and so the format should not be
-         * added to the array. So the array must also be empty. */
+         * sets that are mutually exclusive. The intersection (which is stored
+         * in A) between mutually exclusive modifier must be empty, and so the
+         * format should not be added to the array. So the array must also be
+         * empty. */
         ADD_FORMATS_AND_MODS(format_array_A, (uint32_t[]){1}, modifiers_A);
         ADD_FORMATS_AND_MODS(format_array_B, (uint32_t[]){1}, modifiers_B);
-        format_array_result = weston_drm_format_array_intersect(format_array_A,
-                                                                format_array_B);
-        assert(format_array_result);
-        assert(format_array_result->arr.size == 0);
+        ret = weston_drm_format_array_intersect(format_array_A, format_array_B);
+        assert(ret == 0);
+        assert(format_array_A->arr.size == 0);
 
         weston_drm_format_array_destroy(format_array_A);
         weston_drm_format_array_destroy(format_array_B);
-        weston_drm_format_array_destroy(format_array_result);
 }
 
 TEST(subtract_arrays)

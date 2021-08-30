@@ -372,8 +372,8 @@ int
 weston_drm_format_array_join(struct weston_drm_format_array *formats_A,
 			     const struct weston_drm_format_array *formats_B);
 
-struct weston_drm_format_array *
-weston_drm_format_array_intersect(const struct weston_drm_format_array *formats_A,
+int
+weston_drm_format_array_intersect(struct weston_drm_format_array *formats_A,
 				  const struct weston_drm_format_array *formats_B);
 
 int

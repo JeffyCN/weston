@@ -320,17 +320,14 @@ modifiers_intersect(const struct weston_drm_format *fmt_A,
 }
 
 /**
- * Compute the intersection between two DRM-format arrays
+ * Compute the intersection between two DRM-format arrays, keeping the result in A
  *
- * Callers are responsible for destroying the returned array.
- *
- * @param formats_A One of the weston_drm_format_array
+ * @param formats_A The weston_drm_format_array that keeps the result
  * @param formats_B The other weston_drm_format_array
- * @return Array with formats and modifiers that are present
- * on both A and B, or NULL on failure
+ * @return 0 on success, -1 on failure
  */
-WL_EXPORT struct weston_drm_format_array *
-weston_drm_format_array_intersect(const struct weston_drm_format_array *formats_A,
+WL_EXPORT int
+weston_drm_format_array_intersect(struct weston_drm_format_array *formats_A,
 				  const struct weston_drm_format_array *formats_B)
 {
 	struct weston_drm_format_array *formats_result;
@@ -339,7 +336,7 @@ weston_drm_format_array_intersect(const struct weston_drm_format_array *formats_
 
 	formats_result = weston_drm_format_array_create();
 	if (!formats_result)
-		return NULL;
+		return -1;
 
 	wl_array_for_each(fmt_A, &formats_A->arr) {
 		fmt_B = weston_drm_format_array_find_format(formats_B,
@@ -360,11 +357,16 @@ weston_drm_format_array_intersect(const struct weston_drm_format_array *formats_
 			weston_drm_format_array_remove_latest_format(formats_result);
 	}
 
-	return formats_result;
+	ret = weston_drm_format_array_replace(formats_A, formats_result);
+	if (ret < 0)
+		goto err;
+
+	weston_drm_format_array_destroy(formats_result);
+	return 0;
 
 err:
 	weston_drm_format_array_destroy(formats_result);
-	return NULL;
+	return -1;
 }
 
 static int
