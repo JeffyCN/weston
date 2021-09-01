@@ -1403,7 +1403,7 @@ output_get_damage(struct weston_output *output,
 	EGLBoolean ret;
 	int i;
 
-	if (gr->has_egl_buffer_age) {
+	if (gr->has_egl_buffer_age || gr->has_egl_partial_update) {
 		ret = eglQuerySurface(gr->egl_display, go->egl_surface,
 				      EGL_BUFFER_AGE_EXT, &buffer_age);
 		if (ret == EGL_FALSE) {
@@ -1443,7 +1443,7 @@ output_rotate_damage(struct weston_output *output,
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
 
-	if (!gr->has_egl_buffer_age)
+	if (!gr->has_egl_buffer_age && !gr->has_egl_partial_update)
 		return;
 
 	go->buffer_damage_index += BUFFER_DAMAGE_COUNT - 1;
