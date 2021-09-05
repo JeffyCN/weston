@@ -48,7 +48,7 @@ pip3 install sphinx_rtd_theme==0.4.3 --user
 # The fork pulls in this support from the original GitHub PR, rebased on top of
 # a newer upstream version which fixes AArch64 support.
 if [[ -n "$KERNEL_DEFCONFIG" ]]; then
-	git clone --depth=1 --branch=drm-next-2020-06-11-1 https://anongit.freedesktop.org/git/drm/drm.git linux
+	git clone --depth=1 --branch=v5.14 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux
 	cd linux
 
 	if [[ "${BUILD_ARCH}" = "x86-64" ]]; then
