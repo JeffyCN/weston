@@ -1,5 +1,6 @@
 /*
  * Copyright 2021 Collabora, Ltd.
+ * Copyright 2021 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -98,6 +99,79 @@ struct weston_color_curve {
 	} u;
 };
 
+/** Type or formula for a color mapping */
+enum weston_color_mapping_type {
+	/** Identity function, no-op */
+	WESTON_COLOR_MAPPING_TYPE_IDENTITY = 0,
+
+	/** 3D-dimensional look-up table */
+	WESTON_COLOR_MAPPING_TYPE_3D_LUT,
+};
+
+/**
+ * A three-dimensional look-up table
+ *
+ * A 3D LUT is a three-dimensional array where each element is an RGB triplet.
+ * A 3D LUT is usually an approximation of some arbitrary color mapping
+ * function that cannot be represented in any simpler form. The array contains
+ * samples from the approximated function, and values between samples are
+ * estimated by interpolation. The array is accessed with three indices, one
+ * for each input dimension (color channel).
+ *
+ * Color channel values in the range [0.0, 1.0] are mapped linearly to
+ * 3D LUT indices such that 0.0 maps exactly to the first element and 1.0 maps
+ * exactly to the last element in each dimension.
+ *
+ * This object represents a 3D LUT and offers an interface for realizing it
+ * as a data array with a custom size.
+ */
+struct weston_color_mapping_3dlut {
+	/**
+	 * Create a 3D LUT data array
+	 *
+	 * \param xform This color transformation object.
+	 * \param values Memory to hold the resulting data array.
+	 * \param len The number of elements in each dimension.
+	 *
+	 * The array \c values must be at least 3 * len * len * len elements
+	 * in size.
+	 *
+	 * Given the red index ri, green index gi and blue index bi, the
+	 * corresponding array element index
+	 *
+	 *     i = 3 * (len * len * bi + len * gi + ri) + c
+	 *
+	 * where
+	 *
+	 *     c = 0 for red output value,
+	 *     c = 1 for green output value, and
+	 *     c = 2 for blue output value
+	 */
+	void
+	(*fill_in)(struct weston_color_transform *xform,
+		   float *values, unsigned len);
+
+	/** Optimal 3D LUT size along each dimension */
+	unsigned optimal_len;
+};
+
+/**
+ * Color mapping function
+ *
+ * This object can represent a 3D LUT to do a color space conversion
+ *
+ */
+struct weston_color_mapping {
+	/** Which member of 'u' defines the color mapping type */
+	enum weston_color_mapping_type type;
+
+	/** Parameters for the color mapping function */
+	union {
+		/* identity: no parameters */
+		struct weston_color_mapping_3dlut lut3d;
+	} u;
+};
+
 /**
  * Describes a color transformation formula
  *
@@ -124,7 +198,7 @@ struct weston_color_transform {
 	struct weston_color_curve pre_curve;
 
 	/** Step 3: color mapping */
-	/* TBD: e.g. a 3D LUT or a matrix */
+	struct weston_color_mapping mapping;
 
 	/** Step 4: color curve after color mapping */
 	/* struct weston_color_curve post_curve; */
