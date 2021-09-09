@@ -500,8 +500,14 @@ window_set_locked_pointer_motion_handler(
 void
 window_set_title(struct window *window, const char *title);
 
+void
+window_set_appid(struct window *window, const char *appid);
+
 const char *
 window_get_title(struct window *window);
+
+const char *
+window_get_appid(struct window *window);
 
 void
 window_set_text_cursor_position(struct window *window, int32_t x, int32_t y);

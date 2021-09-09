@@ -303,6 +303,7 @@ main(int argc, char *argv[])
 	box.window = window_create(d);
 	box.widget = window_add_widget(box.window, &box);
 	window_set_title(box.window, "Scaler Test Box");
+	window_set_appid(box.window, "org.freedesktop.weston.scaler-test-box");
 	window_set_buffer_scale(box.window, BUFFER_SCALE);
 
 	widget_set_resize_handler(box.widget, resize_handler);

@@ -230,6 +230,7 @@ struct window {
 	struct display *display;
 	struct wl_list window_output_list;
 	char *title;
+	char *appid;
 	struct rectangle saved_allocation;
 	struct rectangle min_allocation;
 	struct rectangle pending_allocation;
@@ -1609,6 +1610,7 @@ window_destroy(struct window *window)
 	wl_list_remove(&window->link);
 
 	free(window->title);
+	free(window->appid);
 	free(window);
 }
 
@@ -4824,6 +4826,22 @@ const char *
 window_get_title(struct window *window)
 {
 	return window->title;
+}
+
+void
+window_set_appid(struct window *window, const char *appid)
+{
+	assert(!window->appid);
+	window->appid = strdup(appid);
+
+	if (window->xdg_toplevel)
+		xdg_toplevel_set_app_id(window->xdg_toplevel, window->appid);
+}
+
+const char *
+window_get_appid(struct window *window)
+{
+	return window->appid;
 }
 
 void

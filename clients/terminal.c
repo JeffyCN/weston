@@ -2949,6 +2949,8 @@ terminal_create(struct display *display)
 	terminal->widget = window_frame_create(terminal->window, terminal);
 	terminal->title = xstrdup("Wayland Terminal");
 	window_set_title(terminal->window, terminal->title);
+	window_set_appid(terminal->window,
+			 "org.freedesktop.weston.wayland-terminal");
 	widget_set_transparent(terminal->widget, 0);
 
 	init_state_machine(&terminal->state_machine);

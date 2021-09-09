@@ -413,6 +413,7 @@ gears_create(struct display *display)
 	gears->window = window_create(display);
 	gears->widget = window_frame_create(gears->window, gears);
 	window_set_title(gears->window, "Wayland Gears");
+	window_set_appid(gears->window, "org.freedesktop.weston.wayland-gears");
 
 	gears->display = display_get_egl_display(gears->d);
 	if (gears->display == NULL)

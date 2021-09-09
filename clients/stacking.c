@@ -74,6 +74,7 @@ new_window(struct stacking *stacking, struct window *parent_window)
 	new_widget = window_frame_create(new_window, new_window);
 
 	window_set_title(new_window, "Stacking Test");
+	window_set_appid(new_window, "org.freedesktop.weston.stacking-test");
 	window_set_key_handler(new_window, key_handler);
 	window_set_keyboard_focus_handler(new_window, keyboard_focus_handler);
 	window_set_fullscreen_handler(new_window, fullscreen_handler);

@@ -47,6 +47,7 @@
 
 /** window title */
 static char *title = "EventDemo";
+static char *appid = "org.freedesktop.weston.eventdemo";
 
 /** window width */
 static int width = 500;
@@ -400,6 +401,7 @@ eventdemo_create(struct display *d)
 	} else {
 		e->widget = window_frame_create(e->window, e);
 		window_set_title(e->window, title);
+		window_set_appid(e->window, appid);
 	}
 	e->display = d;
 

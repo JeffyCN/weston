@@ -550,6 +550,7 @@ int main(int argc, char *argv[])
 		window_add_widget(fullscreen.window, &fullscreen);
 
 	window_set_title(fullscreen.window, "Fullscreen");
+	window_set_appid(fullscreen.window, "org.freedesktop.weston.fullscreen");
 
 	widget_set_transparent(fullscreen.widget, 0);
 

@@ -807,6 +807,8 @@ nested_create(struct display *display)
 	nested->window = window_create(display);
 	nested->widget = window_frame_create(nested->window, nested);
 	window_set_title(nested->window, "Wayland Nested");
+	window_set_appid(nested->window,
+			 "org.freedesktop.weston.wayland-nested");
 	nested->display = display;
 
 	window_set_user_data(nested->window, nested);

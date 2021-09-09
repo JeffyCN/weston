@@ -1021,6 +1021,8 @@ keyboard_create(struct virtual_keyboard *virtual_keyboard)
 	virtual_keyboard->keyboard = keyboard;
 
 	window_set_title(keyboard->window, "Virtual keyboard");
+	window_set_appid(keyboard->window,
+			 "org.freedesktop.weston.virtual-keyboard");
 	window_set_user_data(keyboard->window, keyboard);
 
 	widget_set_redraw_handler(keyboard->widget, redraw_handler);

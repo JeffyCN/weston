@@ -367,7 +367,9 @@ int main(int argc, char *argv[])
 	pc_player->enforced = create_button(pc_player, str_type_enforced);
 	pc_player->relaxed = create_button(pc_player, str_type_relaxed);
 
-	window_set_title(pc_player->window, "Player");
+	window_set_title(pc_player->window, "Weston Content Protection");
+	window_set_appid(pc_player->window,
+			 "org.freedesktop.weston.weston-content-protection");
 	widget_set_redraw_handler(pc_player->widget, redraw_handler);
 	widget_set_resize_handler(pc_player->widget, resize_handler);
 	window_schedule_resize(pc_player->window, WIDTH, HEIGHT);

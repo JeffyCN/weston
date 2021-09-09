@@ -522,6 +522,7 @@ cliptest_create(struct display *display)
 	cliptest->window = window_create(display);
 	cliptest->widget = window_frame_create(cliptest->window, cliptest);
 	window_set_title(cliptest->window, "cliptest");
+	window_set_appid(cliptest->window, "org.freedesktop.weston.cliptest");
 	cliptest->display = display;
 
 	window_set_user_data(cliptest->window, cliptest);
