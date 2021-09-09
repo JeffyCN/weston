@@ -190,6 +190,9 @@ create_window(struct display *display, int width, int height)
 					  &xdg_toplevel_listener, window);
 
 		xdg_toplevel_set_title(window->xdg_toplevel, "simple-shm");
+		xdg_toplevel_set_app_id(window->xdg_toplevel,
+				"org.freedesktop.weston.simple-shm");
+
 		wl_surface_commit(window->surface);
 		window->wait_for_configure = true;
 	} else if (display->fshell) {

@@ -867,6 +867,10 @@ create_window(struct display *display)
 	xdg_toplevel_add_listener(window->xdg_toplevel, &xdg_toplevel_listener,
 				  window);
 
+	xdg_toplevel_set_title(window->xdg_toplevel, "simple-dmabuf-feedback");
+	xdg_toplevel_set_app_id(window->xdg_toplevel,
+			"org.freedesktop.weston.simple-dmabuf-feedback");
+
 	window->wait_for_configure = true;
 	wl_surface_commit(window->surface);
 

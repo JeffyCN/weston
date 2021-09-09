@@ -630,6 +630,8 @@ create_window(struct display *display)
 					  &xdg_toplevel_listener, window);
 
 		xdg_toplevel_set_title(window->xdg_toplevel, "simple-dmabuf-v4l");
+		xdg_toplevel_set_app_id(window->xdg_toplevel,
+				"org.freedesktop.weston.simple-dmabuf-v4l");
 
 		window->wait_for_configure = true;
 		wl_surface_commit(window->surface);
