@@ -2,6 +2,7 @@
  * Copyright © 2019 Collabora, Ltd.
  * Copyright © 2019 Harish Krupo
  * Copyright © 2019 Intel Corporation
+ * Copyright 2021 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -56,6 +57,12 @@ enum gl_shader_color_curve {
 	SHADER_COLOR_CURVE_LUT_3x1D,
 };
 
+/* Keep the following in sync with fragment.glsl. */
+enum gl_shader_color_mapping {
+	SHADER_COLOR_MAPPING_IDENTITY = 0,
+	SHADER_COLOR_MAPPING_3DLUT,
+};
+
 /** GL shader requirements key
  *
  * This structure is used as a binary blob key for building and searching
@@ -70,13 +77,14 @@ struct gl_shader_requirements
 	unsigned variant:4; /* enum gl_shader_texture_variant */
 	bool input_is_premult:1;
 	bool green_tint:1;
-	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
 
+	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
+	unsigned color_mapping:1; /* enum gl_shader_color_mapping */
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:25;
+	unsigned pad_bits_:24;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
@@ -96,6 +104,12 @@ struct gl_shader_config {
 	GLuint input_tex[GL_SHADER_INPUT_TEX_MAX];
 	GLuint color_pre_curve_lut_tex;
 	GLfloat color_pre_curve_lut_scale_offset[2];
+	union {
+		struct {
+			GLuint  tex;
+			GLfloat scale_offset[2];
+		} lut3d;
+	} color_mapping;
 };
 
 struct gl_renderer {
