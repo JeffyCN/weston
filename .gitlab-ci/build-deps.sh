@@ -1,5 +1,5 @@
 #!/bin/bash
-# 
+#
 # Builds the dependencies required for any OS/architecture combination. See
 # .gitlab-ci.yml for more information. This script is called from an
 # OS-specific build scripts like debian-install.sh.
@@ -31,7 +31,7 @@ pip3 install sphinx_rtd_theme==0.4.3 --user
 # version here so we see predictable results.
 #
 # To run this we use virtme, a QEMU wrapper: https://github.com/amluto/virtme
-# 
+#
 # virtme makes our lives easier by abstracting handling of the console,
 # filesystem, etc, so we can pretend that the VM we execute in is actually
 # just a regular container.
@@ -148,11 +148,10 @@ rm -rf pipewire
 # seatd lets us avoid the pain of handling VTs manually through weston-launch
 # or open-coding TTY assignment within Weston. We use this for our tests using
 # the DRM backend.
-git clone --depth=1 --branch 0.5.0 https://git.sr.ht/~kennylevinsen/seatd
+git clone --depth=1 --branch 0.6.1 https://git.sr.ht/~kennylevinsen/seatd
 cd seatd
 meson build -Dauto_features=disabled \
-	-Dseatd=enabled -Dlogind=enabled -Dserver=enabled \
-	-Dexamples=disabled -Dman-pages=disabled
+	-Dlibseat-seatd=enabled -Dlibseat-logind=systemd -Dserver=enabled
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf seatd

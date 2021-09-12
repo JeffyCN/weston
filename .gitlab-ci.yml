@@ -3,7 +3,7 @@
 .templates_sha: &template_sha 567700e483aabed992d0a4fea84994a0472deff6 # see https://docs.gitlab.com/ee/ci/yaml/#includefile
 # This file uses the freedesktop ci-templates to build Weston and run our
 # tests in CI.
-# 
+#
 # ci-templates uses a multi-stage build process. First, the base container
 # image is built which contains the core distribution, the toolchain, and
 # all our build dependencies. This container is aggressively cached; if a
@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2021-08-13.0-replace-kvmconfig'
+  FDO_DISTRIBUTION_TAG: '2021-09-14.2'
 
 
 include:
@@ -334,7 +334,7 @@ docs-build:
       -Dpipewire=false
       -Dwerror=true
       -Dlauncher-libseat=true
-  
+
 x86_64-debian-no-gl-build:
   extends:
     - .test-env-debian-x86_64
