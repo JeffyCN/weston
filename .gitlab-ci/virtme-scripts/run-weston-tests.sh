@@ -12,20 +12,18 @@ export LIBSEAT_BACKEND=seatd
 
 # ninja test depends on meson, and meson itself looks for its modules on folder
 # $HOME/.local/lib/pythonX.Y/site-packages (the Python version may differ).
+# build-deps.sh installs dependencies to /usr/local.
 # virtme starts with HOME=/tmp/roothome, but as we installed meson on user root,
 # meson can not find its modules. So we change the HOME env var to fix that.
 export HOME=/root
 export PATH=$HOME/.local/bin:$PATH
-
-# start seatd and wait for its socket to be available before running the test
-/usr/local/bin/seatd &
-while ! [ -e /run/seatd.sock ]; do sleep 0.1; done
+export PATH=/usr/local/bin:$PATH
 
 export ASAN_OPTIONS=detect_leaks=0,atexit=1
 
 # run the tests and save the exit status
 # we give ourselves a very generous timeout multiplier due to ASan overhead
-meson test --no-rebuild --timeout-multiplier 4
+seatd-launch -- meson test --no-rebuild --timeout-multiplier 4
 TEST_RES=$?
 
 # create a file to keep the result of this script:
