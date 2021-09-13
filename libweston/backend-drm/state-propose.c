@@ -654,7 +654,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			      struct weston_view *ev,
 			      enum drm_output_propose_state_mode mode,
 			      struct drm_plane_state *scanout_state,
-			      uint64_t current_lowest_zpos)
+			      uint64_t current_lowest_zpos,
+			      uint32_t *try_view_on_plane_failure_reasons)
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
@@ -676,7 +677,7 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 	buffer = ev->surface->buffer_ref.buffer;
 	shmbuf = wl_shm_buffer_get(buffer->resource);
-	fb = drm_fb_get_from_view(state, ev);
+	fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
 
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
@@ -730,6 +731,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		}
 
 		if (!drm_output_plane_view_has_valid_format(plane, state, ev, fb)) {
+			*try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
 				     "candidate list: invalid pixel format\n",
 				     plane->plane_id);
@@ -960,7 +963,18 @@ drm_output_propose_state(struct weston_output *output_base,
 				      current_lowest_zpos);
 			ps = drm_output_prepare_plane_view(state, ev, mode,
 							   scanout_state,
-							   current_lowest_zpos);
+							   current_lowest_zpos,
+							   &pnode->try_view_on_plane_failure_reasons);
+			/* If we were able to place the view in a plane, set
+			 * failure reasons to none. */
+			if (ps)
+				pnode->try_view_on_plane_failure_reasons =
+					FAILURE_REASONS_NONE;
+		} else {
+			/* We are forced to place the view in the renderer, set
+			 * the failure reason accordingly. */
+			pnode->try_view_on_plane_failure_reasons =
+				FAILURE_REASONS_FORCE_RENDERER;
 		}
 
 		if (ps) {

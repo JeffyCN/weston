@@ -227,6 +227,17 @@ enum wdrm_crtc_property {
 	WDRM_CRTC__COUNT
 };
 
+/**
+ * Reasons why placing a view on a plane failed. Needed by the dma-buf feedback.
+ */
+enum try_view_on_plane_failure_reasons {
+	FAILURE_REASONS_NONE = 0,
+	FAILURE_REASONS_FORCE_RENDERER = (1 << 0),
+	FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE = (1 << 1),
+	FAILURE_REASONS_DMABUF_MODIFIER_INVALID = (1 << 2),
+	FAILURE_REASONS_ADD_FB_FAILED = (1 << 3),
+};
+
 struct drm_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
@@ -694,13 +705,15 @@ drm_output_set_cursor_view(struct drm_output *output, struct weston_view *ev);
 
 #ifdef BUILD_DRM_GBM
 extern struct drm_fb *
-drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev);
+drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
+		     uint32_t *try_view_on_plane_failure_reasons);
 extern bool
 drm_can_scanout_dmabuf(struct weston_compositor *ec,
 		       struct linux_dmabuf_buffer *dmabuf);
 #else
 static inline struct drm_fb *
-drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
+drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
+		     uint32_t *try_view_on_plane_failure_reasons)
 {
 	return NULL;
 }

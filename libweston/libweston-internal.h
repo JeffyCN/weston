@@ -416,6 +416,8 @@ struct weston_paint_node {
 
 	struct weston_surface_color_transform surf_xform;
 	bool surf_xform_valid;
+
+	uint32_t try_view_on_plane_failure_reasons;
 };
 
 struct weston_paint_node *

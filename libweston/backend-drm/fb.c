@@ -220,7 +220,8 @@ drm_fb_destroy_dmabuf(struct drm_fb *fb)
 
 static struct drm_fb *
 drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
-		       struct drm_backend *backend, bool is_opaque)
+		       struct drm_backend *backend, bool is_opaque,
+		       uint32_t *try_view_on_plane_failure_reasons)
 {
 #ifndef HAVE_GBM_FD_IMPORT
 	/* Importing a buffer to KMS requires explicit modifiers, so
@@ -245,8 +246,12 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	 * KMS driver can't know. So giving the buffer to KMS is not safe, as
 	 * not knowing its layout can result in garbage being displayed. In
 	 * short, importing a buffer to KMS requires explicit modifiers. */
-	if (dmabuf->attributes.modifier[0] == DRM_FORMAT_MOD_INVALID)
+	if (dmabuf->attributes.modifier[0] == DRM_FORMAT_MOD_INVALID) {
+		if (try_view_on_plane_failure_reasons)
+			*try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_DMABUF_MODIFIER_INVALID;
 		return NULL;
+	}
 
 	/* XXX: TODO:
 	 *
@@ -313,8 +318,12 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		fb->handles[i] = handle.u32;
 	}
 
-	if (drm_fb_addfb(backend, fb) != 0)
+	if (drm_fb_addfb(backend, fb) != 0) {
+		if (try_view_on_plane_failure_reasons)
+			*try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_ADD_FB_FAILED;
 		goto err_free;
+	}
 
 	return fb;
 
@@ -455,7 +464,7 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 	struct drm_backend *b = to_drm_backend(ec);
 	bool ret = false;
 
-	fb = drm_fb_get_from_dmabuf(dmabuf, b, true);
+	fb = drm_fb_get_from_dmabuf(dmabuf, b, true, NULL);
 	if (fb)
 		ret = true;
 
@@ -466,7 +475,8 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 }
 
 struct drm_fb *
-drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
+drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
+		     uint32_t *try_view_on_plane_failure_reasons)
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
@@ -497,7 +507,8 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev)
 
 	dmabuf = linux_dmabuf_buffer_get(buffer->resource);
 	if (dmabuf) {
-		fb = drm_fb_get_from_dmabuf(dmabuf, b, is_opaque);
+		fb = drm_fb_get_from_dmabuf(dmabuf, b, is_opaque,
+					    try_view_on_plane_failure_reasons);
 		if (!fb)
 			return NULL;
 	} else {
