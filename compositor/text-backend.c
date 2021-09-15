@@ -103,6 +103,7 @@ struct text_backend {
 
 	struct {
 		char *path;
+		bool overlay_keyboard;
 		struct wl_client *client;
 
 		unsigned deathcount;
@@ -993,6 +994,9 @@ launch_input_method(struct text_backend *text_backend)
 	if (strcmp(text_backend->input_method.path, "") == 0)
 		return;
 
+	if (text_backend->input_method.overlay_keyboard)
+		setenv("WESTON_KEYBOARD_SURFACE_TYPE", "overlay", 1);
+
 	text_backend->input_method.client =
 		weston_client_start(text_backend->compositor,
 				    text_backend->input_method.path);
@@ -1060,6 +1064,9 @@ text_backend_configuration(struct text_backend *text_backend)
 	weston_config_section_get_string(section, "path",
 					 &text_backend->input_method.path,
 					 client);
+	weston_config_section_get_bool(section, "overlay-keyboard",
+				       &text_backend->input_method.overlay_keyboard,
+				       false);
 	free(client);
 }
 

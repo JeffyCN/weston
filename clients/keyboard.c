@@ -60,6 +60,7 @@ struct virtual_keyboard {
 	uint32_t surrounding_cursor;
 	struct keyboard *keyboard;
 	bool toplevel;
+	bool overlay;
 	struct zwp_input_panel_surface_v1 *ips;
 };
 
@@ -970,15 +971,38 @@ set_toplevel(struct output *output, struct virtual_keyboard *virtual_keyboard)
 						ZWP_INPUT_PANEL_SURFACE_V1_POSITION_CENTER_BOTTOM);
 
 	virtual_keyboard->toplevel = true;
+	virtual_keyboard->overlay = false;
+	virtual_keyboard->ips = ips;
+}
+
+static void
+set_overlay(struct output *output, struct virtual_keyboard *virtual_keyboard)
+{
+	struct zwp_input_panel_surface_v1 *ips;
+	struct keyboard *keyboard = virtual_keyboard->keyboard;
+
+	ips = zwp_input_panel_v1_get_input_panel_surface(virtual_keyboard->input_panel,
+							 window_get_wl_surface(keyboard->window));
+
+	zwp_input_panel_surface_v1_set_overlay_panel(ips);
+
+	virtual_keyboard->toplevel = false;
+	virtual_keyboard->overlay = true;
 	virtual_keyboard->ips = ips;
 }
 
 static void
 display_output_handler(struct output *output, void *data) {
 	struct virtual_keyboard *keyboard = data;
+	const char *type = getenv("WESTON_KEYBOARD_SURFACE_TYPE");
 
-	if (!keyboard->toplevel)
-		set_toplevel(output, keyboard);
+	if (type && strcasecmp("overlay", type) == 0) {
+		if (!keyboard->overlay)
+			set_overlay(output, keyboard);
+	} else {
+		if (!keyboard->toplevel)
+			set_toplevel(output, keyboard);
+	}
 }
 
 static void

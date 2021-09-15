@@ -574,6 +574,11 @@ request. Currently, this option is supported by kiosk-shell.
 sets the path of the on screen keyboard input method (string).
 .RE
 .RE
+.TP 7
+.BI "overlay-keyboard=" false
+sets weston-keyboard as overlay panel.
+.RE
+.RE
 .SH "KEYBOARD SECTION"
 This section contains the following keys:
 .TP 7
