@@ -1165,8 +1165,10 @@ wet_module_init(struct weston_compositor *compositor,
 		int *argc, char *argv[])
 {
 	struct screen_share *ss;
+	struct weston_output *output;
 	struct weston_config *config;
 	struct weston_config_section *section;
+	bool start_on_startup = false;
 
 	ss = zalloc(sizeof *ss);
 	if (ss == NULL)
@@ -1182,5 +1184,12 @@ wet_module_init(struct weston_compositor *compositor,
 	weston_compositor_add_key_binding(compositor, KEY_S,
 				          MODIFIER_CTRL | MODIFIER_ALT,
 					  share_output_binding, ss);
+
+	if (weston_config_section_get_bool(section, "start-on-startup",
+					   &start_on_startup, false) == 0) {
+		wl_list_for_each(output, &compositor->output_list, link)
+			weston_output_share(output, ss->command);
+	}
+
 	return 0;
 }
