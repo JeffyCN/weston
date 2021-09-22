@@ -106,6 +106,9 @@ static void
 cmlcms_color_profile_destroy(struct cmlcms_color_profile *cprof)
 {
 	wl_list_remove(&cprof->link);
+	cmsFreeToneCurveTriple(cprof->vcgt);
+	cmsFreeToneCurveTriple(cprof->output_eotf);
+	cmsFreeToneCurveTriple(cprof->output_inv_eotf_vcgt);
 	cmsCloseProfile(cprof->profile);
 	free(cprof->base.description);
 	free(cprof);
