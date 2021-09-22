@@ -2,6 +2,7 @@
  * Copyright 2012 Intel Corporation
  * Copyright 2015,2019,2021 Collabora, Ltd.
  * Copyright 2016 NVIDIA Corporation
+ * Copyright 2021 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -46,8 +47,16 @@
 #define SHADER_COLOR_CURVE_IDENTITY 0
 #define SHADER_COLOR_CURVE_LUT_3x1D 1
 
+/* enum gl_shader_color_mapping */
+#define SHADER_COLOR_MAPPING_IDENTITY 0
+#define SHADER_COLOR_MAPPING_3DLUT 1
+
 #if DEF_VARIANT == SHADER_VARIANT_EXTERNAL
 #extension GL_OES_EGL_image_external : require
+#endif
+
+#if DEF_COLOR_MAPPING == SHADER_COLOR_MAPPING_3DLUT
+#extension GL_OES_texture_3D : require
 #endif
 
 #ifdef GL_FRAGMENT_PRECISION_HIGH
@@ -66,6 +75,7 @@ compile_const int c_variant = DEF_VARIANT;
 compile_const bool c_input_is_premult = DEF_INPUT_IS_PREMULT;
 compile_const bool c_green_tint = DEF_GREEN_TINT;
 compile_const int c_color_pre_curve = DEF_COLOR_PRE_CURVE;
+compile_const int c_color_mapping = DEF_COLOR_MAPPING;
 
 vec4
 yuva2rgba(vec4 yuva)
@@ -109,6 +119,11 @@ uniform float alpha;
 uniform vec4 unicolor;
 uniform HIGHPRECISION sampler2D color_pre_curve_lut_2d;
 uniform HIGHPRECISION vec2 color_pre_curve_lut_scale_offset;
+
+#if DEF_COLOR_MAPPING == SHADER_COLOR_MAPPING_3DLUT
+uniform HIGHPRECISION sampler3D color_mapping_lut_3d;
+uniform HIGHPRECISION vec2 color_mapping_lut_scale_offset;
+#endif
 
 vec4
 sample_input_texture()
@@ -168,6 +183,12 @@ lut_texcoord(float x, vec2 scale_offset)
 	return x * scale_offset.s + scale_offset.t;
 }
 
+vec3
+lut_texcoord(vec3 pos, vec2 scale_offset)
+{
+	return pos * scale_offset.s + scale_offset.t;
+}
+
 /*
  * Sample a 1D LUT which is a single row of a 2D texture. The 2D texture has
  * four rows so that the centers of texels have precise y-coordinates.
@@ -199,6 +220,28 @@ color_pre_curve(vec3 color)
 	}
 }
 
+vec3
+sample_color_mapping_lut_3d(vec3 color)
+{
+	vec3 pos, ret = vec3(0.0, 0.0, 0.0);
+#if DEF_COLOR_MAPPING == SHADER_COLOR_MAPPING_3DLUT
+	pos = lut_texcoord(color, color_mapping_lut_scale_offset);
+	ret = texture3D(color_mapping_lut_3d, pos).rgb;
+#endif
+	return ret;
+}
+
+vec3
+color_mapping(vec3 color)
+{
+	if (c_color_mapping == SHADER_COLOR_MAPPING_IDENTITY)
+		return color;
+	else if (c_color_mapping == SHADER_COLOR_MAPPING_3DLUT)
+		return sample_color_mapping_lut_3d(color);
+	else /* Never reached, bad c_color_mapping. */
+		return vec3(1.0, 0.3, 1.0);
+}
+
 vec4
 color_pipeline(vec4 color)
 {
@@ -206,6 +249,7 @@ color_pipeline(vec4 color)
 	color.a *= alpha;
 
 	color.rgb = color_pre_curve(color.rgb);
+	color.rgb = color_mapping(color.rgb);
 
 	return color;
 }
