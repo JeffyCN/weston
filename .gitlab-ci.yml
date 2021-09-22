@@ -157,7 +157,7 @@ aarch64-debian-container_prep:
 # Core templates for all of our build steps. These are reused by all build jobs
 # through the `extends` keyword.
 .build-env:
-  timeout: 5m
+  timeout: 15m
   variables:
     BUILDDIR: $CI_PROJECT_DIR/build-weston-$CI_JOB_NAME
     PREFIX: $CI_PROJECT_DIR/prefix-weston-$CI_JOB_NAME

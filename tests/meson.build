@@ -320,6 +320,7 @@ foreach t : tests
 		t.get('name'),
 		t_exe,
 		depends: t.get('test_deps', []),
+		timeout: 120,
 		protocol: 'tap'
 	)
 endforeach
