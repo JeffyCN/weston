@@ -180,4 +180,10 @@ cmlcms_color_transform_get(struct weston_color_manager_lcms *cm,
 void
 cmlcms_color_transform_destroy(struct cmlcms_color_transform *xform);
 
+struct cmlcms_color_profile *
+ref_cprof(struct cmlcms_color_profile *cprof);
+
+void
+unref_cprof(struct cmlcms_color_profile *cprof);
+
 #endif /* WESTON_COLOR_LCMS_H */

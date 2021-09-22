@@ -114,6 +114,25 @@ cmlcms_color_profile_destroy(struct cmlcms_color_profile *cprof)
 	free(cprof);
 }
 
+struct cmlcms_color_profile *
+ref_cprof(struct cmlcms_color_profile *cprof)
+{
+	if (!cprof)
+		return NULL;
+
+	weston_color_profile_ref(&cprof->base);
+	return  cprof;
+}
+
+void
+unref_cprof(struct cmlcms_color_profile *cprof)
+{
+	if (!cprof)
+		return;
+
+	weston_color_profile_unref(&cprof->base);
+}
+
 static char *
 make_icc_file_description(cmsHPROFILE profile,
 			  const struct cmlcms_md5_sum *md5sum,
