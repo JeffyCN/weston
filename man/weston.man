@@ -157,7 +157,8 @@ start-up code.
 Specify to which scopes should subscribe to. Useful to control which streams to
 write data into the flight recorder. Flight recorder has limited space, once
 the flight recorder is full new data will overwrite the old data. Without any
-scopes specified, it subscribes to 'log' and 'drm-backend' scopes.
+scopes specified, it subscribes to 'log' and 'drm-backend' scopes. Passing
+an empty value would disable the flight recorder entirely.
 .TP
 .BR \-\-version
 Print the program version.

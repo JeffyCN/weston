@@ -69,6 +69,7 @@
 #define WINDOW_TITLE "Weston Compositor"
 /* flight recorder size (in bytes) */
 #define DEFAULT_FLIGHT_REC_SIZE (5 * 1024 * 1024)
+#define DEFAULT_FLIGHT_REC_SCOPES "log,drm-backend"
 
 struct wet_output_config {
 	int width;
@@ -3197,18 +3198,13 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
 			       const char *log_scopes,
 			       const char *flight_rec_scopes)
 {
-	if (log_scopes)
+	if (logger && log_scopes)
 		weston_log_setup_scopes(log_ctx, logger, log_scopes);
 	else
 		weston_log_subscribe(log_ctx, logger, "log");
 
-	if (flight_rec_scopes) {
+	if (flight_rec && flight_rec_scopes)
 		weston_log_setup_scopes(log_ctx, flight_rec, flight_rec_scopes);
-	} else {
-		/* by default subscribe to 'log', and 'drm-backend' */
-		weston_log_subscribe(log_ctx, flight_rec, "log");
-		weston_log_subscribe(log_ctx, flight_rec, "drm-backend");
-	}
 }
 
 WL_EXPORT int
@@ -3305,7 +3301,12 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	weston_log_set_handler(vlog, vlog_continue);
 
 	logger = weston_log_subscriber_create_log(weston_logfile);
-	flight_rec = weston_log_subscriber_create_flight_rec(DEFAULT_FLIGHT_REC_SIZE);
+
+	if (!flight_rec_scopes)
+		flight_rec_scopes = DEFAULT_FLIGHT_REC_SCOPES;
+
+	if (flight_rec_scopes && strlen(flight_rec_scopes) > 0)
+		flight_rec = weston_log_subscriber_create_flight_rec(DEFAULT_FLIGHT_REC_SIZE);
 
 	weston_log_subscribe_to_scopes(log_ctx, logger, flight_rec,
 				       log_scopes, flight_rec_scopes);
@@ -3320,6 +3321,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	free(cmdline);
 	log_uname();
 
+	weston_log("Flight recorder: %s\n", flight_rec ? "enabled" : "disabled");
 	verify_xdg_runtime_dir();
 
 	display = wl_display_create();
@@ -3393,9 +3395,10 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	if (debug_protocol)
 		weston_compositor_enable_debug_protocol(wet.compositor);
 
-	weston_compositor_add_debug_binding(wet.compositor, KEY_D,
-					    flight_rec_key_binding_handler,
-					    flight_rec);
+	if (flight_rec)
+		weston_compositor_add_debug_binding(wet.compositor, KEY_D,
+						    flight_rec_key_binding_handler,
+						    flight_rec);
 
 	if (weston_compositor_init_config(wet.compositor, config) < 0)
 		goto out;
@@ -3534,7 +3537,8 @@ out_display:
 	weston_log_scope_destroy(log_scope);
 	log_scope = NULL;
 	weston_log_subscriber_destroy(logger);
-	weston_log_subscriber_destroy(flight_rec);
+	if (flight_rec)
+		weston_log_subscriber_destroy(flight_rec);
 	weston_log_ctx_destroy(log_ctx);
 	weston_log_file_close();
 
