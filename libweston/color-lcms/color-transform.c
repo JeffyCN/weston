@@ -133,6 +133,14 @@ transform_matches_params(const struct cmlcms_color_transform *xform,
 	if (xform->search_key.type != param->type)
 		return false;
 
+	if (xform->search_key.category != param->category)
+		return false;
+
+	if (xform->search_key.intent_output  != param->intent_output ||
+	    xform->search_key.output_profile != param->output_profile ||
+	    xform->search_key.input_profile != param->input_profile)
+		return false;
+
 	return true;
 }
 
