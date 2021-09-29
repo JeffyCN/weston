@@ -143,6 +143,11 @@ enum cmlcms_color_transform_type {
 
 struct cmlcms_color_transform_search_param {
 	enum cmlcms_color_transform_type type;
+
+	enum cmlcms_category category;
+	struct cmlcms_color_profile *input_profile;
+	struct cmlcms_color_profile *output_profile;
+	cmsUInt32Number intent_output;	/* selected intent from output profile */
 };
 
 struct cmlcms_color_transform {
@@ -165,7 +170,6 @@ struct cmlcms_color_transform {
 	 * not used
 	 */
 	cmsHTRANSFORM cmap_3dlut;
-
 };
 
 static inline struct cmlcms_color_transform *
