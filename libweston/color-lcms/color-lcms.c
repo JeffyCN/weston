@@ -165,6 +165,10 @@ cmlcms_init(struct weston_color_manager *cm_base)
 
 	cmsSetLogErrorHandlerTHR(cm->lcms_ctx, lcms_error_logger);
 
+	if (!cmlcms_create_stock_profile(cm)) {
+		weston_log("color-lcms: error: cmlcms_create_stock_profile failed\n");
+		return false;
+	}
 	weston_log("LittleCMS %d initialized.\n", cmsGetEncodedCMMversion());
 
 	return true;
@@ -175,6 +179,8 @@ cmlcms_destroy(struct weston_color_manager *cm_base)
 {
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
 
+	if (cm->sRGB_profile)
+		cmlcms_color_profile_destroy(cm->sRGB_profile);
 	assert(wl_list_empty(&cm->color_transform_list));
 	assert(wl_list_empty(&cm->color_profile_list));
 

@@ -39,6 +39,7 @@ struct weston_color_manager_lcms {
 
 	struct wl_list color_transform_list; /* cmlcms_color_transform::link */
 	struct wl_list color_profile_list; /* cmlcms_color_profile::link */
+	struct cmlcms_color_profile *sRGB_profile; /* stock profile */
 };
 
 static inline struct weston_color_manager_lcms *
@@ -185,5 +186,11 @@ ref_cprof(struct cmlcms_color_profile *cprof);
 
 void
 unref_cprof(struct cmlcms_color_profile *cprof);
+
+bool
+cmlcms_create_stock_profile(struct weston_color_manager_lcms *cm);
+
+void
+cmlcms_color_profile_destroy(struct cmlcms_color_profile *cprof);
 
 #endif /* WESTON_COLOR_LCMS_H */

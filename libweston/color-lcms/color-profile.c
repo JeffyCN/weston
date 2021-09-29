@@ -102,7 +102,7 @@ cmlcms_color_profile_create(struct weston_color_manager_lcms *cm,
 	return cprof;
 }
 
-static void
+void
 cmlcms_color_profile_destroy(struct cmlcms_color_profile *cprof)
 {
 	wl_list_remove(&cprof->link);
@@ -151,6 +151,44 @@ make_icc_file_description(cmsHPROFILE profile,
 		   name_part, md5sum_str);
 
 	return desc;
+}
+
+/**
+ *
+ * Build stock profile which available for clients unaware of color management
+ */
+bool
+cmlcms_create_stock_profile(struct weston_color_manager_lcms *cm)
+{
+	cmsHPROFILE profile;
+	struct cmlcms_md5_sum md5sum;
+	char *desc = NULL;
+
+	profile = cmsCreate_sRGBProfileTHR(cm->lcms_ctx);
+	if (!profile) {
+		weston_log("color-lcms: error: cmsCreate_sRGBProfileTHR failed\n");
+		return false;
+	}
+	if (!cmsMD5computeID(profile)) {
+		weston_log("Failed to compute MD5 for ICC profile\n");
+		goto err_close;
+	}
+
+	cmsGetHeaderProfileID(profile, md5sum.bytes);
+	desc = make_icc_file_description(profile, &md5sum, "sRGB stock");
+	if (!desc)
+		goto err_close;
+
+	cm->sRGB_profile = cmlcms_color_profile_create(cm, profile, desc, NULL);
+	if (!cm->sRGB_profile)
+		goto err_close;
+
+	return true;
+
+err_close:
+	free(desc);
+	cmsCloseProfile(profile);
+	return false;
 }
 
 bool
