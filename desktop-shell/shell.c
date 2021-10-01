@@ -2057,6 +2057,7 @@ set_minimized(struct weston_surface *surface)
 	struct shell_surface *shsurf;
 	struct workspace *current_ws;
 	struct weston_view *view;
+	struct weston_subsurface *subsurface;
 
 	view = get_default_view(surface);
 	if (!view)
@@ -2074,7 +2075,12 @@ set_minimized(struct weston_surface *surface)
 	surface_keyboard_focus_lost(surface);
 
 	shell_surface_update_child_surface_layers(shsurf);
-	weston_view_damage_below(view);
+
+	weston_view_damage_below(shsurf->view);
+	wl_list_for_each(subsurface, &surface->subsurface_list, parent_link) {
+		wl_list_for_each(view, &subsurface->surface->views, surface_link)
+			weston_view_damage_below(view);
+	}
 }
 
 
