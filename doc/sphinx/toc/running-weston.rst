@@ -98,9 +98,10 @@ Another way of launching Weston is via ssh or a serial terminal.  The simplest
 option here is to use the ``libseat`` launcher with ``seatd``.  The process for
 setting that up is identical to the one described above, where one just need to
 ensure that ``seatd`` is running with the appropriate arguments, after which one
-can just run ``weston``.  Alternatively and as a last resort, one can run Weston
-as root, specifying the tty to use on the command line: If TTY 2 is active, one
-would run ``weston --tty 2`` as root.
+can just run ``weston``.  Another option, is to rely on logind and start weston
+as systemd user service: :ref:`weston-user-service`. Alternatively and as a last
+resort, one can run Weston as root, specifying the tty to use on the command
+line: If TTY 2 is active, one would run ``weston --tty 2`` as root.
 
 Running Weston on a different seat on a stand-alone back-end
 ------------------------------------------------------------
@@ -174,3 +175,169 @@ Then, weston can be run by selecting the DRM-backend and the seat ``seat-insecur
 
 If everything went well you should see weston be up-and-running on an output
 connected to that DRM device.
+
+.. _weston-user-service:
+
+Running weston from a systemd service
+-------------------------------------
+
+Weston could also be started, as a systemd user `service
+<https://www.freedesktop.org/software/systemd/man/systemd.service.html>`_,
+rather than as systemd system service, still relying on logind launcher.  In
+order to do that we would need two
+`unit <https://man7.org/linux/man-pages/man5/systemd.unit.5.html>`_ files,
+a ``.service`` and a ``.socket`` one.
+
+On a Debian system, the systemd user units are under ``/etc/systemd/user/``
+directory.
+
+* ``weston.socket``
+
+::
+
+        [Unit]
+        Description=Weston, a Wayland compositor
+        Documentation=man:weston(1) man:weston.ini(5)
+        Documentation=https://wayland.freedesktop.org/
+
+        [Socket]
+        ListenStream=%t/wayland-0
+
+
+* ``weston.service``
+
+::
+
+        [Unit]
+        Description=Weston, a Wayland compositor, as a user service
+        Documentation=man:weston(1) man:weston.ini(5)
+        Documentation=https://wayland.freedesktop.org/
+
+        # Activate using a systemd socket
+        Requires=weston.socket
+        After=weston.socket
+
+        # Since we are part of the graphical session, make sure we are started before
+        Before=graphical-session.target
+
+        [Service]
+        Type=notify
+        TimeoutStartSec=60
+        WatchdogSec=20
+        # Defaults to journal
+        #StandardOutput=journal
+        StandardError=journal
+
+        # add a ~/.config/weston.ini and weston will pick-it up
+        ExecStart=/usr/bin/weston
+
+        [Install]
+        WantedBy=graphical-session.target
+
+After creating those two files, make sure systemd is aware of the changes:
+
+::
+
+        systemctl --user daemon-reload
+
+If nothing creates a login session on the machine, one would actually need to
+log-in physically (over VT). Starting weston then would be as simple as
+doing:
+
+::
+
+        systemctl --user start weston
+
+
+Alternatively to logging in over a VT, one can create an equivalent systemd
+system service. Replacing the need to log-in physically at a keyboard when one
+might not exist is a real possibility, but this approach can also work while
+being logged in over a ssh connection, and run weston as a regular user.
+
+
+In order to do that, create a systemd system service (for Debian that is under
+``/etc/systemd/system`` directory) called for instance
+``mysession.service``, and add the following:
+
+::
+
+        [Unit]
+        Description=My graphical session
+
+        # Make sure we are started after logins are permitted.
+        After=systemd-user-sessions.service
+
+        # if you want you can make it part of the graphical session
+        #Before=graphical.target
+
+        # not necessary but just in case
+        #ConditionPathExists=/dev/tty7
+
+        [Service]
+        Type=simple
+        Environment=XDG_SESSION_TYPE=wayland
+        ExecStart=/usr/bin/systemctl --wait --user start mysession.target
+
+        # The user to run the session as. Pick one!
+        User=user
+        Group=user
+
+        # Set up a full user session for the user, required by Weston.
+        PAMName=login
+
+        # A virtual terminal is needed.
+        TTYPath=/dev/tty7
+        TTYReset=yes
+        TTYVHangup=yes
+        TTYVTDisallocate=yes
+
+        # Fail to start if not controlling the tty.
+        StandardInput=tty-fail
+
+        # Defaults to journal, in case it doesn't adjust it accordingly
+        #StandardOutput=journal
+        StandardError=journal
+
+        # Log this user with utmp, letting it show up with commands 'w' and 'who'.
+        UtmpIdentifier=tty7
+        UtmpMode=user
+
+        [Install]
+        WantedBy=graphical.target
+
+
+Make sure that you're using a valid ``user`` for both ``User`` and ``Group``
+entries.  Create also system user ``.target``, named ``mysession.target`` that
+contains:
+
+::
+
+        [Unit]
+        Description=My session
+
+        BindsTo=mysession.target
+        Before=mysession.target
+
+Perform both a system, but also a user ``daemon-reload``, to make sure all
+changes have been applied. Afterwards, start ``mysession`` and then ``weston``
+user service. Checking if that worked could be done by verifying with loginctl
+that there's an active login with the default `seat0` assigned on that
+particular tty.
+
+So, as a user one can do the following:
+
+::
+
+        systemctl start mysession # systemd will ask for passowrd
+        loginctl # verify if mysession was able to perform the session login
+        systemctl --user start weston
+
+Finally, if one would not want to create such a systemd service, one could also
+use `systemd-run <https://www.freedesktop.org/software/systemd/man/systemd-run.html>`_
+which would allow to create a temporary service unit and ultimately achieve
+something similar to the systemd service above:
+
+::
+
+        systemd-run  --collect -E XDG_SESSION_TYPE=wayland --uid=1000 -p PAMName=login -p TTYPath=/dev/tty7 sleep 1d
+        systemctl --user start weston
