@@ -543,6 +543,10 @@ content-protection can actually be realized, only if the hardware
 (source and sink) support HDCP, and the backend has the implementation
 of content-protection protocol. Currently, HDCP is supported by drm-backend.
 .TP 7
+.BI "content-type=" content_type
+The type of the content being primarily displayed to this output. Can be "no
+data" (default), "graphics", "photo", "cinema" or "game".
+.TP 7
 .BI "app-ids=" app-id[,app_id]*
 A comma separated list of the IDs of applications to place on this output.
 These IDs should match the application IDs as set with the xdg_shell.set_app_id

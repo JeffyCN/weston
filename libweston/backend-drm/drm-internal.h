@@ -188,6 +188,7 @@ enum wdrm_connector_property {
 	WDRM_CONNECTOR_PANEL_ORIENTATION,
 	WDRM_CONNECTOR_HDR_OUTPUT_METADATA,
 	WDRM_CONNECTOR_MAX_BPC,
+	WDRM_CONNECTOR_CONTENT_TYPE,
 	WDRM_CONNECTOR__COUNT
 };
 
@@ -218,6 +219,15 @@ enum wdrm_panel_orientation {
 	WDRM_PANEL_ORIENTATION_LEFT_SIDE_UP,
 	WDRM_PANEL_ORIENTATION_RIGHT_SIDE_UP,
 	WDRM_PANEL_ORIENTATION__COUNT
+};
+
+enum wdrm_content_type {
+	WDRM_CONTENT_TYPE_NO_DATA = 0,
+	WDRM_CONTENT_TYPE_GRAPHICS,
+	WDRM_CONTENT_TYPE_PHOTO,
+	WDRM_CONTENT_TYPE_CINEMA,
+	WDRM_CONTENT_TYPE_GAME,
+	WDRM_CONTENT_TYPE__COUNT
 };
 
 /**
@@ -587,6 +597,8 @@ struct drm_output {
 	void (*virtual_destroy)(struct weston_output *base);
 
 	submit_frame_cb virtual_submit_frame;
+
+	enum wdrm_content_type content_type;
 };
 
 void

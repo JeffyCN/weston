@@ -93,6 +93,17 @@ struct weston_drm_output_api {
 	 * This can be set only while the output is disabled.
 	 */
 	void (*set_max_bpc)(struct weston_output *output, unsigned max_bpc);
+
+	/** The content type primarily used on the output. Valid values are:
+	 * - NULL or "no data" - No information is provided about the usage of the
+	 *   output
+	 * - "graphics"
+	 * - "photo"
+	 * - "cinema"
+	 * - "game"
+	 */
+	int (*set_content_type)(struct weston_output *output,
+				const char *content_type);
 };
 
 static inline const struct weston_drm_output_api *

@@ -119,6 +119,14 @@ struct drm_property_enum_info panel_orientation_enums[] = {
 	[WDRM_PANEL_ORIENTATION_RIGHT_SIDE_UP] = { .name = "Right Side Up", },
 };
 
+struct drm_property_enum_info content_type_enums[] = {
+	[WDRM_CONTENT_TYPE_NO_DATA] = { .name = "No Data", },
+	[WDRM_CONTENT_TYPE_GRAPHICS] = { .name = "Graphics", },
+	[WDRM_CONTENT_TYPE_PHOTO] = { .name = "Photo", },
+	[WDRM_CONTENT_TYPE_CINEMA] = { .name = "Cinema", },
+	[WDRM_CONTENT_TYPE_GAME] = { .name = "Game", },
+};
+
 const struct drm_property_info connector_props[] = {
 	[WDRM_CONNECTOR_EDID] = { .name = "EDID" },
 	[WDRM_CONNECTOR_DPMS] = {
@@ -147,6 +155,11 @@ const struct drm_property_info connector_props[] = {
 		.name = "HDR_OUTPUT_METADATA",
 	},
 	[WDRM_CONNECTOR_MAX_BPC] = { .name = "max bpc", },
+	[WDRM_CONNECTOR_CONTENT_TYPE] = {
+		.name = "content type",
+		.enum_values = content_type_enums,
+		.num_enum_values = WDRM_CONTENT_TYPE__COUNT,
+	},
 };
 
 const struct drm_property_info crtc_props[] = {
@@ -940,6 +953,24 @@ drm_connector_set_max_bpc(struct drm_connector *connector,
 }
 
 static int
+drm_connector_set_content_type(struct drm_connector *connector,
+			       enum wdrm_content_type content_type,
+			       drmModeAtomicReq *req)
+{
+	struct drm_property_enum_info *enum_info;
+	uint64_t prop_val;
+	struct drm_property_info *props = connector->props;
+
+	if (!drm_connector_has_prop(connector, WDRM_CONNECTOR_CONTENT_TYPE))
+		return 0;
+
+	enum_info = props[WDRM_CONNECTOR_CONTENT_TYPE].enum_values;
+	prop_val = enum_info[content_type].value;
+	return connector_add_prop(req, connector,
+				  WDRM_CONNECTOR_CONTENT_TYPE, prop_val);
+}
+
+static int
 drm_output_apply_state_atomic(struct drm_output_state *state,
 			      drmModeAtomicReq *req,
 			      uint32_t *flags)
@@ -992,6 +1023,8 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 	wl_list_for_each(head, &output->base.head_list, base.output_link) {
 		drm_connector_set_hdcp_property(&head->connector,
 						state->protection, req);
+		ret |= drm_connector_set_content_type(&head->connector,
+						      output->content_type, req);
 
 		if (drm_connector_has_prop(&head->connector,
 					   WDRM_CONNECTOR_HDR_OUTPUT_METADATA)) {

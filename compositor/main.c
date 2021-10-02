@@ -2024,6 +2024,7 @@ drm_backend_output_configure(struct weston_output *output,
 	char *s;
 	char *modeline = NULL;
 	char *gbm_format = NULL;
+	char *content_type = NULL;
 	char *seat = NULL;
 
 	api = weston_drm_output_get_api(output->compositor);
@@ -2079,6 +2080,12 @@ drm_backend_output_configure(struct weston_output *output,
 
 	api->set_gbm_format(output, gbm_format);
 	free(gbm_format);
+
+	weston_config_section_get_string(section,
+					 "content-type", &content_type, NULL);
+	if (api->set_content_type(output, content_type) < 0)
+		return -1;
+	free(content_type);
 
 	weston_config_section_get_string(section, "seat", &seat, "");
 

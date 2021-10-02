@@ -1425,6 +1425,38 @@ drm_output_set_max_bpc(struct weston_output *base, unsigned max_bpc)
 	output->max_bpc = max_bpc;
 }
 
+static const struct { const char *name; uint32_t token; } content_types[] = {
+	{ "no data",  WDRM_CONTENT_TYPE_NO_DATA },
+	{ "graphics", WDRM_CONTENT_TYPE_GRAPHICS },
+	{ "photo",    WDRM_CONTENT_TYPE_PHOTO },
+	{ "cinema",   WDRM_CONTENT_TYPE_CINEMA },
+	{ "game",     WDRM_CONTENT_TYPE_GAME },
+};
+
+static int
+drm_output_set_content_type(struct weston_output *base,
+			    const char *content_type)
+{
+	unsigned int i;
+	struct drm_output *output = to_drm_output(base);
+
+	if (content_type == NULL) {
+		output->content_type = WDRM_CONTENT_TYPE_NO_DATA;
+		return 0;
+	}
+
+	for (i = 0; i < ARRAY_LENGTH(content_types); i++)
+		if (strcmp(content_types[i].name, content_type) == 0) {
+			output->content_type = content_types[i].token;
+			return 0;
+		}
+
+	weston_log("Error: unknown content-type for output %s: \"%s\"\n",
+		   base->name, content_type);
+	output->content_type = WDRM_CONTENT_TYPE_NO_DATA;
+	return -1;
+}
+
 static int
 drm_output_init_gamma_size(struct drm_output *output)
 {
@@ -3084,6 +3116,7 @@ static const struct weston_drm_output_api api = {
 	drm_output_set_gbm_format,
 	drm_output_set_seat,
 	drm_output_set_max_bpc,
+	drm_output_set_content_type,
 };
 
 static struct drm_backend *
