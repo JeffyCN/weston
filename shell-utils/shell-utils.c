@@ -212,3 +212,34 @@ weston_curtain_destroy(struct weston_curtain *curtain)
 	weston_buffer_destroy_solid(curtain->buffer_ref);
 	free(curtain);
 }
+
+uint32_t
+weston_shell_get_binding_modifier(struct weston_config *config,
+				  uint32_t default_mod)
+{
+	struct weston_config_section *shell_section = NULL;
+	char *mod_string = NULL;
+	uint32_t mod = default_mod;
+
+	if (config)
+		shell_section = weston_config_get_section(config, "shell", NULL, NULL);
+
+	if (shell_section)
+		weston_config_section_get_string(shell_section,
+				"binding-modifier", &mod_string, "super");
+
+	if (!mod_string || !strcmp(mod_string, "none"))
+		mod = default_mod;
+	else if (!strcmp(mod_string, "super"))
+		mod = MODIFIER_SUPER;
+	else if (!strcmp(mod_string, "alt"))
+		mod = MODIFIER_ALT;
+	else if (!strcmp(mod_string, "ctrl"))
+		mod = MODIFIER_CTRL;
+	else if (!strcmp(mod_string, "shift"))
+		mod = MODIFIER_SHIFT;
+
+	free(mod_string);
+
+	return mod;
+}

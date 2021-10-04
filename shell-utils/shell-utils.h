@@ -26,6 +26,9 @@
 #include "shared/helpers.h"
 #include <libweston/libweston.h>
 
+#include <libweston/config-parser.h>
+#include <string.h>
+
 /* parameter for weston_curtain_create() */
 struct weston_curtain_params {
 	int (*get_label)(struct weston_surface *es, char *buf, size_t len);
@@ -63,3 +66,6 @@ weston_curtain_create(struct weston_compositor *compositor,
 		      struct weston_curtain_params *params);
 void
 weston_curtain_destroy(struct weston_curtain *curtain);
+
+uint32_t
+weston_shell_get_binding_modifier(struct weston_config *config, uint32_t default_mod);
