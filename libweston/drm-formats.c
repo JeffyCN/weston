@@ -185,6 +185,24 @@ weston_drm_format_array_find_format(const struct weston_drm_format_array *format
 }
 
 /**
+ * Counts the number of format/modifier pairs in a weston_drm_format_array
+ *
+ * @param formats The weston_drm_format_array
+ * @return The number of format/modifier pairs in the array
+ */
+WL_EXPORT unsigned int
+weston_drm_format_array_count_pairs(const struct weston_drm_format_array *formats)
+{
+	struct weston_drm_format *fmt;
+	unsigned int num_pairs = 0;
+
+	wl_array_for_each(fmt, &formats->arr)
+		num_pairs += fmt->modifiers.size / sizeof(uint64_t);
+
+	return num_pairs;
+}
+
+/**
  * Compare the content of two weston_drm_format_array
  *
  * @param formats_A One of the weston_drm_format_array to compare

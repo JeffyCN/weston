@@ -358,6 +358,9 @@ struct weston_drm_format *
 weston_drm_format_array_find_format(const struct weston_drm_format_array *formats,
 				    uint32_t format);
 
+unsigned int
+weston_drm_format_array_count_pairs(const struct weston_drm_format_array *formats);
+
 bool
 weston_drm_format_array_equal(const struct weston_drm_format_array *formats_A,
 			      const struct weston_drm_format_array *formats_B);

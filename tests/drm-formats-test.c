@@ -81,6 +81,8 @@ TEST(basic_operations)
 
         weston_drm_format_array_init(&format_array);
 
+        assert(weston_drm_format_array_count_pairs(&format_array) == 0);
+
         ADD_FORMATS_AND_MODS(&format_array, formats, modifiers);
 
         for (i = 0; i < ARRAY_LENGTH(formats); i++) {
@@ -89,6 +91,9 @@ TEST(basic_operations)
                 for (j = 0; j < ARRAY_LENGTH(modifiers); j++)
                         assert(weston_drm_format_has_modifier(fmt, modifiers[j]));
         }
+
+        assert(weston_drm_format_array_count_pairs(&format_array) ==
+               ARRAY_LENGTH(formats) * ARRAY_LENGTH(modifiers));
 
         weston_drm_format_array_fini(&format_array);
 }
