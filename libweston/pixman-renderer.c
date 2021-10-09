@@ -905,6 +905,8 @@ pixman_renderer_attach_dmabuf(struct weston_surface *es,
 					     data->ptr + attributes->offset[0],
 					     attributes->stride[0]);
 
+	pixman_image_set_dma_fd(ps->image, attributes->fd[0]);
+
 	ps->buffer_destroy_listener.notify =
 		buffer_state_handle_buffer_destroy;
 	wl_signal_add(&buffer->destroy_signal,

@@ -29,6 +29,10 @@
 #include "backend.h"
 #include "libweston-internal.h"
 
+/* HACK: Pass dma fd to pixman through destroy data */
+#define pixman_image_set_dma_fd(image, fd) \
+	pixman_image_set_destroy_function(image, NULL, (void *)(ptrdiff_t)fd)
+
 int
 pixman_renderer_init(struct weston_compositor *ec);
 
