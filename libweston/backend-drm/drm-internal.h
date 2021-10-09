@@ -456,6 +456,7 @@ struct drm_fb {
 	uint64_t modifier;
 	int width, height;
 	int fd;
+	int dma_fd;
 
 	uint32_t plane_mask;
 
