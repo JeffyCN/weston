@@ -985,6 +985,8 @@ pixman_renderer_attach_dmabuf(struct weston_surface *es,
 					     data->ptr + attributes->offset[0],
 					     attributes->stride[0]);
 
+	pixman_image_set_dma_fd(ps->image, attributes->fd[0]);
+
 	ps->buffer_destroy_listener.notify =
 		buffer_state_handle_buffer_destroy;
 	wl_signal_add(&buffer->destroy_signal,
@@ -1729,6 +1731,23 @@ pixman_renderer_create_image_from_ptr(struct weston_output *output,
 }
 
 static struct weston_renderbuffer *
+pixman_renderer_create_image_from_dma(struct weston_output *output,
+				      const struct pixel_format_info *format,
+				      int width, int height, uint32_t *ptr,
+				      int dma_fd, int rowstride)
+{
+	struct weston_renderbuffer *renderbuffer =
+		pixman_renderer_create_image_from_ptr(output, format,
+						      width, height,
+						      ptr, rowstride);
+	struct pixman_renderbuffer *rb =
+		container_of(renderbuffer, struct pixman_renderbuffer, base);
+
+	pixman_image_set_dma_fd(rb->image, dma_fd);
+	return renderbuffer;
+}
+
+static struct weston_renderbuffer *
 pixman_renderer_create_image(struct weston_output *output,
 			     const struct pixel_format_info *format, int width,
 			     int height)
@@ -1770,6 +1789,7 @@ static struct pixman_renderer_interface pixman_renderer_interface = {
 	.output_create = pixman_renderer_output_create,
 	.output_destroy = pixman_renderer_output_destroy,
 	.create_image_from_ptr = pixman_renderer_create_image_from_ptr,
+	.create_image_from_dma = pixman_renderer_create_image_from_dma,
 	.create_image = pixman_renderer_create_image,
 	.renderbuffer_get_image = pixman_renderer_renderbuffer_get_image,
 };
