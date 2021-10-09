@@ -1638,6 +1638,9 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 						 output->dumb[i]->strides[0]);
 		if (!output->image[i])
 			goto err;
+
+		pixman_image_set_dma_fd(output->image[i],
+					output->dumb[i]->dma_fd);
 	}
 
 	if (pixman_renderer_output_create(&output->base, &options) < 0)
