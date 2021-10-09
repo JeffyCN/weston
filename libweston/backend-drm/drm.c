@@ -1973,9 +1973,10 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 			goto err;
 
 		output->renderbuffer[i] =
-			pixman->create_image_from_ptr(&output->base,
+			pixman->create_image_from_dma(&output->base,
 						      options.format, w, h,
 						      output->dumb[i]->map,
+						      output->dumb[i]->dma_fd,
 						      output->dumb[i]->strides[0]);
 		if (!output->renderbuffer[i])
 			goto err;
