@@ -64,6 +64,9 @@ drm_fb_destroy_dumb(struct drm_fb *fb)
 
 	assert(fb->type == BUFFER_PIXMAN_DUMB);
 
+	if (fb->dma_fd >= 0)
+		close(fb->dma_fd);
+
 	if (fb->map && fb->size > 0)
 		munmap(fb->map, fb->size);
 
@@ -263,6 +266,7 @@ drm_fb_create_dumb(struct drm_device *device, int width, int height,
 	struct drm_mode_create_dumb create_arg;
 	struct drm_mode_destroy_dumb destroy_arg;
 	struct drm_mode_map_dumb map_arg;
+	struct drm_prime_handle prime_arg;
 
 	fb = zalloc(sizeof *fb);
 	if (!fb)
@@ -319,8 +323,19 @@ drm_fb_create_dumb(struct drm_device *device, int width, int height,
 	if (fb->map == MAP_FAILED)
 		goto err_add_fb;
 
+	memset(&prime_arg, 0, sizeof(prime_arg));
+	prime_arg.fd = -1;
+	prime_arg.handle = fb->handles[0];
+	ret = drmIoctl(fb->fd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &prime_arg);
+	if (ret)
+		goto err_unmap_fb;
+
+	fb->dma_fd = prime_arg.fd;
+
 	return fb;
 
+err_unmap_fb:
+	munmap(fb->map, fb->size);
 err_add_fb:
 	drmModeRmFB(device->drm.fd, fb->fb_id);
 err_bo:
