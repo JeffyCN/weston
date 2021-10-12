@@ -35,7 +35,6 @@
 
 #include <libweston/libweston.h>
 #include "linux-dmabuf.h"
-#include "linux-dmabuf-unstable-v1-server-protocol.h"
 #include "shared/os-compatibility.h"
 #include "libweston-internal.h"
 #include "shared/weston-drm-fourcc.h"
@@ -425,6 +424,7 @@ weston_dmabuf_feedback_tranche_create(struct weston_dmabuf_feedback *dmabuf_feed
 		return NULL;
 	}
 
+	tranche->active = true;
 	tranche->target_device = target_device;
 	tranche->flags = flags;
 	tranche->preference = preference;
@@ -437,8 +437,11 @@ weston_dmabuf_feedback_tranche_create(struct weston_dmabuf_feedback *dmabuf_feed
 			goto err;
 		}
 	} else if (flags & ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT) {
-		/* we still don't support scanout tranches */
-		assert(0);
+		if (wl_array_copy(&tranche->formats_indices,
+				  &format_table->scanout_formats_indices) < 0) {
+			weston_log("%s: out of memory\n", __func__);
+			goto err;
+		}
 	} else {
 		weston_log("error: for now we just have renderer and scanout "
 			   "tranches, can't create other type of tranche\n");
@@ -523,6 +526,7 @@ weston_dmabuf_feedback_format_table_create(const struct weston_drm_format_array 
 		return NULL;
 	}
 	wl_array_init(&format_table->renderer_formats_indices);
+	wl_array_init(&format_table->scanout_formats_indices);
 
 	/* Creates formats file table and mmap it */
 	format_table->size = weston_drm_format_array_count_pairs(renderer_formats) *
@@ -566,11 +570,79 @@ WL_EXPORT void
 weston_dmabuf_feedback_format_table_destroy(struct weston_dmabuf_feedback_format_table *format_table)
 {
 	wl_array_release(&format_table->renderer_formats_indices);
+	wl_array_release(&format_table->scanout_formats_indices);
 
 	munmap(format_table->data, format_table->size);
 	close(format_table->fd);
 
 	free(format_table);
+}
+
+static int
+format_table_get_format_index(struct weston_dmabuf_feedback_format_table *format_table,
+			      uint32_t format, uint64_t modifier, uint16_t *index_out)
+{
+	uint16_t index;
+	unsigned int num_elements = format_table->size / sizeof(index);
+
+	for (index = 0; index < num_elements; index++) {
+		if (format_table->data[index].format == format &&
+		    format_table->data[index].modifier == modifier) {
+			*index_out = index;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+/** Set scanout formats indices in the dma-buf feedback format table
+ *
+ * The table consists of the formats supported by the renderer. A dma-buf
+ * feedback scanout tranche consists of the union of the KMS plane's formats
+ * intersected with the renderer formats. With this function we compute the
+ * indices of these plane's formats in the table and save them in the
+ * table->scanout_formats_indices, allowing us to create scanout tranches.
+ *
+ * @param format_table The dma-buf feedback format table
+ * @param scanout_formats The scanout formats
+ * @return 0 on success, -1 on failure
+ */
+WL_EXPORT int
+weston_dmabuf_feedback_format_table_set_scanout_indices(struct weston_dmabuf_feedback_format_table *format_table,
+							const struct weston_drm_format_array *scanout_formats)
+{
+	struct weston_drm_format *fmt;
+	unsigned int num_modifiers;
+	const uint64_t *modifiers;
+	uint16_t index, *index_ptr;
+	unsigned int i;
+	int ret;
+
+	wl_array_for_each(fmt, &scanout_formats->arr) {
+		modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
+		for (i = 0; i < num_modifiers; i++) {
+			index_ptr =
+				wl_array_add(&format_table->scanout_formats_indices,
+					     sizeof(index));
+			if (!index_ptr)
+				goto err;
+
+			ret = format_table_get_format_index(format_table, fmt->format,
+							    modifiers[i], &index);
+			if (ret < 0)
+				goto err;
+
+			*index_ptr = index;
+		}
+	}
+
+	return 0;
+
+err:
+	wl_array_release(&format_table->scanout_formats_indices);
+	wl_array_init(&format_table->scanout_formats_indices);
+	return -1;
 }
 
 /** Creates dma-buf feedback object
@@ -617,6 +689,29 @@ weston_dmabuf_feedback_destroy(struct weston_dmabuf_feedback *dmabuf_feedback)
 	free(dmabuf_feedback);
 }
 
+/** Find tranche in a dma-buf feedback object
+ *
+ * @param dmabuf_feedback The dma-buf feedback object where to look for
+ * @param target_device The target device of the tranche
+ * @param flags The flags of the tranche
+ * @param preference The preference of the tranche
+ * @return The tranche, or NULL if it was not found
+ */
+WL_EXPORT struct weston_dmabuf_feedback_tranche *
+weston_dmabuf_feedback_find_tranche(struct weston_dmabuf_feedback *dmabuf_feedback,
+				    dev_t target_device, uint32_t flags,
+				    enum weston_dmabuf_feedback_tranche_preference preference)
+{
+	struct weston_dmabuf_feedback_tranche *tranche;
+
+	wl_list_for_each(tranche, &dmabuf_feedback->tranche_list, link)
+		if (tranche->target_device == target_device &&
+		    tranche->flags == flags && tranche->preference == preference)
+			return tranche;
+
+	return NULL;
+}
+
 static void
 weston_dmabuf_feedback_send(struct weston_dmabuf_feedback *dmabuf_feedback,
 			    struct weston_dmabuf_feedback_format_table *format_table,
@@ -652,6 +747,9 @@ weston_dmabuf_feedback_send(struct weston_dmabuf_feedback *dmabuf_feedback,
 
 	/* send events for each tranche */
 	wl_list_for_each(tranche, &dmabuf_feedback->tranche_list, link) {
+		if (!tranche->active)
+			continue;
+
 		/* tranche_target_device event */
 		*dev = tranche->target_device;
 		zwp_linux_dmabuf_feedback_v1_send_tranche_target_device(res, &device);
@@ -670,6 +768,27 @@ weston_dmabuf_feedback_send(struct weston_dmabuf_feedback *dmabuf_feedback,
 	zwp_linux_dmabuf_feedback_v1_send_done(res);
 
 	wl_array_release(&device);
+}
+
+/** Sends the feedback events for a dma-buf feedback object
+ *
+ * Given a dma-buf feedback object, this will send events to clients that are
+ * subscribed to it. This is useful for the per-surface dma-buf feedback, which
+ * is dynamic and can change throughout compositor's life. These changes results
+ * in the need to resend the feedback events to clients.
+ *
+ * @param dmabuf_feedback The weston_dmabuf_feedback object
+ * @param format_table The dma-buf feedback formats table
+ */
+WL_EXPORT void
+weston_dmabuf_feedback_send_all(struct weston_dmabuf_feedback *dmabuf_feedback,
+				struct weston_dmabuf_feedback_format_table *format_table)
+{
+	struct wl_resource *res;
+
+	wl_resource_for_each(res, &dmabuf_feedback->resource_list)
+		weston_dmabuf_feedback_send(dmabuf_feedback,
+					    format_table, res, false);
 }
 
 static void

@@ -238,6 +238,16 @@ enum try_view_on_plane_failure_reasons {
 	FAILURE_REASONS_ADD_FB_FAILED = (1 << 3),
 };
 
+/**
+ * We use this to keep track of actions we need to do with the dma-buf feedback
+ * in order to keep it up-to-date with the info we get from the DRM-backend.
+ */
+enum actions_needed_dmabuf_feedback {
+	ACTION_NEEDED_NONE = 0,
+	ACTION_NEEDED_ADD_SCANOUT_TRANCHE = (1 << 0),
+	ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE = (1 << 1),
+};
+
 struct drm_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;

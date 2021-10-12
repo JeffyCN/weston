@@ -649,6 +649,101 @@ drm_output_check_zpos_plane_states(struct drm_output_state *state)
 	}
 }
 
+static bool
+dmabuf_feedback_maybe_update(struct drm_backend *b, struct weston_view *ev,
+			     uint32_t try_view_on_plane_failure_reasons)
+{
+	struct weston_dmabuf_feedback *dmabuf_feedback = ev->surface->dmabuf_feedback;
+	struct weston_dmabuf_feedback_tranche *scanout_tranche;
+	dev_t scanout_dev = b->drm.devnum;
+	uint32_t scanout_flags = ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT;
+	uint32_t action_needed = ACTION_NEEDED_NONE;
+	struct timespec current_time, delta_time;
+	const time_t MAX_TIME_SECONDS = 2;
+
+	/* Find out what we need to do with the dma-buf feedback */
+	if (try_view_on_plane_failure_reasons & FAILURE_REASONS_FORCE_RENDERER)
+		action_needed |= ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE;
+	if (try_view_on_plane_failure_reasons &
+		(FAILURE_REASONS_ADD_FB_FAILED |
+		 FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE |
+		 FAILURE_REASONS_DMABUF_MODIFIER_INVALID))
+		action_needed |= ACTION_NEEDED_ADD_SCANOUT_TRANCHE;
+
+	assert(action_needed != (ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE |
+				 ACTION_NEEDED_ADD_SCANOUT_TRANCHE));
+
+	/* Look for scanout tranche. If not found, add it but in disabled mode
+	 * (we still don't know if we'll have to send it to clients). This
+	 * simplifies the code. */
+	scanout_tranche =
+		weston_dmabuf_feedback_find_tranche(dmabuf_feedback, scanout_dev,
+						    scanout_flags, SCANOUT_PREF);
+	if (!scanout_tranche) {
+		scanout_tranche =
+			weston_dmabuf_feedback_tranche_create(dmabuf_feedback,
+					b->compositor->dmabuf_feedback_format_table,
+					scanout_dev, scanout_flags,
+					SCANOUT_PREF);
+		scanout_tranche->active = false;
+	}
+
+	/* No actions needed, so disarm timer and return */
+	if (action_needed == ACTION_NEEDED_NONE ||
+	    (action_needed == ACTION_NEEDED_ADD_SCANOUT_TRANCHE &&
+	     scanout_tranche->active) ||
+	    (action_needed == ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE &&
+	     !scanout_tranche->active)) {
+		dmabuf_feedback->action_needed = ACTION_NEEDED_NONE;
+		return false;
+	}
+
+	/* We hit this if:
+	 *
+	 * 1. timer is still off, or
+	 * 2. the action needed when it was set to on does not match the most
+	 *    recent needed action we've detected.
+	 *
+	 * So we reset the timestamp, set the timer to on it with the most
+	 * recent needed action, return and leave the timer running. */
+	if (dmabuf_feedback->action_needed == ACTION_NEEDED_NONE ||
+	    dmabuf_feedback->action_needed != action_needed) {
+		clock_gettime(CLOCK_MONOTONIC, &dmabuf_feedback->timer);
+		dmabuf_feedback->action_needed = action_needed;
+		return false;
+	/* Timer is already on and the action needed when it was set to on does
+	 * not conflict with the most recent needed action we've detected. If
+	 * more than MAX_TIME_SECONDS has passed, we need to resend the dma-buf
+	 * feedback. Otherwise, return and leave the timer running. */
+	} else {
+		clock_gettime(CLOCK_MONOTONIC, &current_time);
+		delta_time.tv_sec = current_time.tv_sec -
+				    dmabuf_feedback->timer.tv_sec;
+		if (delta_time.tv_sec < MAX_TIME_SECONDS)
+			return false;
+	}
+
+	/* If we got here it means that the timer has triggered, so we have
+	 * pending actions with the dma-buf feedback. So we update and resend
+	 * them. */
+	if (action_needed == ACTION_NEEDED_ADD_SCANOUT_TRANCHE)
+		scanout_tranche->active = true;
+	else if (action_needed == ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE)
+		scanout_tranche->active = false;
+	else
+		assert(0);
+
+	drm_debug(b, "\t[repaint] Need to update and resend the "
+		     "dma-buf feedback for surface of view %p\n", ev);
+	weston_dmabuf_feedback_send_all(dmabuf_feedback,
+					b->compositor->dmabuf_feedback_format_table);
+
+	/* Set the timer to off */
+	dmabuf_feedback->action_needed = ACTION_NEEDED_NONE;
+
+	return true;
+}
+
 static struct drm_plane_state *
 drm_output_prepare_plane_view(struct drm_output_state *state,
 			      struct weston_view *ev,
@@ -1106,6 +1201,12 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 		/* TODO: turn this into assert once z_order_list is pruned. */
 		if (!(ev->output_mask & (1u << output->base.id)))
 			continue;
+
+		/* Update dmabuf-feedback if needed */
+		if (ev->surface->dmabuf_feedback)
+			dmabuf_feedback_maybe_update(b, ev,
+						     pnode->try_view_on_plane_failure_reasons);
+		pnode->try_view_on_plane_failure_reasons = FAILURE_REASONS_NONE;
 
 		/* Test whether this buffer can ever go into a plane:
 		 * non-shm, or small enough to be a cursor.

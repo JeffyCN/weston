@@ -27,6 +27,7 @@
 #define WESTON_LINUX_DMABUF_H
 
 #include <stdint.h>
+#include "linux-dmabuf-unstable-v1-server-protocol.h"
 
 #define MAX_DMABUF_PLANES 4
 
@@ -98,6 +99,9 @@ struct weston_dmabuf_feedback_format_table {
 	 * of formats supported by the renderer, this goes from 0 to the number
 	 * of pairs in the table. */
 	struct wl_array renderer_formats_indices;
+	/* Indices of the scanout formats (union of KMS plane's supported
+         * formats intersected with the renderer formats). */
+	struct wl_array scanout_formats_indices;
 };
 
 struct weston_dmabuf_feedback {
@@ -113,11 +117,26 @@ struct weston_dmabuf_feedback {
 
 	/* weston_dmabuf_feedback_tranche::link */
 	struct wl_list tranche_list;
+
+	/* We use this timer to know if the scene has stabilized and that would
+	 * be useful to resend dma-buf feedback events to clients. Consider the
+	 * timer off when action_needed == ACTION_NEEDED_NONE. See enum
+	 * actions_needed_dmabuf_feedback. */
+	struct timespec timer;
+	uint32_t action_needed;
 };
 
 struct weston_dmabuf_feedback_tranche {
 	/* weston_dmabuf_feedback::tranche_list */
 	struct wl_list link;
+
+	/* Instead of destroying tranches and reconstructing them when necessary
+	 * (it can be expensive), we have this flag to know if the tranche
+	 * should be advertised or not. This is particularly useful for the
+	 * scanout tranche, as based on the DRM-backend feedback and the current
+	 * scene (which changes a lot during compositor lifetime) we can decide
+	 * to send it or not. */
+	bool active;
 
 	dev_t target_device;
 	uint32_t flags;
@@ -152,11 +171,24 @@ weston_dmabuf_feedback_create(dev_t main_device);
 void
 weston_dmabuf_feedback_destroy(struct weston_dmabuf_feedback *dmabuf_feedback);
 
+void
+weston_dmabuf_feedback_send_all(struct weston_dmabuf_feedback *dmabuf_feedback,
+				struct weston_dmabuf_feedback_format_table *format_table);
+
+struct weston_dmabuf_feedback_tranche *
+weston_dmabuf_feedback_find_tranche(struct weston_dmabuf_feedback *dmabuf_feedback,
+				    dev_t target_device, uint32_t flags,
+				    enum weston_dmabuf_feedback_tranche_preference preference);
+
 struct weston_dmabuf_feedback_format_table *
 weston_dmabuf_feedback_format_table_create(const struct weston_drm_format_array *renderer_formats);
 
 void
 weston_dmabuf_feedback_format_table_destroy(struct weston_dmabuf_feedback_format_table *format_table);
+
+int
+weston_dmabuf_feedback_format_table_set_scanout_indices(struct weston_dmabuf_feedback_format_table *format_table,
+							const struct weston_drm_format_array *scanout_formats);
 
 struct weston_dmabuf_feedback_tranche *
 weston_dmabuf_feedback_tranche_create(struct weston_dmabuf_feedback *dmabuf_feedback,

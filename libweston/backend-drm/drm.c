@@ -1669,6 +1669,65 @@ drm_output_deinit_planes(struct drm_output *output)
 	output->scanout_plane = NULL;
 }
 
+static struct weston_drm_format_array *
+get_scanout_formats(struct drm_backend *b)
+{
+	struct weston_compositor *ec = b->compositor;
+	const struct weston_drm_format_array *renderer_formats;
+	struct weston_drm_format_array *scanout_formats, union_planes_formats;
+	struct drm_plane *plane;
+	int ret;
+
+	/* If we got here it means that dma-buf feedback is supported and that
+	 * the renderer has formats/modifiers to expose. */
+	assert(ec->renderer->get_supported_formats != NULL);
+	renderer_formats = ec->renderer->get_supported_formats(ec);
+
+	scanout_formats = zalloc(sizeof(*scanout_formats));
+	if (!scanout_formats) {
+		weston_log("%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+	weston_drm_format_array_init(&union_planes_formats);
+	weston_drm_format_array_init(scanout_formats);
+
+	/* Compute the union of the format/modifiers of the KMS planes */
+	wl_list_for_each(plane, &b->plane_list, link) {
+		/* The scanout formats are used by the dma-buf feedback. But for
+		 * now cursor planes do not support dma-buf buffers, only wl_shm
+		 * buffers. So we skip cursor planes here. */
+		if (plane->type == WDRM_PLANE_TYPE_CURSOR)
+			continue;
+
+		ret = weston_drm_format_array_join(&union_planes_formats,
+						   &plane->formats);
+		if (ret < 0)
+			goto err;
+	}
+
+	/* Compute the intersection between the union of format/modifiers of KMS
+	 * planes and the formats supported by the renderer */
+	ret = weston_drm_format_array_replace(scanout_formats,
+					      renderer_formats);
+	if (ret < 0)
+		goto err;
+
+	ret = weston_drm_format_array_intersect(scanout_formats,
+						&union_planes_formats);
+	if (ret < 0)
+		goto err;
+
+	weston_drm_format_array_fini(&union_planes_formats);
+
+	return scanout_formats;
+
+err:
+	weston_drm_format_array_fini(&union_planes_formats);
+	weston_drm_format_array_fini(scanout_formats);
+	return NULL;
+}
+
 /** Pick a CRTC and reserve it for the output.
  *
  * On failure, the output remains without a CRTC.
@@ -2917,6 +2976,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	struct wl_event_loop *loop;
 	const char *seat_id = default_seat;
 	const char *session_seat;
+	struct weston_drm_format_array *scanout_formats;
 	drmModeRes *res;
 	int ret;
 
@@ -3082,6 +3142,21 @@ drm_backend_create(struct weston_compositor *compositor,
 		if (linux_dmabuf_setup(compositor) < 0)
 			weston_log("Error: initializing dmabuf "
 				   "support failed.\n");
+		if (compositor->default_dmabuf_feedback) {
+			/* We were able to create the compositor's default
+			 * dma-buf feedback in the renderer, that means that the
+			 * table was already created and populated with
+			 * renderer's format/modifier pairs. So now we must
+			 * compute the scanout formats indices in the table */
+			scanout_formats = get_scanout_formats(b);
+			if (!scanout_formats)
+				goto err_udev_monitor;
+			ret = weston_dmabuf_feedback_format_table_set_scanout_indices(compositor->dmabuf_feedback_format_table,
+										      scanout_formats);
+			weston_drm_format_array_fini(scanout_formats);
+			if (ret < 0)
+				goto err_udev_monitor;
+		}
 		if (weston_direct_display_setup(compositor) < 0)
 			weston_log("Error: initializing direct-display "
 				   "support failed.\n");
