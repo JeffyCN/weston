@@ -60,7 +60,7 @@ struct shared_output {
 		struct wl_registry *registry;
 		struct wl_compositor *compositor;
 		struct wl_shm *shm;
-		uint32_t shm_formats;
+		bool shm_formats_has_xrgb;
 		struct zwp_fullscreen_shell_v1 *fshell;
 		struct wl_output *output;
 		struct wl_surface *surface;
@@ -701,7 +701,8 @@ shm_handle_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
 	struct shared_output *so = data;
 
-	so->parent.shm_formats |= (1 << format);
+	if (format == WL_SHM_FORMAT_XRGB8888)
+		so->parent.shm_formats_has_xrgb = true;
 }
 
 struct wl_shm_listener shm_listener = {
@@ -967,7 +968,7 @@ shared_output_create(struct weston_output *output, int parent_fd)
 
 	/* Get SHM formats */
 	wl_display_roundtrip(so->parent.display);
-	if (!(so->parent.shm_formats & (1 << WL_SHM_FORMAT_XRGB8888))) {
+	if (!so->parent.shm_formats_has_xrgb) {
 		weston_log("Screen share failed: "
 			   "WL_SHM_FORMAT_XRGB8888 not available\n");
 		goto err_display;
