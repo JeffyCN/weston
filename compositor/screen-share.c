@@ -115,9 +115,7 @@ struct ss_shm_buffer {
 
 struct screen_share {
 	struct weston_compositor *compositor;
-	/* XXX: missing compositor destroy listener
-	 * https://gitlab.freedesktop.org/wayland/weston/issues/298
-	 */
+	struct wl_listener compositor_destroy_listener;
 	char *command;
 };
 
@@ -1164,6 +1162,18 @@ share_output_binding(struct weston_keyboard *keyboard,
 	weston_output_share(output, ss->command);
 }
 
+static void
+compositor_destroy_listener(struct wl_listener *listener, void *data)
+{
+	struct screen_share *ss =
+		wl_container_of(listener, ss, compositor_destroy_listener);
+
+	wl_list_remove(&ss->compositor_destroy_listener.link);
+
+	free(ss->command);
+	free(ss);
+}
+
 WL_EXPORT int
 wet_module_init(struct weston_compositor *compositor,
 		int *argc, char *argv[])
@@ -1179,11 +1189,16 @@ wet_module_init(struct weston_compositor *compositor,
 		return -1;
 	ss->compositor = compositor;
 
+	wl_list_init(&ss->compositor_destroy_listener.link);
+
+	ss->compositor_destroy_listener.notify = compositor_destroy_listener;
+	wl_signal_add(&compositor->destroy_signal, &ss->compositor_destroy_listener);
+
 	config = wet_get_config(compositor);
 
 	section = weston_config_get_section(config, "screen-share", NULL, NULL);
 
-	weston_config_section_get_string(section, "command", &ss->command, "");
+	weston_config_section_get_string(section, "command", &ss->command, NULL);
 
 	weston_compositor_add_key_binding(compositor, KEY_S,
 				          MODIFIER_CTRL | MODIFIER_ALT,
