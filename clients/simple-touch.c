@@ -137,7 +137,7 @@ shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 	struct touch *touch = data;
 
 	if (format == WL_SHM_FORMAT_ARGB8888)
-		touch->has_argb = 1;
+		touch->has_argb = true;
 }
 
 struct wl_shm_listener shm_listener = {
@@ -370,7 +370,7 @@ touch_create(int width, int height)
 	touch->display = wl_display_connect(NULL);
 	assert(touch->display);
 
-	touch->has_argb = 0;
+	touch->has_argb = false;
 	touch->registry = wl_display_get_registry(touch->display);
 	wl_registry_add_listener(touch->registry, &registry_listener, touch);
 	wl_display_dispatch(touch->display);
