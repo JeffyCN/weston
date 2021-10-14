@@ -34,7 +34,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/mman.h>
-#include <signal.h>
 
 #include <wayland-client.h>
 #include "shared/helpers.h"
