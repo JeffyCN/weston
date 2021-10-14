@@ -63,9 +63,10 @@ struct touch {
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 	struct buffer *buffer;
-	bool has_argb;
 	int width, height;
+	bool running;
 	bool wait_for_configure;
+	bool has_argb;
 };
 
 static struct buffer *
@@ -349,6 +350,8 @@ handle_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 static void
 handle_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
 {
+	struct touch *touch = data;
+	touch->running = false;
 }
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -404,6 +407,8 @@ touch_create(int width, int height)
 	touch->wait_for_configure = true;
 	wl_surface_commit(touch->surface);
 
+	touch->running = true;
+
 	return touch;
 }
 
@@ -438,7 +443,7 @@ main(int argc, char **argv)
 
 	touch = touch_create(600, 500);
 
-	while (ret != -1)
+	while (ret != -1 && touch->running)
 		ret = wl_display_dispatch(touch->display);
 
 	destroy_touch(touch);
