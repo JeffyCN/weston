@@ -4451,7 +4451,7 @@ switcher_destroy(struct switcher *switcher)
 		weston_surface_damage(view->surface);
 	}
 
-	if (switcher->current) {
+	if (switcher->current && get_shell_surface(switcher->current->surface)) {
 		activate(switcher->shell, switcher->current,
 			 keyboard->seat,
 			 WESTON_ACTIVATE_FLAG_CONFIGURE);
