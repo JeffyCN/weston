@@ -92,7 +92,7 @@ check-commit:
     - when: never
   script:
     - ci-fairy check-commits --signed-off-by --junit-xml=results.xml
-    - ci-fairy check-merge-request --require-allow-collaboration --junit-xml=result.xml
+    - ci-fairy check-merge-request --require-allow-collaboration --junit-xml=results.xml
   variables:
     GIT_DEPTH: 100
   artifacts:
