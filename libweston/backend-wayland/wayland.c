@@ -97,6 +97,9 @@ struct wayland_backend {
 	struct wl_cursor *cursor;
 
 	struct wl_list input_list;
+	/* These struct wayland_input objects are waiting for the outer
+	 * compositor to provide a name and initial capabilities. */
+	struct wl_list pending_input_list;
 };
 
 struct wayland_output {
@@ -223,6 +226,7 @@ struct wayland_input {
 	struct weston_pointer_axis_event vert, horiz;
 
 	bool seat_initialized;
+	struct wl_callback *initial_info_cb;
 	char *name;
 	enum wl_seat_capability caps;
 };
@@ -2374,9 +2378,12 @@ display_finish_add_seat(void *data, struct wl_callback *wl_callback,
 	struct wayland_input *input = data;
 	char *name;
 
-	wl_callback_destroy(wl_callback);
+	assert(wl_callback == input->initial_info_cb);
+	wl_callback_destroy(input->initial_info_cb);
+	input->initial_info_cb = NULL;
 	input->seat_initialized = true;
 
+	wl_list_remove(&input->link);
 	wl_list_insert(input->backend->input_list.prev, &input->link);
 
 	name = input->name ? input->name : "default";
@@ -2403,7 +2410,6 @@ static void
 display_start_add_seat(struct wayland_backend *b, uint32_t id, uint32_t available_version)
 {
 	struct wayland_input *input;
-	struct wl_callback *callback;
 	uint32_t version = MIN(available_version, 4);
 
 	input = zalloc(sizeof *input);
@@ -2420,8 +2426,52 @@ display_start_add_seat(struct wayland_backend *b, uint32_t id, uint32_t availabl
 
 	/* Wait one roundtrip for the compositor to provide the seat name
 	 * and initial capabilities */
-	callback = wl_display_sync(b->parent.wl_display);
-	wl_callback_add_listener(callback, &seat_callback_listener, input);
+	input->initial_info_cb = wl_display_sync(b->parent.wl_display);
+	wl_callback_add_listener(input->initial_info_cb,
+				 &seat_callback_listener, input);
+
+	wl_list_insert(input->backend->pending_input_list.prev, &input->link);
+}
+
+static void
+wayland_input_destroy(struct wayland_input *input)
+{
+	weston_seat_release(&input->base);
+
+	if (input->touch_device)
+		weston_touch_device_destroy(input->touch_device);
+	if (input->parent.keyboard) {
+		if (input->seat_version >= WL_KEYBOARD_RELEASE_SINCE_VERSION)
+			wl_keyboard_release(input->parent.keyboard);
+		else
+			wl_keyboard_destroy(input->parent.keyboard);
+	}
+	if (input->parent.pointer) {
+		if (input->seat_version >= WL_POINTER_RELEASE_SINCE_VERSION)
+			wl_pointer_release(input->parent.pointer);
+		else
+			wl_pointer_destroy(input->parent.pointer);
+	}
+	if (input->parent.touch) {
+		if (input->seat_version >= WL_TOUCH_RELEASE_SINCE_VERSION)
+			wl_touch_release(input->parent.touch);
+		else
+			wl_touch_destroy(input->parent.touch);
+	}
+	if (input->parent.seat) {
+		if (input->seat_version >= WL_SEAT_RELEASE_SINCE_VERSION)
+			wl_seat_release(input->parent.seat);
+		else
+			wl_seat_destroy(input->parent.seat);
+	}
+	if (input->initial_info_cb)
+		wl_callback_destroy(input->initial_info_cb);
+	if (input->parent.cursor.surface)
+		wl_surface_destroy(input->parent.cursor.surface);
+	if (input->name)
+		free(input->name);
+
+	free(input);
 }
 
 static void
@@ -2648,6 +2698,8 @@ registry_handle_global_remove(void *data, struct wl_registry *registry,
 	wl_list_for_each_safe(output, next, &b->parent.output_list, link)
 		if (output->id == name)
 			wayland_parent_output_destroy(output);
+
+	// todo: handle wl_seat removal
 }
 
 static const struct wl_registry_listener registry_listener = {
@@ -2689,6 +2741,7 @@ wayland_destroy(struct weston_compositor *ec)
 {
 	struct wayland_backend *b = to_wayland_backend(ec);
 	struct weston_head *base, *next;
+	struct wayland_input *input, *next_input;
 
 	wl_event_source_remove(b->parent.wl_source);
 
@@ -2696,6 +2749,12 @@ wayland_destroy(struct weston_compositor *ec)
 
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
 		wayland_head_destroy(to_wayland_head(base));
+
+	wl_list_for_each_safe(input, next_input, &b->input_list, link)
+		wayland_input_destroy(input);
+
+	wl_list_for_each_safe(input, next_input, &b->pending_input_list, link)
+		wayland_input_destroy(input);
 
 	if (b->parent.shm)
 		wl_shm_destroy(b->parent.shm);
@@ -2810,6 +2869,7 @@ wayland_backend_create(struct weston_compositor *compositor,
 
 	wl_list_init(&b->parent.output_list);
 	wl_list_init(&b->input_list);
+	wl_list_init(&b->pending_input_list);
 	b->parent.registry = wl_display_get_registry(b->parent.wl_display);
 	wl_registry_add_listener(b->parent.registry, &registry_listener, b);
 	wl_display_roundtrip(b->parent.wl_display);
