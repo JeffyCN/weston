@@ -163,11 +163,10 @@ static int
 drm_virtual_output_submit_frame(struct drm_output *output,
 				struct drm_fb *fb)
 {
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	int fd, ret;
 
 	assert(fb->num_planes == 1);
-	ret = drmPrimeHandleToFD(b->drm.fd, fb->handles[0], DRM_CLOEXEC, &fd);
+	ret = drmPrimeHandleToFD(fb->fd, fb->handles[0], DRM_CLOEXEC, &fd);
 	if (ret) {
 		weston_log("drmPrimeHandleFD failed, errno=%d\n", errno);
 		return -1;
