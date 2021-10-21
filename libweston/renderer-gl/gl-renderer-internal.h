@@ -151,6 +151,7 @@ struct gl_renderer {
 	struct wl_list dmabuf_images;
 	struct wl_list dmabuf_formats;
 
+	bool has_texture_type_2_10_10_10_rev;
 	bool has_gl_texture_rg;
 
 	struct gl_shader *current_shader;

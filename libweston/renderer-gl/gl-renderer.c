@@ -1821,6 +1821,8 @@ gl_format_from_internal(GLenum internal_format)
 		return GL_RED_EXT;
 	case GL_RG8_EXT:
 		return GL_RG_EXT;
+	case GL_RGB10_A2:
+		return GL_RGBA;
 	default:
 		return internal_format;
 	}
@@ -1959,6 +1961,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 	GLenum gl_pixel_type;
 	int pitch;
 	int num_planes;
+	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
 
 	buffer->shm_buffer = shm_buffer;
 	buffer->width = wl_shm_buffer_get_width(shm_buffer);
@@ -1991,6 +1994,28 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
 		es->is_opaque = true;
 		break;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	case WL_SHM_FORMAT_ABGR2101010:
+		if (!gr->has_texture_type_2_10_10_10_rev) {
+			goto unsupported;
+		}
+		gs->shader_variant = SHADER_VARIANT_RGBA;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
+		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
+		es->is_opaque = false;
+		break;
+	case WL_SHM_FORMAT_XBGR2101010:
+		if (!gr->has_texture_type_2_10_10_10_rev) {
+			goto unsupported;
+		}
+		gs->shader_variant = SHADER_VARIANT_RGBX;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
+		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
+		es->is_opaque = true;
+		break;
+#endif
 	case WL_SHM_FORMAT_YUV420:
 		gs->shader_variant = SHADER_VARIANT_Y_U_V;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
@@ -2061,7 +2086,8 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		es->is_opaque = true;
 		break;
 	default:
-		weston_log("warning: unknown shm buffer format: %08x\n",
+unsupported:
+		weston_log("warning: unknown or unsupported shm buffer format: %08x\n",
 			   wl_shm_buffer_get_format(shm_buffer));
 		return;
 	}
@@ -3654,12 +3680,6 @@ gl_renderer_display_create(struct weston_compositor *ec,
 			goto fail_with_error;
 	}
 
-	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
-	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
-	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
-	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
-	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
-
 	wl_signal_init(&gr->destroy_signal);
 
 	if (gl_renderer_setup(ec, gr->dummy_surface) < 0) {
@@ -3668,6 +3688,18 @@ gl_renderer_display_create(struct weston_compositor *ec,
 							    gr->dummy_surface);
 		goto fail_with_error;
 	}
+
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	if (gr->has_texture_type_2_10_10_10_rev) {
+		wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR2101010);
+		wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XBGR2101010);
+	}
+#endif
 
 	if (gr->gl_supports_color_transforms)
 		ec->capabilities |= WESTON_CAP_COLOR_OPS;
@@ -3829,6 +3861,10 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		weston_log("GL_EXT_unpack_subimage not available.\n");
 		return -1;
 	}
+
+	if (gr->gl_version >= gr_gl_version(3, 0) ||
+	    weston_check_egl_extension(extensions, "GL_EXT_texture_type_2_10_10_10_REV"))
+		gr->has_texture_type_2_10_10_10_rev = true;
 
 	if (gr->gl_version >= gr_gl_version(3, 0) ||
 	    weston_check_egl_extension(extensions, "GL_EXT_texture_rg"))
