@@ -92,11 +92,12 @@ prog_args_fini(struct prog_args *p)
 {
 	int i;
 
-	assert(p->saved);
+	if (p->saved) {
+		for (i = 0; i < p->argc; i++)
+			free(p->saved[i]);
+		free(p->saved);
+	}
 
-	for (i = 0; i < p->argc; i++)
-		free(p->saved[i]);
-	free(p->saved);
 	free(p->argv);
 	prog_args_init(p);
 }
@@ -358,7 +359,8 @@ execute_compositor(const struct compositor_setup *setup,
 				"WESTON_TEST_SUITE_DRM_DEVICE is not set. " \
 				"See test suite documentation to learn how " \
 				"to run them.\n");
-			return RESULT_SKIP;
+			ret = RESULT_SKIP;
+			goto out;
 		}
 		asprintf(&tmp, "--drm-device=%s", drm_device);
 		prog_args_take(&args, tmp);
@@ -368,8 +370,10 @@ execute_compositor(const struct compositor_setup *setup,
 		prog_args_take(&args, strdup("--continue-without-input"));
 
 		lock_fd = wait_for_lock();
-		if (lock_fd == -1)
-			return RESULT_FAIL;
+		if (lock_fd == -1) {
+			ret = RESULT_FAIL;
+			goto out;
+		}
 	}
 
 	/* Test suite needs the debug protocol to be able to take screenshots */
@@ -431,6 +435,7 @@ execute_compositor(const struct compositor_setup *setup,
 	prog_args_save(&args);
 	ret = wet_main(args.argc, args.argv, &test_data);
 
+out:
 	prog_args_fini(&args);
 
 	/* We acquired a lock (if this is a DRM-backend test) and now we can
