@@ -602,11 +602,14 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 {
 	struct kiosk_shell *shell = data;
 	struct kiosk_shell_surface *shsurf;
+	struct weston_surface *surface =
+		weston_desktop_surface_get_surface(desktop_surface);
 
 	shsurf = kiosk_shell_surface_create(shell, desktop_surface);
 	if (!shsurf)
 		return;
 
+	weston_surface_set_label_func(surface, surface_get_label);
 	kiosk_shell_surface_set_fullscreen(shsurf, NULL);
 }
 
