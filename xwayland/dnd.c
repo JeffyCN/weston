@@ -208,9 +208,6 @@ weston_wm_handle_dnd_event(struct weston_wm *wm,
 		} else if (client_message->type == wm->atom.xdnd_drop) {
 			weston_log("got drop!\n");
 			return 1;
-		} else if (client_message->type == wm->atom.xdnd_drop) {
-			weston_log("got enter!\n");
-			return 1;
 		}
 		return 0;
 	}
