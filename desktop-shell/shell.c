@@ -1886,12 +1886,6 @@ shell_surface_activate(struct shell_surface *shsurf)
 		weston_desktop_surface_set_activated(shsurf->desktop_surface, true);
 }
 
-static void
-handle_keyboard_focus(struct wl_listener *listener, void *data)
-{
-	/* FIXME: To be removed later. */
-}
-
 /* The surface will be inserted into the list immediately after the link
  * returned by this function (i.e. will be stacked immediately above the
  * returned link). */
@@ -2241,6 +2235,7 @@ get_focused_output(struct weston_compositor *compositor)
 static void
 desktop_shell_destroy_seat(struct shell_seat *shseat)
 {
+
 	wl_list_remove(&shseat->keyboard_focus_listener.link);
 	wl_list_remove(&shseat->caps_changed_listener.link);
 	wl_list_remove(&shseat->pointer_focus_listener.link);
@@ -2263,22 +2258,11 @@ destroy_shell_seat(struct wl_listener *listener, void *data)
 static void
 shell_seat_caps_changed(struct wl_listener *listener, void *data)
 {
-	struct weston_keyboard *keyboard;
 	struct weston_pointer *pointer;
 	struct shell_seat *seat;
 
 	seat = container_of(listener, struct shell_seat, caps_changed_listener);
-	keyboard = weston_seat_get_keyboard(seat->seat);
 	pointer = weston_seat_get_pointer(seat->seat);
-
-	if (keyboard &&
-	    wl_list_empty(&seat->keyboard_focus_listener.link)) {
-		wl_signal_add(&keyboard->focus_signal,
-			      &seat->keyboard_focus_listener);
-	} else if (!keyboard) {
-		wl_list_remove(&seat->keyboard_focus_listener.link);
-		wl_list_init(&seat->keyboard_focus_listener.link);
-	}
 
 	if (pointer &&
 	    wl_list_empty(&seat->pointer_focus_listener.link)) {
@@ -2307,7 +2291,6 @@ create_shell_seat(struct desktop_shell *shell, struct weston_seat *seat)
 	wl_signal_add(&seat->destroy_signal,
 	              &shseat->seat_destroy_listener);
 
-	shseat->keyboard_focus_listener.notify = handle_keyboard_focus;
 	wl_list_init(&shseat->keyboard_focus_listener.link);
 
 	shseat->pointer_focus_listener.notify = handle_pointer_focus;
