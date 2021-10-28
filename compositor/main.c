@@ -1131,7 +1131,7 @@ weston_compositor_init_config(struct weston_compositor *ec,
 	s = weston_config_get_section(config, "core", NULL, NULL);
 	weston_config_section_get_int(s, "repaint-window", &repaint_msec,
 				      ec->repaint_msec);
-	if (repaint_msec < -10 || repaint_msec > 1000) {
+	if (repaint_msec < -1000 || repaint_msec > 1000) {
 		weston_log("Invalid repaint_window value in config: %d\n",
 			   repaint_msec);
 	} else {
