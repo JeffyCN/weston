@@ -3513,10 +3513,17 @@ weston_output_finish_frame(struct weston_output *output,
 		goto out;
 	}
 
-	timespec_add_nsec(&output->next_repaint, stamp, refresh_nsec);
+	/* HACK: Use negative value for dynamic repaint window */
+	if (compositor->repaint_msec > 0)
+		timespec_add_nsec(&output->next_repaint, stamp, refresh_nsec);
+
 	timespec_add_msec(&output->next_repaint, &output->next_repaint,
 			  -compositor->repaint_msec);
 	msec_rel = timespec_sub_to_msec(&output->next_repaint, &now);
+	if (msec_rel < 0) {
+		output->next_repaint = now;
+		msec_rel = 0;
+	}
 
 	if (msec_rel < -1000 || msec_rel > 1000) {
 		weston_log_paced(&output->repaint_delay_pacer,
