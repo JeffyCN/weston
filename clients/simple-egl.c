@@ -181,7 +181,7 @@ init_egl(struct display *display, struct window *window)
 	for (i = 0; i < n; i++) {
 		eglGetConfigAttrib(display->egl.dpy,
 				   configs[i], EGL_BUFFER_SIZE, &size);
-		if (window->buffer_size == size) {
+		if (window->buffer_size == 0 || window->buffer_size == size) {
 			display->egl.conf = configs[i];
 			break;
 		}
@@ -818,7 +818,7 @@ main(int argc, char **argv)
 	window.geometry.width  = 250;
 	window.geometry.height = 250;
 	window.window_size = window.geometry;
-	window.buffer_size = 32;
+	window.buffer_size = 0;
 	window.frame_sync = 1;
 	window.delay = 0;
 
