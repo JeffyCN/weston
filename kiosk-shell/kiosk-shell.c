@@ -475,8 +475,8 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 						&bg_color, 0x00000000);
 
 	r = ((bg_color >> 16) & 0xff) / 255.0;
-	b = ((bg_color >> 8) & 0xff) / 255.0,
-	g = ((bg_color >> 0) & 0xff) / 255.0;
+	g = ((bg_color >> 8) & 0xff) / 255.0;
+	b = ((bg_color >> 0) & 0xff) / 255.0;
 
 	shoutput->background_view =
 			create_colored_surface(shoutput->shell->compositor,
