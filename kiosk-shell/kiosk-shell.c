@@ -57,9 +57,14 @@ get_kiosk_shell_seat(struct weston_seat *seat)
 {
 	struct wl_listener *listener;
 
+	if (!seat)
+		return NULL;
+
 	listener = wl_signal_get(&seat->destroy_signal,
 				 kiosk_shell_seat_handle_destroy);
-	assert(listener != NULL);
+
+	if (!listener)
+		return NULL;
 
 	return container_of(listener,
 			    struct kiosk_shell_seat, seat_destroy_listener);
@@ -442,6 +447,12 @@ static struct kiosk_shell_seat *
 kiosk_shell_seat_create(struct kiosk_shell *shell, struct weston_seat *seat)
 {
 	struct kiosk_shell_seat *shseat;
+
+	if (wl_list_length(&shell->seat_list) > 0) {
+		weston_log("WARNING: multiple seats detected. kiosk-shell "
+			   "can not handle multiple seats!\n");
+		return NULL;
+	}
 
 	shseat = zalloc(sizeof *shseat);
 	if (!shseat) {
