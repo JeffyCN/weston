@@ -146,7 +146,7 @@ static void drm_output_fini_cursor_egl(struct drm_output *output)
 static int
 drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
 {
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	unsigned int i;
 
 	/* No point creating cursors if we don't have a plane for them. */
@@ -290,8 +290,7 @@ struct drm_fb *
 drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 {
 	struct drm_output *output = state->output;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	struct gbm_bo *bo;
 	struct drm_fb *ret;
 

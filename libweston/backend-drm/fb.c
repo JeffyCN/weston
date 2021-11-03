@@ -532,7 +532,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	struct drm_buffer_fb *buf_fb;
 	bool is_opaque = weston_view_is_opaque(ev, &ev->transform.boundingbox);

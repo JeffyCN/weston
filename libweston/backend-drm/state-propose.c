@@ -83,10 +83,9 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 			     struct drm_fb *fb, uint64_t zpos)
 {
 	struct drm_output *output = output_state->output;
-	struct weston_compositor *ec = output->base.compositor;
 	struct weston_surface *surface = ev->surface;
-	struct drm_backend *b = to_drm_backend(ec);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	struct drm_plane_state *state = NULL;
 
 	assert(!device->sprites_are_broken);
@@ -162,7 +161,8 @@ out:
 static void
 cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
 {
-	struct drm_device *device = plane_state->plane->device;
+	struct drm_output *output = plane_state->output;
+	struct drm_device *device = output->device;
 	struct gbm_bo *bo = plane_state->fb->bo;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	uint32_t buf[device->cursor_width * device->cursor_height];
@@ -194,8 +194,8 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 			       struct weston_view *ev, uint64_t zpos)
 {
 	struct drm_output *output = output_state->output;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	struct drm_plane *plane = output->cursor_plane;
 	struct drm_plane_state *plane_state;
 	bool needs_update = false;
@@ -430,8 +430,8 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			       uint64_t current_lowest_zpos)
 {
 	struct drm_output *output = state->output;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 
 	struct drm_plane_state *ps = NULL;
 	struct drm_plane *plane;
@@ -636,7 +636,8 @@ drm_output_propose_state(struct weston_output *output_base,
 			 enum drm_output_propose_state_mode mode)
 {
 	struct drm_output *output = to_drm_output(output_base);
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	struct weston_paint_node *pnode;
 	struct drm_output_state *state;
 	struct drm_plane_state *scanout_state = NULL;
@@ -915,10 +916,10 @@ err:
 void
 drm_assign_planes(struct weston_output *output_base)
 {
-	struct drm_backend *b = to_drm_backend(output_base->compositor);
-	struct drm_device *device = b->drm;
-	struct drm_pending_state *pending_state = device->repaint_data;
 	struct drm_output *output = to_drm_output(output_base);
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
+	struct drm_pending_state *pending_state = device->repaint_data;
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *plane_state;
 	struct weston_paint_node *pnode;

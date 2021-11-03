@@ -489,11 +489,9 @@ drm_output_choose_mode(struct drm_output *output,
 	struct drm_mode *tmp_mode = NULL, *mode_fall_back = NULL, *mode;
 	enum weston_mode_aspect_ratio src_aspect = WESTON_MODE_PIC_AR_NONE;
 	enum weston_mode_aspect_ratio target_aspect = WESTON_MODE_PIC_AR_NONE;
-	struct drm_backend *b;
 	struct drm_device *device;
 
-	b = to_drm_backend(output->base.compositor);
-	device = b->drm;
+	device = output->device;
 	target_aspect = target_mode->aspect_ratio;
 	src_aspect = output->base.current_mode->aspect_ratio;
 	if (output->base.current_mode->width == target_mode->width &&
@@ -739,8 +737,7 @@ drm_output_try_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 {
 	struct weston_mode *base;
 	struct drm_mode *mode = NULL;
-	struct drm_backend *backend;
-	struct drm_device *device;
+	struct drm_device *device = output->device;
 	const drmModeModeInfo *chosen = NULL;
 
 	assert(info);
@@ -754,8 +751,6 @@ drm_output_try_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 
 	if (chosen == info) {
 		assert(mode);
-		backend = to_drm_backend(output->base.compositor);
-		device = backend->drm;
 		drm_output_destroy_mode(device, mode);
 		chosen = NULL;
 	}
@@ -783,8 +778,7 @@ drm_output_try_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 static int
 drm_output_update_modelist_from_heads(struct drm_output *output)
 {
-	struct drm_backend *backend = to_drm_backend(output->base.compositor);
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = output->device;
 	struct weston_head *head_base;
 	struct drm_head *head;
 	drmModeConnector *conn;
@@ -814,8 +808,7 @@ drm_output_set_mode(struct weston_output *base,
 		    const char *modeline)
 {
 	struct drm_output *output = to_drm_output(base);
-	struct drm_backend *b = to_drm_backend(base->compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	struct drm_head *head = to_drm_head(weston_output_get_first_head(base));
 
 	struct drm_mode *current;

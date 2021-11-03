@@ -514,9 +514,7 @@ drm_output_set_gamma(struct weston_output *output_base,
 {
 	int rc;
 	struct drm_output *output = to_drm_output(output_base);
-	struct drm_backend *backend =
-		to_drm_backend(output->base.compositor);
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = output->device;
 
 	/* check */
 	if (output_base->gamma_size != size)
@@ -540,8 +538,8 @@ drm_output_assign_state(struct drm_output_state *state,
 			enum drm_state_apply_mode mode)
 {
 	struct drm_output *output = state->output;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	struct drm_plane_state *plane_state;
 	struct drm_head *head;
 
@@ -599,8 +597,7 @@ static void
 drm_output_set_cursor(struct drm_output_state *output_state)
 {
 	struct drm_output *output = output_state->output;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	struct drm_crtc *crtc = output->crtc;
 	struct drm_plane *plane = output->cursor_plane;
 	struct drm_plane_state *state;
@@ -653,8 +650,8 @@ static int
 drm_output_apply_state_legacy(struct drm_output_state *state)
 {
 	struct drm_output *output = state->output;
-	struct drm_backend *backend = to_drm_backend(output->base.compositor);
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *backend = device->backend;
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_crtc *crtc = output->crtc;
 	struct drm_property_info *dpms_prop;
@@ -941,8 +938,8 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 			      uint32_t *flags)
 {
 	struct drm_output *output = state->output;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	struct drm_crtc *crtc = output->crtc;
 	struct drm_plane_state *plane_state;
 	struct drm_mode *current_mode = to_drm_mode(output->base.current_mode);
@@ -1387,8 +1384,7 @@ page_flip_handler(int fd, unsigned int frame,
 		  unsigned int sec, unsigned int usec, void *data)
 {
 	struct drm_output *output = data;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_VSYNC |
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK;

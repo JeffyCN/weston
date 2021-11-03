@@ -270,8 +270,7 @@ void
 drm_output_update_complete(struct drm_output *output, uint32_t flags,
 			   unsigned int sec, unsigned int usec)
 {
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	struct drm_plane_state *ps;
 	struct timespec ts;
 
@@ -352,13 +351,13 @@ void
 drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 {
 	struct drm_output *output = state->output;
+	struct drm_device *device = output->device;
 	struct weston_compositor *c = output->base.compositor;
 	struct drm_plane_state *scanout_state;
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_property_info *damage_info =
 		&scanout_plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS];
-	struct drm_backend *b = to_drm_backend(c);
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
 	struct drm_fb *fb;
 	pixman_region32_t scanout_damage;
 	pixman_box32_t *rects;
@@ -524,9 +523,9 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_pending_state *pending_state;
 	struct drm_plane *scanout_plane = output->scanout_plane;
-	struct drm_backend *backend =
-		to_drm_backend(output_base->compositor);
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *backend = device->backend;
+	struct weston_compositor *compositor = backend->compositor;
 	struct timespec ts, tnow;
 	struct timespec vbl2now;
 	int64_t refresh_nsec;
@@ -566,7 +565,7 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 		 * Stale ts could happen on Linux 3.17+, so make sure it
 		 * is not older than 1 refresh duration since now.
 		 */
-		weston_compositor_read_presentation_clock(backend->compositor,
+		weston_compositor_read_presentation_clock(compositor,
 							  &tnow);
 		timespec_sub(&vbl2now, &tnow, &ts);
 		refresh_nsec =
@@ -688,8 +687,8 @@ static int
 drm_output_switch_mode(struct weston_output *output_base, struct weston_mode *mode)
 {
 	struct drm_output *output = to_drm_output(output_base);
-	struct drm_backend *b = to_drm_backend(output_base->compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	struct drm_mode *drm_mode = drm_output_choose_mode(output, mode);
 
 	if (!drm_mode) {
@@ -1049,8 +1048,7 @@ static void
 drm_set_dpms(struct weston_output *output_base, enum dpms_enum level)
 {
 	struct drm_output *output = to_drm_output(output_base);
-	struct drm_backend *b = to_drm_backend(output_base->compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	struct drm_pending_state *pending_state = device->repaint_data;
 	struct drm_output_state *state;
 	int ret;
@@ -1158,7 +1156,7 @@ make_connector_name(const drmModeConnector *con)
 static int
 drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 {
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	int w = output->base.current_mode->width;
 	int h = output->base.current_mode->height;
 	uint32_t format = output->gbm_format;
@@ -1390,8 +1388,7 @@ drm_output_set_seat(struct weston_output *base,
 static int
 drm_output_init_gamma_size(struct drm_output *output)
 {
-	struct drm_backend *backend = to_drm_backend(output->base.compositor);
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = output->device;
 	drmModeCrtc *crtc;
 
 	assert(output->base.compositor);
@@ -1437,8 +1434,9 @@ drm_connector_get_possible_crtcs_mask(struct drm_connector *connector)
 static struct drm_crtc *
 drm_output_pick_crtc(struct drm_output *output)
 {
-	struct drm_backend *backend;
-	struct drm_device *device;
+	struct drm_device *device = output->device;
+	struct drm_backend *backend = device->backend;
+	struct weston_compositor *compositor = backend->compositor;
 	struct weston_head *base;
 	struct drm_head *head;
 	struct drm_crtc *crtc;
@@ -1450,9 +1448,6 @@ drm_output_pick_crtc(struct drm_output *output)
 	uint32_t crtc_id;
 	unsigned int i;
 	bool match;
-
-	backend = to_drm_backend(output->base.compositor);
-	device = backend->drm;
 
 	/* This algorithm ignores drmModeEncoder::possible_clones restriction,
 	 * because it is more often set wrong than not in the kernel. */
@@ -1494,8 +1489,7 @@ drm_output_pick_crtc(struct drm_output *output)
 		 * If they did, this is not the best CRTC as it might be needed
 		 * for another output we haven't enabled yet. */
 		match = false;
-		wl_list_for_each(base, &backend->compositor->head_list,
-				 compositor_link) {
+		wl_list_for_each(base, &compositor->head_list, compositor_link) {
 			head = to_drm_head(base);
 
 			if (head->base.output == &output->base)
@@ -1636,7 +1630,7 @@ static int
 drm_output_init_planes(struct drm_output *output)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 
 	output->scanout_plane =
 		drm_output_find_special_plane(device, output,
@@ -1674,7 +1668,7 @@ static void
 drm_output_deinit_planes(struct drm_output *output)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 
 	/* If the compositor is already shutting down, the planes have already
 	 * been destroyed. */
@@ -1810,7 +1804,8 @@ static int
 drm_output_enable(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
-	struct drm_backend *b = to_drm_backend(base->compositor);
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 	int ret;
 
 	assert(!output->virtual);
