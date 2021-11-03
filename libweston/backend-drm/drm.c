@@ -441,9 +441,7 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 }
 
 static int
-drm_output_repaint(struct weston_output *output_base,
-		   pixman_region32_t *damage,
-		   void *repaint_data)
+drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 {
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_output_state *state = NULL;
@@ -610,7 +608,7 @@ finish_frame:
  * a new pending_state structure to own any output state created by individual
  * output repaint functions until the repaint is flushed or cancelled.
  */
-static void *
+static void
 drm_repaint_begin(struct weston_compositor *compositor)
 {
 	struct drm_backend *b = to_drm_backend(compositor);
@@ -626,8 +624,6 @@ drm_repaint_begin(struct weston_compositor *compositor)
 		drm_debug(b, "%s", dbg);
 		free(dbg);
 	}
-
-	return NULL;
 }
 
 /**
@@ -640,7 +636,7 @@ drm_repaint_begin(struct weston_compositor *compositor)
  * state will be freed.
  */
 static int
-drm_repaint_flush(struct weston_compositor *compositor, void *repaint_data)
+drm_repaint_flush(struct weston_compositor *compositor)
 {
 	struct drm_backend *b = to_drm_backend(compositor);
 	struct drm_pending_state *pending_state = b->repaint_data;
@@ -663,7 +659,7 @@ drm_repaint_flush(struct weston_compositor *compositor, void *repaint_data)
  * held across the repaint cycle should be discarded.
  */
 static void
-drm_repaint_cancel(struct weston_compositor *compositor, void *repaint_data)
+drm_repaint_cancel(struct weston_compositor *compositor)
 {
 	struct drm_backend *b = to_drm_backend(compositor);
 	struct drm_pending_state *pending_state = b->repaint_data;

@@ -46,27 +46,21 @@ struct weston_backend {
 	 * Returns an opaque pointer, which the backend may use as private
 	 * data referring to the repaint cycle.
 	 */
-	void * (*repaint_begin)(struct weston_compositor *compositor);
+	void (*repaint_begin)(struct weston_compositor *compositor);
 
 	/** Cancel a repaint sequence
 	 *
 	 * Cancels a repaint sequence, when an error has occurred during
 	 * one output's repaint; see repaint_begin.
-	 *
-	 * @param repaint_data Data returned by repaint_begin
 	 */
-	void (*repaint_cancel)(struct weston_compositor *compositor,
-			       void *repaint_data);
+	void (*repaint_cancel)(struct weston_compositor *compositor);
 
 	/** Conclude a repaint sequence
 	 *
 	 * Called on successful completion of a repaint sequence; see
 	 * repaint_begin.
-	 *
-	 * @param repaint_data Data returned by repaint_begin
 	 */
-	int (*repaint_flush)(struct weston_compositor *compositor,
-			     void *repaint_data);
+	int (*repaint_flush)(struct weston_compositor *compositor);
 
 	/** Allocate a new output
 	 *

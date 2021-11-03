@@ -889,7 +889,7 @@ err:
 }
 
 void
-drm_assign_planes(struct weston_output *output_base, void *repaint_data)
+drm_assign_planes(struct weston_output *output_base)
 {
 	struct drm_backend *b = to_drm_backend(output_base->compositor);
 	struct drm_pending_state *pending_state = b->repaint_data;

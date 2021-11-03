@@ -185,8 +185,7 @@ drm_virtual_output_submit_frame(struct drm_output *output,
 
 static int
 drm_virtual_output_repaint(struct weston_output *output_base,
-			   pixman_region32_t *damage,
-			   void *repaint_data)
+			   pixman_region32_t *damage)
 {
 	struct drm_output_state *state = NULL;
 	struct drm_output *output = to_drm_output(output_base);

@@ -336,11 +336,9 @@ struct weston_output {
 	bool allow_protection;
 
 	int (*start_repaint_loop)(struct weston_output *output);
-	int (*repaint)(struct weston_output *output,
-			pixman_region32_t *damage,
-			void *repaint_data);
+	int (*repaint)(struct weston_output *output, pixman_region32_t *damage);
 	void (*destroy)(struct weston_output *output);
-	void (*assign_planes)(struct weston_output *output, void *repaint_data);
+	void (*assign_planes)(struct weston_output *output);
 	int (*switch_mode)(struct weston_output *output, struct weston_mode *mode);
 
 	/* backlight values are on 0-255 range, where higher is brighter */

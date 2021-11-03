@@ -2865,7 +2865,7 @@ weston_output_take_feedback_list(struct weston_output *output,
 }
 
 static int
-weston_output_repaint(struct weston_output *output, void *repaint_data)
+weston_output_repaint(struct weston_output *output)
 {
 	struct weston_compositor *ec = output->compositor;
 	struct weston_paint_node *pnode;
@@ -2905,7 +2905,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 	output->desired_protection = highest_requested;
 
 	if (output->assign_planes && !output->disable_planes) {
-		output->assign_planes(output, repaint_data);
+		output->assign_planes(output);
 	} else {
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
@@ -2940,7 +2940,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 	if (output->dirty)
 		weston_output_update_matrix(output);
 
-	r = output->repaint(output, &output_damage, repaint_data);
+	r = output->repaint(output, &output_damage);
 
 	pixman_region32_fini(&output_damage);
 
@@ -2976,8 +2976,7 @@ weston_output_schedule_repaint_reset(struct weston_output *output)
 }
 
 static int
-weston_output_maybe_repaint(struct weston_output *output, struct timespec *now,
-			    void *repaint_data)
+weston_output_maybe_repaint(struct weston_output *output, struct timespec *now)
 {
 	struct weston_compositor *compositor = output->compositor;
 	int ret = 0;
@@ -3007,7 +3006,7 @@ weston_output_maybe_repaint(struct weston_output *output, struct timespec *now,
 	 * something schedules a successful repaint later. As repainting may
 	 * take some time, re-read our clock as a courtesy to the next
 	 * output. */
-	ret = weston_output_repaint(output, repaint_data);
+	ret = weston_output_repaint(output);
 	weston_compositor_read_presentation_clock(compositor, now);
 	if (ret != 0)
 		goto err;
@@ -3065,29 +3064,26 @@ output_repaint_timer_handler(void *data)
 	struct weston_compositor *compositor = data;
 	struct weston_output *output;
 	struct timespec now;
-	void *repaint_data = NULL;
 	int ret = 0;
 
 	weston_compositor_read_presentation_clock(compositor, &now);
 	compositor->last_repaint_start = now;
 
 	if (compositor->backend->repaint_begin)
-		repaint_data = compositor->backend->repaint_begin(compositor);
+		compositor->backend->repaint_begin(compositor);
 
 	wl_list_for_each(output, &compositor->output_list, link) {
-		ret = weston_output_maybe_repaint(output, &now, repaint_data);
+		ret = weston_output_maybe_repaint(output, &now);
 		if (ret)
 			break;
 	}
 
 	if (ret == 0) {
 		if (compositor->backend->repaint_flush)
-			ret = compositor->backend->repaint_flush(compositor,
-							 repaint_data);
+			ret = compositor->backend->repaint_flush(compositor);
 	} else {
 		if (compositor->backend->repaint_cancel)
-			compositor->backend->repaint_cancel(compositor,
-							    repaint_data);
+			compositor->backend->repaint_cancel(compositor);
 	}
 
 	if (ret != 0) {

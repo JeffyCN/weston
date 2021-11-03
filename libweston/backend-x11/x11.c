@@ -417,8 +417,7 @@ x11_output_start_repaint_loop(struct weston_output *output)
 
 static int
 x11_output_repaint_gl(struct weston_output *output_base,
-		      pixman_region32_t *damage,
-		      void *repaint_data)
+		      pixman_region32_t *damage)
 {
 	struct x11_output *output = to_x11_output(output_base);
 	struct weston_compositor *ec = output->base.compositor;
@@ -486,8 +485,7 @@ set_clip_for_output(struct weston_output *output_base, pixman_region32_t *region
 
 static int
 x11_output_repaint_shm(struct weston_output *output_base,
-		       pixman_region32_t *damage,
-		       void *repaint_data)
+		       pixman_region32_t *damage)
 {
 	struct x11_output *output = to_x11_output(output_base);
 	struct weston_compositor *ec = output->base.compositor;

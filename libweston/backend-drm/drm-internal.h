@@ -790,7 +790,7 @@ void
 drm_plane_reset_state(struct drm_plane *plane);
 
 void
-drm_assign_planes(struct weston_output *output_base, void *repaint_data);
+drm_assign_planes(struct weston_output *output_base);
 
 bool
 drm_plane_is_available(struct drm_plane *plane, struct drm_output *output);
