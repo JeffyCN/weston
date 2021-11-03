@@ -5151,7 +5151,12 @@ subsurface_place_above(struct wl_client *client,
 	if (!sub)
 		return;
 
-	sibling = subsurface_sibling_check(sub, surface, "place_above");
+	if (surface == sub->surface)
+		sibling = container_of(sub->parent->subsurface_list.next,
+			struct weston_subsurface, parent_link);
+	else
+		sibling = subsurface_sibling_check(sub, surface, "place_above");
+
 	if (!sibling)
 		return;
 
@@ -5175,7 +5180,12 @@ subsurface_place_below(struct wl_client *client,
 	if (!sub)
 		return;
 
-	sibling = subsurface_sibling_check(sub, surface, "place_below");
+	if (surface == sub->surface)
+		sibling = container_of(sub->parent->subsurface_list.prev,
+			struct weston_subsurface, parent_link);
+	else
+		sibling = subsurface_sibling_check(sub, surface, "place_below");
+
 	if (!sibling)
 		return;
 
