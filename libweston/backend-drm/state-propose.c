@@ -162,8 +162,7 @@ out:
 static void
 cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
 {
-	struct drm_backend *b = plane_state->plane->backend;
-	struct drm_device *device = b->drm;
+	struct drm_device *device = plane_state->plane->device;
 	struct gbm_bo *bo = plane_state->fb->bo;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	uint32_t buf[device->cursor_width * device->cursor_height];

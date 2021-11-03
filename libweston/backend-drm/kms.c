@@ -275,20 +275,19 @@ drm_property_get_range_values(struct drm_property_info *info,
  * The values given in enum_names are searched for, and stored in the
  * same-indexed field of the map array.
  *
- * @param b DRM backend object
+ * @param device DRM device object
  * @param src DRM property info array to source from
  * @param info DRM property info array to copy into
  * @param num_infos Number of entries in the source array
  * @param props DRM object properties for the object
  */
 void
-drm_property_info_populate(struct drm_backend *b,
+drm_property_info_populate(struct drm_device *device,
 		           const struct drm_property_info *src,
 			   struct drm_property_info *info,
 			   unsigned int num_infos,
 			   drmModeObjectProperties *props)
 {
-	struct drm_device *device = b->drm;
 	drmModePropertyRes *prop;
 	unsigned i, j;
 
@@ -437,8 +436,7 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const drmModeObjectProperties *props,
 			   const bool use_modifiers)
 {
-	struct drm_backend *backend = plane->backend;
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = plane->device;
 	unsigned i, j;
 	drmModePropertyBlobRes *blob = NULL;
 	struct drm_format_modifier_blob *fmt_mod_blob;
@@ -796,7 +794,8 @@ static int
 crtc_add_prop(drmModeAtomicReq *req, struct drm_crtc *crtc,
 	      enum wdrm_crtc_property prop, uint64_t val)
 {
-	struct drm_backend *b = crtc->backend;
+	struct drm_device *device = crtc->device;
+	struct drm_backend *b = device->backend;
 	struct drm_property_info *info = &crtc->props_crtc[prop];
 	int ret;
 
@@ -816,7 +815,8 @@ static int
 connector_add_prop(drmModeAtomicReq *req, struct drm_connector *connector,
 		   enum wdrm_connector_property prop, uint64_t val)
 {
-	struct drm_backend *b = connector->backend;
+	struct drm_device *device = connector->device;
+	struct drm_backend *b = device->backend;
 	struct drm_property_info *info = &connector->props[prop];
 	uint32_t connector_id = connector->connector_id;
 	int ret;
@@ -836,7 +836,8 @@ static int
 plane_add_prop(drmModeAtomicReq *req, struct drm_plane *plane,
 	       enum wdrm_plane_property prop, uint64_t val)
 {
-	struct drm_backend *b = plane->backend;
+	struct drm_device *device = plane->device;
+	struct drm_backend *b = device->backend;
 	struct drm_property_info *info = &plane->props[prop];
 	int ret;
 
@@ -941,6 +942,7 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	struct drm_crtc *crtc = output->crtc;
 	struct drm_plane_state *plane_state;
 	struct drm_mode *current_mode = to_drm_mode(output->base.current_mode);
@@ -957,7 +959,7 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 	}
 
 	if (state->dpms == WESTON_DPMS_ON) {
-		ret = drm_mode_ensure_blob(b, current_mode);
+		ret = drm_mode_ensure_blob(device, current_mode);
 		if (ret != 0)
 			return ret;
 
@@ -1410,7 +1412,7 @@ atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK;
 
-	crtc = drm_crtc_find(b, crtc_id);
+	crtc = drm_crtc_find(device, crtc_id);
 	assert(crtc);
 
 	output = crtc->output;
@@ -1450,9 +1452,10 @@ on_drm_input(int fd, uint32_t mask, void *data)
 }
 
 int
-init_kms_caps(struct drm_backend *b)
+init_kms_caps(struct drm_device *device)
 {
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
+	struct weston_compositor *compositor = b->compositor;
 	uint64_t cap;
 	int ret;
 
@@ -1464,7 +1467,7 @@ init_kms_caps(struct drm_backend *b)
 		return -1;
 	}
 
-	if (weston_compositor_set_presentation_clock(b->compositor, CLOCK_MONOTONIC) < 0) {
+	if (weston_compositor_set_presentation_clock(compositor, CLOCK_MONOTONIC) < 0) {
 		weston_log("Error: failed to set presentation clock to CLOCK_MONOTONIC.\n");
 		return -1;
 	}

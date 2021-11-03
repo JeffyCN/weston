@@ -466,7 +466,7 @@ struct drm_plane_state {
 struct drm_plane {
 	struct weston_plane base;
 
-	struct drm_backend *backend;
+	struct drm_device *device;
 
 	enum wdrm_plane_type type;
 
@@ -488,7 +488,7 @@ struct drm_plane {
 };
 
 struct drm_connector {
-	struct drm_backend *backend;
+	struct drm_device *device;
 
 	drmModeConnector *conn;
 	uint32_t connector_id;
@@ -500,16 +500,15 @@ struct drm_connector {
 };
 
 struct drm_writeback {
-	/* drm_backend::writeback_connector_list */
+	/* drm_device::writeback_connector_list */
 	struct wl_list link;
 
-	struct drm_backend *backend;
+	struct drm_device *device;
 	struct drm_connector connector;
 };
 
 struct drm_head {
 	struct weston_head base;
-	struct drm_backend *backend;
 	struct drm_connector connector;
 
 	struct drm_edid edid;
@@ -521,9 +520,9 @@ struct drm_head {
 };
 
 struct drm_crtc {
-	/* drm_backend::crtc_list */
+	/* drm_device::crtc_list */
 	struct wl_list link;
-	struct drm_backend *backend;
+	struct drm_device *device;
 
 	/* The output driven by the CRTC */
 	struct drm_output *output;
@@ -537,7 +536,7 @@ struct drm_crtc {
 
 struct drm_output {
 	struct weston_output base;
-	struct drm_backend *backend;
+	struct drm_device *device;
 	struct drm_crtc *crtc;
 
 	bool page_flip_pending;
@@ -625,7 +624,7 @@ drm_output_get_plane_type_name(struct drm_plane *p)
 }
 
 struct drm_crtc *
-drm_crtc_find(struct drm_backend *b, uint32_t crtc_id);
+drm_crtc_find(struct drm_device *device, uint32_t crtc_id);
 
 struct drm_head *
 drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id);
@@ -650,7 +649,7 @@ drm_view_transform_supported(struct weston_view *ev, struct weston_output *outpu
 }
 
 int
-drm_mode_ensure_blob(struct drm_backend *backend, struct drm_mode *mode);
+drm_mode_ensure_blob(struct drm_device *device, struct drm_mode *mode);
 
 struct drm_mode *
 drm_output_choose_mode(struct drm_output *output,
@@ -659,7 +658,7 @@ void
 update_head_from_connector(struct drm_head *head);
 
 void
-drm_mode_list_destroy(struct drm_backend *backend, struct wl_list *mode_list);
+drm_mode_list_destroy(struct drm_device *device, struct wl_list *mode_list);
 
 void
 drm_output_print_modes(struct drm_output *output);
@@ -670,7 +669,7 @@ drm_output_set_mode(struct weston_output *base,
 		    const char *modeline);
 
 void
-drm_property_info_populate(struct drm_backend *b,
+drm_property_info_populate(struct drm_device *device,
 		           const struct drm_property_info *src,
 			   struct drm_property_info *info,
 			   unsigned int num_infos,
@@ -698,7 +697,7 @@ extern const struct drm_property_info connector_props[];
 extern const struct drm_property_info crtc_props[];
 
 int
-init_kms_caps(struct drm_backend *b);
+init_kms_caps(struct drm_device *device);
 
 int
 drm_pending_state_test(struct drm_pending_state *pending_state);

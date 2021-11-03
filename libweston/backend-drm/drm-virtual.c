@@ -47,7 +47,7 @@
  * CRTC's. Also, as this is a fake CRTC, it will not try to populate props.
  */
 static struct drm_crtc *
-drm_virtual_crtc_create(struct drm_backend *b, struct drm_output *output)
+drm_virtual_crtc_create(struct drm_device *device, struct drm_output *output)
 {
 	struct drm_crtc *crtc;
 
@@ -55,7 +55,7 @@ drm_virtual_crtc_create(struct drm_backend *b, struct drm_output *output)
 	if (!crtc)
 		return NULL;
 
-	crtc->backend = b;
+	crtc->device = device;
 	crtc->output = output;
 
 	crtc->crtc_id = 0;
@@ -86,13 +86,13 @@ drm_virtual_crtc_destroy(struct drm_crtc *crtc)
  *
  * Call drm_virtual_plane_destroy to clean up the plane.
  *
- * @param b DRM compositor backend
+ * @param device DRM device
  * @param output Output to create internal plane for
  */
 static struct drm_plane *
-drm_virtual_plane_create(struct drm_backend *b, struct drm_output *output)
+drm_virtual_plane_create(struct drm_device *device, struct drm_output *output)
 {
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
 	struct drm_plane *plane;
 	struct weston_drm_format *fmt;
 	uint64_t mod;
@@ -104,7 +104,7 @@ drm_virtual_plane_create(struct drm_backend *b, struct drm_output *output)
 	}
 
 	plane->type = WDRM_PLANE_TYPE_PRIMARY;
-	plane->backend = b;
+	plane->device = device;
 	plane->state_cur = drm_plane_state_alloc(NULL, plane);
 	plane->state_cur->complete = true;
 
@@ -192,13 +192,11 @@ drm_virtual_output_repaint(struct weston_output *output_base,
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_plane_state *scanout_state;
 	struct drm_pending_state *pending_state;
-	struct drm_backend *backend;
 	struct drm_device *device;
 
 	assert(output->virtual);
 
-	backend = output->backend;
-	device = backend->drm;
+	device = output->device;
 	pending_state = device->repaint_data;
 
 	if (output->disable_pending || output->destroy_pending)
@@ -268,7 +266,8 @@ static int
 drm_virtual_output_enable(struct weston_output *output_base)
 {
 	struct drm_output *output = to_drm_output(output_base);
-	struct drm_backend *b = to_drm_backend(output_base->compositor);
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 
 	assert(output->virtual);
 
@@ -282,7 +281,7 @@ drm_virtual_output_enable(struct weston_output *output_base)
 		goto err;
 	}
 
-	output->scanout_plane = drm_virtual_plane_create(b, output);
+	output->scanout_plane = drm_virtual_plane_create(device, output);
 	if (!output->scanout_plane) {
 		weston_log("Failed to find primary plane for output %s\n",
 			   output->base.name);
@@ -329,19 +328,21 @@ drm_virtual_output_create(struct weston_compositor *c, char *name)
 {
 	struct drm_output *output;
 	struct drm_backend *b = to_drm_backend(c);
+	/* Always use the main device for virtual outputs */
+	struct drm_device *device = b->drm;
 
 	output = zalloc(sizeof *output);
 	if (!output)
 		return NULL;
 
-	output->crtc = drm_virtual_crtc_create(b, output);
+	output->device = device;
+	output->crtc = drm_virtual_crtc_create(device, output);
 	if (!output->crtc) {
 		free(output);
 		return NULL;
 	}
 
 	output->virtual = true;
-	output->backend = b;
 	output->gbm_bo_flags = GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING;
 
 	weston_output_init(&output->base, c, name);
@@ -363,7 +364,8 @@ drm_virtual_output_set_gbm_format(struct weston_output *base,
 				  const char *gbm_format)
 {
 	struct drm_output *output = to_drm_output(base);
-	struct drm_backend *b = to_drm_backend(base->compositor);
+	struct drm_device *device = output->device;
+	struct drm_backend *b = device->backend;
 
 	if (parse_gbm_format(gbm_format, b->gbm_format, &output->gbm_format) == -1)
 		output->gbm_format = b->gbm_format;

@@ -193,9 +193,8 @@ drm_plane_is_available(struct drm_plane *plane, struct drm_output *output)
 }
 
 struct drm_crtc *
-drm_crtc_find(struct drm_backend *b, uint32_t crtc_id)
+drm_crtc_find(struct drm_device *device, uint32_t crtc_id)
 {
-	struct drm_device *device = b->drm;
 	struct drm_crtc *crtc;
 
 	wl_list_for_each(crtc, &device->crtc_list, link) {
@@ -451,13 +450,11 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *scanout_state;
 	struct drm_pending_state *pending_state;
-	struct drm_backend *backend;
 	struct drm_device *device;
 
 	assert(!output->virtual);
 
-	backend = output->backend;
-	device = backend->drm;
+	device = output->device;
 	pending_state = device->repaint_data;
 
 	if (output->disable_pending || output->destroy_pending)
@@ -755,13 +752,14 @@ init_pixman(struct drm_backend *b)
  * Call drm_plane_destroy to clean up the plane.
  *
  * @sa drm_output_find_special_plane
- * @param b DRM compositor backend
+ * @param device DRM device
  * @param kplane DRM plane to create
  */
 static struct drm_plane *
-drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
+drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 {
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
+	struct weston_compositor *compositor = b->compositor;
 	struct drm_plane *plane, *tmp;
 	drmModeObjectProperties *props;
 	uint64_t *zpos_range_values;
@@ -772,7 +770,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 		return NULL;
 	}
 
-	plane->backend = b;
+	plane->device = device;
 	plane->state_cur = drm_plane_state_alloc(NULL, plane);
 	plane->state_cur->complete = true;
 	plane->possible_crtcs = kplane->possible_crtcs;
@@ -787,7 +785,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 		goto err;
 	}
 
-	drm_property_info_populate(b, plane_props, plane->props,
+	drm_property_info_populate(device, plane_props, plane->props,
 				   WDRM_PLANE__COUNT, props);
 	plane->type =
 		drm_property_get_value(&plane->props[WDRM_PLANE_TYPE],
@@ -817,7 +815,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 	if (plane->type == WDRM_PLANE_TYPE__COUNT)
 		goto err_props;
 
-	weston_plane_init(&plane->base, b->compositor, 0, 0);
+	weston_plane_init(&plane->base, compositor, 0, 0);
 
 	wl_list_for_each(tmp, &device->plane_list, link) {
 		if (tmp->zpos_max > plane->zpos_max) {
@@ -842,15 +840,16 @@ err:
 /**
  * Find, or create, a special-purpose plane
  *
- * @param b DRM backend
+ * @param device DRM device
  * @param output Output to use for plane
  * @param type Type of plane
  */
 static struct drm_plane *
-drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
+drm_output_find_special_plane(struct drm_device *device,
+			      struct drm_output *output,
 			      enum wdrm_plane_type type)
 {
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
 	struct drm_plane *plane;
 
 	wl_list_for_each(plane, &device->plane_list, link) {
@@ -894,8 +893,7 @@ drm_output_find_special_plane(struct drm_backend *b, struct drm_output *output,
 static void
 drm_plane_destroy(struct drm_plane *plane)
 {
-	struct drm_backend *backend = plane->backend;
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = plane->device;
 
 	if (plane->type == WDRM_PLANE_TYPE_OVERLAY)
 		drmModeSetPlane(device->drm.fd, plane->plane_id,
@@ -915,12 +913,12 @@ drm_plane_destroy(struct drm_plane *plane)
  *
  * Call destroy_sprites to free these planes.
  *
- * @param b DRM compositor backend
+ * @param device DRM device
  */
 static void
-create_sprites(struct drm_backend *b)
+create_sprites(struct drm_device *device)
 {
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
 	drmModePlaneRes *kplane_res;
 	drmModePlane *kplane;
 	struct drm_plane *drm_plane;
@@ -939,7 +937,7 @@ create_sprites(struct drm_backend *b)
 		if (!kplane)
 			continue;
 
-		drm_plane = drm_plane_create(b, kplane);
+		drm_plane = drm_plane_create(device, kplane);
 		drmModeFreePlane(kplane);
 		if (!drm_plane)
 			continue;
@@ -961,12 +959,11 @@ create_sprites(struct drm_backend *b)
  *
  * The counterpart to create_sprites.
  *
- * @param b DRM compositor backend
+ * @param device DRM device
  */
 static void
-destroy_sprites(struct drm_backend *b)
+destroy_sprites(struct drm_device *device)
 {
-	struct drm_device *device = b->drm;
 	struct drm_plane *plane, *next;
 
 	wl_list_for_each_safe(plane, next, &device->plane_list, link)
@@ -1342,9 +1339,8 @@ parse_gbm_format(const char *s, uint32_t default_value, uint32_t *gbm_format)
 }
 
 static int
-drm_head_read_current_setup(struct drm_head *head, struct drm_backend *backend)
+drm_head_read_current_setup(struct drm_head *head, struct drm_device *device)
 {
-	struct drm_device *device = backend->drm;
 	int drm_fd = device->drm.fd;
 	drmModeConnector *conn = head->connector.conn;
 	drmModeEncoder *encoder;
@@ -1414,8 +1410,7 @@ drm_output_init_gamma_size(struct drm_output *output)
 static uint32_t
 drm_connector_get_possible_crtcs_mask(struct drm_connector *connector)
 {
-	struct drm_backend *backend = connector->backend;
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = connector->device;
 	uint32_t possible_crtcs = 0;
 	drmModeConnector *conn = connector->conn;
 	drmModeEncoder *encoder;
@@ -1471,7 +1466,7 @@ drm_output_pick_crtc(struct drm_output *output)
 
 		crtc_id = head->inherited_crtc_id;
 		if (crtc_id > 0 && n < ARRAY_LENGTH(existing_crtc))
-			existing_crtc[n++] = drm_crtc_find(backend, crtc_id);
+			existing_crtc[n++] = drm_crtc_find(device, crtc_id);
 	}
 
 	/* Find a crtc that could drive each connector individually at least,
@@ -1551,9 +1546,8 @@ drm_output_pick_crtc(struct drm_output *output)
  * all, it adds the object to the DRM-backend CRTC list.
  */
 static struct drm_crtc *
-drm_crtc_create(struct drm_backend *b, uint32_t crtc_id, uint32_t pipe)
+drm_crtc_create(struct drm_device *device, uint32_t crtc_id, uint32_t pipe)
 {
-	struct drm_device *device = b->drm;
 	struct drm_crtc *crtc;
 	drmModeObjectPropertiesPtr props;
 
@@ -1568,9 +1562,9 @@ drm_crtc_create(struct drm_backend *b, uint32_t crtc_id, uint32_t pipe)
 	if (!crtc)
 		goto ret;
 
-	drm_property_info_populate(b, crtc_props, crtc->props_crtc,
+	drm_property_info_populate(device, crtc_props, crtc->props_crtc,
 				   WDRM_CRTC__COUNT, props);
-	crtc->backend = b;
+	crtc->device = device;
 	crtc->crtc_id = crtc_id;
 	crtc->pipe = pipe;
 	crtc->output = NULL;
@@ -1607,14 +1601,13 @@ drm_crtc_destroy(struct drm_crtc *crtc)
  * The CRTCs are saved in a list of the drm_backend and will keep there until
  * the fd gets closed.
  *
- * @param b The DRM-backend structure.
+ * @param device The DRM device structure.
  * @param resources The DRM resources, it is taken with drmModeGetResources
  * @return 0 on success (at least one CRTC in the list), -1 on failure.
  */
 static int
-drm_backend_create_crtc_list(struct drm_backend *b, drmModeRes *resources)
+drm_backend_create_crtc_list(struct drm_device *device, drmModeRes *resources)
 {
-	struct drm_device *device = b->drm;
 	struct drm_crtc *crtc, *crtc_tmp;
 	int i;
 
@@ -1622,7 +1615,7 @@ drm_backend_create_crtc_list(struct drm_backend *b, drmModeRes *resources)
 	for (i = 0; i < resources->count_crtcs; i++) {
 
 		/* Let's create an object for the CRTC and add it to the list */
-		crtc = drm_crtc_create(b, resources->crtcs[i], i);
+		crtc = drm_crtc_create(device, resources->crtcs[i], i);
 		if (!crtc)
 			goto err;
 	}
@@ -1646,7 +1639,7 @@ drm_output_init_planes(struct drm_output *output)
 	struct drm_device *device = b->drm;
 
 	output->scanout_plane =
-		drm_output_find_special_plane(b, output,
+		drm_output_find_special_plane(device, output,
 					      WDRM_PLANE_TYPE_PRIMARY);
 	if (!output->scanout_plane) {
 		weston_log("Failed to find primary plane for output %s\n",
@@ -1661,7 +1654,7 @@ drm_output_init_planes(struct drm_output *output)
 	/* Failing to find a cursor plane is not fatal, as we'll fall back
 	 * to software cursor. */
 	output->cursor_plane =
-		drm_output_find_special_plane(b, output,
+		drm_output_find_special_plane(device, output,
 					      WDRM_PLANE_TYPE_CURSOR);
 
 	if (output->cursor_plane)
@@ -1803,8 +1796,7 @@ drm_output_attach_crtc(struct drm_output *output)
 static void
 drm_output_detach_crtc(struct drm_output *output)
 {
-	struct drm_backend *b = output->backend;
-	struct drm_device *device = b->drm;
+	struct drm_device *device = output->device;
 	struct drm_crtc *crtc = output->crtc;
 
 	crtc->output = NULL;
@@ -1905,7 +1897,7 @@ static void
 drm_output_destroy(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
-	struct drm_backend *b = to_drm_backend(base->compositor);
+	struct drm_device *device = output->device;
 
 	assert(!output->virtual);
 
@@ -1920,7 +1912,7 @@ drm_output_destroy(struct weston_output *base)
 	if (output->base.enabled)
 		drm_output_deinit(&output->base);
 
-	drm_mode_list_destroy(b, &output->base.mode_list);
+	drm_mode_list_destroy(device, &output->base.mode_list);
 
 	if (output->pageflip_timer)
 		wl_event_source_remove(output->pageflip_timer);
@@ -2038,8 +2030,7 @@ drm_head_get_current_protection(struct drm_head *head)
 static int
 drm_connector_update_properties(struct drm_connector *connector)
 {
-	struct drm_backend *backend = connector->backend;
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = connector->device;
 	drmModeObjectProperties *props;
 
 	props = drmModeObjectGetProperties(device->drm.fd,
@@ -2070,6 +2061,8 @@ static int
 drm_connector_assign_connector_info(struct drm_connector *connector,
 				    drmModeConnector *conn)
 {
+	struct drm_device *device = connector->device;
+
 	assert(connector->conn != conn);
 	assert(connector->connector_id == conn->connector_id);
 
@@ -2081,17 +2074,16 @@ drm_connector_assign_connector_info(struct drm_connector *connector,
 	connector->conn = conn;
 
 	drm_property_info_free(connector->props, WDRM_CONNECTOR__COUNT);
-	drm_property_info_populate(connector->backend, connector_props,
-				   connector->props,
+	drm_property_info_populate(device, connector_props, connector->props,
 				   WDRM_CONNECTOR__COUNT, connector->props_drm);
 	return 0;
 }
 
 static void
-drm_connector_init(struct drm_backend *b, struct drm_connector *connector,
+drm_connector_init(struct drm_device *device, struct drm_connector *connector,
 		   uint32_t connector_id)
 {
-	connector->backend = b;
+	connector->device = device;
 	connector->connector_id = connector_id;
 	connector->conn = NULL;
 	connector->props_drm = NULL;
@@ -2181,7 +2173,7 @@ drm_writeback_update_info(struct drm_writeback *writeback, drmModeConnector *con
  * Given a DRM connector, create a matching drm_head structure and add it
  * to Weston's head list.
  *
- * @param backend Weston backend structure
+ * @param device DRM device structure
  * @param conn DRM connector object
  * @param drm_device udev device pointer
  * @returns 0 on success, -1 on failure
@@ -2189,9 +2181,10 @@ drm_writeback_update_info(struct drm_writeback *writeback, drmModeConnector *con
  * Takes ownership of @c connector on success, not on failure.
  */
 static int
-drm_head_create(struct drm_backend *backend, drmModeConnector *conn,
+drm_head_create(struct drm_device *device, drmModeConnector *conn,
 		struct udev_device *drm_device)
 {
+	struct drm_backend *backend = device->backend;
 	struct drm_head *head;
 	char *name;
 	int ret;
@@ -2200,9 +2193,7 @@ drm_head_create(struct drm_backend *backend, drmModeConnector *conn,
 	if (!head)
 		return -1;
 
-	head->backend = backend;
-
-	drm_connector_init(backend, &head->connector, conn->connector_id);
+	drm_connector_init(device, &head->connector, conn->connector_id);
 
 	name = make_connector_name(conn);
 	if (!name)
@@ -2221,7 +2212,7 @@ drm_head_create(struct drm_backend *backend, drmModeConnector *conn,
 	    conn->connector_type == DRM_MODE_CONNECTOR_eDP)
 		weston_head_set_internal(&head->base);
 
-	if (drm_head_read_current_setup(head, backend) < 0) {
+	if (drm_head_read_current_setup(head, device) < 0) {
 		weston_log("Failed to retrieve current mode from connector %d.\n",
 			   head->connector.connector_id);
 		/* Not fatal. */
@@ -2270,13 +2261,14 @@ static struct weston_output *
 drm_output_create(struct weston_compositor *compositor, const char *name)
 {
 	struct drm_backend *b = to_drm_backend(compositor);
+	struct drm_device *device = b->drm;
 	struct drm_output *output;
 
 	output = zalloc(sizeof *output);
 	if (output == NULL)
 		return NULL;
 
-	output->backend = b;
+	output->device = device;
 	output->crtc = NULL;
 
 	output->gbm_format = DRM_FORMAT_INVALID;
@@ -2308,25 +2300,24 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
  * Given a DRM connector of type writeback, create a matching drm_writeback
  * structure and add it to Weston's writeback list.
  *
- * @param b Weston backend structure
+ * @param device DRM device structure
  * @param conn DRM connector object of type writeback
  * @returns 0 on success, -1 on failure
  *
  * Takes ownership of @c connector on success, not on failure.
  */
 static int
-drm_writeback_create(struct drm_backend *b, drmModeConnector *conn)
+drm_writeback_create(struct drm_device *device, drmModeConnector *conn)
 {
-	struct drm_device *device = b->drm;
 	struct drm_writeback *writeback;
 	int ret;
 
 	writeback = zalloc(sizeof *writeback);
 	assert(writeback);
 
-	writeback->backend = b;
+	writeback->device = device;
 
-	drm_connector_init(b, &writeback->connector, conn->connector_id);
+	drm_connector_init(device, &writeback->connector, conn->connector_id);
 
 	ret = drm_writeback_update_info(writeback, conn);
 	if (ret < 0)
@@ -2355,24 +2346,24 @@ drm_writeback_destroy(struct drm_writeback *writeback)
  *
  * The object is then added to the DRM-backend list of heads or writebacks.
  *
- * @param b The DRM-backend structure
+ * @param device The DRM device structure
  * @param conn The DRM connector object
  * @param drm_device udev device pointer
  * @return 0 on success, -1 on failure
  */
 static int
-drm_backend_add_connector(struct drm_backend *b, drmModeConnector *conn,
+drm_backend_add_connector(struct drm_device *device, drmModeConnector *conn,
 			  struct udev_device *drm_device)
 {
 	int ret;
 
 	if (conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK) {
-		ret = drm_writeback_create(b, conn);
+		ret = drm_writeback_create(device, conn);
 		if (ret < 0)
 			weston_log("DRM: failed to create writeback for connector %d.\n",
 				   conn->connector_id);
 	} else {
-		ret = drm_head_create(b, conn, drm_device);
+		ret = drm_head_create(device, conn, drm_device);
 		if (ret < 0)
 			weston_log("DRM: failed to create head for connector %d.\n",
 				   conn->connector_id);
@@ -2386,16 +2377,16 @@ drm_backend_add_connector(struct drm_backend *b, drmModeConnector *conn,
  *
  * These objects are added to the DRM-backend lists of heads and writebacks.
  *
- * @param b The DRM-backend structure
+ * @param device The DRM device structure
  * @param drm_device udev device pointer
  * @param resources The DRM resources, it is taken with drmModeGetResources
  * @return 0 on success, -1 on failure
  */
 static int
-drm_backend_discover_connectors(struct drm_backend *b, struct udev_device *drm_device,
+drm_backend_discover_connectors(struct drm_device *device,
+				struct udev_device *drm_device,
 				drmModeRes *resources)
 {
-	struct drm_device *device = b->drm;
 	drmModeConnector *conn;
 	int i, ret;
 
@@ -2411,7 +2402,7 @@ drm_backend_discover_connectors(struct drm_backend *b, struct udev_device *drm_d
 		if (!conn)
 			continue;
 
-		ret = drm_backend_add_connector(b, conn, drm_device);
+		ret = drm_backend_add_connector(device, conn, drm_device);
 		if (ret < 0)
 			drmModeFreeConnector(conn);
 	}
@@ -2468,7 +2459,7 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 		else if (writeback)
 			ret = drm_writeback_update_info(writeback, conn);
 		else
-			ret = drm_backend_add_connector(b, conn, drm_device);
+			ret = drm_backend_add_connector(b->drm, conn, drm_device);
 
 		if (ret < 0)
 			drmModeFreeConnector(conn);
@@ -2632,7 +2623,7 @@ drm_destroy(struct weston_compositor *ec)
 
 	b->shutting_down = true;
 
-	destroy_sprites(b);
+	destroy_sprites(b->drm);
 
 	weston_log_scope_destroy(b->debug);
 	b->debug = NULL;
@@ -2951,13 +2942,11 @@ recorder_frame_notify(struct wl_listener *listener, void *data)
 {
 	struct drm_output *output;
 	struct drm_device *device;
-	struct drm_backend *b;
 	int fd, ret;
 
 	output = container_of(listener, struct drm_output,
 			      recorder_frame_listener);
-	b = to_drm_backend(output->base.compositor);
-	device = b->drm;
+	device = output->device;
 
 	if (!output->recorder)
 		return;
@@ -3130,7 +3119,7 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev;
 	}
 
-	if (init_kms_caps(b) < 0) {
+	if (init_kms_caps(device) < 0) {
 		weston_log("failed to initialize kms\n");
 		goto err_udev_dev;
 	}
@@ -3164,13 +3153,13 @@ drm_backend_create(struct weston_compositor *compositor,
 	}
 
 	wl_list_init(&b->drm->crtc_list);
-	if (drm_backend_create_crtc_list(b, res) == -1) {
+	if (drm_backend_create_crtc_list(b->drm, res) == -1) {
 		weston_log("Failed to create CRTC list for DRM-backend\n");
 		goto err_create_crtc_list;
 	}
 
 	wl_list_init(&device->plane_list);
-	create_sprites(b);
+	create_sprites(b->drm);
 
 	if (udev_input_init(&b->input,
 			    compositor, b->udev, seat_id,
@@ -3180,7 +3169,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	}
 
 	wl_list_init(&b->drm->writeback_connector_list);
-	if (drm_backend_discover_connectors(b, drm_device, res) < 0) {
+	if (drm_backend_discover_connectors(b->drm, drm_device, res) < 0) {
 		weston_log("Failed to create heads for %s\n", b->drm->drm.filename);
 		goto err_udev_input;
 	}
@@ -3290,7 +3279,7 @@ err_drm_source:
 err_udev_input:
 	udev_input_destroy(&b->input);
 err_sprite:
-	destroy_sprites(b);
+	destroy_sprites(b->drm);
 err_create_crtc_list:
 	drmModeFreeResources(res);
 err_udev_dev:

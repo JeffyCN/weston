@@ -98,9 +98,9 @@ drm_subpixel_to_wayland(int drm_value)
 }
 
 int
-drm_mode_ensure_blob(struct drm_backend *backend, struct drm_mode *mode)
+drm_mode_ensure_blob(struct drm_device *device, struct drm_mode *mode)
 {
-	struct drm_device *device = backend->drm;
+	struct drm_backend *backend = device->backend;
 	int ret;
 
 	if (mode->blob_id)
@@ -321,8 +321,7 @@ find_and_parse_output_edid(struct drm_head *head,
 			   const char **serial_number,
 			   uint32_t *eotf_mask)
 {
-	struct drm_backend *backend = head->backend;
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = head->connector.device;
 	drmModePropertyBlobPtr edid_blob = NULL;
 	uint32_t blob_id;
 	int rc;
@@ -363,7 +362,7 @@ prune_eotf_modes_by_kms_support(struct drm_head *head, uint32_t *eotf_mask)
 	/* Without the KMS property, cannot do anything but SDR. */
 
 	info = &head->connector.props[WDRM_CONNECTOR_HDR_OUTPUT_METADATA];
-	if (!head->backend->drm->atomic_modeset || info->prop_id == 0)
+	if (!head->connector.device->atomic_modeset || info->prop_id == 0)
 		*eotf_mask = WESTON_EOTF_MODE_SDR;
 }
 
@@ -427,10 +426,8 @@ drm_output_add_mode(struct drm_output *output, const drmModeModeInfo *info)
  * Destroys a mode, and removes it from the list.
  */
 static void
-drm_output_destroy_mode(struct drm_backend *backend, struct drm_mode *mode)
+drm_output_destroy_mode(struct drm_device *device, struct drm_mode *mode)
 {
-	struct drm_device *device = backend->drm;
-
 	if (mode->blob_id)
 		drmModeDestroyPropertyBlob(device->drm.fd, mode->blob_id);
 	wl_list_remove(&mode->base.link);
@@ -439,16 +436,16 @@ drm_output_destroy_mode(struct drm_backend *backend, struct drm_mode *mode)
 
 /** Destroy a list of drm_modes
  *
- * @param backend The backend for releasing mode property blobs.
+ * @param device The device for releasing mode property blobs.
  * @param mode_list The list linked by drm_mode::base.link.
  */
 void
-drm_mode_list_destroy(struct drm_backend *backend, struct wl_list *mode_list)
+drm_mode_list_destroy(struct drm_device *device, struct wl_list *mode_list)
 {
 	struct drm_mode *mode, *next;
 
 	wl_list_for_each_safe(mode, next, mode_list, base.link)
-		drm_output_destroy_mode(backend, mode);
+		drm_output_destroy_mode(device, mode);
 }
 
 void
@@ -567,7 +564,7 @@ update_head_from_connector(struct drm_head *head)
  * Find the most suitable mode to use for initial setup (or reconfiguration on
  * hotplug etc) for a DRM output.
  *
- * @param backend the DRM backend
+ * @param device the DRM device
  * @param output DRM output to choose mode for
  * @param mode Strategy and preference to use when choosing mode
  * @param modeline Manually-entered mode (may be NULL)
@@ -575,13 +572,12 @@ update_head_from_connector(struct drm_head *head)
  * @returns A mode from the output's mode list, or NULL if none available
  */
 static struct drm_mode *
-drm_output_choose_initial_mode(struct drm_backend *backend,
+drm_output_choose_initial_mode(struct drm_device *device,
 			       struct drm_output *output,
 			       enum weston_drm_backend_output_mode mode,
 			       const char *modeline,
 			       const drmModeModeInfo *current_mode)
 {
-	struct drm_device *device = backend->drm;
 	struct drm_mode *preferred = NULL;
 	struct drm_mode *current = NULL;
 	struct drm_mode *configured = NULL;
@@ -744,6 +740,7 @@ drm_output_try_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 	struct weston_mode *base;
 	struct drm_mode *mode = NULL;
 	struct drm_backend *backend;
+	struct drm_device *device;
 	const drmModeModeInfo *chosen = NULL;
 
 	assert(info);
@@ -758,7 +755,8 @@ drm_output_try_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 	if (chosen == info) {
 		assert(mode);
 		backend = to_drm_backend(output->base.compositor);
-		drm_output_destroy_mode(backend, mode);
+		device = backend->drm;
+		drm_output_destroy_mode(device, mode);
 		chosen = NULL;
 	}
 
@@ -786,6 +784,7 @@ static int
 drm_output_update_modelist_from_heads(struct drm_output *output)
 {
 	struct drm_backend *backend = to_drm_backend(output->base.compositor);
+	struct drm_device *device = backend->drm;
 	struct weston_head *head_base;
 	struct drm_head *head;
 	drmModeConnector *conn;
@@ -794,7 +793,7 @@ drm_output_update_modelist_from_heads(struct drm_output *output)
 
 	assert(!output->base.enabled);
 
-	drm_mode_list_destroy(backend, &output->base.mode_list);
+	drm_mode_list_destroy(device, &output->base.mode_list);
 
 	wl_list_for_each(head_base, &output->base.head_list, output_link) {
 		head = to_drm_head(head_base);
@@ -816,6 +815,7 @@ drm_output_set_mode(struct weston_output *base,
 {
 	struct drm_output *output = to_drm_output(base);
 	struct drm_backend *b = to_drm_backend(base->compositor);
+	struct drm_device *device = b->drm;
 	struct drm_head *head = to_drm_head(weston_output_get_first_head(base));
 
 	struct drm_mode *current;
@@ -826,7 +826,7 @@ drm_output_set_mode(struct weston_output *base,
 	if (drm_output_update_modelist_from_heads(output) < 0)
 		return -1;
 
-	current = drm_output_choose_initial_mode(b, output, mode, modeline,
+	current = drm_output_choose_initial_mode(device, output, mode, modeline,
 						 &head->inherited_mode);
 	if (!current)
 		return -1;

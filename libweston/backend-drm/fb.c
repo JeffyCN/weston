@@ -474,7 +474,8 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 static bool
 drm_fb_compatible_with_plane(struct drm_fb *fb, struct drm_plane *plane)
 {
-	struct drm_backend *b = plane->backend;
+	struct drm_device *device = plane->device;
+	struct drm_backend *b = device->backend;
 	struct weston_drm_format *fmt;
 
 	/* Check whether the format is supported */

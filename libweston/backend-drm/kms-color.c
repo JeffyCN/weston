@@ -108,7 +108,7 @@ weston_hdr_metadata_type1_to_kms(struct hdr_metadata_infoframe *dst,
 int
 drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output)
 {
-	struct drm_device *device = output->backend->drm;
+	struct drm_device *device = output->device;
 	const struct weston_hdr_metadata_type1 *src;
 	struct hdr_output_metadata meta;
 	uint32_t blob_id = 0;
