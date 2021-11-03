@@ -388,7 +388,7 @@ struct drm_edid {
  * output state will complete and be retired separately.
  */
 struct drm_pending_state {
-	struct drm_backend *backend;
+	struct drm_device *device;
 	struct wl_list output_list;
 };
 
@@ -760,7 +760,7 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 #endif
 
 struct drm_pending_state *
-drm_pending_state_alloc(struct drm_backend *backend);
+drm_pending_state_alloc(struct drm_device *device);
 void
 drm_pending_state_free(struct drm_pending_state *pending_state);
 struct drm_output_state *

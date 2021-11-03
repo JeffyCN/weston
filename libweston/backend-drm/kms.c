@@ -1065,8 +1065,8 @@ static int
 drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 			       enum drm_state_apply_mode mode)
 {
-	struct drm_backend *b = pending_state->backend;
-	struct drm_device *device = b->drm;
+	struct drm_device *device = pending_state->device;
+	struct drm_backend *b = device->backend;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_plane *plane;
 	drmModeAtomicReq *req = drmModeAtomicAlloc();
@@ -1235,8 +1235,7 @@ out:
 int
 drm_pending_state_test(struct drm_pending_state *pending_state)
 {
-	struct drm_backend *b = pending_state->backend;
-	struct drm_device *device = b->drm;
+	struct drm_device *device = pending_state->device;
 
 	if (device->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
@@ -1257,8 +1256,8 @@ drm_pending_state_test(struct drm_pending_state *pending_state)
 int
 drm_pending_state_apply(struct drm_pending_state *pending_state)
 {
-	struct drm_backend *b = pending_state->backend;
-	struct drm_device *device = b->drm;
+	struct drm_device *device = pending_state->device;
+	struct drm_backend *b = device->backend;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
 
@@ -1325,8 +1324,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 int
 drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 {
-	struct drm_backend *backend = pending_state->backend;
-	struct drm_device *device = backend->drm;
+	struct drm_device *device = pending_state->device;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
 

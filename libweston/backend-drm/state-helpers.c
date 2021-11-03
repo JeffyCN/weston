@@ -438,11 +438,11 @@ drm_output_state_free(struct drm_output_state *state)
  * Allocate a new, empty, 'pending state' structure to be used across a
  * repaint cycle or similar.
  *
- * @param backend DRM backend
+ * @param device DRM device
  * @returns Newly-allocated pending state structure
  */
 struct drm_pending_state *
-drm_pending_state_alloc(struct drm_backend *backend)
+drm_pending_state_alloc(struct drm_device *device)
 {
 	struct drm_pending_state *ret;
 
@@ -450,7 +450,7 @@ drm_pending_state_alloc(struct drm_backend *backend)
 	if (!ret)
 		return NULL;
 
-	ret->backend = backend;
+	ret->device = device;
 	wl_list_init(&ret->output_list);
 
 	return ret;

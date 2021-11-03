@@ -272,6 +272,7 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 			   unsigned int sec, unsigned int usec)
 {
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	struct drm_plane_state *ps;
 	struct timespec ts;
 
@@ -297,7 +298,7 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 		weston_output_disable(&output->base);
 		return;
 	} else if (output->dpms_off_pending) {
-		struct drm_pending_state *pending = drm_pending_state_alloc(b);
+		struct drm_pending_state *pending = drm_pending_state_alloc(device);
 		output->dpms_off_pending = false;
 		drm_output_get_disable_state(pending, output);
 		drm_pending_state_apply_sync(pending);
@@ -588,7 +589,7 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 	assert(!output->page_flip_pending);
 	assert(!output->state_last);
 
-	pending_state = drm_pending_state_alloc(backend);
+	pending_state = drm_pending_state_alloc(device);
 	drm_output_state_duplicate(output->state_cur, pending_state,
 				   DRM_OUTPUT_STATE_PRESERVE_PLANES);
 
@@ -624,7 +625,7 @@ drm_repaint_begin(struct weston_compositor *compositor)
 	struct drm_device *device = b->drm;
 	struct drm_pending_state *pending_state;
 
-	pending_state = drm_pending_state_alloc(b);
+	pending_state = drm_pending_state_alloc(device);
 	device->repaint_data = pending_state;
 
 	if (weston_log_scope_is_enabled(b->debug)) {
@@ -1101,7 +1102,7 @@ drm_set_dpms(struct weston_output *output_base, enum dpms_enum level)
 		return;
 	}
 
-	pending_state = drm_pending_state_alloc(b);
+	pending_state = drm_pending_state_alloc(device);
 	drm_output_get_disable_state(pending_state, output);
 	ret = drm_pending_state_apply_sync(pending_state);
 	if (ret != 0)
