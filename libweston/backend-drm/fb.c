@@ -69,9 +69,8 @@ drm_fb_destroy_dumb(struct drm_fb *fb)
 }
 
 static int
-drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
+drm_fb_addfb(struct drm_device *device, struct drm_fb *fb)
 {
-	struct drm_device *device = b->drm;
 	int ret = -EINVAL;
 	uint64_t mods[4] = { };
 	size_t i;
@@ -113,10 +112,9 @@ drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 }
 
 struct drm_fb *
-drm_fb_create_dumb(struct drm_backend *b, int width, int height,
+drm_fb_create_dumb(struct drm_device *device, int width, int height,
 		   uint32_t format)
 {
-	struct drm_device *device = b->drm;
 	struct drm_fb *fb;
 	int ret;
 
@@ -161,7 +159,7 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 	fb->height = height;
 	fb->fd = device->drm.fd;
 
-	if (drm_fb_addfb(b, fb) != 0) {
+	if (drm_fb_addfb(device, fb) != 0) {
 		weston_log("failed to create kms fb: %s\n", strerror(errno));
 		goto err_bo;
 	}
@@ -220,7 +218,7 @@ drm_fb_destroy_dmabuf(struct drm_fb *fb)
 
 static struct drm_fb *
 drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
-		       struct drm_backend *backend, bool is_opaque,
+		       struct drm_device *device, bool is_opaque,
 		       uint32_t *try_view_on_plane_failure_reasons)
 {
 #ifndef HAVE_GBM_FD_IMPORT
@@ -229,7 +227,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	 * of GBM_BO_IMPORT_FD_MODIFIER. */
 	return NULL;
 #else
-	struct drm_device *device = backend->drm;
+	struct drm_backend *backend = device->backend;
 	struct drm_fb *fb;
 	int i;
 	struct gbm_import_fd_modifier_data import_mod = {
@@ -326,7 +324,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		fb->handles[i] = handle.u32;
 	}
 
-	if (drm_fb_addfb(backend, fb) != 0) {
+	if (drm_fb_addfb(device, fb) != 0) {
 		if (try_view_on_plane_failure_reasons)
 			*try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_ADD_FB_FAILED;
@@ -342,10 +340,9 @@ err_free:
 }
 
 struct drm_fb *
-drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
+drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_device *device,
 		   bool is_opaque, enum drm_fb_type type)
 {
-	struct drm_device *device = backend->drm;
 	struct drm_fb *fb = gbm_bo_get_user_data(bo);
 #ifdef HAVE_GBM_MODIFIERS
 	int i;
@@ -404,7 +401,7 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 		goto err_free;
 	}
 
-	if (drm_fb_addfb(backend, fb) != 0) {
+	if (drm_fb_addfb(device, fb) != 0) {
 		if (type == BUFFER_GBM_SURFACE)
 			weston_log("failed to create kms fb: %s\n",
 				   strerror(errno));
@@ -460,10 +457,11 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 {
 	struct drm_fb *fb;
 	struct drm_backend *b = to_drm_backend(ec);
+	struct drm_device *device = b->drm;
 	bool ret = false;
 	uint32_t try_reason = 0x0;
 
-	fb = drm_fb_get_from_dmabuf(dmabuf, b, true, &try_reason);
+	fb = drm_fb_get_from_dmabuf(dmabuf, device, true, &try_reason);
 	if (fb)
 		ret = true;
 
@@ -582,7 +580,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	}
 
 	if (buffer->type == WESTON_BUFFER_DMABUF) {
-		fb = drm_fb_get_from_dmabuf(buffer->dmabuf, b, is_opaque,
+		fb = drm_fb_get_from_dmabuf(buffer->dmabuf, device, is_opaque,
 					    &buf_fb->failure_reasons);
 		if (!fb)
 			goto unsuitable;
@@ -594,7 +592,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 		if (!bo)
 			goto unsuitable;
 
-		fb = drm_fb_get_from_bo(bo, b, is_opaque, BUFFER_CLIENT);
+		fb = drm_fb_get_from_bo(bo, device, is_opaque, BUFFER_CLIENT);
 		if (!fb) {
 			*try_view_on_plane_failure_reasons |=
 				(1 << FAILURE_REASONS_ADD_FB_FAILED);

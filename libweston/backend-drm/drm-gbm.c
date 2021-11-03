@@ -163,7 +163,7 @@ drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
 			goto err;
 
 		output->gbm_cursor_fb[i] =
-			drm_fb_get_from_bo(bo, b, false, BUFFER_CURSOR);
+			drm_fb_get_from_bo(bo, device, false, BUFFER_CURSOR);
 		if (!output->gbm_cursor_fb[i]) {
 			gbm_bo_destroy(bo);
 			goto err;
@@ -291,6 +291,7 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	struct gbm_bo *bo;
 	struct drm_fb *ret;
 
@@ -305,7 +306,7 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 	}
 
 	/* The renderer always produces an opaque image. */
-	ret = drm_fb_get_from_bo(bo, b, true, BUFFER_GBM_SURFACE);
+	ret = drm_fb_get_from_bo(bo, device, true, BUFFER_GBM_SURFACE);
 	if (!ret) {
 		weston_log("failed to get drm_fb for bo\n");
 		gbm_surface_release_buffer(output->gbm_surface, bo);

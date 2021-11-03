@@ -1160,6 +1160,7 @@ make_connector_name(const drmModeConnector *con)
 static int
 drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 {
+	struct drm_device *device = b->drm;
 	int w = output->base.current_mode->width;
 	int h = output->base.current_mode->height;
 	uint32_t format = output->gbm_format;
@@ -1183,7 +1184,7 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 
 	/* FIXME error checking */
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
-		output->dumb[i] = drm_fb_create_dumb(b, w, h, format);
+		output->dumb[i] = drm_fb_create_dumb(device, w, h, format);
 		if (!output->dumb[i])
 			goto err;
 
