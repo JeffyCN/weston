@@ -2734,9 +2734,9 @@ drm_device_changed(struct weston_compositor *compositor,
  * sets b->drm.fd and b->drm.filename to the opened device.
  */
 static bool
-drm_device_is_kms(struct drm_backend *b, struct udev_device *udev_device)
+drm_device_is_kms(struct drm_backend *b, struct drm_device *device,
+		  struct udev_device *udev_device)
 {
-	struct drm_device *device = b->drm;
 	struct weston_compositor *compositor = b->compositor;
 	const char *filename = udev_device_get_devnode(udev_device);
 	const char *sysnum = udev_device_get_sysnum(udev_device);
@@ -2847,7 +2847,7 @@ find_primary_gpu(struct drm_backend *b, const char *seat)
 		/* Make sure this device is actually capable of modesetting;
 		 * if this call succeeds, device->drm.{fd,filename} will be set,
 		 * and any old values freed. */
-		if (!drm_device_is_kms(b, dev)) {
+		if (!drm_device_is_kms(b, b->drm, dev)) {
 			udev_device_unref(dev);
 			continue;
 		}
@@ -2877,9 +2877,9 @@ find_primary_gpu(struct drm_backend *b, const char *seat)
 }
 
 static struct udev_device *
-open_specific_drm_device(struct drm_backend *b, const char *name)
+open_specific_drm_device(struct drm_backend *b, struct drm_device *device,
+			 const char *name)
 {
-	struct drm_device *device = b->drm;
 	struct udev_device *udev_device;
 
 	udev_device = udev_device_new_from_subsystem_sysname(b->udev, "drm", name);
@@ -2888,7 +2888,7 @@ open_specific_drm_device(struct drm_backend *b, const char *name)
 		return NULL;
 	}
 
-	if (!drm_device_is_kms(b, udev_device)) {
+	if (!drm_device_is_kms(b, device, udev_device)) {
 		udev_device_unref(udev_device);
 		weston_log("ERROR: DRM device '%s' is not a KMS device.\n", name);
 		return NULL;
@@ -3109,7 +3109,8 @@ drm_backend_create(struct weston_compositor *compositor,
 	wl_signal_add(&compositor->session_signal, &b->session_listener);
 
 	if (config->specific_device)
-		drm_device = open_specific_drm_device(b, config->specific_device);
+		drm_device = open_specific_drm_device(b, device,
+						      config->specific_device);
 	else
 		drm_device = find_primary_gpu(b, seat_id);
 	if (drm_device == NULL) {
