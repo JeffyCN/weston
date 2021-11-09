@@ -33,6 +33,8 @@ lib_test_client = static_library(
 		weston_test_protocol_c,
 		viewporter_client_protocol_h,
 		viewporter_protocol_c,
+		'color_util.h',
+		'color_util.c',
 	],
 	include_directories: common_inc,
 	dependencies: [

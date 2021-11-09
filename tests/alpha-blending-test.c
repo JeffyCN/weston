@@ -1,5 +1,6 @@
 /*
  * Copyright 2020 Collabora, Ltd.
+ * Copyright 2021 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -29,6 +30,7 @@
 
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
+#include "color_util.h"
 
 struct setup_args {
 	struct fixture_metadata meta;
@@ -105,6 +107,20 @@ premult_color(uint32_t a, uint32_t r, uint32_t g, uint32_t b)
 }
 
 static void
+unpremult_float(struct color_float *cf)
+{
+	if (cf->a == 0.0f) {
+		cf->r = 0.0f;
+		cf->g = 0.0f;
+		cf->b = 0.0f;
+	} else {
+		cf->r /= cf->a;
+		cf->g /= cf->a;
+		cf->b /= cf->a;
+	}
+}
+
+static void
 fill_alpha_pattern(struct buffer *buf)
 {
 	void *pixels;
@@ -137,76 +153,6 @@ fill_alpha_pattern(struct buffer *buf)
 	}
 }
 
-struct color_float {
-	float r, g, b, a;
-};
-
-static struct color_float
-a8r8g8b8_to_float(uint32_t v)
-{
-	struct color_float cf;
-
-	cf.a = ((v >> 24) & 0xff) / 255.f;
-	cf.r = ((v >> 16) & 0xff) / 255.f;
-	cf.g = ((v >>  8) & 0xff) / 255.f;
-	cf.b = ((v >>  0) & 0xff) / 255.f;
-
-	return cf;
-}
-
-static void
-unpremult_float(struct color_float *cf)
-{
-	if (cf->a == 0.0f) {
-		cf->r = 0.0f;
-		cf->g = 0.0f;
-		cf->b = 0.0f;
-	} else {
-		cf->r /= cf->a;
-		cf->g /= cf->a;
-		cf->b /= cf->a;
-	}
-}
-
-static float
-sRGB_EOTF(float e)
-{
-	assert(e >= 0.0f);
-	assert(e <= 1.0f);
-
-	if (e <= 0.04045)
-		return e / 12.92;
-	else
-		return pow((e + 0.055) / 1.055, 2.4);
-}
-
-static void
-sRGB_linearize(struct color_float *cf)
-{
-	cf->r = sRGB_EOTF(cf->r);
-	cf->g = sRGB_EOTF(cf->g);
-	cf->b = sRGB_EOTF(cf->b);
-}
-
-static float
-sRGB_EOTF_inv(float o)
-{
-	assert(o >= 0.0f);
-	assert(o <= 1.0f);
-
-	if (o <= 0.04045 / 12.92)
-		return o * 12.92;
-	else
-		return pow(o, 1.0 / 2.4) * 1.055 - 0.055;
-}
-
-static void
-sRGB_delinearize(struct color_float *cf)
-{
-	cf->r = sRGB_EOTF_inv(cf->r);
-	cf->g = sRGB_EOTF_inv(cf->g);
-	cf->b = sRGB_EOTF_inv(cf->b);
-}
 
 static bool
 compare_float(float ref, float dst, int x, const char *chan, float *max_diff)
