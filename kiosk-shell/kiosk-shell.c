@@ -384,12 +384,31 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 		dsurface_focus = current_focus->desktop_surface;
 		if (--current_focus->focus_count == 0)
 			weston_desktop_surface_set_activated(dsurface_focus, false);
+
+		/* removes it from the normal_layer and move it to inactive
+		 * one, without occluding the top-level window if the new one
+		 * is a child to that */
+		if (!shsurf->parent) {
+			weston_layer_entry_remove(&current_focus->view->layer_link);
+			weston_layer_entry_insert(&shsurf->shell->inactive_layer.view_list,
+						  &current_focus->view->layer_link);
+			weston_view_geometry_dirty(current_focus->view);
+			weston_surface_damage(current_focus->view->surface);
+		}
 	}
 
 	/* xdg-shell activation for the new one */
 	kiosk_seat->focused_surface = surface;
 	if (shsurf->focus_count++ == 0)
 		weston_desktop_surface_set_activated(dsurface, true);
+
+	/* removes it from the inactive_layer, on removal of a surface, and
+	 * move it back to the normal layer */
+	weston_layer_entry_remove(&shsurf->view->layer_link);
+	weston_layer_entry_insert(&shsurf->shell->normal_layer.view_list,
+				  &shsurf->view->layer_link);
+	weston_view_geometry_dirty(shsurf->view);
+	weston_surface_damage(shsurf->view->surface);
 }
 
 /*
@@ -676,7 +695,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	kiosk_seat = get_kiosk_shell_seat(seat);
 
 	if (seat && kiosk_seat) {
-		focus_view = find_focus_successor(&shell->normal_layer, shsurf,
+		focus_view = find_focus_successor(&shell->inactive_layer, shsurf,
 						  kiosk_seat->focused_surface);
 
 		if (focus_view) {
@@ -740,8 +759,6 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 			get_kiosk_shell_first_seat(shsurf->shell);
 		struct kiosk_shell_seat *kiosk_seat;
 
-		weston_layer_entry_insert(&shsurf->shell->normal_layer.view_list,
-					  &shsurf->view->layer_link);
 		shsurf->view->is_mapped = true;
 		surface->is_mapped = true;
 
@@ -1105,6 +1122,7 @@ kiosk_shell_destroy(struct wl_listener *listener, void *data)
 
 	weston_layer_fini(&shell->background_layer);
 	weston_layer_fini(&shell->normal_layer);
+	weston_layer_fini(&shell->inactive_layer);
 
 	free(shell);
 }
@@ -1139,9 +1157,12 @@ wet_shell_init(struct weston_compositor *ec,
 
 	weston_layer_init(&shell->background_layer, ec);
 	weston_layer_init(&shell->normal_layer, ec);
+	weston_layer_init(&shell->inactive_layer, ec);
 
 	weston_layer_set_position(&shell->background_layer,
 				  WESTON_LAYER_POSITION_BACKGROUND);
+	weston_layer_set_position(&shell->inactive_layer,
+				  WESTON_LAYER_POSITION_HIDDEN);
 	/* We use the NORMAL layer position, so that xwayland surfaces, which
 	 * are placed at NORMAL+1, are visible.  */
 	weston_layer_set_position(&shell->normal_layer,

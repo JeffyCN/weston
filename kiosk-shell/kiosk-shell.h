@@ -41,6 +41,7 @@ struct kiosk_shell {
 
 	struct weston_layer background_layer;
 	struct weston_layer normal_layer;
+	struct weston_layer inactive_layer;
 
 	struct wl_list output_list;
 	struct wl_list seat_list;
