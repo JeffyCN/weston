@@ -300,6 +300,11 @@ struct drm_device {
 		dev_t devnum;
 	} drm;
 
+	/* Track the GEM handles if the device does not have a gbm device, which
+	 * tracks the handles for us.
+	 */
+	struct hash_table *gem_handle_refcnt;
+
 	/* drm_crtc::link */
 	struct wl_list crtc_list;
 
@@ -377,6 +382,8 @@ enum drm_fb_type {
 
 struct drm_fb {
 	enum drm_fb_type type;
+
+	struct drm_device *scanout_device;
 
 	int refcnt;
 

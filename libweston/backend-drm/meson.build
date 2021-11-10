@@ -36,6 +36,7 @@ deps_drm = [
 	dep_egl, # optional
 	dep_libm,
 	dep_libdl,
+	dep_libshared,
 	dep_libweston_private,
 	dep_session_helper,
 	dep_libdrm,
