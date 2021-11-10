@@ -252,6 +252,28 @@ get_default_view(struct weston_surface *surface)
 }
 
 static void
+desktop_shell_destroy_surface(struct shell_surface *shsurf)
+{
+	struct shell_surface *shsurf_child, *tmp;
+
+	wl_list_for_each_safe(shsurf_child, tmp, &shsurf->children_list, children_link) {
+		wl_list_remove(&shsurf_child->children_link);
+		wl_list_init(&shsurf_child->children_link);
+	}
+	wl_list_remove(&shsurf->children_link);
+
+	wl_signal_emit(&shsurf->destroy_signal, shsurf);
+
+	weston_view_destroy(shsurf->view);
+	if (shsurf->output_destroy_listener.notify) {
+		wl_list_remove(&shsurf->output_destroy_listener.link);
+		shsurf->output_destroy_listener.notify = NULL;
+	}
+
+	free(shsurf);
+}
+
+static void
 shell_grab_start(struct shell_grab *grab,
 		 const struct weston_pointer_grab_interface *interface,
 		 struct shell_surface *shsurf,
@@ -855,6 +877,9 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 }
 
 static void
+desktop_shell_destroy_views_on_layer(struct weston_layer *layer);
+
+static void
 workspace_destroy(struct workspace *ws)
 {
 	struct focus_state *state, *next;
@@ -867,8 +892,7 @@ workspace_destroy(struct workspace *ws)
 	if (ws->fsurf_back)
 		focus_surface_destroy(ws->fsurf_back);
 
-	weston_layer_fini(&ws->layer);
-
+	desktop_shell_destroy_views_on_layer(&ws->layer);
 	free(ws);
 }
 
@@ -2218,15 +2242,7 @@ static void
 fade_out_done_idle_cb(void *data)
 {
 	struct shell_surface *shsurf = data;
-
-	weston_surface_destroy(shsurf->view->surface);
-
-	if (shsurf->output_destroy_listener.notify) {
-		wl_list_remove(&shsurf->output_destroy_listener.link);
-		shsurf->output_destroy_listener.notify = NULL;
-	}
-
-	free(shsurf);
+	desktop_shell_destroy_surface(shsurf);
 }
 
 static void
@@ -2322,19 +2338,12 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 {
 	struct shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(desktop_surface);
-	struct shell_surface *shsurf_child, *tmp;
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_seat *seat;
 
 	if (!shsurf)
 		return;
-
-	wl_list_for_each_safe(shsurf_child, tmp, &shsurf->children_list, children_link) {
-		wl_list_remove(&shsurf_child->children_link);
-		wl_list_init(&shsurf_child->children_link);
-	}
-	wl_list_remove(&shsurf->children_link);
 
 	wl_list_for_each(seat, &shsurf->shell->compositor->seat_list, link) {
 		struct shell_seat *shseat = get_shell_seat(seat);
@@ -2347,8 +2356,6 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 		if (shseat && surface == shseat->focused_surface)
 			shseat->focused_surface = NULL;
 	}
-
-	wl_signal_emit(&shsurf->destroy_signal, shsurf);
 
 	if (shsurf->fullscreen.black_view)
 		weston_surface_destroy(shsurf->fullscreen.black_view->surface);
@@ -2374,14 +2381,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 		}
 	}
 
-	weston_view_destroy(shsurf->view);
-
-	if (shsurf->output_destroy_listener.notify) {
-	    wl_list_remove(&shsurf->output_destroy_listener.link);
-	    shsurf->output_destroy_listener.notify = NULL;
-	}
-
-	free(shsurf);
+	desktop_shell_destroy_surface(shsurf);
 }
 
 static void
@@ -4905,6 +4905,30 @@ setup_output_destroy_handler(struct weston_compositor *ec,
 }
 
 static void
+desktop_shell_destroy_views_on_layer(struct weston_layer *layer)
+{
+	struct weston_view *view, *view_next;
+
+	wl_list_for_each_safe(view, view_next, &layer->view_list.link, layer_link.link) {
+		struct shell_surface *shsurf =
+			get_shell_surface(view->surface);
+		/* fullscreen_layer is special as it would have a view with an
+		 * additional black_view created and added to its layer_link
+		 * fullscreen view. See shell_ensure_fullscreen_black_view()
+		 *
+		 * As that black_view it is not a weston_desktop_surface
+		 * we can't have a shsurf for it so we just destroy it like
+		 * we do it in desktop_surface_removed() */
+		if (shsurf)
+			desktop_shell_destroy_surface(shsurf);
+		else
+			weston_surface_destroy(view->surface);
+	}
+
+	weston_layer_fini(layer);
+}
+
+static void
 shell_destroy(struct wl_listener *listener, void *data)
 {
 	struct desktop_shell *shell =
@@ -4946,12 +4970,12 @@ shell_destroy(struct wl_listener *listener, void *data)
 		workspace_destroy(*ws);
 	wl_array_release(&shell->workspaces.array);
 
-	weston_layer_fini(&shell->fullscreen_layer);
-	weston_layer_fini(&shell->panel_layer);
-	weston_layer_fini(&shell->background_layer);
-	weston_layer_fini(&shell->lock_layer);
-	weston_layer_fini(&shell->input_panel_layer);
-	weston_layer_fini(&shell->minimized_layer);
+	desktop_shell_destroy_views_on_layer(&shell->panel_layer);
+	desktop_shell_destroy_views_on_layer(&shell->background_layer);
+	desktop_shell_destroy_views_on_layer(&shell->lock_layer);
+	desktop_shell_destroy_views_on_layer(&shell->input_panel_layer);
+	desktop_shell_destroy_views_on_layer(&shell->minimized_layer);
+	desktop_shell_destroy_views_on_layer(&shell->fullscreen_layer);
 
 	free(shell->client);
 	free(shell);
