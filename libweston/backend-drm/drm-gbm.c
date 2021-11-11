@@ -194,6 +194,15 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 	}
 #endif
 
+	/*
+	 * If we cannot use modifiers to allocate the GBM surface and the GBM
+	 * device differs from the KMS display device (because we are rendering
+	 * on a different GPU), we have to use linear buffers to make sure that
+	 * the allocated GBM surface is correctly displayed on the KMS device.
+	 */
+	if (gbm_device_get_fd(gbm) != output->device->drm.fd)
+		output->gbm_bo_flags |= GBM_BO_USE_LINEAR;
+
 	/* We may allocate with no modifiers in the following situations:
 	 *
 	 * 1. old GBM version, so HAVE_GBM_MODIFIERS is false;
