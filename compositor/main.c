@@ -2912,6 +2912,7 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
 		{ WESTON_OPTION_STRING, "drm-device", 0, &config.specific_device },
+		{ WESTON_OPTION_STRING, "additional-devices", 0, &config.additional_devices},
 		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &wet->drm_use_current_mode },
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
 		{ WESTON_OPTION_BOOLEAN, "continue-without-input", false, &without_input }

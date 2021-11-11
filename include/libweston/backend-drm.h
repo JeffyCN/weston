@@ -250,6 +250,14 @@ struct weston_drm_backend_config {
 
 	/** Use shadow buffer if using Pixman-renderer. */
 	bool use_pixman_shadow;
+
+	/** Additional DRM devices to open
+	 *
+	 * A comma-separated list of DRM devices names, like "card1", to open.
+	 * The devices will be used as additional scanout devices, but not as a
+	 * rendering device.
+	 */
+	char *additional_devices;
 };
 
 #ifdef  __cplusplus

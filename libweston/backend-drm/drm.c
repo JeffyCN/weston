@@ -630,9 +630,10 @@ static void
 drm_repaint_begin(struct weston_backend *backend)
 {
 	struct drm_backend *b = container_of(backend, struct drm_backend, base);
-	struct drm_device *device = b->drm;
+	struct drm_device *device;
 	struct drm_pending_state *pending_state;
 
+	device = b->drm;
 	pending_state = drm_pending_state_alloc(device);
 	device->repaint_data = pending_state;
 
@@ -642,6 +643,19 @@ drm_repaint_begin(struct weston_backend *backend)
 			  device->repaint_data);
 		drm_debug(b, "%s", dbg);
 		free(dbg);
+	}
+
+	wl_list_for_each(device, &b->kms_list, link) {
+		pending_state = drm_pending_state_alloc(device);
+		device->repaint_data = pending_state;
+
+		if (weston_log_scope_is_enabled(b->debug)) {
+			char *dbg = weston_compositor_print_scene_graph(b->compositor);
+			drm_debug(b, "[repaint] Beginning repaint; pending_state %p\n",
+				  pending_state);
+			drm_debug(b, "%s", dbg);
+			free(dbg);
+		}
 	}
 }
 
@@ -658,16 +672,28 @@ static int
 drm_repaint_flush(struct weston_backend *backend)
 {
 	struct drm_backend *b = container_of(backend, struct drm_backend, base);
-	struct drm_device *device = b->drm;
-	struct drm_pending_state *pending_state = device->repaint_data;
+	struct drm_device *device;
+	struct drm_pending_state *pending_state;
 	int ret;
 
+	device = b->drm;
+	pending_state = device->repaint_data;
 	ret = drm_pending_state_apply(pending_state);
 	if (ret != 0)
 		weston_log("repaint-flush failed: %s\n", strerror(errno));
 
 	drm_debug(b, "[repaint] flushed pending_state %p\n", pending_state);
 	device->repaint_data = NULL;
+
+	wl_list_for_each(device, &b->kms_list, link) {
+		pending_state = device->repaint_data;
+		ret = drm_pending_state_apply(pending_state);
+		if (ret != 0)
+			weston_log("repaint-flush failed: %s\n", strerror(errno));
+
+		drm_debug(b, "[repaint] flushed pending_state %p\n", pending_state);
+		device->repaint_data = NULL;
+	}
 
 	return (ret == -EACCES || ret == -EBUSY) ? ret : 0;
 }
@@ -682,12 +708,21 @@ static void
 drm_repaint_cancel(struct weston_backend *backend)
 {
 	struct drm_backend *b = container_of(backend, struct drm_backend, base);
-	struct drm_device *device = b->drm;
-	struct drm_pending_state *pending_state = device->repaint_data;
+	struct drm_device *device;
+	struct drm_pending_state *pending_state;
 
+	device = b->drm;
+	pending_state = device->repaint_data;
 	drm_pending_state_free(pending_state);
 	drm_debug(b, "[repaint] cancel pending_state %p\n", pending_state);
 	device->repaint_data = NULL;
+
+	wl_list_for_each(device, &b->kms_list, link) {
+		pending_state = device->repaint_data;
+		drm_pending_state_free(pending_state);
+		drm_debug(b, "[repaint] cancel pending_state %p\n", pending_state);
+		device->repaint_data = NULL;
+	}
 }
 
 static int
@@ -2330,6 +2365,26 @@ drm_head_destroy(struct weston_head *base)
 	free(head);
 }
 
+static struct drm_device *
+drm_device_find_by_output(struct weston_compositor *compositor, const char *name)
+{
+	struct drm_device *device = NULL;
+	struct weston_head *base = NULL;
+	struct drm_head *head;
+	const char *tmp;
+
+	while ((base = weston_compositor_iterate_heads(compositor, base))) {
+		tmp = weston_head_get_name(base);
+		if (strcmp(name, tmp) != 0)
+			continue;
+		head = to_drm_head(base);
+		device = head->connector.device;
+		break;
+	}
+
+	return device;
+}
+
 /**
  * Create a Weston output structure
  *
@@ -2347,8 +2402,12 @@ static struct weston_output *
 drm_output_create(struct weston_backend *backend, const char *name)
 {
 	struct drm_backend *b = container_of(backend, struct drm_backend, base);
-	struct drm_device *device = b->drm;
+	struct drm_device *device;
 	struct drm_output *output;
+
+	device = drm_device_find_by_output(b->compositor, name);
+	if (!device)
+		return NULL;
 
 	output = zalloc(sizeof *output);
 	if (output == NULL)
@@ -2688,6 +2747,7 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 	struct drm_backend *b = data;
 	struct udev_device *event;
 	uint32_t conn_id, prop_id;
+	struct drm_device *device;
 
 	event = udev_monitor_receive_device(b->udev_monitor);
 
@@ -2696,6 +2756,15 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 			drm_backend_update_conn_props(b, conn_id, prop_id);
 		else
 			drm_backend_update_connectors(b->drm, event);
+	}
+
+	wl_list_for_each(device, &b->kms_list, link) {
+		if (udev_event_is_hotplug(device, event)) {
+			if (udev_event_is_conn_prop_change(b, event, &conn_id, &prop_id))
+				drm_backend_update_conn_props(b, conn_id, prop_id);
+			else
+				drm_backend_update_connectors(device, event);
+		}
 	}
 
 	udev_device_unref(event);
@@ -3125,6 +3194,91 @@ recorder_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 }
 #endif
 
+static struct drm_device *
+drm_device_create(struct drm_backend *backend, const char *name)
+{
+	struct weston_compositor *compositor = backend->compositor;
+	struct udev_device *udev_device;
+	struct drm_device *device;
+	struct wl_event_loop *loop;
+	drmModeRes *res;
+
+	device = zalloc(sizeof *device);
+	if (device == NULL)
+		return NULL;
+	device->state_invalid = true;
+	device->drm.fd = -1;
+	device->backend = backend;
+	device->gem_handle_refcnt = hash_table_create();
+
+	udev_device = open_specific_drm_device(backend, device, name);
+	if (!udev_device) {
+		free(device);
+		return NULL;
+	}
+
+	if (init_kms_caps(device) < 0) {
+		weston_log("failed to initialize kms\n");
+		goto err;
+	}
+
+	res = drmModeGetResources(device->drm.fd);
+	if (!res) {
+		weston_log("Failed to get drmModeRes\n");
+		goto err;
+	}
+
+	wl_list_init(&device->crtc_list);
+	if (drm_backend_create_crtc_list(device, res) == -1) {
+		weston_log("Failed to create CRTC list for DRM-backend\n");
+		goto err;
+	}
+
+	loop = wl_display_get_event_loop(compositor->wl_display);
+	wl_event_loop_add_fd(loop, device->drm.fd,
+			     WL_EVENT_READABLE, on_drm_input, device);
+
+	wl_list_init(&device->plane_list);
+	create_sprites(device);
+
+	wl_list_init(&device->writeback_connector_list);
+	if (drm_backend_discover_connectors(device, udev_device, res) < 0) {
+		weston_log("Failed to create heads for %s\n", device->drm.filename);
+		goto err;
+	}
+
+	/* 'compute' faked zpos values in case HW doesn't expose any */
+	drm_backend_create_faked_zpos(device);
+
+	return device;
+err:
+	return NULL;
+}
+
+static void
+open_additional_devices(struct drm_backend *backend, const char *cards)
+{
+	struct drm_device *device;
+	char *tokenize = strdup(cards);
+	char *card = strtok(tokenize, ",");
+
+	while (card) {
+		device = drm_device_create(backend, card);
+		if (!device) {
+			weston_log("unable to use card %s\n", card);
+			goto next;
+		}
+
+		weston_log("adding secondary device %s\n",
+			   device->drm.filename);
+		wl_list_insert(&backend->kms_list, &device->link);
+
+next:
+		card = strtok(NULL, ",");
+	}
+
+	free(tokenize);
+}
 
 static const struct weston_drm_output_api api = {
 	drm_output_set_mode,
@@ -3169,6 +3323,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	device->backend = b;
 
 	b->drm = device;
+	wl_list_init(&b->kms_list);
 
 	b->compositor = compositor;
 	b->pageflip_timeout = config->pageflip_timeout;
@@ -3216,6 +3371,9 @@ drm_backend_create(struct weston_compositor *compositor,
 		weston_log("failed to initialize kms\n");
 		goto err_udev_dev;
 	}
+
+	if (config->additional_devices)
+		open_additional_devices(b, config->additional_devices);
 
 	if (config->renderer == WESTON_RENDERER_AUTO) {
 #ifdef BUILD_DRM_GBM

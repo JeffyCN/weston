@@ -337,6 +337,9 @@ struct drm_device {
 	 */
 	int min_width, max_width;
 	int min_height, max_height;
+
+	/* drm_backend::kms_list */
+	struct wl_list link;
 };
 
 struct drm_backend {
@@ -350,6 +353,8 @@ struct drm_backend {
 	struct wl_event_source *udev_drm_source;
 
 	struct drm_device *drm;
+	/* drm_device::link */
+	struct wl_list kms_list;
 	struct gbm_device *gbm;
 	struct wl_listener session_listener;
 	const struct pixel_format_info *format;
