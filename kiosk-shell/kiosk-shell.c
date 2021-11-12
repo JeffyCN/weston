@@ -652,6 +652,14 @@ find_focus_successor(struct weston_layer *layer,
 	struct weston_view *top_view = NULL;
 	struct weston_view *view;
 
+	/* we need to take into account that the surface being destroyed it not
+	 * always the same as the focus_surface, which could result in picking
+	 * and *activating* the wrong window, so avoid returning a view for
+	 * that case. A particular case is when a top-level child window, would
+	 * pick a parent window below the focused_surface. */
+	if (focused_surface != shsurf->view->surface)
+		return top_view;
+
 	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
 		struct kiosk_shell_surface *view_shsurf;
 		struct kiosk_shell_surface *root;
