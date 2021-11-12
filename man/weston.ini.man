@@ -620,13 +620,20 @@ sets the path to the xserver to run (string).
 .SH "SCREEN-SHARE SECTION"
 .TP 7
 .BI "command=" "@weston_bindir@/weston --backend=rdp-backend.so \
---shell=fullscreen-shell.so --no-clients-resize"
+--shell=fullscreen-shell.so --no-clients-resize --no-config"
 sets the command to start a fullscreen-shell server for screen sharing (string).
 .TP 7
 .BI "start-on-startup=" "false"
 If set to true, start screen sharing of all outputs available on Weston startup.
 Set to false by default.
 .\"---------------------------------------------------------------------
+Set to false by default. When using this option make sure you enable --no-config
+to avoid re-loading the screen-share module and implictly trigger screen-sharing
+for the RDP output already performing the screen share. Alternatively, you could
+also supply a different configuration file, by using --config /path/to/config/file,
+and make sure that the configuration file doesn't load the screen-share module.
+.RE
+.RE
 .SH "AUTOLAUNCH SECTION"
 .TP 7
 .BI "path=" "/usr/bin/echo"
