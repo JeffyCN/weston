@@ -2933,6 +2933,8 @@ choose_texture_target(struct gl_renderer *gr,
 	case DRM_FORMAT_VYUY:
 	case DRM_FORMAT_AYUV:
 	case DRM_FORMAT_XYUV8888:
+	case DRM_FORMAT_YUV420_8BIT:
+	case DRM_FORMAT_YUV420_10BIT:
 		return GL_TEXTURE_EXTERNAL_OES;
 	default:
 		return GL_TEXTURE_2D;
