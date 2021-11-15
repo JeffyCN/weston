@@ -63,6 +63,14 @@
 
 #define BUFFER_DAMAGE_COUNT 2
 
+#ifndef DRM_FORMAT_YUV420_8BIT
+#define DRM_FORMAT_YUV420_8BIT fourcc_code('Y', 'U', '0', '8')
+#endif
+
+#ifndef DRM_FORMAT_YUV420_10BIT
+#define DRM_FORMAT_YUV420_10BIT fourcc_code('Y', 'U', '1', '0')
+#endif
+
 enum gl_border_status {
 	BORDER_STATUS_CLEAN = 0,
 	BORDER_TOP_DIRTY = 1 << GL_RENDERER_BORDER_TOP,
@@ -2664,6 +2672,8 @@ choose_texture_target(struct gl_renderer *gr,
 		return GL_TEXTURE_EXTERNAL_OES;
 
 	switch (attributes->format & ~DRM_FORMAT_BIG_ENDIAN) {
+	case DRM_FORMAT_YUV420_8BIT:
+	case DRM_FORMAT_YUV420_10BIT:
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_YVYU:
 	case DRM_FORMAT_UYVY:
@@ -2855,6 +2865,10 @@ static bool
 dmabuf_is_opaque(struct linux_dmabuf_buffer *dmabuf)
 {
 	const struct pixel_format_info *info;
+
+	if (dmabuf->attributes.format == DRM_FORMAT_YUV420_8BIT ||
+	    dmabuf->attributes.format == DRM_FORMAT_YUV420_10BIT)
+		return true;
 
 	info = pixel_format_get_info(dmabuf->attributes.format &
 				     ~DRM_FORMAT_BIG_ENDIAN);
