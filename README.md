@@ -77,7 +77,7 @@ More [detailed documentation on building Weston](https://wayland.freedesktop.org
 is available on the Wayland site. There are also more details on
 [how to run and write tests](https://wayland.freedesktop.org/testing.html).
 
-For building the documentation see [weston-doc](#weston-doc).
+For building the documentation see [documentation](#documentation).
 
 Running Weston
 ==============
@@ -100,8 +100,11 @@ privileged access to input and output devices by running as root, then granting
 access to the main Weston binary running as your user. Running Weston this way
 is not recommended unless necessary.
 
-Weston-doc
-==========
+Documentation
+=============
+
+To read the Weston documentation online, head over to
+[the Weston website](https://wayland.pages.freedesktop.org/weston/).
 
 For documenting weston we use [sphinx](http://www.sphinx-doc.org/en/master/)
 together with [breathe](https://breathe.readthedocs.io/en/latest/) that
