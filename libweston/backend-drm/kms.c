@@ -789,6 +789,7 @@ static int
 crtc_add_prop(drmModeAtomicReq *req, struct drm_crtc *crtc,
 	      enum wdrm_crtc_property prop, uint64_t val)
 {
+	struct drm_backend *b = crtc->backend;
 	struct drm_property_info *info = &crtc->props_crtc[prop];
 	int ret;
 
@@ -797,7 +798,7 @@ crtc_add_prop(drmModeAtomicReq *req, struct drm_crtc *crtc,
 
 	ret = drmModeAtomicAddProperty(req, crtc->crtc_id, info->prop_id,
 				       val);
-	drm_debug(crtc->backend, "\t\t\t[CRTC:%lu] %lu (%s) -> %llu (0x%llx)\n",
+	drm_debug(b, "\t\t\t[CRTC:%lu] %lu (%s) -> %llu (0x%llx)\n",
 		  (unsigned long) crtc->crtc_id,
 		  (unsigned long) info->prop_id, info->name,
 		  (unsigned long long) val, (unsigned long long) val);
@@ -808,6 +809,7 @@ static int
 connector_add_prop(drmModeAtomicReq *req, struct drm_connector *connector,
 		   enum wdrm_connector_property prop, uint64_t val)
 {
+	struct drm_backend *b = connector->backend;
 	struct drm_property_info *info = &connector->props[prop];
 	uint32_t connector_id = connector->connector_id;
 	int ret;
@@ -816,7 +818,7 @@ connector_add_prop(drmModeAtomicReq *req, struct drm_connector *connector,
 		return -1;
 
 	ret = drmModeAtomicAddProperty(req, connector_id, info->prop_id, val);
-	drm_debug(connector->backend, "\t\t\t[CONN:%lu] %lu (%s) -> %llu (0x%llx)\n",
+	drm_debug(b, "\t\t\t[CONN:%lu] %lu (%s) -> %llu (0x%llx)\n",
 		  (unsigned long) connector_id,
 		  (unsigned long) info->prop_id, info->name,
 		  (unsigned long long) val, (unsigned long long) val);
@@ -827,6 +829,7 @@ static int
 plane_add_prop(drmModeAtomicReq *req, struct drm_plane *plane,
 	       enum wdrm_plane_property prop, uint64_t val)
 {
+	struct drm_backend *b = plane->backend;
 	struct drm_property_info *info = &plane->props[prop];
 	int ret;
 
@@ -835,7 +838,7 @@ plane_add_prop(drmModeAtomicReq *req, struct drm_plane *plane,
 
 	ret = drmModeAtomicAddProperty(req, plane->plane_id, info->prop_id,
 				       val);
-	drm_debug(plane->backend, "\t\t\t[PLANE:%lu] %lu (%s) -> %llu (0x%llx)\n",
+	drm_debug(b, "\t\t\t[PLANE:%lu] %lu (%s) -> %llu (0x%llx)\n",
 		  (unsigned long) plane->plane_id,
 		  (unsigned long) info->prop_id, info->name,
 		  (unsigned long long) val, (unsigned long long) val);
@@ -1021,9 +1024,9 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		if (plane_state->fb && plane_state->fb->format)
 			pinfo = plane_state->fb->format;
 
-		drm_debug(plane->backend, "\t\t\t[PLANE:%lu] FORMAT: %s\n",
-				(unsigned long) plane->plane_id,
-				pinfo ? pinfo->drm_format_name : "UNKNOWN");
+		drm_debug(b, "\t\t\t[PLANE:%lu] FORMAT: %s\n",
+			  (unsigned long) plane->plane_id,
+			  pinfo ? pinfo->drm_format_name : "UNKNOWN");
 
 		if (plane_state->in_fence_fd >= 0) {
 			ret |= plane_add_prop(req, plane,
