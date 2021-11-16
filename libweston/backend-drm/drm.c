@@ -445,12 +445,16 @@ drm_output_repaint(struct weston_output *output_base,
 		   pixman_region32_t *damage,
 		   void *repaint_data)
 {
-	struct drm_pending_state *pending_state = repaint_data;
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *scanout_state;
+	struct drm_pending_state *pending_state;
+	struct drm_backend *backend;
 
 	assert(!output->virtual);
+
+	backend = output->backend;
+	pending_state = backend->repaint_data;
 
 	if (output->disable_pending || output->destroy_pending)
 		goto err;
@@ -610,20 +614,20 @@ static void *
 drm_repaint_begin(struct weston_compositor *compositor)
 {
 	struct drm_backend *b = to_drm_backend(compositor);
-	struct drm_pending_state *ret;
+	struct drm_pending_state *pending_state;
 
-	ret = drm_pending_state_alloc(b);
-	b->repaint_data = ret;
+	pending_state = drm_pending_state_alloc(b);
+	b->repaint_data = pending_state;
 
 	if (weston_log_scope_is_enabled(b->debug)) {
 		char *dbg = weston_compositor_print_scene_graph(compositor);
 		drm_debug(b, "[repaint] Beginning repaint; pending_state %p\n",
-			  ret);
+			  b->repaint_data);
 		drm_debug(b, "%s", dbg);
 		free(dbg);
 	}
 
-	return ret;
+	return NULL;
 }
 
 /**
@@ -639,7 +643,7 @@ static int
 drm_repaint_flush(struct weston_compositor *compositor, void *repaint_data)
 {
 	struct drm_backend *b = to_drm_backend(compositor);
-	struct drm_pending_state *pending_state = repaint_data;
+	struct drm_pending_state *pending_state = b->repaint_data;
 	int ret;
 
 	ret = drm_pending_state_apply(pending_state);
@@ -662,7 +666,7 @@ static void
 drm_repaint_cancel(struct weston_compositor *compositor, void *repaint_data)
 {
 	struct drm_backend *b = to_drm_backend(compositor);
-	struct drm_pending_state *pending_state = repaint_data;
+	struct drm_pending_state *pending_state = b->repaint_data;
 
 	drm_pending_state_free(pending_state);
 	drm_debug(b, "[repaint] cancel pending_state %p\n", pending_state);

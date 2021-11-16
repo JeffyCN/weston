@@ -892,7 +892,7 @@ void
 drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 {
 	struct drm_backend *b = to_drm_backend(output_base->compositor);
-	struct drm_pending_state *pending_state = repaint_data;
+	struct drm_pending_state *pending_state = b->repaint_data;
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *plane_state;

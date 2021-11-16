@@ -188,13 +188,17 @@ drm_virtual_output_repaint(struct weston_output *output_base,
 			   pixman_region32_t *damage,
 			   void *repaint_data)
 {
-	struct drm_pending_state *pending_state = repaint_data;
 	struct drm_output_state *state = NULL;
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_plane_state *scanout_state;
+	struct drm_pending_state *pending_state;
+	struct drm_backend *backend;
 
 	assert(output->virtual);
+
+	backend = output->backend;
+	pending_state = backend->repaint_data;
 
 	if (output->disable_pending || output->destroy_pending)
 		goto err;
@@ -336,6 +340,7 @@ drm_virtual_output_create(struct weston_compositor *c, char *name)
 	}
 
 	output->virtual = true;
+	output->backend = b;
 	output->gbm_bo_flags = GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING;
 
 	weston_output_init(&output->base, c, name);
