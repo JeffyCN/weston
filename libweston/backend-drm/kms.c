@@ -1184,7 +1184,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		goto out;
 	}
 
-	ret = drmModeAtomicCommit(device->drm.fd, req, flags, b);
+	ret = drmModeAtomicCommit(device->drm.fd, req, flags, device);
 	drm_debug(b, "[atomic] drmModeAtomicCommit\n");
 
 	/* Test commits do not take ownership of the state; return
@@ -1404,8 +1404,8 @@ static void
 atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 		    unsigned int usec, unsigned int crtc_id, void *data)
 {
-	struct drm_backend *b = data;
-	struct drm_device *device = b->drm;
+	struct drm_device *device = data;
+	struct drm_backend *b = device->backend;
 	struct drm_crtc *crtc;
 	struct drm_output *output;
 	uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_VSYNC |
