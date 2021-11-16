@@ -124,64 +124,6 @@ drm_output_check_plane_has_view_assigned(struct drm_plane *plane,
 	return false;
 }
 
-static bool
-drm_output_plane_has_valid_format(struct drm_plane *plane,
-				  struct drm_output_state *state,
-				  struct drm_fb *fb)
-{
-	struct drm_backend *b = plane->backend;
-	struct weston_drm_format *fmt;
-
-	if (!fb)
-		return false;
-
-	/* Check whether the format is supported */
-	fmt = weston_drm_format_array_find_format(&plane->formats,
-						  fb->format->format);
-	if (fmt) {
-		/* We never try to promote a dmabuf with DRM_FORMAT_MOD_INVALID
-		 * to a KMS plane (see drm_fb_get_from_dmabuf() for more details).
-		 * So if fb->modifier == DRM_FORMAT_MOD_INVALID, we are sure
-		 * that this is for the legacy GBM import path, in which a
-		 * wl_drm is being used for scanout. Mesa is the only user we
-		 * care in this case (even though recent versions are also using
-		 * dmabufs), and it should know better what works or not. */
-		if (fb->modifier == DRM_FORMAT_MOD_INVALID)
-			return true;
-
-		if (weston_drm_format_has_modifier(fmt, fb->modifier))
-			return true;
-	}
-
-	drm_debug(b, "\t\t\t\t[%s] not placing view on %s: "
-		  "no free %s planes matching format %s (0x%lx) "
-		  "modifier 0x%llx\n",
-		  drm_output_get_plane_type_name(plane),
-		  drm_output_get_plane_type_name(plane),
-		  drm_output_get_plane_type_name(plane),
-		  fb->format->drm_format_name,
-		  (unsigned long) fb->format->format,
-		  (unsigned long long) fb->modifier);
-
-	return false;
-}
-
-static bool
-drm_output_plane_cursor_has_valid_format(struct weston_view *ev)
-{
-	struct wl_shm_buffer *shmbuf =
-		wl_shm_buffer_get(ev->surface->buffer_ref.buffer->resource);
-
-	/* When we have cursor planes we've already checked for wl_shm buffer in
-	 * the view before calling this function. */
-	assert(shmbuf);
-
-	if (wl_shm_buffer_get_format(shmbuf) == WL_SHM_FORMAT_ARGB8888)
-		return true;
-
-	return false;
-}
-
 static struct drm_plane_state *
 drm_output_prepare_overlay_view(struct drm_plane *plane,
 				struct drm_output_state *output_state,
@@ -495,28 +437,6 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 err:
 	drm_plane_state_put_back(state);
 	return NULL;
-}
-
-static bool
-drm_output_plane_view_has_valid_format(struct drm_plane *plane,
-				       struct drm_output_state *state,
-				       struct weston_view *ev,
-				       struct drm_fb *fb)
-{
-	/* depending on the type of the plane we have different requirements */
-	switch (plane->type) {
-	case WDRM_PLANE_TYPE_CURSOR:
-		return drm_output_plane_cursor_has_valid_format(ev);
-	case WDRM_PLANE_TYPE_OVERLAY:
-		return drm_output_plane_has_valid_format(plane, state, fb);
-	case WDRM_PLANE_TYPE_PRIMARY:
-		return drm_output_plane_has_valid_format(plane, state, fb);
-	default:
-		assert(0);
-		return false;
-	}
-
-	return false;
 }
 
 static struct drm_plane_state *
@@ -834,15 +754,17 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			continue;
 		}
 
-		if (plane->type == WDRM_PLANE_TYPE_CURSOR && !shmbuf) {
+		if (plane->type == WDRM_PLANE_TYPE_CURSOR &&
+		    (!shmbuf || wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888)) {
 			drm_debug(b, "\t\t\t\t[plane] not adding plane %d, type cursor to "
-				     "candidate list: cursor planes only support wl_shm "
-				     "buffers and the view buffer is of another type\n",
+				     "candidate list: cursor planes only support ARGB8888"
+				     "wl_shm buffers and the view buffer is of another type\n",
 				     plane->plane_id);
 			continue;
 		}
 
-		if (!drm_output_plane_view_has_valid_format(plane, state, ev, fb)) {
+		if (plane->type != WDRM_PLANE_TYPE_CURSOR &&
+		    (!fb || !(fb->plane_mask & (1 << plane->plane_idx)))) {
 			*try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "

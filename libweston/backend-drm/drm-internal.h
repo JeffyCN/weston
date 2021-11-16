@@ -276,6 +276,7 @@ struct drm_backend {
 	int min_height, max_height;
 
 	struct wl_list plane_list;
+	uint32_t next_plane_idx;
 
 	void *repaint_data;
 
@@ -340,6 +341,8 @@ struct drm_fb {
 	uint64_t modifier;
 	int width, height;
 	int fd;
+
+	uint32_t plane_mask;
 
 	/* Used by gbm fbs */
 	struct gbm_bo *bo;
@@ -463,6 +466,7 @@ struct drm_plane {
 
 	uint32_t possible_crtcs;
 	uint32_t plane_id;
+	uint32_t plane_idx;
 
 	struct drm_property_info props[WDRM_PLANE__COUNT];
 

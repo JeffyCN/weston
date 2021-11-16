@@ -764,6 +764,7 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 	}
 
 	plane->backend = b;
+	plane->plane_idx = b->next_plane_idx++;
 	plane->state_cur = drm_plane_state_alloc(NULL, plane);
 	plane->state_cur->complete = true;
 	plane->possible_crtcs = kplane->possible_crtcs;

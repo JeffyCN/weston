@@ -461,6 +461,43 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 	return ret;
 }
 
+static bool
+drm_fb_compatible_with_plane(struct drm_fb *fb, struct drm_plane *plane)
+{
+	struct drm_backend *b = plane->backend;
+	struct weston_drm_format *fmt;
+
+	/* Check whether the format is supported */
+	fmt = weston_drm_format_array_find_format(&plane->formats,
+						  fb->format->format);
+	if (fmt) {
+		/* We never try to promote a dmabuf with DRM_FORMAT_MOD_INVALID
+		 * to a KMS plane (see drm_fb_get_from_dmabuf() for more details).
+		 * So if fb->modifier == DRM_FORMAT_MOD_INVALID, we are sure
+		 * that this is for the legacy GBM import path, in which a
+		 * wl_drm is being used for scanout. Mesa is the only user we
+		 * care in this case (even though recent versions are also using
+		 * dmabufs), and it should know better what works or not. */
+		if (fb->modifier == DRM_FORMAT_MOD_INVALID)
+			return true;
+
+		if (weston_drm_format_has_modifier(fmt, fb->modifier))
+			return true;
+	}
+
+	drm_debug(b, "\t\t\t\t[%s] not placing view on %s: "
+		  "no free %s planes matching format %s (0x%lx) "
+		  "modifier 0x%llx\n",
+		  drm_output_get_plane_type_name(plane),
+		  drm_output_get_plane_type_name(plane),
+		  drm_output_get_plane_type_name(plane),
+		  fb->format->drm_format_name,
+		  (unsigned long) fb->format->format,
+		  (unsigned long long) fb->modifier);
+
+	return false;
+}
+
 static void
 drm_fb_handle_buffer_destroy(struct wl_listener *listener, void *data)
 {
@@ -487,6 +524,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	bool is_opaque = weston_view_is_opaque(ev, &ev->transform.boundingbox);
 	struct linux_dmabuf_buffer *dmabuf;
 	struct drm_fb *fb;
+	struct drm_plane *plane;
 
 	if (ev->alpha != 1.0f)
 		return NULL;
@@ -538,6 +576,18 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 			gbm_bo_destroy(bo);
 			goto unsuitable;
 		}
+	}
+
+	/* Check if this buffer can ever go on any planes. If it can't, we have
+	 * no reason to ever have a drm_fb, so we fail it here. */
+	wl_list_for_each(plane, &b->plane_list, link) {
+		if (drm_fb_compatible_with_plane(fb, plane))
+			fb->plane_mask |= (1 << plane->plane_idx);
+	}
+	if (fb->plane_mask == 0) {
+		drm_fb_unref(fb);
+		buf_fb->failure_reasons |= FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
+		goto unsuitable;
 	}
 
 	/* The caller holds its own ref to the drm_fb, so when creating a new
