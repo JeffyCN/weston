@@ -45,7 +45,7 @@
 #include <wayland-server.h>
 
 #include <libweston/libweston.h>
-#include "dbus.h"
+#include <libweston/dbus.h>
 
 /*
  * DBus Mainloop Integration

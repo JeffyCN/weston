@@ -39,8 +39,8 @@
 #include <unistd.h>
 
 #include <libweston/libweston.h>
+#include <libweston/dbus.h>
 #include "backend.h"
-#include "dbus.h"
 #include "launcher-impl.h"
 
 #define DRM_MAJOR 226
