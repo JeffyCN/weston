@@ -123,7 +123,7 @@ draw_content(cairo_surface_t *surface, int x, int y, int width, int height,
 	cairo_fill(cr);
 
 	cairo_set_source_rgba(cr, 0, 0, 0, 1.0);
-	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 			       CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 15);
 	if (type == WESTON_PROTECTED_SURFACE_TYPE_HDCP_0)
@@ -263,7 +263,7 @@ buttons_redraw_handler(struct widget *widget, void *data)
 	cairo_fill(cr);
 
 	cairo_set_source_rgba(cr, 0, 0, 0, 1.0);
-	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 			       CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 10);
 	cairo_move_to(cr, allocation.x + 5, allocation.y + 15);

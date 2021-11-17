@@ -80,7 +80,7 @@ draw_string(cairo_t *cr,
 
 	cairo_save(cr);
 
-	cairo_select_font_face(cr, "sans",
+	cairo_select_font_face(cr, "sans-serif",
 			       CAIRO_FONT_SLANT_NORMAL,
 			       CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 14);

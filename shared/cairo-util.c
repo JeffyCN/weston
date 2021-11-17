@@ -494,7 +494,7 @@ create_layout(cairo_t *cr, const char *title)
 	layout = pango_cairo_create_layout(cr);
 	if (title) {
 		pango_layout_set_text(layout, title, -1);
-		desc = pango_font_description_from_string("Sans Bold 10");
+		desc = pango_font_description_from_string("sans-serif Bold 10");
 		pango_layout_set_font_description(layout, desc);
 		pango_font_description_free(desc);
 	}
@@ -577,7 +577,7 @@ theme_render_frame(struct theme *t,
 		cairo_text_extents_t extents;
 		cairo_font_extents_t font_extents;
 
-		cairo_select_font_face(cr, "sans",
+		cairo_select_font_face(cr, "sans-serif",
 				       CAIRO_FONT_SLANT_NORMAL,
 				       CAIRO_FONT_WEIGHT_BOLD);
 		cairo_set_font_size(cr, 14);

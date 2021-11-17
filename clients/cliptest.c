@@ -341,7 +341,7 @@ redraw_handler(struct widget *widget, void *data)
 		cairo_scale(cr, 4.0, 4.0);
 		cairo_set_line_width(cr, 0.5);
 		cairo_set_line_join(cr, CAIRO_LINE_JOIN_BEVEL);
-		cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL,
+		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 				       CAIRO_FONT_WEIGHT_BOLD);
 		cairo_set_font_size(cr, 5.0);
 		draw_geometry(cr, &cliptest->view, ex, ey, n);

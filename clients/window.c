@@ -5424,7 +5424,7 @@ menu_redraw_handler(struct widget *widget, void *data)
 	cairo_rectangle(cr, x, y, width, height);
 	cairo_fill(cr);
 
-	cairo_select_font_face(cr, "sans",
+	cairo_select_font_face(cr, "sans-serif",
 			       CAIRO_FONT_SLANT_NORMAL,
 			       CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 12);

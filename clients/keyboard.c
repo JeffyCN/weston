@@ -377,7 +377,7 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_rectangle(cr, allocation.x, allocation.y, allocation.width, allocation.height);
 	cairo_clip(cr);
 
-	cairo_select_font_face(cr, "sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 	cairo_set_font_size(cr, 16);
 
 	cairo_translate(cr, allocation.x, allocation.y);
