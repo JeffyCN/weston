@@ -773,6 +773,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	buffer = ev->surface->buffer_ref.buffer;
 	shmbuf = wl_shm_buffer_get(buffer->resource);
 	fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
+	if (!shmbuf && !fb)
+		return NULL;
 
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
