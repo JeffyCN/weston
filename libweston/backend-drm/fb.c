@@ -410,17 +410,6 @@ err_free:
 	free(fb);
 	return NULL;
 }
-
-static void
-drm_fb_set_buffer(struct drm_fb *fb, struct weston_buffer *buffer,
-		  struct weston_buffer_release *buffer_release)
-{
-	assert(fb->buffer_ref.buffer == NULL);
-	assert(fb->type == BUFFER_CLIENT || fb->type == BUFFER_DMABUF);
-	weston_buffer_reference(&fb->buffer_ref, buffer);
-	weston_buffer_release_reference(&fb->buffer_release_ref,
-					buffer_release);
-}
 #endif
 
 void
@@ -528,8 +517,6 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 
 	drm_debug(b, "\t\t\t[view] view %p format: %s\n",
 		  ev, fb->format->drm_format_name);
-	drm_fb_set_buffer(fb, buffer,
-			  ev->surface->buffer_release_ref.buffer_release);
 	return fb;
 }
 #endif

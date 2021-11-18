@@ -532,6 +532,7 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	struct drm_plane *scanout_plane = state->output->scanout_plane;
 	struct drm_plane_state *ps = NULL;
 	const char *p_name = drm_output_get_plane_type_name(plane);
+	struct weston_surface *surface = ev->surface;
 	enum {
 		NO_PLANES,	/* generic err-handle */
 		NO_PLANES_ACCEPTED,
@@ -603,6 +604,19 @@ out:
 			     plane->plane_id, ev, p_name);
 		break;
 	case PLACED_ON_PLANE:
+		/* Take a reference on the buffer so that we don't release it
+		 * back to the client until we're done with it; cursor buffers
+		 * don't require a reference since we copy them. */
+		assert(fb->buffer_ref.buffer == NULL);
+		assert(fb->buffer_release_ref.buffer_release == NULL);
+		if (ps->plane->type == WDRM_PLANE_TYPE_CURSOR) {
+			assert(ps->fb->type == BUFFER_CURSOR);
+		} else if (fb->type == BUFFER_CLIENT || fb->type == BUFFER_DMABUF) {
+			assert(ps->fb == fb);
+			weston_buffer_reference(&fb->buffer_ref, surface->buffer_ref.buffer);
+			weston_buffer_release_reference(&fb->buffer_release_ref,
+							surface->buffer_release_ref.buffer_release);
+		}
 		break;
 	}
 
