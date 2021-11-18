@@ -572,7 +572,8 @@ remoting_output_frame(struct weston_output *output_base, int fd, int stride,
 	struct wl_event_loop *loop;
 	GstBuffer *buf;
 	GstMemory *mem;
-	gsize offset = 0;
+	gsize offsets[4] = { 0, };
+	gint strides[4] = { stride, };
 	struct mem_free_cb_data *cb_data;
 	struct gst_frame_buffer_data *frame_data;
 
@@ -594,8 +595,8 @@ remoting_output_frame(struct weston_output *output_base, int fd, int stride,
 				       mode->width,
 				       mode->height,
 				       1,
-				       &offset,
-				       &stride);
+				       offsets,
+				       strides);
 
 	cb_data->output = output;
 	cb_data->output_buffer = output_buffer;
