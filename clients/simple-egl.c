@@ -151,7 +151,7 @@ init_egl(struct display *display, struct window *window)
 		EGL_NONE
 	};
 
-	EGLint major, minor, n, count, i, size;
+	EGLint major, minor, n, count, i;
 	EGLConfig *configs;
 	EGLBoolean ret;
 
@@ -179,9 +179,13 @@ init_egl(struct display *display, struct window *window)
 	assert(ret && n >= 1);
 
 	for (i = 0; i < n; i++) {
+		EGLint buffer_size, red_size;
 		eglGetConfigAttrib(display->egl.dpy,
-				   configs[i], EGL_BUFFER_SIZE, &size);
-		if (window->buffer_size == 0 || window->buffer_size == size) {
+				   configs[i], EGL_BUFFER_SIZE, &buffer_size);
+		eglGetConfigAttrib(display->egl.dpy,
+				   configs[i], EGL_RED_SIZE, &red_size);
+		if ((window->buffer_size == 0 ||
+		     window->buffer_size == buffer_size) && red_size < 10) {
 			display->egl.conf = configs[i];
 			break;
 		}
