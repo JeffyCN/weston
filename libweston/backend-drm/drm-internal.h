@@ -349,6 +349,12 @@ struct drm_fb {
 	void *map;
 };
 
+struct drm_buffer_fb {
+	struct drm_fb *fb;
+	enum try_view_on_plane_failure_reasons failure_reasons;
+	struct wl_listener buffer_destroy_listener;
+};
+
 struct drm_edid {
 	char eisa_id[13];
 	char monitor_name[13];

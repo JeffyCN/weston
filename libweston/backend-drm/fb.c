@@ -461,6 +461,21 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 	return ret;
 }
 
+static void
+drm_fb_handle_buffer_destroy(struct wl_listener *listener, void *data)
+{
+	struct drm_buffer_fb *buf_fb =
+		container_of(listener, struct drm_buffer_fb, buffer_destroy_listener);
+
+	if (buf_fb->fb) {
+		assert(buf_fb->fb->type == BUFFER_CLIENT ||
+		       buf_fb->fb->type == BUFFER_DMABUF);
+		drm_fb_unref(buf_fb->fb);
+	}
+
+	free(buf_fb);
+}
+
 struct drm_fb *
 drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 		     uint32_t *try_view_on_plane_failure_reasons)
@@ -468,6 +483,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
+	struct drm_buffer_fb *buf_fb;
 	bool is_opaque = weston_view_is_opaque(ev, &ev->transform.boundingbox);
 	struct linux_dmabuf_buffer *dmabuf;
 	struct drm_fb *fb;
@@ -485,36 +501,55 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	if (!buffer)
 		return NULL;
 
+	if (buffer->backend_private) {
+		buf_fb = buffer->backend_private;
+		*try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
+		return buf_fb->fb ? drm_fb_ref(buf_fb->fb) : NULL;
+	}
+
+	buf_fb = zalloc(sizeof(*buf_fb));
+	buffer->backend_private = buf_fb;
+	buf_fb->buffer_destroy_listener.notify = drm_fb_handle_buffer_destroy;
+	wl_signal_add(&buffer->destroy_signal, &buf_fb->buffer_destroy_listener);
+
 	if (wl_shm_buffer_get(buffer->resource))
-		return NULL;
+		goto unsuitable;
 
 	/* GBM is used for dmabuf import as well as from client wl_buffer. */
 	if (!b->gbm)
-		return NULL;
+		goto unsuitable;
 
 	dmabuf = linux_dmabuf_buffer_get(buffer->resource);
 	if (dmabuf) {
 		fb = drm_fb_get_from_dmabuf(dmabuf, b, is_opaque,
-					    try_view_on_plane_failure_reasons);
+					    &buf_fb->failure_reasons);
 		if (!fb)
-			return NULL;
+			goto unsuitable;
 	} else {
 		struct gbm_bo *bo;
 
 		bo = gbm_bo_import(b->gbm, GBM_BO_IMPORT_WL_BUFFER,
 				   buffer->resource, GBM_BO_USE_SCANOUT);
 		if (!bo)
-			return NULL;
+			goto unsuitable;
 
 		fb = drm_fb_get_from_bo(bo, b, is_opaque, BUFFER_CLIENT);
 		if (!fb) {
 			gbm_bo_destroy(bo);
-			return NULL;
+			goto unsuitable;
 		}
 	}
+
+	/* The caller holds its own ref to the drm_fb, so when creating a new
+	 * drm_fb we take an additional ref for the weston_buffer's cache. */
+	buf_fb->fb = drm_fb_ref(fb);
 
 	drm_debug(b, "\t\t\t[view] view %p format: %s\n",
 		  ev, fb->format->drm_format_name);
 	return fb;
+
+unsuitable:
+	*try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
+	return NULL;
 }
 #endif
