@@ -857,7 +857,7 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	} else {
 		Window xid = (Window) output->window;
 		const struct gl_renderer_output_options options = {
-			.window_for_legacy = (EGLNativeWindowType) output->window,
+			.window_for_legacy = (EGLNativeWindowType) (uintptr_t) output->window,
 			.window_for_platform = &xid,
 			.drm_formats = x11_formats,
 			.drm_formats_count = ARRAY_LENGTH(x11_formats),
@@ -1037,7 +1037,7 @@ x11_output_enable(struct weston_output *base)
 		 * but eglCreateWindowSurface takes a Window. */
 		Window xid = (Window) output->window;
 		const struct gl_renderer_output_options options = {
-			.window_for_legacy = (EGLNativeWindowType) output->window,
+			.window_for_legacy = (EGLNativeWindowType) (uintptr_t) output->window,
 			.window_for_platform = &xid,
 			.drm_formats = x11_formats,
 			.drm_formats_count = ARRAY_LENGTH(x11_formats),
