@@ -340,8 +340,6 @@ struct drm_fb {
 	uint64_t modifier;
 	int width, height;
 	int fd;
-	struct weston_buffer_reference buffer_ref;
-	struct weston_buffer_release_reference buffer_release_ref;
 
 	/* Used by gbm fbs */
 	struct gbm_bo *bo;
@@ -411,6 +409,10 @@ struct drm_plane_state {
 	struct drm_output_state *output_state;
 
 	struct drm_fb *fb;
+	struct {
+		struct weston_buffer_reference buffer;
+		struct weston_buffer_release_reference release;
+	} fb_ref;
 
 	struct weston_view *ev; /**< maintained for drm_assign_planes only */
 

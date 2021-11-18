@@ -607,14 +607,15 @@ out:
 		/* Take a reference on the buffer so that we don't release it
 		 * back to the client until we're done with it; cursor buffers
 		 * don't require a reference since we copy them. */
-		assert(fb->buffer_ref.buffer == NULL);
-		assert(fb->buffer_release_ref.buffer_release == NULL);
+		assert(ps->fb_ref.buffer.buffer == NULL);
+		assert(ps->fb_ref.release.buffer_release == NULL);
 		if (ps->plane->type == WDRM_PLANE_TYPE_CURSOR) {
 			assert(ps->fb->type == BUFFER_CURSOR);
 		} else if (fb->type == BUFFER_CLIENT || fb->type == BUFFER_DMABUF) {
 			assert(ps->fb == fb);
-			weston_buffer_reference(&fb->buffer_ref, surface->buffer_ref.buffer);
-			weston_buffer_release_reference(&fb->buffer_release_ref,
+			weston_buffer_reference(&ps->fb_ref.buffer,
+						surface->buffer_ref.buffer);
+			weston_buffer_release_reference(&ps->fb_ref.release,
 							surface->buffer_release_ref.buffer_release);
 		}
 		break;

@@ -48,8 +48,6 @@ drm_fb_destroy(struct drm_fb *fb)
 {
 	if (fb->fb_id != 0)
 		drmModeRmFB(fb->fd, fb->fb_id);
-	weston_buffer_reference(&fb->buffer_ref, NULL);
-	weston_buffer_release_reference(&fb->buffer_release_ref, NULL);
 	free(fb);
 }
 
