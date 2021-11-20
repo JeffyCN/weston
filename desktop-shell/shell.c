@@ -2203,8 +2203,12 @@ get_shell_seat(struct weston_seat *seat)
 {
 	struct wl_listener *listener;
 
+	if (!seat)
+		return NULL;
+
 	listener = wl_signal_get(&seat->destroy_signal, destroy_shell_seat);
-	assert(listener != NULL);
+	if (!listener)
+		return NULL;
 
 	return container_of(listener,
 			    struct shell_seat, seat_destroy_listener);
@@ -2340,7 +2344,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 		 * removed) surface when attempting to de-activate it. It will
 		 * also update the focused_surface once it has a chance to run.
 		 */
-		if (surface == shseat->focused_surface)
+		if (shseat && surface == shseat->focused_surface)
 			shseat->focused_surface = NULL;
 	}
 
@@ -3760,14 +3764,15 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 
 	weston_view_activate_input(view, seat, flags);
 
-	if (shseat->focused_surface) {
+	if (shseat && shseat->focused_surface) {
 		struct shell_surface *current_focus =
 			get_shell_surface(shseat->focused_surface);
 		assert(current_focus);
 		shell_surface_deactivate(current_focus);
 	}
 
-	shseat->focused_surface = main_surface;
+	if (shseat)
+		shseat->focused_surface = main_surface;
 	shell_surface_activate(shsurf);
 
 	state = ensure_focus_state(shell, seat);
