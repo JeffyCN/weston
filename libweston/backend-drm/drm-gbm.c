@@ -183,6 +183,7 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 {
 	struct weston_mode *mode = output->base.current_mode;
 	struct drm_plane *plane = output->scanout_plane;
+	const struct pixel_format_info *pixel_format;
 	struct weston_drm_format *fmt;
 	const uint64_t *modifiers;
 	unsigned int num_modifiers;
@@ -190,8 +191,15 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 	fmt = weston_drm_format_array_find_format(&plane->formats,
 						  output->gbm_format);
 	if (!fmt) {
-		weston_log("format 0x%x not supported by output %s\n",
-			   output->gbm_format, output->base.name);
+		pixel_format = pixel_format_get_info(output->gbm_format);
+		if (pixel_format)
+			weston_log("format %s not supported by output %s\n",
+				   pixel_format->drm_format_name,
+				   output->base.name);
+		else
+			weston_log("format 0x%x not supported by output %s\n",
+				   output->gbm_format,
+				   output->base.name);
 		return;
 	}
 
