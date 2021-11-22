@@ -51,6 +51,26 @@ simple_clients = [
 		'dep_objs': [ dep_wayland_client, dep_libshared ]
 	},
 	{
+		'name': 'dmabuf-feedback',
+		'sources': [
+			'simple-dmabuf-feedback.c',
+			'../libweston/pixel-formats.c',
+			linux_dmabuf_unstable_v1_client_protocol_h,
+			linux_dmabuf_unstable_v1_protocol_c,
+			xdg_shell_client_protocol_h,
+			xdg_shell_protocol_c,
+		],
+		'dep_objs': [
+			dep_wayland_client,
+			dep_libshared,
+			dep_pixman,
+			dep_libdrm,
+			dependency('libudev', version: '>= 136'),
+		],
+		'deps': [ 'egl', 'glesv2', 'gbm' ],
+		'options': [ 'renderer-gl' ]
+	},
+	{
 		'name': 'dmabuf-egl',
 		'sources': [
 			'simple-dmabuf-egl.c',

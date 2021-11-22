@@ -200,7 +200,7 @@ option(
 option(
 	'simple-clients',
 	type: 'array',
-	choices: [ 'all', 'damage', 'im', 'egl', 'shm', 'touch', 'dmabuf-v4l', 'dmabuf-egl' ],
+	choices: [ 'all', 'damage', 'im', 'egl', 'shm', 'touch', 'dmabuf-feedback', 'dmabuf-v4l', 'dmabuf-egl' ],
 	value: [ 'all' ],
 	description: 'Sample clients: simple test programs'
 )
