@@ -106,14 +106,12 @@ rm -rf wayland
 # Keep this version in sync with our dependency in meson.build. If you wish to
 # raise a MR against custom protocol, please change this reference to clone
 # your relevant tree, and make sure you bump $FDO_DISTRIBUTION_TAG.
-git clone --branch 1.19 https://gitlab.freedesktop.org/wayland/wayland-protocols
+git clone --branch 1.24 --depth=1 https://gitlab.freedesktop.org/wayland/wayland-protocols
 cd wayland-protocols
 git show -s HEAD
-mkdir build
-cd build
-../autogen.sh
-make install
-cd ../../
+meson build
+ninja ${NINJAFLAGS} -C build install
+cd ..
 rm -rf wayland-protocols
 
 # Build and install our own version of Mesa. Debian provides a perfectly usable
@@ -123,9 +121,8 @@ rm -rf wayland-protocols
 # features from Mesa then bump this version and $FDO_DISTRIBUTION_TAG, however
 # please be prepared for some of the tests to change output, which will need to
 # be manually inspected for correctness.
-git clone --single-branch --branch 20.3 --shallow-since='2020-12-15' https://gitlab.freedesktop.org/mesa/mesa.git mesa
+git clone --branch 21.3 --depth=1 https://gitlab.freedesktop.org/mesa/mesa.git
 cd mesa
-git checkout -b snapshot mesa-20.3.1
 meson build -Dauto_features=disabled \
 	-Dgallium-drivers=swrast -Dvulkan-drivers= -Ddri-drivers=
 ninja ${NINJAFLAGS} -C build install
