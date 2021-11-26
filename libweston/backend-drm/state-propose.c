@@ -188,8 +188,13 @@ cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
 		       buffer->width * 4);
 	wl_shm_buffer_end_access(buffer->shm_buffer);
 
-	if (gbm_bo_write(bo, buf, sizeof buf) < 0)
-		weston_log("failed update cursor: %s\n", strerror(errno));
+	if (bo) {
+		if (gbm_bo_write(bo, buf, sizeof buf) < 0)
+			weston_log("failed update cursor: %s\n", strerror(errno));
+	} else {
+		memcpy(output->gbm_cursor_fb[output->current_cursor]->map,
+		       buf, sizeof buf);
+	}
 }
 
 static struct drm_plane_state *

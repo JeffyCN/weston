@@ -123,6 +123,9 @@ static void drm_output_fini_cursor_egl(struct drm_output *output)
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_LENGTH(output->gbm_cursor_fb); i++) {
+		/* This cursor does not have a GBM device */
+		if (output->gbm_cursor_fb[i] && !output->gbm_cursor_fb[i]->bo)
+			output->gbm_cursor_fb[i]->type = BUFFER_PIXMAN_DUMB;
 		drm_fb_unref(output->gbm_cursor_fb[i]);
 		output->gbm_cursor_fb[i] = NULL;
 	}
@@ -141,19 +144,31 @@ drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
 	for (i = 0; i < ARRAY_LENGTH(output->gbm_cursor_fb); i++) {
 		struct gbm_bo *bo;
 
-		bo = gbm_bo_create(b->gbm, device->cursor_width, device->cursor_height,
-				   GBM_FORMAT_ARGB8888,
-				   GBM_BO_USE_CURSOR | GBM_BO_USE_WRITE);
-		if (!bo)
-			goto err;
+		if (gbm_device_get_fd(b->gbm) != output->device->drm.fd) {
+			output->gbm_cursor_fb[i] =
+				drm_fb_create_dumb(output->device,
+						   device->cursor_width,
+						   device->cursor_height,
+						   DRM_FORMAT_ARGB8888);
+			/* Override buffer type, since we know it is a cursor */
+			output->gbm_cursor_fb[i]->type = BUFFER_CURSOR;
+			output->gbm_cursor_handle[i] =
+				output->gbm_cursor_fb[i]->handles[0];
+		} else {
+			bo = gbm_bo_create(b->gbm, device->cursor_width, device->cursor_height,
+					   GBM_FORMAT_ARGB8888,
+					   GBM_BO_USE_CURSOR | GBM_BO_USE_WRITE);
+			if (!bo)
+				goto err;
 
-		output->gbm_cursor_fb[i] =
-			drm_fb_get_from_bo(bo, device, false, BUFFER_CURSOR);
-		if (!output->gbm_cursor_fb[i]) {
-			gbm_bo_destroy(bo);
-			goto err;
+			output->gbm_cursor_fb[i] =
+				drm_fb_get_from_bo(bo, device, false, BUFFER_CURSOR);
+			if (!output->gbm_cursor_fb[i]) {
+				gbm_bo_destroy(bo);
+				goto err;
+			}
+			output->gbm_cursor_handle[i] = gbm_bo_get_handle(bo).s32;
 		}
-		output->gbm_cursor_handle[i] = gbm_bo_get_handle(bo).s32;
 	}
 
 	return 0;
