@@ -131,19 +131,8 @@ cmlcms_get_color_profile_from_icc(struct weston_color_manager *cm,
 void
 cmlcms_destroy_color_profile(struct weston_color_profile *cprof_base);
 
-/*
- * Perhaps a placeholder, until we get actual color spaces involved and
- * see how this would work better.
- */
-enum cmlcms_color_transform_type {
-	CMLCMS_TYPE_EOTF_sRGB = 0,
-	CMLCMS_TYPE_EOTF_sRGB_INV,
-	CMLCMS_TYPE__END,
-};
 
 struct cmlcms_color_transform_search_param {
-	enum cmlcms_color_transform_type type;
-
 	enum cmlcms_category category;
 	struct cmlcms_color_profile *input_profile;
 	struct cmlcms_color_profile *output_profile;
@@ -157,9 +146,6 @@ struct cmlcms_color_transform {
 	struct wl_list link;
 
 	struct cmlcms_color_transform_search_param search_key;
-
-	/* for EOTF types It would be deprecated */
-	cmsToneCurve *curve;
 
 	/**
 	 * 3D LUT color mapping part of the transformation, if needed.

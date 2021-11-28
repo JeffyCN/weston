@@ -99,13 +99,7 @@ cmlcms_get_surface_color_transform(struct weston_color_manager *cm_base,
 				   struct weston_surface_color_transform *surf_xform)
 {
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
-	struct cmlcms_color_transform_search_param param = {
-		/*
-		 * Assumes both content and output color spaces are sRGB SDR.
-		 * This defines the blending space as optical sRGB SDR.
-		 */
-		.type = CMLCMS_TYPE_EOTF_sRGB,
-	};
+	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
 	setup_search_param(CMLCMS_CATEGORY_INPUT_TO_BLEND, surface, output,
@@ -116,7 +110,15 @@ cmlcms_get_surface_color_transform(struct weston_color_manager *cm_base,
 		return false;
 
 	surf_xform->transform = &xform->base;
-	surf_xform->identity_pipeline = true;
+	/*
+	 * When we introduce LCMS plug-in we can precisely answer this question
+	 * by examining the color pipeline using precision parameters. For now
+	 * we just compare if it is same pointer or not.
+	 */
+	if (xform->search_key.input_profile == xform->search_key.output_profile)
+		surf_xform->identity_pipeline = true;
+	else
+		surf_xform->identity_pipeline = false;
 
 	return true;
 }
@@ -127,13 +129,7 @@ cmlcms_get_output_color_transform(struct weston_color_manager *cm_base,
 				  struct weston_color_transform **xform_out)
 {
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
-	struct cmlcms_color_transform_search_param param = {
-		/*
-		 * Assumes blending space is optical sRGB SDR and
-		 * output color space is sRGB SDR.
-		 */
-		.type = CMLCMS_TYPE_EOTF_sRGB_INV,
-	};
+	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
 	setup_search_param(CMLCMS_CATEGORY_BLEND_TO_OUTPUT, NULL, output,
@@ -152,16 +148,24 @@ cmlcms_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
 					  struct weston_output *output,
 					  struct weston_color_transform **xform_out)
 {
-	/* Assumes output color space is sRGB SDR */
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
-
 	struct cmlcms_color_transform_search_param param = {};
+	struct cmlcms_color_transform *xform;
 
 	setup_search_param(CMLCMS_CATEGORY_INPUT_TO_OUTPUT, NULL, output,
 			   cm->sRGB_profile, &param);
-
-	/* Identity transform */
-	*xform_out = NULL;
+	/*
+	 * Create a color transformation when output profile is not stock
+	 * sRGB profile.
+	 */
+	if (param.output_profile != cm->sRGB_profile) {
+		xform = cmlcms_color_transform_get(cm, &param);
+		if (!xform)
+			return false;
+		*xform_out = &xform->base;
+	} else {
+		*xform_out = NULL; /* Identity transform */
+	}
 
 	return true;
 }
@@ -172,10 +176,7 @@ cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
 					 struct weston_color_transform **xform_out)
 {
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
-	struct cmlcms_color_transform_search_param param = {
-		/* Assumes blending space is optical sRGB SDR */
-		.type = CMLCMS_TYPE_EOTF_sRGB,
-	};
+	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
 	setup_search_param(CMLCMS_CATEGORY_INPUT_TO_BLEND, NULL, output,
