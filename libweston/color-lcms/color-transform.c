@@ -39,6 +39,17 @@ struct tone_curve_def {
 	cmsFloat64Number params[5];
 };
 
+/**
+ * The method is used in linearization of an arbitrary color profile
+ * when EOTF is retrieved we want to know a generic way to decide the number
+ * of points
+ */
+unsigned int
+cmlcms_reasonable_1D_points(void)
+{
+	return 1024;
+}
+
 /*
  * LCMS uses the required number of 'params' based on 'cmstype', the parametric
  * tone curve number. LCMS honors negative 'cmstype' as inverse function.

@@ -36,6 +36,222 @@
 #include "shared/helpers.h"
 #include "shared/string-helpers.h"
 
+struct xyz_arr_flt {
+	float v[3];
+};
+
+static double
+xyz_dot_prod(const struct xyz_arr_flt a, const struct xyz_arr_flt b)
+{
+	return (double)a.v[0] * b.v[0] +
+	       (double)a.v[1] * b.v[1] +
+	       (double)a.v[2] * b.v[2];
+}
+
+/**
+ * Graeme sketched a linearization method there:
+ * https://lists.freedesktop.org/archives/wayland-devel/2019-March/040171.html
+ */
+static bool
+build_eotf_from_clut_profile(cmsContext lcms_ctx,
+			     cmsHPROFILE profile,
+			     cmsToneCurve *output_eotf[3],
+			     int num_points)
+{
+	int ch, point;
+	float *curve_array[3];
+	float *red = NULL;
+	cmsHPROFILE xyz_profile = NULL;
+	cmsHTRANSFORM transform_rgb_to_xyz = NULL;
+	bool ret = false;
+	const float div = num_points - 1;
+
+	red = malloc(sizeof(float) * num_points * 3);
+	if (!red)
+		goto release;
+
+	curve_array[0] = red;
+	curve_array[1] = red + num_points;
+	curve_array[2] = red + 2 * num_points;
+
+	xyz_profile = cmsCreateXYZProfile();
+	if (!xyz_profile)
+		goto release;
+
+	transform_rgb_to_xyz = cmsCreateTransform(profile, TYPE_RGB_FLT,
+						  xyz_profile, TYPE_XYZ_FLT,
+						  INTENT_ABSOLUTE_COLORIMETRIC,
+						  0);
+	if (!transform_rgb_to_xyz)
+		goto release;
+
+	for (ch = 0; ch < 3; ch++) {
+		struct xyz_arr_flt prim_xyz_max;
+		struct xyz_arr_flt prim_xyz;
+		double xyz_square_magnitude;
+		float rgb[3] = { 0.0f, 0.0f, 0.0f };
+
+		rgb[ch] = 1.0f;
+		cmsDoTransform(transform_rgb_to_xyz, rgb, prim_xyz_max.v, 1);
+
+		/**
+		 * Calculate xyz square of magnitude uses single channel 100% and
+		 * others are zero.
+		 */
+		xyz_square_magnitude = xyz_dot_prod(prim_xyz_max, prim_xyz_max);
+		/**
+		 * Build rgb tone curves
+		 */
+		for (point = 0; point < num_points; point++) {
+			rgb[ch] = (float)point / div;
+			cmsDoTransform(transform_rgb_to_xyz, rgb, prim_xyz.v, 1);
+			curve_array[ch][point] = xyz_dot_prod(prim_xyz,
+							      prim_xyz_max) /
+						 xyz_square_magnitude;
+		}
+
+		/**
+		 * Create LCMS object of rgb tone curves and validate whether
+		 * monotonic
+		 */
+		output_eotf[ch] = cmsBuildTabulatedToneCurveFloat(lcms_ctx,
+								  num_points,
+								  curve_array[ch]);
+		if (!output_eotf[ch])
+			goto release;
+		if (!cmsIsToneCurveMonotonic(output_eotf[ch])) {
+			/**
+			 * It is interesting to see how this profile was created.
+			 * We assume that such a curve could not be used for linearization
+			 * of arbitrary profile.
+			 */
+			goto release;
+		}
+	}
+	ret = true;
+
+release:
+	if (transform_rgb_to_xyz)
+		cmsDeleteTransform(transform_rgb_to_xyz);
+	if (xyz_profile)
+		cmsCloseProfile(xyz_profile);
+	free(red);
+	if (ret == false)
+		cmsFreeToneCurveTriple(output_eotf);
+
+	return ret;
+}
+
+/**
+ * Concatenation of two monotonic tone curves.
+ * LCMS  API cmsJoinToneCurve does y = Y^-1(X(t)),
+ * but want to have y = Y^(X(t))
+ */
+static cmsToneCurve *
+lcmsJoinToneCurve(cmsContext context_id, const cmsToneCurve *X,
+		  const cmsToneCurve *Y, unsigned int resulting_points)
+{
+	cmsToneCurve *out = NULL;
+	float t, x;
+	float *res = NULL;
+	unsigned int i;
+
+	res = zalloc(resulting_points * sizeof(float));
+	if (res == NULL)
+		goto error;
+
+	for (i = 0; i < resulting_points; i++) {
+		t = (float)i / (resulting_points - 1);
+		x = cmsEvalToneCurveFloat(X, t);
+		res[i] = cmsEvalToneCurveFloat(Y, x);
+	}
+
+	out = cmsBuildTabulatedToneCurveFloat(context_id, resulting_points, res);
+
+error:
+	if (res != NULL)
+		free(res);
+
+	return out;
+}
+/**
+ * Extract EOTF from matrix-shaper and cLUT profiles,
+ * then invert and concatenate with 'vcgt' curve if it
+ * is available.
+ */
+bool
+retrieve_eotf_and_output_inv_eotf(cmsContext lcms_ctx,
+				  cmsHPROFILE hProfile,
+				  cmsToneCurve *output_eotf[3],
+				  cmsToneCurve *output_inv_eotf_vcgt[3],
+				  cmsToneCurve *vcgt[3],
+				  unsigned int num_points)
+{
+	cmsToneCurve *curve = NULL;
+	const cmsToneCurve * const *vcgt_curves;
+	unsigned i;
+	cmsTagSignature tags[] = {
+			cmsSigRedTRCTag, cmsSigGreenTRCTag, cmsSigBlueTRCTag
+	};
+
+	if (cmsIsMatrixShaper(hProfile)) {
+		/**
+		 * Optimization for matrix-shaper profile
+		 * May have 1DLUT->3x3->3x3->1DLUT, 1DLUT->3x3->1DLUT
+		 */
+		for (i = 0 ; i < 3; i++) {
+			curve = cmsReadTag(hProfile, tags[i]);
+			if (!curve)
+				goto fail;
+			output_eotf[i] = cmsDupToneCurve(curve);
+			if (!output_eotf[i])
+				goto fail;
+		}
+	} else {
+		/**
+		 * Linearization of cLUT profile may have 1DLUT->3DLUT->1DLUT,
+		 * 1DLUT->3DLUT, 3DLUT
+		 */
+		if (!build_eotf_from_clut_profile(lcms_ctx, hProfile,
+						 output_eotf, num_points))
+			goto fail;
+	}
+	/**
+	 * If the caller looking for eotf only then return early.
+	 * It could be used for input profile when identity case: EOTF + INV_EOTF
+	 * in pipeline only.
+	 */
+	if (output_inv_eotf_vcgt == NULL)
+		return true;
+
+	for (i = 0; i < 3; i++) {
+		curve = cmsReverseToneCurve(output_eotf[i]);
+		if (!curve)
+			goto fail;
+		output_inv_eotf_vcgt[i] = curve;
+	}
+	vcgt_curves = cmsReadTag(hProfile, cmsSigVcgtTag);
+	if (vcgt_curves && vcgt_curves[0] && vcgt_curves[1] && vcgt_curves[2]) {
+		for (i = 0; i < 3; i++) {
+			curve = lcmsJoinToneCurve(lcms_ctx,
+						  output_inv_eotf_vcgt[i],
+						  vcgt_curves[i], num_points);
+			if (!curve)
+				goto fail;
+			cmsFreeToneCurve(output_inv_eotf_vcgt[i]);
+			output_inv_eotf_vcgt[i] = curve;
+			if (vcgt)
+				vcgt[i] = cmsDupToneCurve(vcgt_curves[i]);
+		}
+	}
+	return true;
+
+fail:
+	cmsFreeToneCurveTriple(output_eotf);
+	cmsFreeToneCurveTriple(output_inv_eotf_vcgt);
+	return false;
+}
+
 /* FIXME: sync with spec! */
 static bool
 validate_icc_profile(cmsHPROFILE profile, char **errmsg)
@@ -181,6 +397,14 @@ cmlcms_create_stock_profile(struct weston_color_manager_lcms *cm)
 
 	cm->sRGB_profile = cmlcms_color_profile_create(cm, profile, desc, NULL);
 	if (!cm->sRGB_profile)
+		goto err_close;
+
+	if (!retrieve_eotf_and_output_inv_eotf(cm->lcms_ctx,
+					       cm->sRGB_profile->profile,
+					       cm->sRGB_profile->output_eotf,
+					       cm->sRGB_profile->output_inv_eotf_vcgt,
+					       cm->sRGB_profile->vcgt,
+					       cmlcms_reasonable_1D_points()))
 		goto err_close;
 
 	return true;
