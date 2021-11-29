@@ -198,6 +198,7 @@ aarch64-debian-container_prep:
     paths:
     - $BUILDDIR/*.png
     - $BUILDDIR/meson-logs
+    - $BUILDDIR/dmesg.log
     - $BUILDDIR/weston-virtme
     - $PREFIX
     reports:
