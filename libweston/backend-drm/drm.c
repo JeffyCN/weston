@@ -1711,10 +1711,9 @@ drm_output_deinit_planes(struct drm_output *output)
 }
 
 static struct weston_drm_format_array *
-get_scanout_formats(struct drm_backend *b)
+get_scanout_formats(struct drm_device *device)
 {
-	struct weston_compositor *ec = b->compositor;
-	struct drm_device *device = b->drm;
+	struct weston_compositor *ec = device->backend->compositor;
 	const struct weston_drm_format_array *renderer_formats;
 	struct weston_drm_format_array *scanout_formats, union_planes_formats;
 	struct drm_plane *plane;
@@ -3240,7 +3239,7 @@ drm_backend_create(struct weston_compositor *compositor,
 			 * table was already created and populated with
 			 * renderer's format/modifier pairs. So now we must
 			 * compute the scanout formats indices in the table */
-			scanout_formats = get_scanout_formats(b);
+			scanout_formats = get_scanout_formats(b->drm);
 			if (!scanout_formats)
 				goto err_udev_monitor;
 			ret = weston_dmabuf_feedback_format_table_set_scanout_indices(compositor->dmabuf_feedback_format_table,

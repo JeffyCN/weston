@@ -326,12 +326,12 @@ drm_output_check_zpos_plane_states(struct drm_output_state *state)
 }
 
 static bool
-dmabuf_feedback_maybe_update(struct drm_backend *b, struct weston_view *ev,
+dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 			     uint32_t try_view_on_plane_failure_reasons)
 {
 	struct weston_dmabuf_feedback *dmabuf_feedback = ev->surface->dmabuf_feedback;
 	struct weston_dmabuf_feedback_tranche *scanout_tranche;
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
 	dev_t scanout_dev = device->drm.devnum;
 	uint32_t scanout_flags = ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT;
 	uint32_t action_needed = ACTION_NEEDED_NONE;
@@ -971,7 +971,7 @@ drm_assign_planes(struct weston_output *output_base)
 
 		/* Update dmabuf-feedback if needed */
 		if (ev->surface->dmabuf_feedback)
-			dmabuf_feedback_maybe_update(b, ev,
+			dmabuf_feedback_maybe_update(device, ev,
 						     pnode->try_view_on_plane_failure_reasons);
 		pnode->try_view_on_plane_failure_reasons = FAILURE_REASONS_NONE;
 
