@@ -23,18 +23,90 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 #include "config.h"
 #include <math.h>
 #include "color_util.h"
 #include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+#include "shared/helpers.h"
+
+struct color_tone_curve {
+	enum transfer_fn fn;
+	enum transfer_fn inv_fn;
+
+	/* LCMS2 API */
+	int internal_type;
+	double param[5];
+};
+
+const struct color_tone_curve arr_curves[] = {
+		{
+			.fn = TRANSFER_FN_SRGB_EOTF,
+			.inv_fn = TRANSFER_FN_SRGB_EOTF_INVERSE,
+			.internal_type = 4,
+			.param = { 2.4, 1. / 1.055, 0.055 / 1.055, 1. / 12.92, 0.04045 } ,
+		},
+		{
+			.fn = TRANSFER_FN_ADOBE_RGB_EOTF,
+			.inv_fn = TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE,
+			.internal_type = 1,
+			.param = { 563./256., 0.0, 0.0, 0.0 , 0.0 } ,
+		},
+		{
+			.fn = TRANSFER_FN_POWER2_4_EOTF,
+			.inv_fn = TRANSFER_FN_POWER2_4_EOTF_INVERSE,
+			.internal_type = 1,
+			.param = { 2.4, 0.0, 0.0, 0.0 , 0.0 } ,
+		}
+
+};
+
+bool
+find_tone_curve_type(enum transfer_fn fn, int *type, double params[5])
+{
+	const int size_arr = ARRAY_LENGTH(arr_curves);
+	const struct color_tone_curve *curve;
+
+	for (curve = &arr_curves[0]; curve < &arr_curves[size_arr]; curve++ ) {
+		if (curve->fn == fn )
+			*type = curve->internal_type;
+		else if (curve->inv_fn == fn)
+			*type = -curve->internal_type;
+		else
+			continue;
+
+		memcpy(params, curve->param, sizeof(curve->param));
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * NaN comes out as is
+ *This function is not intended for hiding NaN.
+ */
+static float
+ensure_unit_range(float v)
+{
+	const float tol = 1e-5f;
+	const float lim_lo = -tol;
+	const float lim_hi = 1.0f + tol;
+
+	assert(v >= lim_lo);
+	if (v < 0.0f)
+		return 0.0f;
+	assert(v <= lim_hi);
+	if (v > 1.0f)
+		return 1.0f;
+	return v;
+}
 
 static float
 sRGB_EOTF(float e)
 {
-	assert(e >= 0.0f);
-	assert(e <= 1.0f);
-
+	e = ensure_unit_range(e);
 	if (e <= 0.04045)
 		return e / 12.92;
 	else
@@ -44,15 +116,40 @@ sRGB_EOTF(float e)
 static float
 sRGB_EOTF_inv(float o)
 {
-	assert(o >= 0.0f);
-	assert(o <= 1.0f);
-
+	o = ensure_unit_range(o);
 	if (o <= 0.04045 / 12.92)
 		return o * 12.92;
 	else
 		return pow(o, 1.0 / 2.4) * 1.055 - 0.055;
 }
 
+static float
+AdobeRGB_EOTF(float e)
+{
+	e = ensure_unit_range(e);
+	return pow(e, 563./256.);
+}
+
+static float
+AdobeRGB_EOTF_inv(float o)
+{
+	o = ensure_unit_range(o);
+	return pow(o, 256./563.);
+}
+
+static float
+Power2_4_EOTF(float e)
+{
+	e = ensure_unit_range(e);
+	return pow(e, 2.4);
+}
+
+static float
+Power2_4_EOTF_inv(float o)
+{
+	o = ensure_unit_range(o);
+	return pow(o, 1./2.4);
+}
 
 void
 sRGB_linearize(struct color_float *cf)
@@ -60,6 +157,35 @@ sRGB_linearize(struct color_float *cf)
 	cf->r = sRGB_EOTF(cf->r);
 	cf->g = sRGB_EOTF(cf->g);
 	cf->b = sRGB_EOTF(cf->b);
+}
+
+static float
+apply_tone_curve(enum transfer_fn fn, float r)
+{
+	float ret = 0;
+
+	switch(fn) {
+	case TRANSFER_FN_SRGB_EOTF:
+		ret = sRGB_EOTF(r);
+		break;
+	case TRANSFER_FN_SRGB_EOTF_INVERSE:
+		ret = sRGB_EOTF_inv(r);
+		break;
+	case TRANSFER_FN_ADOBE_RGB_EOTF:
+		ret = AdobeRGB_EOTF(r);
+		break;
+	case TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE:
+		ret = AdobeRGB_EOTF_inv(r);
+		break;
+	case TRANSFER_FN_POWER2_4_EOTF:
+		ret = Power2_4_EOTF(r);
+		break;
+	case TRANSFER_FN_POWER2_4_EOTF_INVERSE:
+		ret = Power2_4_EOTF_inv(r);
+		break;
+	}
+
+	return ret;
 }
 
 void
@@ -81,4 +207,38 @@ a8r8g8b8_to_float(uint32_t v)
 	cf.b = ((v >>  0) & 0xff) / 255.f;
 
 	return cf;
+}
+
+void
+process_pixel_using_pipeline(enum transfer_fn pre_curve,
+			     const struct lcmsMAT3 *mat,
+			     enum transfer_fn post_curve,
+			     const struct color_float *in,
+			     struct color_float *out)
+{
+	int i, j;
+	float rgb_in[3];
+	float out_blend[3];
+	float tmp;
+
+	rgb_in[0] = in->r;
+	rgb_in[1] = in->g;
+	rgb_in[2] = in->b;
+
+	for (i = 0; i < 3; i++)
+		rgb_in[i] = apply_tone_curve(pre_curve, rgb_in[i]);
+
+	for (i = 0; i < 3; i++) {
+		tmp = 0.0f;
+		for (j = 0; j < 3; j++)
+			tmp += rgb_in[j] * mat->v[j].n[i];
+		out_blend[i] = tmp;
+	}
+
+	for (i = 0; i < 3; i++)
+		out_blend[i] = apply_tone_curve(post_curve, out_blend[i]);
+
+	out->r = out_blend[0];
+	out->g = out_blend[1];
+	out->b = out_blend[2];
 }
