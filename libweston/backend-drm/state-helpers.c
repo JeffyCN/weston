@@ -73,6 +73,9 @@ drm_plane_state_alloc(struct drm_output_state *state_output,
 void
 drm_plane_state_free(struct drm_plane_state *state, bool force)
 {
+	struct drm_backend *backend;
+	struct drm_device *device;
+
 	if (!state)
 		return;
 
@@ -86,7 +89,10 @@ drm_plane_state_free(struct drm_plane_state *state, bool force)
 	 * by the kernel, which means we can safely discard it.
 	 */
 	if (state->damage_blob_id != 0) {
-		drmModeDestroyPropertyBlob(state->plane->backend->drm.fd,
+		backend = state->plane->backend;
+		device = backend->drm;
+
+		drmModeDestroyPropertyBlob(device->drm.fd,
 					   state->damage_blob_id);
 		state->damage_blob_id = 0;
 	}

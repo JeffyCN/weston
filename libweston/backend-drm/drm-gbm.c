@@ -118,8 +118,9 @@ drm_backend_create_gl_renderer(struct drm_backend *b)
 int
 init_egl(struct drm_backend *b)
 {
-	b->gbm = create_gbm_device(b->drm.fd);
+	struct drm_device *device = b->drm;
 
+	b->gbm = create_gbm_device(device->drm.fd);
 	if (!b->gbm)
 		return -1;
 
@@ -145,6 +146,7 @@ static void drm_output_fini_cursor_egl(struct drm_output *output)
 static int
 drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
 {
+	struct drm_device *device = b->drm;
 	unsigned int i;
 
 	/* No point creating cursors if we don't have a plane for them. */
@@ -154,7 +156,7 @@ drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
 	for (i = 0; i < ARRAY_LENGTH(output->gbm_cursor_fb); i++) {
 		struct gbm_bo *bo;
 
-		bo = gbm_bo_create(b->gbm, b->cursor_width, b->cursor_height,
+		bo = gbm_bo_create(b->gbm, device->cursor_width, device->cursor_height,
 				   GBM_FORMAT_ARGB8888,
 				   GBM_BO_USE_CURSOR | GBM_BO_USE_WRITE);
 		if (!bo)
@@ -173,7 +175,7 @@ drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
 
 err:
 	weston_log("cursor buffers unavailable, using gl cursors\n");
-	b->cursors_are_broken = true;
+	device->cursors_are_broken = true;
 	drm_output_fini_cursor_egl(output);
 	return -1;
 }
@@ -317,6 +319,7 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 static void
 switch_to_gl_renderer(struct drm_backend *b)
 {
+	struct drm_device *device = b->drm;
 	struct drm_output *output;
 	bool dmabuf_support_inited;
 	bool linux_explicit_sync_inited;
@@ -330,7 +333,7 @@ switch_to_gl_renderer(struct drm_backend *b)
 
 	weston_log("Switching to GL renderer\n");
 
-	b->gbm = create_gbm_device(b->drm.fd);
+	b->gbm = create_gbm_device(device->drm.fd);
 	if (!b->gbm) {
 		weston_log("Failed to create gbm device. "
 			   "Aborting renderer switch\n");

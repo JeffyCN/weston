@@ -259,6 +259,48 @@ enum actions_needed_dmabuf_feedback {
 	ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE = (1 << 1),
 };
 
+struct drm_device {
+	struct drm_backend *backend;
+
+	struct {
+		int id;
+		int fd;
+		char *filename;
+		dev_t devnum;
+	} drm;
+
+	/* drm_crtc::link */
+	struct wl_list crtc_list;
+
+	struct wl_list plane_list;
+
+	/* drm_writeback::link */
+	struct wl_list writeback_connector_list;
+
+	bool state_invalid;
+
+	bool atomic_modeset;
+
+	bool aspect_ratio_supported;
+
+	int32_t cursor_width;
+	int32_t cursor_height;
+
+	bool cursors_are_broken;
+	bool sprites_are_broken;
+
+	void *repaint_data;
+
+	bool fb_modifiers;
+
+	/* we need these parameters in order to not fail drmModeAddFB2()
+	 * due to out of bounds dimensions, and then mistakenly set
+	 * sprites_are_broken:
+	 */
+	int min_width, max_width;
+	int min_height, max_height;
+};
+
 struct drm_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
@@ -269,55 +311,19 @@ struct drm_backend {
 	struct udev_monitor *udev_monitor;
 	struct wl_event_source *udev_drm_source;
 
-	struct {
-		int id;
-		int fd;
-		char *filename;
-		dev_t devnum;
-	} drm;
+	struct drm_device *drm;
 	struct gbm_device *gbm;
 	struct wl_listener session_listener;
 	uint32_t gbm_format;
-
-	/* we need these parameters in order to not fail drmModeAddFB2()
-	 * due to out of bounds dimensions, and then mistakenly set
-	 * sprites_are_broken:
-	 */
-	int min_width, max_width;
-	int min_height, max_height;
-
-	struct wl_list plane_list;
-
-	void *repaint_data;
-
-	bool state_invalid;
-
-	/* drm_crtc::link */
-	struct wl_list crtc_list;
-
-	/* drm_writeback::link */
-	struct wl_list writeback_connector_list;
-
-	bool sprites_are_broken;
-	bool cursors_are_broken;
-
-	bool atomic_modeset;
 
 	bool use_pixman;
 	bool use_pixman_shadow;
 
 	struct udev_input input;
 
-	int32_t cursor_width;
-	int32_t cursor_height;
-
 	uint32_t pageflip_timeout;
 
 	bool shutting_down;
-
-	bool aspect_ratio_supported;
-
-	bool fb_modifiers;
 
 	struct weston_log_scope *debug;
 };

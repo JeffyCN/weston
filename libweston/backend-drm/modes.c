@@ -100,12 +100,13 @@ drm_subpixel_to_wayland(int drm_value)
 int
 drm_mode_ensure_blob(struct drm_backend *backend, struct drm_mode *mode)
 {
+	struct drm_device *device = backend->drm;
 	int ret;
 
 	if (mode->blob_id)
 		return 0;
 
-	ret = drmModeCreatePropertyBlob(backend->drm.fd,
+	ret = drmModeCreatePropertyBlob(device->drm.fd,
 					&mode->mode_info,
 					sizeof(mode->mode_info),
 					&mode->blob_id);
@@ -320,6 +321,8 @@ find_and_parse_output_edid(struct drm_head *head,
 			   const char **serial_number,
 			   uint32_t *eotf_mask)
 {
+	struct drm_backend *backend = head->backend;
+	struct drm_device *device = backend->drm;
 	drmModePropertyBlobPtr edid_blob = NULL;
 	uint32_t blob_id;
 	int rc;
@@ -331,7 +334,7 @@ find_and_parse_output_edid(struct drm_head *head,
 	if (!blob_id)
 		return;
 
-	edid_blob = drmModeGetPropertyBlob(head->backend->drm.fd, blob_id);
+	edid_blob = drmModeGetPropertyBlob(device->drm.fd, blob_id);
 	if (!edid_blob)
 		return;
 
@@ -360,7 +363,7 @@ prune_eotf_modes_by_kms_support(struct drm_head *head, uint32_t *eotf_mask)
 	/* Without the KMS property, cannot do anything but SDR. */
 
 	info = &head->connector.props[WDRM_CONNECTOR_HDR_OUTPUT_METADATA];
-	if (!head->backend->atomic_modeset || info->prop_id == 0)
+	if (!head->backend->drm->atomic_modeset || info->prop_id == 0)
 		*eotf_mask = WESTON_EOTF_MODE_SDR;
 }
 
@@ -426,8 +429,10 @@ drm_output_add_mode(struct drm_output *output, const drmModeModeInfo *info)
 static void
 drm_output_destroy_mode(struct drm_backend *backend, struct drm_mode *mode)
 {
+	struct drm_device *device = backend->drm;
+
 	if (mode->blob_id)
-		drmModeDestroyPropertyBlob(backend->drm.fd, mode->blob_id);
+		drmModeDestroyPropertyBlob(device->drm.fd, mode->blob_id);
 	wl_list_remove(&mode->base.link);
 	free(mode);
 }
@@ -488,15 +493,17 @@ drm_output_choose_mode(struct drm_output *output,
 	enum weston_mode_aspect_ratio src_aspect = WESTON_MODE_PIC_AR_NONE;
 	enum weston_mode_aspect_ratio target_aspect = WESTON_MODE_PIC_AR_NONE;
 	struct drm_backend *b;
+	struct drm_device *device;
 
 	b = to_drm_backend(output->base.compositor);
+	device = b->drm;
 	target_aspect = target_mode->aspect_ratio;
 	src_aspect = output->base.current_mode->aspect_ratio;
 	if (output->base.current_mode->width == target_mode->width &&
 	    output->base.current_mode->height == target_mode->height &&
 	    (output->base.current_mode->refresh == target_mode->refresh ||
 	     target_mode->refresh == 0)) {
-		if (!b->aspect_ratio_supported || src_aspect == target_aspect)
+		if (!device->aspect_ratio_supported || src_aspect == target_aspect)
 			return to_drm_mode(output->base.current_mode);
 	}
 
@@ -507,7 +514,7 @@ drm_output_choose_mode(struct drm_output *output,
 		    mode->mode_info.vdisplay == target_mode->height) {
 			if (mode->base.refresh == target_mode->refresh ||
 			    target_mode->refresh == 0) {
-				if (!b->aspect_ratio_supported ||
+				if (!device->aspect_ratio_supported ||
 				    src_aspect == target_aspect)
 					return mode;
 				else if (!mode_fall_back)
@@ -574,6 +581,7 @@ drm_output_choose_initial_mode(struct drm_backend *backend,
 			       const char *modeline,
 			       const drmModeModeInfo *current_mode)
 {
+	struct drm_device *device = backend->drm;
 	struct drm_mode *preferred = NULL;
 	struct drm_mode *current = NULL;
 	struct drm_mode *configured = NULL;
@@ -592,7 +600,7 @@ drm_output_choose_initial_mode(struct drm_backend *backend,
 	if (mode == WESTON_DRM_BACKEND_OUTPUT_PREFERRED && modeline) {
 		n = sscanf(modeline, "%dx%d@%d %u:%u", &width, &height,
 			   &refresh, &aspect_width, &aspect_height);
-		if (backend->aspect_ratio_supported && n == 5) {
+		if (device->aspect_ratio_supported && n == 5) {
 			if (aspect_width == 4 && aspect_height == 3)
 				aspect_ratio = WESTON_MODE_PIC_AR_4_3;
 			else if (aspect_width == 16 && aspect_height == 9)
@@ -623,7 +631,7 @@ drm_output_choose_initial_mode(struct drm_backend *backend,
 		if (width == drm_mode->base.width &&
 		    height == drm_mode->base.height &&
 		    (refresh == 0 || refresh == drm_mode->mode_info.vrefresh)) {
-			if (!backend->aspect_ratio_supported ||
+			if (!device->aspect_ratio_supported ||
 			    aspect_ratio == drm_mode->base.aspect_ratio)
 				configured = drm_mode;
 			else

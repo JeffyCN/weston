@@ -288,6 +288,7 @@ drm_property_info_populate(struct drm_backend *b,
 			   unsigned int num_infos,
 			   drmModeObjectProperties *props)
 {
+	struct drm_device *device = b->drm;
 	drmModePropertyRes *prop;
 	unsigned i, j;
 
@@ -314,7 +315,7 @@ drm_property_info_populate(struct drm_backend *b,
 	for (i = 0; i < props->count_props; i++) {
 		unsigned int k;
 
-		prop = drmModeGetProperty(b->drm.fd, props->props[i]);
+		prop = drmModeGetProperty(device->drm.fd, props->props[i]);
 		if (!prop)
 			continue;
 
@@ -436,6 +437,8 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const drmModeObjectProperties *props,
 			   const bool use_modifiers)
 {
+	struct drm_backend *backend = plane->backend;
+	struct drm_device *device = backend->drm;
 	unsigned i, j;
 	drmModePropertyBlobRes *blob = NULL;
 	struct drm_format_modifier_blob *fmt_mod_blob;
@@ -454,7 +457,7 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 	if (blob_id == 0)
 		goto fallback;
 
-	blob = drmModeGetPropertyBlob(plane->backend->drm.fd, blob_id);
+	blob = drmModeGetPropertyBlob(device->drm.fd, blob_id);
 	if (!blob)
 		goto fallback;
 
@@ -515,12 +518,13 @@ drm_output_set_gamma(struct weston_output *output_base,
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_backend *backend =
 		to_drm_backend(output->base.compositor);
+	struct drm_device *device = backend->drm;
 
 	/* check */
 	if (output_base->gamma_size != size)
 		return;
 
-	rc = drmModeCrtcSetGamma(backend->drm.fd,
+	rc = drmModeCrtcSetGamma(device->drm.fd,
 				 output->crtc->crtc_id,
 				 size, r, g, b);
 	if (rc)
@@ -539,6 +543,7 @@ drm_output_assign_state(struct drm_output_state *state,
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	struct drm_plane_state *plane_state;
 	struct drm_head *head;
 
@@ -555,13 +560,13 @@ drm_output_assign_state(struct drm_output_state *state,
 
 	output->state_cur = state;
 
-	if (b->atomic_modeset && mode == DRM_STATE_APPLY_ASYNC) {
+	if (device->atomic_modeset && mode == DRM_STATE_APPLY_ASYNC) {
 		drm_debug(b, "\t[CRTC:%u] setting pending flip\n",
 			  output->crtc->crtc_id);
 		output->atomic_complete_pending = true;
 	}
 
-	if (b->atomic_modeset &&
+	if (device->atomic_modeset &&
 	    state->protection == WESTON_HDCP_DISABLE)
 		wl_list_for_each(head, &output->base.head_list, base.output_link)
 			weston_head_set_content_protection_status(&head->base,
@@ -583,7 +588,7 @@ drm_output_assign_state(struct drm_output_state *state,
 			continue;
 		}
 
-		if (b->atomic_modeset)
+		if (device->atomic_modeset)
 			continue;
 
 		assert(plane->type != WDRM_PLANE_TYPE_OVERLAY);
@@ -597,6 +602,7 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 {
 	struct drm_output *output = output_state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	struct drm_crtc *crtc = output->crtc;
 	struct drm_plane *plane = output->cursor_plane;
 	struct drm_plane_state *state;
@@ -612,7 +618,7 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 	if (!state->fb) {
 		pixman_region32_fini(&plane->base.damage);
 		pixman_region32_init(&plane->base.damage);
-		drmModeSetCursor(b->drm.fd, crtc->crtc_id, 0, 0, 0);
+		drmModeSetCursor(device->drm.fd, crtc->crtc_id, 0, 0, 0);
 		return;
 	}
 
@@ -621,8 +627,8 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 
 	handle = output->gbm_cursor_handle[output->current_cursor];
 	if (plane->state_cur->fb != state->fb) {
-		if (drmModeSetCursor(b->drm.fd, crtc->crtc_id, handle,
-				     b->cursor_width, b->cursor_height)) {
+		if (drmModeSetCursor(device->drm.fd, crtc->crtc_id, handle,
+				     device->cursor_width, device->cursor_height)) {
 			weston_log("failed to set cursor: %s\n",
 				   strerror(errno));
 			goto err;
@@ -632,7 +638,7 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 	pixman_region32_fini(&plane->base.damage);
 	pixman_region32_init(&plane->base.damage);
 
-	if (drmModeMoveCursor(b->drm.fd, crtc->crtc_id,
+	if (drmModeMoveCursor(device->drm.fd, crtc->crtc_id,
 	                      state->dest_x, state->dest_y)) {
 		weston_log("failed to move cursor: %s\n", strerror(errno));
 		goto err;
@@ -641,8 +647,8 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 	return;
 
 err:
-	b->cursors_are_broken = true;
-	drmModeSetCursor(b->drm.fd, crtc->crtc_id, 0, 0, 0);
+	device->cursors_are_broken = true;
+	drmModeSetCursor(device->drm.fd, crtc->crtc_id, 0, 0, 0);
 }
 
 static int
@@ -650,6 +656,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *backend = to_drm_backend(output->base.compositor);
+	struct drm_device *device = backend->drm;
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_crtc *crtc = output->crtc;
 	struct drm_property_info *dpms_prop;
@@ -681,14 +688,14 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 
 	if (state->dpms != WESTON_DPMS_ON) {
 		if (output->cursor_plane) {
-			ret = drmModeSetCursor(backend->drm.fd, crtc->crtc_id,
+			ret = drmModeSetCursor(device->drm.fd, crtc->crtc_id,
 					       0, 0, 0);
 			if (ret)
 				weston_log("drmModeSetCursor failed disable: %s\n",
 					   strerror(errno));
 		}
 
-		ret = drmModeSetCrtc(backend->drm.fd, crtc->crtc_id, 0, 0, 0,
+		ret = drmModeSetCrtc(device->drm.fd, crtc->crtc_id, 0, 0, 0,
 				     NULL, 0, NULL);
 		if (ret)
 			weston_log("drmModeSetCrtc failed disabling: %s\n",
@@ -722,12 +729,12 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	assert(scanout_state->in_fence_fd == -1);
 
 	mode = to_drm_mode(output->base.current_mode);
-	if (backend->state_invalid ||
+	if (device->state_invalid ||
 	    !scanout_plane->state_cur->fb ||
 	    scanout_plane->state_cur->fb->strides[0] !=
 	    scanout_state->fb->strides[0]) {
 
-		ret = drmModeSetCrtc(backend->drm.fd, crtc->crtc_id,
+		ret = drmModeSetCrtc(device->drm.fd, crtc->crtc_id,
 				     scanout_state->fb->fb_id,
 				     0, 0,
 				     connectors, n_conn,
@@ -743,7 +750,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 			   crtc->crtc_id, scanout_state->plane->plane_id,
 			   pinfo ? pinfo->drm_format_name : "UNKNOWN");
 
-	if (drmModePageFlip(backend->drm.fd, crtc->crtc_id,
+	if (drmModePageFlip(device->drm.fd, crtc->crtc_id,
 			    scanout_state->fb->fb_id,
 			    DRM_MODE_PAGE_FLIP_EVENT, output) < 0) {
 		weston_log("queueing pageflip failed: %s\n", strerror(errno));
@@ -764,7 +771,7 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 			if (dpms_prop->prop_id == 0)
 				continue;
 
-			ret = drmModeConnectorSetProperty(backend->drm.fd,
+			ret = drmModeConnectorSetProperty(device->drm.fd,
 						head->connector.connector_id,
 						dpms_prop->prop_id,
 						state->dpms);
@@ -1059,6 +1066,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 			       enum drm_state_apply_mode mode)
 {
 	struct drm_backend *b = pending_state->backend;
+	struct drm_device *device = b->drm;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_plane *plane;
 	drmModeAtomicReq *req = drmModeAtomicAlloc();
@@ -1080,7 +1088,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		break;
 	}
 
-	if (b->state_invalid) {
+	if (device->state_invalid) {
 		struct weston_head *head_base;
 		struct drm_head *head;
 		struct drm_crtc *crtc;
@@ -1117,7 +1125,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 				ret = -1;
 		}
 
-		wl_list_for_each(crtc, &b->crtc_list, link) {
+		wl_list_for_each(crtc, &device->crtc_list, link) {
 			struct drm_property_info *info;
 			drmModeObjectProperties *props;
 			uint64_t active;
@@ -1130,7 +1138,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 			 * off, as the kernel will refuse to generate an event
 			 * for an off->off state and fail the commit.
 			 */
-			props = drmModeObjectGetProperties(b->drm.fd,
+			props = drmModeObjectGetProperties(device->drm.fd,
 							   crtc->crtc_id,
 							   DRM_MODE_OBJECT_CRTC);
 			if (!props) {
@@ -1153,7 +1161,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 
 		/* Disable all the planes; planes which are being used will
 		 * override this state in the output-state application. */
-		wl_list_for_each(plane, &b->plane_list, link) {
+		wl_list_for_each(plane, &device->plane_list, link) {
 			drm_debug(b, "\t\t[atomic] starting with plane %lu disabled\n",
 				  (unsigned long) plane->plane_id);
 			plane_add_prop(req, plane, WDRM_PLANE_CRTC_ID, 0);
@@ -1176,7 +1184,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		goto out;
 	}
 
-	ret = drmModeAtomicCommit(b->drm.fd, req, flags, b);
+	ret = drmModeAtomicCommit(device->drm.fd, req, flags, b);
 	drm_debug(b, "[atomic] drmModeAtomicCommit\n");
 
 	/* Test commits do not take ownership of the state; return
@@ -1196,7 +1204,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 			      link)
 		drm_output_assign_state(output_state, mode);
 
-	b->state_invalid = false;
+	device->state_invalid = false;
 
 	assert(wl_list_empty(&pending_state->output_list));
 
@@ -1228,8 +1236,9 @@ int
 drm_pending_state_test(struct drm_pending_state *pending_state)
 {
 	struct drm_backend *b = pending_state->backend;
+	struct drm_device *device = b->drm;
 
-	if (b->atomic_modeset)
+	if (device->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_TEST_ONLY);
 
@@ -1249,23 +1258,24 @@ int
 drm_pending_state_apply(struct drm_pending_state *pending_state)
 {
 	struct drm_backend *b = pending_state->backend;
+	struct drm_device *device = b->drm;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
 
-	if (b->atomic_modeset)
+	if (device->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_APPLY_ASYNC);
 
-	if (b->state_invalid) {
+	if (device->state_invalid) {
 		/* If we need to reset all our state (e.g. because we've
 		 * just started, or just been VT-switched in), explicitly
 		 * disable all the CRTCs we aren't using. This also disables
 		 * all connectors on these CRTCs, so we don't need to do that
 		 * separately with the pre-atomic API. */
-		wl_list_for_each(crtc, &b->crtc_list, link) {
+		wl_list_for_each(crtc, &device->crtc_list, link) {
 			if (crtc->output)
 				continue;
-			drmModeSetCrtc(b->drm.fd, crtc->crtc_id, 0, 0, 0,
+			drmModeSetCrtc(device->drm.fd, crtc->crtc_id, 0, 0, 0,
 				       NULL, 0, NULL);
 		}
 	}
@@ -1288,7 +1298,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 			weston_output_repaint_failed(&output->base);
 			drm_output_state_free(output->state_cur);
 			output->state_cur = drm_output_state_alloc(output, NULL);
-			b->state_invalid = true;
+			device->state_invalid = true;
 			if (!b->use_pixman) {
 				drm_output_fini_egl(output);
 				drm_output_init_egl(output, b);
@@ -1296,7 +1306,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 		}
 	}
 
-	b->state_invalid = false;
+	device->state_invalid = false;
 
 	assert(wl_list_empty(&pending_state->output_list));
 
@@ -1315,24 +1325,25 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 int
 drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 {
-	struct drm_backend *b = pending_state->backend;
+	struct drm_backend *backend = pending_state->backend;
+	struct drm_device *device = backend->drm;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
 
-	if (b->atomic_modeset)
+	if (device->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_APPLY_SYNC);
 
-	if (b->state_invalid) {
+	if (device->state_invalid) {
 		/* If we need to reset all our state (e.g. because we've
 		 * just started, or just been VT-switched in), explicitly
 		 * disable all the CRTCs we aren't using. This also disables
 		 * all connectors on these CRTCs, so we don't need to do that
 		 * separately with the pre-atomic API. */
-		wl_list_for_each(crtc, &b->crtc_list, link) {
+		wl_list_for_each(crtc, &device->crtc_list, link) {
 			if (crtc->output)
 				continue;
-			drmModeSetCrtc(b->drm.fd, crtc->crtc_id, 0, 0, 0,
+			drmModeSetCrtc(device->drm.fd, crtc->crtc_id, 0, 0, 0,
 				       NULL, 0, NULL);
 		}
 	}
@@ -1349,7 +1360,7 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 		}
 	}
 
-	b->state_invalid = false;
+	device->state_invalid = false;
 
 	assert(wl_list_empty(&pending_state->output_list));
 
@@ -1375,13 +1386,14 @@ page_flip_handler(int fd, unsigned int frame,
 {
 	struct drm_output *output = data;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_VSYNC |
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK;
 
 	drm_output_update_msc(output, frame);
 
-	assert(!b->atomic_modeset);
+	assert(!device->atomic_modeset);
 	assert(output->page_flip_pending);
 	output->page_flip_pending = false;
 
@@ -1393,6 +1405,7 @@ atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 		    unsigned int usec, unsigned int crtc_id, void *data)
 {
 	struct drm_backend *b = data;
+	struct drm_device *device = b->drm;
 	struct drm_crtc *crtc;
 	struct drm_output *output;
 	uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_VSYNC |
@@ -1413,7 +1426,7 @@ atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 	drm_output_update_msc(output, frame);
 
 	drm_debug(b, "[atomic][CRTC:%u] flip processing started\n", crtc_id);
-	assert(b->atomic_modeset);
+	assert(device->atomic_modeset);
 	assert(output->atomic_complete_pending);
 	output->atomic_complete_pending = false;
 
@@ -1424,12 +1437,12 @@ atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 int
 on_drm_input(int fd, uint32_t mask, void *data)
 {
-	struct drm_backend *b = data;
+	struct drm_device *device = data;
 	drmEventContext evctx;
 
 	memset(&evctx, 0, sizeof evctx);
 	evctx.version = 3;
-	if (b->atomic_modeset)
+	if (device->atomic_modeset)
 		evctx.page_flip_handler2 = atomic_flip_handler;
 	else
 		evctx.page_flip_handler = page_flip_handler;
@@ -1441,12 +1454,13 @@ on_drm_input(int fd, uint32_t mask, void *data)
 int
 init_kms_caps(struct drm_backend *b)
 {
+	struct drm_device *device = b->drm;
 	uint64_t cap;
 	int ret;
 
-	weston_log("using %s\n", b->drm.filename);
+	weston_log("using %s\n", device->drm.filename);
 
-	ret = drmGetCap(b->drm.fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap);
+	ret = drmGetCap(device->drm.fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap);
 	if (ret != 0 || cap != 1) {
 		weston_log("Error: kernel DRM KMS does not support DRM_CAP_TIMESTAMP_MONOTONIC.\n");
 		return -1;
@@ -1457,43 +1471,43 @@ init_kms_caps(struct drm_backend *b)
 		return -1;
 	}
 
-	ret = drmGetCap(b->drm.fd, DRM_CAP_CURSOR_WIDTH, &cap);
+	ret = drmGetCap(device->drm.fd, DRM_CAP_CURSOR_WIDTH, &cap);
 	if (ret == 0)
-		b->cursor_width = cap;
+		device->cursor_width = cap;
 	else
-		b->cursor_width = 64;
+		device->cursor_width = 64;
 
-	ret = drmGetCap(b->drm.fd, DRM_CAP_CURSOR_HEIGHT, &cap);
+	ret = drmGetCap(device->drm.fd, DRM_CAP_CURSOR_HEIGHT, &cap);
 	if (ret == 0)
-		b->cursor_height = cap;
+		device->cursor_height = cap;
 	else
-		b->cursor_height = 64;
+		device->cursor_height = 64;
 
-	ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
+	ret = drmSetClientCap(device->drm.fd, DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
 	if (ret) {
 		weston_log("Error: drm card doesn't support universal planes!\n");
 		return -1;
 	}
 
 	if (!getenv("WESTON_DISABLE_ATOMIC")) {
-		ret = drmGetCap(b->drm.fd, DRM_CAP_CRTC_IN_VBLANK_EVENT, &cap);
+		ret = drmGetCap(device->drm.fd, DRM_CAP_CRTC_IN_VBLANK_EVENT, &cap);
 		if (ret != 0)
 			cap = 0;
-		ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_ATOMIC, 1);
-		b->atomic_modeset = ((ret == 0) && (cap == 1));
+		ret = drmSetClientCap(device->drm.fd, DRM_CLIENT_CAP_ATOMIC, 1);
+		device->atomic_modeset = ((ret == 0) && (cap == 1));
 	}
 	weston_log("DRM: %s atomic modesetting\n",
-		   b->atomic_modeset ? "supports" : "does not support");
+		   device->atomic_modeset ? "supports" : "does not support");
 
 	if (!getenv("WESTON_DISABLE_GBM_MODIFIERS")) {
-		ret = drmGetCap(b->drm.fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
+		ret = drmGetCap(device->drm.fd, DRM_CAP_ADDFB2_MODIFIERS, &cap);
 		if (ret == 0)
-			b->fb_modifiers = cap;
+			device->fb_modifiers = cap;
 	}
 	weston_log("DRM: %s GBM modifiers\n",
-		   b->fb_modifiers ? "supports" : "does not support");
+		   device->fb_modifiers ? "supports" : "does not support");
 
-	drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_WRITEBACK_CONNECTORS, 1);
+	drmSetClientCap(device->drm.fd, DRM_CLIENT_CAP_WRITEBACK_CONNECTORS, 1);
 
 	/*
 	 * KMS support for hardware planes cannot properly synchronize
@@ -1503,13 +1517,13 @@ init_kms_caps(struct drm_backend *b)
 	 * to a fraction. For cursors, it's not so bad, so they are
 	 * enabled.
 	 */
-	if (!b->atomic_modeset || getenv("WESTON_FORCE_RENDERER"))
-		b->sprites_are_broken = true;
+	if (!device->atomic_modeset || getenv("WESTON_FORCE_RENDERER"))
+		device->sprites_are_broken = true;
 
-	ret = drmSetClientCap(b->drm.fd, DRM_CLIENT_CAP_ASPECT_RATIO, 1);
-	b->aspect_ratio_supported = (ret == 0);
+	ret = drmSetClientCap(device->drm.fd, DRM_CLIENT_CAP_ASPECT_RATIO, 1);
+	device->aspect_ratio_supported = (ret == 0);
 	weston_log("DRM: %s picture aspect ratio\n",
-		   b->aspect_ratio_supported ? "supports" : "does not support");
+		   device->aspect_ratio_supported ? "supports" : "does not support");
 
 	return 0;
 }

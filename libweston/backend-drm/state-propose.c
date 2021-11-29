@@ -86,10 +86,11 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	struct weston_compositor *ec = output->base.compositor;
 	struct weston_surface *surface = ev->surface;
 	struct drm_backend *b = to_drm_backend(ec);
+	struct drm_device *device = b->drm;
 	struct drm_plane_state *state = NULL;
 
-	assert(!b->sprites_are_broken);
-	assert(b->atomic_modeset);
+	assert(!device->sprites_are_broken);
+	assert(device->atomic_modeset);
 	assert(fb);
 	assert(mode == DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY ||
 	       (mode == DRM_OUTPUT_PROPOSE_STATE_MIXED &&
@@ -162,16 +163,17 @@ static void
 cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
 {
 	struct drm_backend *b = plane_state->plane->backend;
+	struct drm_device *device = b->drm;
 	struct gbm_bo *bo = plane_state->fb->bo;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
-	uint32_t buf[b->cursor_width * b->cursor_height];
+	uint32_t buf[device->cursor_width * device->cursor_height];
 	int32_t stride;
 	uint8_t *s;
 	int i;
 
 	assert(buffer && buffer->shm_buffer);
-	assert(buffer->width <= b->cursor_width);
-	assert(buffer->height <= b->cursor_height);
+	assert(buffer->width <= device->cursor_width);
+	assert(buffer->height <= device->cursor_height);
 
 	memset(buf, 0, sizeof buf);
 	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
@@ -179,7 +181,7 @@ cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
 
 	wl_shm_buffer_begin_access(buffer->shm_buffer);
 	for (i = 0; i < buffer->height; i++)
-		memcpy(buf + i * b->cursor_width,
+		memcpy(buf + i * device->cursor_width,
 		       s + i * stride,
 		       buffer->width * 4);
 	wl_shm_buffer_end_access(buffer->shm_buffer);
@@ -194,12 +196,13 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 {
 	struct drm_output *output = output_state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	struct drm_plane *plane = output->cursor_plane;
 	struct drm_plane_state *plane_state;
 	bool needs_update = false;
 	const char *p_name = drm_output_get_plane_type_name(plane);
 
-	assert(!b->cursors_are_broken);
+	assert(!device->cursors_are_broken);
 	assert(plane);
 	assert(plane->state_cur->complete);
 	assert(!plane->state_cur->output || plane->state_cur->output == output);
@@ -220,8 +223,8 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	}
 
 	if (plane_state->src_x != 0 || plane_state->src_y != 0 ||
-	    plane_state->src_w > (unsigned) b->cursor_width << 16 ||
-	    plane_state->src_h > (unsigned) b->cursor_height << 16 ||
+	    plane_state->src_w > (unsigned) device->cursor_width << 16 ||
+	    plane_state->src_h > (unsigned) device->cursor_height << 16 ||
 	    plane_state->src_w != plane_state->dest_w << 16 ||
 	    plane_state->src_h != plane_state->dest_h << 16) {
 		drm_debug(b, "\t\t\t\t[%s] not assigning view %p to %s plane "
@@ -260,10 +263,10 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	 * a buffer which is always cursor_width x cursor_height, even if the
 	 * surface we want to promote is actually smaller than this. Manually
 	 * mangle the plane state to deal with this. */
-	plane_state->src_w = b->cursor_width << 16;
-	plane_state->src_h = b->cursor_height << 16;
-	plane_state->dest_w = b->cursor_width;
-	plane_state->dest_h = b->cursor_height;
+	plane_state->src_w = device->cursor_width << 16;
+	plane_state->src_h = device->cursor_height << 16;
+	plane_state->dest_w = device->cursor_width;
+	plane_state->dest_h = device->cursor_height;
 
 	drm_debug(b, "\t\t\t\t[%s] provisionally assigned view %p to cursor\n",
 		  p_name, ev);
@@ -328,7 +331,8 @@ dmabuf_feedback_maybe_update(struct drm_backend *b, struct weston_view *ev,
 {
 	struct weston_dmabuf_feedback *dmabuf_feedback = ev->surface->dmabuf_feedback;
 	struct weston_dmabuf_feedback_tranche *scanout_tranche;
-	dev_t scanout_dev = b->drm.devnum;
+	struct drm_device *device = b->drm;
+	dev_t scanout_dev = device->drm.devnum;
 	uint32_t scanout_flags = ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT;
 	uint32_t action_needed = ACTION_NEEDED_NONE;
 	struct timespec current_time, delta_time;
@@ -428,6 +432,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 
 	struct drm_plane_state *ps = NULL;
 	struct drm_plane *plane;
@@ -454,7 +459,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 		return NULL;
 	} else if (buffer->type == WESTON_BUFFER_SHM) {
-		if (!output->cursor_plane || b->cursors_are_broken) {
+		if (!output->cursor_plane || device->cursors_are_broken) {
 			pnode->try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			return NULL;
@@ -471,8 +476,8 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			return NULL;
 		}
 
-		if (buffer->width > b->cursor_width ||
-		    buffer->height > b->cursor_height) {
+		if (buffer->width > device->cursor_width ||
+		    buffer->height > device->cursor_height) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 				     "(buffer (%dx%d) too large for cursor plane)\n",
 				     ev, buffer->width, buffer->height);
@@ -507,7 +512,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 							 state);
 
 	/* assemble a list with possible candidates */
-	wl_list_for_each(plane, &b->plane_list, link) {
+	wl_list_for_each(plane, &device->plane_list, link) {
 		const char *p_name = drm_output_get_plane_type_name(plane);
 		uint64_t zpos;
 
@@ -912,7 +917,8 @@ void
 drm_assign_planes(struct weston_output *output_base)
 {
 	struct drm_backend *b = to_drm_backend(output_base->compositor);
-	struct drm_pending_state *pending_state = b->repaint_data;
+	struct drm_device *device = b->drm;
+	struct drm_pending_state *pending_state = device->repaint_data;
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *plane_state;
@@ -923,7 +929,7 @@ drm_assign_planes(struct weston_output *output_base)
 	drm_debug(b, "\t[repaint] preparing state for output %s (%lu)\n",
 		  output_base->name, (unsigned long) output_base->id);
 
-	if (!b->sprites_are_broken && !output->virtual && b->gbm) {
+	if (!device->sprites_are_broken && !output->virtual && b->gbm) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		state = drm_output_propose_state(output_base, pending_state, mode);
 		if (!state) {
@@ -985,8 +991,8 @@ drm_assign_planes(struct weston_output *output_base)
 			    buffer->type == WESTON_BUFFER_RENDERER_OPAQUE)
 				ev->surface->keep_buffer = true;
 			else if (buffer->type == WESTON_BUFFER_SHM &&
-				 (ev->surface->width <= b->cursor_width &&
-		       		  ev->surface->height <= b->cursor_height))
+				 (ev->surface->width <= device->cursor_width &&
+		       		  ev->surface->height <= device->cursor_height))
 				ev->surface->keep_buffer = true;
 		}
 

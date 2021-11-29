@@ -108,6 +108,7 @@ weston_hdr_metadata_type1_to_kms(struct hdr_metadata_infoframe *dst,
 int
 drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output)
 {
+	struct drm_device *device = output->backend->drm;
 	const struct weston_hdr_metadata_type1 *src;
 	struct hdr_output_metadata meta;
 	uint32_t blob_id = 0;
@@ -160,7 +161,7 @@ drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output)
 		return -1;
 	}
 
-	ret = drmModeCreatePropertyBlob(output->backend->drm.fd,
+	ret = drmModeCreatePropertyBlob(device->drm.fd,
 					&meta, sizeof meta, &blob_id);
 	if (ret != 0) {
 		weston_log("Error: failed to create KMS blob for HDR metadata on output '%s': %s\n",
@@ -168,7 +169,7 @@ drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output)
 		return -1;
 	}
 
-	drmModeDestroyPropertyBlob(output->backend->drm.fd,
+	drmModeDestroyPropertyBlob(device->drm.fd,
 				   output->hdr_output_metadata_blob_id);
 
 	output->hdr_output_metadata_blob_id = blob_id;

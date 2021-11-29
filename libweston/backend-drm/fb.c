@@ -71,13 +71,14 @@ drm_fb_destroy_dumb(struct drm_fb *fb)
 static int
 drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 {
+	struct drm_device *device = b->drm;
 	int ret = -EINVAL;
 	uint64_t mods[4] = { };
 	size_t i;
 
 	/* If we have a modifier set, we must only use the WithModifiers
 	 * entrypoint; we cannot import it through legacy ioctls. */
-	if (b->fb_modifiers && fb->modifier != DRM_FORMAT_MOD_INVALID) {
+	if (device->fb_modifiers && fb->modifier != DRM_FORMAT_MOD_INVALID) {
 		/* KMS demands that if a modifier is set, it must be the same
 		 * for all planes. */
 		for (i = 0; i < ARRAY_LENGTH(mods) && fb->handles[i]; i++)
@@ -115,6 +116,7 @@ struct drm_fb *
 drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 		   uint32_t format)
 {
+	struct drm_device *device = b->drm;
 	struct drm_fb *fb;
 	int ret;
 
@@ -145,7 +147,7 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 	create_arg.width = width;
 	create_arg.height = height;
 
-	ret = drmIoctl(b->drm.fd, DRM_IOCTL_MODE_CREATE_DUMB, &create_arg);
+	ret = drmIoctl(device->drm.fd, DRM_IOCTL_MODE_CREATE_DUMB, &create_arg);
 	if (ret)
 		goto err_fb;
 
@@ -157,7 +159,7 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 	fb->size = create_arg.size;
 	fb->width = width;
 	fb->height = height;
-	fb->fd = b->drm.fd;
+	fb->fd = device->drm.fd;
 
 	if (drm_fb_addfb(b, fb) != 0) {
 		weston_log("failed to create kms fb: %s\n", strerror(errno));
@@ -171,18 +173,18 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 		goto err_add_fb;
 
 	fb->map = mmap(NULL, fb->size, PROT_WRITE,
-		       MAP_SHARED, b->drm.fd, map_arg.offset);
+		       MAP_SHARED, device->drm.fd, map_arg.offset);
 	if (fb->map == MAP_FAILED)
 		goto err_add_fb;
 
 	return fb;
 
 err_add_fb:
-	drmModeRmFB(b->drm.fd, fb->fb_id);
+	drmModeRmFB(device->drm.fd, fb->fb_id);
 err_bo:
 	memset(&destroy_arg, 0, sizeof(destroy_arg));
 	destroy_arg.handle = create_arg.handle;
-	drmIoctl(b->drm.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_arg);
+	drmIoctl(device->drm.fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy_arg);
 err_fb:
 	free(fb);
 	return NULL;
@@ -227,6 +229,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	 * of GBM_BO_IMPORT_FD_MODIFIER. */
 	return NULL;
 #else
+	struct drm_device *device = backend->drm;
 	struct drm_fb *fb;
 	int i;
 	struct gbm_import_fd_modifier_data import_mod = {
@@ -287,7 +290,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	fb->height = dmabuf->attributes.height;
 	fb->modifier = dmabuf->attributes.modifier[0];
 	fb->size = 0;
-	fb->fd = backend->drm.fd;
+	fb->fd = device->drm.fd;
 
 	ARRAY_COPY(fb->strides, dmabuf->attributes.stride);
 	ARRAY_COPY(fb->offsets, dmabuf->attributes.offset);
@@ -302,10 +305,10 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 	if (is_opaque)
 		fb->format = pixel_format_get_opaque_substitute(fb->format);
 
-	if (backend->min_width > fb->width ||
-	    fb->width > backend->max_width ||
-	    backend->min_height > fb->height ||
-	    fb->height > backend->max_height) {
+	if (device->min_width > fb->width ||
+	    fb->width > device->max_width ||
+	    device->min_height > fb->height ||
+	    fb->height > device->max_height) {
 		weston_log("bo geometry out of bounds\n");
 		goto err_free;
 	}
@@ -342,6 +345,7 @@ struct drm_fb *
 drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 		   bool is_opaque, enum drm_fb_type type)
 {
+	struct drm_device *device = backend->drm;
 	struct drm_fb *fb = gbm_bo_get_user_data(bo);
 #ifdef HAVE_GBM_MODIFIERS
 	int i;
@@ -359,7 +363,7 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 	fb->type = type;
 	fb->refcnt = 1;
 	fb->bo = bo;
-	fb->fd = backend->drm.fd;
+	fb->fd = device->drm.fd;
 
 	fb->width = gbm_bo_get_width(bo);
 	fb->height = gbm_bo_get_height(bo);
@@ -392,10 +396,10 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 	if (is_opaque)
 		fb->format = pixel_format_get_opaque_substitute(fb->format);
 
-	if (backend->min_width > fb->width ||
-	    fb->width > backend->max_width ||
-	    backend->min_height > fb->height ||
-	    fb->height > backend->max_height) {
+	if (device->min_width > fb->width ||
+	    fb->width > device->max_width ||
+	    device->min_height > fb->height ||
+	    fb->height > device->max_height) {
 		weston_log("bo geometry out of bounds\n");
 		goto err_free;
 	}
@@ -529,6 +533,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_device *device = b->drm;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	struct drm_buffer_fb *buf_fb;
 	bool is_opaque = weston_view_is_opaque(ev, &ev->transform.boundingbox);
@@ -603,7 +608,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 
 	/* Check if this buffer can ever go on any planes. If it can't, we have
 	 * no reason to ever have a drm_fb, so we fail it here. */
-	wl_list_for_each(plane, &b->plane_list, link) {
+	wl_list_for_each(plane, &device->plane_list, link) {
 		/* only SHM buffers can go into cursor planes */
 		if (plane->type == WDRM_PLANE_TYPE_CURSOR)
 			continue;
