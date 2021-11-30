@@ -1112,6 +1112,8 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 
 			head = to_drm_head(head_base);
 			connector_id = head->connector.connector_id;
+			if (head->connector.device != device)
+				continue;
 
 			drm_debug(b, "\t\t[atomic] disabling inactive head %s\n",
 				  head_base->name);
