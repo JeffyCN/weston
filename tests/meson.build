@@ -132,7 +132,7 @@ tests = [
 		'name': 'drm-formats',
 		'dep_objs': dep_libdrm_headers,
 	},
-	{	'name': 'drm-smoke', },
+	{	'name': 'drm-smoke', 'run_exclusive': true },
 	{	'name': 'event', },
 	{	'name': 'internal-screenshot', },
 	{
@@ -305,6 +305,8 @@ foreach t : tests
 	t_deps = [ dep_test_client, dep_libweston_private_h ]
 	t_deps += t.get('dep_objs', [])
 
+	run_exclusive = t.get('run_exclusive', false)
+
 	t_exe = executable(
 		t_name,
 		t_sources,
@@ -323,7 +325,8 @@ foreach t : tests
 		t_exe,
 		depends: t.get('test_deps', []),
 		timeout: 120,
-		protocol: 'tap'
+		protocol: 'tap',
+		is_parallel: not run_exclusive
 	)
 endforeach
 
