@@ -287,14 +287,14 @@ aarch64-debian-container_prep:
   - ninja -C "$BUILDDIR" coverage-html > "$BUILDDIR/meson-logs/ninja-coverage-html.txt"
   - ninja -C "$BUILDDIR" coverage-xml
   - sed -i -e 's/\/build-weston-build-full//' -e 's/\"..\//\"/' "$BUILDDIR/meson-logs/coverage.xml"
-  artifacts:
-    reports:
-      cobertura: $BUILDDIR/meson-logs/coverage.xml
 
 x86_64-debian-full-build:
   extends:
     - .test-env-debian-x86_64
     - .build-options-full
+  artifacts:
+    reports:
+      cobertura: $BUILDDIR/meson-logs/coverage.xml
 
 aarch64-debian-full-build:
   extends:
