@@ -6414,8 +6414,8 @@ weston_compositor_remove_output(struct weston_output *output)
 	wl_list_insert(compositor->pending_output_list.prev, &output->link);
 	output->enabled = false;
 
-	wl_signal_emit(&compositor->output_destroyed_signal, output);
-	wl_signal_emit(&output->destroy_signal, output);
+	weston_signal_emit_mutable(&compositor->output_destroyed_signal, output);
+	weston_signal_emit_mutable(&output->destroy_signal, output);
 
 	wl_list_for_each(head, &output->head_list, output_link)
 		weston_head_remove_global(head);
