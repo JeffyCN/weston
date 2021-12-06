@@ -1725,6 +1725,7 @@ get_scanout_formats(struct drm_backend *b)
 err:
 	weston_drm_format_array_fini(&union_planes_formats);
 	weston_drm_format_array_fini(scanout_formats);
+	free(scanout_formats);
 	return NULL;
 }
 
@@ -3154,6 +3155,7 @@ drm_backend_create(struct weston_compositor *compositor,
 			ret = weston_dmabuf_feedback_format_table_set_scanout_indices(compositor->dmabuf_feedback_format_table,
 										      scanout_formats);
 			weston_drm_format_array_fini(scanout_formats);
+			free(scanout_formats);
 			if (ret < 0)
 				goto err_udev_monitor;
 		}
