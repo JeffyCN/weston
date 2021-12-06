@@ -216,6 +216,7 @@ tests = [
 			dep_libm,
 		],
 	},
+	{	'name': 'safe-signal', },
 ]
 
 tests_standalone = [
