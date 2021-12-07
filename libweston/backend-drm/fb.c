@@ -581,6 +581,9 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	/* Check if this buffer can ever go on any planes. If it can't, we have
 	 * no reason to ever have a drm_fb, so we fail it here. */
 	wl_list_for_each(plane, &b->plane_list, link) {
+		/* only SHM buffers can go into cursor planes */
+		if (plane->type == WDRM_PLANE_TYPE_CURSOR)
+			continue;
 		if (drm_fb_compatible_with_plane(fb, plane))
 			fb->plane_mask |= (1 << plane->plane_idx);
 	}
