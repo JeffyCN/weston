@@ -699,10 +699,16 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			return NULL;
 		}
 	} else {
+		if (mode == DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p "
+				     "to plane: renderer-only mode\n", ev);
+			return NULL;
+		}
+
 		fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
+		if (!fb)
+			return NULL;
 	}
-	if (!shmbuf && !fb)
-		return NULL;
 
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
@@ -746,15 +752,6 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 					     plane->zpos_max);
 				continue;
 			}
-		}
-
-		if (mode == DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY &&
-		    (plane->type == WDRM_PLANE_TYPE_OVERLAY ||
-		     plane->type == WDRM_PLANE_TYPE_PRIMARY)) {
-			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
-				     "candidate list: renderer-only mode\n",
-				     plane->plane_id);
-			continue;
 		}
 
 		if (plane->type != WDRM_PLANE_TYPE_CURSOR &&
