@@ -63,39 +63,6 @@ drm_propose_state_mode_to_string(enum drm_output_propose_state_mode mode)
 	return drm_output_propose_state_mode_as_string[mode];
 }
 
-static void
-drm_output_add_zpos_plane(struct drm_plane *plane, struct wl_list *planes)
-{
-	struct drm_backend *b = plane->backend;
-	struct drm_plane_zpos *tmp;
-	struct drm_plane_zpos *plane_zpos;
-
-	plane_zpos = zalloc(sizeof(*plane_zpos));
-	if (!plane_zpos)
-		return;
-
-	plane_zpos->plane = plane;
-
-	drm_debug(b, "\t\t\t\t[plane] plane %d added to candidate list\n",
-		      plane->plane_id);
-
-	wl_list_for_each(tmp, planes, link) {
-		if (tmp->plane->zpos_max > plane_zpos->plane->zpos_max) {
-			wl_list_insert(tmp->link.prev, &plane_zpos->link);
-			break;
-		}
-	}
-	if (plane_zpos->link.next == NULL)
-		wl_list_insert(planes->prev, &plane_zpos->link);
-}
-
-static void
-drm_output_destroy_zpos_plane(struct drm_plane_zpos *plane_zpos)
-{
-	wl_list_remove(&plane_zpos->link);
-	free(plane_zpos);
-}
-
 static bool
 drm_output_check_plane_has_view_assigned(struct drm_plane *plane,
                                          struct drm_output_state *output_state)
@@ -665,14 +632,12 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 	struct drm_plane_state *ps = NULL;
 	struct drm_plane *plane;
-	struct drm_plane_zpos *p_zpos, *p_zpos_next;
-	struct wl_list zpos_candidate_list;
 
 	struct weston_buffer *buffer;
 	struct wl_shm_buffer *shmbuf;
 	struct drm_fb *fb = NULL;
 
-	wl_list_init(&zpos_candidate_list);
+	uint32_t possible_plane_mask = 0;
 
 	/* check view for valid buffer, doesn't make sense to even try */
 	if (!weston_view_has_valid_buffer(ev))
@@ -698,6 +663,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 				     ev, buffer->width, buffer->height);
 			return NULL;
 		}
+
+		possible_plane_mask = (1 << output->cursor_plane->plane_idx);
 	} else {
 		if (mode == DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p "
@@ -708,10 +675,23 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
 		if (!fb)
 			return NULL;
+
+		possible_plane_mask = fb->plane_mask;
 	}
 
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
+		const char *p_name = drm_output_get_plane_type_name(plane);
+		uint64_t zpos;
+
+		if (possible_plane_mask == 0)
+			break;
+
+		if (!(possible_plane_mask & (1 << plane->plane_idx)))
+			continue;
+
+		possible_plane_mask &= ~(1 << plane->plane_idx);
+
 		if (plane->type == WDRM_PLANE_TYPE_CURSOR &&
 		    (plane != output->cursor_plane || !shmbuf)) {
 			continue;
@@ -754,30 +734,6 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			}
 		}
 
-		if (plane->type != WDRM_PLANE_TYPE_CURSOR &&
-		    (!fb || !(fb->plane_mask & (1 << plane->plane_idx)))) {
-			*try_view_on_plane_failure_reasons |=
-				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
-			drm_debug(b, "\t\t\t\t[plane] not trying plane %d: "
-				     "invalid pixel format\n", plane->plane_id);
-			continue;
-		}
-
-		drm_output_add_zpos_plane(plane, &zpos_candidate_list);
-	}
-
-	/* go over the potential candidate list and try to find a possible
-	 * plane suitable for \c ev; start with the highest zpos value of a
-	 * plane to maximize our chances, but do note we pass the zpos value
-	 * based on current tracked value by \c current_lowest_zpos_in_use */
-	while (!wl_list_empty(&zpos_candidate_list)) {
-		struct drm_plane_zpos *head_p_zpos =
-			wl_container_of(zpos_candidate_list.next,
-					head_p_zpos, link);
-		struct drm_plane *plane = head_p_zpos->plane;
-		const char *p_name = drm_output_get_plane_type_name(plane);
-		uint64_t zpos;
-
 		if (current_lowest_zpos == DRM_PLANE_ZPOS_INVALID_PLANE)
 			zpos = plane->zpos_max;
 		else
@@ -789,7 +745,6 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 		ps = drm_output_try_view_on_plane(plane, state, ev,
 						  mode, fb, zpos);
-		drm_output_destroy_zpos_plane(head_p_zpos);
 		if (ps) {
 			drm_debug(b, "\t\t\t\t[view] view %p has been placed to "
 				     "%s plane with computed zpos %"PRIu64"\n",
@@ -798,9 +753,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		}
 	}
 
-	wl_list_for_each_safe(p_zpos, p_zpos_next, &zpos_candidate_list, link)
-		drm_output_destroy_zpos_plane(p_zpos);
-
+	/* if we have a plane state, it has its own ref to the fb; if not then
+	 * we drop ours here */
 	drm_fb_unref(fb);
 	return ps;
 }
