@@ -681,7 +681,7 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 	struct weston_buffer *buffer;
 	struct wl_shm_buffer *shmbuf;
-	struct drm_fb *fb;
+	struct drm_fb *fb = NULL;
 
 	wl_list_init(&zpos_candidate_list);
 
@@ -691,7 +691,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 	buffer = ev->surface->buffer_ref.buffer;
 	shmbuf = wl_shm_buffer_get(buffer->resource);
-	fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
+	if (!shmbuf)
+		fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
 	if (!shmbuf && !fb)
 		return NULL;
 
