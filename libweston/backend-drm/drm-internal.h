@@ -276,7 +276,6 @@ struct drm_backend {
 	int min_height, max_height;
 
 	struct wl_list plane_list;
-	uint32_t next_plane_idx;
 
 	void *repaint_data;
 

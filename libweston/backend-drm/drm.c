@@ -771,7 +771,6 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 	}
 
 	plane->backend = b;
-	plane->plane_idx = b->next_plane_idx++;
 	plane->state_cur = drm_plane_state_alloc(NULL, plane);
 	plane->state_cur->complete = true;
 	plane->possible_crtcs = kplane->possible_crtcs;
@@ -919,6 +918,7 @@ create_sprites(struct drm_backend *b)
 	drmModePlane *kplane;
 	struct drm_plane *drm_plane;
 	uint32_t i;
+	uint32_t next_plane_idx = 0;
 	kplane_res = drmModeGetPlaneResources(b->drm.fd);
 	if (!kplane_res) {
 		weston_log("failed to get plane resources: %s\n",
@@ -941,6 +941,9 @@ create_sprites(struct drm_backend *b)
 						      &drm_plane->base,
 						      &b->compositor->primary_plane);
 	}
+
+	wl_list_for_each (drm_plane, &b->plane_list, link)
+		drm_plane->plane_idx = next_plane_idx++;
 
 	drmModeFreePlaneResources(kplane_res);
 }
