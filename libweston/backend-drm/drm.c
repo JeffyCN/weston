@@ -760,7 +760,7 @@ init_pixman(struct drm_backend *b)
 static struct drm_plane *
 drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 {
-	struct drm_plane *plane;
+	struct drm_plane *plane, *tmp;
 	drmModeObjectProperties *props;
 	uint64_t *zpos_range_values;
 
@@ -817,7 +817,15 @@ drm_plane_create(struct drm_backend *b, const drmModePlane *kplane)
 		goto err_props;
 
 	weston_plane_init(&plane->base, b->compositor, 0, 0);
-	wl_list_insert(&b->plane_list, &plane->link);
+
+	wl_list_for_each(tmp, &b->plane_list, link) {
+		if (tmp->zpos_max > plane->zpos_max) {
+			wl_list_insert(tmp->link.prev, &plane->link);
+			break;
+		}
+	}
+	if (plane->link.next == NULL)
+		wl_list_insert(b->plane_list.prev, &plane->link);
 
 	return plane;
 
