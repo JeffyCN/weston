@@ -691,15 +691,25 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 	buffer = ev->surface->buffer_ref.buffer;
 	shmbuf = wl_shm_buffer_get(buffer->resource);
-	if (!shmbuf)
+	if (shmbuf) {
+		if (!output->cursor_plane)
+			return NULL;
+		if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888) {
+			drm_debug(b, "\t\t\t\t[view] not placing view %p on "
+			             "plane; SHM buffers must be ARGB8888 for "
+				     "cursor view", ev);
+			return NULL;
+		}
+	} else {
 		fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
+	}
 	if (!shmbuf && !fb)
 		return NULL;
 
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
 		if (plane->type == WDRM_PLANE_TYPE_CURSOR &&
-		    plane != output->cursor_plane) {
+		    (plane != output->cursor_plane || !shmbuf)) {
 			continue;
 		}
 
@@ -745,15 +755,6 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		     plane->type == WDRM_PLANE_TYPE_PRIMARY)) {
 			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
 				     "candidate list: renderer-only mode\n",
-				     plane->plane_id);
-			continue;
-		}
-
-		if (plane->type == WDRM_PLANE_TYPE_CURSOR &&
-		    (!shmbuf || wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888)) {
-			drm_debug(b, "\t\t\t\t[plane] not adding plane %d, type cursor to "
-				     "candidate list: cursor planes only support ARGB8888"
-				     "wl_shm buffers and the view buffer is of another type\n",
 				     plane->plane_id);
 			continue;
 		}
