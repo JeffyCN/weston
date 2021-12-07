@@ -209,24 +209,15 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	const char *p_name = drm_output_get_plane_type_name(plane);
 
 	assert(!b->cursors_are_broken);
-
-	if (!plane)
-		return NULL;
-
-	if (!plane->state_cur->complete)
-		return NULL;
-
-	if (plane->state_cur->output && plane->state_cur->output != output)
-		return NULL;
+	assert(plane);
+	assert(plane->state_cur->complete);
+	assert(!plane->state_cur->output || plane->state_cur->output == output);
 
 	/* We use GBM to import SHM buffers. */
-	if (b->gbm == NULL)
-		return NULL;
+	assert(b->gbm);
 
 	plane_state = drm_output_state_get_plane(output_state, plane);
-
-	if (plane_state && plane_state->fb)
-		return NULL;
+	assert(!plane_state->fb);
 
 	/* We can't scale with the legacy API, and we don't try to account for
 	 * simple cropping/translation in cursor_bo_update. */
