@@ -726,18 +726,18 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			continue;
 
 		if (drm_output_check_plane_has_view_assigned(plane, state)) {
-			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to"
-				     " candidate list: view already assigned "
-				     "to a plane\n", plane->plane_id);
+			drm_debug(b, "\t\t\t\t[plane] not trying plane %d: "
+				     "another view already assigned",
+				     plane->plane_id);
 			continue;
 		}
 
 		if (plane->zpos_min >= current_lowest_zpos) {
-			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
-				     "candidate list: minimum zpos (%"PRIu64") "
-				     "plane's above current lowest zpos "
-				     "(%"PRIu64")\n", plane->plane_id,
-				     plane->zpos_min, current_lowest_zpos);
+			drm_debug(b, "\t\t\t\t[plane] not trying plane %d: "
+				     "plane's minimum zpos (%"PRIu64") above "
+				     "current lowest zpos (%"PRIu64")\n",
+				     plane->plane_id, plane->zpos_min,
+				     current_lowest_zpos);
 			continue;
 		}
 
@@ -758,9 +758,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		    (!fb || !(fb->plane_mask & (1 << plane->plane_idx)))) {
 			*try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
-			drm_debug(b, "\t\t\t\t[plane] not adding plane %d to "
-				     "candidate list: invalid pixel format\n",
-				     plane->plane_id);
+			drm_debug(b, "\t\t\t\t[plane] not trying plane %d: "
+				     "invalid pixel format\n", plane->plane_id);
 			continue;
 		}
 
