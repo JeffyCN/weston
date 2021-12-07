@@ -697,6 +697,16 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
+		if (plane->type == WDRM_PLANE_TYPE_CURSOR &&
+		    plane != output->cursor_plane) {
+			continue;
+		}
+
+		if (plane->type == WDRM_PLANE_TYPE_PRIMARY &&
+		    plane != output->scanout_plane) {
+			continue;
+		}
+
 		if (!drm_plane_is_available(plane, output))
 			continue;
 
