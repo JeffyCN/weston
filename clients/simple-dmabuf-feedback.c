@@ -1047,6 +1047,21 @@ dmabuf_feedback_tranche_formats(void *data,
 }
 
 static void
+print_tranche_format_modifier(uint32_t format, uint64_t modifier)
+{
+	const struct pixel_format_info *fmt_info;
+	char *mod_name;
+
+	fmt_info = pixel_format_get_info(format);
+	mod_name = pixel_format_get_modifier(modifier);
+
+	fprintf(stderr, "│	├────────tranche format/modifier pair - format %s, modifier %s\n",
+			fmt_info ? fmt_info->drm_format_name : "UNKNOWN", mod_name);
+
+	free(mod_name);
+}
+
+static void
 print_dmabuf_feedback_tranche(struct dmabuf_feedback_tranche *tranche)
 {
 	char *drm_node;
@@ -1059,13 +1074,9 @@ print_dmabuf_feedback_tranche(struct dmabuf_feedback_tranche *tranche)
 	fprintf(stderr, "├──────target_device for tranche - %s\n", drm_node);
 	fprintf(stderr, "│	└scanout tranche? %s\n", tranche->is_scanout_tranche ? "yes" : "no");
 
-	/* TODO: pretty print formats/modifiers when the following series lands:
-	 * https://gitlab.freedesktop.org/mesa/drm/-/merge_requests/108
-	 */
 	wl_array_for_each(fmt, &tranche->formats.arr)
 		wl_array_for_each(mod, &fmt->modifiers)
-			fprintf(stderr, "│	├────────tranche format/modifier pair - " \
-					"format %u, modifier %lu\n", fmt->format, *mod);
+			print_tranche_format_modifier(fmt->format, *mod);
 
 	fprintf(stderr, "│	└end of tranche\n");
 }
