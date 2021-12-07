@@ -431,11 +431,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 			availability = PLACED_ON_PLANE;
 		break;
 	case WDRM_PLANE_TYPE_PRIMARY:
-		if (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY) {
-			availability = NO_PLANES_ACCEPTED;
-			goto out;
-		}
-
 		ps = drm_output_prepare_scanout_view(state, ev, mode,
 						     fb, zpos);
 		if (ps)
@@ -693,7 +688,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		}
 
 		if (plane->type == WDRM_PLANE_TYPE_PRIMARY &&
-		    plane != output->scanout_plane) {
+		    (plane != output->scanout_plane ||
+		     mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY)) {
 			continue;
 		}
 
