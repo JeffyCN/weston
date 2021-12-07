@@ -406,11 +406,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 
 	switch (plane->type) {
 	case WDRM_PLANE_TYPE_CURSOR:
-		if (b->cursors_are_broken) {
-			availability = NO_PLANES_ACCEPTED;
-			goto out;
-		}
-
 		ps = drm_output_prepare_cursor_view(state, ev, zpos);
 		if (ps)
 			availability = PLACED_ON_PLANE;
@@ -646,7 +641,7 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	buffer = ev->surface->buffer_ref.buffer;
 	shmbuf = wl_shm_buffer_get(buffer->resource);
 	if (shmbuf) {
-		if (!output->cursor_plane)
+		if (!output->cursor_plane || b->cursors_are_broken)
 			return NULL;
 
 		if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888) {
