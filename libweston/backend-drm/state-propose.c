@@ -682,15 +682,24 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 
 		possible_plane_mask &= ~(1 << plane->plane_idx);
 
-		if (plane->type == WDRM_PLANE_TYPE_CURSOR &&
-		    (plane != output->cursor_plane || !shmbuf)) {
-			continue;
-		}
-
-		if (plane->type == WDRM_PLANE_TYPE_PRIMARY &&
-		    (plane != output->scanout_plane ||
-		     mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY)) {
-			continue;
+		switch (plane->type) {
+		case WDRM_PLANE_TYPE_CURSOR:
+			assert(shmbuf);
+			assert(plane == output->cursor_plane);
+			break;
+		case WDRM_PLANE_TYPE_PRIMARY:
+			assert(fb);
+			if (plane != output->scanout_plane)
+				continue;
+			if (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY)
+				continue;
+			break;
+		case WDRM_PLANE_TYPE_OVERLAY:
+			assert(fb);
+			assert(mode != DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY);
+			break;
+		default:
+			assert(false && "unknown plane type");
 		}
 
 		if (!drm_plane_is_available(plane, output))
