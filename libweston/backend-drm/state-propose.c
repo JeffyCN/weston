@@ -239,7 +239,6 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	struct drm_plane *plane = output->cursor_plane;
 	struct drm_plane_state *plane_state;
 	bool needs_update = false;
-	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	const char *p_name = drm_output_get_plane_type_name(plane);
 
 	assert(!b->cursors_are_broken);
@@ -268,16 +267,6 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	if (!drm_plane_state_coords_for_view(plane_state, ev, zpos)) {
 		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
 			     "unsuitable transform\n", p_name, ev, p_name);
-		goto err;
-	}
-
-	if (buffer->width > b->cursor_width ||
-	    buffer->height > b->cursor_height) {
-		drm_debug(b, "\t\t\t\t[%s] not assigning view %p to %s plane "
-			     "(surface buffer (%dx%d) larger than permitted"
-			     " (%dx%d))\n", p_name, ev, p_name,
-			     buffer->width, buffer->height,
-			     b->cursor_width, b->cursor_height);
 		goto err;
 	}
 
@@ -694,10 +683,19 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	if (shmbuf) {
 		if (!output->cursor_plane)
 			return NULL;
+
 		if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888) {
 			drm_debug(b, "\t\t\t\t[view] not placing view %p on "
 			             "plane; SHM buffers must be ARGB8888 for "
 				     "cursor view", ev);
+			return NULL;
+		}
+
+		if (buffer->width > b->cursor_width ||
+		    buffer->height > b->cursor_height) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
+				     "(buffer (%dx%d) too large for cursor plane)",
+				     ev, buffer->width, buffer->height);
 			return NULL;
 		}
 	} else {
