@@ -67,7 +67,7 @@ static void
 drm_output_add_zpos_plane(struct drm_plane *plane, struct wl_list *planes)
 {
 	struct drm_backend *b = plane->backend;
-	struct drm_plane_zpos *h_plane;
+	struct drm_plane_zpos *tmp;
 	struct drm_plane_zpos *plane_zpos;
 
 	plane_zpos = zalloc(sizeof(*plane_zpos));
@@ -79,30 +79,14 @@ drm_output_add_zpos_plane(struct drm_plane *plane, struct wl_list *planes)
 	drm_debug(b, "\t\t\t\t[plane] plane %d added to candidate list\n",
 		      plane->plane_id);
 
-	if (wl_list_empty(planes)) {
-		wl_list_insert(planes, &plane_zpos->link);
-		return;
+	wl_list_for_each(tmp, planes, link) {
+		if (tmp->plane->zpos_max > plane_zpos->plane->zpos_max) {
+			wl_list_insert(tmp->link.prev, &plane_zpos->link);
+			break;
+		}
 	}
-
-	h_plane = wl_container_of(planes->next, h_plane, link);
-	if (h_plane->plane->zpos_max >= plane->zpos_max) {
+	if (plane_zpos->link.next == NULL)
 		wl_list_insert(planes->prev, &plane_zpos->link);
-	} else {
-		struct drm_plane_zpos *p_zpos = NULL;
-
-		if (wl_list_length(planes) == 1) {
-			wl_list_insert(planes->prev, &plane_zpos->link);
-			return;
-		}
-
-		wl_list_for_each(p_zpos, planes, link) {
-			if (p_zpos->plane->zpos_max >
-			    plane_zpos->plane->zpos_max)
-				break;
-		}
-
-		wl_list_insert(p_zpos->link.prev, &plane_zpos->link);
-	}
 }
 
 static void
