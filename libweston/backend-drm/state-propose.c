@@ -308,15 +308,6 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	assert(b->atomic_modeset);
 	assert(mode == DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY);
 
-	/* Check the view spans exactly the output size, calculated in the
-	 * logical co-ordinate space. */
-	if (!weston_view_matches_output_entirely(ev, &output->base)) {
-		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
-			     " view does not match output entirely\n",
-			     p_name, ev, p_name);
-		return NULL;
-	}
-
 	/* If the surface buffer has an in-fence fd, but the plane doesn't
 	 * support fences, we can't place the buffer on this plane. */
 	if (ev->surface->acquire_fence_fd >= 0 &&
@@ -672,6 +663,8 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			if (plane != output->scanout_plane)
 				continue;
 			if (mode != DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY)
+				continue;
+			if (!view_matches_entire_output)
 				continue;
 			break;
 		case WDRM_PLANE_TYPE_OVERLAY:
