@@ -346,11 +346,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	struct drm_plane_state *ps = NULL;
 	const char *p_name = drm_output_get_plane_type_name(plane);
 	struct weston_surface *surface = ev->surface;
-	enum {
-		NO_PLANES,	/* generic err-handle */
-		NO_PLANES_ACCEPTED,
-		PLACED_ON_PLANE,
-	} availability = NO_PLANES;
 
 	/* sanity checks in case we over/underflow zpos or pass incorrect
 	 * values */
@@ -360,38 +355,21 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	switch (plane->type) {
 	case WDRM_PLANE_TYPE_CURSOR:
 		ps = drm_output_prepare_cursor_view(state, ev, zpos);
-		if (ps)
-			availability = PLACED_ON_PLANE;
 		break;
 	case WDRM_PLANE_TYPE_OVERLAY:
 		ps = drm_output_prepare_overlay_view(plane, state, ev, mode,
 						     fb, zpos);
-		if (ps)
-			availability = PLACED_ON_PLANE;
 		break;
 	case WDRM_PLANE_TYPE_PRIMARY:
 		ps = drm_output_prepare_scanout_view(state, ev, mode,
 						     fb, zpos);
-		if (ps)
-			availability = PLACED_ON_PLANE;
 		break;
 	default:
 		assert(0);
 		break;
 	}
 
-	switch (availability) {
-	case NO_PLANES:
-		/* set initial to this catch-all case, such that
-		 * prepare_cursor/overlay/scanout() should have/contain the
-		 * reason for failling */
-		break;
-	case NO_PLANES_ACCEPTED:
-		drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
-			     "place view %p in %s\n",
-			     plane->plane_id, ev, p_name);
-		break;
-	case PLACED_ON_PLANE:
+	if (ps) {
 		/* Take a reference on the buffer so that we don't release it
 		 * back to the client until we're done with it; cursor buffers
 		 * don't require a reference since we copy them. */
@@ -406,7 +384,10 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 			weston_buffer_release_reference(&ps->fb_ref.release,
 							surface->buffer_release_ref.buffer_release);
 		}
-		break;
+	} else {
+		drm_debug(b, "\t\t\t\t[plane] plane %d refusing to "
+			     "place view %p in %s\n",
+			     plane->plane_id, ev, p_name);
 	}
 
 
