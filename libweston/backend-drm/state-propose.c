@@ -378,9 +378,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 			     struct drm_fb *fb, uint64_t zpos)
 {
 	struct drm_backend *b = state->pending_state->backend;
-	struct weston_output *wet_output = &state->output->base;
-	bool view_matches_entire_output, scanout_has_view_assigned;
-	struct drm_plane *scanout_plane = state->output->scanout_plane;
 	struct drm_plane_state *ps = NULL;
 	const char *p_name = drm_output_get_plane_type_name(plane);
 	struct weston_surface *surface = ev->surface;
@@ -402,20 +399,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 			availability = PLACED_ON_PLANE;
 		break;
 	case WDRM_PLANE_TYPE_OVERLAY:
-		/* do not attempt to place it in the overlay if we don't have
-		 * anything in the scanout/primary and the view doesn't cover
-		 * the entire output  */
-		view_matches_entire_output =
-			weston_view_matches_output_entirely(ev, wet_output);
-		scanout_has_view_assigned =
-			drm_output_check_plane_has_view_assigned(scanout_plane,
-								 state);
-
-		if (view_matches_entire_output && !scanout_has_view_assigned) {
-			availability = NO_PLANES_ACCEPTED;
-			goto out;
-		}
-
 		ps = drm_output_prepare_overlay_view(plane, state, ev, mode,
 						     fb, zpos);
 		if (ps)
@@ -432,7 +415,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 		break;
 	}
 
-out:
 	switch (availability) {
 	case NO_PLANES:
 		/* set initial to this catch-all case, such that
@@ -618,6 +600,7 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	struct wl_shm_buffer *shmbuf;
 	struct drm_fb *fb = NULL;
 
+	bool view_matches_entire_output, scanout_has_view_assigned;
 	uint32_t possible_plane_mask = 0;
 
 	/* check view for valid buffer, doesn't make sense to even try */
@@ -660,6 +643,12 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		possible_plane_mask = fb->plane_mask;
 	}
 
+	view_matches_entire_output =
+		weston_view_matches_output_entirely(ev, &output->base);
+	scanout_has_view_assigned =
+		drm_output_check_plane_has_view_assigned(output->scanout_plane,
+							 state);
+
 	/* assemble a list with possible candidates */
 	wl_list_for_each(plane, &b->plane_list, link) {
 		const char *p_name = drm_output_get_plane_type_name(plane);
@@ -688,6 +677,11 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 		case WDRM_PLANE_TYPE_OVERLAY:
 			assert(fb);
 			assert(mode != DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY);
+			/* if the view covers the whole output, put it in the
+			 * scanout plane, not overlay */
+			if (view_matches_entire_output &&
+			    !scanout_has_view_assigned)
+				continue;
 			break;
 		default:
 			assert(false && "unknown plane type");
