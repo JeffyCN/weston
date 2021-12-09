@@ -419,11 +419,10 @@ dmabuf_feedback_maybe_update(struct drm_backend *b, struct weston_view *ev,
 
 static struct drm_plane_state *
 drm_output_find_plane_for_view(struct drm_output_state *state,
-			       struct weston_view *ev,
+			       struct weston_paint_node *pnode,
 			       enum drm_output_propose_state_mode mode,
 			       struct drm_plane_state *scanout_state,
-			       uint64_t current_lowest_zpos,
-			       uint32_t *try_view_on_plane_failure_reasons)
+			       uint64_t current_lowest_zpos)
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
@@ -431,6 +430,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 	struct drm_plane_state *ps = NULL;
 	struct drm_plane *plane;
 
+	struct weston_view *ev = pnode->view;
 	struct weston_buffer *buffer;
 	struct wl_shm_buffer *shmbuf;
 	struct drm_fb *fb = NULL;
@@ -471,7 +471,8 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			return NULL;
 		}
 
-		fb = drm_fb_get_from_view(state, ev, try_view_on_plane_failure_reasons);
+		fb = drm_fb_get_from_view(state, ev,
+					  &pnode->try_view_on_plane_failure_reasons);
 		if (!fb)
 			return NULL;
 
@@ -780,10 +781,9 @@ drm_output_propose_state(struct weston_output *output_base,
 		if (!force_renderer) {
 			drm_debug(b, "\t\t\t[plane] started with zpos %"PRIu64"\n",
 				      current_lowest_zpos);
-			ps = drm_output_find_plane_for_view(state, ev, mode,
+			ps = drm_output_find_plane_for_view(state, pnode, mode,
 							    scanout_state,
-							    current_lowest_zpos,
-							    &pnode->try_view_on_plane_failure_reasons);
+							    current_lowest_zpos);
 			/* If we were able to place the view in a plane, set
 			 * failure reasons to none. */
 			if (ps)
