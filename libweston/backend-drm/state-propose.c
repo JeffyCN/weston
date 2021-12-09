@@ -112,18 +112,6 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 		goto out;
 	}
 
-	/* If the surface buffer has an in-fence fd, but the plane
-	 * doesn't support fences, we can't place the buffer on this
-	 * plane. */
-	if (ev->surface->acquire_fence_fd >= 0 &&
-	     plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0) {
-		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
-			     "no in-fence support\n", ev);
-		drm_plane_state_put_back(state);
-		state = NULL;
-		goto out;
-	}
-
 	/* We hold one reference for the lifetime of this function; from
 	 * calling drm_fb_get_from_view() in drm_output_prepare_plane_view(),
 	 * so, we take another reference here to live within the state. */
@@ -308,15 +296,6 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	assert(b->atomic_modeset);
 	assert(mode == DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY);
 	assert(fb);
-
-	/* If the surface buffer has an in-fence fd, but the plane doesn't
-	 * support fences, we can't place the buffer on this plane. */
-	if (ev->surface->acquire_fence_fd >= 0 &&
-	    scanout_plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0) {
-		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
-			     "no in-fence support\n", p_name, ev, p_name);
-		return NULL;
-	}
 
 	state = drm_output_state_get_plane(output_state, scanout_plane);
 
@@ -692,6 +671,15 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 				     plane->plane_id, plane->zpos_min,
 				     current_lowest_zpos);
 			continue;
+		}
+
+		/* If the surface buffer has an in-fence fd, but the plane doesn't
+		 * support fences, we can't place the buffer on this plane. */
+		if (ev->surface->acquire_fence_fd >= 0 &&
+		    plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0) {
+			drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
+			          "no in-fence support\n", p_name, ev, p_name);
+			return NULL;
 		}
 
 		if (mode == DRM_OUTPUT_PROPOSE_STATE_MIXED) {
