@@ -348,9 +348,6 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	       zpos != DRM_PLANE_ZPOS_INVALID_PLANE);
 
 	switch (plane->type) {
-	case WDRM_PLANE_TYPE_CURSOR:
-		ps = drm_output_prepare_cursor_view(state, ev, zpos);
-		break;
 	case WDRM_PLANE_TYPE_OVERLAY:
 		ps = drm_output_prepare_overlay_view(plane, state, ev, mode,
 						     fb, zpos);
@@ -680,8 +677,12 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 			     "from candidate list, type: %s\n",
 			     plane->plane_id, p_name);
 
-		ps = drm_output_try_view_on_plane(plane, state, ev,
-						  mode, fb, zpos);
+		if (plane->type == WDRM_PLANE_TYPE_CURSOR) {
+			ps = drm_output_prepare_cursor_view(state, ev, zpos);
+		} else {
+			ps = drm_output_try_view_on_plane(plane, state, ev,
+							  mode, fb, zpos);
+		}
 		if (ps) {
 			drm_debug(b, "\t\t\t\t[view] view %p has been placed to "
 				     "%s plane with computed zpos %"PRIu64"\n",
