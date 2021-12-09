@@ -217,6 +217,13 @@ tests = [
 		],
 	},
 	{	'name': 'safe-signal', },
+	{	'name': 'safe-signal-output-removal',
+		'sources': [
+		  'safe-signal-output-removal-test.c',
+		  '../shared/shell-utils.c',
+		],
+		'dep_objs': [ dep_lib_desktop ]
+	},
 ]
 
 tests_standalone = [
