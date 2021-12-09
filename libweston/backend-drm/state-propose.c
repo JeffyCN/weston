@@ -307,6 +307,7 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	assert(!b->sprites_are_broken);
 	assert(b->atomic_modeset);
 	assert(mode == DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY);
+	assert(fb);
 
 	/* If the surface buffer has an in-fence fd, but the plane doesn't
 	 * support fences, we can't place the buffer on this plane. */
@@ -314,12 +315,6 @@ drm_output_prepare_scanout_view(struct drm_output_state *output_state,
 	    scanout_plane->props[WDRM_PLANE_IN_FENCE_FD].prop_id == 0) {
 		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
 			     "no in-fence support\n", p_name, ev, p_name);
-		return NULL;
-	}
-
-	if (!fb) {
-		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
-			     " couldn't get fb\n", p_name, ev, p_name);
 		return NULL;
 	}
 
