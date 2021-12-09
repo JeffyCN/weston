@@ -390,8 +390,10 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 
 		/* removes it from the normal_layer and move it to inactive
 		 * one, without occluding the top-level window if the new one
-		 * is a child to that */
-		if (!shsurf->parent) {
+		 * is a child to that. Also, do not occlude another view
+		 * (currently focused one) on a different output when activating
+		 * a new one. */
+		if (!shsurf->parent && (shsurf->output == current_focus->output)) {
 			weston_layer_entry_remove(&current_focus->view->layer_link);
 			weston_layer_entry_insert(&shsurf->shell->inactive_layer.view_list,
 						  &current_focus->view->layer_link);
