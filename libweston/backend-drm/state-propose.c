@@ -438,20 +438,30 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 	bool view_matches_entire_output, scanout_has_view_assigned;
 	uint32_t possible_plane_mask = 0;
 
+	pnode->try_view_on_plane_failure_reasons = FAILURE_REASONS_NONE;
+
 	/* check view for valid buffer, doesn't make sense to even try */
-	if (!weston_view_has_valid_buffer(ev))
-		return ps;
+	if (!weston_view_has_valid_buffer(ev)) {
+		pnode->try_view_on_plane_failure_reasons |=
+			FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
+		return NULL;
+	}
 
 	buffer = ev->surface->buffer_ref.buffer;
 	shmbuf = wl_shm_buffer_get(buffer->resource);
 	if (shmbuf) {
-		if (!output->cursor_plane || b->cursors_are_broken)
+		if (!output->cursor_plane || b->cursors_are_broken) {
+			pnode->try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			return NULL;
+		}
 
 		if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888) {
 			drm_debug(b, "\t\t\t\t[view] not placing view %p on "
 			             "plane; SHM buffers must be ARGB8888 for "
 				     "cursor view", ev);
+			pnode->try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			return NULL;
 		}
 
@@ -460,6 +470,8 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 				     "(buffer (%dx%d) too large for cursor plane)",
 				     ev, buffer->width, buffer->height);
+			pnode->try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			return NULL;
 		}
 
@@ -581,12 +593,22 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			ps = drm_output_try_view_on_plane(plane, state, ev,
 							  mode, fb, zpos);
 		}
+
 		if (ps) {
 			drm_debug(b, "\t\t\t\t[view] view %p has been placed to "
 				     "%s plane with computed zpos %"PRIu64"\n",
 				     ev, p_name, zpos);
 			break;
 		}
+
+		pnode->try_view_on_plane_failure_reasons |=
+			FAILURE_REASONS_PLANES_REJECTED;
+	}
+
+	if (!ps &&
+	    pnode->try_view_on_plane_failure_reasons == FAILURE_REASONS_NONE) {
+		pnode->try_view_on_plane_failure_reasons |=
+			FAILURE_REASONS_NO_PLANES_AVAILABLE;
 	}
 
 	/* if we have a plane state, it has its own ref to the fb; if not then
@@ -784,11 +806,6 @@ drm_output_propose_state(struct weston_output *output_base,
 			ps = drm_output_find_plane_for_view(state, pnode, mode,
 							    scanout_state,
 							    current_lowest_zpos);
-			/* If we were able to place the view in a plane, set
-			 * failure reasons to none. */
-			if (ps)
-				pnode->try_view_on_plane_failure_reasons =
-					FAILURE_REASONS_NONE;
 		} else {
 			/* We are forced to place the view in the renderer, set
 			 * the failure reason accordingly. */
