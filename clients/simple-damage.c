@@ -774,7 +774,7 @@ create_display(int version)
 {
 	struct display *display;
 
-	display = malloc(sizeof *display);
+	display = zalloc(sizeof *display);
 	if (display == NULL) {
 		fprintf(stderr, "out of memory\n");
 		exit(1);
