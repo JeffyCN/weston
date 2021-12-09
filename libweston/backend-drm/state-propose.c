@@ -90,12 +90,7 @@ drm_output_prepare_overlay_view(struct drm_plane *plane,
 
 	assert(!b->sprites_are_broken);
 	assert(b->atomic_modeset);
-
-	if (!fb) {
-		drm_debug(b, "\t\t\t\t[overlay] not placing view %p on overlay: "
-			     " couldn't get fb\n", ev);
-		return NULL;
-	}
+	assert(fb);
 
 	state = drm_output_state_get_plane(output_state, plane);
 	/* we can't have a 'pending' framebuffer as never set one before reaching here */
