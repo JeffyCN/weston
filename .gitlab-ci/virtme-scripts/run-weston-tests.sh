@@ -26,9 +26,11 @@ export SEATD_LOGLEVEL=debug
 # we give ourselves a very generous timeout multiplier due to ASan overhead
 echo 0x1f > /sys/module/drm/parameters/debug
 seatd-launch -- meson test --no-rebuild --timeout-multiplier 4
+# note that we need to store the return value from the tests in order to
+# determine if the test suite ran successfully or not.
+TEST_RES=$?
 dmesg &> dmesg.log
 echo 0x00 > /sys/module/drm/parameters/debug
-TEST_RES=$?
 
 # create a file to keep the result of this script:
 #   - 0 means the script succeeded
