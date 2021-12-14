@@ -108,7 +108,6 @@ TEST(xwayland_client_test)
 	XSelectInput(display, window, ExposureMask);
 	XMapWindow(display, window);
 
-	alarm(4);
 	while (1) {
 		XNextEvent(display, &event);
 		if (event.type == Expose)
