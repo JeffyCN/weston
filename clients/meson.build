@@ -36,6 +36,9 @@ dep_toytoolkit = declare_dependency(
 	dependencies: deps_toytoolkit,
 )
 
+simple_clients_enabled = get_option('simple-clients')
+simple_build_all = simple_clients_enabled.contains('all')
+
 simple_clients = [
 	{
 		'name': 'damage',
@@ -66,6 +69,11 @@ simple_clients = [
 			dep_pixman,
 			dep_libdrm,
 			dependency('libudev', version: '>= 136'),
+			# gbm_bo_get_fd_for_plane() from 21.1.0
+			dependency('gbm', version: '>= 21.1.1',
+				required: simple_build_all or simple_clients_enabled.contains('dmabuf-feedback'),
+				not_found_message: 'dmabuf-feedback requires gbm which was not found. If you rather not build this, drop "dmabuf-feedback" from simple-clients option.',
+				disabler: true)
 		],
 		'deps': [ 'egl', 'glesv2', 'gbm' ],
 		'options': [ 'renderer-gl' ]
@@ -146,8 +154,6 @@ simple_clients = [
 	},
 ]
 
-simple_clients_enabled = get_option('simple-clients')
-simple_build_all = simple_clients_enabled.contains('all')
 foreach t : simple_clients
 	if simple_build_all or simple_clients_enabled.contains(t.get('name'))
 		t_name = 'weston-simple-' + t.get('name')
