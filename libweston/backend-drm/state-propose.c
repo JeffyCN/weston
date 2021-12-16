@@ -940,6 +940,12 @@ drm_output_propose_state(struct weston_output *output_base,
 			force_renderer = true;
 		}
 
+		if (!b->gbm) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
+			             "(GBM not available)\n", ev);
+			force_renderer = true;
+		}
+
 		if (!weston_view_has_valid_buffer(ev)) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 			             "(no buffer available)\n", ev);
@@ -1085,7 +1091,7 @@ drm_assign_planes(struct weston_output *output_base, void *repaint_data)
 	drm_debug(b, "\t[repaint] preparing state for output %s (%lu)\n",
 		  output_base->name, (unsigned long) output_base->id);
 
-	if (!b->sprites_are_broken && !output->virtual) {
+	if (!b->sprites_are_broken && !output->virtual && b->gbm) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		state = drm_output_propose_state(output_base, pending_state, mode);
 		if (!state) {
