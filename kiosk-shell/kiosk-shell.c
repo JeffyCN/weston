@@ -1096,6 +1096,21 @@ kiosk_shell_handle_seat_created(struct wl_listener *listener, void *data)
 }
 
 static void
+kiosk_shell_destroy_surfaces_on_layer(struct weston_layer *layer)
+{
+       struct weston_view *view, *view_next;
+
+       wl_list_for_each_safe(view, view_next, &layer->view_list.link, layer_link.link) {
+               struct kiosk_shell_surface *shsurf =
+                       get_kiosk_shell_surface(view->surface);
+               assert(shsurf);
+               kiosk_shell_surface_destroy(shsurf);
+       }
+
+       weston_layer_fini(layer);
+}
+
+static void
 kiosk_shell_destroy(struct wl_listener *listener, void *data)
 {
 	struct kiosk_shell *shell =
@@ -1114,15 +1129,18 @@ kiosk_shell_destroy(struct wl_listener *listener, void *data)
 		kiosk_shell_output_destroy(shoutput);
 	}
 
+	/* bg layer doesn't contain a weston_desktop_surface, and
+	 * kiosk_shell_output_destroy() takes care of destroying it, we're just
+	 * doing a weston_layer_fini() here as there might be multiple bg views */
+	weston_layer_fini(&shell->background_layer);
+	kiosk_shell_destroy_surfaces_on_layer(&shell->normal_layer);
+	kiosk_shell_destroy_surfaces_on_layer(&shell->inactive_layer);
+
 	wl_list_for_each_safe(shseat, shseat_next, &shell->seat_list, link) {
 		kiosk_shell_seat_destroy(shseat);
 	}
 
 	weston_desktop_destroy(shell->desktop);
-
-	weston_layer_fini(&shell->background_layer);
-	weston_layer_fini(&shell->normal_layer);
-	weston_layer_fini(&shell->inactive_layer);
 
 	free(shell);
 }
