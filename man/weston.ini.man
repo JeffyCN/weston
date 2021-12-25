@@ -461,6 +461,9 @@ There can be multiple launcher sections, one for each launcher.
 .BI "icon=" icon
 sets the path to icon image (string). Svg images are not currently supported.
 .TP 7
+.BI "displayname=" displayname
+sets the display name of the launcher that appears in the tooltip.
+.TP 7
 .BI "path=" program
 sets the path to the program that is run by clicking on this launcher (string).
 It is possible to pass arguments and environment variables to the program. For
