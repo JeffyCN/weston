@@ -125,6 +125,7 @@ init_egl(struct drm_backend *b)
 
 	if (drm_backend_create_gl_renderer(b) < 0) {
 		gbm_device_destroy(b->gbm);
+		b->gbm = NULL;
 		return -1;
 	}
 
