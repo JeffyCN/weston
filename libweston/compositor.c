@@ -4211,6 +4211,11 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 			      &surface->pending.damage_surface);
 	pixman_region32_clear(&surface->pending.damage_surface);
 
+	pixman_region32_union(&sub->cached.damage_buffer,
+			      &sub->cached.damage_buffer,
+			      &surface->pending.damage_buffer);
+	pixman_region32_clear(&surface->pending.damage_buffer);
+
 	if (surface->pending.newly_attached) {
 		sub->cached.newly_attached = 1;
 		weston_surface_state_set_buffer(&sub->cached,
@@ -4232,8 +4237,6 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 	assert(surface->pending.buffer_release_ref.buffer_release == NULL);
 	sub->cached.sx += surface->pending.sx;
 	sub->cached.sy += surface->pending.sy;
-
-	apply_damage_buffer(&sub->cached.damage_surface, surface, &surface->pending);
 
 	sub->cached.buffer_viewport.changed |=
 		surface->pending.buffer_viewport.changed;
