@@ -38,4 +38,12 @@
 #define DRM_FORMAT_XYUV8888      fourcc_code('X', 'Y', 'U', 'V') /* [31:0] X:Y:Cb:Cr 8:8:8:8 little endian */
 #endif
 
+#ifndef DRM_FORMAT_XBGR16161616
+#define DRM_FORMAT_XBGR16161616  fourcc_code('X', 'B', '4', '8') /* [63:0] x:B:G:R 16:16:16:16 little endian */
+#endif
+
+#ifndef DRM_FORMAT_ABGR16161616
+#define DRM_FORMAT_ABGR16161616  fourcc_code('A', 'B', '4', '8') /* [63:0] A:B:G:R 16:16:16:16 little endian */
+#endif
+
 #endif

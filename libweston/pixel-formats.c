@@ -333,6 +333,15 @@ static const struct pixel_format_info pixel_format_table[] = {
 		.opaque_substitute = DRM_FORMAT_BGRX1010102,
 	},
 	{
+		DRM_FORMAT(XBGR16161616),
+		BITS_RGBA_FIXED(16, 16, 16, 0),
+	},
+	{
+		DRM_FORMAT(ABGR16161616),
+		BITS_RGBA_FIXED(16, 16, 16, 16),
+		.opaque_substitute = DRM_FORMAT_XBGR16161616,
+	},
+	{
 		DRM_FORMAT(YUYV),
 		SAMPLER_TYPE(EGL_TEXTURE_Y_XUXV_WL),
 		.num_planes = 1,

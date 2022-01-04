@@ -1822,6 +1822,7 @@ gl_format_from_internal(GLenum internal_format)
 		return GL_RED_EXT;
 	case GL_RG8_EXT:
 		return GL_RG_EXT;
+	case GL_RGBA16_EXT:
 	case GL_RGBA16F:
 	case GL_RGB10_A2:
 		return GL_RGBA;
@@ -2033,6 +2034,24 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16F;
 		gl_pixel_type = GL_HALF_FLOAT;
+		es->is_opaque = true;
+		break;
+	case WL_SHM_FORMAT_ABGR16161616:
+		if (!gr->has_texture_norm16)
+			goto unsupported;
+		gs->shader_variant = SHADER_VARIANT_RGBA;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
+		gl_format[0] = GL_RGBA16_EXT;
+		gl_pixel_type = GL_UNSIGNED_SHORT;
+		es->is_opaque = false;
+		break;
+	case WL_SHM_FORMAT_XBGR16161616:
+		if (!gr->has_texture_norm16)
+			goto unsupported;
+		gs->shader_variant = SHADER_VARIANT_RGBX;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
+		gl_format[0] = GL_RGBA16_EXT;
+		gl_pixel_type = GL_UNSIGNED_SHORT;
 		es->is_opaque = true;
 		break;
 #endif
@@ -3766,6 +3785,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR16161616F);
 		wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XBGR16161616F);
 	}
+	if (gr->has_texture_norm16) {
+		wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR16161616);
+		wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XBGR16161616);
+	}
 #endif
 
 	if (gr->gl_supports_color_transforms)
@@ -3941,6 +3964,9 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	if (gr->gl_version >= gr_gl_version(3, 0) ||
 	    weston_check_egl_extension(extensions, "GL_EXT_texture_type_2_10_10_10_REV"))
 		gr->has_texture_type_2_10_10_10_rev = true;
+
+	if (weston_check_egl_extension(extensions, "GL_EXT_texture_norm16"))
+		gr->has_texture_norm16 = true;
 
 	if (gr->gl_version >= gr_gl_version(3, 0) ||
 	    weston_check_egl_extension(extensions, "GL_EXT_texture_rg"))
