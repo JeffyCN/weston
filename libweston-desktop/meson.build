@@ -4,7 +4,6 @@ srcs_libdesktop = [
 	'seat.c',
 	'surface.c',
 	'xwayland.c',
-	'wl-shell.c',
 	'xdg-shell.c',
 	'xdg-shell-v6.c',
 	xdg_shell_unstable_v6_server_protocol_h,

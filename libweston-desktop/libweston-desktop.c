@@ -42,7 +42,6 @@ struct weston_desktop {
 	void *user_data;
 	struct wl_global *xdg_wm_base;	 /* Stable protocol xdg_shell replaces xdg_shell_unstable_v6 */
 	struct wl_global *xdg_shell_v6;  /* Unstable xdg_shell_unstable_v6 protocol. */
-	struct wl_global *wl_shell;
 };
 
 void
@@ -77,22 +76,6 @@ weston_desktop_create(struct weston_compositor *compositor,
 		return NULL;
 	}
 
-#ifdef HAVE_DEPRECATED_WL_SHELL
-	weston_log("Warning: support for deprecated wl_shell interface is "
-		   "enabled. Please migrate legacy clients to xdg-shell.\n");
-	desktop->wl_shell =
-		weston_desktop_wl_shell_create(desktop, display);
-	if (desktop->wl_shell == NULL) {
-		weston_desktop_destroy(desktop);
-		return NULL;
-	}
-#else
-	weston_log("Note: support for the deprecated wl_shell interface is "
-		   "disabled. If a legacy client still needs it, it can be "
-		   "re-enabled by passing -Ddeprecated-wl-shell=true to Meson "
-		   "when building Weston.\n");
-#endif
-
 	weston_desktop_xwayland_init(desktop);
 
 	return desktop;
@@ -106,8 +89,6 @@ weston_desktop_destroy(struct weston_desktop *desktop)
 
 	weston_desktop_xwayland_fini(desktop);
 
-	if (desktop->wl_shell != NULL)
-		wl_global_destroy(desktop->wl_shell);
 	if (desktop->xdg_shell_v6 != NULL)
 		wl_global_destroy(desktop->xdg_shell_v6);
 	if (desktop->xdg_wm_base != NULL)
