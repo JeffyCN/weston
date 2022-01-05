@@ -910,29 +910,24 @@ handle_primary_client_destroyed(struct wl_listener *listener, void *data)
 static int
 weston_create_listening_socket(struct wl_display *display, const char *socket_name)
 {
-	char name_candidate[32];
-
 	if (socket_name) {
 		if (wl_display_add_socket(display, socket_name)) {
 			weston_log("fatal: failed to add socket: %s\n",
 				   strerror(errno));
 			return -1;
 		}
-
-		setenv("WAYLAND_DISPLAY", socket_name, 1);
-		return 0;
 	} else {
-		for (int i = 1; i <= 32; i++) {
-			sprintf(name_candidate, "wayland-%d", i);
-			if (wl_display_add_socket(display, name_candidate) >= 0) {
-				setenv("WAYLAND_DISPLAY", name_candidate, 1);
-				return 0;
-			}
+		socket_name = wl_display_add_socket_auto(display);
+		if (!socket_name) {
+			weston_log("fatal: failed to add socket: %s\n",
+				   strerror(errno));
+			return -1;
 		}
-		weston_log("fatal: failed to add socket: %s\n",
-			   strerror(errno));
-		return -1;
 	}
+
+	setenv("WAYLAND_DISPLAY", socket_name, 1);
+
+	return 0;
 }
 
 WL_EXPORT int
