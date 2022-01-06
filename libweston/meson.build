@@ -156,13 +156,8 @@ endif
 systemd_dep = dependency('', required: false)
 if get_option('launcher-logind')
 	systemd_dep = dependency('libsystemd', version: '>= 209', required: false)
-	if systemd_dep.found()
-		config_h.set('HAVE_SYSTEMD_LOGIN_209', '1')
-	else
-		systemd_dep = dependency('libsystemd-login', version: '>= 198', required: false)
-		if not systemd_dep.found()
-			error('logind support requires libsystemd or libsystemd-login but neither was found. Or, you can use \'-Dlauncher-logind=false\'')
-		endif
+	if not systemd_dep.found()
+		error('logind support requires libsystemd >= 209. Or, you can use \'-Dlauncher-logind=false\'')
 	endif
 
 	dbus_dep = dependency('dbus-1', version: '>= 1.6', required: false)
