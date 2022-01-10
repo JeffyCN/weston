@@ -368,7 +368,7 @@ ss_seat_create(struct shared_output *so, uint32_t id)
 	if (seat == NULL)
 		return NULL;
 
-	weston_seat_init(&seat->base, so->output->compositor, "default");
+	weston_seat_init(&seat->base, so->output->compositor, "screen-share");
 	seat->output = so;
 	seat->id = id;
 	seat->parent.seat = wl_registry_bind(so->parent.registry, id,
