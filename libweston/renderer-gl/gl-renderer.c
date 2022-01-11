@@ -1645,8 +1645,7 @@ output_get_buffer_age(struct weston_output *output)
 	EGLint buffer_age = 0;
 	EGLBoolean ret;
 
-	if ((gr->has_egl_buffer_age || gr->has_egl_partial_update) &&
-	    go->egl_surface != EGL_NO_SURFACE) {
+	if (gr->has_egl_buffer_age && go->egl_surface != EGL_NO_SURFACE) {
 		ret = eglQuerySurface(gr->egl_display, go->egl_surface,
 				      EGL_BUFFER_AGE_EXT, &buffer_age);
 		if (ret == EGL_FALSE) {
@@ -1689,8 +1688,7 @@ output_get_dummy_renderbuffer(struct weston_output *output)
 	}
 
 	/* otherwise decide whether to refurbish and return the oldest, */
-	max_buffers = (gr->has_egl_buffer_age || gr->has_egl_partial_update) ?
-		      BUFFER_DAMAGE_COUNT : 1;
+	max_buffers = gr->has_egl_buffer_age ? BUFFER_DAMAGE_COUNT : 1;
 	if ((buffer_age == 0 || buffer_age - 1 > BUFFER_DAMAGE_COUNT) &&
 	    count >= max_buffers) {
 		pixman_region32_copy(&oldest_rb->base.damage, &output->region);
