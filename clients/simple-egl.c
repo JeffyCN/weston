@@ -488,7 +488,10 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	glUniformMatrix4fv(window->gl.rotation_uniform, 1, GL_FALSE,
 			   (GLfloat *) rotation);
 
-	glClearColor(0.0, 0.0, 0.0, 0.5);
+	if (window->opaque || window->fullscreen)
+		glClearColor(0.0, 0.0, 0.0, 1);
+	else
+		glClearColor(0.0, 0.0, 0.0, 0.5);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glVertexAttribPointer(window->gl.pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
