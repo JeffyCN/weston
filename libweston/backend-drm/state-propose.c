@@ -169,7 +169,6 @@ cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
 	int i;
 
 	assert(buffer && buffer->shm_buffer);
-	assert(buffer->shm_buffer == wl_shm_buffer_get(buffer->resource));
 	assert(buffer->width <= b->cursor_width);
 	assert(buffer->height <= b->cursor_height);
 
@@ -432,7 +431,6 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 
 	struct weston_view *ev = pnode->view;
 	struct weston_buffer *buffer;
-	struct wl_shm_buffer *shmbuf;
 	struct drm_fb *fb = NULL;
 
 	bool view_matches_entire_output, scanout_has_view_assigned;
@@ -448,15 +446,16 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 	}
 
 	buffer = ev->surface->buffer_ref.buffer;
-	shmbuf = wl_shm_buffer_get(buffer->resource);
-	if (shmbuf) {
+	if (buffer->type == WESTON_BUFFER_SHM) {
 		if (!output->cursor_plane || b->cursors_are_broken) {
 			pnode->try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			return NULL;
 		}
 
-		if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888) {
+		/* Even though this is a SHM buffer, pixel_format stores the
+		 * format code as DRM FourCC */
+		if (buffer->pixel_format->format != DRM_FORMAT_ARGB8888) {
 			drm_debug(b, "\t\t\t\t[view] not placing view %p on "
 			             "plane; SHM buffers must be ARGB8888 for "
 				     "cursor view\n", ev);
@@ -512,7 +511,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 
 		switch (plane->type) {
 		case WDRM_PLANE_TYPE_CURSOR:
-			assert(shmbuf);
+			assert(buffer->shm_buffer);
 			assert(plane == output->cursor_plane);
 			break;
 		case WDRM_PLANE_TYPE_PRIMARY:
@@ -959,7 +958,7 @@ drm_assign_planes(struct weston_output *output_base)
 		 */
 		if (b->use_pixman ||
 		    (weston_view_has_valid_buffer(ev) &&
-		    (!wl_shm_buffer_get(ev->surface->buffer_ref.buffer->resource) ||
+		    (ev->surface->buffer_ref.buffer->type != WESTON_BUFFER_SHM ||
 		     (ev->surface->width <= b->cursor_width &&
 		      ev->surface->height <= b->cursor_height))))
 			ev->surface->keep_buffer = true;
