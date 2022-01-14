@@ -1983,7 +1983,11 @@ weston_view_is_opaque(struct weston_view *ev, pixman_region32_t *region)
 WL_EXPORT bool
 weston_view_has_valid_buffer(struct weston_view *ev)
 {
-	return ev->surface->buffer_ref.buffer != NULL;
+	if (!ev->surface->buffer_ref.buffer)
+		return false;
+	if (!ev->surface->buffer_ref.buffer->resource)
+		return false;
+	return true;
 }
 
 /** Check if the view matches the entire output
