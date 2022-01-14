@@ -2385,6 +2385,12 @@ weston_buffer_destroy_handler(struct wl_listener *listener, void *data)
 	struct weston_buffer *buffer =
 		container_of(listener, struct weston_buffer, destroy_listener);
 
+	buffer->resource = NULL;
+	buffer->shm_buffer = NULL;
+
+	if (buffer->busy_count > 0)
+		return;
+
 	weston_signal_emit_mutable(&buffer->destroy_signal, buffer);
 	free(buffer);
 }
@@ -2464,39 +2470,30 @@ fail:
 	return NULL;
 }
 
-static void
-weston_buffer_reference_handle_destroy(struct wl_listener *listener,
-				       void *data)
-{
-	struct weston_buffer_reference *ref =
-		container_of(listener, struct weston_buffer_reference,
-			     destroy_listener);
-
-	assert((struct weston_buffer *)data == ref->buffer);
-	ref->buffer = NULL;
-}
-
 WL_EXPORT void
 weston_buffer_reference(struct weston_buffer_reference *ref,
 			struct weston_buffer *buffer)
 {
-	if (ref->buffer && buffer != ref->buffer) {
-		ref->buffer->busy_count--;
-		if (ref->buffer->busy_count == 0) {
+	if (buffer == ref->buffer)
+		return;
+
+	if (ref->buffer && --ref->buffer->busy_count == 0) {
+		if (ref->buffer->resource) {
 			assert(wl_resource_get_client(ref->buffer->resource));
 			wl_buffer_send_release(ref->buffer->resource);
+		} else {
+			weston_signal_emit_mutable(&ref->buffer->destroy_signal,
+						   ref->buffer);
+			free(ref->buffer);
 		}
-		wl_list_remove(&ref->destroy_listener.link);
-	}
-
-	if (buffer && buffer != ref->buffer) {
-		buffer->busy_count++;
-		wl_signal_add(&buffer->destroy_signal,
-			      &ref->destroy_listener);
 	}
 
 	ref->buffer = buffer;
-	ref->destroy_listener.notify = weston_buffer_reference_handle_destroy;
+
+	if (!ref->buffer)
+		return;
+
+	ref->buffer->busy_count++;
 }
 
 static void

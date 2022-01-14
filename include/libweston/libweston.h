@@ -1203,7 +1203,6 @@ struct weston_buffer {
 
 struct weston_buffer_reference {
 	struct weston_buffer *buffer;
-	struct wl_listener destroy_listener;
 };
 
 struct weston_buffer_viewport {
