@@ -2846,19 +2846,6 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 	return true;
 }
 
-static bool
-dmabuf_is_opaque(struct linux_dmabuf_buffer *dmabuf)
-{
-	const struct pixel_format_info *info;
-
-	info = pixel_format_get_info(dmabuf->attributes.format &
-				     ~DRM_FORMAT_BIG_ENDIAN);
-	if (!info)
-		return false;
-
-	return pixel_format_is_opaque(info);
-}
-
 static void
 gl_renderer_attach_dmabuf(struct weston_surface *surface,
 			  struct weston_buffer *buffer,
@@ -2879,7 +2866,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	gs->buffer_type = BUFFER_TYPE_EGL;
 	gs->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
 	gs->direct_display = dmabuf->direct_display;
-	surface->is_opaque = dmabuf_is_opaque(dmabuf);
+	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 
 	if (dmabuf->direct_display)
 		return;
