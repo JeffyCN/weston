@@ -2388,6 +2388,8 @@ WL_EXPORT struct weston_buffer *
 weston_buffer_from_resource(struct wl_resource *resource)
 {
 	struct weston_buffer *buffer;
+	struct wl_shm_buffer *shm;
+	struct linux_dmabuf_buffer *dmabuf;
 	struct wl_listener *listener;
 
 	listener = wl_resource_get_destroy_listener(resource,
@@ -2404,8 +2406,19 @@ weston_buffer_from_resource(struct wl_resource *resource)
 	buffer->resource = resource;
 	wl_signal_init(&buffer->destroy_signal);
 	buffer->destroy_listener.notify = weston_buffer_destroy_handler;
-	buffer->y_inverted = 1;
 	wl_resource_add_destroy_listener(resource, &buffer->destroy_listener);
+
+	if ((shm = wl_shm_buffer_get(buffer->resource))) {
+		buffer->shm_buffer = shm;
+		buffer->width = wl_shm_buffer_get_width(shm);
+		buffer->height = wl_shm_buffer_get_height(shm);
+		buffer->y_inverted = true;
+	} else if ((dmabuf = linux_dmabuf_buffer_get(buffer->resource))) {
+		buffer->width = dmabuf->attributes.width;
+		buffer->height = dmabuf->attributes.height;
+		buffer->y_inverted =
+			!(dmabuf->attributes.flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT);
+	}
 
 	return buffer;
 }

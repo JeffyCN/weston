@@ -666,10 +666,6 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 
 	es->is_opaque = pixel_format_is_opaque(pixel_info);
 
-	buffer->shm_buffer = shm_buffer;
-	buffer->width = wl_shm_buffer_get_width(shm_buffer);
-	buffer->height = wl_shm_buffer_get_height(shm_buffer);
-
 	ps->image = pixman_image_create_bits(pixel_info->pixman_format,
 		buffer->width, buffer->height,
 		wl_shm_buffer_get_data(shm_buffer),

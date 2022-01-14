@@ -186,10 +186,6 @@ weston_screenshooter_shoot(struct weston_output *output,
 		return -1;
 	}
 
-	buffer->shm_buffer = wl_shm_buffer_get(buffer->resource);
-	buffer->width = wl_shm_buffer_get_width(buffer->shm_buffer);
-	buffer->height = wl_shm_buffer_get_height(buffer->shm_buffer);
-
 	if (buffer->width < output->current_mode->width ||
 	    buffer->height < output->current_mode->height) {
 		done(data, WESTON_SCREENSHOOTER_BAD_BUFFER);

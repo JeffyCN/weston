@@ -1965,10 +1965,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 	int num_planes;
 	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
 
-	buffer->shm_buffer = shm_buffer;
-	buffer->width = wl_shm_buffer_get_width(shm_buffer);
-	buffer->height = wl_shm_buffer_get_height(shm_buffer);
-
 	num_planes = 1;
 	gs->offset[0] = 0;
 	gs->hsub[0] = 1;
@@ -2819,17 +2815,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	struct dmabuf_image *image;
 	GLenum target;
 	int i;
-
-	buffer->width = dmabuf->attributes.width;
-	buffer->height = dmabuf->attributes.height;
-
-	/*
-	 * GL-renderer uses the OpenGL convention of texture coordinates, where
-	 * the origin is at bottom-left. Because dmabuf buffers have the origin
-	 * at top-left, we must invert the Y_INVERT flag to get the image right.
-	 */
-	buffer->y_inverted =
-		!(dmabuf->attributes.flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT);
 
 	for (i = 0; i < gs->num_images; i++)
 		egl_image_unref(gs->images[i]);
