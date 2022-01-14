@@ -52,6 +52,7 @@
 #include <time.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <drm_fourcc.h>
 
 #include "timeline.h"
 
@@ -2415,11 +2416,25 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 		buffer->width = wl_shm_buffer_get_width(shm);
 		buffer->height = wl_shm_buffer_get_height(shm);
 		buffer->y_inverted = true;
+		/* wl_shm might create a buffer with an unknown format, so check
+		 * and reject */
+		buffer->pixel_format =
+			pixel_format_get_info_shm(wl_shm_buffer_get_format(shm));
+		buffer->format_modifier = DRM_FORMAT_MOD_LINEAR;
+
+		if (!buffer->pixel_format)
+			goto fail;
 	} else if ((dmabuf = linux_dmabuf_buffer_get(buffer->resource))) {
 		buffer->type = WESTON_BUFFER_DMABUF;
 		buffer->dmabuf = dmabuf;
 		buffer->width = dmabuf->attributes.width;
 		buffer->height = dmabuf->attributes.height;
+		buffer->pixel_format =
+			pixel_format_get_info(dmabuf->attributes.format);
+		/* dmabuf import should assure we don't create a buffer with an
+		 * unknown format */
+		assert(buffer->pixel_format);
+		buffer->format_modifier = dmabuf->attributes.modifier[0];
 		buffer->y_inverted =
 			!(dmabuf->attributes.flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT);
 	} else {
@@ -2430,6 +2445,10 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 		}
 		buffer->type = WESTON_BUFFER_RENDERER_OPAQUE;
 	}
+
+	/* Don't accept any formats we can't reason about: the importer should
+	 * make sure this never happens */
+	assert(buffer->pixel_format);
 
 	return buffer;
 

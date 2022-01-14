@@ -1193,6 +1193,9 @@ struct weston_buffer {
 	uint32_t busy_count;
 	int y_inverted;
 	void *backend_private;
+
+	const struct pixel_format_info *pixel_format;
+	uint64_t format_modifier;
 };
 
 struct weston_buffer_reference {

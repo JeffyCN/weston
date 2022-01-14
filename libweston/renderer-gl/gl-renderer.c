@@ -2158,6 +2158,8 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 			     struct weston_buffer *buffer)
 {
 	struct gl_renderer *gr = get_renderer(ec);
+	EGLint format;
+	uint32_t fourcc;
 	bool ret = true;
 
 	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
@@ -2165,6 +2167,37 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 			        EGL_WIDTH, &buffer->width);
 	ret &= gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
 				EGL_HEIGHT, &buffer->height);
+	ret &= gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
+				EGL_TEXTURE_FORMAT, &format);
+	if (!ret)
+		return false;
+
+	/* The legacy EGL buffer interface only describes the channels we can
+	 * sample from; not their depths or order. Take a stab at something
+	 * which might be representative. Pessimise extremely hard for
+	 * TEXTURE_EXTERNAL_OES. */
+	switch (format) {
+	case EGL_TEXTURE_RGB:
+		fourcc = DRM_FORMAT_XRGB8888;
+		break;
+	case EGL_TEXTURE_EXTERNAL_WL:
+	case EGL_TEXTURE_RGBA:
+		fourcc = DRM_FORMAT_ARGB8888;
+		break;
+	case EGL_TEXTURE_Y_XUXV_WL:
+		fourcc = DRM_FORMAT_YUYV;
+		break;
+	case EGL_TEXTURE_Y_UV_WL:
+		fourcc = DRM_FORMAT_NV12;
+		break;
+	case EGL_TEXTURE_Y_U_V_WL:
+		fourcc = DRM_FORMAT_YUV420;
+		break;
+	}
+
+	buffer->pixel_format = pixel_format_get_info(fourcc);
+	assert(buffer->pixel_format);
+	buffer->format_modifier = DRM_FORMAT_MOD_INVALID;
 
 	/* Assume scanout co-ordinate space i.e. (0,0) is top-left
 	 * if the query fails */
@@ -2172,7 +2205,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
 			 EGL_WAYLAND_Y_INVERTED_WL, &buffer->y_inverted);
 
-	return ret;
+	return true;
 }
 
 static void
