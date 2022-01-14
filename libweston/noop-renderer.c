@@ -47,7 +47,8 @@ noop_renderer_repaint_output(struct weston_output *output,
 }
 
 static void
-noop_renderer_flush_damage(struct weston_surface *surface)
+noop_renderer_flush_damage(struct weston_surface *surface,
+			   struct weston_buffer *buffer)
 {
 }
 

@@ -1832,12 +1832,12 @@ gl_format_from_internal(GLenum internal_format)
 }
 
 static void
-gl_renderer_flush_damage(struct weston_surface *surface)
+gl_renderer_flush_damage(struct weston_surface *surface,
+			 struct weston_buffer *buffer)
 {
 	const struct weston_testsuite_quirks *quirks =
 		&surface->compositor->test_data.test_quirks;
 	struct gl_surface_state *gs = get_surface_state(surface);
-	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	struct weston_view *view;
 	bool texture_used;
 	pixman_box32_t *rectangles;
@@ -3081,7 +3081,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 		*(uint32_t *)target = pack_color(format, gs->color);
 		return 0;
 	case BUFFER_TYPE_SHM:
-		gl_renderer_flush_damage(surface);
+		gl_renderer_flush_damage(surface, gs->buffer_ref.buffer);
 		/* fall through */
 	case BUFFER_TYPE_EGL:
 		break;
@@ -3228,7 +3228,11 @@ gl_renderer_create_surface(struct weston_surface *surface)
 
 	if (surface->buffer_ref.buffer) {
 		gl_renderer_attach(surface, surface->buffer_ref.buffer);
-		gl_renderer_flush_damage(surface);
+		if (surface->buffer_ref.buffer->resource &&
+		    wl_shm_buffer_get(surface->buffer_ref.buffer->resource)) {
+			gl_renderer_flush_damage(surface,
+						 surface->buffer_ref.buffer);
+		}
 	}
 
 	return 0;

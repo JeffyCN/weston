@@ -2553,9 +2553,10 @@ weston_output_damage(struct weston_output *output)
 static void
 surface_flush_damage(struct weston_surface *surface)
 {
-	if (surface->buffer_ref.buffer &&
-	    wl_shm_buffer_get(surface->buffer_ref.buffer->resource))
-		surface->compositor->renderer->flush_damage(surface);
+	struct weston_buffer *buffer = surface->buffer_ref.buffer;
+
+	if (buffer && wl_shm_buffer_get(buffer->resource))
+		surface->compositor->renderer->flush_damage(surface, buffer);
 
 	if (pixman_region32_not_empty(&surface->damage))
 		TL_POINT(surface->compositor, "core_flush_damage", TLP_SURFACE(surface),
