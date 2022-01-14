@@ -644,14 +644,14 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	if (!buffer)
 		return;
 
-	shm_buffer = wl_shm_buffer_get(buffer->resource);
-
-	if (! shm_buffer) {
+	if (buffer->type != WESTON_BUFFER_SHM) {
 		weston_log("Pixman renderer supports only SHM buffers\n");
 		weston_buffer_reference(&ps->buffer_ref, NULL);
 		weston_buffer_release_reference(&ps->buffer_release_ref, NULL);
 		return;
 	}
+
+	shm_buffer = buffer->shm_buffer;
 
 	pixel_info = pixel_format_get_info_shm(wl_shm_buffer_get_format(shm_buffer));
 	if (!pixel_info || !pixman_format_supported_source(pixel_info->pixman_format)) {

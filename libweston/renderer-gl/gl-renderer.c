@@ -888,7 +888,7 @@ ensure_surface_buffer_is_ready(struct gl_renderer *gr,
 	assert(gr->has_native_fence_sync);
 	/* We should only get a fence for non-SHM buffers, since surface
 	 * commit would have failed otherwise. */
-	assert(wl_shm_buffer_get(buffer->resource) == NULL);
+	assert(buffer->type != WESTON_BUFFER_SHM);
 
 	attribs[1] = dup(surface->acquire_fence_fd);
 	if (attribs[1] == -1) {
@@ -2938,8 +2938,6 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	struct weston_compositor *ec = es->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(es);
-	struct wl_shm_buffer *shm_buffer;
-	struct linux_dmabuf_buffer *dmabuf;
 	EGLint format;
 	int i;
 
@@ -2962,30 +2960,38 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		return;
 	}
 
-	shm_buffer = wl_shm_buffer_get(buffer->resource);
-
-	if (shm_buffer)
-		gl_renderer_attach_shm(es, buffer, shm_buffer);
-	else if (gr->has_bind_display &&
-		 gr->query_buffer(gr->egl_display, (void *)buffer->resource,
-				  EGL_TEXTURE_FORMAT, &format))
-		gl_renderer_attach_egl(es, buffer, format);
-	else if ((dmabuf = linux_dmabuf_buffer_get(buffer->resource)))
-		gl_renderer_attach_dmabuf(es, buffer, dmabuf);
-	else {
-		weston_log("unhandled buffer type!\n");
-		if (gr->has_bind_display) {
-		  weston_log("eglQueryWaylandBufferWL failed\n");
-		  gl_renderer_print_egl_error_state();
+	switch (buffer->type) {
+	case WESTON_BUFFER_SHM:
+		gl_renderer_attach_shm(es, buffer, buffer->shm_buffer);
+		return;
+	case WESTON_BUFFER_DMABUF:
+		gl_renderer_attach_dmabuf(es, buffer, buffer->dmabuf);
+		return;
+	case WESTON_BUFFER_RENDERER_OPAQUE:
+		if (!gr->has_bind_display ||
+		    !gr->query_buffer(gr->egl_display,
+		    		      buffer->legacy_buffer,
+				      EGL_TEXTURE_FORMAT, &format)) {
+			break;
 		}
-		weston_buffer_reference(&gs->buffer_ref, NULL);
-		weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
-		gs->buffer_type = BUFFER_TYPE_NULL;
-		gs->y_inverted = true;
-		es->is_opaque = false;
-		weston_buffer_send_server_error(buffer,
-			"disconnecting due to unhandled buffer type");
+		gl_renderer_attach_egl(es, buffer, format);
+		return;
+	default:
+		break;
 	}
+
+	weston_log("unhandled buffer type!\n");
+	if (gr->has_bind_display) {
+		weston_log("eglQueryWaylandBufferWL failed\n");
+		gl_renderer_print_egl_error_state();
+	}
+	weston_buffer_reference(&gs->buffer_ref, NULL);
+	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
+	gs->buffer_type = BUFFER_TYPE_NULL;
+	gs->y_inverted = true;
+	es->is_opaque = false;
+	weston_buffer_send_server_error(buffer,
+		"disconnecting due to unhandled buffer type");
 }
 
 static void
@@ -3232,8 +3238,7 @@ gl_renderer_create_surface(struct weston_surface *surface)
 
 	if (surface->buffer_ref.buffer) {
 		gl_renderer_attach(surface, surface->buffer_ref.buffer);
-		if (surface->buffer_ref.buffer->resource &&
-		    wl_shm_buffer_get(surface->buffer_ref.buffer->resource)) {
+		if (surface->buffer_ref.buffer->type == WESTON_BUFFER_SHM) {
 			gl_renderer_flush_damage(surface,
 						 surface->buffer_ref.buffer);
 		}

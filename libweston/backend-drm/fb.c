@@ -522,7 +522,6 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	struct drm_buffer_fb *buf_fb;
 	bool is_opaque = weston_view_is_opaque(ev, &ev->transform.boundingbox);
-	struct linux_dmabuf_buffer *dmabuf;
 	struct drm_fb *fb;
 	struct drm_plane *plane;
 
@@ -550,20 +549,16 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	buf_fb->buffer_destroy_listener.notify = drm_fb_handle_buffer_destroy;
 	wl_signal_add(&buffer->destroy_signal, &buf_fb->buffer_destroy_listener);
 
-	if (wl_shm_buffer_get(buffer->resource))
-		goto unsuitable;
-
 	/* GBM is used for dmabuf import as well as from client wl_buffer. */
 	if (!b->gbm)
 		goto unsuitable;
 
-	dmabuf = linux_dmabuf_buffer_get(buffer->resource);
-	if (dmabuf) {
-		fb = drm_fb_get_from_dmabuf(dmabuf, b, is_opaque,
+	if (buffer->type == WESTON_BUFFER_DMABUF) {
+		fb = drm_fb_get_from_dmabuf(buffer->dmabuf, b, is_opaque,
 					    &buf_fb->failure_reasons);
 		if (!fb)
 			goto unsuitable;
-	} else {
+	} else if (buffer->type == WESTON_BUFFER_RENDERER_OPAQUE) {
 		struct gbm_bo *bo;
 
 		bo = gbm_bo_import(b->gbm, GBM_BO_IMPORT_WL_BUFFER,
@@ -576,6 +571,8 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 			gbm_bo_destroy(bo);
 			goto unsuitable;
 		}
+	} else {
+		goto unsuitable;
 	}
 
 	/* Check if this buffer can ever go on any planes. If it can't, we have

@@ -63,13 +63,12 @@ noop_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	if (!buffer)
 		return;
 
-	shm_buffer = wl_shm_buffer_get(buffer->resource);
-
-	if (!shm_buffer) {
+	if (buffer->type != WESTON_BUFFER_SHM) {
 		weston_log("No-op renderer supports only SHM buffers\n");
 		return;
 	}
 
+	shm_buffer = buffer->shm_buffer;
 	data = wl_shm_buffer_get_data(shm_buffer);
 	stride = wl_shm_buffer_get_stride(shm_buffer);
 	width = wl_shm_buffer_get_width(shm_buffer);

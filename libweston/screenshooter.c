@@ -181,7 +181,7 @@ weston_screenshooter_shoot(struct weston_output *output,
 {
 	struct screenshooter_frame_listener *l;
 
-	if (!wl_shm_buffer_get(buffer->resource)) {
+	if (buffer->type != WESTON_BUFFER_SHM) {
 		done(data, WESTON_SCREENSHOOTER_BAD_BUFFER);
 		return -1;
 	}

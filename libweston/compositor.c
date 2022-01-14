@@ -2584,7 +2584,7 @@ surface_flush_damage(struct weston_surface *surface)
 {
 	struct weston_buffer *buffer = surface->buffer_ref.buffer;
 
-	if (buffer && wl_shm_buffer_get(buffer->resource))
+	if (buffer && buffer->type == WESTON_BUFFER_SHM)
 		surface->compositor->renderer->flush_damage(surface, buffer);
 
 	if (pixman_region32_not_empty(&surface->damage))
@@ -3978,14 +3978,7 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 			return;
 		}
 
-		/* We support fences for both wp_linux_dmabuf and opaque EGL
-		 * buffers, as mandated by minor version 2 of the
-		 * zwp_linux_explicit_synchronization_v1 protocol. Since
-		 * renderers that support fences currently only support these
-		 * two buffer types plus SHM buffers, we can just check for the
-		 * SHM buffer case here.
-		 */
-		if (wl_shm_buffer_get(surface->pending.buffer->resource)) {
+		if (surface->pending.buffer->type == WESTON_BUFFER_SHM) {
 			fd_clear(&surface->pending.acquire_fence_fd);
 			wl_resource_post_error(surface->synchronization_resource,
 				ZWP_LINUX_SURFACE_SYNCHRONIZATION_V1_ERROR_UNSUPPORTED_BUFFER,
@@ -7473,30 +7466,30 @@ static void
 debug_scene_view_print_buffer(FILE *fp, struct weston_view *view)
 {
 	struct weston_buffer *buffer = view->surface->buffer_ref.buffer;
-	struct wl_shm_buffer *shm;
-	struct linux_dmabuf_buffer *dmabuf;
+	struct wl_shm_buffer *shm = buffer->shm_buffer;
+	struct linux_dmabuf_buffer *dmabuf = buffer->dmabuf;
 	const struct pixel_format_info *pixel_info = NULL;
+	uint32_t _format;
+	uint64_t modifier;
+	char *modifier_name;
 
 	if (!buffer) {
 		fprintf(fp, "\t\t[buffer not available]\n");
 		return;
 	}
 
-	shm = wl_shm_buffer_get(buffer->resource);
-	if (shm) {
-		uint32_t _format = wl_shm_buffer_get_format(shm);
+	switch (buffer->type) {
+	case WESTON_BUFFER_SHM:
+		_format = wl_shm_buffer_get_format(shm);
 		pixel_info = pixel_format_get_info_shm(_format);
 		fprintf(fp, "\t\tSHM buffer\n");
 		fprintf(fp, "\t\t\tformat: 0x%lx %s\n",
 			(unsigned long) _format,
 			pixel_info ? pixel_info->drm_format_name : "UNKNOWN");
-		return;
-	}
-
-	dmabuf = linux_dmabuf_buffer_get(buffer->resource);
-	if (dmabuf) {
-		uint64_t modifier = dmabuf->attributes.modifier[0];
-		char *modifier_name = pixel_format_get_modifier(modifier);
+		break;
+	case WESTON_BUFFER_DMABUF:
+		modifier = dmabuf->attributes.modifier[0];
+		modifier_name = pixel_format_get_modifier(modifier);
 		pixel_info = pixel_format_get_info(dmabuf->attributes.format);
 		fprintf(fp, "\t\tdmabuf buffer\n");
 		fprintf(fp, "\t\t\tformat: 0x%lx %s\n",
@@ -7506,10 +7499,11 @@ debug_scene_view_print_buffer(FILE *fp, struct weston_view *view)
 		fprintf(fp, "\t\t\tmodifier: %s\n", modifier_name ? modifier_name :
 				"Failed to convert to a modifier name");
 		free(modifier_name);
-		return;
+		break;
+	default:
+		fprintf(fp, "\t\tEGL buffer\n");
+		break;
 	}
-
-	fprintf(fp, "\t\tEGL buffer\n");
 }
 
 static void
