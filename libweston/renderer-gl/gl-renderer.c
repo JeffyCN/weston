@@ -2843,14 +2843,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	gs->direct_display = dmabuf->direct_display;
 	surface->is_opaque = dmabuf_is_opaque(dmabuf);
 
-	/*
-	 * We try to always hold an imported EGLImage from the dmabuf
-	 * to prevent the client from preventing re-imports. But, we also
-	 * need to re-import every time the contents may change because
-	 * GL driver's caching may need flushing.
-	 *
-	 * Here we release the cache reference which has to be final.
-	 */
 	if (dmabuf->direct_display)
 		return;
 
