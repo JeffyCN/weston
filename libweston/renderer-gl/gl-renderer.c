@@ -2821,12 +2821,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	GLenum target;
 	int i;
 
-	if (!gr->has_dmabuf_import) {
-		linux_dmabuf_buffer_send_server_error(dmabuf,
-				"EGL dmabuf import not supported");
-		return;
-	}
-
 	buffer->width = dmabuf->attributes.width;
 	buffer->height = dmabuf->attributes.height;
 
