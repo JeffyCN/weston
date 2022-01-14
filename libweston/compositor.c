@@ -2410,11 +2410,14 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 	wl_resource_add_destroy_listener(resource, &buffer->destroy_listener);
 
 	if ((shm = wl_shm_buffer_get(buffer->resource))) {
+		buffer->type = WESTON_BUFFER_SHM;
 		buffer->shm_buffer = shm;
 		buffer->width = wl_shm_buffer_get_width(shm);
 		buffer->height = wl_shm_buffer_get_height(shm);
 		buffer->y_inverted = true;
 	} else if ((dmabuf = linux_dmabuf_buffer_get(buffer->resource))) {
+		buffer->type = WESTON_BUFFER_DMABUF;
+		buffer->dmabuf = dmabuf;
 		buffer->width = dmabuf->attributes.width;
 		buffer->height = dmabuf->attributes.height;
 		buffer->y_inverted =
@@ -2425,6 +2428,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 		    !ec->renderer->fill_buffer_info(ec, buffer)) {
 			goto fail;
 		}
+		buffer->type = WESTON_BUFFER_RENDERER_OPAQUE;
 	}
 
 	return buffer;
