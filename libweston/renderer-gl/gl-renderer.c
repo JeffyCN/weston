@@ -1844,11 +1844,10 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 	uint8_t *data;
 	int i, j, n;
 
+	assert(buffer);
+
 	pixman_region32_union(&gs->texture_damage,
 			      &gs->texture_damage, &surface->damage);
-
-	if (!buffer)
-		return;
 
 	/* Avoid upload, if the texture won't be used this time.
 	 * We still accumulate the damage in texture_damage, and
