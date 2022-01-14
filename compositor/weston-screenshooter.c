@@ -68,8 +68,9 @@ screenshooter_take_shot(struct wl_client *client,
 {
 	struct weston_output *output =
 		weston_head_from_resource(output_resource)->output;
+	struct weston_compositor *ec = output->compositor;
 	struct weston_buffer *buffer =
-		weston_buffer_from_resource(buffer_resource);
+		weston_buffer_from_resource(ec, buffer_resource);
 
 	if (buffer == NULL) {
 		wl_resource_post_no_memory(resource);

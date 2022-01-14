@@ -934,7 +934,6 @@ struct weston_renderer {
 			       float blue, float alpha);
 	void (*destroy)(struct weston_compositor *ec);
 
-
 	/** See weston_surface_get_content_size() */
 	void (*surface_get_content_size)(struct weston_surface *surface,
 					 int *width, int *height);
@@ -951,6 +950,9 @@ struct weston_renderer {
 
 	const struct weston_drm_format_array *
 			(*get_supported_formats)(struct weston_compositor *ec);
+
+	bool (*fill_buffer_info)(struct weston_compositor *ec,
+				 struct weston_buffer *buffer);
 };
 
 enum weston_capability {
@@ -1818,7 +1820,8 @@ weston_surface_copy_content(struct weston_surface *surface,
 			    int width, int height);
 
 struct weston_buffer *
-weston_buffer_from_resource(struct wl_resource *resource);
+weston_buffer_from_resource(struct weston_compositor *ec,
+			    struct wl_resource *resource);
 
 void
 weston_compositor_get_time(struct timespec *time);

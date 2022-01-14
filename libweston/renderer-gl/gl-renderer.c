@@ -2153,6 +2153,28 @@ unsupported:
 	}
 }
 
+static bool
+gl_renderer_fill_buffer_info(struct weston_compositor *ec,
+			     struct weston_buffer *buffer)
+{
+	struct gl_renderer *gr = get_renderer(ec);
+	bool ret = true;
+
+	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
+	ret &= gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
+			        EGL_WIDTH, &buffer->width);
+	ret &= gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
+				EGL_HEIGHT, &buffer->height);
+
+	/* Assume scanout co-ordinate space i.e. (0,0) is top-left
+	 * if the query fails */
+	buffer->y_inverted = true;
+	gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
+			 EGL_WAYLAND_Y_INVERTED_WL, &buffer->y_inverted);
+
+	return ret;
+}
+
 static void
 gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 		       uint32_t format)
@@ -2163,14 +2185,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 	EGLint attribs[5];
 	GLenum target;
 	int i, num_planes;
-
-	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
-	gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
-			 EGL_WIDTH, &buffer->width);
-	gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
-			 EGL_HEIGHT, &buffer->height);
-	gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
-			 EGL_WAYLAND_Y_INVERTED_WL, &buffer->y_inverted);
 
 	for (i = 0; i < gs->num_images; i++) {
 		egl_image_unref(gs->images[i]);
@@ -3674,6 +3688,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.surface_get_content_size =
 		gl_renderer_surface_get_content_size;
 	gr->base.surface_copy_content = gl_renderer_surface_copy_content;
+	gr->base.fill_buffer_info = gl_renderer_fill_buffer_info;
 
 	if (gl_renderer_setup_egl_display(gr, options->egl_native_display) < 0)
 		goto fail;

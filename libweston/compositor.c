@@ -2385,7 +2385,8 @@ weston_buffer_destroy_handler(struct wl_listener *listener, void *data)
 }
 
 WL_EXPORT struct weston_buffer *
-weston_buffer_from_resource(struct wl_resource *resource)
+weston_buffer_from_resource(struct weston_compositor *ec,
+			    struct wl_resource *resource)
 {
 	struct weston_buffer *buffer;
 	struct wl_shm_buffer *shm;
@@ -2418,9 +2419,20 @@ weston_buffer_from_resource(struct wl_resource *resource)
 		buffer->height = dmabuf->attributes.height;
 		buffer->y_inverted =
 			!(dmabuf->attributes.flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT);
+	} else {
+		/* Only taken for legacy EGL buffers */
+		if (!ec->renderer->fill_buffer_info ||
+		    !ec->renderer->fill_buffer_info(ec, buffer)) {
+			goto fail;
+		}
 	}
 
 	return buffer;
+
+fail:
+	wl_list_remove(&buffer->destroy_listener.link);
+	free(buffer);
+	return NULL;
 }
 
 static void
@@ -3440,10 +3452,11 @@ surface_attach(struct wl_client *client,
 	       struct wl_resource *buffer_resource, int32_t sx, int32_t sy)
 {
 	struct weston_surface *surface = wl_resource_get_user_data(resource);
+	struct weston_compositor *ec = surface->compositor;
 	struct weston_buffer *buffer = NULL;
 
 	if (buffer_resource) {
-		buffer = weston_buffer_from_resource(buffer_resource);
+		buffer = weston_buffer_from_resource(ec, buffer_resource);
 		if (buffer == NULL) {
 			wl_client_post_no_memory(client);
 			return;
