@@ -621,6 +621,26 @@ buffer_state_handle_buffer_destroy(struct wl_listener *listener, void *data)
 }
 
 static void
+pixman_renderer_surface_set_color(struct weston_surface *es,
+		 float red, float green, float blue, float alpha)
+{
+	struct pixman_surface_state *ps = get_surface_state(es);
+	pixman_color_t color;
+
+	color.red = red * 0xffff;
+	color.green = green * 0xffff;
+	color.blue = blue * 0xffff;
+	color.alpha = alpha * 0xffff;
+
+	if (ps->image) {
+		pixman_image_unref(ps->image);
+		ps->image = NULL;
+	}
+
+	ps->image = pixman_image_create_solid_fill(&color);
+}
+
+static void
 pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct pixman_surface_state *ps = get_surface_state(es);
@@ -645,6 +665,18 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 
 	if (!buffer)
 		return;
+
+	if (buffer->type == WESTON_BUFFER_SOLID) {
+		pixman_renderer_surface_set_color(es,
+						  buffer->solid.r,
+						  buffer->solid.g,
+						  buffer->solid.b,
+						  buffer->solid.a);
+		weston_buffer_reference(&ps->buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
+		weston_buffer_release_reference(&ps->buffer_release_ref, NULL);
+		return;
+	}
 
 	if (buffer->type != WESTON_BUFFER_SHM) {
 		weston_log("Pixman renderer supports only SHM buffers\n");
@@ -750,26 +782,6 @@ pixman_renderer_create_surface(struct weston_surface *surface)
 		      &ps->renderer_destroy_listener);
 
 	return 0;
-}
-
-static void
-pixman_renderer_surface_set_color(struct weston_surface *es,
-		 float red, float green, float blue, float alpha)
-{
-	struct pixman_surface_state *ps = get_surface_state(es);
-	pixman_color_t color;
-
-	color.red = red * 0xffff;
-	color.green = green * 0xffff;
-	color.blue = blue * 0xffff;
-	color.alpha = alpha * 0xffff;
-
-	if (ps->image) {
-		pixman_image_unref(ps->image);
-		ps->image = NULL;
-	}
-
-	ps->image = pixman_image_create_solid_fill(&color);
 }
 
 static void
