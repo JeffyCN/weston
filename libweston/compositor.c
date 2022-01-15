@@ -2734,7 +2734,7 @@ output_accumulate_damage(struct weston_output *output)
 		 */
 		if (!pnode->surface->keep_buffer) {
 			weston_buffer_reference(&pnode->surface->buffer_ref,
-						NULL,
+						pnode->surface->buffer_ref.buffer,
 						BUFFER_WILL_NOT_BE_ACCESSED);
 			weston_buffer_release_reference(
 				&pnode->surface->buffer_release_ref, NULL);
