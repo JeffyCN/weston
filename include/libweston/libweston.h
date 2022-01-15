@@ -1181,12 +1181,16 @@ struct weston_buffer {
 		WESTON_BUFFER_SHM,
 		WESTON_BUFFER_DMABUF,
 		WESTON_BUFFER_RENDERER_OPAQUE,
+		WESTON_BUFFER_SOLID,
 	} type;
 
 	union {
 		struct wl_shm_buffer *shm_buffer;
 		void *dmabuf;
 		void *legacy_buffer;
+		struct {
+			float r, g, b, a;
+		} solid;
 	};
 
 	int32_t width, height;
@@ -1767,6 +1771,13 @@ weston_surface_create(struct weston_compositor *compositor);
 
 struct weston_view *
 weston_view_create(struct weston_surface *surface);
+
+struct weston_buffer_reference *
+weston_buffer_create_solid_rgba(struct weston_compositor *compositor,
+				float r, float g, float b, float a);
+
+void
+weston_buffer_destroy_solid(struct weston_buffer_reference *buffer_ref);
 
 void
 weston_view_destroy(struct weston_view *view);

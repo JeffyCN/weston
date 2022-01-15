@@ -2590,6 +2590,56 @@ weston_buffer_release_move(struct weston_buffer_release_reference *dest,
 	weston_buffer_release_reference(src, NULL);
 }
 
+WL_EXPORT struct weston_buffer_reference *
+weston_buffer_create_solid_rgba(struct weston_compositor *compositor,
+				float r, float g, float b, float a)
+{
+	struct weston_buffer_reference *ret = zalloc(sizeof(*ret));
+
+	if (!ret)
+		return NULL;
+
+	ret->buffer = zalloc(sizeof(*ret->buffer));
+	if (!ret->buffer) {
+		free(ret);
+		return NULL;
+	}
+
+	wl_signal_init(&ret->buffer->destroy_signal);
+	ret->buffer->type = WESTON_BUFFER_SOLID;
+	ret->buffer->width = 1;
+	ret->buffer->height = 1;
+	ret->buffer->buffer_origin = ORIGIN_TOP_LEFT;
+	ret->buffer->solid.r = r;
+	ret->buffer->solid.g = g;
+	ret->buffer->solid.b = b;
+	ret->buffer->solid.a = a;
+
+	if (a == 1.0) {
+		ret->buffer->pixel_format =
+			pixel_format_get_info_shm(WL_SHM_FORMAT_XRGB8888);
+	} else {
+		ret->buffer->pixel_format =
+			pixel_format_get_info_shm(WL_SHM_FORMAT_ARGB8888);
+	}
+	ret->buffer->format_modifier = DRM_FORMAT_MOD_LINEAR;
+
+	weston_buffer_reference(ret, ret->buffer, BUFFER_MAY_BE_ACCESSED);
+
+	return ret;
+}
+
+WL_EXPORT void
+weston_buffer_destroy_solid(struct weston_buffer_reference *buffer_ref)
+{
+	assert(buffer_ref);
+	assert(buffer_ref->buffer);
+	assert(buffer_ref->type == BUFFER_MAY_BE_ACCESSED);
+	assert(buffer_ref->buffer->type == WESTON_BUFFER_SOLID);
+	weston_buffer_reference(buffer_ref, NULL, BUFFER_WILL_NOT_BE_ACCESSED);
+	free(buffer_ref);
+}
+
 static void
 weston_surface_attach(struct weston_surface *surface,
 		      struct weston_buffer *buffer)
@@ -7542,6 +7592,12 @@ debug_scene_view_print_buffer(FILE *fp, struct weston_view *view)
 		break;
 	case WESTON_BUFFER_DMABUF:
 		fprintf(fp, "\t\tdmabuf buffer\n");
+		break;
+	case WESTON_BUFFER_SOLID:
+		fprintf(fp, "\t\tsolid-colour buffer\n");
+		fprintf(fp, "\t\t\t[R %f, G %f, B %f, A %f]\n",
+			buffer->solid.r, buffer->solid.g, buffer->solid.b,
+			buffer->solid.a);
 		break;
 	case WESTON_BUFFER_RENDERER_OPAQUE:
 		fprintf(fp, "\t\tEGL buffer:\n");
