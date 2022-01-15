@@ -2964,6 +2964,23 @@ out:
 }
 
 static void
+gl_renderer_surface_set_color(struct weston_surface *surface,
+			      float red, float green, float blue, float alpha)
+{
+	struct gl_surface_state *gs = get_surface_state(surface);
+
+	gs->color[0] = red;
+	gs->color[1] = green;
+	gs->color[2] = blue;
+	gs->color[3] = alpha;
+	gs->buffer_type = BUFFER_TYPE_SOLID;
+	gs->pitch = 1;
+	gs->height = 1;
+
+	gs->shader_variant = SHADER_VARIANT_SOLID;
+}
+
+static void
 gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct weston_compositor *ec = es->compositor;
@@ -3009,6 +3026,16 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		}
 		gl_renderer_attach_egl(es, buffer, format);
 		return;
+	case WESTON_BUFFER_SOLID:
+		gl_renderer_surface_set_color(es,
+					      buffer->solid.r,
+					      buffer->solid.g,
+					      buffer->solid.b,
+					      buffer->solid.a);
+		weston_buffer_reference(&gs->buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
+		weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
+		return;
 	default:
 		break;
 	}
@@ -3026,23 +3053,6 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	es->is_opaque = false;
 	weston_buffer_send_server_error(buffer,
 		"disconnecting due to unhandled buffer type");
-}
-
-static void
-gl_renderer_surface_set_color(struct weston_surface *surface,
-			      float red, float green, float blue, float alpha)
-{
-	struct gl_surface_state *gs = get_surface_state(surface);
-
-	gs->color[0] = red;
-	gs->color[1] = green;
-	gs->color[2] = blue;
-	gs->color[3] = alpha;
-	gs->buffer_type = BUFFER_TYPE_SOLID;
-	gs->pitch = 1;
-	gs->height = 1;
-
-	gs->shader_variant = SHADER_VARIANT_SOLID;
 }
 
 static void
