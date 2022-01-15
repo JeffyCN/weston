@@ -2160,6 +2160,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	struct gl_renderer *gr = get_renderer(ec);
 	EGLint format;
 	uint32_t fourcc;
+	EGLint y_inverted;
 	bool ret = true;
 
 	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
@@ -2201,9 +2202,12 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 
 	/* Assume scanout co-ordinate space i.e. (0,0) is top-left
 	 * if the query fails */
-	buffer->y_inverted = true;
-	gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
-			 EGL_WAYLAND_Y_INVERTED_WL, &buffer->y_inverted);
+	ret = gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
+			       EGL_WAYLAND_Y_INVERTED_WL, &y_inverted);
+	if (!ret || y_inverted)
+		buffer->buffer_origin = ORIGIN_TOP_LEFT;
+	else
+		buffer->buffer_origin = ORIGIN_BOTTOM_LEFT;
 
 	return true;
 }
@@ -2281,7 +2285,7 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer,
 	gs->pitch = buffer->width;
 	gs->height = buffer->height;
 	gs->buffer_type = BUFFER_TYPE_EGL;
-	gs->y_inverted = buffer->y_inverted;
+	gs->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
 }
 
 static void
@@ -2873,7 +2877,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	gs->pitch = buffer->width;
 	gs->height = buffer->height;
 	gs->buffer_type = BUFFER_TYPE_EGL;
-	gs->y_inverted = buffer->y_inverted;
+	gs->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
 	gs->direct_display = dmabuf->direct_display;
 	surface->is_opaque = dmabuf_is_opaque(dmabuf);
 

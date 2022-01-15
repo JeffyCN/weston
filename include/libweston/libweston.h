@@ -1191,7 +1191,10 @@ struct weston_buffer {
 
 	int32_t width, height;
 	uint32_t busy_count;
-	int y_inverted;
+	enum {
+		ORIGIN_TOP_LEFT, /* buffer content starts at (0,0) */
+		ORIGIN_BOTTOM_LEFT, /* buffer content starts at (0, height) */
+	} buffer_origin;
 	void *backend_private;
 
 	const struct pixel_format_info *pixel_format;

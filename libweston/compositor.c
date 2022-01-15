@@ -2415,7 +2415,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 		buffer->shm_buffer = shm;
 		buffer->width = wl_shm_buffer_get_width(shm);
 		buffer->height = wl_shm_buffer_get_height(shm);
-		buffer->y_inverted = true;
+		buffer->buffer_origin = ORIGIN_TOP_LEFT;
 		/* wl_shm might create a buffer with an unknown format, so check
 		 * and reject */
 		buffer->pixel_format =
@@ -2435,8 +2435,10 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 		 * unknown format */
 		assert(buffer->pixel_format);
 		buffer->format_modifier = dmabuf->attributes.modifier[0];
-		buffer->y_inverted =
-			!(dmabuf->attributes.flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT);
+		if (dmabuf->attributes.flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT)
+			buffer->buffer_origin = ORIGIN_BOTTOM_LEFT;
+		else
+			buffer->buffer_origin = ORIGIN_TOP_LEFT;
 	} else {
 		/* Only taken for legacy EGL buffers */
 		if (!ec->renderer->fill_buffer_info ||
