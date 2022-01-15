@@ -2436,10 +2436,11 @@ display_start_add_seat(struct wayland_backend *b, uint32_t id, uint32_t availabl
 static void
 wayland_input_destroy(struct wayland_input *input)
 {
-	weston_seat_release(&input->base);
-
 	if (input->touch_device)
 		weston_touch_device_destroy(input->touch_device);
+
+	weston_seat_release(&input->base);
+
 	if (input->parent.keyboard) {
 		if (input->seat_version >= WL_KEYBOARD_RELEASE_SINCE_VERSION)
 			wl_keyboard_release(input->parent.keyboard);
