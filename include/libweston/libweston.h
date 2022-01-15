@@ -1191,6 +1191,7 @@ struct weston_buffer {
 
 	int32_t width, height;
 	uint32_t busy_count;
+	uint32_t passive_count;
 	enum {
 		ORIGIN_TOP_LEFT, /* buffer content starts at (0,0) */
 		ORIGIN_BOTTOM_LEFT, /* buffer content starts at (0, height) */

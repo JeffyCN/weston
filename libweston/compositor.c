@@ -2389,7 +2389,7 @@ weston_buffer_destroy_handler(struct wl_listener *listener, void *data)
 	buffer->resource = NULL;
 	buffer->shm_buffer = NULL;
 
-	if (buffer->busy_count > 0)
+	if (buffer->busy_count + buffer->passive_count > 0)
 		return;
 
 	weston_signal_emit_mutable(&buffer->destroy_signal, buffer);
@@ -2476,28 +2476,56 @@ weston_buffer_reference(struct weston_buffer_reference *ref,
 			struct weston_buffer *buffer,
 			enum weston_buffer_reference_type type)
 {
+	struct weston_buffer_reference old_ref = *ref;
+
 	assert(buffer != NULL || type == BUFFER_WILL_NOT_BE_ACCESSED);
 
-	if (buffer == ref->buffer)
+	if (buffer == ref->buffer && type == ref->type)
 		return;
 
-	if (ref->buffer && --ref->buffer->busy_count == 0) {
-		if (ref->buffer->resource) {
-			assert(wl_resource_get_client(ref->buffer->resource));
-			wl_buffer_send_release(ref->buffer->resource);
-		} else {
-			weston_signal_emit_mutable(&ref->buffer->destroy_signal,
-						   ref->buffer);
-			free(ref->buffer);
-		}
+	/* First ref the incoming buffer, so we keep positive refcount */
+	if (buffer) {
+		if (type == BUFFER_MAY_BE_ACCESSED)
+			buffer->busy_count++;
+		else
+			buffer->passive_count++;
 	}
 
 	ref->buffer = buffer;
+	ref->type = type;
 
-	if (!ref->buffer)
+	/* Now drop refs to the old buffer, if any */
+	if (!old_ref.buffer)
 		return;
 
-	ref->buffer->busy_count++;
+	ref = NULL; /* will no longer be accessed */
+
+	if (old_ref.type == BUFFER_MAY_BE_ACCESSED) {
+		assert(old_ref.buffer->busy_count > 0);
+		old_ref.buffer->busy_count--;
+
+		/* If the wl_buffer lives, then hold on to the weston_buffer,
+		 * but send a release event to the client */
+		if (old_ref.buffer->busy_count == 0 &&
+		    old_ref.buffer->resource) {
+			assert(wl_resource_get_client(old_ref.buffer->resource));
+			wl_buffer_send_release(old_ref.buffer->resource);
+		}
+	} else if (old_ref.type == BUFFER_WILL_NOT_BE_ACCESSED) {
+		assert(old_ref.buffer->passive_count > 0);
+		old_ref.buffer->passive_count--;
+	} else {
+		assert(!"unknown buffer ref type");
+	}
+
+	/* If the wl_buffer has gone and this was the last ref, destroy the
+	 * weston_buffer, since we'll never need it again */
+	if (old_ref.buffer->busy_count + old_ref.buffer->passive_count == 0 &&
+	    !old_ref.buffer->resource) {
+		weston_signal_emit_mutable(&old_ref.buffer->destroy_signal,
+					   old_ref.buffer);
+		free(old_ref.buffer);
+	}
 }
 
 static void
