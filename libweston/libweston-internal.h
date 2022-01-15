@@ -50,7 +50,8 @@ weston_buffer_send_server_error(struct weston_buffer *buffer,
 				const char *msg);
 void
 weston_buffer_reference(struct weston_buffer_reference *ref,
-			struct weston_buffer *buffer);
+			struct weston_buffer *buffer,
+			enum weston_buffer_reference_type type);
 
 void
 weston_buffer_release_move(struct weston_buffer_release_reference *dest,

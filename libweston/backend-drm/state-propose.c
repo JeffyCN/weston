@@ -139,7 +139,8 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	assert(state->fb_ref.buffer.buffer == NULL);
 	assert(state->fb_ref.release.buffer_release == NULL);
 	weston_buffer_reference(&state->fb_ref.buffer,
-				surface->buffer_ref.buffer);
+				surface->buffer_ref.buffer,
+				BUFFER_MAY_BE_ACCESSED);
 	weston_buffer_release_reference(&state->fb_ref.release,
 					surface->buffer_release_ref.buffer_release);
 

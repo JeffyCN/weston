@@ -627,7 +627,9 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	struct wl_shm_buffer *shm_buffer;
 	const struct pixel_format_info *pixel_info;
 
-	weston_buffer_reference(&ps->buffer_ref, buffer);
+	weston_buffer_reference(&ps->buffer_ref, buffer,
+				buffer ? BUFFER_MAY_BE_ACCESSED :
+					 BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&ps->buffer_release_ref,
 					es->buffer_release_ref.buffer_release);
 
@@ -646,7 +648,8 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 
 	if (buffer->type != WESTON_BUFFER_SHM) {
 		weston_log("Pixman renderer supports only SHM buffers\n");
-		weston_buffer_reference(&ps->buffer_ref, NULL);
+		weston_buffer_reference(&ps->buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
 		weston_buffer_release_reference(&ps->buffer_release_ref, NULL);
 		return;
 	}
@@ -657,7 +660,8 @@ pixman_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	if (!pixel_info || !pixman_format_supported_source(pixel_info->pixman_format)) {
 		weston_log("Unsupported SHM buffer format 0x%x\n",
 			wl_shm_buffer_get_format(shm_buffer));
-		weston_buffer_reference(&ps->buffer_ref, NULL);
+		weston_buffer_reference(&ps->buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
 		weston_buffer_release_reference(&ps->buffer_release_ref, NULL);
 		weston_buffer_send_server_error(buffer,
 			"disconnecting due to unhandled buffer type");
@@ -693,7 +697,8 @@ pixman_renderer_surface_state_destroy(struct pixman_surface_state *ps)
 		pixman_image_unref(ps->image);
 		ps->image = NULL;
 	}
-	weston_buffer_reference(&ps->buffer_ref, NULL);
+	weston_buffer_reference(&ps->buffer_ref, NULL,
+				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&ps->buffer_release_ref, NULL);
 	free(ps);
 }

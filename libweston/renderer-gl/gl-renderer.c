@@ -1931,7 +1931,8 @@ done:
 	pixman_region32_init(&gs->texture_damage);
 	gs->needs_full_upload = false;
 
-	weston_buffer_reference(&gs->buffer_ref, NULL);
+	weston_buffer_reference(&gs->buffer_ref, buffer,
+				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
 }
 
@@ -2971,7 +2972,9 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	EGLint format;
 	int i;
 
-	weston_buffer_reference(&gs->buffer_ref, buffer);
+	weston_buffer_reference(&gs->buffer_ref, buffer,
+				buffer ? BUFFER_MAY_BE_ACCESSED :
+					 BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref,
 					es->buffer_release_ref.buffer_release);
 
@@ -3015,7 +3018,8 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		weston_log("eglQueryWaylandBufferWL failed\n");
 		gl_renderer_print_egl_error_state();
 	}
-	weston_buffer_reference(&gs->buffer_ref, NULL);
+	weston_buffer_reference(&gs->buffer_ref, NULL,
+				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
 	gs->buffer_type = BUFFER_TYPE_NULL;
 	gs->y_inverted = true;
@@ -3199,7 +3203,8 @@ surface_state_destroy(struct gl_surface_state *gs, struct gl_renderer *gr)
 	for (i = 0; i < gs->num_images; i++)
 		egl_image_unref(gs->images[i]);
 
-	weston_buffer_reference(&gs->buffer_ref, NULL);
+	weston_buffer_reference(&gs->buffer_ref, NULL,
+				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
 	pixman_region32_fini(&gs->texture_damage);
 	free(gs);

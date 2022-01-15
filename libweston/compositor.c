@@ -2334,7 +2334,8 @@ weston_surface_destroy(struct weston_surface *surface)
 
 	weston_surface_state_fini(&surface->pending);
 
-	weston_buffer_reference(&surface->buffer_ref, NULL);
+	weston_buffer_reference(&surface->buffer_ref, NULL,
+				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&surface->buffer_release_ref, NULL);
 
 	pixman_region32_fini(&surface->damage);
@@ -2472,8 +2473,11 @@ fail:
 
 WL_EXPORT void
 weston_buffer_reference(struct weston_buffer_reference *ref,
-			struct weston_buffer *buffer)
+			struct weston_buffer *buffer,
+			enum weston_buffer_reference_type type)
 {
+	assert(buffer != NULL || type == BUFFER_WILL_NOT_BE_ACCESSED);
+
 	if (buffer == ref->buffer)
 		return;
 
@@ -2562,7 +2566,9 @@ static void
 weston_surface_attach(struct weston_surface *surface,
 		      struct weston_buffer *buffer)
 {
-	weston_buffer_reference(&surface->buffer_ref, buffer);
+	weston_buffer_reference(&surface->buffer_ref, buffer,
+				buffer ? BUFFER_MAY_BE_ACCESSED :
+					 BUFFER_WILL_NOT_BE_ACCESSED);
 
 	if (!buffer) {
 		if (weston_surface_is_mapped(surface))
@@ -2699,7 +2705,9 @@ output_accumulate_damage(struct weston_output *output)
 		 * clients to use single-buffering.
 		 */
 		if (!pnode->surface->keep_buffer) {
-			weston_buffer_reference(&pnode->surface->buffer_ref, NULL);
+			weston_buffer_reference(&pnode->surface->buffer_ref,
+						NULL,
+						BUFFER_WILL_NOT_BE_ACCESSED);
 			weston_buffer_release_reference(
 				&pnode->surface->buffer_release_ref, NULL);
 		}
@@ -4226,7 +4234,8 @@ weston_subsurface_commit_from_cache(struct weston_subsurface *sub)
 	struct weston_surface *surface = sub->surface;
 
 	weston_surface_commit_state(surface, &sub->cached);
-	weston_buffer_reference(&sub->cached_buffer_ref, NULL);
+	weston_buffer_reference(&sub->cached_buffer_ref, NULL,
+				BUFFER_WILL_NOT_BE_ACCESSED);
 
 	weston_surface_commit_subsurface_order(surface);
 
@@ -4263,7 +4272,10 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 		weston_surface_state_set_buffer(&sub->cached,
 						surface->pending.buffer);
 		weston_buffer_reference(&sub->cached_buffer_ref,
-					surface->pending.buffer);
+					surface->pending.buffer,
+					surface->pending.buffer ?
+						BUFFER_MAY_BE_ACCESSED :
+						BUFFER_WILL_NOT_BE_ACCESSED);
 		weston_presentation_feedback_discard_list(
 					&sub->cached.feedback_list);
 		/* zwp_surface_synchronization_v1.set_acquire_fence */
@@ -4845,7 +4857,8 @@ weston_subsurface_destroy(struct weston_subsurface *sub)
 			weston_subsurface_unlink_parent(sub);
 
 		weston_surface_state_fini(&sub->cached);
-		weston_buffer_reference(&sub->cached_buffer_ref, NULL);
+		weston_buffer_reference(&sub->cached_buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
 
 		sub->surface->committed = NULL;
 		sub->surface->committed_private = NULL;

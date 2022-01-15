@@ -1201,8 +1201,15 @@ struct weston_buffer {
 	uint64_t format_modifier;
 };
 
+enum weston_buffer_reference_type {
+	BUFFER_REF_NONE,
+	BUFFER_MAY_BE_ACCESSED,
+	BUFFER_WILL_NOT_BE_ACCESSED,
+};
+
 struct weston_buffer_reference {
 	struct weston_buffer *buffer;
+	enum weston_buffer_reference_type type;
 };
 
 struct weston_buffer_viewport {
