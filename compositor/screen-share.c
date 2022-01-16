@@ -1185,8 +1185,9 @@ wet_module_init(struct weston_compositor *compositor,
 				          MODIFIER_CTRL | MODIFIER_ALT,
 					  share_output_binding, ss);
 
-	if (weston_config_section_get_bool(section, "start-on-startup",
-					   &start_on_startup, false) == 0) {
+	weston_config_section_get_bool(section, "start-on-startup",
+				       &start_on_startup, false);
+	if (start_on_startup) {
 		wl_list_for_each(output, &compositor->output_list, link)
 			weston_output_share(output, ss->command);
 	}
