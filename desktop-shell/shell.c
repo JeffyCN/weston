@@ -2070,12 +2070,13 @@ create_black_surface(struct weston_compositor *ec,
 {
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0,
+		.x = x, .y = y,
+		.width = w, .height = h,
 		.surface_committed = black_surface_committed,
 		.get_label = black_surface_get_label,
 		.surface_private = fs_view,
 	};
-	struct weston_view *view;
-	view = weston_curtain_create(ec, &curtain_params, x, y, w, h);
+	struct weston_view *view = weston_curtain_create(ec, &curtain_params);
 
 	return view;
 }

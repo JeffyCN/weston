@@ -502,14 +502,16 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	curtain_params.g = ((bg_color >> 8) & 0xff) / 255.0;
 	curtain_params.b = ((bg_color >> 0) & 0xff) / 255.0;
 
+	curtain_params.x = output->x;
+	curtain_params.y = output->y;
+	curtain_params.width = output->width;
+	curtain_params.height = output->height;
+
 	curtain_params.get_label = kiosk_shell_background_surface_get_label;
 	curtain_params.surface_committed = NULL;
 	curtain_params.surface_private = NULL;
 
-	shoutput->background_view = weston_curtain_create(ec, &curtain_params,
-							  output->x, output->y,
-							  output->width,
-							  output->height);
+	shoutput->background_view = weston_curtain_create(ec, &curtain_params);
 
 	weston_surface_set_role(shoutput->background_view->surface,
 				"kiosk-shell-background", NULL, 0);

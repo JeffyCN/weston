@@ -140,8 +140,7 @@ surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 
 struct weston_view *
 weston_curtain_create(struct weston_compositor *compositor,
-		      struct weston_curtain_params *params,
-		      float x, float y, int w, int h)
+		      struct weston_curtain_params *params)
 {
 	struct weston_surface *surface = NULL;
 	struct weston_view *view;
@@ -164,12 +163,14 @@ weston_curtain_create(struct weston_compositor *compositor,
 	weston_surface_set_color(surface, params->r, params->g, params->b, 1.0);
 	weston_surface_set_label_func(surface, params->get_label);
 	pixman_region32_fini(&surface->opaque);
-	pixman_region32_init_rect(&surface->opaque, 0, 0, w, h);
+	pixman_region32_init_rect(&surface->opaque, 0, 0,
+				  params->width, params->height);
 	pixman_region32_fini(&surface->input);
-	pixman_region32_init_rect(&surface->input, 0, 0, w, h);
+	pixman_region32_init_rect(&surface->input, 0, 0,
+				  params->width, params->height);
 
-	weston_surface_set_size(surface, w, h);
-	weston_view_set_position(view, x, y);
+	weston_surface_set_size(surface, params->width, params->height);
+	weston_view_set_position(view, params->x, params->y);
 
 	return view;
 }
