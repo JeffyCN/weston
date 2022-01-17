@@ -63,7 +63,14 @@ noop_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	if (!buffer)
 		return;
 
-	if (buffer->type != WESTON_BUFFER_SHM) {
+	switch (buffer->type) {
+	case WESTON_BUFFER_SOLID:
+		/* no-op, early exit */
+		return;
+	case WESTON_BUFFER_SHM:
+		/* fine */
+		break;
+	default:
 		weston_log("No-op renderer supports only SHM buffers\n");
 		return;
 	}
