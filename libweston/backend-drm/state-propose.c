@@ -956,14 +956,20 @@ drm_assign_planes(struct weston_output *output_base)
 		 * renderer and since the pixman renderer keeps a reference
 		 * to the buffer anyway, there is no side effects.
 		 */
-		if (b->use_pixman ||
-		    (weston_view_has_valid_buffer(ev) &&
-		    (ev->surface->buffer_ref.buffer->type != WESTON_BUFFER_SHM ||
-		     (ev->surface->width <= b->cursor_width &&
-		      ev->surface->height <= b->cursor_height))))
-			ev->surface->keep_buffer = true;
-		else
-			ev->surface->keep_buffer = false;
+		ev->surface->keep_buffer = false;
+		if (weston_view_has_valid_buffer(ev)) {
+			struct weston_buffer *buffer =
+				ev->surface->buffer_ref.buffer;
+			if (b->use_pixman)
+				ev->surface->keep_buffer = true;
+			else if (buffer->type == WESTON_BUFFER_DMABUF ||
+				 buffer->type == WESTON_BUFFER_RENDERER_OPAQUE)
+				ev->surface->keep_buffer = true;
+			else if (buffer->type == WESTON_BUFFER_SHM &&
+				 (ev->surface->width <= b->cursor_width &&
+		       		  ev->surface->height <= b->cursor_height))
+				ev->surface->keep_buffer = true;
+		}
 
 		/* This is a bit unpleasant, but lacking a temporary place to
 		 * hang a plane off the view, we have to do a nested walk.
