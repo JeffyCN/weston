@@ -79,18 +79,16 @@ notify_output_destroy(struct wl_listener *listener, void *data)
 static void
 output_create_view(struct test_output *t_output)
 {
-       struct weston_solid_color_surface solid_surface = {};
-
-       solid_surface.r = 0.5;
-       solid_surface.g = 0.5;
-       solid_surface.b = 0.5;
-
-       solid_surface.get_label = NULL;
-       solid_surface.surface_committed = NULL;
-       solid_surface.surface_private = NULL;
+       struct weston_curtain_params curtain_params = {
+	       .r = 0.5, .g = 0.5, .b = 0.5,
+	       .get_label = NULL,
+	       .surface_committed = NULL,
+	       .surface_private = NULL,
+       };
 
        t_output->view = weston_curtain_create(t_output->compositor,
-					      &solid_surface, 0, 0, 320, 240);
+					      &curtain_params,
+					      0, 0, 320, 240);
        weston_view_set_output(t_output->view, t_output->output);
 
        /* weston_compositor_remove_output() has to be patched with

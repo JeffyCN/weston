@@ -2068,18 +2068,14 @@ create_black_surface(struct weston_compositor *ec,
 		     struct weston_view *fs_view,
 		     float x, float y, int w, int h)
 {
-	struct weston_solid_color_surface surface_data = {};
+	struct weston_curtain_params curtain_params = {
+		.r = 0.0, .g = 0.0, .b = 0.0,
+		.surface_committed = black_surface_committed,
+		.get_label = black_surface_get_label,
+		.surface_private = fs_view,
+	};
 	struct weston_view *view;
-
-	surface_data.surface_committed = black_surface_committed;
-	surface_data.get_label = black_surface_get_label;
-	surface_data.surface_private = fs_view;
-
-	surface_data.r = 0;
-	surface_data.g = 0;
-	surface_data.b = 0;
-
-	view = weston_curtain_create(ec, &surface_data, x, y, w, h);
+	view = weston_curtain_create(ec, &curtain_params, x, y, w, h);
 
 	return view;
 }

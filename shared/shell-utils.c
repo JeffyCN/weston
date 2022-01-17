@@ -140,7 +140,7 @@ surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 
 struct weston_view *
 weston_curtain_create(struct weston_compositor *compositor,
-		      struct weston_solid_color_surface *ss,
+		      struct weston_curtain_params *params,
 		      float x, float y, int w, int h)
 {
 	struct weston_surface *surface = NULL;
@@ -158,11 +158,11 @@ weston_curtain_create(struct weston_compositor *compositor,
 		return NULL;
 	}
 
-	surface->committed = ss->surface_committed;
-	surface->committed_private = ss->surface_private;
+	surface->committed = params->surface_committed;
+	surface->committed_private = params->surface_private;
 
-	weston_surface_set_color(surface, ss->r, ss->g, ss->b, 1.0);
-	weston_surface_set_label_func(surface, ss->get_label);
+	weston_surface_set_color(surface, params->r, params->g, params->b, 1.0);
+	weston_surface_set_label_func(surface, params->get_label);
 	pixman_region32_fini(&surface->opaque);
 	pixman_region32_init_rect(&surface->opaque, 0, 0, w, h);
 	pixman_region32_fini(&surface->input);
