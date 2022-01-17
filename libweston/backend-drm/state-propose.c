@@ -964,10 +964,8 @@ drm_assign_planes(struct weston_output *output_base)
 		if (weston_view_has_valid_buffer(ev)) {
 			struct weston_buffer *buffer =
 				ev->surface->buffer_ref.buffer;
-			if (b->use_pixman)
-				ev->surface->keep_buffer = true;
-			else if (buffer->type == WESTON_BUFFER_DMABUF ||
-				 buffer->type == WESTON_BUFFER_RENDERER_OPAQUE)
+			if (buffer->type == WESTON_BUFFER_DMABUF ||
+			    buffer->type == WESTON_BUFFER_RENDERER_OPAQUE)
 				ev->surface->keep_buffer = true;
 			else if (buffer->type == WESTON_BUFFER_SHM &&
 				 (ev->surface->width <= b->cursor_width &&
