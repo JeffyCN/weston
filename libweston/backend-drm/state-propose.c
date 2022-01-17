@@ -447,7 +447,11 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 	}
 
 	buffer = ev->surface->buffer_ref.buffer;
-	if (buffer->type == WESTON_BUFFER_SHM) {
+	if (buffer->type == WESTON_BUFFER_SOLID) {
+		pnode->try_view_on_plane_failure_reasons |=
+			FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
+		return NULL;
+	} else if (buffer->type == WESTON_BUFFER_SHM) {
 		if (!output->cursor_plane || b->cursors_are_broken) {
 			pnode->try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
@@ -770,6 +774,17 @@ drm_output_propose_state(struct weston_output *output_base,
 		if (!weston_view_has_valid_buffer(ev)) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 			             "(no buffer available)\n", ev);
+			force_renderer = true;
+		}
+
+		/* We can support this with the 'CRTC background colour' property,
+		 * if it is fullscreen (i.e. we disable the primary plane), and
+		 * opaque (as it is only shown in the absence of any covering
+		 * plane, not as a replacement for the primary plane per se). */
+		if (ev->surface->buffer_ref.buffer &&
+		    ev->surface->buffer_ref.buffer->type == WESTON_BUFFER_SOLID) {
+			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
+			             "(solid-colour surface)\n", ev);
 			force_renderer = true;
 		}
 
