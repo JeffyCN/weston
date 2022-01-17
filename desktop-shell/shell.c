@@ -3644,7 +3644,6 @@ lower_fullscreen_layer(struct desktop_shell *shell,
 			weston_layer_entry_remove(&shsurf->fullscreen.black_view->layer_link);
 			wl_list_init(&shsurf->fullscreen.black_view->layer_link.link);
 			weston_view_damage_below(shsurf->fullscreen.black_view);
-
 		}
 
 		/* Lower the view to the workspace layer */
@@ -4847,6 +4846,7 @@ desktop_shell_destroy_views_on_layer(struct weston_layer *layer)
 	wl_list_for_each_safe(view, view_next, &layer->view_list.link, layer_link.link) {
 		struct shell_surface *shsurf =
 			get_shell_surface(view->surface);
+
 		/* fullscreen_layer is special as it would have a view with an
 		 * additional black_view created and added to its layer_link
 		 * fullscreen view. See shell_ensure_fullscreen_black_view()
@@ -4856,7 +4856,7 @@ desktop_shell_destroy_views_on_layer(struct weston_layer *layer)
 		 * we do it in desktop_surface_removed() */
 		if (shsurf)
 			desktop_shell_destroy_surface(shsurf);
-		else
+		else if (is_black_surface_view(view, NULL))
 			weston_surface_destroy(view->surface);
 	}
 
