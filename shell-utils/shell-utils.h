@@ -38,6 +38,7 @@ struct weston_curtain_params {
 
 struct weston_curtain {
 	struct weston_view *view;
+	struct weston_buffer_reference *buffer_ref;
 };
 
 struct weston_output *

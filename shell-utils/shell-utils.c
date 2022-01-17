@@ -144,6 +144,7 @@ weston_curtain_create(struct weston_compositor *compositor,
 {
 	struct weston_curtain *curtain;
 	struct weston_surface *surface = NULL;
+	struct weston_buffer_reference *buffer_ref;
 	struct weston_view *view;
 
 	curtain = zalloc(sizeof(*curtain));
@@ -158,22 +159,23 @@ weston_curtain_create(struct weston_compositor *compositor,
 	if (view == NULL)
 		goto err_surface;
 
+	buffer_ref = weston_buffer_create_solid_rgba(compositor,
+						     params->r,
+						     params->g,
+						     params->b,
+						     params->a);
+	if (buffer_ref == NULL)
+		goto err_view;
+
+	curtain->view = view;
+	curtain->buffer_ref = buffer_ref;
+
+	weston_surface_set_label_func(surface, params->get_label);
 	surface->committed = params->surface_committed;
 	surface->committed_private = params->surface_private;
 
-	curtain->view = view;
-
-	weston_surface_set_color(surface,
-				 params->r, params->g, params->b, params->a);
-	weston_surface_set_label_func(surface, params->get_label);
-
-	pixman_region32_fini(&surface->opaque);
-	if (params->a == 1.0) {
-		pixman_region32_init_rect(&surface->opaque, 0, 0,
-					  params->width, params->height);
-	} else {
-		pixman_region32_init(&surface->opaque);
-	}
+	weston_surface_attach_solid(surface, buffer_ref, params->width,
+				    params->height);
 
 	pixman_region32_fini(&surface->input);
 	if (params->capture_input) {
@@ -183,11 +185,12 @@ weston_curtain_create(struct weston_compositor *compositor,
 		pixman_region32_init(&surface->input);
 	}
 
-	weston_surface_set_size(surface, params->width, params->height);
 	weston_view_set_position(view, params->x, params->y);
 
 	return curtain;
 
+err_view:
+	weston_view_destroy(view);
 err_surface:
 	weston_surface_destroy(surface);
 err_curtain:
@@ -204,5 +207,6 @@ weston_curtain_destroy(struct weston_curtain *curtain)
 
 	weston_view_destroy(curtain->view);
 	weston_surface_destroy(surface);
+	weston_buffer_destroy_solid(curtain->buffer_ref);
 	free(curtain);
 }

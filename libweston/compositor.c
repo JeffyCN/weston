@@ -2595,38 +2595,63 @@ weston_buffer_create_solid_rgba(struct weston_compositor *compositor,
 				float r, float g, float b, float a)
 {
 	struct weston_buffer_reference *ret = zalloc(sizeof(*ret));
+	struct weston_buffer *buffer;
 
 	if (!ret)
 		return NULL;
 
-	ret->buffer = zalloc(sizeof(*ret->buffer));
-	if (!ret->buffer) {
+	buffer = zalloc(sizeof(*buffer));
+	if (!buffer) {
 		free(ret);
 		return NULL;
 	}
 
-	wl_signal_init(&ret->buffer->destroy_signal);
-	ret->buffer->type = WESTON_BUFFER_SOLID;
-	ret->buffer->width = 1;
-	ret->buffer->height = 1;
-	ret->buffer->buffer_origin = ORIGIN_TOP_LEFT;
-	ret->buffer->solid.r = r;
-	ret->buffer->solid.g = g;
-	ret->buffer->solid.b = b;
-	ret->buffer->solid.a = a;
+	wl_signal_init(&buffer->destroy_signal);
+	buffer->type = WESTON_BUFFER_SOLID;
+	buffer->width = 1;
+	buffer->height = 1;
+	buffer->buffer_origin = ORIGIN_TOP_LEFT;
+	buffer->solid.r = r;
+	buffer->solid.g = g;
+	buffer->solid.b = b;
+	buffer->solid.a = a;
 
 	if (a == 1.0) {
-		ret->buffer->pixel_format =
+		buffer->pixel_format =
 			pixel_format_get_info_shm(WL_SHM_FORMAT_XRGB8888);
 	} else {
-		ret->buffer->pixel_format =
+		buffer->pixel_format =
 			pixel_format_get_info_shm(WL_SHM_FORMAT_ARGB8888);
 	}
-	ret->buffer->format_modifier = DRM_FORMAT_MOD_LINEAR;
+	buffer->format_modifier = DRM_FORMAT_MOD_LINEAR;
 
-	weston_buffer_reference(ret, ret->buffer, BUFFER_MAY_BE_ACCESSED);
+	weston_buffer_reference(ret, buffer, BUFFER_MAY_BE_ACCESSED);
 
 	return ret;
+}
+
+WL_EXPORT void
+weston_surface_attach_solid(struct weston_surface *surface,
+			    struct weston_buffer_reference *buffer_ref,
+			    int w, int h)
+{
+	struct weston_buffer *buffer = buffer_ref->buffer;
+
+	assert(buffer);
+	assert(buffer->type == WESTON_BUFFER_SOLID);
+	weston_buffer_reference(&surface->buffer_ref, buffer,
+				BUFFER_MAY_BE_ACCESSED);
+	surface->compositor->renderer->attach(surface, buffer);
+
+	weston_surface_set_size(surface, w, h);
+
+	pixman_region32_fini(&surface->opaque);
+	if (buffer->solid.a == 1.0) {
+		surface->is_opaque = true;
+		pixman_region32_init_rect(&surface->opaque, 0, 0, w, h);
+	} else {
+		pixman_region32_init(&surface->opaque);
+	}
 }
 
 WL_EXPORT void

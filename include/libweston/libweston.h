@@ -1777,6 +1777,11 @@ weston_buffer_create_solid_rgba(struct weston_compositor *compositor,
 				float r, float g, float b, float a);
 
 void
+weston_surface_attach_solid(struct weston_surface *surface,
+			    struct weston_buffer_reference *buffer_ref,
+			    int w, int h);
+
+void
 weston_buffer_destroy_solid(struct weston_buffer_reference *buffer_ref);
 
 void
