@@ -480,6 +480,7 @@ static void
 kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 {
 	struct kiosk_shell *shell = shoutput->shell;
+	struct weston_compositor *ec = shell->compositor;
 	struct weston_output *output = shoutput->output;
 	struct weston_config_section *shell_section = NULL;
 	uint32_t bg_color = 0x0;
@@ -505,12 +506,10 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	solid_surface.surface_committed = NULL;
 	solid_surface.surface_private = NULL;
 
-	shoutput->background_view =
-			create_solid_color_surface(shoutput->shell->compositor,
-						   &solid_surface,
-						   output->x, output->y,
-						   output->width,
-						   output->height);
+	shoutput->background_view = weston_curtain_create(ec, &solid_surface,
+							  output->x, output->y,
+							  output->width,
+							  output->height);
 
 	weston_surface_set_role(shoutput->background_view->surface,
 				"kiosk-shell-background", NULL, 0);

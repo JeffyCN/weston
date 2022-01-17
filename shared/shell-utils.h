@@ -26,7 +26,7 @@
 #include "shared/helpers.h"
 #include <libweston/libweston.h>
 
-/* parameter for create_solid_color_surface() */
+/* parameter for weston_curtain_create() */
 struct weston_solid_color_surface {
 	int (*get_label)(struct weston_surface *es, char *buf, size_t len);
 	void (*surface_committed)(struct weston_surface *es, int32_t sx, int32_t sy);
@@ -53,6 +53,6 @@ surface_get_label(struct weston_surface *surface, char *buf, size_t len);
 /* helper to create a view w/ a color
  */
 struct weston_view *
-create_solid_color_surface(struct weston_compositor *compositor,
-			   struct weston_solid_color_surface *ss,
-			   float x, float y, int w, int h);
+weston_curtain_create(struct weston_compositor *compositor,
+		      struct weston_solid_color_surface *ss,
+		      float x, float y, int w, int h);

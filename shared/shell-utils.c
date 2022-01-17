@@ -139,9 +139,9 @@ surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 struct weston_view *
-create_solid_color_surface(struct weston_compositor *compositor,
-			   struct weston_solid_color_surface *ss,
-			   float x, float y, int w, int h)
+weston_curtain_create(struct weston_compositor *compositor,
+		      struct weston_solid_color_surface *ss,
+		      float x, float y, int w, int h)
 {
 	struct weston_surface *surface = NULL;
 	struct weston_view *view;

@@ -89,9 +89,8 @@ output_create_view(struct test_output *t_output)
        solid_surface.surface_committed = NULL;
        solid_surface.surface_private = NULL;
 
-       t_output->view =
-               create_solid_color_surface(t_output->compositor,
-                                          &solid_surface, 0, 0, 320, 240);
+       t_output->view = weston_curtain_create(t_output->compositor,
+					      &solid_surface, 0, 0, 320, 240);
        weston_view_set_output(t_output->view, t_output->output);
 
        /* weston_compositor_remove_output() has to be patched with
