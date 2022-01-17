@@ -121,7 +121,7 @@ struct shell_surface {
 
 	struct {
 		struct weston_transform transform; /* matrix from x, y */
-		struct weston_view *black_view;
+		struct weston_curtain *black_view;
 	} fullscreen;
 
 	struct weston_transform workspace_transform;
@@ -564,9 +564,9 @@ create_focus_surface(struct weston_compositor *ec,
 
 	curtain_params.surface_private = fsurf;
 
-	fsurf->view = weston_curtain_create(ec, &curtain_params);
-	weston_view_set_output(fsurf->view, output);
-	fsurf->view->is_mapped = true;
+	fsurf->curtain = weston_curtain_create(ec, &curtain_params);
+	weston_view_set_output(fsurf->curtain->view, output);
+	fsurf->curtain->view->is_mapped = true;
 
 	wl_list_init(&fsurf->workspace_transform.link);
 
@@ -576,7 +576,7 @@ create_focus_surface(struct weston_compositor *ec,
 static void
 focus_surface_destroy(struct focus_surface *fsurf)
 {
-	weston_surface_destroy(fsurf->surface);
+	weston_curtain_destroy(fsurf->curtain);
 	free(fsurf);
 }
 
@@ -651,8 +651,8 @@ focus_state_surface_destroy(struct wl_listener *listener, void *data)
 				weston_view_animation_destroy(state->ws->focus_animation);
 
 			state->ws->focus_animation = weston_fade_run(
-				state->ws->fsurf_front->view,
-				state->ws->fsurf_front->view->alpha, 0.0, 300,
+				state->ws->fsurf_front->curtain->view,
+				state->ws->fsurf_front->curtain->view->alpha, 0.0, 300,
 				focus_animation_done, state->ws);
 		}
 
@@ -804,19 +804,19 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 		ws->fsurf_front = create_focus_surface(shell->compositor, output);
 		if (ws->fsurf_front == NULL)
 			return;
-		ws->fsurf_front->view->alpha = 0.0;
+		ws->fsurf_front->curtain->view->alpha = 0.0;
 
 		ws->fsurf_back = create_focus_surface(shell->compositor, output);
 		if (ws->fsurf_back == NULL) {
 			focus_surface_destroy(ws->fsurf_front);
 			return;
 		}
-		ws->fsurf_back->view->alpha = 0.0;
+		ws->fsurf_back->curtain->view->alpha = 0.0;
 
 		focus_surface_created = true;
 	} else {
-		weston_layer_entry_remove(&ws->fsurf_front->view->layer_link);
-		weston_layer_entry_remove(&ws->fsurf_back->view->layer_link);
+		weston_layer_entry_remove(&ws->fsurf_front->curtain->view->layer_link);
+		weston_layer_entry_remove(&ws->fsurf_back->curtain->view->layer_link);
 	}
 
 	if (ws->focus_animation) {
@@ -826,29 +826,29 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 
 	if (to)
 		weston_layer_entry_insert(&to->layer_link,
-					  &ws->fsurf_front->view->layer_link);
+					  &ws->fsurf_front->curtain->view->layer_link);
 	else if (from)
 		weston_layer_entry_insert(&ws->layer.view_list,
-					  &ws->fsurf_front->view->layer_link);
+					  &ws->fsurf_front->curtain->view->layer_link);
 
 	if (focus_surface_created) {
 		ws->focus_animation = weston_fade_run(
-			ws->fsurf_front->view,
-			ws->fsurf_front->view->alpha, 0.4, 300,
+			ws->fsurf_front->curtain->view,
+			ws->fsurf_front->curtain->view->alpha, 0.4, 300,
 			focus_animation_done, ws);
 	} else if (from) {
 		weston_layer_entry_insert(&from->layer_link,
-					  &ws->fsurf_back->view->layer_link);
+					  &ws->fsurf_back->curtain->view->layer_link);
 		ws->focus_animation = weston_stable_fade_run(
-			ws->fsurf_front->view, 0.0,
-			ws->fsurf_back->view, 0.4,
+			ws->fsurf_front->curtain->view, 0.0,
+			ws->fsurf_back->curtain->view, 0.4,
 			focus_animation_done, ws);
 	} else if (to) {
 		weston_layer_entry_insert(&ws->layer.view_list,
-					  &ws->fsurf_back->view->layer_link);
+					  &ws->fsurf_back->curtain->view->layer_link);
 		ws->focus_animation = weston_stable_fade_run(
-			ws->fsurf_front->view, 0.0,
-			ws->fsurf_back->view, 0.4,
+			ws->fsurf_front->curtain->view, 0.0,
+			ws->fsurf_back->curtain->view, 0.4,
 			focus_animation_done, ws);
 	}
 }
@@ -1930,7 +1930,7 @@ unset_fullscreen(struct shell_surface *shsurf)
 	wl_list_init(&shsurf->fullscreen.transform.link);
 
 	if (shsurf->fullscreen.black_view)
-		weston_surface_destroy(shsurf->fullscreen.black_view->surface);
+		weston_curtain_destroy(shsurf->fullscreen.black_view);
 	shsurf->fullscreen.black_view = NULL;
 
 	if (shsurf->saved_position_valid)
@@ -2071,6 +2071,7 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 		.surface_private = shsurf->view,
 		.capture_input = true,
 	};
+	struct weston_view *view;
 
 	assert(weston_desktop_surface_get_fullscreen(shsurf->desktop_surface));
 
@@ -2078,14 +2079,14 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 		shsurf->fullscreen.black_view =
 			weston_curtain_create(ec, &curtain_params);
 	}
+	view = shsurf->fullscreen.black_view->view;
 
-	weston_view_set_output(shsurf->fullscreen.black_view, output);
-	shsurf->fullscreen.black_view->is_mapped = true;
+	weston_view_set_output(view, output);
+	view->is_mapped = true;
 
-	weston_layer_entry_remove(&shsurf->fullscreen.black_view->layer_link);
-	weston_layer_entry_insert(&shsurf->view->layer_link,
-				  &shsurf->fullscreen.black_view->layer_link);
-	weston_view_geometry_dirty(shsurf->fullscreen.black_view);
+	weston_layer_entry_remove(&view->layer_link);
+	weston_layer_entry_insert(&shsurf->view->layer_link, &view->layer_link);
+	weston_view_geometry_dirty(view);
 	weston_surface_damage(surface);
 
 	shsurf->state.lowered = false;
@@ -2337,7 +2338,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	}
 
 	if (shsurf->fullscreen.black_view)
-		weston_surface_destroy(shsurf->fullscreen.black_view->surface);
+		weston_curtain_destroy(shsurf->fullscreen.black_view);
 
 	weston_surface_set_label_func(surface, NULL);
 	weston_desktop_surface_set_user_data(shsurf->desktop_surface, NULL);
@@ -3620,9 +3621,9 @@ lower_fullscreen_layer(struct desktop_shell *shell,
 		 * in the fullscreen layer. */
 		if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface)) {
 			/* Hide the black view */
-			weston_layer_entry_remove(&shsurf->fullscreen.black_view->layer_link);
-			wl_list_init(&shsurf->fullscreen.black_view->layer_link.link);
-			weston_view_damage_below(shsurf->fullscreen.black_view);
+			weston_layer_entry_remove(&shsurf->fullscreen.black_view->view->layer_link);
+			wl_list_init(&shsurf->fullscreen.black_view->view->layer_link.link);
+			weston_view_damage_below(shsurf->fullscreen.black_view->view);
 		}
 
 		/* Lower the view to the workspace layer */
@@ -4323,7 +4324,7 @@ switcher_next(struct switcher *switcher)
 
 	shsurf = get_shell_surface(switcher->current->surface);
 	if (shsurf && weston_desktop_surface_get_fullscreen(shsurf->desktop_surface))
-		shsurf->fullscreen.black_view->alpha = 1.0;
+		shsurf->fullscreen.black_view->view->alpha = 1.0;
 }
 
 static void

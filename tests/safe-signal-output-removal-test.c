@@ -38,7 +38,7 @@ struct test_output {
        struct weston_compositor *compositor;
        struct weston_output *output;
        struct wl_listener output_destroy_listener;
-       struct weston_view *view;
+       struct weston_curtain *curtain;
 };
 
 static enum test_result_code
@@ -60,8 +60,8 @@ output_destroy(struct test_output *t_output)
        t_output->output = NULL;
        t_output->output_destroy_listener.notify = NULL;
 
-       if (t_output->view)
-               weston_surface_destroy(t_output->view->surface);
+       if (t_output->curtain)
+               weston_curtain_destroy(t_output->curtain);
 
        wl_list_remove(&t_output->output_destroy_listener.link);
        free(t_output);
@@ -88,9 +88,9 @@ output_create_view(struct test_output *t_output)
 	       .surface_private = NULL,
        };
 
-       t_output->view = weston_curtain_create(t_output->compositor,
-					      &curtain_params);
-       weston_view_set_output(t_output->view, t_output->output);
+       t_output->curtain = weston_curtain_create(t_output->compositor,
+						 &curtain_params);
+       weston_view_set_output(t_output->curtain->view, t_output->output);
 
        /* weston_compositor_remove_output() has to be patched with
 	* weston_signal_emit_mutable() to avoid signal corruption */

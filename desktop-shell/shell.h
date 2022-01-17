@@ -91,8 +91,7 @@ struct exposay {
 };
 
 struct focus_surface {
-	struct weston_surface *surface;
-	struct weston_view *view;
+	struct weston_curtain *curtain;
 	struct weston_transform workspace_transform;
 };
 

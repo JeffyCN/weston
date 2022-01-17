@@ -486,8 +486,8 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	uint32_t bg_color = 0x0;
 	struct weston_curtain_params curtain_params = {};
 
-	if (shoutput->background_view)
-		weston_surface_destroy(shoutput->background_view->surface);
+	if (shoutput->curtain)
+		weston_curtain_destroy(shoutput->curtain);
 
 	if (!output)
 		return;
@@ -514,18 +514,18 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	curtain_params.surface_committed = NULL;
 	curtain_params.surface_private = NULL;
 
-	shoutput->background_view = weston_curtain_create(ec, &curtain_params);
+	shoutput->curtain = weston_curtain_create(ec, &curtain_params);
 
-	weston_surface_set_role(shoutput->background_view->surface,
+	weston_surface_set_role(shoutput->curtain->view->surface,
 				"kiosk-shell-background", NULL, 0);
 
 	weston_layer_entry_insert(&shell->background_layer.view_list,
-				  &shoutput->background_view->layer_link);
+				  &shoutput->curtain->view->layer_link);
 
-	shoutput->background_view->is_mapped = true;
-	shoutput->background_view->surface->is_mapped = true;
-	shoutput->background_view->surface->output = output;
-	weston_view_set_output(shoutput->background_view, output);
+	shoutput->curtain->view->is_mapped = true;
+	shoutput->curtain->view->surface->is_mapped = true;
+	shoutput->curtain->view->surface->output = output;
+	weston_view_set_output(shoutput->curtain->view, output);
 }
 
 static void
@@ -534,8 +534,8 @@ kiosk_shell_output_destroy(struct kiosk_shell_output *shoutput)
 	shoutput->output = NULL;
 	shoutput->output_destroy_listener.notify = NULL;
 
-	if (shoutput->background_view)
-		weston_surface_destroy(shoutput->background_view->surface);
+	if (shoutput->curtain)
+		weston_curtain_destroy(shoutput->curtain);
 
 	wl_list_remove(&shoutput->output_destroy_listener.link);
 	wl_list_remove(&shoutput->link);

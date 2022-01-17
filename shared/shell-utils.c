@@ -138,27 +138,30 @@ surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 		c ? " of " : "", c ?: "");
 }
 
-struct weston_view *
+struct weston_curtain *
 weston_curtain_create(struct weston_compositor *compositor,
 		      struct weston_curtain_params *params)
 {
+	struct weston_curtain *curtain;
 	struct weston_surface *surface = NULL;
 	struct weston_view *view;
 
+	curtain = zalloc(sizeof(*curtain));
+	if (curtain == NULL)
+		goto err;
+
 	surface = weston_surface_create(compositor);
-	if (surface == NULL) {
-		weston_log("no memory\n");
-		return NULL;
-	}
+	if (surface == NULL)
+		goto err_curtain;
+
 	view = weston_view_create(surface);
-	if (view == NULL) {
-		weston_log("no memory\n");
-		weston_surface_destroy(surface);
-		return NULL;
-	}
+	if (view == NULL)
+		goto err_surface;
 
 	surface->committed = params->surface_committed;
 	surface->committed_private = params->surface_private;
+
+	curtain->view = view;
 
 	weston_surface_set_color(surface,
 				 params->r, params->g, params->b, params->a);
@@ -183,5 +186,23 @@ weston_curtain_create(struct weston_compositor *compositor,
 	weston_surface_set_size(surface, params->width, params->height);
 	weston_view_set_position(view, params->x, params->y);
 
-	return view;
+	return curtain;
+
+err_surface:
+	weston_surface_destroy(surface);
+err_curtain:
+	free(curtain);
+err:
+	weston_log("no memory\n");
+	return NULL;
+}
+
+void
+weston_curtain_destroy(struct weston_curtain *curtain)
+{
+	struct weston_surface *surface = curtain->view->surface;
+
+	weston_view_destroy(curtain->view);
+	weston_surface_destroy(surface);
+	free(curtain);
 }

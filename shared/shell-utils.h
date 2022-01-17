@@ -36,6 +36,10 @@ struct weston_curtain_params {
 	bool capture_input;
 };
 
+struct weston_curtain {
+	struct weston_view *view;
+};
+
 struct weston_output *
 get_default_output(struct weston_compositor *compositor);
 
@@ -52,8 +56,9 @@ surface_subsurfaces_boundingbox(struct weston_surface *surface, int32_t *x,
 int
 surface_get_label(struct weston_surface *surface, char *buf, size_t len);
 
-/* helper to create a view w/ a color
- */
-struct weston_view *
+/* helper to create a view w/ a color */
+struct weston_curtain *
 weston_curtain_create(struct weston_compositor *compositor,
 		      struct weston_curtain_params *params);
+void
+weston_curtain_destroy(struct weston_curtain *curtain);
