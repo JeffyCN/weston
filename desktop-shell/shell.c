@@ -2092,6 +2092,7 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 		.surface_committed = black_surface_committed,
 		.get_label = black_surface_get_label,
 		.surface_private = shsurf->view,
+		.capture_input = true,
 	};
 
 	assert(weston_desktop_surface_get_fullscreen(shsurf->desktop_surface));

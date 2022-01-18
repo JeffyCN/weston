@@ -508,6 +508,8 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	curtain_params.width = output->width;
 	curtain_params.height = output->height;
 
+	curtain_params.capture_input = true;
+
 	curtain_params.get_label = kiosk_shell_background_surface_get_label;
 	curtain_params.surface_committed = NULL;
 	curtain_params.surface_private = NULL;

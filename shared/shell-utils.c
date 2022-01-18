@@ -173,8 +173,12 @@ weston_curtain_create(struct weston_compositor *compositor,
 	}
 
 	pixman_region32_fini(&surface->input);
-	pixman_region32_init_rect(&surface->input, 0, 0,
-				  params->width, params->height);
+	if (params->capture_input) {
+		pixman_region32_init_rect(&surface->input, 0, 0,
+					  params->width, params->height);
+	} else {
+		pixman_region32_init(&surface->input);
+	}
 
 	weston_surface_set_size(surface, params->width, params->height);
 	weston_view_set_position(view, params->x, params->y);
