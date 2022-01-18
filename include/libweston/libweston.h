@@ -929,9 +929,6 @@ struct weston_renderer {
 	void (*flush_damage)(struct weston_surface *surface,
 			     struct weston_buffer *buffer);
 	void (*attach)(struct weston_surface *es, struct weston_buffer *buffer);
-	void (*surface_set_color)(struct weston_surface *surface,
-			       float red, float green,
-			       float blue, float alpha);
 	void (*destroy)(struct weston_compositor *ec);
 
 	/** See weston_surface_get_content_size() */
@@ -1976,10 +1973,6 @@ weston_stable_fade_run(struct weston_view *front_view, float start,
 struct weston_view_animation *
 weston_slide_run(struct weston_view *view, float start, float stop,
 		 weston_view_animation_done_func_t done, void *data);
-
-void
-weston_surface_set_color(struct weston_surface *surface,
-			 float red, float green, float blue, float alpha);
 
 void
 weston_surface_destroy(struct weston_surface *surface);

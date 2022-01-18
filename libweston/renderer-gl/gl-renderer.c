@@ -3733,7 +3733,6 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.repaint_output = gl_renderer_repaint_output;
 	gr->base.flush_damage = gl_renderer_flush_damage;
 	gr->base.attach = gl_renderer_attach;
-	gr->base.surface_set_color = gl_renderer_surface_set_color;
 	gr->base.destroy = gl_renderer_destroy;
 	gr->base.surface_get_content_size =
 		gl_renderer_surface_get_content_size;

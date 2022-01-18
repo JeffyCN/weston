@@ -881,7 +881,6 @@ pixman_renderer_init(struct weston_compositor *ec)
 	renderer->base.repaint_output = pixman_renderer_repaint_output;
 	renderer->base.flush_damage = pixman_renderer_flush_damage;
 	renderer->base.attach = pixman_renderer_attach;
-	renderer->base.surface_set_color = pixman_renderer_surface_set_color;
 	renderer->base.destroy = pixman_renderer_destroy;
 	renderer->base.surface_get_content_size =
 		pixman_renderer_surface_get_content_size;
