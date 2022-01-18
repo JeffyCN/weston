@@ -81,7 +81,7 @@ struct fs_output {
 	struct weston_surface *surface;
 	struct wl_listener surface_destroyed;
 	struct weston_view *view;
-	struct weston_view *black_view;
+	struct weston_curtain *curtain;
 	struct weston_transform transform; /* matrix from x, y */
 
 	int presented_for_mode;
@@ -227,37 +227,27 @@ black_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
 {
 }
 
-static struct weston_view *
-create_black_surface(struct weston_compositor *ec, struct fs_output *fsout,
-		     float x, float y, int w, int h)
+static struct weston_curtain *
+create_curtain(struct weston_compositor *ec, struct fs_output *fsout,
+	       float x, float y, int w, int h)
 {
-	struct weston_surface *surface = NULL;
-	struct weston_view *view;
+	struct weston_curtain_params curtain_params = {
+		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
+		.x = x, .y = y, .width = w, .height = h,
+		.surface_committed = black_surface_committed,
+		.get_label = NULL,
+		.surface_private = fsout,
+		.capture_input = true,
+	};
+	struct weston_curtain *curtain;
 
-	surface = weston_surface_create(ec);
-	if (surface == NULL) {
+	curtain = weston_curtain_create(ec, &curtain_params);
+	if (!curtain) {
 		weston_log("no memory\n");
 		return NULL;
 	}
-	view = weston_view_create(surface);
-	if (!view) {
-		weston_surface_destroy(surface);
-		weston_log("no memory\n");
-		return NULL;
-	}
 
-	surface->committed = black_surface_committed;
-	surface->committed_private = fsout;
-	weston_surface_set_color(surface, 0.0f, 0.0f, 0.0f, 1.0f);
-	pixman_region32_fini(&surface->opaque);
-	pixman_region32_init_rect(&surface->opaque, 0, 0, w, h);
-	pixman_region32_fini(&surface->input);
-	pixman_region32_init_rect(&surface->input, 0, 0, w, h);
-
-	weston_surface_set_size(surface, w, h);
-	weston_view_set_position(view, x, y);
-
-	return view;
+	return curtain;
 }
 
 static void
@@ -334,13 +324,13 @@ fs_output_create(struct fullscreen_shell *shell, struct weston_output *output)
 
 	fsout->surface_destroyed.notify = surface_destroyed;
 	fsout->pending.surface_destroyed.notify = pending_surface_destroyed;
-	fsout->black_view = create_black_surface(shell->compositor, fsout,
-						 output->x, output->y,
-						 output->width, output->height);
-	fsout->black_view->surface->is_mapped = true;
-	fsout->black_view->is_mapped = true;
+	fsout->curtain = create_curtain(shell->compositor, fsout,
+					output->x, output->y,
+					output->width, output->height);
+	fsout->curtain->view->surface->is_mapped = true;
+	fsout->curtain->view->is_mapped = true;
 	weston_layer_entry_insert(&shell->layer.view_list,
-		       &fsout->black_view->layer_link);
+			          &fsout->curtain->view->layer_link);
 	wl_list_init(&fsout->transform.link);
 
 	if (!wl_list_empty(&shell->default_surface_list)) {
@@ -486,10 +476,10 @@ fs_output_configure_simple(struct fs_output *fsout,
 		break;
 	}
 
-	weston_view_set_position(fsout->black_view,
+	weston_view_set_position(fsout->curtain->view,
 				 fsout->output->x - surf_x,
 				 fsout->output->y - surf_y);
-	weston_surface_set_size(fsout->black_view->surface,
+	weston_surface_set_size(fsout->curtain->view->surface,
 				fsout->output->width,
 				fsout->output->height);
 }
