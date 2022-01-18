@@ -586,7 +586,7 @@ create_focus_surface(struct weston_compositor *ec,
 	weston_view_set_position(fsurf->view, output->x, output->y);
 	weston_surface_set_color(surface, 0.0, 0.0, 0.0, 1.0);
 	pixman_region32_fini(&surface->opaque);
-	pixman_region32_init_rect(&surface->opaque, output->x, output->y,
+	pixman_region32_init_rect(&surface->opaque, 0, 0,
 				  output->width, output->height);
 	pixman_region32_fini(&surface->input);
 	pixman_region32_init(&surface->input);
