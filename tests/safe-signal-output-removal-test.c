@@ -80,7 +80,7 @@ static void
 output_create_view(struct test_output *t_output)
 {
        struct weston_curtain_params curtain_params = {
-	       .r = 0.5, .g = 0.5, .b = 0.5,
+	       .r = 0.5, .g = 0.5, .b = 0.5, .a = 1.0,
 	       .x = 0, .y = 0,
 	       .width = 320, .height = 240,
 	       .get_label = NULL,

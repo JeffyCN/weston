@@ -160,11 +160,18 @@ weston_curtain_create(struct weston_compositor *compositor,
 	surface->committed = params->surface_committed;
 	surface->committed_private = params->surface_private;
 
-	weston_surface_set_color(surface, params->r, params->g, params->b, 1.0);
+	weston_surface_set_color(surface,
+				 params->r, params->g, params->b, params->a);
 	weston_surface_set_label_func(surface, params->get_label);
+
 	pixman_region32_fini(&surface->opaque);
-	pixman_region32_init_rect(&surface->opaque, 0, 0,
-				  params->width, params->height);
+	if (params->a == 1.0) {
+		pixman_region32_init_rect(&surface->opaque, 0, 0,
+					  params->width, params->height);
+	} else {
+		pixman_region32_init(&surface->opaque);
+	}
+
 	pixman_region32_fini(&surface->input);
 	pixman_region32_init_rect(&surface->input, 0, 0,
 				  params->width, params->height);

@@ -501,6 +501,7 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	curtain_params.r = ((bg_color >> 16) & 0xff) / 255.0;
 	curtain_params.g = ((bg_color >> 8) & 0xff) / 255.0;
 	curtain_params.b = ((bg_color >> 0) & 0xff) / 255.0;
+	curtain_params.a = 1.0;
 
 	curtain_params.x = output->x;
 	curtain_params.y = output->y;

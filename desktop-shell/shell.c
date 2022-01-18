@@ -2069,7 +2069,7 @@ create_black_surface(struct weston_compositor *ec,
 		     float x, float y, int w, int h)
 {
 	struct weston_curtain_params curtain_params = {
-		.r = 0.0, .g = 0.0, .b = 0.0,
+		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
 		.x = x, .y = y,
 		.width = w, .height = h,
 		.surface_committed = black_surface_committed,
