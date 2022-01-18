@@ -3847,8 +3847,8 @@ shell_fade_done_for_output(struct weston_view_animation *animation, void *data)
 	shell_output->fade.animation = NULL;
 	switch (shell_output->fade.type) {
 	case FADE_IN:
-		weston_surface_destroy(shell_output->fade.view->surface);
-		shell_output->fade.view = NULL;
+		weston_curtain_destroy(shell_output->fade.curtain);
+		shell_output->fade.curtain = NULL;
 		break;
 	case FADE_OUT:
 		lock(shell);
@@ -3858,33 +3858,35 @@ shell_fade_done_for_output(struct weston_view_animation *animation, void *data)
 	}
 }
 
-static struct weston_view *
-shell_fade_create_surface_for_output(struct desktop_shell *shell, struct shell_output *shell_output)
+static struct weston_curtain *
+shell_fade_create_view_for_output(struct desktop_shell *shell,
+				  struct shell_output *shell_output)
 {
 	struct weston_compositor *compositor = shell->compositor;
-	struct weston_surface *surface;
-	struct weston_view *view;
+	struct weston_output *output = shell_output->output;
+	struct weston_curtain_params curtain_params = {
+		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
+		.x = output->x, .y = output->y,
+		.width = output->width, .height = output->height,
+		.surface_committed = black_surface_committed,
+		.get_label = black_surface_get_label,
+		.surface_private = shell_output,
+		.capture_input = false,
+	};
+	struct weston_curtain *curtain;
 
-	surface = weston_surface_create(compositor);
-	if (!surface)
-		return NULL;
+	curtain = weston_curtain_create(compositor, &curtain_params);
+	assert(curtain);
 
-	view = weston_view_create(surface);
-	if (!view) {
-		weston_surface_destroy(surface);
-		return NULL;
-	}
+	weston_view_set_output(curtain->view, output);
+	curtain->view->is_mapped = true;
 
-	weston_surface_set_size(surface, shell_output->output->width, shell_output->output->height);
-	weston_view_set_position(view, shell_output->output->x, shell_output->output->y);
-	weston_surface_set_color(surface, 0.0, 0.0, 0.0, 1.0);
 	weston_layer_entry_insert(&compositor->fade_layer.view_list,
-				  &view->layer_link);
-	pixman_region32_init(&surface->input);
-	surface->is_mapped = true;
-	view->is_mapped = true;
+				  &curtain->view->layer_link);
+	weston_view_geometry_dirty(curtain->view);
+	weston_surface_damage(curtain->view->surface);
 
-	return view;
+	return curtain;
 }
 
 static void
@@ -3909,28 +3911,29 @@ shell_fade(struct desktop_shell *shell, enum fade_type type)
 	wl_list_for_each(shell_output, &shell->output_list, link) {
 		shell_output->fade.type = type;
 
-		if (shell_output->fade.view == NULL) {
-			shell_output->fade.view = shell_fade_create_surface_for_output(shell, shell_output);
-			if (!shell_output->fade.view)
+		if (shell_output->fade.curtain == NULL) {
+			shell_output->fade.curtain =
+				shell_fade_create_view_for_output(shell, shell_output);
+			if (!shell_output->fade.curtain)
 				continue;
 
-			shell_output->fade.view->alpha = 1.0 - tint;
-			weston_view_update_transform(shell_output->fade.view);
+			shell_output->fade.curtain->view->alpha = 1.0 - tint;
+			weston_view_update_transform(shell_output->fade.curtain->view);
 		}
 
-		if (shell_output->fade.view->output == NULL) {
+		if (shell_output->fade.curtain->view->output == NULL) {
 			/* If the black view gets a NULL output, we lost the
 			 * last output and we'll just cancel the fade.  This
 			 * happens when you close the last window under the
 			 * X11 or Wayland backends. */
 			shell->locked = false;
-			weston_surface_destroy(shell_output->fade.view->surface);
-			shell_output->fade.view = NULL;
+			weston_curtain_destroy(shell_output->fade.curtain);
+			shell_output->fade.curtain = NULL;
 		} else if (shell_output->fade.animation) {
 			weston_fade_update(shell_output->fade.animation, tint);
 		} else {
 			shell_output->fade.animation =
-				weston_fade_run(shell_output->fade.view,
+				weston_fade_run(shell_output->fade.curtain->view,
 						1.0 - tint, tint, 300.0,
 						shell_fade_done_for_output, shell_output);
 		}
@@ -3950,8 +3953,8 @@ do_shell_fade_startup(void *data)
 			   "unexpected fade-in animation type %d\n",
 			   shell->startup_animation_type);
 		wl_list_for_each(shell_output, &shell->output_list, link) {
-			weston_surface_destroy(shell_output->fade.view->surface);
-			shell_output->fade.view = NULL;
+			weston_curtain_destroy(shell_output->fade.curtain);
+			shell_output->fade.curtain = NULL;
 		}
 	}
 }
@@ -4002,18 +4005,19 @@ shell_fade_init(struct desktop_shell *shell)
 		return;
 
 	wl_list_for_each(shell_output, &shell->output_list, link) {
-		if (shell_output->fade.view != NULL) {
+		if (shell_output->fade.curtain != NULL) {
 			weston_log("%s: warning: fade surface already exists\n",
 				   __func__);
 			continue;
 		}
 
-		shell_output->fade.view = shell_fade_create_surface_for_output(shell, shell_output);
-		if (!shell_output->fade.view)
+		shell_output->fade.curtain =
+			shell_fade_create_view_for_output(shell, shell_output);
+		if (!shell_output->fade.curtain)
 			continue;
 
-		weston_view_update_transform(shell_output->fade.view);
-		weston_surface_damage(shell_output->fade.view->surface);
+		weston_view_update_transform(shell_output->fade.curtain->view);
+		weston_surface_damage(shell_output->fade.curtain->view->surface);
 
 		loop = wl_display_get_event_loop(shell->compositor->wl_display);
 		shell_output->fade.startup_timer =
@@ -4667,10 +4671,8 @@ shell_output_destroy(struct shell_output *shell_output)
 		shell_output->fade.animation = NULL;
 	}
 
-	if (shell_output->fade.view) {
-		/* destroys the view as well */
-		weston_surface_destroy(shell_output->fade.view->surface);
-	}
+	if (shell_output->fade.curtain)
+		weston_curtain_destroy(shell_output->fade.curtain);
 
 	if (shell_output->fade.startup_timer)
 		wl_event_source_remove(shell_output->fade.startup_timer);

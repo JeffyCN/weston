@@ -120,7 +120,7 @@ struct shell_output {
 	struct wl_listener background_surface_listener;
 
 	struct {
-		struct weston_view *view;
+		struct weston_curtain *curtain;
 		struct weston_view_animation *animation;
 		enum fade_type type;
 		struct wl_event_source *startup_timer;
