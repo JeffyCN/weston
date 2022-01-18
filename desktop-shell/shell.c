@@ -538,15 +538,9 @@ get_focus_surface(struct weston_surface *surface)
 }
 
 static bool
-is_focus_surface (struct weston_surface *es)
-{
-	return (es->committed == focus_surface_committed);
-}
-
-static bool
 is_focus_view (struct weston_view *view)
 {
-	return is_focus_surface (view->surface);
+	return (view->surface->committed == focus_surface_committed);
 }
 
 static struct focus_surface *
@@ -554,42 +548,25 @@ create_focus_surface(struct weston_compositor *ec,
 		     struct weston_output *output)
 {
 	struct focus_surface *fsurf = NULL;
-	struct weston_surface *surface = NULL;
+	struct weston_curtain_params curtain_params = {
+		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
+		.x = output->x, .y = output->y,
+		.width = output->width, .height = output->height,
+		.surface_committed = focus_surface_committed,
+		.get_label = focus_surface_get_label,
+		.surface_private = NULL,
+		.capture_input = false,
+	};
 
 	fsurf = malloc(sizeof *fsurf);
 	if (!fsurf)
 		return NULL;
 
-	fsurf->surface = weston_surface_create(ec);
-	surface = fsurf->surface;
-	if (surface == NULL) {
-		free(fsurf);
-		return NULL;
-	}
+	curtain_params.surface_private = fsurf;
 
-	surface->committed = focus_surface_committed;
-	surface->output = output;
-	surface->is_mapped = true;
-	surface->committed_private = fsurf;
-	weston_surface_set_label_func(surface, focus_surface_get_label);
-
-	fsurf->view = weston_view_create(surface);
-	if (fsurf->view == NULL) {
-		weston_surface_destroy(surface);
-		free(fsurf);
-		return NULL;
-	}
+	fsurf->view = weston_curtain_create(ec, &curtain_params);
 	weston_view_set_output(fsurf->view, output);
 	fsurf->view->is_mapped = true;
-
-	weston_surface_set_size(surface, output->width, output->height);
-	weston_view_set_position(fsurf->view, output->x, output->y);
-	weston_surface_set_color(surface, 0.0, 0.0, 0.0, 1.0);
-	pixman_region32_fini(&surface->opaque);
-	pixman_region32_init_rect(&surface->opaque, 0, 0,
-				  output->width, output->height);
-	pixman_region32_fini(&surface->input);
-	pixman_region32_init(&surface->input);
 
 	wl_list_init(&fsurf->workspace_transform.link);
 
