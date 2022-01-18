@@ -2098,7 +2098,6 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 			                     output->width,
 			                     output->height);
 
-	weston_view_geometry_dirty(shsurf->fullscreen.black_view);
 	weston_layer_entry_remove(&shsurf->fullscreen.black_view->layer_link);
 	weston_layer_entry_insert(&shsurf->view->layer_link,
 				  &shsurf->fullscreen.black_view->layer_link);
