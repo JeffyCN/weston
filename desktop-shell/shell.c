@@ -2061,24 +2061,21 @@ black_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-black_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy);
-
-static struct weston_view *
-create_black_surface(struct weston_compositor *ec,
-		     struct weston_view *fs_view,
-		     float x, float y, int w, int h)
+black_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
 {
-	struct weston_curtain_params curtain_params = {
-		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = x, .y = y,
-		.width = w, .height = h,
-		.surface_committed = black_surface_committed,
-		.get_label = black_surface_get_label,
-		.surface_private = fs_view,
-	};
-	struct weston_view *view = weston_curtain_create(ec, &curtain_params);
+}
 
-	return view;
+static bool
+is_black_surface_view(struct weston_view *view, struct weston_view **fs_view)
+{
+	struct weston_surface *surface = view->surface;
+
+	if (surface->committed == black_surface_committed) {
+		if (fs_view)
+			*fs_view = surface->committed_private;
+		return true;
+	}
+	return false;
 }
 
 static void
@@ -2086,17 +2083,26 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 {
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
+	struct weston_compositor *ec = surface->compositor;
 	struct weston_output *output = shsurf->fullscreen_output;
+	struct weston_curtain_params curtain_params = {
+		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
+		.x = output->x, .y = output->y,
+		.width = output->width, .height = output->height,
+		.surface_committed = black_surface_committed,
+		.get_label = black_surface_get_label,
+		.surface_private = shsurf->view,
+	};
 
 	assert(weston_desktop_surface_get_fullscreen(shsurf->desktop_surface));
 
-	if (!shsurf->fullscreen.black_view)
+	if (!shsurf->fullscreen.black_view) {
 		shsurf->fullscreen.black_view =
-			create_black_surface(surface->compositor,
-			                     shsurf->view,
-			                     output->x, output->y,
-			                     output->width,
-			                     output->height);
+			weston_curtain_create(ec, &curtain_params);
+	}
+
+	weston_view_set_output(shsurf->fullscreen.black_view, output);
+	shsurf->fullscreen.black_view->is_mapped = true;
 
 	weston_layer_entry_remove(&shsurf->fullscreen.black_view->layer_link);
 	weston_layer_entry_insert(&shsurf->view->layer_link,
@@ -2104,7 +2110,6 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 	weston_view_geometry_dirty(shsurf->fullscreen.black_view);
 	weston_surface_damage(surface);
 
-	shsurf->fullscreen.black_view->is_mapped = true;
 	shsurf->state.lowered = false;
 }
 
@@ -3724,25 +3729,6 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 		ws = get_current_workspace(shell);
 		animate_focus_change(shell, ws, get_default_view(old_es), get_default_view(es));
 	}
-}
-
-/* no-op func for checking black surface */
-static void
-black_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
-{
-}
-
-static bool
-is_black_surface_view(struct weston_view *view, struct weston_view **fs_view)
-{
-	struct weston_surface *surface = view->surface;
-
-	if (surface->committed == black_surface_committed) {
-		if (fs_view)
-			*fs_view = surface->committed_private;
-		return true;
-	}
-	return false;
 }
 
 static void
