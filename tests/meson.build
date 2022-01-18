@@ -2,7 +2,7 @@ plugin_test_shell_desktop = shared_library(
 	'weston-test-desktop-shell',
 	'weston-test-desktop-shell.c',
 	include_directories: common_inc,
-	dependencies: [ dep_lib_desktop, dep_libweston_public, dep_libexec_weston ],
+	dependencies: [ dep_lib_desktop, dep_libweston_public, dep_libexec_weston, dep_shell_utils ],
 	name_prefix: '',
 	install: false
 )
