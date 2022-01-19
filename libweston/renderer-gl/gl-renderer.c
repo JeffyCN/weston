@@ -3044,20 +3044,8 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	weston_buffer_release_reference(&gs->buffer_release_ref,
 					es->buffer_release_ref.buffer_release);
 
-	if (!buffer) {
-		for (i = 0; i < gb->num_images; i++) {
-			egl_image_unref(gb->images[i]);
-			gb->images[i] = NULL;
-		}
-		gb->num_images = 0;
-		glDeleteTextures(gs->num_textures, gs->textures);
-		gs->num_textures = 0;
-		gb->buffer_type = BUFFER_TYPE_NULL;
-		gb->y_inverted = true;
-		gb->direct_display = false;
-		es->is_opaque = false;
-		return;
-	}
+	if (!buffer)
+		goto out;
 
 	switch (buffer->type) {
 	case WESTON_BUFFER_SHM:
@@ -3079,15 +3067,25 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	if (ret)
 		return;
 
-	weston_log("unhandled buffer type!\n");
 	weston_buffer_reference(&gs->buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
-	gb->buffer_type = BUFFER_TYPE_NULL;
-	gb->y_inverted = true;
-	es->is_opaque = false;
+	weston_log("unhandled buffer type!\n");
 	weston_buffer_send_server_error(buffer,
 		"disconnecting due to unhandled buffer type");
+
+out:
+	for (i = 0; i < gb->num_images; i++) {
+		egl_image_unref(gb->images[i]);
+		gb->images[i] = NULL;
+	}
+	gb->num_images = 0;
+	glDeleteTextures(gs->num_textures, gs->textures);
+	gs->num_textures = 0;
+	gb->buffer_type = BUFFER_TYPE_NULL;
+	gb->y_inverted = true;
+	gb->direct_display = false;
+	es->is_opaque = false;
 }
 
 static void
