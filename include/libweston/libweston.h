@@ -974,39 +974,6 @@ struct weston_plane {
 
 struct weston_drm_format_array;
 
-struct weston_renderer {
-	int (*read_pixels)(struct weston_output *output,
-			       pixman_format_code_t format, void *pixels,
-			       uint32_t x, uint32_t y,
-			       uint32_t width, uint32_t height);
-	void (*repaint_output)(struct weston_output *output,
-			       pixman_region32_t *output_damage);
-	void (*flush_damage)(struct weston_surface *surface,
-			     struct weston_buffer *buffer);
-	void (*attach)(struct weston_surface *es, struct weston_buffer *buffer);
-	void (*destroy)(struct weston_compositor *ec);
-
-	/** See weston_surface_get_content_size() */
-	void (*surface_get_content_size)(struct weston_surface *surface,
-					 int *width, int *height);
-
-	/** See weston_surface_copy_content() */
-	int (*surface_copy_content)(struct weston_surface *surface,
-				    void *target, size_t size,
-				    int src_x, int src_y,
-				    int width, int height);
-
-	/** See weston_compositor_import_dmabuf() */
-	bool (*import_dmabuf)(struct weston_compositor *ec,
-			      struct linux_dmabuf_buffer *buffer);
-
-	const struct weston_drm_format_array *
-			(*get_supported_formats)(struct weston_compositor *ec);
-
-	bool (*fill_buffer_info)(struct weston_compositor *ec,
-				 struct weston_buffer *buffer);
-};
-
 enum weston_capability {
 	/* backend/renderer supports arbitrary rotation */
 	WESTON_CAP_ROTATION_ANY			= 0x0001,
