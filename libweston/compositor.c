@@ -2444,6 +2444,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 	} else if ((dmabuf = linux_dmabuf_buffer_get(buffer->resource))) {
 		buffer->type = WESTON_BUFFER_DMABUF;
 		buffer->dmabuf = dmabuf;
+		buffer->direct_display = dmabuf->direct_display;
 		buffer->width = dmabuf->attributes.width;
 		buffer->height = dmabuf->attributes.height;
 		buffer->pixel_format =
@@ -7729,6 +7730,9 @@ debug_scene_view_print_buffer(FILE *fp, struct weston_view *view)
 		buffer->width, buffer->height);
 	if (buffer->buffer_origin == ORIGIN_BOTTOM_LEFT)
 		fprintf(fp, "\t\t\tbottom-left origin\n");
+
+	if (buffer->direct_display)
+		fprintf(fp, "\t\t\tdirect-display buffer (no renderer access)\n");
 }
 
 static void

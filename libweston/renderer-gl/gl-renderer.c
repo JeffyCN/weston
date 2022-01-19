@@ -176,8 +176,6 @@ struct gl_buffer_state {
 	int num_images;
 	enum gl_shader_texture_variant shader_variant;
 
-	bool direct_display;
-
 	/* Extension needed for SHM YUV texture */
 	int offset[3]; /* offset per plane */
 	int hsub[3];  /* horizontal subsampling per plane */
@@ -964,7 +962,7 @@ maybe_censor_override(struct gl_shader_config *sconf,
 		      struct weston_view *ev)
 {
 	struct gl_surface_state *gs = get_surface_state(ev->surface);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	bool recording_censor =
 		(output->disable_planes > 0) &&
 		(ev->surface->desired_protection > WESTON_HDCP_DISABLE);
@@ -972,7 +970,7 @@ maybe_censor_override(struct gl_shader_config *sconf,
 	bool unprotected_censor =
 		(ev->surface->desired_protection > output->current_protection);
 
-	if (gb->direct_display) {
+	if (buffer->direct_display) {
 		censor_override(sconf, output);
 		return;
 	}
@@ -1042,6 +1040,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 	struct gl_renderer *gr = get_renderer(pnode->surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(pnode->surface);
 	struct gl_buffer_state *gb = &gs->buffer;
+	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	/* repaint bounding region in global coordinates: */
 	pixman_region32_t repaint;
 	/* opaque region in surface coordinates: */
@@ -1054,7 +1053,8 @@ draw_paint_node(struct weston_paint_node *pnode,
 	/* In case of a runtime switch of renderers, we may not have received
 	 * an attach for this surface since the switch. In that case we don't
 	 * have a valid buffer or a proper shader set up so skip rendering. */
-	if (gb->shader_variant == SHADER_VARIANT_NONE && !gb->direct_display)
+	if (gb->shader_variant == SHADER_VARIANT_NONE &&
+	    !buffer->direct_display)
 		return;
 
 	pixman_region32_init(&repaint);
@@ -2164,7 +2164,6 @@ unsupported:
 	gb->gl_format[2] = gl_format[2];
 	gb->gl_pixel_type = gl_pixel_type;
 	gb->needs_full_upload = true;
-	gb->direct_display = false;
 
 	gs->surface = es;
 
@@ -2888,9 +2887,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 		egl_image_unref(gb->images[i]);
 	gb->num_images = 0;
 
-	gb->direct_display = dmabuf->direct_display;
-
-	if (dmabuf->direct_display)
+	if (buffer->direct_display)
 		return true;
 
 	image = linux_dmabuf_buffer_get_user_data(dmabuf);
@@ -3050,7 +3047,6 @@ out:
 	gb->num_images = 0;
 	glDeleteTextures(gs->num_textures, gs->textures);
 	gs->num_textures = 0;
-	gb->direct_display = false;
 }
 
 static uint32_t
@@ -3252,8 +3248,6 @@ gl_renderer_create_surface(struct weston_surface *surface)
 	 * they still go through texcoord computations. Do not divide
 	 * by zero there.
 	 */
-	gb->direct_display = false;
-
 	gs->surface = surface;
 
 	pixman_region32_init(&gb->texture_damage);
