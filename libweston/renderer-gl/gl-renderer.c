@@ -1974,35 +1974,36 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	struct weston_compositor *ec = es->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(es);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct gl_buffer_state *gb;
 	struct wl_shm_buffer *shm_buffer = buffer->shm_buffer;
 	struct weston_buffer *old_buffer = gs->buffer_ref.buffer;
 	GLenum gl_format[3] = {0, 0, 0};
 	GLenum gl_pixel_type;
+	enum gl_shader_texture_variant shader_variant;
 	int pitch;
+	int offset[3] = { 0, 0, 0 };
+	int hsub[3] = { 1, 0, 0 };
+	int vsub[3] = { 1, 0, 0 };
 	int num_planes;
 	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
 
 	num_planes = 1;
-	gb->offset[0] = 0;
-	gb->hsub[0] = 1;
-	gb->vsub[0] = 1;
 
 	switch (wl_shm_buffer_get_format(shm_buffer)) {
 	case WL_SHM_FORMAT_XRGB8888:
-		gb->shader_variant = SHADER_VARIANT_RGBX;
+		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		break;
 	case WL_SHM_FORMAT_ARGB8888:
-		gb->shader_variant = SHADER_VARIANT_RGBA;
+		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		break;
 	case WL_SHM_FORMAT_RGB565:
-		gb->shader_variant = SHADER_VARIANT_RGBX;
+		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_format[0] = GL_RGB;
 		gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
@@ -2012,7 +2013,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		if (!gr->has_texture_type_2_10_10_10_rev) {
 			goto unsupported;
 		}
-		gb->shader_variant = SHADER_VARIANT_RGBA;
+		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
 		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
@@ -2021,7 +2022,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		if (!gr->has_texture_type_2_10_10_10_rev) {
 			goto unsupported;
 		}
-		gb->shader_variant = SHADER_VARIANT_RGBX;
+		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
 		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
@@ -2029,7 +2030,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	case WL_SHM_FORMAT_ABGR16161616F:
 		if (!gr->gl_supports_color_transforms)
 			goto unsupported;
-		gb->shader_variant = SHADER_VARIANT_RGBA;
+		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16F;
 		gl_pixel_type = GL_HALF_FLOAT;
@@ -2037,7 +2038,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	case WL_SHM_FORMAT_XBGR16161616F:
 		if (!gr->gl_supports_color_transforms)
 			goto unsupported;
-		gb->shader_variant = SHADER_VARIANT_RGBX;
+		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16F;
 		gl_pixel_type = GL_HALF_FLOAT;
@@ -2045,7 +2046,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	case WL_SHM_FORMAT_ABGR16161616:
 		if (!gr->has_texture_norm16)
 			goto unsupported;
-		gb->shader_variant = SHADER_VARIANT_RGBA;
+		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16_EXT;
 		gl_pixel_type = GL_UNSIGNED_SHORT;
@@ -2053,25 +2054,25 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	case WL_SHM_FORMAT_XBGR16161616:
 		if (!gr->has_texture_norm16)
 			goto unsupported;
-		gb->shader_variant = SHADER_VARIANT_RGBX;
+		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16_EXT;
 		gl_pixel_type = GL_UNSIGNED_SHORT;
 		break;
 #endif
 	case WL_SHM_FORMAT_YUV420:
-		gb->shader_variant = SHADER_VARIANT_Y_U_V;
+		shader_variant = SHADER_VARIANT_Y_U_V;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 3;
-		gb->offset[1] = gb->offset[0] + (pitch / gb->hsub[0]) *
-				(buffer->height / gb->vsub[0]);
-		gb->hsub[1] = 2;
-		gb->vsub[1] = 2;
-		gb->offset[2] = gb->offset[1] + (pitch / gb->hsub[1]) *
-				(buffer->height / gb->vsub[1]);
-		gb->hsub[2] = 2;
-		gb->vsub[2] = 2;
+		offset[1] = offset[0] + (pitch / hsub[0]) *
+				(buffer->height / vsub[0]);
+		hsub[1] = 2;
+		vsub[1] = 2;
+		offset[2] = offset[1] + (pitch / hsub[1]) *
+				(buffer->height / vsub[1]);
+		hsub[2] = 2;
+		vsub[2] = 2;
 		if (gr->has_gl_texture_rg) {
 			gl_format[0] = GL_R8_EXT;
 			gl_format[1] = GL_R8_EXT;
@@ -2086,28 +2087,28 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 2;
-		gb->offset[1] = gb->offset[0] + (pitch / gb->hsub[0]) *
-				(buffer->height / gb->vsub[0]);
-		gb->hsub[1] = 2;
-		gb->vsub[1] = 2;
+		offset[1] = offset[0] + (pitch / hsub[0]) *
+				(buffer->height / vsub[0]);
+		hsub[1] = 2;
+		vsub[1] = 2;
 		if (gr->has_gl_texture_rg) {
-			gb->shader_variant = SHADER_VARIANT_Y_UV;
+			shader_variant = SHADER_VARIANT_Y_UV;
 			gl_format[0] = GL_R8_EXT;
 			gl_format[1] = GL_RG8_EXT;
 		} else {
-			gb->shader_variant = SHADER_VARIANT_Y_XUXV;
+			shader_variant = SHADER_VARIANT_Y_XUXV;
 			gl_format[0] = GL_LUMINANCE;
 			gl_format[1] = GL_LUMINANCE_ALPHA;
 		}
 		break;
 	case WL_SHM_FORMAT_YUYV:
-		gb->shader_variant = SHADER_VARIANT_Y_XUXV;
+		shader_variant = SHADER_VARIANT_Y_XUXV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 2;
-		gb->offset[1] = 0;
-		gb->hsub[1] = 2;
-		gb->vsub[1] = 1;
+		offset[1] = 0;
+		hsub[1] = 2;
+		vsub[1] = 1;
 		if (gr->has_gl_texture_rg)
 			gl_format[0] = GL_RG8_EXT;
 		else
@@ -2119,7 +2120,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		 * [31:0] X:Y:Cb:Cr 8:8:8:8 little endian
 		 *        a:b: g: r in SHADER_VARIANT_XYUV
 		 */
-		gb->shader_variant = SHADER_VARIANT_XYUV;
+		shader_variant = SHADER_VARIANT_XYUV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_RGBA;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
@@ -2131,7 +2132,10 @@ unsupported:
 		return false;
 	}
 
+	gb = &gs->buffer;
 	gb->pitch = pitch;
+	gb->shader_variant = shader_variant;
+	memcpy(gb->offset, offset, sizeof(offset));
 
 	/* Only allocate a texture if it doesn't match existing one.
 	 * If a switch from DRM allocated buffer to a SHM buffer is
@@ -2139,6 +2143,12 @@ unsupported:
 	if (old_buffer &&
 	    buffer->width == old_buffer->width &&
 	    buffer->height == old_buffer->height &&
+	    hsub[0] == gb->hsub[0] &&
+	    hsub[1] == gb->hsub[1] &&
+	    hsub[2] == gb->hsub[2] &&
+	    vsub[0] == gb->vsub[0] &&
+	    vsub[1] == gb->vsub[1] &&
+	    vsub[2] == gb->vsub[2] &&
 	    gl_format[0] == gb->gl_format[0] &&
 	    gl_format[1] == gb->gl_format[1] &&
 	    gl_format[2] == gb->gl_format[2] &&
@@ -2147,6 +2157,8 @@ unsupported:
 		return true;
 	}
 
+	memcpy(gb->hsub, hsub, sizeof(hsub));
+	memcpy(gb->vsub, vsub, sizeof(vsub));
 	gb->gl_format[0] = gl_format[0];
 	gb->gl_format[1] = gl_format[1];
 	gb->gl_format[2] = gl_format[2];
