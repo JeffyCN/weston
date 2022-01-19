@@ -1980,7 +1980,7 @@ ensure_textures(struct gl_surface_state *gs, GLenum target, int num_textures)
 	glBindTexture(target, 0);
 }
 
-static void
+static bool
 gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		       struct wl_shm_buffer *shm_buffer)
 {
@@ -2152,7 +2152,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 unsupported:
 		weston_log("warning: unknown or unsupported shm buffer format: %08x\n",
 			   wl_shm_buffer_get_format(shm_buffer));
-		return;
+		return false;
 	}
 
 	/* Only allocate a texture if it doesn't match existing one.
@@ -2180,6 +2180,8 @@ unsupported:
 
 		ensure_textures(gs, GL_TEXTURE_2D, num_planes);
 	}
+
+	return true;
 }
 
 static bool
@@ -2243,7 +2245,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	return true;
 }
 
-static void
+static bool
 gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct weston_compositor *ec = es->compositor;
@@ -2266,7 +2268,7 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	                      EGL_TEXTURE_FORMAT, &format)) {
 		weston_log("eglQueryWaylandBufferWL failed\n");
 		gl_renderer_print_egl_error_state();
-		return;
+		return false;
 	}
 
 	switch (format) {
@@ -2317,7 +2319,7 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 			weston_log("failed to create img for plane %d\n", i);
 			while (--i >= 0)
 				egl_image_unref(gb->images[i]);
-			return;
+			return false;
 		}
 
 		glActiveTexture(GL_TEXTURE0 + i);
@@ -2329,6 +2331,8 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	gb->height = buffer->height;
 	gb->buffer_type = BUFFER_TYPE_EGL;
 	gb->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
+
+	return true;
 }
 
 static void
@@ -2889,7 +2893,7 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 	return true;
 }
 
-static void
+static bool
 gl_renderer_attach_dmabuf(struct weston_surface *surface,
 			  struct weston_buffer *buffer,
 			  struct linux_dmabuf_buffer *dmabuf)
@@ -2913,7 +2917,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 
 	if (dmabuf->direct_display)
-		return;
+		return true;
 
 	image = linux_dmabuf_buffer_get_user_data(dmabuf);
 
@@ -2933,6 +2937,8 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	}
 
 	gb->shader_variant = image->shader_variant;
+
+	return true;
 }
 
 static const struct weston_drm_format_array *
@@ -3000,7 +3006,7 @@ out:
 	return ret;
 }
 
-static void
+static bool
 gl_renderer_attach_solid(struct weston_surface *surface,
 			 struct weston_buffer *buffer)
 {
@@ -3020,6 +3026,8 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 	weston_buffer_reference(&gs->buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
+
+	return true;
 }
 
 static void
@@ -3027,6 +3035,7 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct gl_surface_state *gs = get_surface_state(es);
 	struct gl_buffer_state *gb = &gs->buffer;
+	bool ret = false;
 	int i;
 
 	weston_buffer_reference(&gs->buffer_ref, buffer,
@@ -3052,20 +3061,23 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 
 	switch (buffer->type) {
 	case WESTON_BUFFER_SHM:
-		gl_renderer_attach_shm(es, buffer, buffer->shm_buffer);
-		return;
+		ret = gl_renderer_attach_shm(es, buffer, buffer->shm_buffer);
+		break;
 	case WESTON_BUFFER_DMABUF:
-		gl_renderer_attach_dmabuf(es, buffer, buffer->dmabuf);
-		return;
+		ret = gl_renderer_attach_dmabuf(es, buffer, buffer->dmabuf);
+		break;
 	case WESTON_BUFFER_RENDERER_OPAQUE:
-		gl_renderer_attach_egl(es, buffer);
-		return;
+		ret = gl_renderer_attach_egl(es, buffer);
+		break;
 	case WESTON_BUFFER_SOLID:
-		gl_renderer_attach_solid(es, buffer);
-		return;
+		ret = gl_renderer_attach_solid(es, buffer);
+		break;
 	default:
 		break;
 	}
+
+	if (ret)
+		return;
 
 	weston_log("unhandled buffer type!\n");
 	weston_buffer_reference(&gs->buffer_ref, NULL,
