@@ -333,6 +333,9 @@ void
 weston_view_move_to_plane(struct weston_view *view,
 			  struct weston_plane *plane);
 
+pixman_box32_t
+weston_matrix_transform_rect(struct weston_matrix *matrix,
+                            pixman_box32_t rect);
 void
 weston_transformed_coord(int width, int height,
 			 enum wl_output_transform transform,
