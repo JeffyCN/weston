@@ -2990,21 +2990,25 @@ out:
 }
 
 static void
-gl_renderer_surface_set_color(struct weston_surface *surface,
-			      float red, float green, float blue, float alpha)
+gl_renderer_attach_solid(struct weston_surface *surface,
+			 struct weston_buffer *buffer)
 {
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct gl_buffer_state *gb = &gs->buffer;
 
-	gb->color[0] = red;
-	gb->color[1] = green;
-	gb->color[2] = blue;
-	gb->color[3] = alpha;
+	gb->color[0] = buffer->solid.r;
+	gb->color[1] = buffer->solid.g;
+	gb->color[2] = buffer->solid.b;
+	gb->color[3] = buffer->solid.a;
 	gb->buffer_type = BUFFER_TYPE_SOLID;
 	gb->pitch = 1;
 	gb->height = 1;
 
 	gb->shader_variant = SHADER_VARIANT_SOLID;
+
+	weston_buffer_reference(&gs->buffer_ref, NULL,
+				BUFFER_WILL_NOT_BE_ACCESSED);
+	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
 }
 
 static void
@@ -3055,14 +3059,7 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		gl_renderer_attach_egl(es, buffer, format);
 		return;
 	case WESTON_BUFFER_SOLID:
-		gl_renderer_surface_set_color(es,
-					      buffer->solid.r,
-					      buffer->solid.g,
-					      buffer->solid.b,
-					      buffer->solid.a);
-		weston_buffer_reference(&gs->buffer_ref, NULL,
-					BUFFER_WILL_NOT_BE_ACCESSED);
-		weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
+		gl_renderer_attach_solid(es, buffer);
 		return;
 	default:
 		break;
