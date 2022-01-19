@@ -1447,12 +1447,9 @@ pixman_region_to_egl_y_invert(struct weston_output *output,
 
 	/* Translate from global to output co-ordinate space. */
 	pixman_region32_init(&transformed);
-	pixman_region32_copy(&transformed, global_region);
-	pixman_region32_translate(&transformed, -output->x, -output->y);
-	weston_transformed_region(output->width, output->height,
-				  output->transform,
-				  output->current_scale,
-				  &transformed, &transformed);
+	weston_matrix_transform_region(&transformed,
+				       &output->matrix,
+				       global_region);
 
 	/* If we have borders drawn around the output, shift our output damage
 	 * to account for borders being drawn around the outside, adding any

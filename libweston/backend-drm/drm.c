@@ -421,16 +421,10 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 		return;
 
 	pixman_region32_init(&scanout_damage);
-	pixman_region32_copy(&scanout_damage, damage);
 
-	pixman_region32_translate(&scanout_damage,
-				  -output->base.x, -output->base.y);
-	weston_transformed_region(output->base.width,
-				  output->base.height,
-				  output->base.transform,
-				  output->base.current_scale,
-				  &scanout_damage,
-				  &scanout_damage);
+	weston_matrix_transform_region(&scanout_damage,
+				       &output->base.matrix,
+				       damage);
 
 	assert(scanout_state->damage_blob_id == 0);
 

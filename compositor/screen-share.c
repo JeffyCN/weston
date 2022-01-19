@@ -862,11 +862,11 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	wl_list_for_each(sb, &so->shm.buffers, link)
 		pixman_region32_union(&sb->damage, &sb->damage, &damage);
 
+	/* Translate back to global space for transform_region */
+	pixman_region32_translate(&damage, so->output->x, so->output->y);
+
 	/* Transform to buffer coordinates */
-	weston_transformed_region(so->output->width, so->output->height,
-				  so->output->transform,
-				  so->output->current_scale,
-				  &damage, &damage);
+	weston_matrix_transform_region(&damage, &so->output->matrix, &damage);
 
 	if (shared_output_ensure_tmp_data(so, &damage) < 0)
 		goto err_pixman_init;

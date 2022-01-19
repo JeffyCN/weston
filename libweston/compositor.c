@@ -846,116 +846,6 @@ weston_matrix_transform_region(pixman_region32_t *dest,
 	free(dest_rects);
 }
 
-/** Transform a region to buffer coordinates
- *
- * \param width Surface width.
- * \param height Surface height.
- * \param transform Buffer transform.
- * \param scale Buffer scale.
- * \param[in] src Region in surface coordinates.
- * \param[out] dest Resulting region in buffer coordinates.
- *
- * Converts the given surface-local region to buffer coordinates
- * according to the given buffer transform and scale.
- * This ignores wp_viewport.
- *
- * The given width and height must be the result of inverse scaled and
- * inverse transformed buffer size.
- *
- * src and dest are allowed to point to the same memory for in-place conversion.
- */
-WL_EXPORT void
-weston_transformed_region(int width, int height,
-			  enum wl_output_transform transform,
-			  int32_t scale,
-			  pixman_region32_t *src, pixman_region32_t *dest)
-{
-	pixman_box32_t *src_rects, *dest_rects;
-	int nrects, i;
-
-	if (transform == WL_OUTPUT_TRANSFORM_NORMAL && scale == 1) {
-		if (src != dest)
-			pixman_region32_copy(dest, src);
-		return;
-	}
-
-	src_rects = pixman_region32_rectangles(src, &nrects);
-	dest_rects = malloc(nrects * sizeof(*dest_rects));
-	if (!dest_rects)
-		return;
-
-	if (transform == WL_OUTPUT_TRANSFORM_NORMAL) {
-		memcpy(dest_rects, src_rects, nrects * sizeof(*dest_rects));
-	} else {
-		for (i = 0; i < nrects; i++) {
-			switch (transform) {
-			default:
-			case WL_OUTPUT_TRANSFORM_NORMAL:
-				dest_rects[i].x1 = src_rects[i].x1;
-				dest_rects[i].y1 = src_rects[i].y1;
-				dest_rects[i].x2 = src_rects[i].x2;
-				dest_rects[i].y2 = src_rects[i].y2;
-				break;
-			case WL_OUTPUT_TRANSFORM_90:
-				dest_rects[i].x1 = src_rects[i].y1;
-				dest_rects[i].y1 = width - src_rects[i].x2;
-				dest_rects[i].x2 = src_rects[i].y2;
-				dest_rects[i].y2 = width - src_rects[i].x1;
-				break;
-			case WL_OUTPUT_TRANSFORM_180:
-				dest_rects[i].x1 = width - src_rects[i].x2;
-				dest_rects[i].y1 = height - src_rects[i].y2;
-				dest_rects[i].x2 = width - src_rects[i].x1;
-				dest_rects[i].y2 = height - src_rects[i].y1;
-				break;
-			case WL_OUTPUT_TRANSFORM_270:
-				dest_rects[i].x1 = height - src_rects[i].y2;
-				dest_rects[i].y1 = src_rects[i].x1;
-				dest_rects[i].x2 = height - src_rects[i].y1;
-				dest_rects[i].y2 = src_rects[i].x2;
-				break;
-			case WL_OUTPUT_TRANSFORM_FLIPPED:
-				dest_rects[i].x1 = width - src_rects[i].x2;
-				dest_rects[i].y1 = src_rects[i].y1;
-				dest_rects[i].x2 = width - src_rects[i].x1;
-				dest_rects[i].y2 = src_rects[i].y2;
-				break;
-			case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-				dest_rects[i].x1 = src_rects[i].y1;
-				dest_rects[i].y1 = src_rects[i].x1;
-				dest_rects[i].x2 = src_rects[i].y2;
-				dest_rects[i].y2 = src_rects[i].x2;
-				break;
-			case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-				dest_rects[i].x1 = src_rects[i].x1;
-				dest_rects[i].y1 = height - src_rects[i].y2;
-				dest_rects[i].x2 = src_rects[i].x2;
-				dest_rects[i].y2 = height - src_rects[i].y1;
-				break;
-			case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-				dest_rects[i].x1 = height - src_rects[i].y2;
-				dest_rects[i].y1 = width - src_rects[i].x2;
-				dest_rects[i].x2 = height - src_rects[i].y1;
-				dest_rects[i].y2 = width - src_rects[i].x1;
-				break;
-			}
-		}
-	}
-
-	if (scale != 1) {
-		for (i = 0; i < nrects; i++) {
-			dest_rects[i].x1 *= scale;
-			dest_rects[i].x2 *= scale;
-			dest_rects[i].y1 *= scale;
-			dest_rects[i].y2 *= scale;
-		}
-	}
-
-	pixman_region32_clear(dest);
-	pixman_region32_init_rects(dest, dest_rects, nrects);
-	free(dest_rects);
-}
-
 WL_EXPORT void
 weston_surface_to_buffer_float(struct weston_surface *surface,
 			       float sx, float sy, float *bx, float *by)
@@ -6443,11 +6333,7 @@ WL_EXPORT void
 weston_output_region_from_global(struct weston_output *output,
 				 pixman_region32_t *region)
 {
-	pixman_region32_translate(region, -output->x, -output->y);
-	weston_transformed_region(output->width, output->height,
-				  output->transform,
-				  output->current_scale,
-				  region, region);
+	weston_matrix_transform_region(region, &output->matrix, region);
 }
 
 static void
