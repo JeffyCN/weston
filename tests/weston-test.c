@@ -618,6 +618,8 @@ handle_compositor_destroy(struct wl_listener *listener,
 
 	test = wl_container_of(listener, test, destroy_listener);
 
+	wl_list_remove(&test->destroy_listener.link);
+
 	if (test->client_source) {
 		weston_log_scope_printf(test->log, "Cancelling client thread...\n");
 		pthread_cancel(test->client_thread);
