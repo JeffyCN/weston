@@ -175,6 +175,7 @@ struct gl_buffer_state {
 	pixman_region32_t texture_damage;
 
 	/* Only needed between attach() and flush_damage() */
+	int pitch;
 	GLenum gl_format[3];
 	GLenum gl_pixel_type;
 
@@ -183,7 +184,6 @@ struct gl_buffer_state {
 	enum gl_shader_texture_variant shader_variant;
 
 	enum buffer_type buffer_type;
-	int pitch; /* in pixels */
 	bool direct_display;
 
 	/* Extension needed for SHM YUV texture */
@@ -572,7 +572,6 @@ texture_region(struct weston_view *ev,
 	       pixman_region32_t *surf_region)
 {
 	struct gl_surface_state *gs = get_surface_state(ev->surface);
-	struct gl_buffer_state *gb = &gs->buffer;
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	struct weston_compositor *ec = ev->surface->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
@@ -599,7 +598,7 @@ texture_region(struct weston_view *ev,
 	v = wl_array_add(&gr->vertices, nrects * nsurf * 8 * 4 * sizeof *v);
 	vtxcnt = wl_array_add(&gr->vtxcnt, nrects * nsurf * sizeof *vtxcnt);
 
-	inv_width = 1.0 / gb->pitch;
+	inv_width = 1.0 / buffer->width;
 	inv_height = 1.0 / buffer->height;
 
 	for (i = 0; i < nrects; i++) {
@@ -1905,7 +1904,7 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 				      gb->pitch / gb->hsub[j]);
 			glTexImage2D(GL_TEXTURE_2D, 0,
 				     gb->gl_format[j],
-				     gb->pitch / gb->hsub[j],
+				     buffer->width / gb->hsub[j],
 				     buffer->height / gb->vsub[j],
 				     0,
 				     gl_format_from_internal(gb->gl_format[j]),
@@ -2153,11 +2152,13 @@ unsupported:
 		return false;
 	}
 
+	gb->pitch = pitch;
+
 	/* Only allocate a texture if it doesn't match existing one.
 	 * If a switch from DRM allocated buffer to a SHM buffer is
 	 * happening, we need to allocate a new texture buffer. */
 	if (old_buffer &&
-	    pitch == gb->pitch &&
+	    buffer->width == old_buffer->width &&
 	    buffer->height == old_buffer->height &&
 	    gl_format[0] == gb->gl_format[0] &&
 	    gl_format[1] == gb->gl_format[1] &&
@@ -2167,7 +2168,6 @@ unsupported:
 		return true;
 	}
 
-	gb->pitch = pitch;
 	gb->gl_format[0] = gl_format[0];
 	gb->gl_format[1] = gl_format[1];
 	gb->gl_format[2] = gl_format[2];
@@ -2326,7 +2326,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 		gr->image_target_texture_2d(target, gb->images[i]->image);
 	}
 
-	gb->pitch = buffer->width;
 	gb->buffer_type = BUFFER_TYPE_EGL;
 
 	return true;
@@ -2906,7 +2905,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 		egl_image_unref(gb->images[i]);
 	gb->num_images = 0;
 
-	gb->pitch = buffer->width;
 	gb->buffer_type = BUFFER_TYPE_EGL;
 	gb->direct_display = dmabuf->direct_display;
 	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
@@ -3013,7 +3011,6 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 	gb->color[2] = buffer->solid.b;
 	gb->color[3] = buffer->solid.a;
 	gb->buffer_type = BUFFER_TYPE_SOLID;
-	gb->pitch = 1;
 
 	gb->shader_variant = SHADER_VARIANT_SOLID;
 
@@ -3089,7 +3086,7 @@ gl_renderer_surface_get_content_size(struct weston_surface *surface,
 		*width = 0;
 		*height = 0;
 	} else {
-		*width = gb->pitch;
+		*width = gs->buffer_ref.buffer->width;
 		*height = gs->buffer_ref.buffer->height;
 	}
 }
@@ -3291,7 +3288,6 @@ gl_renderer_create_surface(struct weston_surface *surface)
 	 * they still go through texcoord computations. Do not divide
 	 * by zero there.
 	 */
-	gb->pitch = 1;
 	gb->direct_display = false;
 
 	gs->surface = surface;
