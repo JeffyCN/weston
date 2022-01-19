@@ -956,49 +956,16 @@ weston_transformed_region(int width, int height,
 	free(dest_rects);
 }
 
-static void
-viewport_surface_to_buffer(struct weston_surface *surface,
-			   float sx, float sy, float *bx, float *by)
-{
-	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
-	double src_width, src_height;
-	double src_x, src_y;
-
-	if (vp->buffer.src_width == wl_fixed_from_int(-1)) {
-		if (vp->surface.width == -1) {
-			*bx = sx;
-			*by = sy;
-			return;
-		}
-
-		src_x = 0.0;
-		src_y = 0.0;
-		src_width = surface->width_from_buffer;
-		src_height = surface->height_from_buffer;
-	} else {
-		src_x = wl_fixed_to_double(vp->buffer.src_x);
-		src_y = wl_fixed_to_double(vp->buffer.src_y);
-		src_width = wl_fixed_to_double(vp->buffer.src_width);
-		src_height = wl_fixed_to_double(vp->buffer.src_height);
-	}
-
-	*bx = sx * src_width / surface->width + src_x;
-	*by = sy * src_height / surface->height + src_y;
-}
-
 WL_EXPORT void
 weston_surface_to_buffer_float(struct weston_surface *surface,
 			       float sx, float sy, float *bx, float *by)
 {
-	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
+	struct weston_vector v = {{sx, sy, 0.0, 1.0}};
 
-	/* first transform coordinates if the viewport is set */
-	viewport_surface_to_buffer(surface, sx, sy, bx, by);
+	weston_matrix_transform(&surface->surface_to_buffer_matrix, &v);
 
-	weston_transformed_coord(surface->width_from_buffer,
-				 surface->height_from_buffer,
-				 vp->buffer.transform, vp->buffer.scale,
-				 *bx, *by, bx, by);
+	*bx = v.f[0] / v.f[3];
+	*by = v.f[1] / v.f[3];
 }
 
 /** Transform a rectangle from surface coordinates to buffer coordinates
@@ -1023,22 +990,8 @@ WL_EXPORT pixman_box32_t
 weston_surface_to_buffer_rect(struct weston_surface *surface,
 			      pixman_box32_t rect)
 {
-	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
-	float xf, yf;
-
-	/* first transform box coordinates if the viewport is set */
-	viewport_surface_to_buffer(surface, rect.x1, rect.y1, &xf, &yf);
-	rect.x1 = floorf(xf);
-	rect.y1 = floorf(yf);
-
-	viewport_surface_to_buffer(surface, rect.x2, rect.y2, &xf, &yf);
-	rect.x2 = ceilf(xf);
-	rect.y2 = ceilf(yf);
-
-	return weston_transformed_rect(surface->width_from_buffer,
-				       surface->height_from_buffer,
-				       vp->buffer.transform, vp->buffer.scale,
-				       rect);
+	return weston_matrix_transform_rect(&surface->surface_to_buffer_matrix,
+					   rect);
 }
 
 /** Transform a region from surface coordinates to buffer coordinates
