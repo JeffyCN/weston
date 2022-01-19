@@ -57,10 +57,6 @@ struct weston_renderer {
 	void (*attach)(struct weston_surface *es, struct weston_buffer *buffer);
 	void (*destroy)(struct weston_compositor *ec);
 
-	/** See weston_surface_get_content_size() */
-	void (*surface_get_content_size)(struct weston_surface *surface,
-					 int *width, int *height);
-
 	/** See weston_surface_copy_content() */
 	int (*surface_copy_content)(struct weston_surface *surface,
 				    void *target, size_t size,

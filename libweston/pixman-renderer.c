@@ -810,21 +810,6 @@ pixman_renderer_destroy(struct weston_compositor *ec)
 	ec->renderer = NULL;
 }
 
-static void
-pixman_renderer_surface_get_content_size(struct weston_surface *surface,
-					 int *width, int *height)
-{
-	struct pixman_surface_state *ps = get_surface_state(surface);
-
-	if (ps->image) {
-		*width = pixman_image_get_width(ps->image);
-		*height = pixman_image_get_height(ps->image);
-	} else {
-		*width = 0;
-		*height = 0;
-	}
-}
-
 static int
 pixman_renderer_surface_copy_content(struct weston_surface *surface,
 				     void *target, size_t size,
@@ -896,8 +881,6 @@ pixman_renderer_init(struct weston_compositor *ec)
 	renderer->base.flush_damage = pixman_renderer_flush_damage;
 	renderer->base.attach = pixman_renderer_attach;
 	renderer->base.destroy = pixman_renderer_destroy;
-	renderer->base.surface_get_content_size =
-		pixman_renderer_surface_get_content_size;
 	renderer->base.surface_copy_content =
 		pixman_renderer_surface_copy_content;
 	ec->renderer = &renderer->base;

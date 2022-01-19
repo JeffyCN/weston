@@ -3061,22 +3061,6 @@ out:
 	es->is_opaque = false;
 }
 
-static void
-gl_renderer_surface_get_content_size(struct weston_surface *surface,
-				     int *width, int *height)
-{
-	struct gl_surface_state *gs = get_surface_state(surface);
-	struct weston_buffer *buffer = gs->buffer_ref.buffer;
-
-	if (!buffer) {
-		*width = 0;
-		*height = 0;
-	} else {
-		*width = gs->buffer_ref.buffer->width;
-		*height = gs->buffer_ref.buffer->height;
-	}
-}
-
 static uint32_t
 pack_color(pixman_format_code_t format, float *c)
 {
@@ -3137,7 +3121,8 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 
 	assert(buffer);
 
-	gl_renderer_surface_get_content_size(surface, &cw, &ch);
+	cw = buffer->width;
+	ch = buffer->height;
 
 	switch (buffer->type) {
 	case WESTON_BUFFER_SOLID:
@@ -3745,8 +3730,6 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.flush_damage = gl_renderer_flush_damage;
 	gr->base.attach = gl_renderer_attach;
 	gr->base.destroy = gl_renderer_destroy;
-	gr->base.surface_get_content_size =
-		gl_renderer_surface_get_content_size;
 	gr->base.surface_copy_content = gl_renderer_surface_copy_content;
 	gr->base.fill_buffer_info = gl_renderer_fill_buffer_info;
 

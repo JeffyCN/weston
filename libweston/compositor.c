@@ -4580,8 +4580,7 @@ weston_surface_set_label_func(struct weston_surface *surface,
  *
  * Retrieves the raw surface content size in pixels for the given surface.
  * This is the whole content size in buffer pixels. If the surface
- * has no content or the renderer does not implement this feature,
- * zeroes are returned.
+ * has no content, zeroes are returned.
  *
  * This function is used to determine the buffer size needed for
  * a weston_surface_copy_content() call.
@@ -4590,15 +4589,15 @@ WL_EXPORT void
 weston_surface_get_content_size(struct weston_surface *surface,
 				int *width, int *height)
 {
-	struct weston_renderer *rer = surface->compositor->renderer;
+	struct weston_buffer *buffer = surface->buffer_ref.buffer;
 
-	if (!rer->surface_get_content_size) {
+	if (buffer) {
+		*width = buffer->width;
+		*height = buffer->height;
+	} else {
 		*width = 0;
 		*height = 0;
-		return;
 	}
-
-	rer->surface_get_content_size(surface, width, height);
 }
 
 /** Get the bounding box of a surface and its subsurfaces
