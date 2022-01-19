@@ -2315,7 +2315,9 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 						 attribs);
 		if (!gb->images[i]) {
 			weston_log("failed to create img for plane %d\n", i);
-			continue;
+			while (--i >= 0)
+				egl_image_unref(gb->images[i]);
+			return;
 		}
 
 		glActiveTexture(GL_TEXTURE0 + i);
