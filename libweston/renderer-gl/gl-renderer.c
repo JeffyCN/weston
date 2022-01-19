@@ -174,9 +174,7 @@ struct gl_buffer_state {
 	bool needs_full_upload;
 	pixman_region32_t texture_damage;
 
-	/* These are only used by SHM surfaces to detect when we need
-	 * to do a full upload to specify a new internal texture
-	 * format */
+	/* Only needed between attach() and flush_damage() */
 	GLenum gl_format[3];
 	GLenum gl_pixel_type;
 
