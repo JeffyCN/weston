@@ -2158,28 +2158,30 @@ unsupported:
 	/* Only allocate a texture if it doesn't match existing one.
 	 * If a switch from DRM allocated buffer to a SHM buffer is
 	 * happening, we need to allocate a new texture buffer. */
-	if (pitch != gb->pitch ||
-	    buffer->height != gb->height ||
-	    gl_format[0] != gb->gl_format[0] ||
-	    gl_format[1] != gb->gl_format[1] ||
-	    gl_format[2] != gb->gl_format[2] ||
-	    gl_pixel_type != gb->gl_pixel_type ||
-	    gb->buffer_type != BUFFER_TYPE_SHM) {
-		gb->pitch = pitch;
-		gb->height = buffer->height;
-		gb->gl_format[0] = gl_format[0];
-		gb->gl_format[1] = gl_format[1];
-		gb->gl_format[2] = gl_format[2];
-		gb->gl_pixel_type = gl_pixel_type;
-		gb->buffer_type = BUFFER_TYPE_SHM;
-		gb->needs_full_upload = true;
-		gb->y_inverted = true;
-		gb->direct_display = false;
-
-		gs->surface = es;
-
-		ensure_textures(gs, GL_TEXTURE_2D, num_planes);
+	if (pitch == gb->pitch &&
+	    buffer->height == gb->height &&
+	    gl_format[0] == gb->gl_format[0] &&
+	    gl_format[1] == gb->gl_format[1] &&
+	    gl_format[2] == gb->gl_format[2] &&
+	    gl_pixel_type == gb->gl_pixel_type &&
+	    gb->buffer_type == BUFFER_TYPE_SHM) {
+		return true;
 	}
+
+	gb->pitch = pitch;
+	gb->height = buffer->height;
+	gb->gl_format[0] = gl_format[0];
+	gb->gl_format[1] = gl_format[1];
+	gb->gl_format[2] = gl_format[2];
+	gb->gl_pixel_type = gl_pixel_type;
+	gb->buffer_type = BUFFER_TYPE_SHM;
+	gb->needs_full_upload = true;
+	gb->y_inverted = true;
+	gb->direct_display = false;
+
+	gs->surface = es;
+
+	ensure_textures(gs, GL_TEXTURE_2D, num_planes);
 
 	return true;
 }
