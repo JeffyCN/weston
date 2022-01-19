@@ -186,7 +186,6 @@ struct gl_buffer_state {
 
 	enum buffer_type buffer_type;
 	int pitch; /* in pixels */
-	int height; /* in pixels */
 	bool y_inverted;
 	bool direct_display;
 
@@ -577,6 +576,7 @@ texture_region(struct weston_view *ev,
 {
 	struct gl_surface_state *gs = get_surface_state(ev->surface);
 	struct gl_buffer_state *gb = &gs->buffer;
+	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	struct weston_compositor *ec = ev->surface->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	GLfloat *v, inv_width, inv_height;
@@ -603,7 +603,7 @@ texture_region(struct weston_view *ev,
 	vtxcnt = wl_array_add(&gr->vtxcnt, nrects * nsurf * sizeof *vtxcnt);
 
 	inv_width = 1.0 / gb->pitch;
-	inv_height = 1.0 / gb->height;
+	inv_height = 1.0 / buffer->height;
 
 	for (i = 0; i < nrects; i++) {
 		pixman_box32_t *rect = &rects[i];
@@ -646,7 +646,7 @@ texture_region(struct weston_view *ev,
 				if (gb->y_inverted) {
 					*(v++) = by * inv_height;
 				} else {
-					*(v++) = (gb->height - by) * inv_height;
+					*(v++) = (buffer->height - by) * inv_height;
 				}
 			}
 
@@ -1988,6 +1988,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	struct gl_surface_state *gs = get_surface_state(es);
 	struct gl_buffer_state *gb = &gs->buffer;
 	struct wl_shm_buffer *shm_buffer = buffer->shm_buffer;
+	struct weston_buffer *old_buffer = gs->buffer_ref.buffer;
 	GLenum gl_format[3] = {0, 0, 0};
 	GLenum gl_pixel_type;
 	int pitch;
@@ -2158,8 +2159,9 @@ unsupported:
 	/* Only allocate a texture if it doesn't match existing one.
 	 * If a switch from DRM allocated buffer to a SHM buffer is
 	 * happening, we need to allocate a new texture buffer. */
-	if (pitch == gb->pitch &&
-	    buffer->height == gb->height &&
+	if (old_buffer &&
+	    pitch == gb->pitch &&
+	    buffer->height == old_buffer->height &&
 	    gl_format[0] == gb->gl_format[0] &&
 	    gl_format[1] == gb->gl_format[1] &&
 	    gl_format[2] == gb->gl_format[2] &&
@@ -2169,7 +2171,6 @@ unsupported:
 	}
 
 	gb->pitch = pitch;
-	gb->height = buffer->height;
 	gb->gl_format[0] = gl_format[0];
 	gb->gl_format[1] = gl_format[1];
 	gb->gl_format[2] = gl_format[2];
@@ -2330,7 +2331,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	}
 
 	gb->pitch = buffer->width;
-	gb->height = buffer->height;
 	gb->buffer_type = BUFFER_TYPE_EGL;
 	gb->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
 
@@ -2912,7 +2912,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	gb->num_images = 0;
 
 	gb->pitch = buffer->width;
-	gb->height = buffer->height;
 	gb->buffer_type = BUFFER_TYPE_EGL;
 	gb->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
 	gb->direct_display = dmabuf->direct_display;
@@ -3021,7 +3020,6 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 	gb->color[3] = buffer->solid.a;
 	gb->buffer_type = BUFFER_TYPE_SOLID;
 	gb->pitch = 1;
-	gb->height = 1;
 
 	gb->shader_variant = SHADER_VARIANT_SOLID;
 
@@ -3099,7 +3097,7 @@ gl_renderer_surface_get_content_size(struct weston_surface *surface,
 		*height = 0;
 	} else {
 		*width = gb->pitch;
-		*height = gb->height;
+		*height = gs->buffer_ref.buffer->height;
 	}
 }
 
