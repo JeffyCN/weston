@@ -186,7 +186,6 @@ struct gl_buffer_state {
 
 	enum buffer_type buffer_type;
 	int pitch; /* in pixels */
-	bool y_inverted;
 	bool direct_display;
 
 	/* Extension needed for SHM YUV texture */
@@ -643,7 +642,7 @@ texture_region(struct weston_view *ev,
 							       sx, sy,
 							       &bx, &by);
 				*(v++) = bx * inv_width;
-				if (gb->y_inverted) {
+				if (buffer->buffer_origin == ORIGIN_TOP_LEFT) {
 					*(v++) = by * inv_height;
 				} else {
 					*(v++) = (buffer->height - by) * inv_height;
@@ -2177,7 +2176,6 @@ unsupported:
 	gb->gl_pixel_type = gl_pixel_type;
 	gb->buffer_type = BUFFER_TYPE_SHM;
 	gb->needs_full_upload = true;
-	gb->y_inverted = true;
 	gb->direct_display = false;
 
 	gs->surface = es;
@@ -2332,7 +2330,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 
 	gb->pitch = buffer->width;
 	gb->buffer_type = BUFFER_TYPE_EGL;
-	gb->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
 
 	return true;
 }
@@ -2913,7 +2910,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 
 	gb->pitch = buffer->width;
 	gb->buffer_type = BUFFER_TYPE_EGL;
-	gb->y_inverted = (buffer->buffer_origin == ORIGIN_TOP_LEFT);
 	gb->direct_display = dmabuf->direct_display;
 	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 
@@ -3080,7 +3076,6 @@ out:
 	glDeleteTextures(gs->num_textures, gs->textures);
 	gs->num_textures = 0;
 	gb->buffer_type = BUFFER_TYPE_NULL;
-	gb->y_inverted = true;
 	gb->direct_display = false;
 	es->is_opaque = false;
 }
@@ -3152,6 +3147,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct gl_buffer_state *gb = &gs->buffer;
+	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	int cw, ch;
 	GLuint fbo;
 	GLuint tex;
@@ -3167,7 +3163,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 		*(uint32_t *)target = pack_color(format, gb->color);
 		return 0;
 	case BUFFER_TYPE_SHM:
-		gl_renderer_flush_damage(surface, gs->buffer_ref.buffer);
+		gl_renderer_flush_damage(surface, buffer);
 		/* fall through */
 	case BUFFER_TYPE_EGL:
 		break;
@@ -3195,7 +3191,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 
 	glViewport(0, 0, cw, ch);
 	glDisable(GL_BLEND);
-	if (gb->y_inverted)
+	if (buffer->buffer_origin == ORIGIN_TOP_LEFT)
 		ARRAY_COPY(sconf.projection.d, projmat_normal);
 	else
 		ARRAY_COPY(sconf.projection.d, projmat_yinvert);
@@ -3298,7 +3294,6 @@ gl_renderer_create_surface(struct weston_surface *surface)
 	 * by zero there.
 	 */
 	gb->pitch = 1;
-	gb->y_inverted = true;
 	gb->direct_display = false;
 
 	gs->surface = surface;
