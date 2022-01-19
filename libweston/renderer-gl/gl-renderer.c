@@ -3023,10 +3023,6 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 
 	gb->shader_variant = SHADER_VARIANT_SOLID;
 
-	weston_buffer_reference(&gs->buffer_ref, NULL,
-				BUFFER_WILL_NOT_BE_ACCESSED);
-	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
-
 	return true;
 }
 
@@ -3037,12 +3033,6 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	struct gl_buffer_state *gb = &gs->buffer;
 	bool ret = false;
 	int i;
-
-	weston_buffer_reference(&gs->buffer_ref, buffer,
-				buffer ? BUFFER_MAY_BE_ACCESSED :
-					 BUFFER_WILL_NOT_BE_ACCESSED);
-	weston_buffer_release_reference(&gs->buffer_release_ref,
-					es->buffer_release_ref.buffer_release);
 
 	if (!buffer)
 		goto out;
@@ -3064,17 +3054,24 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		break;
 	}
 
-	if (ret)
-		return;
+	if (!ret) {
+		weston_log("unhandled buffer type!\n");
+		weston_buffer_send_server_error(buffer,
+			"disconnecting due to unhandled buffer type");
+		goto out;
+	}
 
+	weston_buffer_reference(&gs->buffer_ref, buffer,
+				BUFFER_MAY_BE_ACCESSED);
+	weston_buffer_release_reference(&gs->buffer_release_ref,
+					es->buffer_release_ref.buffer_release);
+	return;
+
+out:
 	weston_buffer_reference(&gs->buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
-	weston_log("unhandled buffer type!\n");
-	weston_buffer_send_server_error(buffer,
-		"disconnecting due to unhandled buffer type");
 
-out:
 	for (i = 0; i < gb->num_images; i++) {
 		egl_image_unref(gb->images[i]);
 		gb->images[i] = NULL;
