@@ -106,13 +106,6 @@ struct gl_output_state {
 	struct gl_fbo_texture shadow;
 };
 
-enum buffer_type {
-	BUFFER_TYPE_NULL,
-	BUFFER_TYPE_SOLID, /* internal solid color surfaces without a buffer */
-	BUFFER_TYPE_SHM,
-	BUFFER_TYPE_EGL
-};
-
 struct gl_renderer;
 
 struct egl_image {
@@ -183,7 +176,6 @@ struct gl_buffer_state {
 	int num_images;
 	enum gl_shader_texture_variant shader_variant;
 
-	enum buffer_type buffer_type;
 	bool direct_display;
 
 	/* Extension needed for SHM YUV texture */
@@ -2164,7 +2156,7 @@ unsupported:
 	    gl_format[1] == gb->gl_format[1] &&
 	    gl_format[2] == gb->gl_format[2] &&
 	    gl_pixel_type == gb->gl_pixel_type &&
-	    gb->buffer_type == BUFFER_TYPE_SHM) {
+	    old_buffer->type == WESTON_BUFFER_SHM) {
 		return true;
 	}
 
@@ -2172,7 +2164,6 @@ unsupported:
 	gb->gl_format[1] = gl_format[1];
 	gb->gl_format[2] = gl_format[2];
 	gb->gl_pixel_type = gl_pixel_type;
-	gb->buffer_type = BUFFER_TYPE_SHM;
 	gb->needs_full_upload = true;
 	gb->direct_display = false;
 
@@ -2325,8 +2316,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 		glBindTexture(target, gs->textures[i]);
 		gr->image_target_texture_2d(target, gb->images[i]->image);
 	}
-
-	gb->buffer_type = BUFFER_TYPE_EGL;
 
 	return true;
 }
@@ -2905,7 +2894,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 		egl_image_unref(gb->images[i]);
 	gb->num_images = 0;
 
-	gb->buffer_type = BUFFER_TYPE_EGL;
 	gb->direct_display = dmabuf->direct_display;
 	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 
@@ -3010,7 +2998,6 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 	gb->color[1] = buffer->solid.g;
 	gb->color[2] = buffer->solid.b;
 	gb->color[3] = buffer->solid.a;
-	gb->buffer_type = BUFFER_TYPE_SOLID;
 
 	gb->shader_variant = SHADER_VARIANT_SOLID;
 
@@ -3070,7 +3057,6 @@ out:
 	gb->num_images = 0;
 	glDeleteTextures(gs->num_textures, gs->textures);
 	gs->num_textures = 0;
-	gb->buffer_type = BUFFER_TYPE_NULL;
 	gb->direct_display = false;
 	es->is_opaque = false;
 }
@@ -3080,9 +3066,9 @@ gl_renderer_surface_get_content_size(struct weston_surface *surface,
 				     int *width, int *height)
 {
 	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 
-	if (gb->buffer_type == BUFFER_TYPE_NULL) {
+	if (!buffer) {
 		*width = 0;
 		*height = 0;
 	} else {
@@ -3149,18 +3135,19 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	GLenum status;
 	int ret = -1;
 
+	assert(buffer);
+
 	gl_renderer_surface_get_content_size(surface, &cw, &ch);
 
-	switch (gb->buffer_type) {
-	case BUFFER_TYPE_NULL:
-		return -1;
-	case BUFFER_TYPE_SOLID:
+	switch (buffer->type) {
+	case WESTON_BUFFER_SOLID:
 		*(uint32_t *)target = pack_color(format, gb->color);
 		return 0;
-	case BUFFER_TYPE_SHM:
+	case WESTON_BUFFER_SHM:
 		gl_renderer_flush_damage(surface, buffer);
 		/* fall through */
-	case BUFFER_TYPE_EGL:
+	case WESTON_BUFFER_DMABUF:
+	case WESTON_BUFFER_RENDERER_OPAQUE:
 		break;
 	}
 
