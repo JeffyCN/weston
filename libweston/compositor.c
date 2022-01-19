@@ -2656,6 +2656,7 @@ weston_surface_attach_solid(struct weston_surface *surface,
 		surface->is_opaque = true;
 		pixman_region32_init_rect(&surface->opaque, 0, 0, w, h);
 	} else {
+		surface->is_opaque = false;
 		pixman_region32_init(&surface->opaque);
 	}
 }
@@ -2688,6 +2689,9 @@ weston_surface_attach(struct weston_surface *surface,
 
 	weston_surface_calculate_size_from_buffer(surface);
 	weston_presentation_feedback_discard_list(&surface->feedback_list);
+
+	if (buffer)
+		surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 }
 
 /** weston_compositor_damage_all

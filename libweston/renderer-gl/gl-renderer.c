@@ -1994,21 +1994,18 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
-		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_ARGB8888:
 		gb->shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
-		es->is_opaque = false;
 		break;
 	case WL_SHM_FORMAT_RGB565:
 		gb->shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_format[0] = GL_RGB;
 		gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
-		es->is_opaque = true;
 		break;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 	case WL_SHM_FORMAT_ABGR2101010:
@@ -2019,7 +2016,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
 		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
-		es->is_opaque = false;
 		break;
 	case WL_SHM_FORMAT_XBGR2101010:
 		if (!gr->has_texture_type_2_10_10_10_rev) {
@@ -2029,7 +2025,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
 		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
-		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_ABGR16161616F:
 		if (!gr->gl_supports_color_transforms)
@@ -2038,7 +2033,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16F;
 		gl_pixel_type = GL_HALF_FLOAT;
-		es->is_opaque = false;
 		break;
 	case WL_SHM_FORMAT_XBGR16161616F:
 		if (!gr->gl_supports_color_transforms)
@@ -2047,7 +2041,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16F;
 		gl_pixel_type = GL_HALF_FLOAT;
-		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_ABGR16161616:
 		if (!gr->has_texture_norm16)
@@ -2056,7 +2049,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16_EXT;
 		gl_pixel_type = GL_UNSIGNED_SHORT;
-		es->is_opaque = false;
 		break;
 	case WL_SHM_FORMAT_XBGR16161616:
 		if (!gr->has_texture_norm16)
@@ -2065,7 +2057,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		gl_format[0] = GL_RGBA16_EXT;
 		gl_pixel_type = GL_UNSIGNED_SHORT;
-		es->is_opaque = true;
 		break;
 #endif
 	case WL_SHM_FORMAT_YUV420:
@@ -2090,7 +2081,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 			gl_format[1] = GL_LUMINANCE;
 			gl_format[2] = GL_LUMINANCE;
 		}
-		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_NV12:
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
@@ -2109,7 +2099,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 			gl_format[0] = GL_LUMINANCE;
 			gl_format[1] = GL_LUMINANCE_ALPHA;
 		}
-		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_YUYV:
 		gb->shader_variant = SHADER_VARIANT_Y_XUXV;
@@ -2124,7 +2113,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		else
 			gl_format[0] = GL_LUMINANCE_ALPHA;
 		gl_format[1] = GL_BGRA_EXT;
-		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_XYUV8888:
 		/*
@@ -2135,7 +2123,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		gl_format[0] = GL_RGBA;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
-		es->is_opaque = true;
 		break;
 	default:
 unsupported:
@@ -2251,7 +2238,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 		egl_image_unref(gb->images[i]);
 		gb->images[i] = NULL;
 	}
-	es->is_opaque = false;
 
 	if (!gr->has_bind_display ||
 	    !gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
@@ -2263,7 +2249,6 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 
 	switch (format) {
 	case EGL_TEXTURE_RGB:
-		es->is_opaque = true;
 		/* fallthrough */
 	case EGL_TEXTURE_RGBA:
 	default:
@@ -2277,17 +2262,14 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	case EGL_TEXTURE_Y_UV_WL:
 		num_planes = 2;
 		gb->shader_variant = SHADER_VARIANT_Y_UV;
-		es->is_opaque = true;
 		break;
 	case EGL_TEXTURE_Y_U_V_WL:
 		num_planes = 3;
 		gb->shader_variant = SHADER_VARIANT_Y_U_V;
-		es->is_opaque = true;
 		break;
 	case EGL_TEXTURE_Y_XUXV_WL:
 		num_planes = 2;
 		gb->shader_variant = SHADER_VARIANT_Y_XUXV;
-		es->is_opaque = true;
 		break;
 	}
 
@@ -2895,7 +2877,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	gb->num_images = 0;
 
 	gb->direct_display = dmabuf->direct_display;
-	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 
 	if (dmabuf->direct_display)
 		return true;
@@ -3058,7 +3039,6 @@ out:
 	glDeleteTextures(gs->num_textures, gs->textures);
 	gs->num_textures = 0;
 	gb->direct_display = false;
-	es->is_opaque = false;
 }
 
 static uint32_t
