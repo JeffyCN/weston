@@ -1981,13 +1981,13 @@ ensure_textures(struct gl_surface_state *gs, GLenum target, int num_textures)
 }
 
 static bool
-gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
-		       struct wl_shm_buffer *shm_buffer)
+gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct weston_compositor *ec = es->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(es);
 	struct gl_buffer_state *gb = &gs->buffer;
+	struct wl_shm_buffer *shm_buffer = buffer->shm_buffer;
 	GLenum gl_format[3] = {0, 0, 0};
 	GLenum gl_pixel_type;
 	int pitch;
@@ -2895,12 +2895,12 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 
 static bool
 gl_renderer_attach_dmabuf(struct weston_surface *surface,
-			  struct weston_buffer *buffer,
-			  struct linux_dmabuf_buffer *dmabuf)
+			  struct weston_buffer *buffer)
 {
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct gl_buffer_state *gb = &gs->buffer;
+	struct linux_dmabuf_buffer *dmabuf = buffer->dmabuf;
 	struct dmabuf_image *image;
 	GLenum target;
 	int i;
@@ -3049,10 +3049,10 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 
 	switch (buffer->type) {
 	case WESTON_BUFFER_SHM:
-		ret = gl_renderer_attach_shm(es, buffer, buffer->shm_buffer);
+		ret = gl_renderer_attach_shm(es, buffer);
 		break;
 	case WESTON_BUFFER_DMABUF:
-		ret = gl_renderer_attach_dmabuf(es, buffer, buffer->dmabuf);
+		ret = gl_renderer_attach_dmabuf(es, buffer);
 		break;
 	case WESTON_BUFFER_RENDERER_OPAQUE:
 		ret = gl_renderer_attach_egl(es, buffer);
