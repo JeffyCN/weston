@@ -210,7 +210,7 @@ drm_plane_state_coords_for_view(struct drm_plane_state *state,
 	struct drm_output *output = state->output;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	pixman_region32_t dest_rect, src_rect;
-	pixman_box32_t *box, tbox;
+	pixman_box32_t *box;
 	float sxf1, syf1, sxf2, syf2;
 
 	if (!drm_view_transform_supported(ev, &output->base))
@@ -227,17 +227,14 @@ drm_plane_state_coords_for_view(struct drm_plane_state *state,
 	pixman_region32_init(&dest_rect);
 	pixman_region32_intersect(&dest_rect, &ev->transform.boundingbox,
 				  &output->base.region);
-	pixman_region32_translate(&dest_rect, -output->base.x, -output->base.y);
+	weston_matrix_transform_region(&dest_rect, &output->base.matrix, &dest_rect);
+
 	box = pixman_region32_extents(&dest_rect);
-	tbox = weston_transformed_rect(output->base.width,
-				       output->base.height,
-				       output->base.transform,
-				       output->base.current_scale,
-				       *box);
-	state->dest_x = tbox.x1;
-	state->dest_y = tbox.y1;
-	state->dest_w = tbox.x2 - tbox.x1;
-	state->dest_h = tbox.y2 - tbox.y1;
+
+	state->dest_x = box->x1;
+	state->dest_y = box->y1;
+	state->dest_w = box->x2 - box->x1;
+	state->dest_h = box->y2 - box->y1;
 	pixman_region32_fini(&dest_rect);
 
 	/* Now calculate the source rectangle, by finding the extents of the
