@@ -171,7 +171,7 @@ struct gl_buffer_state {
 struct gl_surface_state {
 	struct weston_surface *surface;
 
-	struct gl_buffer_state buffer;
+	struct gl_buffer_state *buffer;
 
 	/* These buffer references should really be attached to paint nodes
 	 * rather than either buffer or surface state */
@@ -356,14 +356,6 @@ egl_image_create(struct gl_renderer *gr, EGLenum target,
 	}
 
 	return img;
-}
-
-static struct egl_image*
-egl_image_ref(struct egl_image *image)
-{
-	image->refcount++;
-
-	return image;
 }
 
 static int
@@ -949,7 +941,7 @@ static void
 gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 				    struct gl_surface_state *gs)
 {
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct gl_buffer_state *gb = gs->buffer;
 	int i;
 
 	sconf->req.variant = gb->shader_variant;
@@ -999,7 +991,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 {
 	struct gl_renderer *gr = get_renderer(pnode->surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(pnode->surface);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct gl_buffer_state *gb = gs->buffer;
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	/* repaint bounding region in global coordinates: */
 	pixman_region32_t repaint;
@@ -1805,14 +1797,14 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 	const struct weston_testsuite_quirks *quirks =
 		&surface->compositor->test_data.test_quirks;
 	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct gl_buffer_state *gb = gs->buffer;
 	struct weston_view *view;
 	bool texture_used;
 	pixman_box32_t *rectangles;
 	uint8_t *data;
 	int i, j, n;
 
-	assert(buffer);
+	assert(buffer && gb);
 
 	pixman_region32_union(&gb->texture_damage,
 			      &gb->texture_damage, &surface->damage);
@@ -1912,6 +1904,7 @@ destroy_buffer_state(struct gl_buffer_state *gb)
 	for (i = 0; i < gb->num_images; i++)
 		egl_image_unref(gb->images[i]);
 
+	pixman_region32_fini(&gb->texture_damage);
 	wl_list_remove(&gb->destroy_listener.link);
 
 	free(gb);
@@ -2118,31 +2111,44 @@ unsupported:
 		return false;
 	}
 
-	gb = &gs->buffer;
-	gb->pitch = pitch;
-	gb->shader_variant = shader_variant;
-	memcpy(gb->offset, offset, sizeof(offset));
-
-	/* Only allocate a texture if it doesn't match existing one.
-	 * If a switch from DRM allocated buffer to a SHM buffer is
-	 * happening, we need to allocate a new texture buffer. */
-	if (old_buffer &&
+	/* If this surface previously had a SHM buffer, its gl_buffer_state will
+	 * be speculatively retained. Check to see if we can reuse it rather
+	 * than allocating a new one. */
+	assert(!gs->buffer ||
+	      (old_buffer && old_buffer->type == WESTON_BUFFER_SHM));
+	if (gs->buffer &&
 	    buffer->width == old_buffer->width &&
 	    buffer->height == old_buffer->height &&
-	    hsub[0] == gb->hsub[0] &&
-	    hsub[1] == gb->hsub[1] &&
-	    hsub[2] == gb->hsub[2] &&
-	    vsub[0] == gb->vsub[0] &&
-	    vsub[1] == gb->vsub[1] &&
-	    vsub[2] == gb->vsub[2] &&
-	    gl_format[0] == gb->gl_format[0] &&
-	    gl_format[1] == gb->gl_format[1] &&
-	    gl_format[2] == gb->gl_format[2] &&
-	    gl_pixel_type == gb->gl_pixel_type &&
-	    old_buffer->type == WESTON_BUFFER_SHM) {
+	    hsub[0] == gs->buffer->hsub[0] &&
+	    hsub[1] == gs->buffer->hsub[1] &&
+	    hsub[2] == gs->buffer->hsub[2] &&
+	    vsub[0] == gs->buffer->vsub[0] &&
+	    vsub[1] == gs->buffer->vsub[1] &&
+	    vsub[2] == gs->buffer->vsub[2] &&
+	    gl_format[0] == gs->buffer->gl_format[0] &&
+	    gl_format[1] == gs->buffer->gl_format[1] &&
+	    gl_format[2] == gs->buffer->gl_format[2] &&
+	    gl_pixel_type == gs->buffer->gl_pixel_type) {
+		gs->buffer->pitch = pitch;
+		gs->buffer->shader_variant = shader_variant;
+		memcpy(gs->buffer->offset, offset, sizeof(offset));
 		return true;
 	}
 
+	if (gs->buffer)
+		destroy_buffer_state(gs->buffer);
+	gs->buffer = NULL;
+
+	gb = zalloc(sizeof(*gb));
+	if (!gb)
+		return false;
+
+	wl_list_init(&gb->destroy_listener.link);
+	pixman_region32_init(&gb->texture_damage);
+
+	gb->pitch = pitch;
+	gb->shader_variant = shader_variant;
+	memcpy(gb->offset, offset, sizeof(offset));
 	memcpy(gb->hsub, hsub, sizeof(hsub));
 	memcpy(gb->vsub, vsub, sizeof(vsub));
 	gb->gl_format[0] = gl_format[0];
@@ -2151,6 +2157,7 @@ unsupported:
 	gb->gl_pixel_type = gl_pixel_type;
 	gb->needs_full_upload = true;
 
+	gs->buffer = gb;
 	gs->surface = es;
 
 	ensure_textures(gs, GL_TEXTURE_2D, num_planes);
@@ -2172,6 +2179,8 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 
 	if (!gb)
 		return false;
+
+	pixman_region32_init(&gb->texture_damage);
 
 	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
 	ret &= gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
@@ -2273,33 +2282,17 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	struct weston_compositor *ec = es->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(es);
-	struct gl_buffer_state *gb;
+	struct gl_buffer_state *gb = buffer->renderer_private;
 	GLenum target;
 	int i;
 
-	assert(buffer->renderer_private);
+	assert(gb);
 
-	/* The old gl_buffer_state stored in the gl_surface_state might still
-	 * hold a ref to some other EGLImages: make sure we drop those. */
-	for (i = 0; i < gs->buffer.num_images; i++) {
-		egl_image_unref(gs->buffer.images[i]);
-		gs->buffer.images[i] = NULL;
-	}
-
-	/* Copy over our gl_buffer_state */
-	memcpy(&gs->buffer, buffer->renderer_private, sizeof(gs->buffer));
-	gb = &gs->buffer;
+	gs->buffer = gb;
 
 	target = gl_shader_texture_variant_get_target(gb->shader_variant);
 	ensure_textures(gs, target, gb->num_images);
 	for (i = 0; i < gb->num_images; i++) {
-		/* The gl_buffer_state stored in buffer->renderer_private lives
-		 * as long as the buffer does, and holds a ref to the EGLImage
-		 * for this buffer; in copying to the gl_buffer_state inlined
-		 * as part of gl_surface_state, we take an extra ref, which is
-		 * destroyed on different attachments, e.g. at the start of
-		 * this function. */
-		gb->images[i] = egl_image_ref(gb->images[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(target, gs->textures[i]);
 		gr->image_target_texture_2d(target, gb->images[i]->image);
@@ -2705,6 +2698,7 @@ import_dmabuf(struct gl_renderer *gr,
 	if (!gb)
 		return NULL;
 
+	pixman_region32_init(&gb->texture_damage);
 	wl_list_init(&gb->destroy_listener.link);
 
 	egl_image = import_simple_dmabuf(gr, &dmabuf->attributes);
@@ -2881,10 +2875,6 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	GLenum target;
 	int i;
 
-	for (i = 0; i < gs->buffer.num_images; i++)
-		egl_image_unref(gs->buffer.images[i]);
-	gs->buffer.num_images = 0;
-
 	if (buffer->direct_display)
 		return true;
 
@@ -2905,21 +2895,14 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	assert(linux_dmabuf_buffer_get_user_data(dmabuf) == NULL);
 	gb = buffer->renderer_private;
 
-	/* The gl_buffer_state stored in the weston_buffer holds a reference
-	 * on the EGLImages; we take another ref when we copy into the
-	 * gl_surface_state so we don't lose track of anything. This is
-	 * temporary and will be removed when gl_surface_state starts
-	 * referencing rather than inlining the gl_buffer_state. */
-	memcpy(&gs->buffer, gb, sizeof(*gb));
-	for (i = 0; i < gb->num_images; ++i)
-		gs->buffer.images[i] = egl_image_ref(gs->buffer.images[i]);
+	gs->buffer = gb;
 
-	target = gl_shader_texture_variant_get_target(gs->buffer.shader_variant);
+	target = gl_shader_texture_variant_get_target(gb->shader_variant);
 	ensure_textures(gs, target, gb->num_images);
-	for (i = 0; i < gs->buffer.num_images; ++i) {
+	for (i = 0; i < gb->num_images; ++i) {
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(target, gs->textures[i]);
-		gr->image_target_texture_2d(target, gs->buffer.images[i]->image);
+		gr->image_target_texture_2d(target, gb->images[i]->image);
 	}
 
 	return true;
@@ -2995,7 +2978,19 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 			 struct weston_buffer *buffer)
 {
 	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct gl_buffer_state *gb = buffer->renderer_private;
+
+	if (gb) {
+		gs->buffer = gb;
+		return true;
+	}
+
+	gb = zalloc(sizeof(*gb));
+	pixman_region32_init(&gb->texture_damage);
+
+	buffer->renderer_private = gb;
+	gb->destroy_listener.notify = handle_buffer_destroy;
+	wl_signal_add(&buffer->destroy_signal, &gb->destroy_listener);
 
 	gb->color[0] = buffer->solid.r;
 	gb->color[1] = buffer->solid.g;
@@ -3004,6 +2999,8 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 
 	gb->shader_variant = SHADER_VARIANT_SOLID;
 
+	gs->buffer = gb;
+
 	return true;
 }
 
@@ -3011,9 +3008,23 @@ static void
 gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct gl_surface_state *gs = get_surface_state(es);
-	struct gl_buffer_state *gb = &gs->buffer;
 	bool ret = false;
-	int i;
+
+	/* SHM buffers are a little special in that they are allocated
+	 * per-surface rather than per-buffer, because we keep a shadow
+	 * copy of the SHM data in a GL texture; for these we need to
+	 * destroy the buffer state when we're switching to another
+	 * buffer type. For all the others, the gl_buffer_state comes
+	 * from the weston_buffer itself, and will only be destroyed
+	 * along with it. */
+	if (gs->buffer && gs->buffer_ref.buffer->type == WESTON_BUFFER_SHM) {
+		if (!buffer || buffer->type != WESTON_BUFFER_SHM) {
+			destroy_buffer_state(gs->buffer);
+			gs->buffer = NULL;
+		}
+	} else {
+		gs->buffer = NULL;
+	}
 
 	if (!buffer)
 		goto out;
@@ -3049,15 +3060,11 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	return;
 
 out:
+	assert(!gs->buffer);
 	weston_buffer_reference(&gs->buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
 
-	for (i = 0; i < gb->num_images; i++) {
-		egl_image_unref(gb->images[i]);
-		gb->images[i] = NULL;
-	}
-	gb->num_images = 0;
 	glDeleteTextures(gs->num_textures, gs->textures);
 	gs->num_textures = 0;
 }
@@ -3112,7 +3119,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	const GLenum gl_format = GL_RGBA; /* PIXMAN_a8b8g8r8 little-endian */
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct gl_buffer_state *gb = gs->buffer;
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	int cw, ch;
 	GLuint fbo;
@@ -3197,9 +3204,6 @@ out:
 static void
 surface_state_destroy(struct gl_surface_state *gs, struct gl_renderer *gr)
 {
-	struct gl_buffer_state *gb = &gs->buffer;
-	int i;
-
 	wl_list_remove(&gs->surface_destroy_listener.link);
 	wl_list_remove(&gs->renderer_destroy_listener.link);
 
@@ -3207,13 +3211,14 @@ surface_state_destroy(struct gl_surface_state *gs, struct gl_renderer *gr)
 
 	glDeleteTextures(gs->num_textures, gs->textures);
 
-	for (i = 0; i < gb->num_images; i++)
-		egl_image_unref(gb->images[i]);
+	if (gs->buffer && gs->buffer_ref.buffer->type == WESTON_BUFFER_SHM)
+		destroy_buffer_state(gs->buffer);
+	gs->buffer = NULL;
 
 	weston_buffer_reference(&gs->buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
-	pixman_region32_fini(&gb->texture_damage);
+
 	free(gs);
 }
 
@@ -3249,13 +3254,11 @@ static int
 gl_renderer_create_surface(struct weston_surface *surface)
 {
 	struct gl_surface_state *gs;
-	struct gl_buffer_state *gb;
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 
 	gs = zalloc(sizeof *gs);
 	if (gs == NULL)
 		return -1;
-	gb = &gs->buffer;
 
 	/* A buffer is never attached to solid color surfaces, yet
 	 * they still go through texcoord computations. Do not divide
@@ -3263,7 +3266,6 @@ gl_renderer_create_surface(struct weston_surface *surface)
 	 */
 	gs->surface = surface;
 
-	pixman_region32_init(&gb->texture_damage);
 	surface->renderer_state = gs;
 
 	gs->surface_destroy_listener.notify =
