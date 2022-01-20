@@ -180,6 +180,8 @@ struct gl_buffer_state {
 	int offset[3]; /* offset per plane */
 	int hsub[3];  /* horizontal subsampling per plane */
 	int vsub[3];  /* vertical subsampling per plane */
+
+	struct wl_listener destroy_listener;
 };
 
 struct gl_surface_state {
@@ -1945,6 +1947,32 @@ done:
 }
 
 static void
+destroy_buffer_state(struct gl_buffer_state *gb)
+{
+	int i;
+
+	for (i = 0; i < gb->num_images; i++)
+		egl_image_unref(gb->images[i]);
+
+	wl_list_remove(&gb->destroy_listener.link);
+
+	free(gb);
+}
+
+static void
+handle_buffer_destroy(struct wl_listener *listener, void *data)
+{
+	struct weston_buffer *buffer = data;
+	struct gl_buffer_state *gb =
+		container_of(listener, struct gl_buffer_state, destroy_listener);
+
+	assert(gb == buffer->renderer_private);
+	buffer->renderer_private = NULL;
+
+	destroy_buffer_state(gb);
+}
+
+static void
 ensure_textures(struct gl_surface_state *gs, GLenum target, int num_textures)
 {
 	int i;
@@ -2177,10 +2205,15 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 			     struct weston_buffer *buffer)
 {
 	struct gl_renderer *gr = get_renderer(ec);
+	struct gl_buffer_state *gb = zalloc(sizeof(*gb));
 	EGLint format;
 	uint32_t fourcc;
 	EGLint y_inverted;
 	bool ret = true;
+	int i;
+
+	if (!gb)
+		return false;
 
 	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
 	ret &= gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
@@ -2189,8 +2222,11 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 				EGL_HEIGHT, &buffer->height);
 	ret &= gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
 				EGL_TEXTURE_FORMAT, &format);
-	if (!ret)
-		return false;
+	if (!ret) {
+		weston_log("eglQueryWaylandBufferWL failed\n");
+		gl_renderer_print_egl_error_state();
+		goto err_free;
+	}
 
 	/* The legacy EGL buffer interface only describes the channels we can
 	 * sample from; not their depths or order. Take a stab at something
@@ -2199,19 +2235,33 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	switch (format) {
 	case EGL_TEXTURE_RGB:
 		fourcc = DRM_FORMAT_XRGB8888;
+		gb->num_images = 1;
+		gb->shader_variant = SHADER_VARIANT_RGBA;
 		break;
-	case EGL_TEXTURE_EXTERNAL_WL:
 	case EGL_TEXTURE_RGBA:
 		fourcc = DRM_FORMAT_ARGB8888;
+		gb->num_images = 1;
+		gb->shader_variant = SHADER_VARIANT_RGBA;
+		break;
+	case EGL_TEXTURE_EXTERNAL_WL:
+		fourcc = DRM_FORMAT_ARGB8888;
+		gb->num_images = 1;
+		gb->shader_variant = SHADER_VARIANT_EXTERNAL;
 		break;
 	case EGL_TEXTURE_Y_XUXV_WL:
 		fourcc = DRM_FORMAT_YUYV;
+		gb->num_images = 2;
+		gb->shader_variant = SHADER_VARIANT_Y_XUXV;
 		break;
 	case EGL_TEXTURE_Y_UV_WL:
 		fourcc = DRM_FORMAT_NV12;
+		gb->num_images = 2;
+		gb->shader_variant = SHADER_VARIANT_Y_UV;
 		break;
 	case EGL_TEXTURE_Y_U_V_WL:
 		fourcc = DRM_FORMAT_YUV420;
+		gb->num_images = 2;
+		gb->shader_variant = SHADER_VARIANT_Y_U_V;
 		break;
 	default:
 		assert(0 && "not reached");
@@ -2230,7 +2280,33 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	else
 		buffer->buffer_origin = ORIGIN_BOTTOM_LEFT;
 
+	for (i = 0; i < gb->num_images; i++) {
+		const EGLint attribs[] = {
+			EGL_WAYLAND_PLANE_WL,	 i,
+			EGL_IMAGE_PRESERVED_KHR, EGL_TRUE,
+			EGL_NONE
+		};
+
+		gb->images[i] = egl_image_create(gr, EGL_WAYLAND_BUFFER_WL,
+						 buffer->legacy_buffer,
+						 attribs);
+		if (!gb->images[i]) {
+			weston_log("couldn't create EGLImage for plane %d\n", i);
+			goto err_img;
+		}
+	}
+
+	buffer->renderer_private = gb;
+	gb->destroy_listener.notify = handle_buffer_destroy;
+	wl_signal_add(&buffer->destroy_signal, &gb->destroy_listener);
 	return true;
+
+err_img:
+	while (--i >= 0)
+		egl_image_unref(gb->images[i]);
+err_free:
+	free(gb);
+	return false;
 }
 
 static bool
@@ -2239,72 +2315,33 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	struct weston_compositor *ec = es->compositor;
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_surface_state *gs = get_surface_state(es);
-	struct gl_buffer_state *gb = &gs->buffer;
-	EGLint attribs[5];
-	EGLint format;
+	struct gl_buffer_state *gb;
 	GLenum target;
-	int i, num_planes;
+	int i;
 
-	for (i = 0; i < gb->num_images; i++) {
-		egl_image_unref(gb->images[i]);
-		gb->images[i] = NULL;
+	assert(buffer->renderer_private);
+
+	/* The old gl_buffer_state stored in the gl_surface_state might still
+	 * hold a ref to some other EGLImages: make sure we drop those. */
+	for (i = 0; i < gs->buffer.num_images; i++) {
+		egl_image_unref(gs->buffer.images[i]);
+		gs->buffer.images[i] = NULL;
 	}
 
-	if (!gr->has_bind_display ||
-	    !gr->query_buffer(gr->egl_display, buffer->legacy_buffer,
-	                      EGL_TEXTURE_FORMAT, &format)) {
-		weston_log("eglQueryWaylandBufferWL failed\n");
-		gl_renderer_print_egl_error_state();
-		return false;
-	}
+	/* Copy over our gl_buffer_state */
+	memcpy(&gs->buffer, buffer->renderer_private, sizeof(gs->buffer));
+	gb = &gs->buffer;
 
-	switch (format) {
-	case EGL_TEXTURE_RGB:
-		/* fallthrough */
-	case EGL_TEXTURE_RGBA:
-	default:
-		num_planes = 1;
-		gb->shader_variant = SHADER_VARIANT_RGBA;
-		break;
-	case EGL_TEXTURE_EXTERNAL_WL:
-		num_planes = 1;
-		gb->shader_variant = SHADER_VARIANT_EXTERNAL;
-		break;
-	case EGL_TEXTURE_Y_UV_WL:
-		num_planes = 2;
-		gb->shader_variant = SHADER_VARIANT_Y_UV;
-		break;
-	case EGL_TEXTURE_Y_U_V_WL:
-		num_planes = 3;
-		gb->shader_variant = SHADER_VARIANT_Y_U_V;
-		break;
-	case EGL_TEXTURE_Y_XUXV_WL:
-		num_planes = 2;
-		gb->shader_variant = SHADER_VARIANT_Y_XUXV;
-		break;
-	}
-
-	gb->num_images = num_planes;
 	target = gl_shader_texture_variant_get_target(gb->shader_variant);
-	ensure_textures(gs, target, num_planes);
-	for (i = 0; i < num_planes; i++) {
-		attribs[0] = EGL_WAYLAND_PLANE_WL;
-		attribs[1] = i;
-		attribs[2] = EGL_IMAGE_PRESERVED_KHR;
-		attribs[3] = EGL_TRUE;
-		attribs[4] = EGL_NONE;
-
-		gb->images[i] = egl_image_create(gr,
-						 EGL_WAYLAND_BUFFER_WL,
-						 buffer->legacy_buffer,
-						 attribs);
-		if (!gb->images[i]) {
-			weston_log("failed to create img for plane %d\n", i);
-			while (--i >= 0)
-				egl_image_unref(gb->images[i]);
-			return false;
-		}
-
+	ensure_textures(gs, target, gb->num_images);
+	for (i = 0; i < gb->num_images; i++) {
+		/* The gl_buffer_state stored in buffer->renderer_private lives
+		 * as long as the buffer does, and holds a ref to the EGLImage
+		 * for this buffer; in copying to the gl_buffer_state inlined
+		 * as part of gl_surface_state, we take an extra ref, which is
+		 * destroyed on different attachments, e.g. at the start of
+		 * this function. */
+		gb->images[i] = egl_image_ref(gb->images[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(target, gs->textures[i]);
 		gr->image_target_texture_2d(target, gb->images[i]->image);

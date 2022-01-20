@@ -1221,6 +1221,7 @@ struct weston_buffer {
 	} buffer_origin;
 	bool direct_display;
 
+	void *renderer_private;
 	void *backend_private;
 
 	const struct pixel_format_info *pixel_format;
