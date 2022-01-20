@@ -114,11 +114,6 @@ struct egl_image {
 	int refcount;
 };
 
-enum import_type {
-	IMPORT_TYPE_INVALID,
-	IMPORT_TYPE_DIRECT,
-	IMPORT_TYPE_GL_CONVERSION
-};
 
 struct dmabuf_image {
 	struct linux_dmabuf_buffer *dmabuf;
@@ -126,7 +121,6 @@ struct dmabuf_image {
 	struct egl_image *images[3];
 	struct wl_list link;
 
-	enum import_type import_type;
 	enum gl_shader_texture_variant shader_variant;
 };
 
@@ -2749,7 +2743,6 @@ import_dmabuf(struct gl_renderer *gr,
 	if (egl_image) {
 		image->num_images = 1;
 		image->images[0] = egl_image;
-		image->import_type = IMPORT_TYPE_DIRECT;
 		target = choose_texture_target(gr, &dmabuf->attributes);
 
 		switch (target) {
@@ -2764,7 +2757,6 @@ import_dmabuf(struct gl_renderer *gr,
 			dmabuf_image_destroy(image);
 			return NULL;
 		}
-		image->import_type = IMPORT_TYPE_GL_CONVERSION;
 	}
 
 	return image;
