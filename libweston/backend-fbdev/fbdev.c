@@ -893,6 +893,8 @@ fbdev_backend_create(struct weston_compositor *compositor,
 		seat_id = param->seat_id;
 
 	weston_log("initializing fbdev backend\n");
+	weston_log("warning: the fbdev backend is deprecated, please migrate "
+		   "to the DRM backend\n");
 
 	backend = zalloc(sizeof *backend);
 	if (backend == NULL)
