@@ -114,16 +114,6 @@ struct egl_image {
 	int refcount;
 };
 
-
-struct dmabuf_image {
-	struct linux_dmabuf_buffer *dmabuf;
-	int num_images;
-	struct egl_image *images[3];
-	struct wl_list link;
-
-	enum gl_shader_texture_variant shader_variant;
-};
-
 struct dmabuf_format {
 	uint32_t format;
 	struct wl_list link;
@@ -401,32 +391,6 @@ egl_image_unref(struct egl_image *image)
 	free(image);
 
 	return 0;
-}
-
-static struct dmabuf_image*
-dmabuf_image_create(void)
-{
-	struct dmabuf_image *img;
-
-	img = zalloc(sizeof *img);
-	wl_list_init(&img->link);
-
-	return img;
-}
-
-static void
-dmabuf_image_destroy(struct dmabuf_image *image)
-{
-	int i;
-
-	for (i = 0; i < image->num_images; ++i)
-		egl_image_unref(image->images[i]);
-
-	if (image->dmabuf)
-		linux_dmabuf_buffer_set_user_data(image->dmabuf, NULL, NULL);
-
-	wl_list_remove(&image->link);
-	free(image);
 }
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -2347,9 +2311,11 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 static void
 gl_renderer_destroy_dmabuf(struct linux_dmabuf_buffer *dmabuf)
 {
-	struct dmabuf_image *image = linux_dmabuf_buffer_get_user_data(dmabuf);
+	struct gl_buffer_state *gb =
+		linux_dmabuf_buffer_get_user_data(dmabuf);
 
-	dmabuf_image_destroy(image);
+	linux_dmabuf_buffer_set_user_data(dmabuf, NULL, NULL);
+	destroy_buffer_state(gb);
 }
 
 static struct egl_image *
@@ -2573,14 +2539,13 @@ import_dmabuf_single_plane(struct gl_renderer *gr,
 }
 
 static bool
-import_yuv_dmabuf(struct gl_renderer *gr,
-                  struct dmabuf_image *image)
+import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
+		  struct dmabuf_attributes *attributes)
 {
 	unsigned i;
 	int j;
 	int ret;
 	struct yuv_format_descriptor *format = NULL;
-	struct dmabuf_attributes *attributes = &image->dmabuf->attributes;
 	char fmt[4];
 
 	for (i = 0; i < ARRAY_LENGTH(yuv_formats); ++i) {
@@ -2607,31 +2572,32 @@ import_yuv_dmabuf(struct gl_renderer *gr,
 	}
 
 	for (j = 0; j < format->output_planes; ++j) {
-		image->images[j] = import_dmabuf_single_plane(gr, attributes,
-		                                              &format->plane[j]);
-		if (!image->images[j]) {
-			while (j) {
-				ret = egl_image_unref(image->images[--j]);
+		gb->images[j] = import_dmabuf_single_plane(gr, attributes,
+		                                           &format->plane[j]);
+		if (!gb->images[j]) {
+			while (--j >= 0) {
+				ret = egl_image_unref(gb->images[j]);
 				assert(ret == 0);
+				gb->images[j] = NULL;
 			}
 			return false;
 		}
 	}
 
-	image->num_images = format->output_planes;
+	gb->num_images = format->output_planes;
 
 	switch (format->texture_type) {
 	case TEXTURE_Y_XUXV_WL:
-		image->shader_variant = SHADER_VARIANT_Y_XUXV;
+		gb->shader_variant = SHADER_VARIANT_Y_XUXV;
 		break;
 	case TEXTURE_Y_UV_WL:
-		image->shader_variant = SHADER_VARIANT_Y_UV;
+		gb->shader_variant = SHADER_VARIANT_Y_UV;
 		break;
 	case TEXTURE_Y_U_V_WL:
-		image->shader_variant = SHADER_VARIANT_Y_U_V;
+		gb->shader_variant = SHADER_VARIANT_Y_U_V;
 		break;
 	case TEXTURE_XYUV_WL:
-		image->shader_variant = SHADER_VARIANT_XYUV;
+		gb->shader_variant = SHADER_VARIANT_XYUV;
 		break;
 	default:
 		assert(false);
@@ -2725,41 +2691,46 @@ choose_texture_target(struct gl_renderer *gr,
 	}
 }
 
-static struct dmabuf_image *
+static struct gl_buffer_state *
 import_dmabuf(struct gl_renderer *gr,
 	      struct linux_dmabuf_buffer *dmabuf)
 {
 	struct egl_image *egl_image;
-	struct dmabuf_image *image;
-	GLenum target;
+	struct gl_buffer_state *gb = zalloc(sizeof(*gb));
 
 	if (!pixel_format_get_info(dmabuf->attributes.format))
 		return NULL;
 
-	image = dmabuf_image_create();
-	image->dmabuf = dmabuf;
+	gb = zalloc(sizeof(*gb));
+	if (!gb)
+		return NULL;
+
+	wl_list_init(&gb->destroy_listener.link);
 
 	egl_image = import_simple_dmabuf(gr, &dmabuf->attributes);
 	if (egl_image) {
-		image->num_images = 1;
-		image->images[0] = egl_image;
-		target = choose_texture_target(gr, &dmabuf->attributes);
+		GLenum target = choose_texture_target(gr, &dmabuf->attributes);
+
+		gb->num_images = 1;
+		gb->images[0] = egl_image;
 
 		switch (target) {
 		case GL_TEXTURE_2D:
-			image->shader_variant = SHADER_VARIANT_RGBA;
+			gb->shader_variant = SHADER_VARIANT_RGBA;
 			break;
 		default:
-			image->shader_variant = SHADER_VARIANT_EXTERNAL;
+			gb->shader_variant = SHADER_VARIANT_EXTERNAL;
 		}
-	} else {
-		if (!import_yuv_dmabuf(gr, image)) {
-			dmabuf_image_destroy(image);
-			return NULL;
-		}
+
+		return gb;
 	}
 
-	return image;
+	if (!import_yuv_dmabuf(gr, gb, &dmabuf->attributes)) {
+		destroy_buffer_state(gb);
+		return NULL;
+	}
+
+	return gb;
 }
 
 static void
@@ -2868,7 +2839,7 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 			  struct linux_dmabuf_buffer *dmabuf)
 {
 	struct gl_renderer *gr = get_renderer(ec);
-	struct dmabuf_image *image;
+	struct gl_buffer_state *gb;
 	int i;
 
 	assert(gr->has_dmabuf_import);
@@ -2889,12 +2860,11 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 	if (dmabuf->attributes.flags & ~ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT)
 		return false;
 
-	image = import_dmabuf(gr, dmabuf);
-	if (!image)
+	gb = import_dmabuf(gr, dmabuf);
+	if (!gb)
 		return false;
 
-	wl_list_insert(&gr->dmabuf_images, &image->link);
-	linux_dmabuf_buffer_set_user_data(dmabuf, image,
+	linux_dmabuf_buffer_set_user_data(dmabuf, gb,
 		gl_renderer_destroy_dmabuf);
 
 	return true;
@@ -2906,37 +2876,51 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 {
 	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_buffer_state *gb = &gs->buffer;
+	struct gl_buffer_state *gb;
 	struct linux_dmabuf_buffer *dmabuf = buffer->dmabuf;
-	struct dmabuf_image *image;
 	GLenum target;
 	int i;
 
-	for (i = 0; i < gb->num_images; i++)
-		egl_image_unref(gb->images[i]);
-	gb->num_images = 0;
+	for (i = 0; i < gs->buffer.num_images; i++)
+		egl_image_unref(gs->buffer.images[i]);
+	gs->buffer.num_images = 0;
 
 	if (buffer->direct_display)
 		return true;
 
-	image = linux_dmabuf_buffer_get_user_data(dmabuf);
-
-	/* The dmabuf_image should have been created during the import */
-	assert(image != NULL);
-
-	gb->num_images = image->num_images;
-	for (i = 0; i < gb->num_images; ++i)
-		gb->images[i] = egl_image_ref(image->images[i]);
-
-	target = gl_shader_texture_variant_get_target(image->shader_variant);
-	ensure_textures(gs, target, gb->num_images);
-	for (i = 0; i < gb->num_images; ++i) {
-		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(target, gs->textures[i]);
-		gr->image_target_texture_2d(target, gb->images[i]->image);
+	/* Thanks to linux-dmabuf being totally independent of libweston,
+	 * the first time a dmabuf is attached, the gl_buffer_state will
+	 * only be set as userdata on the dmabuf, not on the weston_buffer.
+	 * When this happens, steal it away into the weston_buffer. */
+	if (!buffer->renderer_private) {
+		gb = linux_dmabuf_buffer_get_user_data(dmabuf);
+		assert(gb);
+		linux_dmabuf_buffer_set_user_data(dmabuf, NULL, NULL);
+		buffer->renderer_private = gb;
+		gb->destroy_listener.notify = handle_buffer_destroy;
+		wl_signal_add(&buffer->destroy_signal, &gb->destroy_listener);
 	}
 
-	gb->shader_variant = image->shader_variant;
+	assert(buffer->renderer_private);
+	assert(linux_dmabuf_buffer_get_user_data(dmabuf) == NULL);
+	gb = buffer->renderer_private;
+
+	/* The gl_buffer_state stored in the weston_buffer holds a reference
+	 * on the EGLImages; we take another ref when we copy into the
+	 * gl_surface_state so we don't lose track of anything. This is
+	 * temporary and will be removed when gl_surface_state starts
+	 * referencing rather than inlining the gl_buffer_state. */
+	memcpy(&gs->buffer, gb, sizeof(*gb));
+	for (i = 0; i < gb->num_images; ++i)
+		gs->buffer.images[i] = egl_image_ref(gs->buffer.images[i]);
+
+	target = gl_shader_texture_variant_get_target(gs->buffer.shader_variant);
+	ensure_textures(gs, target, gb->num_images);
+	for (i = 0; i < gs->buffer.num_images; ++i) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(target, gs->textures[i]);
+		gr->image_target_texture_2d(target, gs->buffer.images[i]->image);
+	}
 
 	return true;
 }
@@ -3610,7 +3594,6 @@ static void
 gl_renderer_destroy(struct weston_compositor *ec)
 {
 	struct gl_renderer *gr = get_renderer(ec);
-	struct dmabuf_image *image, *next;
 	struct dmabuf_format *format, *next_format;
 
 	wl_signal_emit(&gr->destroy_signal, gr);
@@ -3626,9 +3609,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	eglMakeCurrent(gr->egl_display,
 		       EGL_NO_SURFACE, EGL_NO_SURFACE,
 		       EGL_NO_CONTEXT);
-
-	wl_list_for_each_safe(image, next, &gr->dmabuf_images, link)
-		dmabuf_image_destroy(image);
 
 	wl_list_for_each_safe(format, next_format, &gr->dmabuf_formats, link)
 		dmabuf_format_destroy(format);
@@ -3783,7 +3763,6 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gr->has_native_fence_sync && gr->has_wait_sync)
 		ec->capabilities |= WESTON_CAP_EXPLICIT_SYNC;
 
-	wl_list_init(&gr->dmabuf_images);
 	if (gr->has_dmabuf_import) {
 		gr->base.import_dmabuf = gl_renderer_import_dmabuf;
 		gr->base.get_supported_formats = gl_renderer_get_supported_formats;
