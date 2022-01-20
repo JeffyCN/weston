@@ -415,9 +415,16 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	pixman_region32_copy(&scanout_damage, damage);
 
 	if (output->base.zoom.active) {
+		pixman_region32_t clip;
+
 		weston_matrix_transform_region(&scanout_damage,
 					       &output->base.matrix,
 					       &scanout_damage);
+		pixman_region32_init_rect(&clip, 0, 0,
+					  output->base.width,
+					  output->base.height);
+		pixman_region32_intersect(&scanout_damage, &scanout_damage, &clip);
+		pixman_region32_fini(&clip);
 	} else {
 		pixman_region32_translate(&scanout_damage,
 					  -output->base.x, -output->base.y);
