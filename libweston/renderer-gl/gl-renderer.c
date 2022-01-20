@@ -108,12 +108,6 @@ struct gl_output_state {
 
 struct gl_renderer;
 
-struct egl_image {
-	struct gl_renderer *renderer;
-	EGLImageKHR image;
-	int refcount;
-};
-
 struct dmabuf_format {
 	uint32_t format;
 	struct wl_list link;
@@ -146,6 +140,8 @@ struct yuv_format_descriptor {
 };
 
 struct gl_buffer_state {
+	struct gl_renderer *gr;
+
 	GLfloat color[4];
 
 	bool needs_full_upload;
@@ -156,7 +152,7 @@ struct gl_buffer_state {
 	GLenum gl_format[3];
 	GLenum gl_pixel_type;
 
-	struct egl_image* images[3];
+	EGLImageKHR images[3];
 	int num_images;
 	enum gl_shader_texture_variant shader_variant;
 
@@ -336,53 +332,6 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 						 trp);
 
 	wl_list_insert(&go->timeline_render_point_list, &trp->link);
-}
-
-static struct egl_image*
-egl_image_create(struct gl_renderer *gr, EGLenum target,
-		 EGLClientBuffer buffer, const EGLint *attribs)
-{
-	struct egl_image *img;
-
-	img = zalloc(sizeof *img);
-	img->renderer = gr;
-	img->refcount = 1;
-	img->image = gr->create_image(gr->egl_display, EGL_NO_CONTEXT,
-				      target, buffer, attribs);
-
-	if (img->image == EGL_NO_IMAGE_KHR) {
-		free(img);
-		return NULL;
-	}
-
-	return img;
-}
-
-static int
-egl_image_unref(struct egl_image *image)
-{
-	struct gl_renderer *gr;
-
-	/* in multi-planar cases, egl_image_create() might fail on an
-	 * intermediary step resulting in egl_image being NULL. In order to go
-	 * over all successful ones, and avoid leaking one of them (the last
-	 * one), we'll have to guard against it -- until we'll have a correct
-	 * way of disposing of any previous created images.
-	 */
-	if (!image)
-		return 0;
-
-	gr = image->renderer;
-	assert(image->refcount > 0);
-
-	image->refcount--;
-	if (image->refcount > 0)
-		return image->refcount;
-
-	gr->destroy_image(gr->egl_display, image->image);
-	free(image);
-
-	return 0;
 }
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -1902,7 +1851,7 @@ destroy_buffer_state(struct gl_buffer_state *gb)
 	int i;
 
 	for (i = 0; i < gb->num_images; i++)
-		egl_image_unref(gb->images[i]);
+		gb->gr->destroy_image(gb->gr->egl_display, gb->images[i]);
 
 	pixman_region32_fini(&gb->texture_damage);
 	wl_list_remove(&gb->destroy_listener.link);
@@ -2142,6 +2091,7 @@ unsupported:
 	gb = zalloc(sizeof(*gb));
 	if (!gb)
 		return false;
+	gb->gr = gr;
 
 	wl_list_init(&gb->destroy_listener.link);
 	pixman_region32_init(&gb->texture_damage);
@@ -2180,6 +2130,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	if (!gb)
 		return false;
 
+	gb->gr = gr;
 	pixman_region32_init(&gb->texture_damage);
 
 	buffer->legacy_buffer = (struct wl_buffer *)buffer->resource;
@@ -2254,10 +2205,12 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 			EGL_NONE
 		};
 
-		gb->images[i] = egl_image_create(gr, EGL_WAYLAND_BUFFER_WL,
+		gb->images[i] = gr->create_image(gr->egl_display,
+						 EGL_NO_CONTEXT,
+						 EGL_WAYLAND_BUFFER_WL,
 						 buffer->legacy_buffer,
 						 attribs);
-		if (!gb->images[i]) {
+		if (gb->images[i] == EGL_NO_IMAGE_KHR) {
 			weston_log("couldn't create EGLImage for plane %d\n", i);
 			goto err_img;
 		}
@@ -2270,7 +2223,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 
 err_img:
 	while (--i >= 0)
-		egl_image_unref(gb->images[i]);
+		gr->destroy_image(gb->gr->egl_display, gb->images[i]);
 err_free:
 	free(gb);
 	return false;
@@ -2295,7 +2248,7 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	for (i = 0; i < gb->num_images; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(target, gs->textures[i]);
-		gr->image_target_texture_2d(target, gb->images[i]->image);
+		gr->image_target_texture_2d(target, gb->images[i]);
 	}
 
 	return true;
@@ -2311,11 +2264,10 @@ gl_renderer_destroy_dmabuf(struct linux_dmabuf_buffer *dmabuf)
 	destroy_buffer_state(gb);
 }
 
-static struct egl_image *
+static EGLImageKHR
 import_simple_dmabuf(struct gl_renderer *gr,
                      struct dmabuf_attributes *attributes)
 {
-	struct egl_image *image;
 	EGLint attribs[52];
 	int atti = 0;
 	bool has_modifier;
@@ -2407,10 +2359,8 @@ import_simple_dmabuf(struct gl_renderer *gr,
 
 	attribs[atti++] = EGL_NONE;
 
-	image = egl_image_create(gr, EGL_LINUX_DMA_BUF_EXT, NULL,
-				 attribs);
-
-	return image;
+	return gr->create_image(gr->egl_display, EGL_NO_CONTEXT,
+				EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
 }
 
 struct yuv_format_descriptor yuv_formats[] = {
@@ -2502,13 +2452,13 @@ struct yuv_format_descriptor yuv_formats[] = {
 	}
 };
 
-static struct egl_image *
+static EGLImageKHR
 import_dmabuf_single_plane(struct gl_renderer *gr,
                            const struct dmabuf_attributes *attributes,
                            struct yuv_plane_descriptor *descriptor)
 {
 	struct dmabuf_attributes plane;
-	struct egl_image *image;
+	EGLImageKHR image;
 	char fmt[4];
 
 	plane.width = attributes->width / descriptor->width_divisor;
@@ -2521,7 +2471,7 @@ import_dmabuf_single_plane(struct gl_renderer *gr,
 	plane.modifier[0] = attributes->modifier[descriptor->plane_index];
 
 	image = import_simple_dmabuf(gr, &plane);
-	if (!image) {
+	if (image == EGL_NO_IMAGE_KHR) {
 		weston_log("Failed to import plane %d as %.4s\n",
 		           descriptor->plane_index,
 		           dump_format(descriptor->format, fmt));
@@ -2537,7 +2487,6 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 {
 	unsigned i;
 	int j;
-	int ret;
 	struct yuv_format_descriptor *format = NULL;
 	char fmt[4];
 
@@ -2567,10 +2516,10 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 	for (j = 0; j < format->output_planes; ++j) {
 		gb->images[j] = import_dmabuf_single_plane(gr, attributes,
 		                                           &format->plane[j]);
-		if (!gb->images[j]) {
+		if (gb->images[j] == EGL_NO_IMAGE_KHR) {
 			while (--j >= 0) {
-				ret = egl_image_unref(gb->images[j]);
-				assert(ret == 0);
+				gr->destroy_image(gb->gr->egl_display,
+						  gb->images[j]);
 				gb->images[j] = NULL;
 			}
 			return false;
@@ -2688,7 +2637,7 @@ static struct gl_buffer_state *
 import_dmabuf(struct gl_renderer *gr,
 	      struct linux_dmabuf_buffer *dmabuf)
 {
-	struct egl_image *egl_image;
+	EGLImageKHR egl_image;
 	struct gl_buffer_state *gb = zalloc(sizeof(*gb));
 
 	if (!pixel_format_get_info(dmabuf->attributes.format))
@@ -2698,11 +2647,12 @@ import_dmabuf(struct gl_renderer *gr,
 	if (!gb)
 		return NULL;
 
+	gb->gr = gr;
 	pixman_region32_init(&gb->texture_damage);
 	wl_list_init(&gb->destroy_listener.link);
 
 	egl_image = import_simple_dmabuf(gr, &dmabuf->attributes);
-	if (egl_image) {
+	if (egl_image != EGL_NO_IMAGE_KHR) {
 		GLenum target = choose_texture_target(gr, &dmabuf->attributes);
 
 		gb->num_images = 1;
@@ -2902,7 +2852,7 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	for (i = 0; i < gb->num_images; ++i) {
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(target, gs->textures[i]);
-		gr->image_target_texture_2d(target, gb->images[i]->image);
+		gr->image_target_texture_2d(target, gb->images[i]);
 	}
 
 	return true;
@@ -2977,6 +2927,7 @@ static bool
 gl_renderer_attach_solid(struct weston_surface *surface,
 			 struct weston_buffer *buffer)
 {
+	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct gl_buffer_state *gb = buffer->renderer_private;
 
@@ -2986,8 +2937,8 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 	}
 
 	gb = zalloc(sizeof(*gb));
+	gb->gr = gr;
 	pixman_region32_init(&gb->texture_damage);
-
 	buffer->renderer_private = gb;
 	gb->destroy_listener.notify = handle_buffer_destroy;
 	wl_signal_add(&buffer->destroy_signal, &gb->destroy_listener);
