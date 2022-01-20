@@ -161,6 +161,9 @@ struct gl_buffer_state {
 	int hsub[3];  /* horizontal subsampling per plane */
 	int vsub[3];  /* vertical subsampling per plane */
 
+	GLuint textures[3];
+	int num_textures;
+
 	struct wl_listener destroy_listener;
 };
 
@@ -177,9 +180,6 @@ struct gl_surface_state {
 	/* Whether this surface was used in the current output repaint.
 	   Used only in the context of a gl_renderer_repaint_output call. */
 	bool used_in_output_repaint;
-
-	GLuint textures[3];
-	int num_textures;
 
 	struct wl_listener surface_destroy_listener;
 	struct wl_listener renderer_destroy_listener;
@@ -900,9 +900,9 @@ gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 	for (i = 0; i < 4; i++)
 		sconf->unicolor[i] = gb->color[i];
 
-	assert(gs->num_textures <= GL_SHADER_INPUT_TEX_MAX);
-	for (i = 0; i < gs->num_textures; i++)
-		sconf->input_tex[i] = gs->textures[i];
+	assert(gb->num_textures <= GL_SHADER_INPUT_TEX_MAX);
+	for (i = 0; i < gb->num_textures; i++)
+		sconf->input_tex[i] = gb->textures[i];
 	for (; i < GL_SHADER_INPUT_TEX_MAX; i++)
 		sconf->input_tex[i] = 0;
 }
@@ -1791,8 +1791,8 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
 		glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
 		wl_shm_buffer_begin_access(buffer->shm_buffer);
-		for (j = 0; j < gs->num_textures; j++) {
-			glBindTexture(GL_TEXTURE_2D, gs->textures[j]);
+		for (j = 0; j < gb->num_textures; j++) {
+			glBindTexture(GL_TEXTURE_2D, gb->textures[j]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT,
 				      gb->pitch / gb->hsub[j]);
 			glTexImage2D(GL_TEXTURE_2D, 0,
@@ -1815,8 +1815,8 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 
 		r = weston_surface_to_buffer_rect(surface, rectangles[i]);
 
-		for (j = 0; j < gs->num_textures; j++) {
-			glBindTexture(GL_TEXTURE_2D, gs->textures[j]);
+		for (j = 0; j < gb->num_textures; j++) {
+			glBindTexture(GL_TEXTURE_2D, gb->textures[j]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT,
 				      gb->pitch / gb->hsub[j]);
 			glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT,
@@ -1850,6 +1850,8 @@ destroy_buffer_state(struct gl_buffer_state *gb)
 {
 	int i;
 
+	glDeleteTextures(gb->num_textures, gb->textures);
+
 	for (i = 0; i < gb->num_images; i++)
 		gb->gr->destroy_image(gb->gr->egl_display, gb->images[i]);
 
@@ -1873,26 +1875,21 @@ handle_buffer_destroy(struct wl_listener *listener, void *data)
 }
 
 static void
-ensure_textures(struct gl_surface_state *gs, GLenum target, int num_textures)
+ensure_textures(struct gl_buffer_state *gb, GLenum target, int num_textures)
 {
 	int i;
 
-	if (num_textures <= gs->num_textures) {
-		glDeleteTextures(gs->num_textures - num_textures,
-				 &gs->textures[num_textures]);
-		gs->num_textures = num_textures;
-		return;
-	}
+	assert(gb->num_textures == 0);
 
 	glActiveTexture(GL_TEXTURE0);
 
-	for (i = gs->num_textures; i < num_textures; i++) {
-		glGenTextures(1, &gs->textures[i]);
-		glBindTexture(target, gs->textures[i]);
+	for (i = 0; i < num_textures; i++) {
+		glGenTextures(1, &gb->textures[i]);
+		glBindTexture(target, gb->textures[i]);
 		glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	}
-	gs->num_textures = num_textures;
+	gb->num_textures = num_textures;
 	glBindTexture(target, 0);
 }
 
@@ -2110,7 +2107,7 @@ unsupported:
 	gs->buffer = gb;
 	gs->surface = es;
 
-	ensure_textures(gs, GL_TEXTURE_2D, num_planes);
+	ensure_textures(gb, GL_TEXTURE_2D, num_planes);
 
 	return true;
 }
@@ -2123,6 +2120,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	struct gl_buffer_state *gb = zalloc(sizeof(*gb));
 	EGLint format;
 	uint32_t fourcc;
+	GLenum target;
 	EGLint y_inverted;
 	bool ret = true;
 	int i;
@@ -2216,6 +2214,9 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 		}
 	}
 
+	target = gl_shader_texture_variant_get_target(gb->shader_variant);
+	ensure_textures(gb, target, gb->num_images);
+
 	buffer->renderer_private = gb;
 	gb->destroy_listener.notify = handle_buffer_destroy;
 	wl_signal_add(&buffer->destroy_signal, &gb->destroy_listener);
@@ -2244,10 +2245,9 @@ gl_renderer_attach_egl(struct weston_surface *es, struct weston_buffer *buffer)
 	gs->buffer = gb;
 
 	target = gl_shader_texture_variant_get_target(gb->shader_variant);
-	ensure_textures(gs, target, gb->num_images);
 	for (i = 0; i < gb->num_images; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(target, gs->textures[i]);
+		glBindTexture(target, gb->textures[i]);
 		gr->image_target_texture_2d(target, gb->images[i]);
 	}
 
@@ -2488,6 +2488,7 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 	unsigned i;
 	int j;
 	struct yuv_format_descriptor *format = NULL;
+	GLenum target;
 	char fmt[4];
 
 	for (i = 0; i < ARRAY_LENGTH(yuv_formats); ++i) {
@@ -2544,6 +2545,9 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 	default:
 		assert(false);
 	}
+
+	target = gl_shader_texture_variant_get_target(gb->shader_variant);
+	ensure_textures(gb, target, gb->num_images);
 
 	return true;
 }
@@ -2665,6 +2669,8 @@ import_dmabuf(struct gl_renderer *gr,
 		default:
 			gb->shader_variant = SHADER_VARIANT_EXTERNAL;
 		}
+
+		ensure_textures(gb, target, gb->num_images);
 
 		return gb;
 	}
@@ -2848,10 +2854,9 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	gs->buffer = gb;
 
 	target = gl_shader_texture_variant_get_target(gb->shader_variant);
-	ensure_textures(gs, target, gb->num_images);
 	for (i = 0; i < gb->num_images; ++i) {
 		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(target, gs->textures[i]);
+		glBindTexture(target, gb->textures[i]);
 		gr->image_target_texture_2d(target, gb->images[i]);
 	}
 
@@ -3015,9 +3020,6 @@ out:
 	weston_buffer_reference(&gs->buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 	weston_buffer_release_reference(&gs->buffer_release_ref, NULL);
-
-	glDeleteTextures(gs->num_textures, gs->textures);
-	gs->num_textures = 0;
 }
 
 static uint32_t
@@ -3159,8 +3161,6 @@ surface_state_destroy(struct gl_surface_state *gs, struct gl_renderer *gr)
 	wl_list_remove(&gs->renderer_destroy_listener.link);
 
 	gs->surface->renderer_state = NULL;
-
-	glDeleteTextures(gs->num_textures, gs->textures);
 
 	if (gs->buffer && gs->buffer_ref.buffer->type == WESTON_BUFFER_SHM)
 		destroy_buffer_state(gs->buffer);
