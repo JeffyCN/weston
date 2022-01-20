@@ -140,6 +140,8 @@ if dep_xkbcommon.version().version_compare('>= 0.5.0')
 endif
 
 if get_option('deprecated-wl-shell')
+	warning('Support for the deprecated wl_shell interface is enabled.')
+	warning('This feature will be removed in a future version.')
 	config_h.set('HAVE_DEPRECATED_WL_SHELL', '1')
 endif
 
