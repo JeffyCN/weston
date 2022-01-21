@@ -205,6 +205,14 @@ tests = [
 			xdg_shell_protocol_c,
 		],
 	},
+	{
+		'name': 'single-pixel-buffer',
+		'sources': [
+			'single-pixel-buffer-test.c',
+			single_pixel_buffer_v1_client_protocol_h,
+			single_pixel_buffer_v1_protocol_c,
+		]
+	},
 	{	'name': 'string', },
 	{	'name': 'subsurface', },
 	{	'name': 'subsurface-shot', },

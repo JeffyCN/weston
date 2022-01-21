@@ -65,6 +65,7 @@
 #include "xdg-output-unstable-v1-server-protocol.h"
 #include "linux-explicit-synchronization-unstable-v1-server-protocol.h"
 #include "linux-explicit-synchronization.h"
+#include "single-pixel-buffer-v1-server-protocol.h"
 #include "shared/fd-util.h"
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
@@ -2414,6 +2415,9 @@ destroy_surface(struct wl_resource *resource)
 	weston_surface_unref(surface);
 }
 
+static struct solid_buffer_values *
+single_pixel_buffer_get(struct wl_resource *resource);
+
 static void
 weston_buffer_destroy_handler(struct wl_listener *listener, void *data)
 {
@@ -2438,6 +2442,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 	struct wl_shm_buffer *shm;
 	struct linux_dmabuf_buffer *dmabuf;
 	struct wl_listener *listener;
+	struct solid_buffer_values *solid;
 
 	listener = wl_resource_get_destroy_listener(resource,
 						    weston_buffer_destroy_handler);
@@ -2485,6 +2490,19 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 			buffer->buffer_origin = ORIGIN_BOTTOM_LEFT;
 		else
 			buffer->buffer_origin = ORIGIN_TOP_LEFT;
+	} else if ((solid = single_pixel_buffer_get(buffer->resource))) {
+		buffer->type = WESTON_BUFFER_SOLID;
+		buffer->solid = *solid;
+		buffer->width = 1;
+		buffer->height = 1;
+		if (buffer->solid.a == 1.0) {
+			buffer->pixel_format =
+				pixel_format_get_info(DRM_FORMAT_XRGB8888);
+		} else {
+			buffer->pixel_format =
+				pixel_format_get_info(DRM_FORMAT_ARGB8888);
+		}
+		buffer->format_modifier = DRM_FORMAT_MOD_LINEAR;
 	} else {
 		/* Only taken for legacy EGL buffers */
 		if (!ec->renderer->fill_buffer_info ||
@@ -2699,6 +2717,97 @@ weston_buffer_destroy_solid(struct weston_buffer_reference *buffer_ref)
 	assert(buffer_ref->buffer->type == WESTON_BUFFER_SOLID);
 	weston_buffer_reference(buffer_ref, NULL, BUFFER_WILL_NOT_BE_ACCESSED);
 	free(buffer_ref);
+}
+
+static void
+single_pixel_buffer_destroy(struct wl_resource *resource)
+{
+	struct solid_buffer_values *solid =
+		wl_resource_get_user_data(resource);
+	free(solid);
+}
+
+static void
+single_pixel_buffer_handle_buffer_destroy(struct wl_client *client,
+					  struct wl_resource *resource)
+{
+	wl_resource_destroy(resource);
+}
+
+static const struct wl_buffer_interface single_pixel_buffer_implementation = {
+	single_pixel_buffer_handle_buffer_destroy,
+};
+
+static struct solid_buffer_values *
+single_pixel_buffer_get(struct wl_resource *resource)
+{
+	if (!resource)
+		return NULL;
+
+	if (!wl_resource_instance_of(resource, &wl_buffer_interface,
+				     &single_pixel_buffer_implementation))
+		return NULL;
+
+	return wl_resource_get_user_data(resource);
+}
+
+static void
+single_pixel_buffer_manager_destroy(struct wl_client *client,
+				    struct wl_resource *resource)
+{
+	wl_resource_destroy(resource);
+}
+
+static void
+single_pixel_buffer_create(struct wl_client *client, struct wl_resource *resource,
+			   uint32_t id, uint32_t r, uint32_t g, uint32_t b, uint32_t a)
+{
+	struct solid_buffer_values *solid = zalloc(sizeof(*solid));
+	struct wl_resource *buffer;
+
+	if (!solid) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+
+	solid->r = r / (double) 0xffffffff;
+	solid->g = g / (double) 0xffffffff;
+	solid->b = b / (double) 0xffffffff;
+	solid->a = a / (double) 0xffffffff;
+
+	buffer = wl_resource_create(client, &wl_buffer_interface, 1, id);
+	if (!buffer) {
+		wl_client_post_no_memory(client);
+		free(solid);
+		return;
+	}
+	wl_resource_set_implementation(buffer,
+				       &single_pixel_buffer_implementation,
+				       solid, single_pixel_buffer_destroy);
+}
+
+static const struct wp_single_pixel_buffer_manager_v1_interface
+single_pixel_buffer_manager_implementation = {
+	single_pixel_buffer_manager_destroy,
+	single_pixel_buffer_create,
+};
+
+static void
+bind_single_pixel_buffer(struct wl_client *client, void *data, uint32_t version,
+			 uint32_t id)
+{
+	struct wl_resource *resource;
+
+	resource = wl_resource_create(client,
+				      &wp_single_pixel_buffer_manager_v1_interface, 1,
+				      id);
+	if (!resource) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+	wl_resource_set_implementation(resource,
+				       &single_pixel_buffer_manager_implementation,
+				       NULL, NULL);
 }
 
 static void
@@ -8230,6 +8339,11 @@ weston_compositor_create(struct wl_display *display,
 
 	if (!wl_global_create(ec->wl_display, &wp_presentation_interface, 1,
 			      ec, bind_presentation))
+		goto fail;
+
+	if (!wl_global_create(ec->wl_display,
+			      &wp_single_pixel_buffer_manager_v1_interface, 1,
+			      NULL, bind_single_pixel_buffer))
 		goto fail;
 
 	if (weston_input_init(ec) != 0)

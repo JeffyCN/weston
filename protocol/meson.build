@@ -1,7 +1,7 @@
 dep_scanner = dependency('wayland-scanner', native: true)
 prog_scanner = find_program(dep_scanner.get_pkgconfig_variable('wayland_scanner'))
 
-dep_wp = dependency('wayland-protocols', version: '>= 1.24',
+dep_wp = dependency('wayland-protocols', version: '>= 1.26',
 	fallback: ['wayland-protocols', 'wayland_protocols'])
 dir_wp_base = dep_wp.get_variable(pkgconfig: 'pkgdatadir', internal: 'pkgdatadir')
 
@@ -25,6 +25,7 @@ generated_protocols = [
 	[ 'presentation-time', 'stable' ],
 	[ 'pointer-constraints', 'unstable', 'v1' ],
 	[ 'relative-pointer', 'unstable', 'v1' ],
+	[ 'single-pixel-buffer', 'staging', 'v1' ],
 	[ 'tablet', 'unstable', 'v2' ],
 	[ 'text-cursor-position', 'internal' ],
 	[ 'text-input', 'unstable', 'v1' ],
@@ -52,6 +53,9 @@ foreach proto: generated_protocols
 	elif proto[1] == 'unstable'
 		base_file = '@0@-unstable-@1@'.format(proto_name, proto[2])
 		xml_path = '@0@/unstable/@1@/@2@.xml'.format(dir_wp_base, proto_name, base_file)
+	elif proto[1] == 'staging'
+		base_file = '@0@-@1@'.format(proto_name, proto[2])
+		xml_path = '@0@/staging/@1@/@2@.xml'.format(dir_wp_base, proto_name, base_file)
 	endif
 
 	foreach output_type: [ 'client-header', 'server-header', 'private-code' ]
