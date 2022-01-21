@@ -2626,6 +2626,9 @@ import_dmabuf(struct gl_renderer *gr,
 	struct dmabuf_image *image;
 	GLenum target;
 
+	if (!pixel_format_get_info(dmabuf->attributes.format))
+		return NULL;
+
 	image = dmabuf_image_create();
 	image->dmabuf = dmabuf;
 
@@ -2876,6 +2879,9 @@ populate_supported_formats(struct weston_compositor *ec,
 		return 0;
 
 	for (i = 0; i < num_formats; i++) {
+		if (!pixel_format_get_info(formats[i]))
+			continue;
+
 		fmt = weston_drm_format_array_add_format(supported_formats,
 							 formats[i]);
 		if (!fmt) {
