@@ -15,19 +15,19 @@ install_data(
 )
 
 generated_protocols = [
-	[ 'input-method', 'v1' ],
-	[ 'input-timestamps', 'v1' ],
+	[ 'input-method', 'unstable', 'v1' ],
+	[ 'input-timestamps', 'unstable', 'v1' ],
 	[ 'ivi-application', 'internal' ],
 	[ 'ivi-hmi-controller', 'internal' ],
-	[ 'fullscreen-shell', 'v1' ],
-	[ 'linux-dmabuf', 'v1' ],
-	[ 'linux-explicit-synchronization', 'v1' ],
+	[ 'fullscreen-shell', 'unstable', 'v1' ],
+	[ 'linux-dmabuf', 'unstable', 'v1' ],
+	[ 'linux-explicit-synchronization', 'unstable', 'v1' ],
 	[ 'presentation-time', 'stable' ],
-	[ 'pointer-constraints', 'v1' ],
-	[ 'relative-pointer', 'v1' ],
-	[ 'tablet', 'v2' ],
+	[ 'pointer-constraints', 'unstable', 'v1' ],
+	[ 'relative-pointer', 'unstable', 'v1' ],
+	[ 'tablet', 'unstable', 'v2' ],
 	[ 'text-cursor-position', 'internal' ],
-	[ 'text-input', 'v1' ],
+	[ 'text-input', 'unstable', 'v1' ],
 	[ 'viewporter', 'stable' ],
 	[ 'weston-debug', 'internal' ],
 	[ 'weston-desktop-shell', 'internal' ],
@@ -36,8 +36,8 @@ generated_protocols = [
 	[ 'weston-test', 'internal' ],
 	[ 'weston-touch-calibration', 'internal' ],
 	[ 'weston-direct-display', 'internal' ],
-	[ 'xdg-output', 'v1' ],
-	[ 'xdg-shell', 'v6' ],
+	[ 'xdg-output', 'unstable', 'v1' ],
+	[ 'xdg-shell', 'unstable', 'v6' ],
 	[ 'xdg-shell', 'stable' ],
 ]
 
@@ -49,8 +49,8 @@ foreach proto: generated_protocols
 	elif proto[1] == 'stable'
 		base_file = proto_name
 		xml_path = '@0@/stable/@1@/@1@.xml'.format(dir_wp_base, base_file)
-	else
-		base_file = '@0@-unstable-@1@'.format(proto_name, proto[1])
+	elif proto[1] == 'unstable'
+		base_file = '@0@-unstable-@1@'.format(proto_name, proto[2])
 		xml_path = '@0@/unstable/@1@/@2@.xml'.format(dir_wp_base, proto_name, base_file)
 	endif
 
