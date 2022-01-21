@@ -26,6 +26,7 @@
 
 #include "config.h"
 
+#include <assert.h>
 #include <float.h>
 #include <string.h>
 #include <stdlib.h>
@@ -269,4 +270,128 @@ weston_matrix_invert(struct weston_matrix *inverse,
 	inverse->type = matrix->type;
 
 	return 0;
+}
+
+static bool
+near_zero(float a)
+{
+	if (fabs(a) > 0.00001)
+		return false;
+
+	return true;
+}
+
+static float
+get_el(const struct weston_matrix *matrix, int row, int col)
+{
+	assert(row >= 0 && row <= 3);
+	assert(col >= 0 && col <= 3);
+
+	return matrix->d[col * 4 + row];
+}
+
+static bool
+near_zero_at(const struct weston_matrix *matrix, int row, int col)
+{
+	return near_zero(get_el(matrix, row, col));
+}
+
+static bool
+near_pm_one_at(const struct weston_matrix *matrix, int row, int col)
+{
+	return near_zero(fabs(get_el(matrix, row, col)) - 1.0);
+}
+
+static bool
+near_int_at(const struct weston_matrix *matrix, int row, int col)
+{
+	float el = get_el(matrix, row, col);
+
+	return near_zero(roundf(el) - el);
+}
+
+/* Lazy decompose the matrix to figure out whether its operations will
+ * cause an image to look ugly without some kind of filtering.
+ *
+ * while this is a 3D transformation matrix, we only concern ourselves
+ * with 2D for this test. We do use some small rounding to try to catch
+ * sequences of operations that lead back to a matrix that doesn't
+ * require filters.
+ *
+ * We assume the matrix won't be used to transform a vector with w != 1.0
+ *
+ * Filtering will be necessary when:
+ *  a non-integral translation is applied
+ *  non-affine (perspective) translation is in use
+ *  any scaling (other than -1) is in use
+ *  a rotation that isn't a multiple of 90 degrees about Z is present
+ */
+WL_EXPORT bool
+weston_matrix_needs_filtering(const struct weston_matrix *matrix)
+{
+	/* check for non-integral X/Y translation - ignore Z */
+	if (!near_int_at(matrix, 0, 3) ||
+	    !near_int_at(matrix, 1, 3))
+		return true;
+
+	/* Any transform matrix that matches this will be non-affine. */
+	if (!near_zero_at(matrix, 3, 0) ||
+	    !near_zero_at(matrix, 3, 1) ||
+	    !near_zero_at(matrix, 3, 2) ||
+	    !near_pm_one_at(matrix, 3, 3))
+		return true;
+
+	/* Check for anything that could come from a rotation that isn't
+	 * around the Z axis:
+	 * [  ?   ?  0  ? ]
+	 * [  ?   ?  0  ? ]
+	 * [  0   0 ±1  ? ]
+	 * [  ?   ?  ?  1 ]
+	 * It's not clear that we'd realistically see a -1 in [2][2], but
+	 * it wouldn't require filtering if we did, so allow it.
+	 */
+	if (!near_zero_at(matrix, 0, 2) ||
+	    !near_zero_at(matrix, 1, 2) ||
+	    !near_zero_at(matrix, 2, 0) ||
+	    !near_zero_at(matrix, 2, 1) ||
+	    !near_pm_one_at(matrix, 2, 2))
+		return true;
+
+	/* We've culled the low hanging fruit, now let's match the only
+	 * matrices left we don't have to filter, before defaulting to
+	 * filtering.
+	 *
+	 * These are a combination of testing rotation and scaling at once: */
+	if (near_pm_one_at(matrix, 0, 0)) {
+		/* This could be a multiple of 90 degree rotation about Z,
+		 * possibly with a flip, if the matrix is of the form:
+		 * [  ±1  0  0  ? ]
+		 * [  0  ±1  0  ? ]
+		 * [  0   0  1  ? ]
+		 * [  0   0  0  1 ]
+		 * Forcing ±1 excludes non-unity scale.
+		 */
+		if (near_zero_at(matrix, 1, 0) &&
+		    near_zero_at(matrix, 0, 1) &&
+		    near_pm_one_at(matrix, 1, 1))
+			return false;
+	}
+	if (near_zero_at(matrix, 0, 0)) {
+		/* This could be a multiple of 90 degree rotation about Z,
+		 * possibly with a flip, if the matrix is of the form:
+		 * [  0  ±1  0  ? ]
+		 * [  ±1  0  0  ? ]
+		 * [  0   0  1  ? ]
+		 * [  0   0  0  1 ]
+		 * Forcing ±1 excludes non-unity scale.
+		 */
+		if (near_zero_at(matrix, 1, 1) &&
+		    near_pm_one_at(matrix, 1, 0) &&
+		    near_pm_one_at(matrix, 0, 1))
+			return false;
+	}
+
+	/* The matrix wasn't "simple" enough to classify with dumb
+	 * heuristics, so recommend filtering */
+	return true;
 }

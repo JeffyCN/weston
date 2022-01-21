@@ -27,6 +27,8 @@
 #ifndef WESTON_MATRIX_H
 #define WESTON_MATRIX_H
 
+#include <stdbool.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -65,6 +67,9 @@ weston_matrix_transform(const struct weston_matrix *matrix,
 int
 weston_matrix_invert(struct weston_matrix *inverse,
 		     const struct weston_matrix *matrix);
+
+bool
+weston_matrix_needs_filtering(const struct weston_matrix *matrix);
 
 #ifdef  __cplusplus
 }
