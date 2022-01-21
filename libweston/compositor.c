@@ -7501,22 +7501,37 @@ debug_scene_view_print_buffer(FILE *fp, struct weston_view *view)
 	case WESTON_BUFFER_DMABUF:
 		fprintf(fp, "\t\tdmabuf buffer\n");
 		break;
-	default:
+	case WESTON_BUFFER_RENDERER_OPAQUE:
 		fprintf(fp, "\t\tEGL buffer:\n");
 		fprintf(fp, "\t\t\t[format may be inaccurate]\n");
 		break;
 	}
 
-	fprintf(fp, "\t\t\tformat: 0x%lx %s\n",
-		(unsigned long) buffer->pixel_format,
-		buffer->pixel_format ?
-			buffer->pixel_format->drm_format_name : "UNKNOWN");
+	if (buffer->busy_count > 0) {
+		fprintf(fp, "\t\t\t[%d references may use buffer content]\n",
+			buffer->busy_count);
+	} else {
+		fprintf(fp, "\t\t\t[buffer has been released to client]\n");
+	}
+
+	if (buffer->pixel_format) {
+		fprintf(fp, "\t\t\tformat: 0x%lx %s\n",
+			(unsigned long) buffer->pixel_format->format,
+			buffer->pixel_format->drm_format_name);
+	} else {
+		fprintf(fp, "\t\t\t[unknown format]\n");
+	}
 
 	modifier_name = pixel_format_get_modifier(buffer->format_modifier);
 	fprintf(fp, "\t\t\tmodifier: %s\n",
 		modifier_name ?
 			modifier_name : "Failed to convert to a modifier name");
 	free(modifier_name);
+
+	fprintf(fp, "\t\t\twidth: %d, height: %d\n",
+		buffer->width, buffer->height);
+	if (buffer->buffer_origin == ORIGIN_BOTTOM_LEFT)
+		fprintf(fp, "\t\t\tbottom-left origin\n");
 }
 
 static void
