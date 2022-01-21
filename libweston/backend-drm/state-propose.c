@@ -484,8 +484,11 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 
 		fb = drm_fb_get_from_view(state, ev,
 					  &pnode->try_view_on_plane_failure_reasons);
-		if (!fb)
+		if (!fb) {
+			drm_debug(b, "\t\t\t[view] couldn't get FB for view: 0x%lx\n",
+				  (unsigned long) pnode->try_view_on_plane_failure_reasons);
 			return NULL;
+		}
 
 		possible_plane_mask = fb->plane_mask;
 	}

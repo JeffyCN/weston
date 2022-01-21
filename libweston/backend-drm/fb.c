@@ -525,18 +525,29 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	struct drm_fb *fb;
 	struct drm_plane *plane;
 
-	if (ev->alpha != 1.0f)
+	if (ev->alpha != 1.0f) {
+		*try_view_on_plane_failure_reasons |=
+			FAILURE_REASONS_GLOBAL_ALPHA;
 		return NULL;
+	}
 
-	if (!drm_view_transform_supported(ev, &output->base))
+	if (!drm_view_transform_supported(ev, &output->base)) {
+		*try_view_on_plane_failure_reasons |=
+			FAILURE_REASONS_INCOMPATIBLE_TRANSFORM;
 		return NULL;
+	}
 
 	if (ev->surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_ENFORCED &&
-	    ev->surface->desired_protection > output->base.current_protection)
+	    ev->surface->desired_protection > output->base.current_protection) {
+		*try_view_on_plane_failure_reasons |=
+			FAILURE_REASONS_INADEQUATE_CONTENT_PROTECTION;
 		return NULL;
+	}
 
-	if (!buffer)
+	if (!buffer) {
+		*try_view_on_plane_failure_reasons |= FAILURE_REASONS_NO_BUFFER;
 		return NULL;
+	}
 
 	if (buffer->backend_private) {
 		buf_fb = buffer->backend_private;
@@ -550,8 +561,10 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	wl_signal_add(&buffer->destroy_signal, &buf_fb->buffer_destroy_listener);
 
 	/* GBM is used for dmabuf import as well as from client wl_buffer. */
-	if (!b->gbm)
+	if (!b->gbm) {
+		*try_view_on_plane_failure_reasons |= FAILURE_REASONS_NO_GBM;
 		goto unsuitable;
+	}
 
 	if (buffer->type == WESTON_BUFFER_DMABUF) {
 		fb = drm_fb_get_from_dmabuf(buffer->dmabuf, b, is_opaque,
@@ -568,10 +581,13 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 
 		fb = drm_fb_get_from_bo(bo, b, is_opaque, BUFFER_CLIENT);
 		if (!fb) {
+			*try_view_on_plane_failure_reasons |=
+				(1 << FAILURE_REASONS_ADD_FB_FAILED);
 			gbm_bo_destroy(bo);
 			goto unsuitable;
 		}
 	} else {
+		*try_view_on_plane_failure_reasons |= FAILURE_REASONS_BUFFER_TYPE;
 		goto unsuitable;
 	}
 
