@@ -337,16 +337,6 @@ pixman_box32_t
 weston_matrix_transform_rect(struct weston_matrix *matrix,
                             pixman_box32_t rect);
 void
-weston_transformed_coord(int width, int height,
-			 enum wl_output_transform transform,
-			 int32_t scale,
-			 float sx, float sy, float *bx, float *by);
-pixman_box32_t
-weston_transformed_rect(int width, int height,
-			enum wl_output_transform transform,
-			int32_t scale,
-			pixman_box32_t rect);
-void
 weston_matrix_transform_region(pixman_region32_t *dest,
 			       struct weston_matrix *matrix,
 			       pixman_region32_t *src);
