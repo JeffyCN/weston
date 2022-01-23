@@ -1268,7 +1268,7 @@ registry_handle_global(void *data, struct wl_registry *registry,
 	} else if (strcmp(interface, "wl_output") == 0) {
 		d->output.wl_output = wl_registry_bind(registry, id,
 						       &wl_output_interface,
-						       version);
+						       MIN(version, 3));
 		wl_output_add_listener(d->output.wl_output,
 				       &output_listener, &d->output);
 	} else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0) {
@@ -1276,7 +1276,7 @@ registry_handle_global(void *data, struct wl_registry *registry,
 			return;
 		d->dmabuf = wl_registry_bind(registry, id,
 					     &zwp_linux_dmabuf_v1_interface,
-					     version);
+					     MIN(version, 4));
 	}
 }
 
