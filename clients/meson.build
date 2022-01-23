@@ -60,6 +60,8 @@ simple_clients = [
 			'../libweston/pixel-formats.c',
 			linux_dmabuf_unstable_v1_client_protocol_h,
 			linux_dmabuf_unstable_v1_protocol_c,
+			presentation_time_client_protocol_h,
+			presentation_time_protocol_c,
 			xdg_shell_client_protocol_h,
 			xdg_shell_protocol_c,
 		],

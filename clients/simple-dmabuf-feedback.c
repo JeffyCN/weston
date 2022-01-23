@@ -40,6 +40,7 @@
 #include <libweston/pixel-formats.h>
 #include "xdg-shell-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
+#include "presentation-time-client-protocol.h"
 
 #include <xf86drm.h>
 #include <gbm.h>
@@ -134,6 +135,7 @@ struct display {
 	struct output output;
 	struct xdg_wm_base *wm_base;
 	struct zwp_linux_dmabuf_v1 *dmabuf;
+	struct wp_presentation *presentation;
 	struct gbm_device *gbm_device;
 	struct egl egl;
 };
@@ -165,7 +167,9 @@ struct window {
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 	struct wl_callback *callback;
+	struct wp_presentation_feedback *presentation_feedback;
 	bool wait_for_configure;
+	bool presented_zero_copy;
 	uint32_t n_redraws;
 	struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback_obj;
 	struct dmabuf_feedback dmabuf_feedback, pending_dmabuf_feedback;
@@ -638,6 +642,7 @@ render(struct buffer *buffer)
 }
 
 static const struct wl_callback_listener frame_listener;
+static const struct wp_presentation_feedback_listener presentation_feedback_listener;
 
 static void
 redraw(void *data, struct wl_callback *callback, uint32_t time)
@@ -659,6 +664,18 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 
 	window->callback = wl_surface_frame(window->surface);
 	wl_callback_add_listener(window->callback, &frame_listener, window);
+
+	if (window->presentation_feedback)
+		wp_presentation_feedback_destroy(window->presentation_feedback);
+	if (window->display->presentation) {
+		window->presentation_feedback =
+			wp_presentation_feedback(window->display->presentation,
+						 window->surface);
+		wp_presentation_feedback_add_listener(window->presentation_feedback,
+						      &presentation_feedback_listener,
+						      window);
+	}
+
 	wl_surface_commit(window->surface);
 	buf->status = IN_USE;
 
@@ -673,6 +690,48 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 
 static const struct wl_callback_listener frame_listener = {
 	redraw
+};
+
+static void presentation_feedback_handle_sync_output(void *data,
+						     struct wp_presentation_feedback *feedback,
+						     struct wl_output *output)
+{
+}
+
+static void presentation_feedback_handle_presented(void *data,
+						   struct wp_presentation_feedback *feedback,
+						   uint32_t tv_sec_hi,
+						   uint32_t tv_sec_lo,
+						   uint32_t tv_nsec,
+						   uint32_t refresh,
+						   uint32_t seq_hi,
+						   uint32_t seq_lo,
+						   uint32_t flags)
+{
+	struct window *window = data;
+	bool zero_copy = flags & WP_PRESENTATION_FEEDBACK_KIND_ZERO_COPY;
+
+	if (zero_copy && !window->presented_zero_copy) {
+		fprintf(stderr, "Presenting in zero-copy mode\n");
+	}
+	if (!zero_copy && window->presented_zero_copy) {
+		fprintf(stderr, "Stopped presenting in zero-copy mode\n");
+	}
+
+	window->presented_zero_copy = zero_copy;
+	wp_presentation_feedback_destroy(feedback);
+}
+
+static void presentation_feedback_handle_discarded(void *data,
+						   struct wp_presentation_feedback *feedback)
+{
+	wp_presentation_feedback_destroy(feedback);
+}
+
+static const struct wp_presentation_feedback_listener presentation_feedback_listener = {
+	.sync_output = presentation_feedback_handle_sync_output,
+	.presented = presentation_feedback_handle_presented,
+	.discarded = presentation_feedback_handle_discarded,
 };
 
 static void
@@ -811,6 +870,8 @@ destroy_window(struct window *window)
 
 	if (window->callback)
 		wl_callback_destroy(window->callback);
+	if (window->presentation_feedback)
+		wp_presentation_feedback_destroy(window->presentation_feedback);
 
 	for (i = 0; i < NUM_BUFFERS; i++)
 		if (window->buffers[i].buffer)
@@ -1334,6 +1395,10 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->dmabuf = wl_registry_bind(registry, id,
 					     &zwp_linux_dmabuf_v1_interface,
 					     MIN(version, 4));
+	} else if (strcmp(interface, "wp_presentation") == 0) {
+		d->presentation = wl_registry_bind(registry, id,
+					           &wp_presentation_interface,
+						   1);
 	}
 }
 
@@ -1357,6 +1422,9 @@ destroy_display(struct display *display)
 		eglDestroyContext(display->egl.display, display->egl.context);
 	if (display->egl.display != EGL_NO_DISPLAY)
 		eglTerminate(display->egl.display);
+
+	if (display->presentation)
+		wp_presentation_destroy(display->presentation);
 
 	zwp_linux_dmabuf_v1_destroy(display->dmabuf);
 	xdg_wm_base_destroy(display->wm_base);
