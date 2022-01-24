@@ -1315,7 +1315,7 @@ struct weston_view {
 		/* struct weston_transform */
 		struct wl_list transformation_list;
 
-		/* managed by weston_surface_set_transform_parent() */
+		/* managed by weston_view_set_transform_parent() */
 		struct weston_view *parent;
 		struct wl_listener parent_destroy_listener;
 		struct wl_list child_list; /* geometry.parent_link */
