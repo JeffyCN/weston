@@ -140,7 +140,11 @@ struct display {
 struct buffer {
 	struct window *window;
 	struct wl_buffer *buffer;
-	bool busy;
+	enum {
+		NOT_CREATED,
+		IN_USE,
+		AVAILABLE
+	} status;
 	bool recreate;
 	int dmabuf_fds[4];
 	struct gbm_bo *bo;
@@ -469,7 +473,7 @@ buffer_release(void *data, struct wl_buffer *buffer)
 {
 	struct buffer *buf = data;
 
-	buf->busy = false;
+	buf->status = AVAILABLE;
 
 	if (buf->recreate)
 		buffer_recreate(buf);
@@ -485,6 +489,7 @@ create_succeeded(void *data, struct zwp_linux_buffer_params_v1 *params,
 {
 	struct buffer *buf = data;
 
+	buf->status = AVAILABLE;
 	buf->buffer = new_buffer;
 	wl_buffer_add_listener(buf->buffer, &buffer_listener, buf);
 	zwp_linux_buffer_params_v1_destroy(params);
@@ -516,6 +521,7 @@ create_dmabuf_buffer(struct window *window, struct buffer *buf, uint32_t width,
 	struct zwp_linux_buffer_params_v1 *params;
 	int i;
 
+	buf->status = NOT_CREATED;
 	buf->window = window;
 	buf->width = width;
 	buf->height = height;
@@ -573,8 +579,22 @@ window_next_buffer(struct window *window)
 	unsigned int i;
 
 	for (i = 0; i < NUM_BUFFERS; i++)
-		if (!window->buffers[i].busy)
+		if (window->buffers[i].status == AVAILABLE)
 			return &window->buffers[i];
+
+	/* In this client, we sometimes have to recreate the buffers. As we are
+	* not using the create_immed request from zwp_linux_dmabuf_v1, we need
+	* to wait an event from the server (what leads to create_succeeded()
+	* being called in this client). So if all buffers are busy, it may be
+	* the case in which all the buffers were recreated but the server still
+	* didn't send the events. This is very unlikely to happen, but a
+	* roundtrip() guarantees that we receive and process the events. */
+	wl_display_roundtrip(window->display->display);
+
+	for (i = 0; i < NUM_BUFFERS; i++)
+		if (window->buffers[i].status == AVAILABLE)
+			return &window->buffers[i];
+
 	return NULL;
 }
 
@@ -639,7 +659,7 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	window->callback = wl_surface_frame(window->surface);
 	wl_callback_add_listener(window->callback, &frame_listener, window);
 	wl_surface_commit(window->surface);
-	buf->busy = true;
+	buf->status = IN_USE;
 
 	region = wl_compositor_create_region(window->display->compositor);
 	wl_region_add(region, 0, 0, window->display->output.width,
