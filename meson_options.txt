@@ -68,8 +68,8 @@ option(
 option(
 	'weston-launch',
 	type: 'boolean',
-	value: true,
-	description: 'Weston launcher for systems without logind'
+	value: false,
+	description: 'Deprecated weston launcher for systems without logind'
 )
 
 option(
