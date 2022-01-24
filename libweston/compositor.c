@@ -119,7 +119,7 @@ weston_paint_node_create(struct weston_surface *surface,
 	 * Invariant: all paint nodes with the same surface+output have the
 	 * same surf_xform state.
 	 */
-	wl_list_for_each(existing_node, &view->paint_node_list, view_link) {
+	wl_list_for_each(existing_node, &surface->paint_node_list, surface_link) {
 		assert(existing_node->surface == surface);
 		if (existing_node->output != output)
 			continue;
