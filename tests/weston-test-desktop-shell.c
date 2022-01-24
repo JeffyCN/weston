@@ -157,6 +157,12 @@ static const struct weston_desktop_api shell_desktop_api = {
 	.pong = desktop_surface_pong,
 };
 
+static int
+background_get_label(struct weston_surface *surface, char *buf, size_t len)
+{
+	return snprintf(buf, len, "test desktop shell background");
+}
+
 static void
 shell_destroy(struct wl_listener *listener, void *data)
 {
@@ -210,6 +216,10 @@ wet_shell_init(struct weston_compositor *ec,
 	if (dts->background_view == NULL)
 		goto out_surface;
 
+	weston_surface_set_role(dts->background_surface,
+				"test-desktop background", NULL, 0);
+	weston_surface_set_label_func(dts->background_surface,
+				      background_get_label);
 	weston_surface_set_color(dts->background_surface, 0.16, 0.32, 0.48, 1.);
 	pixman_region32_fini(&dts->background_surface->opaque);
 	pixman_region32_init_rect(&dts->background_surface->opaque, 0, 0, 2000, 2000);
