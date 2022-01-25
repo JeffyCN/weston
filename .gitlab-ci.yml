@@ -284,6 +284,7 @@ aarch64-debian-container_prep:
       -Dtest-skip-is-failure=true
       -Dlauncher-libseat=true
       -Ddeprecated-backend-fbdev=true
+      -Ddeprecated-weston-launch=true
   after_script:
   - ninja -C "$BUILDDIR" coverage-html > "$BUILDDIR/meson-logs/ninja-coverage-html.txt"
   - ninja -C "$BUILDDIR" coverage-xml
@@ -337,6 +338,7 @@ docs-build:
       -Dpipewire=false
       -Dwerror=true
       -Dlauncher-libseat=true
+      -Ddeprecated-weston-launch=true
 
 x86_64-debian-no-gl-build:
   extends:
