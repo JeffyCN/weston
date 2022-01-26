@@ -4364,7 +4364,7 @@ subsurface_committed(struct weston_surface *surface, int32_t dx, int32_t dy)
 	 */
 
 	if (!weston_surface_is_mapped(surface)) {
-		surface->is_mapped = true;
+		surface->is_mapped = surface->buffer_ref.buffer != NULL;
 
 		/* Cannot call weston_view_update_transform(),
 		 * because that would call it also for the parent surface,
