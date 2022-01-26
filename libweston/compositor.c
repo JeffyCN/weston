@@ -6064,11 +6064,8 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
  * \param region The region to be transformed in-place.
  *
  * This takes a region in the global coordinate system, and takes into account
- * output position, transform and scale, and the zoom, and converts the region
- * into output pixel coordinates in the framebuffer.
- *
- * Uses floating-point operations if zoom is active, which may round to expand
- * the region.
+ * output position, transform and scale, and converts the region into output
+ * pixel coordinates in the framebuffer.
  *
  * \internal
  * \ingroup output
@@ -6077,33 +6074,18 @@ WL_EXPORT void
 weston_output_region_from_global(struct weston_output *output,
 				 pixman_region32_t *region)
 {
-	if (output->zoom.active) {
-		weston_matrix_transform_region(region, &output->matrix, region);
-	} else {
-		pixman_region32_translate(region, -output->x, -output->y);
-		weston_transformed_region(output->width, output->height,
-					  output->transform,
-					  output->current_scale,
-					  region, region);
-	}
+	pixman_region32_translate(region, -output->x, -output->y);
+	weston_transformed_region(output->width, output->height,
+				  output->transform,
+				  output->current_scale,
+				  region, region);
 }
 
 static void
 weston_output_update_matrix(struct weston_output *output)
 {
-	float magnification;
-
 	weston_matrix_init(&output->matrix);
 	weston_matrix_translate(&output->matrix, -output->x, -output->y, 0);
-
-	if (output->zoom.active) {
-		magnification = 1 / (1 - output->zoom.spring_z.current);
-		weston_output_update_zoom(output);
-		weston_matrix_translate(&output->matrix, -output->zoom.trans_x,
-					-output->zoom.trans_y, 0);
-		weston_matrix_scale(&output->matrix, magnification,
-				    magnification, 1.0);
-	}
 
 	switch (output->transform) {
 	case WL_OUTPUT_TRANSFORM_FLIPPED:
@@ -6682,8 +6664,8 @@ weston_output_create_heads_string(struct weston_output *output)
  * Output coordinates are calculated and each new output is by default
  * assigned to the right of previous one.
  *
- * Sets up the transformation, zoom, and geometry of the output using
- * the properties that need to be configured by the compositor.
+ * Sets up the transformation, and geometry of the output using the
+ * properties that need to be configured by the compositor.
  *
  * Establishes a repaint timer for the output with the relevant display
  * object's event loop. See output_repaint_timer_handler().
@@ -6762,7 +6744,6 @@ weston_output_enable(struct weston_output *output)
 	wl_signal_init(&output->destroy_signal);
 
 	weston_output_transform_scale_init(output, output->transform, output->scale);
-	weston_output_init_zoom(output);
 
 	weston_output_init_geometry(output, x, y);
 	weston_output_damage(output);

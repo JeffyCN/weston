@@ -150,21 +150,6 @@ struct weston_spring {
 	uint32_t clip;
 };
 
-struct weston_output_zoom {
-	bool active;
-	float increment;
-	float level;
-	float max_level;
-	float trans_x, trans_y;
-	struct {
-		double x, y;
-	} current;
-	struct weston_seat *seat;
-	struct weston_animation animation_z;
-	struct weston_spring spring_z;
-	struct wl_listener motion_listener;
-};
-
 /* bit compatible with drm definitions. */
 enum dpms_enum {
 	WESTON_DPMS_ON,
@@ -324,7 +309,6 @@ struct weston_output {
 	/** For cancelling the idle_repaint callback on output destruction. */
 	struct wl_event_source *idle_repaint_source;
 
-	struct weston_output_zoom zoom;
 	int dirty;
 	struct wl_signal frame_signal;
 	struct wl_signal destroy_signal;	/**< sent when disabled */
@@ -1875,11 +1859,6 @@ weston_compositor_get_user_data(struct weston_compositor *compositor);
 void
 weston_compositor_exit_with_code(struct weston_compositor *compositor,
 				 int exit_code);
-void
-weston_output_update_zoom(struct weston_output *output);
-void
-weston_output_activate_zoom(struct weston_output *output,
-			    struct weston_seat *seat);
 void
 weston_output_add_destroy_listener(struct weston_output *output,
 				   struct wl_listener *listener);

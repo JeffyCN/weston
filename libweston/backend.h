@@ -155,9 +155,6 @@ void
 weston_output_release(struct weston_output *output);
 
 void
-weston_output_init_zoom(struct weston_output *output);
-
-void
 weston_output_finish_frame(struct weston_output *output,
 			   const struct timespec *stamp,
 			   uint32_t presented_flags);

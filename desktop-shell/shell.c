@@ -3422,71 +3422,6 @@ surface_opacity_binding(struct weston_pointer *pointer,
 }
 
 static void
-do_zoom(struct weston_seat *seat, const struct timespec *time, uint32_t key,
-	uint32_t axis, double value)
-{
-	struct weston_compositor *compositor = seat->compositor;
-	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-	struct weston_output *output;
-	float increment;
-
-	if (!pointer) {
-		weston_log("Zoom hotkey pressed but seat '%s' contains no pointer.\n", seat->seat_name);
-		return;
-	}
-
-	wl_list_for_each(output, &compositor->output_list, link) {
-		if (pixman_region32_contains_point(&output->region,
-						   wl_fixed_to_double(pointer->x),
-						   wl_fixed_to_double(pointer->y),
-						   NULL)) {
-			if (key == KEY_PAGEUP)
-				increment = output->zoom.increment;
-			else if (key == KEY_PAGEDOWN)
-				increment = -output->zoom.increment;
-			else if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
-				/* For every pixel zoom 20th of a step */
-				increment = output->zoom.increment *
-					    -value / 20.0;
-			else
-				increment = 0;
-
-			output->zoom.level += increment;
-
-			if (output->zoom.level < 0.0)
-				output->zoom.level = 0.0;
-			else if (output->zoom.level > output->zoom.max_level)
-				output->zoom.level = output->zoom.max_level;
-
-			if (!output->zoom.active) {
-				if (output->zoom.level <= 0.0)
-					continue;
-				weston_output_activate_zoom(output, seat);
-			}
-
-			output->zoom.spring_z.target = output->zoom.level;
-
-			weston_output_update_zoom(output);
-		}
-	}
-}
-
-static void
-zoom_axis_binding(struct weston_pointer *pointer, const struct timespec *time,
-		  struct weston_pointer_axis_event *event,
-		  void *data)
-{
-	do_zoom(pointer->seat, time, 0, event->axis, event->value);
-}
-
-static void
-zoom_key_binding(struct weston_keyboard *keyboard, const struct timespec *time,
-		 uint32_t key, void *data)
-{
-	do_zoom(keyboard->seat, time, key, 0, 0);
-}
-
-static void
 terminate_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 		  uint32_t key, void *data)
 {
@@ -5022,14 +4957,6 @@ shell_add_bindings(struct weston_compositor *ec, struct desktop_shell *shell)
 				           MODIFIER_SUPER | MODIFIER_ALT,
 				           surface_opacity_binding, NULL);
 
-	weston_compositor_add_axis_binding(ec, WL_POINTER_AXIS_VERTICAL_SCROLL,
-					   mod, zoom_axis_binding,
-					   NULL);
-
-	weston_compositor_add_key_binding(ec, KEY_PAGEUP, mod,
-					  zoom_key_binding, NULL);
-	weston_compositor_add_key_binding(ec, KEY_PAGEDOWN, mod,
-					  zoom_key_binding, NULL);
 	weston_compositor_add_key_binding(ec, KEY_M, mod | MODIFIER_SHIFT,
 					  maximize_binding, NULL);
 	weston_compositor_add_key_binding(ec, KEY_F, mod | MODIFIER_SHIFT,
