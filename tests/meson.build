@@ -226,6 +226,18 @@ tests = [
 	},
 ]
 
+if get_option('color-management-lcms')
+	dep_lcms2 = dependency('lcms2', version: '>= 2.9', required: false)
+	if not dep_lcms2.found()
+		error('color-management-lcms tests require lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
+	endif
+	tests += {
+		'name': 'color-shaper-matrix',
+		'dep_objs': [ dep_libm, dep_lcms2 ]
+	}
+endif
+
+
 tests_standalone = [
 	['config-parser', [], [ dep_zucmain ]],
 	['matrix', [], [ dep_libm, dep_matrix_c ]],
