@@ -280,3 +280,132 @@ TEST(subsurface_sync_damage_buffer)
 	wl_subcompositor_destroy(subco);
 	client_destroy(client);
 }
+
+TEST(subsurface_empty_mapping)
+{
+	struct client *client;
+	struct wl_subcompositor *subco;
+	struct wp_viewporter *viewporter;
+	struct buffer *bufs[3] = { 0 };
+	struct wl_surface *surf[3] = { 0 };
+	struct wl_subsurface *sub[3] = { 0 };
+	struct wp_viewport *viewport;
+	struct rectangle clip = { 40, 40, 280, 200 };
+	int fail = 0;
+	unsigned i;
+	pixman_color_t red;
+	pixman_color_t blue;
+	pixman_color_t green;
+
+	color_rgb888(&red, 255, 0, 0);
+	color_rgb888(&blue, 0, 0, 255);
+	color_rgb888(&green, 0, 255, 0);
+
+	client = create_client_and_test_surface(100, 50, 100, 100);
+	assert(client);
+	subco = get_subcompositor(client);
+	viewporter = bind_to_singleton_global(client,
+					      &wp_viewporter_interface, 1);
+
+	/* move the pointer clearly away from our screenshooting area */
+	weston_test_move_pointer(client->test->weston_test, 0, 1, 0, 2, 30);
+
+	/* make the parent surface red */
+	surf[0] = client->surface->wl_surface;
+	client->surface->wl_surface = NULL; /* we stole it and destroy it */
+	bufs[0] = surface_commit_color(client, surf[0], &red, 100, 100);
+	/* sub[0] is not used */
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 0);
+
+	/* create an empty subsurface on top */
+	surf[1] = wl_compositor_create_surface(client->wl_compositor);
+	sub[1] = wl_subcompositor_get_subsurface(subco, surf[1], surf[0]);
+	wl_subsurface_set_desync (sub[1]);
+
+	wl_subsurface_set_position(sub[1], 20, 20);
+	wl_surface_commit(surf[0]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 1);
+
+	/* create a green subsurface on top */
+	surf[2] = wl_compositor_create_surface(client->wl_compositor);
+	sub[2] = wl_subcompositor_get_subsurface(subco, surf[2], surf[1]);
+	wl_subsurface_set_desync (sub[2]);
+	bufs[2] = surface_commit_color(client, surf[2], &green, 100, 100);
+
+	wl_subsurface_set_position(sub[2], 20, 20);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 2);
+
+	wl_surface_attach(surf[1], NULL, 0, 0);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 3);
+
+	wl_surface_set_buffer_scale (surf[1], 1);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 4);
+
+	viewport = wp_viewporter_get_viewport(viewporter, surf[1]);
+	wp_viewport_set_destination(viewport, 5, 5);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 5);
+
+	wp_viewport_set_destination(viewport, -1, -1);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 6);
+
+	/* map the previously empty middle surface with a blue buffer */
+	bufs[1] = surface_commit_color(client, surf[1], &blue, 100, 100);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 1, &clip, 7);
+
+	/* try to trigger a recomputation of the buffer size with the
+	 * shm-buffer potentially being released already */
+	wl_surface_set_buffer_scale (surf[1], 1);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 1, &clip, 8);
+
+	/* try more */
+	wp_viewport_set_destination(viewport, 100, 100);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 1, &clip, 9);
+
+	/* unmap the middle surface again to ensure recursive unmapping */
+	wl_surface_attach(surf[1], NULL, 0, 0);
+	wl_surface_commit(surf[1]);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 0, &clip, 10);
+
+	/* remap middle surface to ensure recursive mapping */
+	bufs[1] = surface_commit_color(client, surf[1], &blue, 100, 100);
+
+	fail += check_screen(client, "subsurface_empty_mapping", 1, &clip, 11);
+
+	assert(fail == 0);
+
+	wp_viewport_destroy(viewport);
+
+	for (i = 0; i < ARRAY_LENGTH(sub); i++)
+		if (sub[i])
+			wl_subsurface_destroy(sub[i]);
+
+	for (i = 0; i < ARRAY_LENGTH(surf); i++)
+		if (surf[i])
+			wl_surface_destroy(surf[i]);
+
+	for (i = 0; i < ARRAY_LENGTH(bufs); i++)
+		if (bufs[i])
+			buffer_destroy(bufs[i]);
+
+	wp_viewporter_destroy(viewporter);
+	wl_subcompositor_destroy(subco);
+	client_destroy(client);
+}
