@@ -228,7 +228,7 @@ dep_vertex_clipping = declare_dependency(
 	include_directories: include_directories('.')
 )
 
-if get_option('weston-launch')
+if get_option('deprecated-weston-launch')
 	warning('weston-launch is deprecated and will be removed in a future release. Please migrate to libseat and seatd-launch.')
 	dep_pam = cc.find_library('pam')
 
