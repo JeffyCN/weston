@@ -176,6 +176,10 @@ tests = [
 		'name': 'matrix',
 		'dep_objs': [ dep_libm ]
 	},
+	{
+		'name': 'matrix-transform',
+		'dep_objs': dep_libm,
+	},
 	{	'name': 'output-damage', },
 	{	'name': 'output-transforms', },
 	{	'name': 'plugin-registry', },

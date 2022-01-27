@@ -29,6 +29,8 @@
 
 #include <stdbool.h>
 
+#include <wayland-server-protocol.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -70,6 +72,10 @@ weston_matrix_invert(struct weston_matrix *inverse,
 
 bool
 weston_matrix_needs_filtering(const struct weston_matrix *matrix);
+
+bool
+weston_matrix_to_transform(const struct weston_matrix *mat,
+			   enum wl_output_transform *transform);
 
 #ifdef  __cplusplus
 }

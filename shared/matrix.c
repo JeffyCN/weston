@@ -297,6 +297,12 @@ near_zero_at(const struct weston_matrix *matrix, int row, int col)
 }
 
 static bool
+near_one_at(const struct weston_matrix *matrix, int row, int col)
+{
+	return near_zero(get_el(matrix, row, col) - 1.0);
+}
+
+static bool
 near_pm_one_at(const struct weston_matrix *matrix, int row, int col)
 {
 	return near_zero(fabs(get_el(matrix, row, col)) - 1.0);
@@ -393,5 +399,120 @@ weston_matrix_needs_filtering(const struct weston_matrix *matrix)
 
 	/* The matrix wasn't "simple" enough to classify with dumb
 	 * heuristics, so recommend filtering */
+	return true;
+}
+
+/** Examine a matrix to see if it applies a standard output transform.
+ *
+ * \param mat matrix to examine
+ * \param[out] transform the transform, if applicable
+ * \return true if a standard transform is present
+
+ * Note that the check only considers rotations and flips.
+ * If any other scale or translation is present, those may have to
+ * be dealt with by the caller in some way.
+ */
+WL_EXPORT bool
+weston_matrix_to_transform(const struct weston_matrix *mat,
+			   enum wl_output_transform *transform)
+{
+	/* As a first pass we can eliminate any matrix that doesn't have
+	 * zeroes in these positions:
+	 * [  ?   ?  0  ? ]
+	 * [  ?   ?  0  ? ]
+	 * [  0   0  ?  ? ]
+	 * [  0   0  0  ? ]
+	 * As they will be non-affine, or rotations about axes
+	 * other than Z.
+	 */
+	if (!near_zero_at(mat, 2, 0) ||
+	    !near_zero_at(mat, 3, 0) ||
+	    !near_zero_at(mat, 2, 1) ||
+	    !near_zero_at(mat, 3, 1) ||
+	    !near_zero_at(mat, 0, 2) ||
+	    !near_zero_at(mat, 1, 2) ||
+	    !near_zero_at(mat, 3, 2))
+		return false;
+
+	/* Enforce the form:
+	 * [  ?   ?  0  ? ]
+	 * [  ?   ?  0  ? ]
+	 * [  0   0  ?  ? ]
+	 * [  0   0  0  1 ]
+	 * While we could scale all the elements by a constant to make
+	 * 3,3 == 1, we choose to be lazy and not bother. A matrix
+	 * that doesn't fit this form seems likely to be too complicated
+	 * to pass the other checks.
+	 */
+	if (!near_one_at(mat, 3, 3))
+		return false;
+
+	if (near_zero_at(mat, 0, 0)) {
+		if (!near_zero_at(mat, 1, 1))
+			return false;
+
+		/* We now have a matrix like:
+		 * [  0   A  0  ? ]
+		 * [  B   0  0  ? ]
+		 * [  0   0  ?  ? ]
+		 * [  0   0  0  1 ]
+		 * When transforming a vector with a matrix of this form, the X
+		 * and Y coordinates are effectively exchanged, so we have a
+		 * 90 or 270 degree rotation (not 0 or 180), and could have
+		 * a flip depending on the signs of A and B.
+		 *
+		 * We don't require A and B to have the same absolute value,
+		 * so there may be independent scales in the X or Y dimensions.
+		 */
+		if (get_el(mat, 0, 1) > 0) {
+			/*  A is positive */
+
+			if (get_el(mat, 1, 0) > 0)
+				*transform = WL_OUTPUT_TRANSFORM_FLIPPED_90;
+			else
+				*transform = WL_OUTPUT_TRANSFORM_90;
+		} else {
+			/* A is negative */
+
+			if (get_el(mat, 1, 0) > 0)
+				*transform = WL_OUTPUT_TRANSFORM_270;
+			else
+				*transform = WL_OUTPUT_TRANSFORM_FLIPPED_270;
+		}
+	} else if (near_zero_at(mat, 1, 0)) {
+		if (!near_zero_at(mat, 0, 1))
+			return false;
+
+		/* We now have a matrix like:
+		 * [  A   0  0  ? ]
+		 * [  0   B  0  ? ]
+		 * [  0   0  ?  ? ]
+		 * [  0   0  0  1 ]
+		 * This case won't exchange the X and Y inputs, so the
+		 * transform is 0 or 180 degrees. We could have a flip
+		 * depending on the signs of A and B.
+		 *
+		 * We don't require A and B to have the same absolute value,
+		 * so there may be independent scales in the X or Y dimensions.
+		 */
+		if (get_el(mat, 0, 0) > 0) {
+			/* A is positive */
+
+			if (get_el(mat, 1, 1) > 0)
+				*transform = WL_OUTPUT_TRANSFORM_NORMAL;
+			else
+				*transform = WL_OUTPUT_TRANSFORM_FLIPPED_180;
+		} else {
+			/* A is negative */
+
+			if (get_el(mat, 1, 1) > 0)
+				*transform = WL_OUTPUT_TRANSFORM_FLIPPED;
+			else
+				*transform = WL_OUTPUT_TRANSFORM_180;
+		}
+	} else {
+		return false;
+	}
+
 	return true;
 }
