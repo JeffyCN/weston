@@ -811,6 +811,16 @@ weston_surface_to_buffer_region(struct weston_surface *surface,
 }
 
 WL_EXPORT void
+weston_view_buffer_to_output_matrix(const struct weston_view *view,
+				    const struct weston_output *output,
+				    struct weston_matrix *matrix)
+{
+	*matrix = view->surface->buffer_to_surface_matrix;
+	weston_matrix_multiply(matrix, &view->transform.matrix);
+	weston_matrix_multiply(matrix, &output->matrix);
+}
+
+WL_EXPORT void
 weston_view_move_to_plane(struct weston_view *view,
 			     struct weston_plane *plane)
 {

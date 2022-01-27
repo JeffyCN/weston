@@ -367,6 +367,10 @@ weston_view_takes_input_at_point(struct weston_view *view, int x, int y);
 void
 weston_view_move_to_plane(struct weston_view *view,
 			  struct weston_plane *plane);
+void
+weston_view_buffer_to_output_matrix(const struct weston_view *view,
+				    const struct weston_output *output,
+				    struct weston_matrix *matrix);
 
 pixman_box32_t
 weston_matrix_transform_rect(struct weston_matrix *matrix,
