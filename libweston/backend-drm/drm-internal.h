@@ -666,17 +666,17 @@ drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id);
 static inline bool
 drm_view_transform_supported(struct weston_view *ev, struct weston_output *output)
 {
-	struct weston_buffer_viewport *viewport = &ev->surface->buffer_viewport;
+	struct weston_matrix transform;
+	enum wl_output_transform wt;
 
-	/* This will incorrectly disallow cases where the combination of
-	 * buffer and view transformations match the output transform.
-	 * Fixing this requires a full analysis of the transformation
-	 * chain. */
-	if (ev->transform.enabled &&
-	    ev->transform.matrix.type >= WESTON_MATRIX_TRANSFORM_ROTATE)
+	weston_view_buffer_to_output_matrix(ev, output, &transform);
+
+	/* if false, the transform doesn't map to any of the standard
+	 * (ie: 90 degree) output transformations. */
+	if (!weston_matrix_to_transform(&transform, &wt))
 		return false;
 
-	if (viewport->buffer.transform != output->transform)
+	if (wt != WL_OUTPUT_TRANSFORM_NORMAL)
 		return false;
 
 	return true;
