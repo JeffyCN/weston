@@ -472,6 +472,8 @@ struct weston_paint_node {
 
 	/* Mutable members: */
 
+	bool needs_filtering;
+
 	/* struct weston_output::paint_node_z_order_list */
 	struct wl_list z_order_link;
 

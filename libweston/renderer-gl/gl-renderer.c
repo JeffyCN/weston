@@ -1032,8 +1032,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-	if (pnode->view->transform.enabled ||
-	    pnode->output->current_scale != pnode->surface->buffer_viewport.buffer.scale)
+	if (pnode->needs_filtering)
 		filter = GL_LINEAR;
 	else
 		filter = GL_NEAREST;

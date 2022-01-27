@@ -104,6 +104,16 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 static char *
 weston_output_create_heads_string(struct weston_output *output);
 
+static void
+paint_node_update(struct weston_paint_node *pnode)
+{
+	struct weston_matrix tmp_matrix;
+
+	weston_view_buffer_to_output_matrix(pnode->view, pnode->output,
+					    &tmp_matrix);
+	pnode->needs_filtering = weston_matrix_needs_filtering(&tmp_matrix);
+}
+
 static struct weston_paint_node *
 weston_paint_node_create(struct weston_surface *surface,
 			 struct weston_view *view,
@@ -143,6 +153,8 @@ weston_paint_node_create(struct weston_surface *surface,
 	wl_list_insert(&output->paint_node_list, &pnode->output_link);
 
 	wl_list_init(&pnode->z_order_link);
+
+	paint_node_update(pnode);
 
 	return pnode;
 }
@@ -2781,8 +2793,10 @@ view_ensure_paint_node(struct weston_view *view, struct weston_output *output)
 		return NULL;
 
 	pnode = weston_view_find_paint_node(view, output);
-	if (pnode)
+	if (pnode) {
+		paint_node_update(pnode);
 		return pnode;
+	}
 
 	return weston_paint_node_create(view->surface, view, output);
 }
