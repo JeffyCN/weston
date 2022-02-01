@@ -218,21 +218,6 @@ tools_list = [
 		'deps': [ dep_wayland_client ]
 	},
 	{
-		'name': 'info',
-		'sources': [
-			'weston-info.c',
-			presentation_time_client_protocol_h,
-			presentation_time_protocol_c,
-			linux_dmabuf_unstable_v1_client_protocol_h,
-			linux_dmabuf_unstable_v1_protocol_c,
-			tablet_unstable_v2_client_protocol_h,
-			tablet_unstable_v2_protocol_c,
-			xdg_output_unstable_v1_client_protocol_h,
-			xdg_output_unstable_v1_protocol_c,
-		],
-		'deps': [ dep_wayland_client, dep_libshared ]
-	},
-	{
 		'name': 'terminal',
 		'sources': [ 'terminal.c' ],
 		'deps': [ dep_toytoolkit ],
