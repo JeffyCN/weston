@@ -142,6 +142,7 @@ handle_pointer_motion_absolute(
 	struct evdev_device *device =
 		libinput_device_get_user_data(libinput_device);
 	struct weston_output *output = device->output;
+	struct weston_coord_global pos;
 	struct timespec time;
 	double x, y;
 	uint32_t width, height;
@@ -160,9 +161,8 @@ handle_pointer_motion_absolute(
 							      width);
 	y = libinput_event_pointer_get_absolute_y_transformed(pointer_event,
 							      height);
-
-	weston_output_transform_coordinate(device->output, x, y, &x, &y);
-	notify_motion_absolute(device->seat, &time, x, y);
+	pos = weston_coord_global_from_output_point(x, y, output);
+	notify_motion_absolute(device->seat, &time, pos.c.x, pos.c.y);
 
 	return true;
 }
@@ -445,6 +445,7 @@ handle_touch_with_coords(struct libinput_device *libinput_device,
 	uint32_t width, height;
 	struct timespec time;
 	int32_t slot;
+	struct weston_coord_global pos;
 
 	if (!device->output)
 		return;
@@ -458,16 +459,16 @@ handle_touch_with_coords(struct libinput_device *libinput_device,
 	x =  libinput_event_touch_get_x_transformed(touch_event, width);
 	y =  libinput_event_touch_get_y_transformed(touch_event, height);
 
-	weston_output_transform_coordinate(device->output,
-					   x, y, &x, &y);
+	pos = weston_coord_global_from_output_point(x, y, device->output);
 
 	if (weston_touch_device_can_calibrate(device->touch_device)) {
 		norm.x = libinput_event_touch_get_x_transformed(touch_event, 1);
 		norm.y = libinput_event_touch_get_y_transformed(touch_event, 1);
 		notify_touch_normalized(device->touch_device, &time, slot,
-					x, y, &norm, touch_type);
+					pos.c.x, pos.c.y, &norm, touch_type);
 	} else {
-		notify_touch(device->touch_device, &time, slot, x, y, touch_type);
+		notify_touch(device->touch_device, &time, slot,
+			     pos.c.x, pos.c.y, touch_type);
 	}
 }
 

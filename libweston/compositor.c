@@ -6493,38 +6493,6 @@ weston_coord_global_from_output_point(double x, double y,
 	return tmp;
 }
 
-/** Transform device coordinates into global coordinates
- *
- * \param output the weston_output object
- * \param[in] device_x X coordinate in device units.
- * \param[in] device_y Y coordinate in device units.
- * \param[out] x X coordinate in the global space.
- * \param[out] y Y coordinate in the global space.
- *
- * Transforms coordinates from the device coordinate space (physical pixel
- * units) to the global coordinate space (logical pixel units).  This takes
- * into account output transform and scale.
- *
- * \ingroup output
- * \internal
- */
-WL_EXPORT void
-weston_output_transform_coordinate(struct weston_output *output,
-				   double device_x, double device_y,
-				   double *x, double *y)
-{
-	struct weston_vector p = { {
-		device_x,
-		device_y,
-		0.0,
-		1.0 } };
-
-	weston_matrix_transform(&output->inverse_matrix, &p);
-
-	*x = p.f[0] / p.f[3];
-	*y = p.f[1] / p.f[3];
-}
-
 static bool
 validate_float_range(float val, float min, float max)
 {

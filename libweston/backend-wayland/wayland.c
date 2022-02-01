@@ -1599,6 +1599,7 @@ input_handle_pointer_enter(void *data, struct wl_pointer *pointer,
 	int32_t fx, fy;
 	enum theme_location location;
 	double x, y;
+	struct weston_coord_global pos;
 
 	if (!surface) {
 		input->output = NULL;
@@ -1628,11 +1629,13 @@ input_handle_pointer_enter(void *data, struct wl_pointer *pointer,
 		location = THEME_LOCATION_CLIENT_AREA;
 	}
 
-	weston_output_transform_coordinate(&input->output->base, x, y, &x, &y);
+	pos = weston_coord_global_from_output_point(x, y,
+						    &input->output->base);
 
 	if (location == THEME_LOCATION_CLIENT_AREA) {
 		input->has_focus = true;
-		notify_pointer_focus(&input->base, &input->output->base, x, y);
+		notify_pointer_focus(&input->base, &input->output->base,
+				     pos.c.x, pos.c.y);
 		wl_pointer_set_cursor(input->parent.pointer,
 				      input->enter_serial, NULL, 0, 0);
 	} else {
@@ -1672,6 +1675,7 @@ input_handle_motion(void *data, struct wl_pointer *pointer,
 	enum theme_location location;
 	bool want_frame = false;
 	double x, y;
+	struct weston_coord_global pos;
 	struct timespec ts;
 
 	if (!input->output)
@@ -1693,7 +1697,8 @@ input_handle_motion(void *data, struct wl_pointer *pointer,
 		location = THEME_LOCATION_CLIENT_AREA;
 	}
 
-	weston_output_transform_coordinate(&input->output->base, x, y, &x, &y);
+	pos = weston_coord_global_from_output_point(x, y,
+						    &input->output->base);
 
 	if (input->has_focus && location != THEME_LOCATION_CLIENT_AREA) {
 		input_set_cursor(input);
@@ -1704,14 +1709,15 @@ input_handle_motion(void *data, struct wl_pointer *pointer,
 		   location == THEME_LOCATION_CLIENT_AREA) {
 		wl_pointer_set_cursor(input->parent.pointer,
 				      input->enter_serial, NULL, 0, 0);
-		notify_pointer_focus(&input->base, &input->output->base, x, y);
+		notify_pointer_focus(&input->base, &input->output->base,
+				     pos.c.x, pos.c.y);
 		input->has_focus = true;
 		want_frame = true;
 	}
 
 	if (location == THEME_LOCATION_CLIENT_AREA) {
 		timespec_from_msec(&ts, time);
-		notify_motion_absolute(&input->base, &ts, x, y);
+		notify_motion_absolute(&input->base, &ts, pos.c.x, pos.c.y);
 		want_frame = true;
 	}
 
@@ -2061,6 +2067,7 @@ input_handle_touch_down(void *data, struct wl_touch *wl_touch,
 	enum theme_location location;
 	bool first_touch;
 	int32_t fx, fy;
+	struct weston_coord_global pos;
 	double x, y;
 	struct timespec ts;
 
@@ -2101,9 +2108,10 @@ input_handle_touch_down(void *data, struct wl_touch *wl_touch,
 			return;
 	}
 
-	weston_output_transform_coordinate(&output->base, x, y, &x, &y);
+	pos = weston_coord_global_from_output_point(x,y, &output->base);
 
-	notify_touch(input->touch_device, &ts, id, x, y, WL_TOUCH_DOWN);
+	notify_touch(input->touch_device, &ts, id,
+		     pos.c.x, pos.c.y, WL_TOUCH_DOWN);
 	input->touch_active = true;
 }
 
@@ -2152,6 +2160,7 @@ input_handle_touch_motion(void *data, struct wl_touch *wl_touch,
 	struct wayland_output *output = input->touch_focus;
 	int32_t fx, fy;
 	double x, y;
+	struct weston_coord_global pos;
 	struct timespec ts;
 
 	x = wl_fixed_to_double(fixed_x);
@@ -2167,9 +2176,10 @@ input_handle_touch_motion(void *data, struct wl_touch *wl_touch,
 		y -= fy;
 	}
 
-	weston_output_transform_coordinate(&output->base, x, y, &x, &y);
+	pos = weston_coord_global_from_output_point(x, y, &output->base);
 
-	notify_touch(input->touch_device, &ts, id, x, y, WL_TOUCH_MOTION);
+	notify_touch(input->touch_device, &ts, id,
+		     pos.c.x, pos.c.y, WL_TOUCH_MOTION);
 }
 
 static void

@@ -371,11 +371,10 @@ vnc_pointer_event(struct nvnc_client *client, uint16_t x, uint16_t y,
 	weston_compositor_get_time(&time);
 
 	if (x < output->base.width && y < output->base.height) {
-		double global_x, global_y;
+		struct weston_coord_global pos;
 
-		weston_output_transform_coordinate(&output->base, x, y,
-						   &global_x, &global_y);
-		notify_motion_absolute(peer->seat, &time, global_x, global_y);
+		pos = weston_coord_global_from_output_point(x, y, &output->base);
+		notify_motion_absolute(peer->seat, &time, pos.c.x, pos.c.y);
 	}
 
 	changed_button_mask = peer->last_button_mask ^ button_mask;

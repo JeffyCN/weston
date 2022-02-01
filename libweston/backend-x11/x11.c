@@ -1429,7 +1429,7 @@ x11_backend_deliver_motion_event(struct x11_backend *b,
 				 xcb_generic_event_t *event)
 {
 	struct x11_output *output;
-	double x, y;
+	struct weston_coord_global pos;
 	struct weston_pointer_motion_event motion_event = { 0 };
 	xcb_motion_notify_event_t *motion_notify =
 			(xcb_motion_notify_event_t *) event;
@@ -1441,23 +1441,22 @@ x11_backend_deliver_motion_event(struct x11_backend *b,
 	if (!output)
 		return;
 
-	weston_output_transform_coordinate(&output->base,
-					   motion_notify->event_x,
-					   motion_notify->event_y,
-					   &x, &y);
+	pos = weston_coord_global_from_output_point(motion_notify->event_x,
+						    motion_notify->event_y,
+						    &output->base);
 
 	motion_event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_REL,
-		.dx = x - b->prev_x,
-		.dy = y - b->prev_y
+		.dx = pos.c.x - b->prev_x,
+		.dy = pos.c.y - b->prev_y
 	};
 
 	weston_compositor_get_time(&time);
 	notify_motion(&b->core_seat, &time, &motion_event);
 	notify_pointer_frame(&b->core_seat);
 
-	b->prev_x = x;
-	b->prev_y = y;
+	b->prev_x = pos.c.x;
+	b->prev_y = pos.c.y;
 }
 
 static void
@@ -1465,7 +1464,7 @@ x11_backend_deliver_enter_event(struct x11_backend *b,
 				xcb_generic_event_t *event)
 {
 	struct x11_output *output;
-	double x, y;
+	struct weston_coord_global pos;
 
 	xcb_enter_notify_event_t *enter_notify =
 			(xcb_enter_notify_event_t *) event;
@@ -1477,14 +1476,14 @@ x11_backend_deliver_enter_event(struct x11_backend *b,
 	if (!output)
 		return;
 
-	weston_output_transform_coordinate(&output->base,
-					   enter_notify->event_x,
-					   enter_notify->event_y, &x, &y);
+	pos = weston_coord_global_from_output_point(enter_notify->event_x,
+						    enter_notify->event_y,
+						    &output->base);
 
-	notify_pointer_focus(&b->core_seat, &output->base, x, y);
+	notify_pointer_focus(&b->core_seat, &output->base, pos.c.x, pos.c.y);
 
-	b->prev_x = x;
-	b->prev_y = y;
+	b->prev_x = pos.c.x;
+	b->prev_y = pos.c.y;
 }
 
 static int
