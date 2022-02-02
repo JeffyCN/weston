@@ -61,13 +61,9 @@ enum motion_direction {
 	MOTION_DIRECTION_NEGATIVE_Y = 1 << 3,
 };
 
-struct vec2d {
-	double x, y;
-};
-
 struct line {
-	struct vec2d a;
-	struct vec2d b;
+	struct weston_coord a;
+	struct weston_coord b;
 };
 
 struct border {
@@ -4194,33 +4190,15 @@ confined_pointer_grab_pointer_focus(struct weston_pointer_grab *grab)
 }
 
 static double
-vec2d_cross_product(struct vec2d a, struct vec2d b)
+weston_coord_cross_product(struct weston_coord a, struct weston_coord b)
 {
 	return a.x * b.y - a.y * b.x;
 }
 
-static struct vec2d
-vec2d_add(struct vec2d a, struct vec2d b)
+static struct weston_coord
+weston_coord_multiply_constant(double c, struct weston_coord a)
 {
-	return (struct vec2d) {
-		.x = a.x + b.x,
-		.y = a.y + b.y,
-	};
-}
-
-static struct vec2d
-vec2d_subtract(struct vec2d a, struct vec2d b)
-{
-	return (struct vec2d) {
-		.x = a.x - b.x,
-		.y = a.y - b.y,
-	};
-}
-
-static struct vec2d
-vec2d_multiply_constant(double c, struct vec2d a)
-{
-	return (struct vec2d) {
+	return (struct weston_coord) {
 		.x = c * a.x,
 		.y = c * a.y,
 	};
@@ -4228,12 +4206,13 @@ vec2d_multiply_constant(double c, struct vec2d a)
 
 static bool
 lines_intersect(struct line *line1, struct line *line2,
-		struct vec2d *intersection)
+		struct weston_coord *intersection)
 {
-	struct vec2d p = line1->a;
-	struct vec2d r = vec2d_subtract(line1->b, line1->a);
-	struct vec2d q = line2->a;
-	struct vec2d s = vec2d_subtract(line2->b, line2->a);
+	struct weston_coord p = line1->a;
+	struct weston_coord r = weston_coord_sub(line1->b, line1->a);
+	struct weston_coord q = line2->a;
+	struct weston_coord s = weston_coord_sub(line2->b, line2->a);
+	struct weston_coord tmp;
 	double rxs;
 	double sxr;
 	double t;
@@ -4258,21 +4237,23 @@ lines_intersect(struct line *line1, struct line *line2,
 	 *   u = ((p - q) × r) / (s × r)
 	 */
 
-	rxs = vec2d_cross_product(r, s);
-	sxr = vec2d_cross_product(s, r);
+	rxs = weston_coord_cross_product(r, s);
+	sxr = weston_coord_cross_product(s, r);
 
 	/* If r × s = 0 then the lines are either parallel or collinear. */
 	if (fabs(rxs) < DBL_MIN)
 		return false;
 
-	t = vec2d_cross_product(vec2d_subtract(q, p), s) / rxs;
-	u = vec2d_cross_product(vec2d_subtract(p, q), r) / sxr;
+	tmp = weston_coord_sub(q, p);
+	t = weston_coord_cross_product(tmp, s) / rxs;
+	tmp = weston_coord_sub(p, q);
+	u = weston_coord_cross_product(tmp, r) / sxr;
 
 	/* The lines only intersect if 0 ≤ t ≤ 1 and 0 ≤ u ≤ 1. */
 	if (t < 0.0 || t > 1.0 || u < 0.0 || u > 1.0)
 		return false;
 
-	*intersection = vec2d_add(p, vec2d_multiply_constant(t, r));
+	*intersection = weston_coord_add(p, weston_coord_multiply_constant(t, r));
 	return true;
 }
 
@@ -4286,11 +4267,11 @@ add_border(struct wl_array *array,
 
 	*border = (struct border) {
 		.line = (struct line) {
-			.a = (struct vec2d) {
+			.a = (struct weston_coord) {
 				.x = x1,
 				.y = y1,
 			},
-			.b = (struct vec2d) {
+			.b = (struct weston_coord) {
 				.x = x2,
 				.y = y2,
 			},
@@ -4581,8 +4562,8 @@ get_closest_border(struct wl_array *borders,
 		   uint32_t directions)
 {
 	struct border *border;
-	struct vec2d intersection;
-	struct vec2d delta;
+	struct weston_coord intersection;
+	struct weston_coord delta;
 	double distance_2;
 	struct border *closest_border = NULL;
 	double closest_distance_2 = DBL_MAX;
@@ -4594,7 +4575,7 @@ get_closest_border(struct wl_array *borders,
 		if (!lines_intersect(&border->line, motion, &intersection))
 			continue;
 
-		delta = vec2d_subtract(intersection, motion->a);
+		delta = weston_coord_sub(intersection, motion->a);
 		distance_2 = delta.x*delta.x + delta.y*delta.y;
 		if (distance_2 < closest_distance_2) {
 			closest_border = border;
@@ -4687,11 +4668,11 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 	region_to_outline(region, &borders);
 
 	motion = (struct line) {
-		.a = (struct vec2d) {
+		.a = (struct weston_coord) {
 			.x = wl_fixed_to_double(old_sx),
 			.y = wl_fixed_to_double(old_sy),
 		},
-		.b = (struct vec2d) {
+		.b = (struct weston_coord) {
 			.x = cs.c.x,
 			.y = cs.c.y,
 		},
