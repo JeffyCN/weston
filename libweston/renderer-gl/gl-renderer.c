@@ -1849,6 +1849,12 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 	pixman_region32_union(&gs->texture_damage,
 			      &gs->texture_damage, &surface->damage);
 
+	/* This can happen if a SHM wl_buffer gets destroyed before we flush
+	 * damage, because wayland-server just nukes the wl_shm_buffer from
+	 * underneath us */
+	if (!buffer->shm_buffer)
+		return;
+
 	/* Avoid upload, if the texture won't be used this time.
 	 * We still accumulate the damage in texture_damage, and
 	 * hold the reference to the buffer, in case the surface
