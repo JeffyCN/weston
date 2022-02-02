@@ -4249,22 +4249,16 @@ lines_intersect(struct line *line1, struct line *line2,
 
 static struct border *
 add_border(struct wl_array *array,
-	   double x1, double y1,
-	   double x2, double y2,
+	   struct weston_coord pos1,
+	   struct weston_coord pos2,
 	   enum motion_direction blocking_dir)
 {
 	struct border *border = wl_array_add(array, sizeof *border);
 
 	*border = (struct border) {
 		.line = (struct line) {
-			.a = (struct weston_coord) {
-				.x = x1,
-				.y = y1,
-			},
-			.b = (struct weston_coord) {
-				.x = x2,
-				.y = y2,
-			},
+			.a = pos1,
+			.b = pos2
 		},
 		.blocking_dir = blocking_dir,
 	};
@@ -4305,14 +4299,20 @@ add_non_overlapping_edges(pixman_box32_t *boxes,
 	 * borders with the same left x coordinate, the wider one comes first.
 	 */
 	for (i = band_above_start; i < band_below_start; i++) {
+		struct weston_coord pos1, pos2;
 		pixman_box32_t *box = &boxes[i];
-		add_border(&band_merge, box->x1, box->y2, box->x2, box->y2,
-			   MOTION_DIRECTION_POSITIVE_Y);
+
+		pos1 = weston_coord(box->x1, box->y2);
+		pos2 = weston_coord(box->x2, box->y2);
+		add_border(&band_merge, pos1, pos2, MOTION_DIRECTION_POSITIVE_Y);
 	}
 	for (i = band_below_start; i < band_below_end; i++) {
+		struct weston_coord pos1, pos2;
 		pixman_box32_t *box= &boxes[i];
-		add_border(&band_merge, box->x1, box->y1, box->x2, box->y1,
-			   MOTION_DIRECTION_NEGATIVE_Y);
+
+		pos1 = weston_coord(box->x1, box->y1);
+		pos2 = weston_coord(box->x2, box->y1);
+		add_border(&band_merge, pos1, pos2, MOTION_DIRECTION_NEGATIVE_Y);
 	}
 	qsort(band_merge.data,
 	      band_merge.size / sizeof *border,
@@ -4364,10 +4364,8 @@ add_non_overlapping_edges(pixman_box32_t *boxes,
 			 * -----[    ]----
 			 */
 			new_border = add_border(borders,
-						border->line.b.x,
-						border->line.b.y,
-						prev_border->line.b.x,
-						prev_border->line.b.y,
+						border->line.b,
+						prev_border->line.b,
 						prev_border->blocking_dir);
 			prev_border->line.b.x = border->line.a.x;
 			prev_border = new_border;
@@ -4397,18 +4395,19 @@ add_band_bottom_edges(pixman_box32_t *boxes,
 		      struct wl_array *borders)
 {
 	int i;
+	struct weston_coord pos1, pos2;
 
 	for (i = band_start; i < band_end; i++) {
-		add_border(borders,
-			   boxes[i].x1, boxes[i].y2,
-			   boxes[i].x2, boxes[i].y2,
-			   MOTION_DIRECTION_POSITIVE_Y);
+		pos1 = weston_coord(boxes[i].x1, boxes[i].y2);
+		pos2 = weston_coord(boxes[i].x2, boxes[i].y2);
+		add_border(borders, pos1, pos2, MOTION_DIRECTION_POSITIVE_Y);
 	}
 }
 
 static void
 region_to_outline(pixman_region32_t *region, struct wl_array *borders)
 {
+	struct weston_coord pos1, pos2;
 	pixman_box32_t *boxes;
 	int num_boxes;
 	int i;
@@ -4492,31 +4491,27 @@ region_to_outline(pixman_region32_t *region, struct wl_array *borders)
 
 		/* Add the top border if the box is part of the current roof. */
 		if (boxes[i].y1 == current_roof) {
-			add_border(borders,
-				   boxes[i].x1, boxes[i].y1,
-				   boxes[i].x2, boxes[i].y1,
-				   MOTION_DIRECTION_NEGATIVE_Y);
+			pos1 = weston_coord(boxes[i].x1, boxes[i].y1);
+			pos2 = weston_coord(boxes[i].x2, boxes[i].y1);
+			add_border(borders, pos1, pos2, MOTION_DIRECTION_NEGATIVE_Y);
 		}
 
 		/* Add the bottom border of the last band. */
 		if (boxes[i].y2 == bottom_most) {
-			add_border(borders,
-				   boxes[i].x1, boxes[i].y2,
-				   boxes[i].x2, boxes[i].y2,
-				   MOTION_DIRECTION_POSITIVE_Y);
+			pos1 = weston_coord(boxes[i].x1, boxes[i].y2);
+			pos2 = weston_coord(boxes[i].x2, boxes[i].y2);
+			add_border(borders, pos1, pos2, MOTION_DIRECTION_POSITIVE_Y);
 		}
 
 		/* Always add the left border. */
-		add_border(borders,
-			   boxes[i].x1, boxes[i].y1,
-			   boxes[i].x1, boxes[i].y2,
-			   MOTION_DIRECTION_NEGATIVE_X);
+		pos1 = weston_coord(boxes[i].x1, boxes[i].y1);
+		pos2 = weston_coord(boxes[i].x1, boxes[i].y2);
+		add_border(borders, pos1, pos2, MOTION_DIRECTION_NEGATIVE_X);
 
 		/* Always add the right border. */
-		add_border(borders,
-			   boxes[i].x2, boxes[i].y1,
-			   boxes[i].x2, boxes[i].y2,
-			   MOTION_DIRECTION_POSITIVE_X);
+		pos1 = weston_coord(boxes[i].x2, boxes[i].y1);
+		pos2 = weston_coord(boxes[i].x2, boxes[i].y2);
+		add_border(borders, pos1, pos2, MOTION_DIRECTION_POSITIVE_X);
 
 		prev_top = boxes[i].y1;
 	}
