@@ -330,27 +330,21 @@ weston_pointer_motion_to_abs(struct weston_pointer *pointer,
 static bool
 weston_pointer_motion_to_rel(struct weston_pointer *pointer,
 			     struct weston_pointer_motion_event *event,
-			     double *dx, double *dy,
-			     double *dx_unaccel, double *dy_unaccel)
+			     struct weston_coord *rel,
+			     struct weston_coord *rel_unaccel)
 {
 	if (event->mask & WESTON_POINTER_MOTION_REL &&
 	    event->mask & WESTON_POINTER_MOTION_REL_UNACCEL) {
-		*dx = event->rel.x;
-		*dy = event->rel.y;
-		*dx_unaccel = event->rel_unaccel.x;
-		*dy_unaccel = event->rel_unaccel.y;
+		*rel = event->rel;
+		*rel_unaccel = event->rel_unaccel;
 		return true;
 	} else if (event->mask & WESTON_POINTER_MOTION_REL) {
-		*dx = event->rel.x;
-		*dy = event->rel.y;
-		*dx_unaccel = event->rel.x;
-		*dy_unaccel = event->rel.y;
+		*rel = event->rel;
+		*rel_unaccel = event->rel;
 		return true;
 	} else if (event->mask & WESTON_POINTER_MOTION_REL_UNACCEL) {
-		*dx = event->rel_unaccel.x;
-		*dy = event->rel_unaccel.y;
-		*dx_unaccel = event->rel_unaccel.x;
-		*dy_unaccel = event->rel_unaccel.y;
+		*rel = event->rel_unaccel;
+		*rel_unaccel = event->rel_unaccel;
 		return true;
 	} else {
 		return false;
@@ -488,8 +482,7 @@ pointer_send_relative_motion(struct weston_pointer *pointer,
 			     struct weston_pointer_motion_event *event)
 {
 	uint64_t time_usec;
-	double dx, dy, dx_unaccel, dy_unaccel;
-	wl_fixed_t dxf, dyf, dxf_unaccel, dyf_unaccel;
+	struct weston_coord rel, rel_unaccel;
 	struct wl_list *resource_list;
 	struct wl_resource *resource;
 
@@ -497,8 +490,8 @@ pointer_send_relative_motion(struct weston_pointer *pointer,
 		return;
 
 	if (!weston_pointer_motion_to_rel(pointer, event,
-					  &dx, &dy,
-					  &dx_unaccel, &dy_unaccel))
+					  &rel,
+					  &rel_unaccel))
 		return;
 
 	resource_list = &pointer->focus_client->relative_pointer_resources;
@@ -506,18 +499,15 @@ pointer_send_relative_motion(struct weston_pointer *pointer,
 	if (time_usec == 0)
 		time_usec = timespec_to_usec(time);
 
-	dxf = wl_fixed_from_double(dx);
-	dyf = wl_fixed_from_double(dy);
-	dxf_unaccel = wl_fixed_from_double(dx_unaccel);
-	dyf_unaccel = wl_fixed_from_double(dy_unaccel);
-
 	wl_resource_for_each(resource, resource_list) {
 		zwp_relative_pointer_v1_send_relative_motion(
 			resource,
 			(uint32_t) (time_usec >> 32),
 			(uint32_t) time_usec,
-			dxf, dyf,
-			dxf_unaccel, dyf_unaccel);
+			wl_fixed_from_double(rel.x),
+			wl_fixed_from_double(rel.y),
+			wl_fixed_from_double(rel_unaccel.x),
+			wl_fixed_from_double(rel_unaccel.y));
 	}
 }
 
