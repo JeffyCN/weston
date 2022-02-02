@@ -6776,9 +6776,7 @@ weston_output_set_transform(struct weston_output *output,
 	mid_y = output->y + output->height / 2;
 
 	ev.mask = WESTON_POINTER_MOTION_ABS;
-	ev.x = wl_fixed_to_double(wl_fixed_from_int(mid_x));
-	ev.y = wl_fixed_to_double(wl_fixed_from_int(mid_y));
-
+	ev.abs.c = weston_coord(mid_x, mid_y);
 	wl_list_for_each(seat, &output->compositor->seat_list, link) {
 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 

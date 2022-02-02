@@ -1447,10 +1447,8 @@ x11_backend_deliver_motion_event(struct x11_backend *b,
 
 	motion_event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_REL,
-		.dx = pos.c.x - b->prev_x,
-		.dy = pos.c.y - b->prev_y
+		.rel = weston_coord_sub(pos.c, weston_coord(b->prev_x, b->prev_y)),
 	};
-
 	weston_compositor_get_time(&time);
 	notify_motion(&b->core_seat, &time, &motion_event);
 	notify_pointer_frame(&b->core_seat);

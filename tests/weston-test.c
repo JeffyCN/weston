@@ -289,10 +289,9 @@ move_pointer(struct wl_client *client, struct wl_resource *resource,
 
 	event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_REL,
-		.dx = wl_fixed_to_double(wl_fixed_from_int(x) - pointer->x),
-		.dy = wl_fixed_to_double(wl_fixed_from_int(y) - pointer->y),
 	};
-
+	event.rel = weston_coord_from_fixed(wl_fixed_from_int(x) - pointer->x,
+					    wl_fixed_from_int(y) - pointer->y);
 	timespec_from_proto(&time, tv_sec_hi, tv_sec_lo, tv_nsec);
 
 	notify_motion(seat, &time, &event);

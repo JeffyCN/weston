@@ -316,11 +316,15 @@ weston_pointer_motion_to_abs(struct weston_pointer *pointer,
 			     wl_fixed_t *x, wl_fixed_t *y)
 {
 	if (event->mask & WESTON_POINTER_MOTION_ABS) {
-		*x = wl_fixed_from_double(event->x);
-		*y = wl_fixed_from_double(event->y);
+		*x = wl_fixed_from_double(event->abs.c.x);
+		*y = wl_fixed_from_double(event->abs.c.y);
 	} else if (event->mask & WESTON_POINTER_MOTION_REL) {
-		*x = pointer->x + wl_fixed_from_double(event->dx);
-		*y = pointer->y + wl_fixed_from_double(event->dy);
+		struct weston_coord pos;
+
+		pos = weston_coord_from_fixed(pointer->x, pointer->y);
+		pos = weston_coord_add(pos, event->rel);
+		*x = wl_fixed_from_double(pos.x);
+		*y = wl_fixed_from_double(pos.y);
 	} else {
 		assert(!"invalid motion event");
 		*x = *y = 0;
@@ -335,18 +339,22 @@ weston_pointer_motion_to_rel(struct weston_pointer *pointer,
 {
 	if (event->mask & WESTON_POINTER_MOTION_REL &&
 	    event->mask & WESTON_POINTER_MOTION_REL_UNACCEL) {
-		*dx = event->dx;
-		*dy = event->dy;
-		*dx_unaccel = event->dx_unaccel;
-		*dy_unaccel = event->dy_unaccel;
+		*dx = event->rel.x;
+		*dy = event->rel.y;
+		*dx_unaccel = event->rel_unaccel.x;
+		*dy_unaccel = event->rel_unaccel.y;
 		return true;
 	} else if (event->mask & WESTON_POINTER_MOTION_REL) {
-		*dx_unaccel = *dx = event->dx;
-		*dy_unaccel = *dy = event->dy;
+		*dx = event->rel.x;
+		*dy = event->rel.y;
+		*dx_unaccel = event->rel.x;
+		*dy_unaccel = event->rel.y;
 		return true;
 	} else if (event->mask & WESTON_POINTER_MOTION_REL_UNACCEL) {
-		*dx_unaccel = *dx = event->dx_unaccel;
-		*dy_unaccel = *dy = event->dy_unaccel;
+		*dx = event->rel_unaccel.x;
+		*dy = event->rel_unaccel.y;
+		*dx_unaccel = event->rel_unaccel.x;
+		*dy_unaccel = event->rel_unaccel.y;
 		return true;
 	} else {
 		return false;
@@ -1880,8 +1888,7 @@ notify_motion_absolute(struct weston_seat *seat, const struct timespec *time,
 
 	event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_ABS,
-		.x = pos.c.x,
-		.y = pos.c.y,
+		.abs = pos,
 	};
 	pointer->grab->interface->motion(pointer->grab, time, &event);
 }

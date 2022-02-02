@@ -123,12 +123,10 @@ handle_pointer_motion(struct libinput_device *libinput_device,
 		.mask = WESTON_POINTER_MOTION_REL |
 			WESTON_POINTER_MOTION_REL_UNACCEL,
 		.time = time,
-		.dx = libinput_event_pointer_get_dx(pointer_event),
-		.dy = libinput_event_pointer_get_dy(pointer_event),
-		.dx_unaccel = dx_unaccel,
-		.dy_unaccel = dy_unaccel,
 	};
-
+	event.rel = weston_coord(libinput_event_pointer_get_dx(pointer_event),
+				 libinput_event_pointer_get_dy(pointer_event));
+	event.rel_unaccel = weston_coord(dx_unaccel, dy_unaccel);
 	notify_motion(device->seat, &time, &event);
 
 	return true;
