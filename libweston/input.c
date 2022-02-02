@@ -453,23 +453,22 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 {
 	struct weston_pointer *pointer = grab->pointer;
 	struct weston_view *view;
+	struct weston_coord_global pos;
 	bool surface_jump = false;
 
 	if (pointer->button_count > 0)
 		return;
 
-	view = weston_compositor_pick_view(pointer->seat->compositor,
-					   pointer->x, pointer->y);
+	pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
+	view = weston_compositor_pick_view(pointer->seat->compositor, pos);
 	if (view && view == pointer->focus) {
-		struct weston_coord_global tmp_g;
-		struct weston_coord_surface tmp_s;
+		struct weston_coord_surface surf_pos;
 
 		weston_view_update_transform(view);
 
-		tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
-		tmp_s = weston_coord_global_to_surface(view, tmp_g);
-		if (pointer->sx != wl_fixed_from_double(tmp_s.c.x) ||
-		    pointer->sy != wl_fixed_from_double(tmp_s.c.y))
+		surf_pos = weston_coord_global_to_surface(view, pos);
+		if (pointer->sx != wl_fixed_from_double(surf_pos.c.x) ||
+		    pointer->sy != wl_fixed_from_double(surf_pos.c.y))
 			surface_jump = true;
 	}
 	if (pointer->focus != view || surface_jump)
@@ -644,8 +643,10 @@ default_grab_pointer_button(struct weston_pointer_grab *grab,
 
 	if (pointer->button_count == 0 &&
 	    state == WL_POINTER_BUTTON_STATE_RELEASED) {
-		view = weston_compositor_pick_view(compositor,
-						   pointer->x, pointer->y);
+		struct weston_coord_global pos;
+
+		pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
+		view = weston_compositor_pick_view(compositor, pos);
 
 		weston_pointer_set_focus(pointer, view);
 	}
@@ -2444,7 +2445,7 @@ process_touch_normal(struct weston_touch_device *device,
 		 * to that view for the remainder of the touch session i.e.
 		 * until all touch points are up again. */
 		if (touch->num_tp == 1) {
-			ev = weston_compositor_pick_view(ec, x, y);
+			ev = weston_compositor_pick_view(ec, *pos);
 			weston_touch_set_focus(touch, ev);
 		} else if (!touch->focus) {
 			/* Unexpected condition: We have non-initial touch but

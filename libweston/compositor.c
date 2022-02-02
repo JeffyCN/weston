@@ -2000,31 +2000,26 @@ weston_view_takes_input_at_point(struct weston_view *view, int x, int y)
  */
 WL_EXPORT struct weston_view *
 weston_compositor_pick_view(struct weston_compositor *compositor,
-			    wl_fixed_t x, wl_fixed_t y)
+			    struct weston_coord_global pos)
 {
 	struct weston_view *view;
-	int ix = wl_fixed_to_int(x);
-	int iy = wl_fixed_to_int(y);
 
 	/* Can't use paint node list: occlusion by input regions, not opaque. */
 	wl_list_for_each(view, &compositor->view_list, link) {
-		struct weston_coord_global pos_g;
-		struct weston_coord_surface pos_s;
+		struct weston_coord_surface surf_pos;
 
 		weston_view_update_transform(view);
 
 		if (!pixman_region32_contains_point(
-				&view->transform.boundingbox, ix, iy, NULL))
+				&view->transform.boundingbox, pos.c.x, pos.c.y, NULL))
 			continue;
 
-		pos_g.c = weston_coord_from_fixed(x, y);
-		pos_s = weston_coord_global_to_surface(view, pos_g);
-		if (!weston_view_takes_input_at_point(view, pos_s.c.x, pos_s.c.y))
+		surf_pos = weston_coord_global_to_surface(view, pos);
+		if (!weston_view_takes_input_at_point(view, surf_pos.c.x, surf_pos.c.y))
 			continue;
 
 		return view;
 	}
-
 	return NULL;
 }
 

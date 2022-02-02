@@ -580,20 +580,20 @@ drag_grab_focus_internal(struct weston_drag *drag, struct weston_seat *seat,
 			 wl_fixed_t x, wl_fixed_t y)
 {
 	struct weston_view *view;
+	struct weston_coord_global pos;
 
-	view = weston_compositor_pick_view(seat->compositor, x, y);
+	pos.c = weston_coord_from_fixed(x, y);
+	view = weston_compositor_pick_view(seat->compositor, pos);
 	if (drag->focus == view)
 		return;
 
 	if (view) {
-		struct weston_coord_global tmp_g;
-		struct weston_coord_surface tmp_s;
+		struct weston_coord_surface surf_pos;
 
-		tmp_g.c = weston_coord_from_fixed(x, y);
-		tmp_s = weston_coord_global_to_surface(view, tmp_g);
+		surf_pos = weston_coord_global_to_surface(view, pos);
 		weston_drag_set_focus(drag, seat, view,
-				      wl_fixed_from_double(tmp_s.c.x),
-				      wl_fixed_from_double(tmp_s.c.y));
+				      wl_fixed_from_double(surf_pos.c.x),
+				      wl_fixed_from_double(surf_pos.c.y));
 	} else
 		weston_drag_clear_focus(drag);
 }

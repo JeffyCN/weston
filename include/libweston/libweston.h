@@ -1869,7 +1869,7 @@ void
 weston_compositor_sleep(struct weston_compositor *compositor);
 struct weston_view *
 weston_compositor_pick_view(struct weston_compositor *compositor,
-			    wl_fixed_t x, wl_fixed_t y);
+			    struct weston_coord_global pos);
 
 struct weston_binding;
 typedef void (*weston_key_binding_handler_t)(struct weston_keyboard *keyboard,
