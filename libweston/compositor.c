@@ -2892,8 +2892,8 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 		view = weston_view_create(sub->surface);
 		weston_view_set_transform_parent(view, parent);
 		weston_view_set_rel_position(view,
-					     sub->position.x,
-					     sub->position.y);
+					     sub->position.offset.c.x,
+					     sub->position.offset.c.y);
 	}
 
 	view->parent_view = parent;
@@ -4507,8 +4507,8 @@ weston_subsurface_parent_commit(struct weston_subsurface *sub,
 	if (sub->position.set) {
 		wl_list_for_each(view, &sub->surface->views, surface_link)
 			weston_view_set_rel_position(view,
-						     sub->position.x,
-						     sub->position.y);
+						     sub->position.offset.c.x,
+						     sub->position.offset.c.y);
 
 		sub->position.set = 0;
 	}
@@ -4662,8 +4662,8 @@ weston_surface_get_bounding_box(struct weston_surface *surface)
 
 	wl_list_for_each(subsurface, &surface->subsurface_list, parent_link)
 		pixman_region32_union_rect(&region, &region,
-					   subsurface->position.x,
-					   subsurface->position.y,
+					   subsurface->position.offset.c.x,
+					   subsurface->position.offset.c.y,
 					   subsurface->surface->width,
 					   subsurface->surface->height);
 
@@ -4761,8 +4761,7 @@ subsurface_set_position(struct wl_client *client,
 	if (!sub)
 		return;
 
-	sub->position.x = x;
-	sub->position.y = y;
+	sub->position.offset = weston_coord_surface(x, y, sub->surface);
 	sub->position.set = 1;
 }
 
@@ -5021,6 +5020,8 @@ weston_subsurface_create(uint32_t id, struct weston_surface *surface,
 		free(sub);
 		return NULL;
 	}
+
+	sub->position.offset = weston_coord_surface(0, 0, surface);
 
 	wl_resource_set_implementation(sub->resource,
 				       &subsurface_implementation,

@@ -1757,8 +1757,7 @@ struct weston_subsurface {
 	struct wl_list parent_link_pending;
 
 	struct {
-		int32_t x;
-		int32_t y;
+		struct weston_coord_surface offset;
 		int set;
 	} position;
 

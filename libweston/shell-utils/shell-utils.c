@@ -103,8 +103,8 @@ weston_shell_utils_subsurfaces_boundingbox(struct weston_surface *surface,
 
 	wl_list_for_each(subsurface, &surface->subsurface_list, parent_link) {
 		pixman_region32_union_rect(&region, &region,
-		                           subsurface->position.x,
-		                           subsurface->position.y,
+		                           subsurface->position.offset.c.x,
+		                           subsurface->position.offset.c.y,
 		                           subsurface->surface->width,
 		                           subsurface->surface->height);
 	}
