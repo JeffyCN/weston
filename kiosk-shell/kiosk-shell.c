@@ -90,7 +90,6 @@ transform_handler(struct wl_listener *listener, void *data)
 	struct weston_surface *surface = data;
 	struct kiosk_shell_surface *shsurf = get_kiosk_shell_surface(surface);
 	const struct weston_xwayland_surface_api *api;
-	int x, y;
 
 	if (!shsurf)
 		return;
@@ -107,10 +106,9 @@ transform_handler(struct wl_listener *listener, void *data)
 	if (!weston_view_is_mapped(shsurf->view))
 		return;
 
-	x = shsurf->view->geometry.x;
-	y = shsurf->view->geometry.y;
-
-	api->send_position(surface, x, y);
+	api->send_position(surface,
+			   shsurf->view->geometry.pos_offset.x,
+			   shsurf->view->geometry.pos_offset.y);
 }
 
 /*
@@ -811,7 +809,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	if (!is_fullscreen && (sx != 0 || sy != 0)) {
 		struct weston_coord_surface from_s, to_s;
 		struct weston_coord_global from_g, to_g;
-		float x, y;
+		struct weston_coord_global offset, pos;
 
 		from_s = weston_coord_surface(0, 0,
 					      shsurf->view->surface);
@@ -820,10 +818,11 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 		from_g = weston_coord_surface_to_global(shsurf->view, from_s);
 		to_g = weston_coord_surface_to_global(shsurf->view, to_s);
-		x = shsurf->view->geometry.x + to_g.c.x - from_g.c.x;
-		y = shsurf->view->geometry.y + to_g.c.y - from_g.c.y;
+		offset.c = weston_coord_sub(to_g.c, from_g.c);
+		pos.c = weston_coord_add(shsurf->view->geometry.pos_offset,
+					 offset.c);
 
-		weston_view_set_position(shsurf->view, x, y);
+		weston_view_set_position(shsurf->view, pos.c.x, pos.c.y);
 		weston_view_update_transform(shsurf->view);
 	}
 
@@ -965,8 +964,8 @@ desktop_surface_get_position(struct weston_desktop_surface *desktop_surface,
 	struct kiosk_shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(desktop_surface);
 
-	*x = shsurf->view->geometry.x;
-	*y = shsurf->view->geometry.y;
+	*x = shsurf->view->geometry.pos_offset.x;
+	*y = shsurf->view->geometry.pos_offset.y;
 }
 
 static const struct weston_desktop_api kiosk_shell_desktop_api = {
@@ -1135,8 +1134,8 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		if (view->output != output)
 			continue;
 		weston_view_set_position(view,
-					 view->geometry.x + output->move_x,
-					 view->geometry.y + output->move_y);
+					 view->geometry.pos_offset.x + output->move_x,
+					 view->geometry.pos_offset.y + output->move_y);
 	}
 
 	wl_list_for_each(view, &shell->normal_layer.view_list.link,
@@ -1144,8 +1143,8 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		if (view->output != output)
 			continue;
 		weston_view_set_position(view,
-					 view->geometry.x + output->move_x,
-					 view->geometry.y + output->move_y);
+					 view->geometry.pos_offset.x + output->move_x,
+					 view->geometry.pos_offset.y + output->move_y);
 	}
 }
 

@@ -1497,7 +1497,11 @@ struct weston_view {
 	 * That includes the transformations referenced from the list.
 	 */
 	struct {
-		float x, y; /* surface translation on display */
+		/* pos_offset is the surface's position in the global space
+		 * if parent is NULL, or its offset in its parent's surface
+		 * space if parent is set.
+		 */
+		struct weston_coord pos_offset;
 
 		/* struct weston_transform */
 		struct wl_list transformation_list;

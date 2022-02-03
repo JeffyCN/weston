@@ -67,8 +67,10 @@ calc_input_panel_position(struct input_panel_surface *ip_surface, float *x, floa
 		struct weston_view *view = get_default_view(shell->text_input.surface);
 		if (view == NULL)
 			return -1;
-		*x = view->geometry.x + shell->text_input.cursor_rectangle.x2;
-		*y = view->geometry.y + shell->text_input.cursor_rectangle.y2;
+		*x = view->geometry.pos_offset.x +
+		     shell->text_input.cursor_rectangle.x2;
+		*y = view->geometry.pos_offset.y +
+		     shell->text_input.cursor_rectangle.y2;
 	} else {
 		*x = ip_surface->output->x + (ip_surface->output->width - ip_surface->surface->width) / 2;
 		*y = ip_surface->output->y + ip_surface->output->height - ip_surface->surface->height;
