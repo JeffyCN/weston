@@ -46,7 +46,7 @@ struct weston_drag {
 	struct wl_listener focus_listener;
 	struct weston_view *icon;
 	struct wl_listener icon_destroy_listener;
-	int32_t dx, dy;
+	struct weston_coord_surface offset;
 	struct weston_keyboard_grab keyboard_grab;
 };
 
@@ -435,17 +435,17 @@ drag_surface_configure(struct weston_drag *drag,
 		drag->icon->is_mapped = true;
 	}
 
-	drag->dx += sx;
-	drag->dy += sy;
+	drag->offset.c.x += sx;
+	drag->offset.c.y += sy;
 
 	/* init to 0 for avoiding a compile warning */
 	fx = fy = 0;
 	if (pointer) {
-		fx = pointer->pos.c.x + drag->dx;
-		fy = pointer->pos.c.y + drag->dy;
+		fx = pointer->pos.c.x + drag->offset.c.x;
+		fy = pointer->pos.c.y + drag->offset.c.y;
 	} else if (touch) {
-		fx = wl_fixed_to_double(touch->grab_x) + drag->dx;
-		fy = wl_fixed_to_double(touch->grab_y) + drag->dy;
+		fx = wl_fixed_to_double(touch->grab_x) + drag->offset.c.x;
+		fy = wl_fixed_to_double(touch->grab_y) + drag->offset.c.y;
 	}
 	weston_view_set_position(drag->icon, fx, fy);
 }
@@ -621,8 +621,8 @@ drag_grab_motion(struct weston_pointer_grab *grab,
 	weston_pointer_move(pointer, event);
 
 	if (drag->base.icon) {
-		fx = pointer->pos.c.x + drag->base.dx;
-		fy = pointer->pos.c.y + drag->base.dy;
+		fx = pointer->pos.c.x + drag->base.offset.c.x;
+		fy = pointer->pos.c.y + drag->base.offset.c.y;
 		weston_view_set_position(drag->base.icon, fx, fy);
 		weston_view_schedule_repaint(drag->base.icon);
 	}
@@ -818,8 +818,10 @@ drag_grab_touch_motion(struct weston_touch_grab *grab,
 
 	drag_grab_touch_focus(touch_drag);
 	if (touch_drag->base.icon) {
-		fx = wl_fixed_to_double(touch->grab_x) + touch_drag->base.dx;
-		fy = wl_fixed_to_double(touch->grab_y) + touch_drag->base.dy;
+		fx = wl_fixed_to_double(touch->grab_x) +
+		     touch_drag->base.offset.c.x;
+		fy = wl_fixed_to_double(touch->grab_y) +
+		     touch_drag->base.offset.c.y;
 		weston_view_set_position(touch_drag->base.icon, fx, fy);
 		weston_view_schedule_repaint(touch_drag->base.icon);
 	}
@@ -986,6 +988,7 @@ weston_pointer_start_drag(struct weston_pointer *pointer,
 	if (keyboard)
 		weston_keyboard_start_grab(keyboard, &drag->base.keyboard_grab);
 
+	drag->base.offset = weston_coord_surface(0, 0, icon);
 	return 0;
 }
 
@@ -1050,6 +1053,7 @@ weston_touch_start_drag(struct weston_touch *touch,
 
 	drag_grab_touch_focus(drag);
 
+	drag->base.offset = weston_coord_surface(0, 0, icon);
 	return 0;
 }
 
