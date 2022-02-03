@@ -511,7 +511,7 @@ static void
 weston_drag_set_focus(struct weston_drag *drag,
 			struct weston_seat *seat,
 			struct weston_view *view,
-			wl_fixed_t sx, wl_fixed_t sy)
+			struct weston_coord_surface surf_pos)
 {
 	struct wl_resource *resource, *offer_resource = NULL;
 	struct wl_display *display = seat->compositor->wl_display;
@@ -519,6 +519,7 @@ weston_drag_set_focus(struct weston_drag *drag,
 	uint32_t serial;
 
 	assert(view);
+	assert(surf_pos.coordinate_space_id == view->surface);
 
 	if (drag->focus && drag->focus->surface == view->surface) {
 		drag->focus = view;
@@ -567,7 +568,9 @@ weston_drag_set_focus(struct weston_drag *drag,
 	}
 
 	wl_data_device_send_enter(resource, serial, view->surface->resource,
-				  sx, sy, offer_resource);
+				  wl_fixed_from_double(surf_pos.c.x),
+				  wl_fixed_from_double(surf_pos.c.y),
+				  offer_resource);
 
 	drag->focus = view;
 	drag->focus_listener.notify = destroy_drag_focus;
@@ -577,12 +580,10 @@ weston_drag_set_focus(struct weston_drag *drag,
 
 static void
 drag_grab_focus_internal(struct weston_drag *drag, struct weston_seat *seat,
-			 wl_fixed_t x, wl_fixed_t y)
+			 struct weston_coord_global pos)
 {
 	struct weston_view *view;
-	struct weston_coord_global pos;
 
-	pos.c = weston_coord_from_fixed(x, y);
 	view = weston_compositor_pick_view(seat->compositor, pos);
 	if (drag->focus == view)
 		return;
@@ -591,9 +592,7 @@ drag_grab_focus_internal(struct weston_drag *drag, struct weston_seat *seat,
 		struct weston_coord_surface surf_pos;
 
 		surf_pos = weston_coord_global_to_surface(view, pos);
-		weston_drag_set_focus(drag, seat, view,
-				      wl_fixed_from_double(surf_pos.c.x),
-				      wl_fixed_from_double(surf_pos.c.y));
+		weston_drag_set_focus(drag, seat, view, surf_pos);
 	} else
 		weston_drag_clear_focus(drag);
 }
@@ -604,9 +603,10 @@ drag_grab_focus(struct weston_pointer_grab *grab)
 	struct weston_pointer_drag *drag =
 		container_of(grab, struct weston_pointer_drag, grab);
 	struct weston_pointer *pointer = grab->pointer;
+	struct weston_coord_global pos;
 
-	drag_grab_focus_internal(&drag->base, pointer->seat,
-				 pointer->x, pointer->y);
+	pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
+	drag_grab_focus_internal(&drag->base, pointer->seat, pos);
 }
 
 static void
@@ -800,8 +800,10 @@ static void
 drag_grab_touch_focus(struct weston_touch_drag *drag)
 {
 	struct weston_touch *touch = drag->grab.touch;
+	struct weston_coord_global pos;
 
-	drag_grab_focus_internal(&drag->base, touch->seat, touch->grab_x, touch->grab_y);
+	pos.c = weston_coord_from_fixed(touch->grab_x, touch->grab_y);
+	drag_grab_focus_internal(&drag->base, touch->seat, pos);
 }
 
 static void
