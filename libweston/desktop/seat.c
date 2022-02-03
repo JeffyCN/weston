@@ -95,10 +95,9 @@ weston_desktop_seat_popup_grab_pointer_focus(struct weston_pointer_grab *grab)
 		wl_container_of(grab, seat, popup_grab.pointer);
 	struct weston_pointer *pointer = grab->pointer;
 	struct weston_view *view;
-	struct weston_coord_global pos;
 
-	pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-	view = weston_compositor_pick_view(pointer->seat->compositor, pos);
+	view = weston_compositor_pick_view(pointer->seat->compositor,
+					   pointer->pos);
 
 	/* Ignore views that don't belong to the grabbing client */
 	if (view != NULL &&

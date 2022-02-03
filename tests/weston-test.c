@@ -146,7 +146,9 @@ notify_pointer_position(struct weston_test *test, struct wl_resource *resource)
 	struct weston_seat *seat = get_seat(test);
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 
-	weston_test_send_pointer_position(resource, pointer->x, pointer->y);
+	weston_test_send_pointer_position(resource,
+					  wl_fixed_from_double(pointer->pos.c.x),
+					  wl_fixed_from_double(pointer->pos.c.y));
 }
 
 static void
@@ -285,13 +287,15 @@ move_pointer(struct wl_client *client, struct wl_resource *resource,
 	struct weston_seat *seat = get_seat(test);
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 	struct weston_pointer_motion_event event = { 0 };
+	struct weston_coord_global pos;
 	struct timespec time;
 
+	pos.c = weston_coord(x, y);
 	event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_REL,
+		.rel = weston_coord_sub(pos.c, pointer->pos.c),
 	};
-	event.rel = weston_coord_from_fixed(wl_fixed_from_int(x) - pointer->x,
-					    wl_fixed_from_int(y) - pointer->y);
+
 	timespec_from_proto(&time, tv_sec_hi, tv_sec_lo, tv_nsec);
 
 	notify_motion(seat, &time, &event);

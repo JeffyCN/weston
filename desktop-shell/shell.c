@@ -1019,8 +1019,8 @@ constrain_position(struct weston_move_grab *move, int *cx, int *cy)
 	pixman_rectangle32_t area;
 	struct weston_geometry geometry;
 
-	x = wl_fixed_to_int(pointer->x + move->dx);
-	y = wl_fixed_to_int(pointer->y + move->dy);
+	x = pointer->pos.c.x + wl_fixed_to_double(move->dx);
+	y = pointer->pos.c.y + wl_fixed_to_double(move->dy);
 
 	if (shsurf->shell->panel_position ==
 	    WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP) {
@@ -1120,10 +1120,10 @@ surface_move(struct shell_surface *shsurf, struct weston_pointer *pointer,
 	if (!move)
 		return -1;
 
-	move->dx = wl_fixed_from_double(shsurf->view->geometry.x) -
-		   pointer->grab_x;
-	move->dy = wl_fixed_from_double(shsurf->view->geometry.y) -
-		   pointer->grab_y;
+	move->dx = wl_fixed_from_double(shsurf->view->geometry.x -
+		   pointer->grab_pos.c.x);
+	move->dy = wl_fixed_from_double(shsurf->view->geometry.y -
+		   pointer->grab_pos.c.y);
 	move->client_initiated = client_initiated;
 
 	weston_desktop_surface_set_orientation(shsurf->desktop_surface,
@@ -1152,7 +1152,6 @@ resize_grab_motion(struct weston_pointer_grab *grab,
 	int32_t width, height;
 	struct weston_size min_size, max_size;
 	struct weston_coord_surface tmp_s;
-	struct weston_coord_global tmp_g;
 	wl_fixed_t from_x, from_y;
 	wl_fixed_t to_x, to_y;
 
@@ -1163,12 +1162,10 @@ resize_grab_motion(struct weston_pointer_grab *grab,
 
 	weston_view_update_transform(shsurf->view);
 
-	tmp_g.c = weston_coord_from_fixed(pointer->grab_x, pointer->grab_y);
-	tmp_s = weston_coord_global_to_surface(shsurf->view, tmp_g);
+	tmp_s = weston_coord_global_to_surface(shsurf->view, pointer->grab_pos);
 	from_x = wl_fixed_from_double(tmp_s.c.x);
 	from_y = wl_fixed_from_double(tmp_s.c.y);
-	tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
-	tmp_s = weston_coord_global_to_surface(shsurf->view, tmp_g);
+	tmp_s = weston_coord_global_to_surface(shsurf->view, pointer->pos);
 	to_x = wl_fixed_from_double(tmp_s.c.x);
 	to_y = wl_fixed_from_double(tmp_s.c.y);
 
@@ -1305,10 +1302,9 @@ busy_cursor_grab_focus(struct weston_pointer_grab *base)
 	struct weston_pointer *pointer = base->pointer;
 	struct weston_desktop_surface *desktop_surface;
 	struct weston_view *view;
-	struct weston_coord_global pos;
 
-	pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-	view = weston_compositor_pick_view(pointer->seat->compositor, pos);
+	view = weston_compositor_pick_view(pointer->seat->compositor,
+					   pointer->pos);
 	desktop_surface = weston_surface_get_desktop_surface(view->surface);
 
 	if (!grab->shsurf || grab->shsurf->desktop_surface != desktop_surface) {
@@ -3059,7 +3055,6 @@ resize_binding(struct weston_pointer *pointer, const struct timespec *time,
 	uint32_t edges = 0;
 	int32_t x, y;
 	struct shell_surface *shsurf;
-	struct weston_coord_global tmp_g;
 	struct weston_coord_surface surf_pos;
 
 	if (pointer->focus == NULL)
@@ -3077,8 +3072,7 @@ resize_binding(struct weston_pointer *pointer, const struct timespec *time,
 	    weston_desktop_surface_get_maximized(shsurf->desktop_surface))
 		return;
 
-	tmp_g.c = weston_coord_from_fixed(pointer->grab_x, pointer->grab_y);
-	surf_pos = weston_coord_global_to_surface(shsurf->view, tmp_g);
+	surf_pos = weston_coord_global_to_surface(shsurf->view, pointer->grab_pos);
 	x = surf_pos.c.x;
 	y = surf_pos.c.y;
 
@@ -3161,8 +3155,8 @@ rotate_grab_motion(struct weston_pointer_grab *grab,
 	cx = 0.5f * surface->width;
 	cy = 0.5f * surface->height;
 
-	dx = wl_fixed_to_double(pointer->x) - rotate->center.x;
-	dy = wl_fixed_to_double(pointer->y) - rotate->center.y;
+	dx = pointer->pos.c.x - rotate->center.x;
+	dy = pointer->pos.c.y - rotate->center.y;
 	r = sqrtf(dx * dx + dy * dy);
 
 	wl_list_remove(&shsurf->rotation.transform.link);
@@ -3272,8 +3266,8 @@ surface_rotate(struct shell_surface *shsurf, struct weston_pointer *pointer)
 	rotate->center.x = center_g.c.x;
 	rotate->center.y = center_g.c.y;
 
-	dx = wl_fixed_to_double(pointer->x) - rotate->center.x;
-	dy = wl_fixed_to_double(pointer->y) - rotate->center.y;
+	dx = pointer->pos.c.x - rotate->center.x;
+	dy = pointer->pos.c.y - rotate->center.y;
 	r = sqrtf(dx * dx + dy * dy);
 	if (r > 20.0f) {
 		struct weston_matrix inverse;
@@ -3871,8 +3865,8 @@ weston_view_set_initial_position(struct weston_view *view,
 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 
 		if (pointer) {
-			ix = wl_fixed_to_int(pointer->x);
-			iy = wl_fixed_to_int(pointer->y);
+			ix = pointer->pos.c.x;
+			iy = pointer->pos.c.y;
 			break;
 		}
 	}

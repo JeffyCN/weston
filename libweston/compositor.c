@@ -307,9 +307,8 @@ weston_mode_switch_finish(struct weston_output *output,
 		if (!pointer)
 			continue;
 
-		x = wl_fixed_to_int(pointer->x);
-		y = wl_fixed_to_int(pointer->y);
-
+		x = pointer->pos.c.x;
+		y = pointer->pos.c.y;
 		if (!pixman_region32_contains_point(&old_output_region,
 						    x, y, NULL) ||
 		    weston_output_contains_point(output, x, y))
@@ -320,8 +319,7 @@ weston_mode_switch_finish(struct weston_output *output,
 		if (y >= output->y + output->height)
 			y = output->y + output->height - 1;
 
-		pointer->x = wl_fixed_from_int(x);
-		pointer->y = wl_fixed_from_int(y);
+		pointer->pos.c = weston_coord(x, y);
 	}
 
 	pixman_region32_fini(&old_output_region);
@@ -6782,8 +6780,8 @@ weston_output_set_transform(struct weston_output *output,
 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 
 		if (pointer && pixman_region32_contains_point(&old_region,
-							      wl_fixed_to_int(pointer->x),
-							      wl_fixed_to_int(pointer->y),
+							      pointer->pos.c.x,
+							      pointer->pos.c.y,
 							      NULL))
 			weston_pointer_move(pointer, &ev);
 	}

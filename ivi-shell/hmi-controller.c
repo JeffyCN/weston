@@ -1464,9 +1464,11 @@ pointer_move_workspace_grab_end(struct pointer_grab *grab)
 	struct pointer_move_grab *pnt_move_grab =
 		(struct pointer_move_grab *)grab;
 	struct ivi_layout_layer *layer = pnt_move_grab->base.layer;
+	wl_fixed_t x;
 
+	x = wl_fixed_from_double(grab->grab.pointer->grab_pos.c.x);
 	move_workspace_grab_end(&pnt_move_grab->move, grab->resource,
-				grab->grab.pointer->grab_x, layer);
+				x, layer);
 
 	weston_pointer_end_grab(grab->grab.pointer);
 }
@@ -1765,8 +1767,10 @@ create_workspace_pointer_move(struct weston_pointer *pointer,
 		xzalloc(sizeof(*pnt_move_grab));
 
 	pnt_move_grab->base.resource = resource;
-	move_grab_init_workspace(&pnt_move_grab->move, pointer->grab_x,
-				 pointer->grab_y, resource);
+	move_grab_init_workspace(&pnt_move_grab->move,
+				 wl_fixed_from_double(pointer->grab_pos.c.x),
+				 wl_fixed_from_double(pointer->grab_pos.c.y),
+				 resource);
 
 	return pnt_move_grab;
 }

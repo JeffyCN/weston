@@ -717,16 +717,16 @@ struct weston_pointer {
 
 	struct weston_view *sprite;
 	struct wl_listener sprite_destroy_listener;
-	int32_t hotspot_x, hotspot_y;
+	struct weston_coord_surface hotspot;
 
 	struct weston_pointer_grab *grab;
 	struct weston_pointer_grab default_grab;
-	wl_fixed_t grab_x, grab_y;
+	struct weston_coord_global grab_pos;
 	uint32_t grab_button;
 	uint32_t grab_serial;
 	struct timespec grab_time;
 
-	wl_fixed_t x, y;
+	struct weston_coord_global pos;
 	wl_fixed_t sx, sy;
 	uint32_t button_count;
 

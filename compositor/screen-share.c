@@ -1171,8 +1171,8 @@ share_output_binding(struct weston_keyboard *keyboard,
 	pointer = weston_seat_get_pointer(keyboard->seat);
 	if (pointer) {
 		output = weston_output_find(pointer->seat->compositor,
-					    wl_fixed_to_int(pointer->x),
-					    wl_fixed_to_int(pointer->y));
+					    pointer->pos.c.x,
+					    pointer->pos.c.y);
 	} else {
 		output = weston_shell_utils_get_focused_output(keyboard->seat->compositor);
 		if (!output)

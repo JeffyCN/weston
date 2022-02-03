@@ -315,8 +315,7 @@ weston_pointer_motion_to_abs(struct weston_pointer *pointer,
 	if (event->mask & WESTON_POINTER_MOTION_ABS) {
 		return event->abs;
 	} else if (event->mask & WESTON_POINTER_MOTION_REL) {
-		pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-		pos.c = weston_coord_add(pos.c, event->rel);
+		pos.c = weston_coord_add(pointer->pos.c, event->rel);
 		return pos;
 	}
 
@@ -451,20 +450,19 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 {
 	struct weston_pointer *pointer = grab->pointer;
 	struct weston_view *view;
-	struct weston_coord_global pos;
 	bool surface_jump = false;
 
 	if (pointer->button_count > 0)
 		return;
 
-	pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-	view = weston_compositor_pick_view(pointer->seat->compositor, pos);
+	view = weston_compositor_pick_view(pointer->seat->compositor,
+					   pointer->pos);
 	if (view && view == pointer->focus) {
 		struct weston_coord_surface surf_pos;
 
 		weston_view_update_transform(view);
 
-		surf_pos = weston_coord_global_to_surface(view, pos);
+		surf_pos = weston_coord_global_to_surface(view, pointer->pos);
 		if (pointer->sx != wl_fixed_from_double(surf_pos.c.x) ||
 		    pointer->sy != wl_fixed_from_double(surf_pos.c.y))
 			surface_jump = true;
@@ -638,10 +636,8 @@ default_grab_pointer_button(struct weston_pointer_grab *grab,
 
 	if (pointer->button_count == 0 &&
 	    state == WL_POINTER_BUTTON_STATE_RELEASED) {
-		struct weston_coord_global pos;
-
-		pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-		view = weston_compositor_pick_view(compositor, pos);
+		view = weston_compositor_pick_view(compositor,
+						   pointer->pos);
 
 		weston_pointer_set_focus(pointer, view);
 	}
@@ -1254,8 +1250,7 @@ weston_pointer_create(struct weston_seat *seat)
 	pointer->sprite_destroy_listener.notify = pointer_handle_sprite_destroy;
 
 	/* FIXME: Pick better co-ords. */
-	pointer->x = wl_fixed_from_int(100);
-	pointer->y = wl_fixed_from_int(100);
+	pointer->pos.c = weston_coord(100, 100);
 
 	pointer->output_destroy_listener.notify =
 		weston_pointer_handle_output_destroy;
@@ -1457,13 +1452,12 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 	wl_fixed_t sx, sy;
 
 	if (view) {
-		struct weston_coord_global tmp_g;
 		struct weston_coord_surface surf_pos;
 
-		tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
-		surf_pos = weston_coord_global_to_surface(view, tmp_g);
+		surf_pos = weston_coord_global_to_surface(view, pointer->pos);
 		sx = wl_fixed_from_double(surf_pos.c.x);
 		sy = wl_fixed_from_double(surf_pos.c.y);
+
 		if (!weston_view_takes_input_at_point(view, surf_pos))
 			weston_log("View focused with external coordinate %d, %d\n",
 				   (int)surf_pos.c.x, (int)surf_pos.c.y);
@@ -1704,17 +1698,15 @@ weston_pointer_clamp(struct weston_pointer *pointer, struct weston_coord_global 
 {
 	struct weston_compositor *ec = pointer->seat->compositor;
 	struct weston_output *output, *prev = NULL;
-	int old_x, old_y, valid = 0;
-
-	old_x = wl_fixed_to_int(pointer->x);
-	old_y = wl_fixed_to_int(pointer->y);
+	int valid = 0;
 
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (pointer->seat->output && pointer->seat->output != output)
 			continue;
 		if (weston_output_contains_point(output, pos.c.x, pos.c.y))
 			valid = 1;
-		if (weston_output_contains_point(output, old_x, old_y))
+		if (weston_output_contains_point(output, pointer->pos.c.x,
+						 pointer->pos.c.y))
 			prev = output;
 	}
 
@@ -1733,13 +1725,12 @@ weston_pointer_move_to(struct weston_pointer *pointer,
 {
 	pos = weston_pointer_clamp(pointer, pos);
 
-	pointer->x = wl_fixed_from_double(pos.c.x);
-	pointer->y = wl_fixed_from_double(pos.c.y);
+	pointer->pos = pos;
 
 	if (pointer->sprite) {
 		weston_view_set_position(pointer->sprite,
-					 pos.c.x - pointer->hotspot_x,
-					 pos.c.y - pointer->hotspot_y);
+					 pos.c.x - pointer->hotspot.c.x,
+					 pos.c.y - pointer->hotspot.c.y);
 		weston_view_schedule_repaint(pointer->sprite);
 	}
 
@@ -1772,8 +1763,8 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 			       output_destroy_listener);
 	ec = pointer->seat->compositor;
 
-	x = wl_fixed_to_int(pointer->x);
-	y = wl_fixed_to_int(pointer->y);
+	x = pointer->pos.c.x;
+	y = pointer->pos.c.y;
 
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (weston_output_contains_point(output, x, y))
@@ -1793,8 +1784,7 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 	if (!closest)
 		return;
 
-	pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-	pos = weston_pointer_clamp_for_output(pointer, closest, pos);
+	pos = weston_pointer_clamp_for_output(pointer, closest, pointer->pos);
 	weston_pointer_move_to(pointer, pos);
 }
 
@@ -1904,8 +1894,7 @@ notify_button(struct weston_seat *seat, const struct timespec *time,
 		if (pointer->button_count == 0) {
 			pointer->grab_button = button;
 			pointer->grab_time = *time;
-			pointer->grab_x = pointer->x;
-			pointer->grab_y = pointer->y;
+			pointer->grab_pos = pointer->pos;
 		}
 		pointer->button_count++;
 	} else {
@@ -2712,11 +2701,11 @@ pointer_cursor_surface_committed(struct weston_surface *es,
 
 	assert(es == pointer->sprite->surface);
 
-	pointer->hotspot_x -= dx;
-	pointer->hotspot_y -= dy;
+	pointer->hotspot.c.x -= dx;
+	pointer->hotspot.c.y -= dy;
 
-	x = wl_fixed_to_int(pointer->x) - pointer->hotspot_x;
-	y = wl_fixed_to_int(pointer->y) - pointer->hotspot_y;
+	x = pointer->pos.c.x - pointer->hotspot.c.x;
+	y = pointer->pos.c.y - pointer->hotspot.c.y;
 
 	weston_view_set_position(pointer->sprite, x, y);
 
@@ -2765,7 +2754,7 @@ pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
 	}
 
 	if (pointer->sprite && pointer->sprite->surface == surface &&
-	    pointer->hotspot_x == x && pointer->hotspot_y == y)
+	    pointer->hotspot.c.x == x && pointer->hotspot.c.y == y)
 		return;
 
 	if (!pointer->sprite || pointer->sprite->surface != surface) {
@@ -2787,8 +2776,7 @@ pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
 		pointer->sprite = weston_view_create(surface);
 	}
 
-	pointer->hotspot_x = x;
-	pointer->hotspot_y = y;
+	pointer->hotspot.c = weston_coord(x, y);
 
 	if (surface->width != 0) {
 		pointer_cursor_surface_committed(surface, 0, 0);
@@ -2851,14 +2839,12 @@ seat_get_pointer(struct wl_client *client, struct wl_resource *resource,
 
 	if (pointer->focus && pointer->focus->surface->resource &&
 	    wl_resource_get_client(pointer->focus->surface->resource) == client) {
-		struct weston_coord_global tmp_g;
 		struct weston_coord_surface surf_pos;
 
 		weston_view_update_transform(pointer->focus);
 
-		tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
 		surf_pos = weston_coord_global_to_surface(pointer->focus,
-							  tmp_g);
+							  pointer->pos);
 
 		wl_pointer_send_enter(cr,
 				      pointer->focus_serial,
@@ -3766,7 +3752,6 @@ maybe_enable_pointer_constraint(struct weston_pointer_constraint *constraint)
 	struct weston_pointer *pointer = constraint->pointer;
 	struct weston_keyboard *keyboard;
 	struct weston_seat *seat = pointer->seat;
-	struct weston_coord_global tmp;
 	struct weston_coord_surface c;
 
 	/* Postpone if no view of the surface was most recently clicked. */
@@ -3788,8 +3773,7 @@ maybe_enable_pointer_constraint(struct weston_pointer_constraint *constraint)
 	/* Postpone constraint if the pointer is not within the
 	 * constraint region.
 	 */
-	tmp.c = weston_coord_from_fixed(pointer->x, pointer->y);
-	c = weston_coord_global_to_surface(view, tmp);
+	c = weston_coord_global_to_surface(view, pointer->pos);
 	if (!is_within_constraint_region(constraint,
 					 wl_fixed_from_double(c.c.x),
 					 wl_fixed_from_double(c.c.y)))
@@ -4722,12 +4706,10 @@ maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 {
 	wl_fixed_t sx;
 	wl_fixed_t sy;
-	struct weston_coord_global tmp;
 	struct weston_coord_surface c;
 
-	tmp.c = weston_coord_from_fixed(constraint->pointer->x,
-					constraint->pointer->y);
-	c = weston_coord_global_to_surface(constraint->view, tmp);
+	c = weston_coord_global_to_surface(constraint->view,
+					   constraint->pointer->pos);
 	sx = wl_fixed_from_double(c.c.x);
 	sy = wl_fixed_from_double(c.c.y);
 

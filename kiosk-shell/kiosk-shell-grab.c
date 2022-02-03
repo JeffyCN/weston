@@ -85,8 +85,8 @@ pointer_move_grab_motion(struct weston_pointer_grab *pointer_grab,
 
 	surface = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
-	dx = wl_fixed_to_int(pointer->x + shgrab->dx);
-	dy = wl_fixed_to_int(pointer->y + shgrab->dy);
+	dx = pointer->pos.c.x + wl_fixed_to_double(shgrab->dx);
+	dy = pointer->pos.c.y + wl_fixed_to_double(shgrab->dy);
 
 	weston_view_set_position(shsurf->view, dx, dy);
 
@@ -251,10 +251,10 @@ kiosk_shell_grab_start_for_pointer_move(struct kiosk_shell_surface *shsurf,
 	if (!shgrab)
 		return KIOSK_SHELL_GRAB_RESULT_ERROR;
 
-	shgrab->dx = wl_fixed_from_double(shsurf->view->geometry.x) -
-		   pointer->grab_x;
-	shgrab->dy = wl_fixed_from_double(shsurf->view->geometry.y) -
-		   pointer->grab_y;
+	shgrab->dx = wl_fixed_from_double(shsurf->view->geometry.x -
+		   pointer->grab_pos.c.x);
+	shgrab->dy = wl_fixed_from_double(shsurf->view->geometry.y -
+		   pointer->grab_pos.c.y);
 	shgrab->active = true;
 
 	weston_seat_break_desktop_grabs(pointer->seat);

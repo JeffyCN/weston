@@ -1293,14 +1293,9 @@ setup_output_seat_constraint(struct drm_backend *b,
 		seat->base.output = output;
 
 		pointer = weston_seat_get_pointer(&seat->base);
-		if (pointer) {
-			struct weston_coord_global pos;
-
-			pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-			pos = weston_pointer_clamp(pointer, pos);
-			pointer->x = wl_fixed_from_double(pos.c.x);
-			pointer->y = wl_fixed_from_double(pos.c.y);
-		}
+		if (pointer)
+			pointer->pos = weston_pointer_clamp(pointer,
+							    pointer->pos);
 	}
 }
 

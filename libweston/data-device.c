@@ -441,8 +441,8 @@ drag_surface_configure(struct weston_drag *drag,
 	/* init to 0 for avoiding a compile warning */
 	fx = fy = 0;
 	if (pointer) {
-		fx = wl_fixed_to_double(pointer->x) + drag->dx;
-		fy = wl_fixed_to_double(pointer->y) + drag->dy;
+		fx = pointer->pos.c.x + drag->dx;
+		fy = pointer->pos.c.y + drag->dy;
 	} else if (touch) {
 		fx = wl_fixed_to_double(touch->grab_x) + drag->dx;
 		fy = wl_fixed_to_double(touch->grab_y) + drag->dy;
@@ -603,10 +603,8 @@ drag_grab_focus(struct weston_pointer_grab *grab)
 	struct weston_pointer_drag *drag =
 		container_of(grab, struct weston_pointer_drag, grab);
 	struct weston_pointer *pointer = grab->pointer;
-	struct weston_coord_global pos;
 
-	pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
-	drag_grab_focus_internal(&drag->base, pointer->seat, pos);
+	drag_grab_focus_internal(&drag->base, pointer->seat, pointer->pos);
 }
 
 static void
@@ -623,20 +621,18 @@ drag_grab_motion(struct weston_pointer_grab *grab,
 	weston_pointer_move(pointer, event);
 
 	if (drag->base.icon) {
-		fx = wl_fixed_to_double(pointer->x) + drag->base.dx;
-		fy = wl_fixed_to_double(pointer->y) + drag->base.dy;
+		fx = pointer->pos.c.x + drag->base.dx;
+		fy = pointer->pos.c.y + drag->base.dy;
 		weston_view_set_position(drag->base.icon, fx, fy);
 		weston_view_schedule_repaint(drag->base.icon);
 	}
 
 	if (drag->base.focus_resource) {
-		struct weston_coord_global pos;
 		struct weston_coord_surface surf_pos;
 
 		msecs = timespec_to_msec(time);
-		pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
 		surf_pos = weston_coord_global_to_surface(drag->base.focus,
-							  pos);
+							  pointer->pos);
 
 		wl_data_device_send_motion(drag->base.focus_resource, msecs,
 					   wl_fixed_from_double(surf_pos.c.x),
