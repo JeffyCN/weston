@@ -76,7 +76,7 @@ struct ivi_shell_surface
  */
 
 static void
-ivi_shell_surface_committed(struct weston_surface *, int32_t, int32_t);
+ivi_shell_surface_committed(struct weston_surface *, struct weston_coord_surface);
 
 static struct ivi_shell_surface *
 get_ivi_shell_surface(struct weston_surface *surface)
@@ -117,7 +117,7 @@ shell_surface_send_configure(struct weston_surface *surface,
 
 static void
 ivi_shell_surface_committed(struct weston_surface *surface,
-			    int32_t sx, int32_t sy)
+			    struct weston_coord_surface new_origin)
 {
 	struct ivi_shell_surface *ivisurf = get_ivi_shell_surface(surface);
 

@@ -509,7 +509,8 @@ focus_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 
 /* no-op func for checking focus surface */
 static void
-focus_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
+focus_surface_committed(struct weston_surface *es,
+			struct weston_coord_surface new_origin)
 {
 }
 
@@ -1620,7 +1621,8 @@ black_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-black_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
+black_surface_committed(struct weston_surface *es,
+			struct weston_coord_surface new_origin)
 {
 }
 
@@ -2556,7 +2558,8 @@ background_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-background_committed(struct weston_surface *es, int32_t sx, int32_t sy)
+background_committed(struct weston_surface *es,
+		     struct weston_coord_surface new_origin)
 {
 	struct desktop_shell *shell = es->committed_private;
 	struct weston_view *view;
@@ -2636,7 +2639,8 @@ panel_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-panel_committed(struct weston_surface *es, int32_t sx, int32_t sy)
+panel_committed(struct weston_surface *es,
+		struct weston_coord_surface new_origin)
 {
 	struct desktop_shell *shell = es->committed_private;
 	struct weston_view *view;
@@ -2735,7 +2739,8 @@ lock_surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-lock_surface_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
+lock_surface_committed(struct weston_surface *surface,
+		       struct weston_coord_surface new_origin)
 {
 	struct desktop_shell *shell = surface->committed_private;
 	struct weston_view *view;

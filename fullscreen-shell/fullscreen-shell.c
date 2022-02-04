@@ -221,7 +221,8 @@ seat_created(struct wl_listener *l, void *data)
 }
 
 static void
-black_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
+black_surface_committed(struct weston_surface *es,
+			struct weston_coord_surface new_origin)
 {
 }
 
@@ -560,8 +561,8 @@ fs_output_configure(struct fs_output *fsout,
 }
 
 static void
-configure_presented_surface(struct weston_surface *surface, int32_t sx,
-			    int32_t sy)
+configure_presented_surface(struct weston_surface *surface,
+			    struct weston_coord_surface new_origin)
 {
 	configure_presented_surface_internal(surface);
 }

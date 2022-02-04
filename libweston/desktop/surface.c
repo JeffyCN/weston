@@ -224,12 +224,12 @@ weston_desktop_surface_resource_destroy(struct wl_resource *resource)
 
 static void
 weston_desktop_surface_committed(struct weston_surface *wsurface,
-				 int32_t sx, int32_t sy)
+				 struct weston_coord_surface new_origin)
 {
 	struct weston_desktop_surface *surface = wsurface->committed_private;
 
-	surface->buffer_move.x = sx;
-	surface->buffer_move.y = sy;
+	surface->buffer_move.x = new_origin.c.x;
+	surface->buffer_move.y = new_origin.c.y;
 }
 
 static void

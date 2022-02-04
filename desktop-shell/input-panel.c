@@ -185,7 +185,8 @@ input_panel_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-input_panel_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
+input_panel_committed(struct weston_surface *surface,
+		      struct weston_coord_surface new_origin)
 {
 	struct input_panel_surface *ip_surface = surface->committed_private;
 	struct desktop_shell *shell = ip_surface->shell;

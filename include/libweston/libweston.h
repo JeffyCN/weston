@@ -1704,10 +1704,11 @@ struct weston_surface {
 	/*
 	 * If non-NULL, this function will be called on
 	 * wl_surface::commit after a new buffer has been set up for
-	 * this surface. The integer params are the sx and sy
-	 * parameters supplied to wl_surface::attach.
+	 * this surface. The coordinate holds the buffer offset parameters
+	 * supplied to wl_surface::attach or wl_surface::offset.
 	 */
-	void (*committed)(struct weston_surface *es, int32_t sx, int32_t sy);
+	void (*committed)(struct weston_surface *es,
+			  struct weston_coord_surface new_origin);
 	void *committed_private;
 	int (*get_label)(struct weston_surface *surface, char *buf, size_t len);
 

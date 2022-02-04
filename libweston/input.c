@@ -2691,23 +2691,21 @@ pointer_cursor_surface_get_label(struct weston_surface *surface,
 
 static void
 pointer_cursor_surface_committed(struct weston_surface *es,
-				 int32_t dx, int32_t dy)
+				 struct weston_coord_surface new_origin)
 {
 	struct weston_pointer *pointer = es->committed_private;
-	int x, y;
+	struct weston_coord_global pos;
 
 	if (es->width == 0)
 		return;
 
 	assert(es == pointer->sprite->surface);
 
-	pointer->hotspot.c.x -= dx;
-	pointer->hotspot.c.y -= dy;
+	pointer->hotspot.c = weston_coord_sub(pointer->hotspot.c,
+					      new_origin.c);
+	pos.c = weston_coord_sub(pointer->pos.c, pointer->hotspot.c);
 
-	x = pointer->pos.c.x - pointer->hotspot.c.x;
-	y = pointer->pos.c.y - pointer->hotspot.c.y;
-
-	weston_view_set_position(pointer->sprite, x, y);
+	weston_view_set_position(pointer->sprite, pos.c.x, pos.c.y);
 
 	empty_region(&es->pending.input);
 	empty_region(&es->input);
@@ -2779,7 +2777,10 @@ pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
 	pointer->hotspot.c = weston_coord(x, y);
 
 	if (surface->width != 0) {
-		pointer_cursor_surface_committed(surface, 0, 0);
+		struct weston_coord_surface zero;
+
+		zero = weston_coord_surface(0, 0, surface);
+		pointer_cursor_surface_committed(surface, zero);
 		weston_view_schedule_repaint(pointer->sprite);
 	}
 }

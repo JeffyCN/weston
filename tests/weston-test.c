@@ -152,7 +152,8 @@ notify_pointer_position(struct weston_test *test, struct wl_resource *resource)
 }
 
 static void
-test_surface_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
+test_surface_committed(struct weston_surface *surface,
+		       struct weston_coord_surface new_origin)
 {
 	struct weston_test_surface *test_surface = surface->committed_private;
 	struct weston_test *test = test_surface->test;

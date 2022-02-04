@@ -412,7 +412,7 @@ drag_surface_configure(struct weston_drag *drag,
 		       struct weston_pointer *pointer,
 		       struct weston_touch *touch,
 		       struct weston_surface *es,
-		       int32_t sx, int32_t sy)
+		       struct weston_coord_surface new_origin)
 {
 	struct weston_layer_entry *list;
 	float fx, fy;
@@ -435,8 +435,9 @@ drag_surface_configure(struct weston_drag *drag,
 		drag->icon->is_mapped = true;
 	}
 
-	drag->offset.c.x += sx;
-	drag->offset.c.y += sy;
+	assert(drag->offset.coordinate_space_id &&
+	       drag->offset.coordinate_space_id == new_origin.coordinate_space_id);
+	drag->offset.c = weston_coord_add(drag->offset.c, new_origin.c);
 
 	/* init to 0 for avoiding a compile warning */
 	fx = fy = 0;
@@ -459,14 +460,14 @@ pointer_drag_surface_get_label(struct weston_surface *surface,
 
 static void
 pointer_drag_surface_committed(struct weston_surface *es,
-			       int32_t sx, int32_t sy)
+			       struct weston_coord_surface new_origin)
 {
 	struct weston_pointer_drag *drag = es->committed_private;
 	struct weston_pointer *pointer = drag->grab.pointer;
 
 	assert(es->committed == pointer_drag_surface_committed);
 
-	drag_surface_configure(&drag->base, pointer, NULL, es, sx, sy);
+	drag_surface_configure(&drag->base, pointer, NULL, es, new_origin);
 }
 
 static int
@@ -477,14 +478,15 @@ touch_drag_surface_get_label(struct weston_surface *surface,
 }
 
 static void
-touch_drag_surface_committed(struct weston_surface *es, int32_t sx, int32_t sy)
+touch_drag_surface_committed(struct weston_surface *es,
+			     struct weston_coord_surface new_origin)
 {
 	struct weston_touch_drag *drag = es->committed_private;
 	struct weston_touch *touch = drag->grab.touch;
 
 	assert(es->committed == touch_drag_surface_committed);
 
-	drag_surface_configure(&drag->base, NULL, touch, es, sx, sy);
+	drag_surface_configure(&drag->base, NULL, touch, es, new_origin);
 }
 
 static void

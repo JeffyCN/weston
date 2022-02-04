@@ -107,7 +107,8 @@ static char *
 weston_output_create_heads_string(struct weston_output *output);
 
 static void
-subsurface_committed(struct weston_surface *surface, int32_t dx, int32_t dy);
+subsurface_committed(struct weston_surface *surface,
+		     struct weston_coord_surface new_origin);
 
 static void
 weston_view_dirty_paint_nodes(struct weston_view *view)
@@ -4023,8 +4024,14 @@ weston_surface_commit_state(struct weston_surface *surface,
 	if (state->newly_attached || state->buffer_viewport.changed ||
 	    state->sx != 0 || state->sy != 0) {
 		weston_surface_update_size(surface);
-		if (surface->committed)
-			surface->committed(surface, state->sx, state->sy);
+		if (surface->committed) {
+			struct weston_coord_surface new_origin;
+
+			new_origin = weston_coord_surface(state->sx,
+							  state->sy,
+							  surface);
+			surface->committed(surface, new_origin);
+		}
 	}
 
 	state->sx = 0;
@@ -4526,15 +4533,18 @@ subsurface_get_label(struct weston_surface *surface, char *buf, size_t len)
 }
 
 static void
-subsurface_committed(struct weston_surface *surface, int32_t dx, int32_t dy)
+subsurface_committed(struct weston_surface *surface,
+		     struct weston_coord_surface new_origin)
 {
 	struct weston_view *view;
 
-	wl_list_for_each(view, &surface->views, surface_link)
-		weston_view_set_rel_position(view,
-					     view->geometry.pos_offset.x + dx,
-					     view->geometry.pos_offset.y + dy);
+	wl_list_for_each(view, &surface->views, surface_link) {
+		struct weston_coord_surface tmp = new_origin;
 
+		tmp.c = weston_coord_add(tmp.c,
+					 view->geometry.pos_offset);
+		weston_view_set_rel_position(view, tmp.c.x, tmp.c.y);
+	}
 	/* No need to check parent mappedness, because if parent is not
 	 * mapped, parent is not in a visible layer, so this sub-surface
 	 * will not be drawn either.
