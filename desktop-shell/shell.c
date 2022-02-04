@@ -110,7 +110,7 @@ struct shell_surface {
 	struct wl_list children_list;
 	struct wl_list children_link;
 
-	int32_t saved_x, saved_y;
+	struct weston_coord_global saved_pos;
 	bool saved_position_valid;
 	bool saved_rotation_valid;
 	int unresponsive, grabbed;
@@ -1511,7 +1511,8 @@ unset_fullscreen(struct shell_surface *shsurf)
 
 	if (shsurf->saved_position_valid)
 		weston_view_set_position(shsurf->view,
-					 shsurf->saved_x, shsurf->saved_y);
+					 shsurf->saved_pos.c.x,
+					 shsurf->saved_pos.c.y);
 	else
 		weston_view_set_initial_position(shsurf->view, shsurf->shell);
 	shsurf->saved_position_valid = false;
@@ -1538,7 +1539,8 @@ unset_maximized(struct shell_surface *shsurf)
 
 	if (shsurf->saved_position_valid)
 		weston_view_set_position(shsurf->view,
-					 shsurf->saved_x, shsurf->saved_y);
+					 shsurf->saved_pos.c.x,
+					 shsurf->saved_pos.c.y);
 	else
 		weston_view_set_initial_position(shsurf->view, shsurf->shell);
 	shsurf->saved_position_valid = false;
@@ -2114,8 +2116,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	if ((shsurf->state.fullscreen || shsurf->state.maximized) &&
 	    !shsurf->saved_position_valid) {
-		shsurf->saved_x = shsurf->view->geometry.pos_offset.x;
-		shsurf->saved_y = shsurf->view->geometry.pos_offset.y;
+		shsurf->saved_pos.c = shsurf->view->geometry.pos_offset;
 		shsurf->saved_position_valid = true;
 
 		if (!wl_list_empty(&shsurf->rotation.transform.link)) {
