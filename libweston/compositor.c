@@ -2296,7 +2296,7 @@ weston_view_destroy(struct weston_view *view)
 }
 
 WL_EXPORT void
-weston_surface_destroy(struct weston_surface *surface)
+weston_surface_unref(struct weston_surface *surface)
 {
 	struct wl_resource *cb, *next;
 	struct weston_view *ev, *nv;
@@ -2358,7 +2358,7 @@ destroy_surface(struct wl_resource *resource)
 
 	/* Set the resource to NULL, since we don't want to leave a
 	 * dangling pointer if the surface was refcounted and survives
-	 * the weston_surface_destroy() call. */
+	 * the weston_surface_unref() call. */
 	surface->resource = NULL;
 
 	if (surface->viewport_resource)
@@ -2369,7 +2369,7 @@ destroy_surface(struct wl_resource *resource)
 					  NULL);
 	}
 
-	weston_surface_destroy(surface);
+	weston_surface_unref(surface);
 }
 
 static void
@@ -4213,7 +4213,7 @@ compositor_create_surface(struct wl_client *client,
 	return;
 
 err_res:
-	weston_surface_destroy(surface);
+	weston_surface_unref(surface);
 err:
 	wl_resource_post_no_memory(resource);
 }

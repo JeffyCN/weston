@@ -70,5 +70,5 @@ PLUGIN_TEST(surface_transform)
 	assert(x == 200 && y == 340);
 
 	/* Destroys all views too. */
-	weston_surface_destroy(surface);
+	weston_surface_unref(surface);
 }

@@ -2352,7 +2352,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 					fade_out_done, shsurf);
 			return;
 		} else {
-			weston_surface_destroy(surface);
+			weston_surface_unref(surface);
 		}
 	}
 
@@ -4830,7 +4830,7 @@ desktop_shell_destroy_views_on_layer(struct weston_layer *layer)
 		if (shsurf)
 			desktop_shell_destroy_surface(shsurf);
 		else if (is_black_surface_view(view, NULL))
-			weston_surface_destroy(view->surface);
+			weston_surface_unref(view->surface);
 	}
 
 	weston_layer_fini(layer);

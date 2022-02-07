@@ -2030,7 +2030,7 @@ weston_slide_run(struct weston_view *view, float start, float stop,
 		 weston_view_animation_done_func_t done, void *data);
 
 void
-weston_surface_destroy(struct weston_surface *surface);
+weston_surface_unref(struct weston_surface *surface);
 
 int
 weston_output_mode_switch_to_temporary(struct weston_output *output,

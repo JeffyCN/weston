@@ -90,5 +90,5 @@ PLUGIN_TEST(surface_to_from_global)
 	assert(ix == 0 && iy == 0);
 
 	/* Destroys all views too. */
-	weston_surface_destroy(surface);
+	weston_surface_unref(surface);
 }

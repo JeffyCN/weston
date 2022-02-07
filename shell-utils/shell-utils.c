@@ -192,7 +192,7 @@ weston_curtain_create(struct weston_compositor *compositor,
 err_view:
 	weston_view_destroy(view);
 err_surface:
-	weston_surface_destroy(surface);
+	weston_surface_unref(surface);
 err_curtain:
 	free(curtain);
 err:
@@ -206,7 +206,7 @@ weston_curtain_destroy(struct weston_curtain *curtain)
 	struct weston_surface *surface = curtain->view->surface;
 
 	weston_view_destroy(curtain->view);
-	weston_surface_destroy(surface);
+	weston_surface_unref(surface);
 	weston_buffer_destroy_solid(curtain->buffer_ref);
 	free(curtain);
 }
