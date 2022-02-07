@@ -170,14 +170,14 @@ struct shell_tablet_tool_grab {
 
 struct weston_move_grab {
 	struct shell_grab base;
-	wl_fixed_t dx, dy;
+	struct weston_coord_global delta;
 	bool client_initiated;
 };
 
 struct weston_touch_move_grab {
 	struct shell_touch_grab base;
 	int active;
-	wl_fixed_t dx, dy;
+	struct weston_coord_global delta;
 };
 
 struct weston_tablet_tool_move_grab {
@@ -975,15 +975,14 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 	struct weston_touch_move_grab *move = (struct weston_touch_move_grab *) grab;
 	struct shell_surface *shsurf = move->base.shsurf;
 	struct weston_surface *es;
-	struct weston_coord_global pos = grab->touch->grab_pos;
+	struct weston_coord_global pos;
 
 	if (!shsurf || !shsurf->desktop_surface || !move->active)
 		return;
 
 	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
-	pos.c.x = pos.c.x + wl_fixed_to_double(move->dx);
-	pos.c.y = pos.c.y + wl_fixed_to_double(move->dy);
+	pos = weston_coord_global_add(grab->touch->grab_pos, move->delta);
 	pos.c = weston_coord_truncate(pos.c);
 	weston_view_set_position(shsurf->view, pos);
 
@@ -1018,7 +1017,6 @@ static int
 surface_touch_move(struct shell_surface *shsurf, struct weston_touch *touch)
 {
 	struct weston_touch_move_grab *move;
-	struct weston_coord_global pos;
 
 	if (!shsurf)
 		return -1;
@@ -1032,11 +1030,9 @@ surface_touch_move(struct shell_surface *shsurf, struct weston_touch *touch)
 		return -1;
 
 	move->active = 1;
-	pos.c = weston_coord_sub(
-		weston_view_get_pos_offset_global(shsurf->view).c,
-		touch->grab_pos.c);
-	move->dx = wl_fixed_from_double(pos.c.x);
-	move->dy = wl_fixed_from_double(pos.c.y);
+	move->delta = weston_coord_global_sub(
+		weston_view_get_pos_offset_global(shsurf->view),
+		touch->grab_pos);
 
 	shell_touch_grab_start(&move->base, &touch_move_grab_interface, shsurf,
 			       touch);
@@ -1078,9 +1074,11 @@ constrain_position(struct weston_move_grab *move, int *cx, int *cy)
 	const int safety = 50;
 	pixman_rectangle32_t area;
 	struct weston_geometry geometry;
+	struct weston_coord_global c;
 
-	x = pointer->pos.c.x + wl_fixed_to_double(move->dx);
-	y = pointer->pos.c.y + wl_fixed_to_double(move->dy);
+	c = weston_coord_global_add(pointer->pos, move->delta);
+	x = c.c.x;
+	y = c.c.y;
 
 	if (shsurf->shell->panel_position ==
 	    WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP) {
@@ -1169,7 +1167,6 @@ surface_move(struct shell_surface *shsurf, struct weston_pointer *pointer,
 	     bool client_initiated)
 {
 	struct weston_move_grab *move;
-	struct weston_coord_global offset;
 
 	if (!shsurf)
 		return -1;
@@ -1183,11 +1180,9 @@ surface_move(struct shell_surface *shsurf, struct weston_pointer *pointer,
 	if (!move)
 		return -1;
 
-	offset.c = weston_coord_sub(
-		weston_view_get_pos_offset_global(shsurf->view).c,
-		pointer->grab_pos.c);
-	move->dx = wl_fixed_from_double(offset.c.x);
-	move->dy = wl_fixed_from_double(offset.c.y);
+	move->delta = weston_coord_global_sub(
+		weston_view_get_pos_offset_global(shsurf->view),
+		pointer->grab_pos);
 	move->client_initiated = client_initiated;
 
 	weston_desktop_surface_set_orientation(shsurf->desktop_surface,
