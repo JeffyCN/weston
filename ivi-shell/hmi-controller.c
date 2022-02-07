@@ -1603,7 +1603,8 @@ touch_move_workspace_grab_end(struct touch_grab *grab)
 	struct ivi_layout_layer *layer = tch_move_grab->base.layer;
 
 	move_workspace_grab_end(&tch_move_grab->move, grab->resource,
-				grab->grab.touch->grab_x, layer);
+				wl_fixed_from_double(grab->grab.touch->grab_pos.c.x),
+				layer);
 
 	weston_touch_end_grab(grab->grab.touch);
 }
@@ -1721,8 +1722,8 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 		return;
 
 	wl_fixed_t pointer_pos[2] = {
-		grab->touch->grab_x,
-		grab->touch->grab_y
+		wl_fixed_from_double(grab->touch->grab_pos.c.x),
+		wl_fixed_from_double(grab->touch->grab_pos.c.y)
 	};
 
 	move_grab_update(&tch_move_grab->move, pointer_pos);
@@ -1907,8 +1908,10 @@ create_workspace_touch_move(struct weston_touch *touch,
 
 	tch_move_grab->base.resource = resource;
 	tch_move_grab->is_active = 1;
-	move_grab_init_workspace(&tch_move_grab->move, touch->grab_x,
-				 touch->grab_y, resource);
+	move_grab_init_workspace(&tch_move_grab->move,
+				 wl_fixed_from_double(touch->grab_pos.c.x),
+				 wl_fixed_from_double(touch->grab_pos.c.y),
+				 resource);
 
 	return tch_move_grab;
 }

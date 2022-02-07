@@ -876,7 +876,7 @@ struct weston_touch {
 	struct weston_touch_grab *grab;
 	struct weston_touch_grab default_grab;
 	int grab_touch_id;
-	wl_fixed_t grab_x, grab_y;
+	struct weston_coord_global grab_pos;
 	uint32_t grab_serial;
 	struct timespec grab_time;
 

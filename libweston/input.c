@@ -2888,10 +2888,8 @@ process_touch_normal(struct weston_touch_device *device,
 	}
 
 	/* Update grab's global coordinates. */
-	if (touch_id == touch->grab_touch_id && touch_type != WL_TOUCH_UP) {
-		touch->grab_x = x;
-		touch->grab_y = y;
-	}
+	if (touch_id == touch->grab_touch_id && touch_type != WL_TOUCH_UP)
+		touch->grab_pos = *pos;
 
 	switch (touch_type) {
 	case WL_TOUCH_DOWN:
@@ -2919,8 +2917,7 @@ process_touch_normal(struct weston_touch_device *device,
 				wl_display_get_serial(ec->wl_display);
 			touch->grab_touch_id = touch_id;
 			touch->grab_time = *time;
-			touch->grab_x = x;
-			touch->grab_y = y;
+			touch->grab_pos = *pos;
 		}
 
 		break;

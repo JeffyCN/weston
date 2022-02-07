@@ -973,16 +973,15 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 	struct weston_touch_move_grab *move = (struct weston_touch_move_grab *) grab;
 	struct shell_surface *shsurf = move->base.shsurf;
 	struct weston_surface *es;
-	int dx = wl_fixed_to_int(grab->touch->grab_x + move->dx);
-	int dy = wl_fixed_to_int(grab->touch->grab_y + move->dy);
-	struct weston_coord_global pos;
+	struct weston_coord_global pos = grab->touch->grab_pos;
 
 	if (!shsurf || !shsurf->desktop_surface || !move->active)
 		return;
 
 	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
-	pos.c = weston_coord(dx, dy);
+	pos.c.x = (int)(pos.c.x + wl_fixed_to_double(move->dx));
+	pos.c.y = (int)(pos.c.y + wl_fixed_to_double(move->dy));
 	weston_view_set_position(shsurf->view, pos);
 
 	weston_compositor_schedule_repaint(es->compositor);
@@ -1016,6 +1015,7 @@ static int
 surface_touch_move(struct shell_surface *shsurf, struct weston_touch *touch)
 {
 	struct weston_touch_move_grab *move;
+	struct weston_coord_global pos;
 
 	if (!shsurf)
 		return -1;
@@ -1029,10 +1029,10 @@ surface_touch_move(struct shell_surface *shsurf, struct weston_touch *touch)
 		return -1;
 
 	move->active = 1;
-	move->dx = wl_fixed_from_double(shsurf->view->geometry.pos_offset.x) -
-		   touch->grab_x;
-	move->dy = wl_fixed_from_double(shsurf->view->geometry.pos_offset.y) -
-		   touch->grab_y;
+	pos.c = weston_coord_sub(shsurf->view->geometry.pos_offset,
+				 touch->grab_pos.c);
+	move->dx = wl_fixed_from_double(pos.c.x);
+	move->dy = wl_fixed_from_double(pos.c.y);
 
 	shell_touch_grab_start(&move->base, &touch_move_grab_interface, shsurf,
 			       touch);

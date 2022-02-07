@@ -171,8 +171,8 @@ touch_move_grab_motion(struct weston_touch_grab *touch_grab,
 
 	surface = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
-	dx = wl_fixed_to_int(touch->grab_x + shgrab->dx);
-	dy = wl_fixed_to_int(touch->grab_y + shgrab->dy);
+	dx = (int)(touch->grab_pos.c.x + wl_fixed_to_double(shgrab->dx));
+	dy = (int)(touch->grab_pos.c.y + wl_fixed_to_double(shgrab->dy));
 
 	pos.c = weston_coord(dx, dy);
 	weston_view_set_position(shsurf->view, pos);
@@ -274,6 +274,7 @@ kiosk_shell_grab_start_for_touch_move(struct kiosk_shell_surface *shsurf,
 				      struct weston_touch *touch)
 {
 	struct kiosk_shell_grab *shgrab;
+	struct weston_coord_global pos;
 
 	if (!shsurf)
 		return KIOSK_SHELL_GRAB_RESULT_ERROR;
@@ -287,10 +288,10 @@ kiosk_shell_grab_start_for_touch_move(struct kiosk_shell_surface *shsurf,
 	if (!shgrab)
 		return KIOSK_SHELL_GRAB_RESULT_ERROR;
 
-	shgrab->dx = wl_fixed_from_double(shsurf->view->geometry.pos_offset.x) -
-		   touch->grab_x;
-	shgrab->dy = wl_fixed_from_double(shsurf->view->geometry.pos_offset.y) -
-		   touch->grab_y;
+	pos.c = weston_coord_sub(shsurf->view->geometry.pos_offset,
+				 touch->grab_pos.c);
+	shgrab->dx = wl_fixed_from_double(pos.c.x);
+	shgrab->dy = wl_fixed_from_double(pos.c.y);
 	shgrab->active = true;
 
 	weston_seat_break_desktop_grabs(touch->seat);
