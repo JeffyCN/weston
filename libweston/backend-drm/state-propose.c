@@ -459,7 +459,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 		if (wl_shm_buffer_get_format(shmbuf) != WL_SHM_FORMAT_ARGB8888) {
 			drm_debug(b, "\t\t\t\t[view] not placing view %p on "
 			             "plane; SHM buffers must be ARGB8888 for "
-				     "cursor view", ev);
+				     "cursor view\n", ev);
 			pnode->try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 			return NULL;
@@ -468,7 +468,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 		if (buffer->width > b->cursor_width ||
 		    buffer->height > b->cursor_height) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
-				     "(buffer (%dx%d) too large for cursor plane)",
+				     "(buffer (%dx%d) too large for cursor plane)\n",
 				     ev, buffer->width, buffer->height);
 			pnode->try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
@@ -542,7 +542,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 
 		if (drm_output_check_plane_has_view_assigned(plane, state)) {
 			drm_debug(b, "\t\t\t\t[plane] not trying plane %d: "
-				     "another view already assigned",
+				     "another view already assigned\n",
 				     plane->plane_id);
 			continue;
 		}
