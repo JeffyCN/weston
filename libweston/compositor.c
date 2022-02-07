@@ -2303,6 +2303,10 @@ weston_surface_unref(struct weston_surface *surface)
 	struct weston_pointer_constraint *constraint, *next_constraint;
 	struct weston_paint_node *pnode, *pntmp;
 
+	if (!surface)
+		return;
+
+	assert(surface->ref_count > 0);
 	if (--surface->ref_count > 0)
 		return;
 
