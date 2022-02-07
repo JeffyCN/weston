@@ -270,6 +270,8 @@ protocol_log_fn(void *user_data,
 	size_t logsize;
 	char timestr[128];
 	struct wl_resource *res = message->resource;
+	struct wl_client *client = wl_resource_get_client(res);
+	pid_t pid = 0;
 	const char *signature = message->message->signature;
 	int i;
 	char type;
@@ -281,10 +283,12 @@ protocol_log_fn(void *user_data,
 	if (!fp)
 		return;
 
+	wl_client_get_credentials(client, &pid, NULL, NULL);
+
 	weston_log_scope_timestamp(protocol_scope,
 			timestr, sizeof timestr);
 	fprintf(fp, "%s ", timestr);
-	fprintf(fp, "client %p %s ", wl_resource_get_client(res),
+	fprintf(fp, "client %p (PID %d) %s ", client, pid,
 		direction == WL_PROTOCOL_LOGGER_REQUEST ? "rq" : "ev");
 	fprintf(fp, "%s@%u.%s(",
 		wl_resource_get_class(res),
