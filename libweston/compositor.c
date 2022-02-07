@@ -6273,7 +6273,8 @@ weston_head_get_destroy_listener(struct weston_head *head,
 }
 
 static void
-weston_output_set_position(struct weston_output *output, int x, int y);
+weston_output_set_position(struct weston_output *output,
+			   struct weston_coord_global pos);
 
 /* Move other outputs when one is resized so the space remains contiguous. */
 static void
@@ -6296,7 +6297,11 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
 		}
 
 		if (start_resizing) {
-			weston_output_set_position(output, output->x + delta_width, output->y);
+			struct weston_coord_global pos;
+
+			pos.c = weston_coord(output->x + delta_width,
+					     output->y);
+			weston_output_set_position(output, pos);
 		}
 	}
 }
@@ -6364,25 +6369,26 @@ weston_output_init_geometry(struct weston_output *output, int x, int y)
  * \ingroup output
  */
 static void
-weston_output_set_position(struct weston_output *output, int x, int y)
+weston_output_set_position(struct weston_output *output,
+			   struct weston_coord_global pos)
 {
 	struct weston_head *head;
 	struct wl_resource *resource;
 	int ver;
 
 	if (!output->enabled) {
-		output->x = x;
-		output->y = y;
+		output->x = pos.c.x;
+		output->y = pos.c.y;
 		return;
 	}
 
-	output->move_x = x - output->x;
-	output->move_y = y - output->y;
+	output->move_x = pos.c.x - output->x;
+	output->move_y = pos.c.y - output->y;
 
 	if (output->move_x == 0 && output->move_y == 0)
 		return;
 
-	weston_output_init_geometry(output, x, y);
+	weston_output_init_geometry(output, pos.c.x, pos.c.y);
 
 	weston_output_update_matrix(output);
 
@@ -6420,7 +6426,8 @@ weston_output_set_position(struct weston_output *output, int x, int y)
  * \ingroup output
  */
 WL_EXPORT void
-weston_output_move(struct weston_output *output, int x, int y)
+weston_output_move(struct weston_output *output,
+		   struct weston_coord_global pos)
 {
 	/* XXX: we should probably perform some sanity checking here
 	 * as we do for weston_output_enable, and allow moves to fail.
@@ -6435,7 +6442,7 @@ weston_output_move(struct weston_output *output, int x, int y)
 	 */
 
 	output->compositor->output_flow_dirty = true;
-	weston_output_set_position(output, x, y);
+	weston_output_set_position(output, pos);
 }
 
 /** Signal that a pending output is taken into use.

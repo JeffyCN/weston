@@ -2343,7 +2343,8 @@ weston_output_init(struct weston_output *output,
 		   const char *name);
 
 void
-weston_output_move(struct weston_output *output, int x, int y);
+weston_output_move(struct weston_output *output,
+		   struct weston_coord_global pos);
 
 int
 weston_output_enable(struct weston_output *output);

@@ -3103,6 +3103,7 @@ rdp_handle_layout(struct weston_compositor *ec)
 	int scale = 1;
 
 	while ((head = weston_compositor_iterate_heads(ec, head))) {
+		struct weston_coord_global pos;
 		struct weston_output *output = head->output;
 		struct weston_mode new_mode = {};
 
@@ -3133,7 +3134,8 @@ rdp_handle_layout(struct weston_compositor *ec)
 		weston_output_set_scale(output, scale);
 		weston_output_set_transform(output,
 					    WL_OUTPUT_TRANSFORM_NORMAL);
-		weston_output_move(output, config.x, config.y);
+		pos.c = weston_coord(config.x, config.y);
+		weston_output_move(output, pos);
 	}
 }
 
