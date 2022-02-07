@@ -2878,10 +2878,11 @@ static const struct weston_desktop_api shell_desktop_api = {
  * end of libweston-desktop *
  * ************************ */
 static void
-configure_static_view(struct weston_view *ev, struct weston_layer *layer, int x, int y)
+configure_static_view(struct weston_view *ev, struct weston_layer *layer,
+		      struct weston_coord_global offset_on_output)
 {
-	struct weston_view *v, *next;
 	struct weston_coord_global pos;
+	struct weston_view *v, *next;
 
 	if (!ev->output)
 		return;
@@ -2894,9 +2895,7 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer, int x,
 		}
 	}
 
-	pos = ev->output->pos;
-	pos.c.x += x;
-	pos.c.y += y;
+	pos = weston_coord_global_add(ev->output->pos, offset_on_output);
 	weston_view_set_position(ev, pos);
 	weston_surface_map(ev->surface);
 
@@ -2932,10 +2931,12 @@ background_committed(struct weston_surface *es,
 {
 	struct desktop_shell *shell = es->committed_private;
 	struct weston_view *view;
+	struct weston_coord_global tmp;
 
+	tmp.c = weston_coord(0, 0);
 	view = container_of(es->views.next, struct weston_view, surface_link);
 
-	configure_static_view(view, &shell->background_layer, 0, 0);
+	configure_static_view(view, &shell->background_layer, tmp);
 }
 
 static void
@@ -3015,6 +3016,7 @@ panel_committed(struct weston_surface *es,
 	struct weston_view *view;
 	int width, height;
 	int x = 0, y = 0;
+	struct weston_coord_global tmp;
 
 	view = container_of(es->views.next, struct weston_view, surface_link);
 
@@ -3037,7 +3039,8 @@ panel_committed(struct weston_surface *es,
 		break;
 	}
 
-	configure_static_view(view, &shell->panel_layer, x, y);
+	tmp.c = weston_coord(x, y);
+	configure_static_view(view, &shell->panel_layer, tmp);
 }
 
 static void
