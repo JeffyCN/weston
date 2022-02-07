@@ -41,15 +41,16 @@ struct weston_desktop_xwayland_interface {
 						      const struct weston_xwayland_client_interface *client);
 	void (*set_toplevel)(struct weston_desktop_xwayland_surface *shsurf);
 	void (*set_toplevel_with_position)(struct weston_desktop_xwayland_surface *shsurf,
-					   int32_t x, int32_t y);
+					   struct weston_coord_global coord);
 	void (*set_parent)(struct weston_desktop_xwayland_surface *shsurf,
 			   struct weston_surface *parent);
 	void (*set_transient)(struct weston_desktop_xwayland_surface *shsurf,
-			      struct weston_surface *parent, int x, int y);
+			      struct weston_surface *parent,
+			      struct weston_coord_surface offset);
 	void (*set_fullscreen)(struct weston_desktop_xwayland_surface *shsurf,
 			       struct weston_output *output);
 	void (*set_xwayland)(struct weston_desktop_xwayland_surface *shsurf,
-			     int x, int y);
+			     struct weston_coord_global coord);
 	int (*move)(struct weston_desktop_xwayland_surface *shsurf,
 		    struct weston_pointer *pointer);
 	int (*resize)(struct weston_desktop_xwayland_surface *shsurf,
