@@ -60,23 +60,24 @@ input_panel_slide_done(struct weston_view_animation *animation, void *data)
 }
 
 static int
-calc_input_panel_position(struct input_panel_surface *ip_surface, float *x, float*y)
+calc_input_panel_position(struct input_panel_surface *ip_surface, struct weston_coord_global *out_pos)
 {
 	struct desktop_shell *shell = ip_surface->shell;
+	struct weston_coord_global pos;
+
 	if (ip_surface->panel) {
 		struct weston_view *view = get_default_view(shell->text_input.surface);
 		if (view == NULL)
 			return -1;
-		*x = view->geometry.pos_offset.x +
-		     shell->text_input.cursor_rectangle.x2;
-		*y = view->geometry.pos_offset.y +
-		     shell->text_input.cursor_rectangle.y2;
+		pos = weston_view_get_pos_offset_global(view);
+		pos.c.x += shell->text_input.cursor_rectangle.x2;
+		pos.c.y += shell->text_input.cursor_rectangle.y2;
 	} else {
-		*x = ip_surface->output->pos.c.x +
-		     (ip_surface->output->width - ip_surface->surface->width) / 2;
-		*y = ip_surface->output->pos.c.y +
-		     ip_surface->output->height - ip_surface->surface->height;
+		pos = ip_surface->output->pos;
+		pos.c.x += (ip_surface->output->width - ip_surface->surface->width) / 2;
+		pos.c.y += ip_surface->output->height - ip_surface->surface->height;
 	}
+	*out_pos = pos;
 	return 0;
 }
 
@@ -87,7 +88,6 @@ show_input_panel_surface(struct input_panel_surface *ipsurf)
 	struct weston_seat *seat;
 	struct weston_surface *focus;
 	struct weston_coord_global pos;
-	float x, y;
 
 	wl_list_for_each(seat, &shell->compositor->seat_list, link) {
 		struct weston_keyboard *keyboard =
@@ -99,9 +99,9 @@ show_input_panel_surface(struct input_panel_surface *ipsurf)
 		if (!focus)
 			continue;
 		ipsurf->output = focus->output;
-		if (calc_input_panel_position(ipsurf, &x, &y))
+		if (calc_input_panel_position(ipsurf, &pos))
 			continue;
-		pos.c = weston_coord(x, y);
+
 		weston_view_set_position(ipsurf->view, pos);
 	}
 
@@ -195,14 +195,13 @@ input_panel_committed(struct weston_surface *surface,
 	struct input_panel_surface *ip_surface = surface->committed_private;
 	struct desktop_shell *shell = ip_surface->shell;
 	struct weston_coord_global pos;
-	float x, y;
 
 	if (surface->width == 0)
 		return;
 
-	if (calc_input_panel_position(ip_surface, &x, &y))
+	if (calc_input_panel_position(ip_surface, &pos))
 		return;
-	pos.c = weston_coord(x, y);
+
 	weston_view_set_position(ip_surface->view, pos);
 
 	if (!weston_surface_is_mapped(surface) && shell->showing_input_panels)
