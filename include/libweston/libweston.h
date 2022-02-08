@@ -1817,10 +1817,8 @@ struct weston_pointer_constraint {
 	pixman_region32_t region_pending;
 	bool region_is_pending;
 
-	wl_fixed_t hint_x;
-	wl_fixed_t hint_y;
-	wl_fixed_t hint_x_pending;
-	wl_fixed_t hint_y_pending;
+	struct weston_coord_surface hint;
+	struct weston_coord_surface hint_pending;
 	bool hint_is_pending;
 
 	struct wl_listener pointer_destroy_listener;

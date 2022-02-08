@@ -4677,7 +4677,7 @@ disable_pointer_constraint(struct weston_pointer_constraint *constraint)
 
 static bool
 is_within_constraint_region(struct weston_pointer_constraint *constraint,
-			    wl_fixed_t sx, wl_fixed_t sy)
+			    struct weston_coord_surface c)
 {
 	struct weston_surface *surface = constraint->surface;
 	pixman_region32_t constraint_region;
@@ -4688,9 +4688,7 @@ is_within_constraint_region(struct weston_pointer_constraint *constraint,
 				  &surface->input,
 				  &constraint->region);
 	result = pixman_region32_contains_point(&constraint_region,
-						wl_fixed_to_int(sx),
-						wl_fixed_to_int(sy),
-						NULL);
+						c.c.x, c.c.y, NULL);
 	pixman_region32_fini(&constraint_region);
 
 	return result;
@@ -4727,9 +4725,7 @@ maybe_enable_pointer_constraint(struct weston_pointer_constraint *constraint)
 	 * constraint region.
 	 */
 	c = weston_coord_global_to_surface(view, pointer->pos);
-	if (!is_within_constraint_region(constraint,
-					 wl_fixed_from_double(c.c.x),
-					 wl_fixed_from_double(c.c.y)))
+	if (!is_within_constraint_region(constraint, c))
 		return;
 
 	enable_pointer_constraint(constraint, view);
@@ -4887,8 +4883,7 @@ pointer_constraint_surface_committed(struct wl_listener *listener, void *data)
 		constraint->hint_is_pending = false;
 
 		constraint->hint_is_pending = true;
-		constraint->hint_x = constraint->hint_x_pending;
-		constraint->hint_y = constraint->hint_y_pending;
+		constraint->hint = constraint->hint_pending;
 	}
 
 	if (pointer_constraint_get_type(constraint) ==
@@ -5011,17 +5006,11 @@ locked_pointer_destroy(struct wl_client *client,
 		wl_resource_get_user_data(resource);
 
 	if (constraint && constraint->view && constraint->hint_is_pending &&
-	    is_within_constraint_region(constraint,
-					constraint->hint_x,
-					constraint->hint_y)) {
+	    is_within_constraint_region(constraint, constraint->hint)) {
 		struct weston_coord_global pos;
-		struct weston_coord_surface surf_pos;
 
-		surf_pos = weston_coord_surface_from_fixed(constraint->hint_x,
-							   constraint->hint_y,
-							   constraint->view->surface);
 		pos = weston_coord_surface_to_global(constraint->view,
-						     surf_pos);
+						     constraint->hint);
 		weston_pointer_move_to(constraint->pointer, pos);
 	}
 	wl_resource_destroy(resource);
@@ -5044,8 +5033,9 @@ locked_pointer_set_cursor_position_hint(struct wl_client *client,
 		return;
 
 	constraint->hint_is_pending = true;
-	constraint->hint_x_pending = surface_x;
-	constraint->hint_y_pending = surface_y;
+	constraint->hint_pending = weston_coord_surface_from_fixed(surface_x,
+								   surface_y,
+								   constraint->view->surface);
 }
 
 static void
@@ -5603,60 +5593,62 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 }
 
 static double
-point_to_border_distance_2(struct border *border, double x, double y)
+point_to_border_distance_2(struct border *border, struct weston_coord_surface c)
 {
 	double orig_x, orig_y;
 	double dx, dy;
 
 	if (is_border_horizontal(border)) {
-		if (x < border->line.a.x)
+		if (c.c.x < border->line.a.x)
 			orig_x = border->line.a.x;
-		else if (x > border->line.b.x)
+		else if (c.c.x > border->line.b.x)
 			orig_x = border->line.b.x;
 		else
-			orig_x = x;
+			orig_x = c.c.x;
 		orig_y = border->line.a.y;
 	} else {
-		if (y < border->line.a.y)
+		if (c.c.y < border->line.a.y)
 			orig_y = border->line.a.y;
-		else if (y > border->line.b.y)
+		else if (c.c.y > border->line.b.y)
 			orig_y = border->line.b.y;
 		else
-			orig_y = y;
+			orig_y = c.c.y;
 		orig_x = border->line.a.x;
 	}
 
 
-	dx = fabs(orig_x - x);
-	dy = fabs(orig_y - y);
+	dx = fabs(orig_x - c.c.x);
+	dy = fabs(orig_y - c.c.y);
 	return dx*dx + dy*dy;
 }
 
 static void
-warp_to_behind_border(struct border *border, wl_fixed_t *sx, wl_fixed_t *sy)
+warp_to_behind_border(struct border *border, struct weston_coord_surface *c)
 {
+	double quantum = wl_fixed_to_double(1);
+
 	switch (border->blocking_dir) {
 	case MOTION_DIRECTION_POSITIVE_X:
 	case MOTION_DIRECTION_NEGATIVE_X:
 		if (border->blocking_dir == MOTION_DIRECTION_POSITIVE_X)
-			*sx = wl_fixed_from_double(border->line.a.x) - 1;
+			c->c.x = border->line.a.x - quantum;
 		else
-			*sx = wl_fixed_from_double(border->line.a.x) + 1;
-		if (*sy < wl_fixed_from_double(border->line.a.y))
-			*sy = wl_fixed_from_double(border->line.a.y) + 1;
-		else if (*sy > wl_fixed_from_double(border->line.b.y))
-			*sy = wl_fixed_from_double(border->line.b.y) - 1;
+			c->c.x = border->line.a.x + quantum;
+		if (c->c.y < border->line.a.y)
+			c->c.y = border->line.a.y + quantum;
+		else if (c->c.y > border->line.b.y)
+			c->c.y = border->line.b.y - quantum;
 		break;
 	case MOTION_DIRECTION_POSITIVE_Y:
 	case MOTION_DIRECTION_NEGATIVE_Y:
 		if (border->blocking_dir == MOTION_DIRECTION_POSITIVE_Y)
-			*sy = wl_fixed_from_double(border->line.a.y) - 1;
+			c->c.y = border->line.a.y - quantum;
 		else
-			*sy = wl_fixed_from_double(border->line.a.y) + 1;
-		if (*sx < wl_fixed_from_double(border->line.a.x))
-			*sx = wl_fixed_from_double(border->line.a.x) + 1;
-		else if (*sx > wl_fixed_from_double(border->line.b.x))
-			*sx = wl_fixed_from_double(border->line.b.x) - 1;
+			c->c.y = border->line.a.y + quantum;
+		if (c->c.x < border->line.a.x)
+			c->c.x = border->line.a.x + quantum;
+		else if (c->c.x > border->line.b.x)
+			c->c.x = border->line.b.x - quantum;
 		break;
 	}
 }
@@ -5664,25 +5656,18 @@ warp_to_behind_border(struct border *border, wl_fixed_t *sx, wl_fixed_t *sy)
 static void
 maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 {
-	wl_fixed_t sx;
-	wl_fixed_t sy;
-	struct weston_coord_surface c;
+	struct weston_coord_global cg;
+	struct weston_coord_surface cs;
 
-	c = weston_coord_global_to_surface(constraint->view,
-					   constraint->pointer->pos);
-	sx = wl_fixed_from_double(c.c.x);
-	sy = wl_fixed_from_double(c.c.y);
+	cs = weston_coord_global_to_surface(constraint->view,
+					    constraint->pointer->pos);
 
-	if (!is_within_constraint_region(constraint, sx, sy)) {
-		double xf = wl_fixed_to_double(sx);
-		double yf = wl_fixed_to_double(sy);
+	if (!is_within_constraint_region(constraint, cs)) {
 		pixman_region32_t confine_region;
 		struct wl_array borders;
 		struct border *border;
 		double closest_distance_2 = DBL_MAX;
 		struct border *closest_border = NULL;
-		struct weston_coord_global cg;
-		struct weston_coord_surface cs;
 
 		wl_array_init(&borders);
 
@@ -5697,7 +5682,7 @@ maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 		wl_array_for_each(border, &borders) {
 			double distance_2;
 
-			distance_2 = point_to_border_distance_2(border, xf, yf);
+			distance_2 = point_to_border_distance_2(border, cs);
 			if (distance_2 < closest_distance_2) {
 				closest_border = border;
 				closest_distance_2 = distance_2;
@@ -5705,12 +5690,10 @@ maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 		}
 		assert(closest_border);
 
-		warp_to_behind_border(closest_border, &sx, &sy);
+		warp_to_behind_border(closest_border, &cs);
 
 		wl_array_release(&borders);
 
-		cs = weston_coord_surface_from_fixed(sx, sy,
-						     constraint->view->surface);
 		cg = weston_coord_surface_to_global(constraint->view, cs);
 		weston_pointer_move_to(constraint->pointer, cg);
 	}
