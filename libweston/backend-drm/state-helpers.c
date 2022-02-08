@@ -213,7 +213,7 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	pixman_region32_t dest_rect;
 	pixman_box32_t *box;
-	struct weston_vector corners[2];
+	struct weston_coord corners[2];
 	float sxf1, syf1, sxf2, syf2;
 
 	if (!drm_paint_node_transform_supported(node, &output->base))
@@ -241,14 +241,16 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 
 	/* Now calculate the source rectangle, by transforming the destination
 	 * rectangle by the output to buffer matrix. */
-	corners[0] = (struct weston_vector){ { box->x1, box->y1, 0, 1 } };
-	corners[1] = (struct weston_vector){ { box->x2, box->y2, 0, 1 } };
-	weston_matrix_transform(&node->output_to_buffer_matrix, &corners[0]);
-	weston_matrix_transform(&node->output_to_buffer_matrix, &corners[1]);
-	sxf1 = corners[0].f[0] / corners[0].f[3];
-	syf1 = corners[0].f[1] / corners[0].f[3];
-	sxf2 = corners[1].f[0] / corners[1].f[3];
-	syf2 = corners[1].f[1] / corners[1].f[3];
+	corners[0] = weston_matrix_transform_coord(
+		&node->output_to_buffer_matrix,
+		weston_coord(box->x1, box->y1));
+	corners[1] = weston_matrix_transform_coord(
+		&node->output_to_buffer_matrix,
+		weston_coord(box->x2, box->y2));
+	sxf1 = corners[0].x;
+	syf1 = corners[0].y;
+	sxf2 = corners[1].x;
+	syf2 = corners[1].y;
 	pixman_region32_fini(&dest_rect);
 
 	/* We currently only support WL_OUTPUT_TRANSFORM_NORMAL, so it's

@@ -316,15 +316,20 @@ get_panel_size(struct desktop_shell *shell,
 	       int *width,
 	       int *height)
 {
-	float x1, y1;
-	float x2, y2;
-	weston_view_to_global_float(view, 0, 0, &x1, &y1);
-	weston_view_to_global_float(view,
-				    view->surface->width,
-				    view->surface->height,
-				    &x2, &y2);
-	*width = (int)(x2 - x1);
-	*height = (int)(y2 - y1);
+	struct weston_coord_global a, b;
+	struct weston_coord_surface tmp_s;
+
+	tmp_s = weston_coord_surface(0, 0, view->surface);
+	a = weston_coord_surface_to_global(view, tmp_s);
+
+	tmp_s = weston_coord_surface(view->surface->width,
+				     view->surface->height,
+				     view->surface);
+	b = weston_coord_surface_to_global(view, tmp_s);
+
+	a.c = weston_coord_sub(b.c, a.c);
+	*width = a.c.x;
+	*height = a.c.y;
 }
 
 static void
@@ -1146,6 +1151,8 @@ resize_grab_motion(struct weston_pointer_grab *grab,
 	struct shell_surface *shsurf = resize->base.shsurf;
 	int32_t width, height;
 	struct weston_size min_size, max_size;
+	struct weston_coord_surface tmp_s;
+	struct weston_coord_global tmp_g;
 	wl_fixed_t from_x, from_y;
 	wl_fixed_t to_x, to_y;
 
@@ -1156,11 +1163,14 @@ resize_grab_motion(struct weston_pointer_grab *grab,
 
 	weston_view_update_transform(shsurf->view);
 
-	weston_view_from_global_fixed(shsurf->view,
-				      pointer->grab_x, pointer->grab_y,
-				      &from_x, &from_y);
-	weston_view_from_global_fixed(shsurf->view,
-				      pointer->x, pointer->y, &to_x, &to_y);
+	tmp_g.c = weston_coord_from_fixed(pointer->grab_x, pointer->grab_y);
+	tmp_s = weston_coord_global_to_surface(shsurf->view, tmp_g);
+	from_x = wl_fixed_from_double(tmp_s.c.x);
+	from_y = wl_fixed_from_double(tmp_s.c.y);
+	tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
+	tmp_s = weston_coord_global_to_surface(shsurf->view, tmp_g);
+	to_x = wl_fixed_from_double(tmp_s.c.x);
+	to_y = wl_fixed_from_double(tmp_s.c.y);
 
 	width = resize->width;
 	if (resize->edges & WESTON_DESKTOP_SURFACE_EDGE_LEFT) {
@@ -2120,9 +2130,11 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		set_maximized_position(shell, shsurf);
 		surface->output = shsurf->output;
 	} else {
-		float from_x, from_y;
-		float to_x, to_y;
+		struct weston_coord_surface from_s, to_s;
+		struct weston_coord_global to_g, from_g;
 		float x, y;
+
+		from_s = weston_coord_surface(0, 0, view->surface);
 
 		if (shsurf->resize_edges) {
 			sx = 0;
@@ -2134,10 +2146,12 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		if (shsurf->resize_edges & WESTON_DESKTOP_SURFACE_EDGE_TOP)
 			sy = shsurf->last_height - surface->height;
 
-		weston_view_to_global_float(shsurf->view, 0, 0, &from_x, &from_y);
-		weston_view_to_global_float(shsurf->view, sx, sy, &to_x, &to_y);
-		x = shsurf->view->geometry.x + to_x - from_x;
-		y = shsurf->view->geometry.y + to_y - from_y;
+		to_s = weston_coord_surface(sx, sy, view->surface);
+
+		from_g = weston_coord_surface_to_global(view, from_s);
+		to_g = weston_coord_surface_to_global(view, to_s);
+		x = view->geometry.x + to_g.c.x - from_g.c.x;
+		y = view->geometry.y + to_g.c.y - from_g.c.y;
 
 		weston_view_set_position(shsurf->view, x, y);
 	}
@@ -3041,6 +3055,8 @@ resize_binding(struct weston_pointer *pointer, const struct timespec *time,
 	uint32_t edges = 0;
 	int32_t x, y;
 	struct shell_surface *shsurf;
+	struct weston_coord_global tmp_g;
+	struct weston_coord_surface surf_pos;
 
 	if (pointer->focus == NULL)
 		return;
@@ -3057,10 +3073,10 @@ resize_binding(struct weston_pointer *pointer, const struct timespec *time,
 	    weston_desktop_surface_get_maximized(shsurf->desktop_surface))
 		return;
 
-	weston_view_from_global(shsurf->view,
-				wl_fixed_to_int(pointer->grab_x),
-				wl_fixed_to_int(pointer->grab_y),
-				&x, &y);
+	tmp_g.c = weston_coord_from_fixed(pointer->grab_x, pointer->grab_y);
+	surf_pos = weston_coord_global_to_surface(shsurf->view, tmp_g);
+	x = surf_pos.c.x;
+	y = surf_pos.c.y;
 
 	if (x < surface->width / 3)
 		edges |= WESTON_DESKTOP_SURFACE_EDGE_LEFT;
@@ -3235,6 +3251,8 @@ surface_rotate(struct shell_surface *shsurf, struct weston_pointer *pointer)
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 	struct rotate_grab *rotate;
+	struct weston_coord_surface center;
+	struct weston_coord_global center_g;
 	float dx, dy;
 	float r;
 
@@ -3242,10 +3260,13 @@ surface_rotate(struct shell_surface *shsurf, struct weston_pointer *pointer)
 	if (!rotate)
 		return;
 
-	weston_view_to_global_float(shsurf->view,
-				    surface->width * 0.5f,
-				    surface->height * 0.5f,
-				    &rotate->center.x, &rotate->center.y);
+	center = weston_coord_surface(surface->width * 0.5f,
+				      surface->height * 0.5f,
+				      shsurf->view->surface);
+	center_g = weston_coord_surface_to_global(shsurf->view, center);
+
+	rotate->center.x = center_g.c.x;
+	rotate->center.y = center_g.c.y;
 
 	dx = wl_fixed_to_double(pointer->x) - rotate->center.x;
 	dy = wl_fixed_to_double(pointer->y) - rotate->center.y;

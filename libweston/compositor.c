@@ -1223,13 +1223,15 @@ static void
 weston_view_to_view_map(struct weston_view *from, struct weston_view *to,
 			int from_x, int from_y, int *to_x, int *to_y)
 {
-	float x, y;
+	struct weston_coord_surface cs;
+	struct weston_coord_global cg;
 
-	weston_view_to_global_float(from, from_x, from_y, &x, &y);
-	weston_view_from_global_float(to, x, y, &x, &y);
+	cs = weston_coord_surface(from_x, from_y, from->surface);
+	cg = weston_coord_surface_to_global(from, cs);
+	cs = weston_coord_global_to_surface(to, cg);
 
-	*to_x = round(x);
-	*to_y = round(y);
+	*to_x = round(cs.c.x);
+	*to_y = round(cs.c.y);
 }
 
 static void
@@ -1269,16 +1271,20 @@ view_compute_bbox(struct weston_view *view, const pixman_box32_t *inbox,
 	}
 
 	for (i = 0; i < 4; ++i) {
-		float x, y;
-		weston_view_to_global_float(view, s[i][0], s[i][1], &x, &y);
-		if (x < min_x)
-			min_x = x;
-		if (x > max_x)
-			max_x = x;
-		if (y < min_y)
-			min_y = y;
-		if (y > max_y)
-			max_y = y;
+		struct weston_coord_surface cs;
+		struct weston_coord_global cg;
+
+		cs = weston_coord_surface(s[i][0], s[i][1],
+					  view->surface);
+		cg = weston_coord_surface_to_global(view, cs);
+		if (cg.c.x < min_x)
+			min_x = cg.c.x;
+		if (cg.c.x > max_x)
+			max_x = cg.c.x;
+		if (cg.c.y < min_y)
+			min_y = cg.c.y;
+		if (cg.c.y > max_y)
+			max_y = cg.c.y;
 	}
 
 	int_x = floorf(min_x);
@@ -1505,14 +1511,14 @@ weston_view_to_global_fixed(struct weston_view *view,
 			    wl_fixed_t vx, wl_fixed_t vy,
 			    wl_fixed_t *x, wl_fixed_t *y)
 {
-	float xf, yf;
+	struct weston_coord_surface cs;
+	struct weston_coord_global cg;
 
-	weston_view_to_global_float(view,
-				    wl_fixed_to_double(vx),
-				    wl_fixed_to_double(vy),
-				    &xf, &yf);
-	*x = wl_fixed_from_double(xf);
-	*y = wl_fixed_from_double(yf);
+	cs = weston_coord_surface_from_fixed(vx, vy, view->surface);
+	cg = weston_coord_surface_to_global(view, cs);
+
+	*x = wl_fixed_from_double(cg.c.x);
+	*y = wl_fixed_from_double(cg.c.y);
 }
 
 WL_EXPORT void
@@ -2017,24 +2023,23 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 			    wl_fixed_t x, wl_fixed_t y)
 {
 	struct weston_view *view;
-	wl_fixed_t view_x, view_y;
-	int view_ix, view_iy;
 	int ix = wl_fixed_to_int(x);
 	int iy = wl_fixed_to_int(y);
 
 	/* Can't use paint node list: occlusion by input regions, not opaque. */
 	wl_list_for_each(view, &compositor->view_list, link) {
+		struct weston_coord_global pos_g;
+		struct weston_coord_surface pos_s;
+
 		weston_view_update_transform(view);
 
 		if (!pixman_region32_contains_point(
 				&view->transform.boundingbox, ix, iy, NULL))
 			continue;
 
-		weston_view_from_global_fixed(view, x, y, &view_x, &view_y);
-		view_ix = wl_fixed_to_int(view_x);
-		view_iy = wl_fixed_to_int(view_y);
-
-		if (!weston_view_takes_input_at_point(view, view_ix, view_iy))
+		pos_g.c = weston_coord_from_fixed(x, y);
+		pos_s = weston_coord_global_to_surface(view, pos_g);
+		if (!weston_view_takes_input_at_point(view, pos_s.c.x, pos_s.c.y))
 			continue;
 
 		return view;

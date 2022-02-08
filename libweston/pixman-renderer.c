@@ -186,14 +186,16 @@ region_intersect_only_translation(pixman_region32_t *result_global,
 				  pixman_region32_t *surf,
 				  struct weston_view *view)
 {
-	float view_x, view_y;
+	struct weston_coord_surface cs;
+	struct weston_coord_global cg;
 
+	cs = weston_coord_surface(0, 0, view->surface);
 	assert(view_transformation_is_translation(view));
 
 	/* Convert from surface to global coordinates */
 	pixman_region32_copy(result_global, surf);
-	weston_view_to_global_float(view, 0, 0, &view_x, &view_y);
-	pixman_region32_translate(result_global, (int)view_x, (int)view_y);
+	cg = weston_coord_surface_to_global(view, cs);
+	pixman_region32_translate(result_global, cg.c.x, cg.c.y);
 
 	pixman_region32_intersect(result_global, result_global, global);
 }

@@ -580,15 +580,20 @@ drag_grab_focus_internal(struct weston_drag *drag, struct weston_seat *seat,
 			 wl_fixed_t x, wl_fixed_t y)
 {
 	struct weston_view *view;
-	wl_fixed_t sx, sy;
 
 	view = weston_compositor_pick_view(seat->compositor, x, y);
 	if (drag->focus == view)
 		return;
 
 	if (view) {
-		weston_view_from_global_fixed(view, x, y, &sx, &sy);
-		weston_drag_set_focus(drag, seat, view, sx, sy);
+		struct weston_coord_global tmp_g;
+		struct weston_coord_surface tmp_s;
+
+		tmp_g.c = weston_coord_from_fixed(x, y);
+		tmp_s = weston_coord_global_to_surface(view, tmp_g);
+		weston_drag_set_focus(drag, seat, view,
+				      wl_fixed_from_double(tmp_s.c.x),
+				      wl_fixed_from_double(tmp_s.c.y));
 	} else
 		weston_drag_clear_focus(drag);
 }
@@ -613,7 +618,6 @@ drag_grab_motion(struct weston_pointer_grab *grab,
 		container_of(grab, struct weston_pointer_drag, grab);
 	struct weston_pointer *pointer = drag->grab.pointer;
 	float fx, fy;
-	wl_fixed_t sx, sy;
 	uint32_t msecs;
 
 	weston_pointer_move(pointer, event);
@@ -626,12 +630,17 @@ drag_grab_motion(struct weston_pointer_grab *grab,
 	}
 
 	if (drag->base.focus_resource) {
-		msecs = timespec_to_msec(time);
-		weston_view_from_global_fixed(drag->base.focus,
-					      pointer->x, pointer->y,
-					      &sx, &sy);
+		struct weston_coord_global pos;
+		struct weston_coord_surface surf_pos;
 
-		wl_data_device_send_motion(drag->base.focus_resource, msecs, sx, sy);
+		msecs = timespec_to_msec(time);
+		pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
+		surf_pos = weston_coord_global_to_surface(drag->base.focus,
+							  pos);
+
+		wl_data_device_send_motion(drag->base.focus_resource, msecs,
+					   wl_fixed_from_double(surf_pos.c.x),
+					   wl_fixed_from_double(surf_pos.c.y));
 	}
 }
 
@@ -803,7 +812,6 @@ drag_grab_touch_motion(struct weston_touch_grab *grab,
 	struct weston_touch_drag *touch_drag =
 		container_of(grab, struct weston_touch_drag, grab);
 	struct weston_touch *touch = grab->touch;
-	wl_fixed_t view_x, view_y;
 	float fx, fy;
 	uint32_t msecs;
 
@@ -819,12 +827,15 @@ drag_grab_touch_motion(struct weston_touch_grab *grab,
 	}
 
 	if (touch_drag->base.focus_resource) {
+		struct weston_coord_global tmp_g;
+		struct weston_coord_surface c;
+
+		tmp_g.c = weston_coord_from_fixed(touch->grab_x, touch->grab_y);
 		msecs = timespec_to_msec(time);
-		weston_view_from_global_fixed(touch_drag->base.focus,
-					touch->grab_x, touch->grab_y,
-					&view_x, &view_y);
+		c = weston_coord_global_to_surface(touch_drag->base.focus, tmp_g);
 		wl_data_device_send_motion(touch_drag->base.focus_resource,
-					   msecs, view_x, view_y);
+					   msecs, wl_fixed_from_double(c.c.x),
+					   wl_fixed_from_double(c.c.y));
 	}
 }
 

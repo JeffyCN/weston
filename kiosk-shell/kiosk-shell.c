@@ -809,14 +809,19 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	}
 
 	if (!is_fullscreen && (sx != 0 || sy != 0)) {
-		float from_x, from_y;
-		float to_x, to_y;
+		struct weston_coord_surface from_s, to_s;
+		struct weston_coord_global from_g, to_g;
 		float x, y;
 
-		weston_view_to_global_float(shsurf->view, 0, 0, &from_x, &from_y);
-		weston_view_to_global_float(shsurf->view, sx, sy, &to_x, &to_y);
-		x = shsurf->view->geometry.x + to_x - from_x;
-		y = shsurf->view->geometry.y + to_y - from_y;
+		from_s = weston_coord_surface(0, 0,
+					      shsurf->view->surface);
+		to_s = weston_coord_surface(sx, sy,
+					    shsurf->view->surface);
+
+		from_g = weston_coord_surface_to_global(shsurf->view, from_s);
+		to_g = weston_coord_surface_to_global(shsurf->view, to_s);
+		x = shsurf->view->geometry.x + to_g.c.x - from_g.c.x;
+		y = shsurf->view->geometry.y + to_g.c.y - from_g.c.y;
 
 		weston_view_set_position(shsurf->view, x, y);
 		weston_view_update_transform(shsurf->view);

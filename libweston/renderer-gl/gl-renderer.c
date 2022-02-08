@@ -429,9 +429,15 @@ calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 	ctx.clip.y2 = rect->y2;
 
 	/* transform surface to screen space: */
-	for (i = 0; i < surf.n; i++)
-		weston_view_to_global_float(ev, surf.x[i], surf.y[i],
-					    &surf.x[i], &surf.y[i]);
+	for (i = 0; i < surf.n; i++) {
+		struct weston_coord_global cg;
+		struct weston_coord_surface cs;
+
+		cs = weston_coord_surface(surf.x[i], surf.y[i], ev->surface);
+		cg = weston_coord_surface_to_global(ev, cs);
+		surf.x[i] = cg.c.x;
+		surf.y[i] = cg.c.y;
+	}
 
 	/* find bounding box: */
 	min_x = max_x = surf.x[0];
@@ -560,7 +566,6 @@ texture_region(struct weston_paint_node *pnode,
 		pixman_box32_t *rect = &rects[i];
 		for (j = 0; j < nsurf; j++) {
 			pixman_box32_t *surf_rect = &surf_rects[j];
-			GLfloat sx, sy, bx, by;
 			GLfloat ex[8], ey[8];          /* edge points in screen space */
 			int n;
 
@@ -584,20 +589,22 @@ texture_region(struct weston_paint_node *pnode,
 
 			/* emit edge points: */
 			for (k = 0; k < n; k++) {
-				weston_view_from_global_float(ev, ex[k], ey[k],
-							      &sx, &sy);
+				struct weston_coord_global cg;
+				struct weston_coord_surface cs;
+				struct weston_coord_buffer cb;
+
+				cg.c = weston_coord(ex[k], ey[k]);
+				cs = weston_coord_global_to_surface(ev, cg);
 				/* position: */
 				*(v++) = ex[k];
 				*(v++) = ey[k];
 				/* texcoord: */
-				weston_surface_to_buffer_float(ev->surface,
-							       sx, sy,
-							       &bx, &by);
-				*(v++) = bx * inv_width;
+				cb = weston_coord_surface_to_buffer(ev->surface, cs);
+				*(v++) = cb.c.x * inv_width;
 				if (buffer->buffer_origin == ORIGIN_TOP_LEFT) {
-					*(v++) = by * inv_height;
+					*(v++) = cb.c.y * inv_height;
 				} else {
-					*(v++) = (buffer->height - by) * inv_height;
+					*(v++) = (buffer->height - cb.c.y) * inv_height;
 				}
 			}
 

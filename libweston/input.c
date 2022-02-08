@@ -455,7 +455,6 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 {
 	struct weston_pointer *pointer = grab->pointer;
 	struct weston_view *view;
-	wl_fixed_t sx, sy;
 	bool surface_jump = false;
 
 	if (pointer->button_count > 0)
@@ -463,12 +462,16 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 
 	view = weston_compositor_pick_view(pointer->seat->compositor,
 					   pointer->x, pointer->y);
-
 	if (view && view == pointer->focus) {
+		struct weston_coord_global tmp_g;
+		struct weston_coord_surface tmp_s;
+
 		weston_view_update_transform(view);
-		weston_view_from_global_fixed(view, pointer->x, pointer->y,
-					      &sx, &sy);
-		if (pointer->sx != sx || pointer->sy != sy)
+
+		tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
+		tmp_s = weston_coord_global_to_surface(view, tmp_g);
+		if (pointer->sx != wl_fixed_from_double(tmp_s.c.x) ||
+		    pointer->sy != wl_fixed_from_double(tmp_s.c.y))
 			surface_jump = true;
 	}
 	if (pointer->focus != view || surface_jump)
@@ -547,12 +550,19 @@ weston_pointer_send_motion(struct weston_pointer *pointer,
 	struct weston_view *old_focus = pointer->focus;
 
 	if (pointer->focus) {
+		struct weston_coord_global tmp_g;
+		struct weston_coord_surface surf_pos;
+
 		weston_pointer_motion_to_abs(pointer, event, &x, &y);
 		old_sx = pointer->sx;
 		old_sy = pointer->sy;
 		weston_view_update_transform(pointer->focus);
-		weston_view_from_global_fixed(pointer->focus, x, y,
-					      &pointer->sx, &pointer->sy);
+
+		tmp_g.c = weston_coord_from_fixed(x, y);
+		surf_pos = weston_coord_global_to_surface(pointer->focus,
+							  tmp_g);
+		pointer->sx = wl_fixed_from_double(surf_pos.c.x);
+		pointer->sy = wl_fixed_from_double(surf_pos.c.y);
 	}
 
 	weston_pointer_move(pointer, event);
@@ -829,7 +839,8 @@ weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
 	uint32_t serial;
 	struct wl_resource *resource;
 	struct wl_list *resource_list;
-	wl_fixed_t sx, sy;
+	struct weston_coord_global tmp_g;
+	struct weston_coord_surface surf_pos;
 	uint32_t msecs;
 
 	if (!weston_touch_has_focus_resource(touch))
@@ -837,7 +848,8 @@ weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
 
 	weston_view_update_transform(touch->focus);
 
-	weston_view_from_global_fixed(touch->focus, x, y, &sx, &sy);
+	tmp_g.c = weston_coord_from_fixed(x, y);
+	surf_pos = weston_coord_global_to_surface(touch->focus, tmp_g);
 
 	resource_list = &touch->focus_resource_list;
 	serial = wl_display_next_serial(display);
@@ -848,7 +860,9 @@ weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
 						   time);
 		wl_touch_send_down(resource, serial, msecs,
 				   touch->focus->surface->resource,
-				   touch_id, sx, sy);
+				   touch_id,
+				   wl_fixed_from_double(surf_pos.c.x),
+				   wl_fixed_from_double(surf_pos.c.y));
 	}
 }
 
@@ -920,13 +934,15 @@ weston_touch_send_motion(struct weston_touch *touch,
 {
 	struct wl_resource *resource;
 	struct wl_list *resource_list;
-	wl_fixed_t sx, sy;
 	uint32_t msecs;
+	struct weston_coord_global tmp_g;
+	struct weston_coord_surface surf_pos;
 
 	if (!weston_touch_has_focus_resource(touch))
 		return;
 
-	weston_view_from_global_fixed(touch->focus, x, y, &sx, &sy);
+	tmp_g.c = weston_coord_from_fixed(x, y);
+	surf_pos = weston_coord_global_to_surface(touch->focus, tmp_g);
 
 	resource_list = &touch->focus_resource_list;
 	msecs = timespec_to_msec(time);
@@ -934,8 +950,9 @@ weston_touch_send_motion(struct weston_touch *touch,
 		send_timestamps_for_input_resource(resource,
 						   &touch->timestamps_list,
 						   time);
-		wl_touch_send_motion(resource, msecs,
-				     touch_id, sx, sy);
+		wl_touch_send_motion(resource, msecs, touch_id,
+				     wl_fixed_from_double(surf_pos.c.x),
+				     wl_fixed_from_double(surf_pos.c.y));
 	}
 }
 
@@ -1448,11 +1465,15 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 	wl_fixed_t sx, sy;
 
 	if (view) {
+		struct weston_coord_global tmp_g;
+		struct weston_coord_surface surf_pos;
 		int ix;
 		int iy;
 
-		weston_view_from_global_fixed(view, pointer->x, pointer->y,
-					      &sx, &sy);
+		tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
+		surf_pos = weston_coord_global_to_surface(view, tmp_g);
+		sx = wl_fixed_from_double(surf_pos.c.x);
+		sy = wl_fixed_from_double(surf_pos.c.y);
 		ix = wl_fixed_to_int(sx);
 		iy = wl_fixed_to_int(sy);
 		if (!weston_view_takes_input_at_point(view, ix, iy))
@@ -2844,19 +2865,20 @@ seat_get_pointer(struct wl_client *client, struct wl_resource *resource,
 
 	if (pointer->focus && pointer->focus->surface->resource &&
 	    wl_resource_get_client(pointer->focus->surface->resource) == client) {
-		wl_fixed_t sx, sy;
+		struct weston_coord_global tmp_g;
+		struct weston_coord_surface surf_pos;
 
 		weston_view_update_transform(pointer->focus);
 
-		weston_view_from_global_fixed(pointer->focus,
-					      pointer->x,
-					      pointer->y,
-					      &sx, &sy);
+		tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
+		surf_pos = weston_coord_global_to_surface(pointer->focus,
+							  tmp_g);
 
 		wl_pointer_send_enter(cr,
 				      pointer->focus_serial,
 				      pointer->focus->surface->resource,
-				      sx, sy);
+				      wl_fixed_from_double(surf_pos.c.x),
+				      wl_fixed_from_double(surf_pos.c.y));
 		pointer_send_frame(cr);
 	}
 }
@@ -3758,7 +3780,8 @@ maybe_enable_pointer_constraint(struct weston_pointer_constraint *constraint)
 	struct weston_pointer *pointer = constraint->pointer;
 	struct weston_keyboard *keyboard;
 	struct weston_seat *seat = pointer->seat;
-	int32_t x, y;
+	struct weston_coord_global tmp;
+	struct weston_coord_surface c;
 
 	/* Postpone if no view of the surface was most recently clicked. */
 	wl_list_for_each(vit, &surface->views, surface_link) {
@@ -3779,13 +3802,11 @@ maybe_enable_pointer_constraint(struct weston_pointer_constraint *constraint)
 	/* Postpone constraint if the pointer is not within the
 	 * constraint region.
 	 */
-	weston_view_from_global(view,
-				wl_fixed_to_int(pointer->x),
-				wl_fixed_to_int(pointer->y),
-				&x, &y);
+	tmp.c = weston_coord_from_fixed(pointer->x, pointer->y);
+	c = weston_coord_global_to_surface(view, tmp);
 	if (!is_within_constraint_region(constraint,
-					 wl_fixed_from_int(x),
-					 wl_fixed_from_int(y)))
+					 wl_fixed_from_double(c.c.x),
+					 wl_fixed_from_double(c.c.y)))
 		return;
 
 	enable_pointer_constraint(constraint, view);
@@ -4058,17 +4079,21 @@ locked_pointer_destroy(struct wl_client *client,
 {
 	struct weston_pointer_constraint *constraint =
 		wl_resource_get_user_data(resource);
-	wl_fixed_t x, y;
 
 	if (constraint && constraint->view && constraint->hint_is_pending &&
 	    is_within_constraint_region(constraint,
 					constraint->hint_x,
 					constraint->hint_y)) {
-		weston_view_to_global_fixed(constraint->view,
-					    constraint->hint_x,
-					    constraint->hint_y,
-					    &x, &y);
-		weston_pointer_move_to(constraint->pointer, x, y);
+		struct weston_coord_global cg;
+		struct weston_coord_surface cs;
+
+		cs = weston_coord_surface_from_fixed(constraint->hint_x,
+						     constraint->hint_y,
+						     constraint->view->surface);
+		cg = weston_coord_surface_to_global(constraint->view, cs);
+		weston_pointer_move_to(constraint->pointer,
+				       wl_fixed_from_double(cg.c.x),
+				       wl_fixed_from_double(cg.c.y));
 	}
 	wl_resource_destroy(resource);
 }
@@ -4616,19 +4641,21 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 				     wl_fixed_t *clamped_y)
 {
 	wl_fixed_t x, y;
-	wl_fixed_t sx, sy;
 	wl_fixed_t old_sx = pointer->sx;
 	wl_fixed_t old_sy = pointer->sy;
 	struct wl_array borders;
 	struct line motion;
 	struct border *closest_border;
-	float new_x_f, new_y_f;
 	uint32_t directions;
+	struct weston_coord_surface motion_coord;
+	struct weston_coord_global cg, clamped;
+	struct weston_coord_surface cs;
 
 	assert(pointer->focus);
 
 	weston_pointer_motion_to_abs(pointer, event, &x, &y);
-	weston_view_from_global_fixed(pointer->focus, x, y, &sx, &sy);
+	cg.c = weston_coord_from_fixed(x, y);
+	cs = weston_coord_global_to_surface(pointer->focus, cg);
 
 	wl_array_init(&borders);
 
@@ -4647,8 +4674,8 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 			.y = wl_fixed_to_double(old_sy),
 		},
 		.b = (struct vec2d) {
-			.x = wl_fixed_to_double(sx),
-			.y = wl_fixed_to_double(sy),
+			.x = cs.c.x,
+			.y = cs.c.y,
 		},
 	};
 	directions = get_motion_directions(&motion);
@@ -4662,12 +4689,12 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 		else
 			break;
 	}
-
-	weston_view_to_global_float(pointer->focus,
-				    (float) motion.b.x, (float) motion.b.y,
-				    &new_x_f, &new_y_f);
-	*clamped_x = wl_fixed_from_double(new_x_f);
-	*clamped_y = wl_fixed_from_double(new_y_f);
+	motion_coord = weston_coord_surface(motion.b.x, motion.b.y,
+					    pointer->focus->surface);
+	clamped = weston_coord_surface_to_global(pointer->focus,
+						 motion_coord);
+	*clamped_x = wl_fixed_from_double(clamped.c.x);
+	*clamped_y = wl_fixed_from_double(clamped.c.y);
 
 	wl_array_release(&borders);
 }
@@ -4734,16 +4761,16 @@ warp_to_behind_border(struct border *border, wl_fixed_t *sx, wl_fixed_t *sy)
 static void
 maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 {
-	wl_fixed_t x;
-	wl_fixed_t y;
 	wl_fixed_t sx;
 	wl_fixed_t sy;
+	struct weston_coord_global tmp;
+	struct weston_coord_surface c;
 
-	weston_view_from_global_fixed(constraint->view,
-				      constraint->pointer->x,
-				      constraint->pointer->y,
-				      &sx,
-				      &sy);
+	tmp.c = weston_coord_from_fixed(constraint->pointer->x,
+					constraint->pointer->y);
+	c = weston_coord_global_to_surface(constraint->view, tmp);
+	sx = wl_fixed_from_double(c.c.x);
+	sy = wl_fixed_from_double(c.c.y);
 
 	if (!is_within_constraint_region(constraint, sx, sy)) {
 		double xf = wl_fixed_to_double(sx);
@@ -4753,6 +4780,8 @@ maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 		struct border *border;
 		double closest_distance_2 = DBL_MAX;
 		struct border *closest_border = NULL;
+		struct weston_coord_global cg;
+		struct weston_coord_surface cs;
 
 		wl_array_init(&borders);
 
@@ -4778,8 +4807,12 @@ maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 
 		wl_array_release(&borders);
 
-		weston_view_to_global_fixed(constraint->view, sx, sy, &x, &y);
-		weston_pointer_move_to(constraint->pointer, x, y);
+		cs = weston_coord_surface_from_fixed(sx, sy,
+						     constraint->view->surface);
+		cg = weston_coord_surface_to_global(constraint->view, cs);
+		weston_pointer_move_to(constraint->pointer,
+				       wl_fixed_from_double(cg.c.x),
+				       wl_fixed_from_double(cg.c.y));
 	}
 }
 
@@ -4796,6 +4829,8 @@ confined_pointer_grab_pointer_motion(struct weston_pointer_grab *grab,
 	wl_fixed_t old_sx = pointer->sx;
 	wl_fixed_t old_sy = pointer->sy;
 	pixman_region32_t confine_region;
+	struct weston_coord_global c;
+	struct weston_coord_surface tmp;
 
 	assert(pointer->focus);
 	assert(pointer->focus->surface == constraint->surface);
@@ -4813,8 +4848,10 @@ confined_pointer_grab_pointer_motion(struct weston_pointer_grab *grab,
 	weston_pointer_move_to(pointer, x, y);
 	pixman_region32_fini(&confine_region);
 
-	weston_view_from_global_fixed(pointer->focus, x, y,
-				      &pointer->sx, &pointer->sy);
+	c.c = weston_coord_from_fixed(x, y);
+	tmp = weston_coord_global_to_surface(pointer->focus, c);
+	pointer->sx = wl_fixed_from_double(tmp.c.x);
+	pointer->sy = wl_fixed_from_double(tmp.c.y);
 
 	if (old_sx != pointer->sx || old_sy != pointer->sy) {
 		pointer_send_motion(pointer, time,
