@@ -75,8 +75,7 @@ struct kiosk_shell_surface {
 
 	struct {
 		bool is_set;
-		int32_t x;
-		int32_t y;
+		struct weston_coord_global pos;
 	} xwayland;
 
 	bool appid_output_assigned;

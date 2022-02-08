@@ -940,14 +940,15 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 			weston_shell_utils_center_on_output(shsurf->view,
 							    shsurf->output);
 		} else {
-			struct weston_coord_global tmp;
+			struct weston_coord_surface offset;
 			struct weston_geometry geometry =
 				weston_desktop_surface_get_geometry(desktop_surface);
-			float x = shsurf->xwayland.x - geometry.x;
-			float y = shsurf->xwayland.y - geometry.y;
 
-			tmp.c = weston_coord(x, y);
-			weston_view_set_position(shsurf->view, tmp);
+			offset = weston_coord_surface(-geometry.x, -geometry.y,
+						      shsurf->view->surface);
+			weston_view_set_position_with_offset(shsurf->view,
+							     shsurf->xwayland.pos,
+							     offset);
 		}
 
 		weston_view_update_transform(shsurf->view);
@@ -1125,8 +1126,7 @@ desktop_surface_set_xwayland_position(struct weston_desktop_surface *desktop_sur
 	struct kiosk_shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(desktop_surface);
 
-	shsurf->xwayland.x = x;
-	shsurf->xwayland.y = y;
+	shsurf->xwayland.pos.c = weston_coord(x, y);
 	shsurf->xwayland.is_set = true;
 }
 
