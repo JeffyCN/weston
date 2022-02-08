@@ -5205,14 +5205,12 @@ idle_handler(void *data)
 }
 
 WL_EXPORT void
-weston_plane_init(struct weston_plane *plane,
-			struct weston_compositor *ec,
-			int32_t x, int32_t y)
+weston_plane_init(struct weston_plane *plane, struct weston_compositor *ec)
 {
 	pixman_region32_init(&plane->damage);
 	pixman_region32_init(&plane->clip);
-	plane->x = x;
-	plane->y = y;
+	plane->x = 0;
+	plane->y = 0;
 	plane->compositor = ec;
 
 	/* Init the link so that the call to wl_list_remove() when releasing
@@ -8210,7 +8208,7 @@ weston_compositor_create(struct wl_display *display,
 
 	wl_list_init(&ec->plugin_api_list);
 
-	weston_plane_init(&ec->primary_plane, ec, 0, 0);
+	weston_plane_init(&ec->primary_plane, ec);
 	weston_compositor_stack_plane(ec, &ec->primary_plane, NULL);
 
 	wl_data_device_manager_init(ec->wl_display);

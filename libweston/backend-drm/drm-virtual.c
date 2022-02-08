@@ -124,7 +124,7 @@ drm_virtual_plane_create(struct drm_device *device, struct drm_output *output)
 	if (weston_drm_format_add_modifier(fmt, mod) < 0)
 		goto err;
 
-	weston_plane_init(&plane->base, b->compositor, 0, 0);
+	weston_plane_init(&plane->base, b->compositor);
 	wl_list_insert(&device->plane_list, &plane->link);
 
 	return plane;

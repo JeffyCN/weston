@@ -196,9 +196,8 @@ weston_output_disable_planes_decr(struct weston_output *output);
 /* weston_plane */
 
 void
-weston_plane_init(struct weston_plane *plane,
-			struct weston_compositor *ec,
-			int32_t x, int32_t y);
+weston_plane_init(struct weston_plane *plane, struct weston_compositor *ec);
+
 void
 weston_plane_release(struct weston_plane *plane);
 
