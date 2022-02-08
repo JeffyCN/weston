@@ -133,7 +133,7 @@ static const struct weston_pointer_grab_interface pointer_move_grab_interface = 
 static void
 touch_move_grab_down(struct weston_touch_grab *grab,
 		     const struct timespec *time,
-		     int touch_id, wl_fixed_t x, wl_fixed_t y)
+		     int touch_id, struct weston_coord_global c)
 {
 }
 
@@ -154,7 +154,7 @@ touch_move_grab_up(struct weston_touch_grab *touch_grab,
 static void
 touch_move_grab_motion(struct weston_touch_grab *touch_grab,
 		       const struct timespec *time, int touch_id,
-		       wl_fixed_t x, wl_fixed_t y)
+		       struct weston_coord_global unused)
 {
 	struct kiosk_shell_grab *shgrab =
 		container_of(touch_grab, struct kiosk_shell_grab, touch_grab);

@@ -668,16 +668,14 @@ struct weston_touch_grab_interface {
 	void (*down)(struct weston_touch_grab *grab,
 			const struct timespec *time,
 			int touch_id,
-			wl_fixed_t sx,
-			wl_fixed_t sy);
+			struct weston_coord_global c);
 	void (*up)(struct weston_touch_grab *grab,
 			const struct timespec *time,
 			int touch_id);
 	void (*motion)(struct weston_touch_grab *grab,
 			const struct timespec *time,
 			int touch_id,
-			wl_fixed_t sx,
-			wl_fixed_t sy);
+			struct weston_coord_global c);
 	void (*frame)(struct weston_touch_grab *grab);
 	void (*cancel)(struct weston_touch_grab *grab);
 };

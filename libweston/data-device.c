@@ -753,7 +753,7 @@ static const struct weston_pointer_grab_interface pointer_drag_grab_interface = 
 static void
 drag_grab_touch_down(struct weston_touch_grab *grab,
 		     const struct timespec *time, int touch_id,
-		     wl_fixed_t sx, wl_fixed_t sy)
+		     struct weston_coord_global c)
 {
 }
 
@@ -801,7 +801,7 @@ drag_grab_touch_focus(struct weston_touch_drag *drag)
 static void
 drag_grab_touch_motion(struct weston_touch_grab *grab,
 		       const struct timespec *time,
-		       int touch_id, wl_fixed_t x, wl_fixed_t y)
+		       int touch_id, struct weston_coord_global unused)
 {
 	struct weston_touch_drag *touch_drag =
 		container_of(grab, struct weston_touch_drag, grab);

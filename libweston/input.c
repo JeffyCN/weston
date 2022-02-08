@@ -874,11 +874,8 @@ weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
 static void
 default_grab_touch_down(struct weston_touch_grab *grab,
 			const struct timespec *time, int touch_id,
-			wl_fixed_t x, wl_fixed_t y)
+			struct weston_coord_global pos)
 {
-	struct weston_coord_global pos;
-
-	pos.c = weston_coord_from_fixed(x, y);
 	weston_touch_send_down(grab->touch, time, touch_id, pos);
 }
 
@@ -966,11 +963,8 @@ weston_touch_send_motion(struct weston_touch *touch,
 static void
 default_grab_touch_motion(struct weston_touch_grab *grab,
 			  const struct timespec *time, int touch_id,
-			  wl_fixed_t x, wl_fixed_t y)
+			  struct weston_coord_global pos)
 {
-	struct weston_coord_global pos;
-
-	pos.c = weston_coord_from_fixed(x, y);
 	weston_touch_send_motion(grab->touch, time, touch_id, pos);
 }
 
@@ -2878,15 +2872,9 @@ process_touch_normal(struct weston_touch_device *device,
 	struct weston_touch_grab *grab = device->aggregate->grab;
 	struct weston_compositor *ec = device->aggregate->seat->compositor;
 	struct weston_view *ev;
-	wl_fixed_t x, y;
 
-	if (pos) {
-		assert(touch_type != WL_TOUCH_UP);
-		x = wl_fixed_from_double(pos->c.x);
-		y = wl_fixed_from_double(pos->c.y);
-	} else {
-		assert(touch_type == WL_TOUCH_UP);
-	}
+	if (touch_type != WL_TOUCH_UP)
+		assert(pos);
 
 	/* Update grab's global coordinates. */
 	if (touch_id == touch->grab_touch_id && touch_type != WL_TOUCH_UP)
@@ -2912,7 +2900,7 @@ process_touch_normal(struct weston_touch_device *device,
 		weston_compositor_run_touch_binding(ec, touch,
 						    time, touch_type);
 
-		grab->interface->down(grab, time, touch_id, x, y);
+		grab->interface->down(grab, time, touch_id, *pos);
 		if (touch->num_tp == 1) {
 			touch->grab_serial =
 				wl_display_get_serial(ec->wl_display);
@@ -2927,7 +2915,7 @@ process_touch_normal(struct weston_touch_device *device,
 		if (!ev)
 			break;
 
-		grab->interface->motion(grab, time, touch_id, x, y);
+		grab->interface->motion(grab, time, touch_id, *pos);
 		break;
 	case WL_TOUCH_UP:
 		grab->interface->up(grab, time, touch_id);

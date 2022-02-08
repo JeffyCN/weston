@@ -1712,7 +1712,7 @@ pointer_move_grab_motion(struct weston_pointer_grab *grab,
 static void
 touch_move_grab_motion(struct weston_touch_grab *grab,
 		       const struct timespec *time, int touch_id,
-		       wl_fixed_t x, wl_fixed_t y)
+		       struct weston_coord_global c)
 {
 	struct touch_move_grab *tch_move_grab = (struct touch_move_grab *)grab;
 	struct hmi_controller *hmi_ctrl =
@@ -1748,7 +1748,7 @@ pointer_move_workspace_grab_button(struct weston_pointer_grab *grab,
 static void
 touch_nope_grab_down(struct weston_touch_grab *grab,
 		     const struct timespec *time,
-		     int touch_id, wl_fixed_t sx, wl_fixed_t sy)
+		     int touch_id, struct weston_coord_global c)
 {
 }
 
