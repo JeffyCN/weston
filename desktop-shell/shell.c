@@ -138,8 +138,7 @@ struct shell_surface {
 
 	struct {
 		bool is_set;
-		int32_t x;
-		int32_t y;
+		struct weston_coord_global pos;
 	} xwayland;
 
 	int focus_count;
@@ -2349,14 +2348,14 @@ set_position_from_xwayland(struct shell_surface *shsurf)
 	assert(shsurf->xwayland.is_set);
 
 	geometry = weston_desktop_surface_get_geometry(shsurf->desktop_surface);
-	pos.c = weston_coord(shsurf->xwayland.x - geometry.x,
-			     shsurf->xwayland.y - geometry.y);
+	pos.c = weston_coord(geometry.x, geometry.y);
+	pos.c = weston_coord_sub(shsurf->xwayland.pos.c, pos.c);
 
 	weston_view_set_position(shsurf->view, pos);
 
 #ifdef WM_DEBUG
 	weston_log("%s: XWM %d, %d; geometry %d, %d; view %f, %f\n",
-		   __func__, shsurf->xwayland.x, shsurf->xwayland.y,
+		   __func__, (int)shsurf->xwayland.pos.c.x, (int)shsurf->xwayland.pos.c.y,
 		   (int)geometry.x, (int)geometry.y, pos.c.x, pos.c.y);
 #endif
 }
@@ -2841,8 +2840,7 @@ desktop_surface_set_xwayland_position(struct weston_desktop_surface *surface,
 	struct shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(surface);
 
-	shsurf->xwayland.x = x;
-	shsurf->xwayland.y = y;
+	shsurf->xwayland.pos.c = weston_coord(x, y);
 	shsurf->xwayland.is_set = true;
 }
 
