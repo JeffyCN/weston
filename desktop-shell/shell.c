@@ -1989,8 +1989,7 @@ set_position_from_xwayland(struct shell_surface *shsurf)
 }
 
 static void
-map(struct desktop_shell *shell, struct shell_surface *shsurf,
-    int32_t sx, int32_t sy)
+map(struct desktop_shell *shell, struct shell_surface *shsurf)
 {
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
@@ -2067,7 +2066,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_maximized(desktop_surface);
 
 	if (!weston_surface_is_mapped(surface)) {
-		map(shell, shsurf, sx, sy);
+		map(shell, shsurf);
 		/* as we need to survive the weston_surface destruction we'll
 		 * need to take another reference */
 		if (shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
