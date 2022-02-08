@@ -103,6 +103,9 @@ weston_desktop_xwayland_surface_change_state(struct weston_desktop_xwayland_surf
 		}
 
 		if (to_add) {
+			struct weston_coord_surface zero;
+
+			zero = weston_coord_surface(0, 0, wsurface);
 			weston_desktop_surface_unset_relative_to(surface->surface);
 			weston_desktop_api_surface_added(surface->desktop,
 							 surface->surface);
@@ -113,7 +116,7 @@ weston_desktop_xwayland_surface_change_state(struct weston_desktop_xwayland_surf
 				 * surface */
 				weston_desktop_api_committed(surface->desktop,
 							     surface->surface,
-							     0, 0);
+							     zero);
 
 		} else if (surface->added) {
 			weston_desktop_api_surface_removed(surface->desktop,
@@ -147,18 +150,18 @@ weston_desktop_xwayland_surface_change_state(struct weston_desktop_xwayland_surf
 		psurface = weston_desktop_surface_get_surface(parent);
 		assert(offset->coordinate_space_id == psurface);
 		weston_desktop_surface_set_relative_to(surface->surface, parent,
-						       offset->c.x,
-						       offset->c.y, false);
+						       *offset, false);
 	}
 }
 
 static void
 weston_desktop_xwayland_surface_committed(struct weston_desktop_surface *dsurface,
 					  void *user_data,
-					  int32_t sx, int32_t sy)
+					  struct weston_coord_surface buf_offset)
 {
 	struct weston_desktop_xwayland_surface *surface = user_data;
 	struct weston_geometry oldgeom;
+	struct weston_coord_surface tmp;
 
 	assert(dsurface == surface->surface);
 	surface->committed = true;
@@ -167,6 +170,7 @@ weston_desktop_xwayland_surface_committed(struct weston_desktop_surface *dsurfac
 	weston_log("%s: xwayland surface %p\n", __func__, surface);
 #endif
 
+	tmp = buf_offset;
 	if (surface->has_next_geometry) {
 		oldgeom = weston_desktop_surface_get_geometry(surface->surface);
 		/* If we're transitioning away from fullscreen or maximized
@@ -175,8 +179,8 @@ weston_desktop_xwayland_surface_committed(struct weston_desktop_surface *dsurfac
 		 * the geometry in those cases.
 		 */
 		if (surface->state == surface->prev_state) {
-			sx -= surface->next_geometry.x - oldgeom.x;
-			sy -= surface->next_geometry.y - oldgeom.y;
+			tmp.c.x -= surface->next_geometry.x - oldgeom.x;
+			tmp.c.y -= surface->next_geometry.y - oldgeom.y;
 		}
 		surface->prev_state = surface->state;
 
@@ -187,7 +191,7 @@ weston_desktop_xwayland_surface_committed(struct weston_desktop_surface *dsurfac
 
 	if (surface->added)
 		weston_desktop_api_committed(surface->desktop, surface->surface,
-					     sx, sy);
+					     tmp);
 
 	/* If we're an override redirect window, the shell has no knowledge of
 	 * our existence, so it won't assign us an output.
@@ -350,8 +354,7 @@ set_toplevel_with_position(struct weston_desktop_xwayland_surface *surface,
 {
 	set_toplevel(surface);
 	weston_desktop_api_set_xwayland_position(surface->desktop,
-						 surface->surface,
-						 pos.c.x, pos.c.y);
+						 surface->surface, pos);
 }
 
 static void

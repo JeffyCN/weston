@@ -80,7 +80,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 
 static void
 desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
-			  int32_t sx, int32_t sy, void *shell)
+			  struct weston_coord_surface unused, void *shell)
 {
 	struct desktest_shell *dts = shell;
 	struct weston_surface *surface =

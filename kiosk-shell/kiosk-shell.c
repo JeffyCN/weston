@@ -891,7 +891,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 
 static void
 desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
-			  int32_t sx, int32_t sy, void *data)
+			  struct weston_coord_surface buf_offset, void *data)
 {
 	struct kiosk_shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(desktop_surface);
@@ -979,24 +979,12 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 						     WESTON_ACTIVATE_FLAG_NONE);
 	}
 
-	if (!is_fullscreen && (sx != 0 || sy != 0)) {
-		struct weston_coord_surface from_s, to_s;
-		struct weston_coord_global from_g, to_g;
-		struct weston_coord_global offset, pos;
+	if (!is_fullscreen && (buf_offset.c.x != 0 || buf_offset.c.y != 0)) {
+		struct weston_coord_global pos;
 
-		from_s = weston_coord_surface(0, 0,
-					      shsurf->view->surface);
-		to_s = weston_coord_surface(sx, sy,
-					    shsurf->view->surface);
-
-		from_g = weston_coord_surface_to_global(shsurf->view, from_s);
-		to_g = weston_coord_surface_to_global(shsurf->view, to_s);
-		offset = weston_coord_global_sub(to_g, from_g);
-		pos = weston_coord_global_add(
-			weston_view_get_pos_offset_global(shsurf->view),
-			offset);
-
-		weston_view_set_position(shsurf->view, pos);
+		pos = weston_view_get_pos_offset_global(shsurf->view);
+		weston_view_set_position_with_offset(shsurf->view,
+						     pos, buf_offset);
 		weston_view_update_transform(shsurf->view);
 	}
 
@@ -1121,12 +1109,12 @@ desktop_surface_pong(struct weston_desktop_client *desktop_client,
 
 static void
 desktop_surface_set_xwayland_position(struct weston_desktop_surface *desktop_surface,
-				      int32_t x, int32_t y, void *shell)
+				      struct weston_coord_global pos, void *shell)
 {
 	struct kiosk_shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(desktop_surface);
 
-	shsurf->xwayland.pos.c = weston_coord(x, y);
+	shsurf->xwayland.pos = pos;
 	shsurf->xwayland.is_set = true;
 }
 

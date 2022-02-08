@@ -418,6 +418,8 @@ weston_desktop_xdg_toplevel_protocol_show_window_menu(struct wl_client *wl_clien
 		wl_resource_get_user_data(seat_resource);
 	struct weston_desktop_xdg_toplevel *toplevel =
 		weston_desktop_surface_get_implementation_data(dsurface);
+	struct weston_surface *wsurface;
+	struct weston_coord_surface offset;
 
 	if (!toplevel->base.configured) {
 		wl_resource_post_error(toplevel->resource,
@@ -429,8 +431,10 @@ weston_desktop_xdg_toplevel_protocol_show_window_menu(struct wl_client *wl_clien
 	if (seat == NULL)
 		return;
 
+	wsurface = weston_desktop_surface_get_surface(dsurface);
+	offset = weston_coord_surface(x, y, wsurface);
 	weston_desktop_api_show_window_menu(toplevel->base.desktop,
-					    dsurface, seat, x, y);
+					    dsurface, seat, offset);
 }
 
 static void
@@ -726,7 +730,7 @@ weston_desktop_xdg_toplevel_set_orientation(struct weston_desktop_surface *surfa
 
 static void
 weston_desktop_xdg_toplevel_committed(struct weston_desktop_xdg_toplevel *toplevel,
-				      int32_t sx, int32_t sy)
+				      struct weston_coord_surface buf_offset)
 {
 	struct weston_surface *wsurface =
 		weston_desktop_surface_get_surface(toplevel->base.desktop_surface);
@@ -739,7 +743,7 @@ weston_desktop_xdg_toplevel_committed(struct weston_desktop_xdg_toplevel *toplev
 	if (!weston_surface_has_content(wsurface)) {
 		if (weston_surface_is_unmapping(wsurface))
 			weston_desktop_api_committed(toplevel->base.desktop,
-				toplevel->base.desktop_surface, sx, sy);
+				toplevel->base.desktop_surface, buf_offset);
 		return;
 	}
 
@@ -788,7 +792,7 @@ weston_desktop_xdg_toplevel_committed(struct weston_desktop_xdg_toplevel *toplev
 
 	weston_desktop_api_committed(toplevel->base.desktop,
 				     toplevel->base.desktop_surface,
-				     sx, sy);
+				     buf_offset);
 }
 
 static void
@@ -1059,12 +1063,15 @@ weston_desktop_xdg_popup_update_position(struct weston_desktop_surface *dsurface
 	struct weston_desktop_xdg_popup *popup =
 		weston_desktop_surface_get_implementation_data(dsurface);
 	struct weston_desktop_surface *parent_dsurface;
+	struct weston_coord_surface offset;
 
 	parent_dsurface = popup->parent->desktop_surface;
+	offset = weston_coord_surface(popup->geometry.x,
+				      popup->geometry.y,
+				      popup->parent->surface);
 	weston_desktop_surface_set_relative_to(popup->base.desktop_surface,
 					       parent_dsurface,
-					       popup->geometry.x,
-					       popup->geometry.y,
+					       offset,
 					       true);
 }
 
@@ -1308,6 +1315,7 @@ weston_desktop_xdg_surface_protocol_get_popup(struct wl_client *wl_client,
 	struct weston_desktop_xdg_surface *parent;
 	struct weston_desktop_xdg_positioner *positioner =
 		wl_resource_get_user_data(positioner_resource);
+	struct weston_coord_surface offset;
 
 	/* Popup parents are allowed to be non-null, but only if a parent is
 	 * specified 'using some other protocol' before committing. Since we
@@ -1350,10 +1358,12 @@ weston_desktop_xdg_surface_protocol_get_popup(struct wl_client *wl_client,
 							   dsurface,
 							   parent_surface);
 
+	offset = weston_coord_surface(popup->geometry.x,
+				      popup->geometry.y,
+				      popup->parent->surface);
 	weston_desktop_surface_set_relative_to(popup->base.desktop_surface,
 					       parent_surface,
-					       popup->geometry.x,
-					       popup->geometry.y,
+					       offset,
 					       true);
 }
 
@@ -1466,7 +1476,7 @@ weston_desktop_xdg_surface_ping(struct weston_desktop_surface *dsurface,
 static void
 weston_desktop_xdg_surface_committed(struct weston_desktop_surface *dsurface,
 				     void *user_data,
-				     int32_t sx, int32_t sy)
+				     struct weston_coord_surface c)
 {
 	struct weston_desktop_xdg_surface *surface = user_data;
 	struct weston_surface *wsurface =
@@ -1492,7 +1502,7 @@ weston_desktop_xdg_surface_committed(struct weston_desktop_surface *dsurface,
 				       "xdg_surface must have a role");
 		break;
 	case WESTON_DESKTOP_XDG_SURFACE_ROLE_TOPLEVEL:
-		weston_desktop_xdg_toplevel_committed((struct weston_desktop_xdg_toplevel *) surface, sx, sy);
+		weston_desktop_xdg_toplevel_committed((struct weston_desktop_xdg_toplevel *) surface, c);
 		break;
 	case WESTON_DESKTOP_XDG_SURFACE_ROLE_POPUP:
 		weston_desktop_xdg_popup_committed((struct weston_desktop_xdg_popup *) surface);

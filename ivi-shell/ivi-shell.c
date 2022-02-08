@@ -601,7 +601,7 @@ desktop_surface_removed(struct weston_desktop_surface *surface,
 
 static void
 desktop_surface_committed(struct weston_desktop_surface *surface,
-			  int32_t sx, int32_t sy, void *user_data)
+			  struct weston_coord_surface buf_offset, void *user_data)
 {
 	struct ivi_shell_surface *ivisurf = (struct ivi_shell_surface *)
 			weston_desktop_surface_get_user_data(surface);
@@ -684,7 +684,7 @@ desktop_surface_minimized_requested(struct weston_desktop_surface *surface,
 
 static void
 desktop_surface_set_xwayland_position(struct weston_desktop_surface *surface,
-				      int32_t x, int32_t y, void *user_data)
+				      struct weston_coord_global pos, void *user_data)
 {
 	/* Not supported */
 }

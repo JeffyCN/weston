@@ -189,11 +189,11 @@ weston_desktop_surface_surface_committed(struct wl_listener *listener,
 		wl_container_of(listener, surface, surface_commit_listener);
 	struct weston_surface *wsurface = surface->surface;
 
-	if (surface->implementation->committed != NULL)
+	if (surface->implementation->committed != NULL) {
 		surface->implementation->committed(surface,
 						   surface->implementation_data,
-						   surface->buffer_move.c.x,
-						   surface->buffer_move.c.y);
+						   surface->buffer_move);
+	}
 
 	if (surface->parent != NULL) {
 		struct weston_desktop_view *view;
@@ -789,15 +789,14 @@ weston_desktop_surface_set_geometry(struct weston_desktop_surface *surface,
 void
 weston_desktop_surface_set_relative_to(struct weston_desktop_surface *surface,
 				       struct weston_desktop_surface *parent,
-				       int32_t x, int32_t y, bool use_geometry)
+				       struct weston_coord_surface offset, bool use_geometry)
 {
 	struct weston_desktop_view *view, *parent_view;
 	struct wl_list *link, *tmp;
 
 	assert(parent);
 
-	surface->pos_offset.x = x;
-	surface->pos_offset.y = y;
+	surface->pos_offset = offset.c;
 	surface->use_geometry = use_geometry;
 
 	if (surface->parent == parent)

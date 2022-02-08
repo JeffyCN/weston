@@ -153,20 +153,20 @@ weston_desktop_api_surface_removed(struct weston_desktop *desktop,
 void
 weston_desktop_api_committed(struct weston_desktop *desktop,
 			     struct weston_desktop_surface *surface,
-			     int32_t sx, int32_t sy)
+			     struct weston_coord_surface buf_offset)
 {
 	if (desktop->api.committed != NULL)
-		desktop->api.committed(surface, sx, sy, desktop->user_data);
+		desktop->api.committed(surface, buf_offset, desktop->user_data);
 }
 
 void
 weston_desktop_api_show_window_menu(struct weston_desktop *desktop,
 				    struct weston_desktop_surface *surface,
 				    struct weston_seat *seat,
-				    int32_t x, int32_t y)
+				    struct weston_coord_surface offset)
 {
 	if (desktop->api.show_window_menu != NULL)
-		desktop->api.show_window_menu(surface, seat, x, y,
+		desktop->api.show_window_menu(surface, seat, offset,
 					      desktop->user_data);
 }
 
@@ -267,10 +267,10 @@ weston_desktop_minimize_supported(struct weston_desktop *desktop)
 void
 weston_desktop_api_set_xwayland_position(struct weston_desktop *desktop,
 					 struct weston_desktop_surface *surface,
-					 int32_t x, int32_t y)
+					 struct weston_coord_global pos)
 {
 	if (desktop->api.set_xwayland_position != NULL)
-		desktop->api.set_xwayland_position(surface, x, y,
+		desktop->api.set_xwayland_position(surface, pos,
 						   desktop->user_data);
 }
 

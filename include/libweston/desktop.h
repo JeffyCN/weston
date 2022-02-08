@@ -68,9 +68,10 @@ struct weston_desktop_api {
 	void (*surface_removed)(struct weston_desktop_surface *surface,
 				void *user_data);
 	void (*committed)(struct weston_desktop_surface *surface,
-			  int32_t sx, int32_t sy, void *user_data);
+			  struct weston_coord_surface buf_offset, void *user_data);
 	void (*show_window_menu)(struct weston_desktop_surface *surface,
-				 struct weston_seat *seat, int32_t x, int32_t y,
+				 struct weston_seat *seat,
+				 struct weston_coord_surface offset,
 				 void *user_data);
 	void (*set_parent)(struct weston_desktop_surface *surface,
 			   struct weston_desktop_surface *parent,
@@ -120,7 +121,7 @@ struct weston_desktop_api {
 	 * This callback can be NULL.
 	 */
 	void (*set_xwayland_position)(struct weston_desktop_surface *surface,
-				      int32_t x, int32_t y, void *user_data);
+				      struct weston_coord_global pos, void *user_data);
 	void (*get_position)(struct weston_desktop_surface *surface,
 			     int32_t *x, int32_t *y,
 			     void *user_data);

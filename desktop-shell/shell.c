@@ -2351,7 +2351,7 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 
 static void
 desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
-			  int32_t sx, int32_t sy, void *data)
+			  struct weston_coord_surface buf_offset, void *data)
 {
 	struct shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(desktop_surface);
@@ -2393,7 +2393,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		return;
 	}
 
-	if (sx == 0 && sy == 0 &&
+	if (buf_offset.c.x == 0 && buf_offset.c.y == 0 &&
 	    shsurf->last_width == surface->width &&
 	    shsurf->last_height == surface->height &&
 	    was_fullscreen == shsurf->state.fullscreen &&
@@ -2432,20 +2432,18 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		set_maximized_position(shell, shsurf);
 		surface->output = shsurf->output;
 	} else {
-		struct weston_coord_surface offset;
+		struct weston_coord_surface offset = buf_offset;
 		struct weston_coord_global pos;
 
 		if (shsurf->resize_edges) {
-			sx = 0;
-			sy = 0;
+			offset.c.x = 0;
+			offset.c.y = 0;
 		}
 
 		if (shsurf->resize_edges & WESTON_DESKTOP_SURFACE_EDGE_LEFT)
-			sx = shsurf->last_width - surface->width;
+			offset.c.x = shsurf->last_width - surface->width;
 		if (shsurf->resize_edges & WESTON_DESKTOP_SURFACE_EDGE_TOP)
-			sy = shsurf->last_height - surface->height;
-
-		offset = weston_coord_surface(sx, sy, view->surface);
+			offset.c.y = shsurf->last_height - surface->height;
 
 		pos = weston_view_get_pos_offset_global(view);
 		weston_view_set_position_with_offset(shsurf->view, pos, offset);
@@ -2759,12 +2757,12 @@ desktop_surface_pong(struct weston_desktop_client *desktop_client,
 
 static void
 desktop_surface_set_xwayland_position(struct weston_desktop_surface *surface,
-				      int32_t x, int32_t y, void *shell_)
+				      struct weston_coord_global pos, void *shell_)
 {
 	struct shell_surface *shsurf =
 		weston_desktop_surface_get_user_data(surface);
 
-	shsurf->xwayland.pos.c = weston_coord(x, y);
+	shsurf->xwayland.pos = pos;
 	shsurf->xwayland.is_set = true;
 }
 
