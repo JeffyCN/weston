@@ -731,33 +731,30 @@ weston_matrix_transform_rect(struct weston_matrix *matrix,
 	 * them, then construct the largest possible two corner
 	 * rectangle from the result.
 	 */
-	struct weston_vector corners[4] = {
-		{{rect.x1, rect.y1, 0, 1}},
-		{{rect.x2, rect.y1, 0, 1}},
-		{{rect.x1, rect.y2, 0, 1}},
-		{{rect.x2, rect.y2, 0, 1}},
+	struct weston_coord corners[4] = {
+		weston_coord(rect.x1, rect.y1),
+		weston_coord(rect.x2, rect.y1),
+		weston_coord(rect.x1, rect.y2),
+		weston_coord(rect.x2, rect.y2),
 	};
 
-	for (i = 0; i < 4; i++) {
-		weston_matrix_transform(matrix, &corners[i]);
-		corners[i].f[0] /= corners[i].f[3];
-		corners[i].f[1] /= corners[i].f[3];
-	}
+	for (i = 0; i < 4; i++)
+		corners[i] = weston_matrix_transform_coord(matrix, corners[i]);
 
-	out.x1 = floor(corners[0].f[0]);
-	out.y1 = floor(corners[0].f[1]);
-	out.x2 = ceil(corners[0].f[0]);
-	out.y2 = ceil(corners[0].f[1]);
+	out.x1 = floor(corners[0].x);
+	out.y1 = floor(corners[0].y);
+	out.x2 = ceil(corners[0].x);
+	out.y2 = ceil(corners[0].y);
 
 	for (i = 1; i < 4; i++) {
-		if (floor(corners[i].f[0]) < out.x1)
-			out.x1 = floor(corners[i].f[0]);
-		if (floor(corners[i].f[1]) < out.y1)
-			out.y1 = floor(corners[i].f[1]);
-		if (ceil(corners[i].f[0]) > out.x2)
-			out.x2 = ceil(corners[i].f[0]);
-		if (ceil(corners[i].f[1]) > out.y2)
-			out.y2 = ceil(corners[i].f[1]);
+		if (floor(corners[i].x) < out.x1)
+			out.x1 = floor(corners[i].x);
+		if (floor(corners[i].y) < out.y1)
+			out.y1 = floor(corners[i].y);
+		if (ceil(corners[i].x) > out.x2)
+			out.x2 = ceil(corners[i].x);
+		if (ceil(corners[i].y) > out.y2)
+			out.y2 = ceil(corners[i].y);
 	}
 	return out;
 }
