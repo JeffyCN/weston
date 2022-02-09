@@ -60,11 +60,10 @@ populate_clip_context (struct clip_context *ctx)
 static int
 clip_polygon (struct clip_context *ctx,
 	      struct polygon8 *polygon,
-	      float *vertices_x,
-	      float *vertices_y)
+	      struct weston_coord *pos)
 {
 	populate_clip_context(ctx);
-	return clip_transformed(ctx, polygon, vertices_x, vertices_y);
+	return clip_transformed(ctx, polygon, pos);
 }
 
 struct vertex_clip_test_data
@@ -78,94 +77,152 @@ const struct vertex_clip_test_data test_data[] =
 	/* All inside */
 	{
 		{
-			{ INSIDE_X1, INSIDE_X2, INSIDE_X2, INSIDE_X1 },
-			{ INSIDE_Y1, INSIDE_Y1, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y2 },
+				{ .x = INSIDE_X1, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		},
 		{
-			{ INSIDE_X1, INSIDE_X2, INSIDE_X2, INSIDE_X1 },
-			{ INSIDE_Y1, INSIDE_Y1, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y2 },
+				{ .x = INSIDE_X1, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		}
 	},
 	/* Top outside */
 	{
 		{
-			{ INSIDE_X1, INSIDE_X2, INSIDE_X2, INSIDE_X1 },
-			{ INSIDE_Y1, INSIDE_Y1, OUTSIDE_Y2, OUTSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = OUTSIDE_Y2 },
+				{ .x = INSIDE_X1, .y = OUTSIDE_Y2 },
+			},
+			.n = 4
 		},
 		{
-			{ INSIDE_X1, INSIDE_X1, INSIDE_X2, INSIDE_X2 },
-			{ BOUNDING_BOX_TOP_Y, INSIDE_Y1, INSIDE_Y1, BOUNDING_BOX_TOP_Y },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = BOUNDING_BOX_TOP_Y },
+				{ .x = INSIDE_X1, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = BOUNDING_BOX_TOP_Y },
+			},
+			.n = 4
 		}
 	},
 	/* Bottom outside */
 	{
 		{
-			{ INSIDE_X1, INSIDE_X2, INSIDE_X2, INSIDE_X1 },
-			{ OUTSIDE_Y1, OUTSIDE_Y1, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = OUTSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = OUTSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y2 },
+				{ .x = INSIDE_X1, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		},
 		{
-			{ INSIDE_X1, INSIDE_X2, INSIDE_X2, INSIDE_X1 },
-			{ BOUNDING_BOX_BOTTOM_Y, BOUNDING_BOX_BOTTOM_Y, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = BOUNDING_BOX_BOTTOM_Y },
+				{ .x = INSIDE_X2, .y = BOUNDING_BOX_BOTTOM_Y },
+				{ .x = INSIDE_X2, .y = INSIDE_Y2 },
+				{ .x = INSIDE_X1, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		}
 	},
 	/* Left outside */
 	{
 		{
-			{ OUTSIDE_X1, INSIDE_X2, INSIDE_X2, OUTSIDE_X1 },
-			{ INSIDE_Y1, INSIDE_Y1, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = OUTSIDE_X1, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y2 },
+				{ .x = OUTSIDE_X1, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		},
 		{
-			{ BOUNDING_BOX_LEFT_X, INSIDE_X2, INSIDE_X2, BOUNDING_BOX_LEFT_X },
-			{ INSIDE_Y1, INSIDE_Y1, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = BOUNDING_BOX_LEFT_X, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y1 },
+				{ .x = INSIDE_X2, .y = INSIDE_Y2 },
+				{ .x = BOUNDING_BOX_LEFT_X, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		}
 	},
 	/* Right outside */
 	{
 		{
-			{ INSIDE_X1, OUTSIDE_X2, OUTSIDE_X2, INSIDE_X1 },
-			{ INSIDE_Y1, INSIDE_Y1, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = INSIDE_Y1 },
+				{ .x = OUTSIDE_X2, .y = INSIDE_Y1 },
+				{ .x = OUTSIDE_X2, .y = INSIDE_Y2 },
+				{ .x = INSIDE_X1, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		},
 		{
-			{ INSIDE_X1, BOUNDING_BOX_RIGHT_X, BOUNDING_BOX_RIGHT_X, INSIDE_X1 },
-			{ INSIDE_Y1, INSIDE_Y1, INSIDE_Y2, INSIDE_Y2 },
-			4
+			.pos = {
+				{ .x = INSIDE_X1, .y = INSIDE_Y1 },
+				{ .x = BOUNDING_BOX_RIGHT_X, .y = INSIDE_Y1 },
+				{ .x = BOUNDING_BOX_RIGHT_X, .y = INSIDE_Y2 },
+				{ .x = INSIDE_X1, .y = INSIDE_Y2 },
+			},
+			.n = 4
 		}
 	},
 	/* Diamond extending from bounding box edges, clip to bounding box */
 	{
 		{
-			{ BOUNDING_BOX_LEFT_X - 25, BOUNDING_BOX_LEFT_X + 25, BOUNDING_BOX_RIGHT_X + 25, BOUNDING_BOX_RIGHT_X - 25 },
-			{ BOUNDING_BOX_BOTTOM_Y + 25, BOUNDING_BOX_TOP_Y + 25, BOUNDING_BOX_TOP_Y - 25, BOUNDING_BOX_BOTTOM_Y - 25 },
-			4
+			.pos = {
+				{ .x = BOUNDING_BOX_LEFT_X - 25, .y = BOUNDING_BOX_BOTTOM_Y + 25 },
+				{ .x = BOUNDING_BOX_LEFT_X + 25, .y = BOUNDING_BOX_TOP_Y + 25 },
+				{ .x = BOUNDING_BOX_RIGHT_X + 25, .y = BOUNDING_BOX_TOP_Y - 25 },
+				{ .x = BOUNDING_BOX_RIGHT_X - 25, .y = BOUNDING_BOX_BOTTOM_Y - 25 },
+			},
+			.n = 4
 		},
 		{
-			{ BOUNDING_BOX_LEFT_X, BOUNDING_BOX_LEFT_X, BOUNDING_BOX_RIGHT_X, BOUNDING_BOX_RIGHT_X },
-			{ BOUNDING_BOX_BOTTOM_Y, BOUNDING_BOX_TOP_Y, BOUNDING_BOX_TOP_Y, BOUNDING_BOX_BOTTOM_Y },
-			4
+			.pos = {
+				{ .x = BOUNDING_BOX_LEFT_X, .y = BOUNDING_BOX_BOTTOM_Y },
+				{ .x = BOUNDING_BOX_LEFT_X, .y = BOUNDING_BOX_TOP_Y },
+				{ .x = BOUNDING_BOX_RIGHT_X, .y = BOUNDING_BOX_TOP_Y },
+				{ .x = BOUNDING_BOX_RIGHT_X, .y = BOUNDING_BOX_BOTTOM_Y },
+			},
+			.n = 4
 		}
 	},
 	/* Diamond inside of bounding box edges, clip t bounding box, 8 resulting vertices */
 	{
 		{
-			{ BOUNDING_BOX_LEFT_X - 12.5, BOUNDING_BOX_LEFT_X + 25, BOUNDING_BOX_RIGHT_X + 12.5, BOUNDING_BOX_RIGHT_X - 25 },
-			{ BOUNDING_BOX_BOTTOM_Y + 25, BOUNDING_BOX_TOP_Y + 12.5, BOUNDING_BOX_TOP_Y - 25, BOUNDING_BOX_BOTTOM_Y - 12.5 },
-			4
+			.pos = {
+				{ .x = BOUNDING_BOX_LEFT_X - 12.5, .y = BOUNDING_BOX_BOTTOM_Y + 25 },
+				{ .x = BOUNDING_BOX_LEFT_X + 25, .y = BOUNDING_BOX_TOP_Y + 12.5 },
+				{ .x = BOUNDING_BOX_RIGHT_X + 12.5, .y = BOUNDING_BOX_TOP_Y - 25 },
+				{ .x = BOUNDING_BOX_RIGHT_X - 25, .y = BOUNDING_BOX_BOTTOM_Y - 12.5 },
+			},
+			.n = 4
 		},
 		{
-			{ BOUNDING_BOX_LEFT_X + 12.5, BOUNDING_BOX_LEFT_X, BOUNDING_BOX_LEFT_X, BOUNDING_BOX_LEFT_X + 12.5,
-			  BOUNDING_BOX_RIGHT_X - 12.5, BOUNDING_BOX_RIGHT_X, BOUNDING_BOX_RIGHT_X, BOUNDING_BOX_RIGHT_X - 12.5 },
-			{ BOUNDING_BOX_BOTTOM_Y, BOUNDING_BOX_BOTTOM_Y + 12.5, BOUNDING_BOX_TOP_Y - 12.5, BOUNDING_BOX_TOP_Y,
-			  BOUNDING_BOX_TOP_Y, BOUNDING_BOX_TOP_Y - 12.5, BOUNDING_BOX_BOTTOM_Y + 12.5, BOUNDING_BOX_BOTTOM_Y },
-			8
+			.pos = {
+				{ .x = BOUNDING_BOX_LEFT_X + 12.5, .y = BOUNDING_BOX_BOTTOM_Y },
+				{ .x = BOUNDING_BOX_LEFT_X, .y = BOUNDING_BOX_BOTTOM_Y + 12.5 },
+				{ .x = BOUNDING_BOX_LEFT_X, .y = BOUNDING_BOX_TOP_Y - 12.5 },
+				{ .x = BOUNDING_BOX_LEFT_X + 12.5, .y = BOUNDING_BOX_TOP_Y },
+				{ .x = BOUNDING_BOX_RIGHT_X - 12.5, .y = BOUNDING_BOX_TOP_Y },
+				{ .x = BOUNDING_BOX_RIGHT_X, .y = BOUNDING_BOX_TOP_Y - 12.5 },
+				{ .x = BOUNDING_BOX_RIGHT_X, .y = BOUNDING_BOX_BOTTOM_Y + 12.5},
+				{ .x = BOUNDING_BOX_RIGHT_X - 12.5, .y = BOUNDING_BOX_BOTTOM_Y },
+			},
+			.n = 8
 		}
 	}
 };
@@ -176,8 +233,7 @@ static void
 deep_copy_polygon8(const struct polygon8 *src, struct polygon8 *dst)
 {
 	dst->n = src->n;
-	ARRAY_COPY(dst->x, src->x);
-	ARRAY_COPY(dst->y, src->y);
+	ARRAY_COPY(dst->pos, src->pos);
 }
 
 TEST_P(clip_polygon_n_vertices_emitted, test_data)
@@ -185,10 +241,9 @@ TEST_P(clip_polygon_n_vertices_emitted, test_data)
 	struct vertex_clip_test_data *tdata = data;
 	struct clip_context ctx;
 	struct polygon8 polygon;
-	float vertices_x[8];
-	float vertices_y[8];
+	struct weston_coord vertices[8];
 	deep_copy_polygon8(&tdata->surface, &polygon);
-	int emitted = clip_polygon(&ctx, &polygon, vertices_x, vertices_y);
+	int emitted = clip_polygon(&ctx, &polygon, vertices);
 
 	assert(emitted == tdata->expected.n);
 }
@@ -198,16 +253,15 @@ TEST_P(clip_polygon_expected_vertices, test_data)
 	struct vertex_clip_test_data *tdata = data;
 	struct clip_context ctx;
 	struct polygon8 polygon;
-	float vertices_x[8];
-	float vertices_y[8];
+	struct weston_coord vertices[8];
 	deep_copy_polygon8(&tdata->surface, &polygon);
-	int emitted = clip_polygon(&ctx, &polygon, vertices_x, vertices_y);
+	int emitted = clip_polygon(&ctx, &polygon, vertices);
 	int i = 0;
 
 	for (; i < emitted; ++i)
 	{
-		assert(vertices_x[i] == tdata->expected.x[i]);
-		assert(vertices_y[i] == tdata->expected.y[i]);
+		assert(vertices[i].x == tdata->expected.pos[i].x);
+		assert(vertices[i].y == tdata->expected.pos[i].y);
 	}
 }
 

@@ -264,7 +264,7 @@ demo_clients = [
 	{ 'basename': 'clickdot' },
 	{
 		'basename': 'cliptest',
-		'dep_objs': dep_vertex_clipping
+		'dep_objs': [ dep_vertex_clipping, dep_matrix_c ]
 	},
 	{ 'basename': 'confine' },
 	{

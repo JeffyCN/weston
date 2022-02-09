@@ -411,17 +411,22 @@ timeline_submit_render_sync(struct gl_renderer *gr,
  */
 static int
 calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
-		pixman_box32_t *surf_rect, GLfloat *ex, GLfloat *ey)
+		pixman_box32_t *surf_rect, struct weston_coord *e)
 {
 
 	struct clip_context ctx;
 	int i, n;
 	GLfloat min_x, max_x, min_y, max_y;
-	struct polygon8 surf = {
-		{ surf_rect->x1, surf_rect->x2, surf_rect->x2, surf_rect->x1 },
-		{ surf_rect->y1, surf_rect->y1, surf_rect->y2, surf_rect->y2 },
-		4
+	struct weston_surface *es = ev->surface;
+	struct weston_coord_surface tmp[4] = {
+		weston_coord_surface(surf_rect->x1, surf_rect->y1, es),
+		weston_coord_surface(surf_rect->x2, surf_rect->y1, es),
+		weston_coord_surface(surf_rect->x2, surf_rect->y2, es),
+		weston_coord_surface(surf_rect->x1, surf_rect->y2, es),
 	};
+	struct polygon8 surf;
+
+	surf.n = 4;
 
 	ctx.clip.x1 = rect->x1;
 	ctx.clip.y1 = rect->y1;
@@ -429,25 +434,18 @@ calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 	ctx.clip.y2 = rect->y2;
 
 	/* transform surface to screen space: */
-	for (i = 0; i < surf.n; i++) {
-		struct weston_coord_global cg;
-		struct weston_coord_surface cs;
-
-		cs = weston_coord_surface(surf.x[i], surf.y[i], ev->surface);
-		cg = weston_coord_surface_to_global(ev, cs);
-		surf.x[i] = cg.c.x;
-		surf.y[i] = cg.c.y;
-	}
+	for (i = 0; i < surf.n; i++)
+		surf.pos[i] = weston_coord_surface_to_global(ev, tmp[i]).c;
 
 	/* find bounding box: */
-	min_x = max_x = surf.x[0];
-	min_y = max_y = surf.y[0];
+	min_x = max_x = surf.pos[0].x;
+	min_y = max_y = surf.pos[0].y;
 
 	for (i = 1; i < surf.n; i++) {
-		min_x = MIN(min_x, surf.x[i]);
-		max_x = MAX(max_x, surf.x[i]);
-		min_y = MIN(min_y, surf.y[i]);
-		max_y = MAX(max_y, surf.y[i]);
+		min_x = MIN(min_x, surf.pos[i].x);
+		max_x = MAX(max_x, surf.pos[i].x);
+		min_y = MIN(min_y, surf.pos[i].y);
+		max_y = MAX(max_y, surf.pos[i].y);
 	}
 
 	/* First, simple bounding box check to discard early transformed
@@ -462,7 +460,7 @@ calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 	 * vertices to the clip rect bounds:
 	 */
 	if (!ev->transform.enabled)
-		return clip_simple(&ctx, &surf, ex, ey);
+		return clip_simple(&ctx, &surf, e);
 
 	/* Transformed case: use a general polygon clipping algorithm to
 	 * clip the surface rectangle with each side of 'rect'.
@@ -470,7 +468,7 @@ calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 	 * http://www.codeguru.com/cpp/misc/misc/graphics/article.php/c8965/Polygon-Clipping.htm
 	 * but without looking at any of that code.
 	 */
-	n = clip_transformed(&ctx, &surf, ex, ey);
+	n = clip_transformed(&ctx, &surf, e);
 
 	if (n < 3)
 		return 0;
@@ -566,7 +564,7 @@ texture_region(struct weston_paint_node *pnode,
 		pixman_box32_t *rect = &rects[i];
 		for (j = 0; j < nsurf; j++) {
 			pixman_box32_t *surf_rect = &surf_rects[j];
-			GLfloat ex[8], ey[8];          /* edge points in screen space */
+			struct weston_coord e[8];      /* edge points in screen space */
 			int n;
 
 			/* The transformed surface, after clipping to the clip region,
@@ -583,28 +581,31 @@ texture_region(struct weston_paint_node *pnode,
 			 * form the intersection of the clip rect and the transformed
 			 * surface.
 			 */
-			n = calculate_edges(ev, rect, surf_rect, ex, ey);
+			n = calculate_edges(ev, rect, surf_rect, e);
 			if (n < 3)
 				continue;
 
 			/* emit edge points: */
 			for (k = 0; k < n; k++) {
-				struct weston_coord_global cg;
-				struct weston_coord_surface cs;
-				struct weston_coord_buffer cb;
+				struct weston_coord_global pos_g;
+				struct weston_coord_surface pos_s;
+				struct weston_coord_buffer pos_b;
 
-				cg.c = weston_coord(ex[k], ey[k]);
-				cs = weston_coord_global_to_surface(ev, cg);
+				pos_g.c = e[k];
+
 				/* position: */
-				*(v++) = ex[k];
-				*(v++) = ey[k];
+				*(v++) = pos_g.c.x;
+				*(v++) = pos_g.c.y;
+
 				/* texcoord: */
-				cb = weston_coord_surface_to_buffer(ev->surface, cs);
-				*(v++) = cb.c.x * inv_width;
+				pos_s = weston_coord_global_to_surface(ev, pos_g);
+				pos_b = weston_coord_surface_to_buffer(ev->surface, pos_s);
+
+				*(v++) = pos_b.c.x * inv_width;
 				if (buffer->buffer_origin == ORIGIN_TOP_LEFT) {
-					*(v++) = cb.c.y * inv_height;
+					*(v++) = pos_b.c.y * inv_height;
 				} else {
-					*(v++) = (buffer->height - cb.c.y) * inv_height;
+					*(v++) = (buffer->height - pos_b.c.y) * inv_height;
 				}
 			}
 
