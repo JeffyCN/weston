@@ -165,6 +165,11 @@ int
 weston_output_mode_set_native(struct weston_output *output,
 			      struct weston_mode *mode,
 			      int32_t scale);
+
+struct weston_coord_global
+weston_coord_global_from_output_point(double x, double y,
+				      const struct weston_output *output);
+
 void
 weston_output_transform_coordinate(struct weston_output *output,
 				   double device_x, double device_y,

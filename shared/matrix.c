@@ -126,6 +126,22 @@ weston_matrix_transform(const struct weston_matrix *matrix,
 	*v = t;
 }
 
+WL_EXPORT struct weston_coord
+weston_matrix_transform_coord(const struct weston_matrix *matrix,
+			      struct weston_coord c)
+{
+	struct weston_coord out;
+	struct weston_vector t = { { c.x, c.y, 0.0, 1.0 } };
+
+	weston_matrix_transform(matrix, &t);
+
+	assert(fabsf(t.f[3]) > 1e-6);
+
+	out.x = t.f[0] / t.f[3];
+	out.y = t.f[1] / t.f[3];
+	return out;
+}
+
 static inline void
 swap_rows(double *a, double *b)
 {

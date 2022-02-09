@@ -678,6 +678,46 @@ weston_view_to_global_float(struct weston_view *view,
 	*y = v.f[1] / v.f[3];
 }
 
+WL_EXPORT struct weston_coord_global
+weston_coord_surface_to_global(const struct weston_view *view,
+			       struct weston_coord_surface coord)
+{
+	struct weston_coord_global out;
+
+	assert(!view->transform.dirty);
+	assert(view->surface == coord.coordinate_space_id);
+
+	out.c = weston_matrix_transform_coord(&view->transform.matrix,
+					      coord.c);
+	return out;
+}
+
+WL_EXPORT struct weston_coord_surface
+weston_coord_global_to_surface(const struct weston_view *view,
+			       struct weston_coord_global coord)
+{
+	struct weston_coord_surface out;
+
+	assert(!view->transform.dirty);
+	out.c = weston_matrix_transform_coord(&view->transform.inverse,
+					      coord.c);
+	out.coordinate_space_id = view->surface;
+	return out;
+}
+
+WL_EXPORT struct weston_coord_buffer
+weston_coord_surface_to_buffer(const struct weston_surface *surface,
+			       struct weston_coord_surface coord)
+{
+	struct weston_coord_buffer tmp;
+
+	assert(surface == coord.coordinate_space_id);
+
+	tmp.c = weston_matrix_transform_coord(&surface->surface_to_buffer_matrix,
+					      coord.c);
+	return tmp;
+}
+
 WL_EXPORT pixman_box32_t
 weston_matrix_transform_rect(struct weston_matrix *matrix,
 			     pixman_box32_t rect)
@@ -6419,6 +6459,32 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 	 */
 	wl_list_for_each_safe(view, next, &compositor->view_list, link)
 		weston_view_geometry_dirty(view);
+}
+
+/** Create a weston_coord_global from a point and a weston_output
+ *
+ * \param x x coordinate on the output
+ * \param y y coordinate on the output
+ * \param output the weston_output object
+ * \return coordinate in global space corresponding to x, y on the output
+ *
+ * Transforms coordinates from the device coordinate space (physical pixel
+ * units) to the global coordinate space (logical pixel units).  This takes
+ * into account output transform and scale.
+ *
+ * \ingroup output
+ * \internal
+ */
+WL_EXPORT struct weston_coord_global
+weston_coord_global_from_output_point(double x, double y,
+				      const struct weston_output *output)
+{
+	struct weston_coord c;
+	struct weston_coord_global tmp;
+
+	c = weston_coord(x, y);
+	tmp.c = weston_matrix_transform_coord(&output->inverse_matrix, c);
+	return tmp;
 }
 
 /** Transform device coordinates into global coordinates
