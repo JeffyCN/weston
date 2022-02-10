@@ -344,9 +344,6 @@ bool
 weston_touch_device_can_calibrate(struct weston_touch_device *device);
 
 /* weston_surface */
-void
-weston_surface_to_buffer_float(struct weston_surface *surface,
-			       float x, float y, float *bx, float *by);
 pixman_box32_t
 weston_surface_to_buffer_rect(struct weston_surface *surface,
 			      pixman_box32_t rect);
@@ -370,13 +367,6 @@ weston_spring_update(struct weston_spring *spring, const struct timespec *time);
 
 /* weston_view */
 
-void
-weston_view_to_global_fixed(struct weston_view *view,
-			    wl_fixed_t sx, wl_fixed_t sy,
-			    wl_fixed_t *x, wl_fixed_t *y);
-void
-weston_view_from_global_float(struct weston_view *view,
-			      float x, float y, float *vx, float *vy);
 bool
 weston_view_is_opaque(struct weston_view *ev, pixman_region32_t *region);
 

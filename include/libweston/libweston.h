@@ -1807,10 +1807,6 @@ weston_view_update_transform(struct weston_view *view);
 void
 weston_view_geometry_dirty(struct weston_view *view);
 
-void
-weston_view_to_global_float(struct weston_view *view,
-			    float sx, float sy, float *x, float *y);
-
 struct weston_coord_global __attribute__ ((warn_unused_result))
 weston_coord_surface_to_global(const struct weston_view *view,
 			       struct weston_coord_surface coord);
@@ -1822,14 +1818,6 @@ weston_coord_global_to_surface(const struct weston_view *view,
 struct weston_coord_buffer __attribute__ ((warn_unused_result))
 weston_coord_surface_to_buffer(const struct weston_surface *surface,
 			       struct weston_coord_surface coord);
-
-void
-weston_view_from_global(struct weston_view *view,
-			int32_t x, int32_t y, int32_t *vx, int32_t *vy);
-void
-weston_view_from_global_fixed(struct weston_view *view,
-			      wl_fixed_t x, wl_fixed_t y,
-			      wl_fixed_t *vx, wl_fixed_t *vy);
 
 void
 weston_view_activate_input(struct weston_view *view,

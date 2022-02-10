@@ -662,22 +662,6 @@ weston_surface_create(struct weston_compositor *compositor)
 	return surface;
 }
 
-WL_EXPORT void
-weston_view_to_global_float(struct weston_view *view,
-			    float sx, float sy, float *x, float *y)
-{
-	struct weston_vector v = { { sx, sy, 0.0f, 1.0f } };
-
-	assert(!view->transform.dirty);
-
-	weston_matrix_transform(&view->transform.matrix, &v);
-
-	assert(fabs(v.f[3]) > 1e-6);
-
-	*x = v.f[0] / v.f[3];
-	*y = v.f[1] / v.f[3];
-}
-
 WL_EXPORT struct weston_coord_global
 weston_coord_surface_to_global(const struct weston_view *view,
 			       struct weston_coord_surface coord)
@@ -786,18 +770,6 @@ weston_matrix_transform_region(pixman_region32_t *dest,
 	pixman_region32_clear(dest);
 	pixman_region32_init_rects(dest, dest_rects, nrects);
 	free(dest_rects);
-}
-
-WL_EXPORT void
-weston_surface_to_buffer_float(struct weston_surface *surface,
-			       float sx, float sy, float *bx, float *by)
-{
-	struct weston_vector v = {{sx, sy, 0.0, 1.0}};
-
-	weston_matrix_transform(&surface->surface_to_buffer_matrix, &v);
-
-	*bx = v.f[0] / v.f[3];
-	*by = v.f[1] / v.f[3];
 }
 
 /** Transform a rectangle from surface coordinates to buffer coordinates
@@ -1504,63 +1476,6 @@ weston_view_geometry_dirty(struct weston_view *view)
 	wl_list_for_each(child, &view->geometry.child_list,
 			 geometry.parent_link)
 		weston_view_geometry_dirty(child);
-}
-
-WL_EXPORT void
-weston_view_to_global_fixed(struct weston_view *view,
-			    wl_fixed_t vx, wl_fixed_t vy,
-			    wl_fixed_t *x, wl_fixed_t *y)
-{
-	struct weston_coord_surface cs;
-	struct weston_coord_global cg;
-
-	cs = weston_coord_surface_from_fixed(vx, vy, view->surface);
-	cg = weston_coord_surface_to_global(view, cs);
-
-	*x = wl_fixed_from_double(cg.c.x);
-	*y = wl_fixed_from_double(cg.c.y);
-}
-
-WL_EXPORT void
-weston_view_from_global_float(struct weston_view *view,
-			      float x, float y, float *vx, float *vy)
-{
-	struct weston_vector v = { { x, y, 0.0f, 1.0f } };
-
-	assert(!view->transform.dirty);
-
-	weston_matrix_transform(&view->transform.inverse, &v);
-
-	assert(fabs(v.f[3]) > 1e-6);
-
-	*vx = v.f[0] / v.f[3];
-	*vy = v.f[1] / v.f[3];
-}
-
-WL_EXPORT void
-weston_view_from_global_fixed(struct weston_view *view,
-			      wl_fixed_t x, wl_fixed_t y,
-			      wl_fixed_t *vx, wl_fixed_t *vy)
-{
-	float vxf, vyf;
-
-	weston_view_from_global_float(view,
-				      wl_fixed_to_double(x),
-				      wl_fixed_to_double(y),
-				      &vxf, &vyf);
-	*vx = wl_fixed_from_double(vxf);
-	*vy = wl_fixed_from_double(vyf);
-}
-
-WL_EXPORT void
-weston_view_from_global(struct weston_view *view,
-			int32_t x, int32_t y, int32_t *vx, int32_t *vy)
-{
-	float vxf, vyf;
-
-	weston_view_from_global_float(view, x, y, &vxf, &vyf);
-	*vx = floorf(vxf);
-	*vy = floorf(vyf);
 }
 
 /**
