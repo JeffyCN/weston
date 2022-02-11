@@ -1093,22 +1093,20 @@ noop_grab_frame(struct weston_pointer_grab *grab)
 {
 }
 
-static void
-constrain_position(struct weston_move_grab *move, int *cx, int *cy)
+static struct weston_coord_global
+constrain_position(struct weston_move_grab *move)
 {
 	struct shell_surface *shsurf = move->base.shsurf;
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 	struct weston_pointer *pointer = move->base.grab.pointer;
-	int x, y, bottom;
+	int bottom;
 	const int safety = 50;
 	pixman_rectangle32_t area;
 	struct weston_geometry geometry;
 	struct weston_coord_global c;
 
 	c = weston_coord_global_add(pointer->pos, move->delta);
-	x = c.c.x;
-	y = c.c.y;
 
 	if (shsurf->shell->panel_position ==
 	    WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP) {
@@ -1116,18 +1114,17 @@ constrain_position(struct weston_move_grab *move, int *cx, int *cy)
 		geometry =
 			weston_desktop_surface_get_geometry(shsurf->desktop_surface);
 
-		bottom = y + geometry.height + geometry.y;
+		bottom = c.c.y + geometry.height + geometry.y;
 		if (bottom - safety < area.y)
-			y = area.y + safety - geometry.height
-			  - geometry.y;
+			c.c.y = area.y + safety - geometry.height
+			      - geometry.y;
 
 		if (move->client_initiated &&
-		    y + geometry.y < area.y)
-			y = area.y - geometry.y;
+		    c.c.y + geometry.y < area.y)
+			c.c.y = area.y - geometry.y;
 	}
 
-	*cx = x;
-	*cy = y;
+	return c;
 }
 
 static void
@@ -1139,15 +1136,12 @@ move_grab_motion(struct weston_pointer_grab *grab,
 	struct weston_pointer *pointer = grab->pointer;
 	struct shell_surface *shsurf = move->base.shsurf;
 	struct weston_coord_global pos;
-	int cx, cy;
 
 	weston_pointer_move(pointer, event);
 	if (!shsurf || !shsurf->desktop_surface)
 		return;
 
-	constrain_position(move, &cx, &cy);
-
-	pos.c = weston_coord(cx, cy);
+	pos = constrain_position(move);
 	weston_view_set_position(shsurf->view, pos);
 }
 
