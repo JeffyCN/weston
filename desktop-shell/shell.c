@@ -101,6 +101,7 @@ struct shell_surface {
 
 	struct weston_desktop_surface *desktop_surface;
 	struct weston_view *view;
+	struct weston_surface *wsurface_anim_fade;
 	int32_t last_width, last_height;
 
 	struct desktop_shell *shell;
@@ -263,8 +264,8 @@ desktop_shell_destroy_surface(struct shell_surface *shsurf)
 	wl_list_remove(&shsurf->children_link);
 
 	wl_signal_emit(&shsurf->destroy_signal, shsurf);
+	weston_surface_destroy(shsurf->wsurface_anim_fade);
 
-	weston_view_destroy(shsurf->view);
 	if (shsurf->output_destroy_listener.notify) {
 		wl_list_remove(&shsurf->output_destroy_listener.link);
 		shsurf->output_destroy_listener.notify = NULL;
@@ -2376,8 +2377,6 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 			weston_fade_run(shsurf->view, 1.0, 0.0, 300.0,
 					fade_out_done, shsurf);
 			return;
-		} else {
-			weston_surface_destroy(surface);
 		}
 	}
 
@@ -2500,8 +2499,12 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	if (!weston_surface_is_mapped(surface)) {
 		map(shell, shsurf, sx, sy);
 		surface->is_mapped = true;
-		if (shsurf->shell->win_close_animation_type == ANIMATION_FADE)
-			++surface->ref_count;
+		/* as we need to survive the weston_surface destruction we'll
+		 * need to take another reference */
+		if (shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
+			surface->ref_count++;
+			shsurf->wsurface_anim_fade = surface;
+		}
 		return;
 	}
 
