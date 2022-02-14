@@ -2295,6 +2295,16 @@ weston_view_destroy(struct weston_view *view)
 	free(view);
 }
 
+WL_EXPORT struct weston_surface *
+weston_surface_ref(struct weston_surface *surface)
+{
+	assert(surface->ref_count < INT32_MAX &&
+	       surface->ref_count > 0);
+
+	surface->ref_count++;
+	return surface;
+}
+
 WL_EXPORT void
 weston_surface_unref(struct weston_surface *surface)
 {

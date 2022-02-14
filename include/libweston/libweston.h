@@ -2029,6 +2029,9 @@ struct weston_view_animation *
 weston_slide_run(struct weston_view *view, float start, float stop,
 		 weston_view_animation_done_func_t done, void *data);
 
+struct weston_surface *
+weston_surface_ref(struct weston_surface *surface);
+
 void
 weston_surface_unref(struct weston_surface *surface);
 
