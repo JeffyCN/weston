@@ -26,6 +26,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -1050,18 +1051,54 @@ dmabuf_feedback_tranche_formats(void *data,
 	}
 }
 
+static char
+bits2graph(uint32_t value, unsigned bitoffset)
+{
+	int c = (value >> bitoffset) & 0xff;
+
+	if (isgraph(c) || isspace(c))
+		return c;
+
+	return '?';
+}
+
+static void
+fourcc2str(uint32_t format, char *str, int len)
+{
+	int i;
+
+	assert(len >= 5);
+
+	for (i = 0; i < 4; i++)
+		str[i] = bits2graph(format, i * 8);
+	str[i] = '\0';
+}
+
 static void
 print_tranche_format_modifier(uint32_t format, uint64_t modifier)
 {
 	const struct pixel_format_info *fmt_info;
+	char *format_str;
 	char *mod_name;
+	int len;
 
-	fmt_info = pixel_format_get_info(format);
 	mod_name = pixel_format_get_modifier(modifier);
+	fmt_info = pixel_format_get_info(format);
+
+	if (fmt_info) {
+		len = asprintf(&format_str, "%s", fmt_info->drm_format_name);
+	} else {
+		char fourcc_str[5];
+
+		fourcc2str(format, fourcc_str, sizeof(fourcc_str));
+		len = asprintf(&format_str, "0x%08x (%s)", format, fourcc_str);
+	}
+	assert(len > 0);
 
 	fprintf(stderr, "│	├────────tranche format/modifier pair - format %s, modifier %s\n",
-			fmt_info ? fmt_info->drm_format_name : "UNKNOWN", mod_name);
+			format_str, mod_name);
 
+	free(format_str);
 	free(mod_name);
 }
 
