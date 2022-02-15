@@ -29,7 +29,17 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include "shared/helpers.h"
+
+static_assert(sizeof(struct color_float) == 4 * sizeof(float),
+	      "unexpected padding in struct color_float");
+static_assert(offsetof(struct color_float, r) == offsetof(struct color_float, rgb[COLOR_CHAN_R]),
+	      "unexpected offset for struct color_float::r");
+static_assert(offsetof(struct color_float, g) == offsetof(struct color_float, rgb[COLOR_CHAN_G]),
+	      "unexpected offset for struct color_float::g");
+static_assert(offsetof(struct color_float, b) == offsetof(struct color_float, rgb[COLOR_CHAN_B]),
+	      "unexpected offset for struct color_float::b");
 
 struct color_tone_curve {
 	enum transfer_fn fn;
@@ -154,9 +164,10 @@ Power2_4_EOTF_inv(float o)
 void
 sRGB_linearize(struct color_float *cf)
 {
-	cf->r = sRGB_EOTF(cf->r);
-	cf->g = sRGB_EOTF(cf->g);
-	cf->b = sRGB_EOTF(cf->b);
+	int i;
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		cf->rgb[i] = sRGB_EOTF(cf->rgb[i]);
 }
 
 static float
@@ -191,9 +202,10 @@ apply_tone_curve(enum transfer_fn fn, float r)
 void
 sRGB_delinearize(struct color_float *cf)
 {
-	cf->r = sRGB_EOTF_inv(cf->r);
-	cf->g = sRGB_EOTF_inv(cf->g);
-	cf->b = sRGB_EOTF_inv(cf->b);
+	int i;
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		cf->rgb[i] = sRGB_EOTF_inv(cf->rgb[i]);
 }
 
 struct color_float

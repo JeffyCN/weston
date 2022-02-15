@@ -27,8 +27,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+enum color_chan_index {
+	COLOR_CHAN_R = 0,
+	COLOR_CHAN_G,
+	COLOR_CHAN_B,
+	COLOR_CHAN_NUM
+};
+
 struct color_float {
-	float r, g, b, a;
+	union {
+		float rgb[COLOR_CHAN_NUM];
+		struct {
+			float r, g, b;
+		};
+	};
+	float a;
 };
 
 struct lcmsVEC3 {

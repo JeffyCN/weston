@@ -193,7 +193,7 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 		hue_index = MIN(hue_index, num_hues - 1);
 
 		for (x = 0; x < header->width; x++) {
-			struct color_float rgb = { 0, 0, 0 };
+			struct color_float rgb = { .rgb = { 0, 0, 0 } };
 
 			value = (float)x / (float)(header->width - 1);
 
@@ -360,7 +360,7 @@ process_pipeline_comparison(const struct image_header *src,
 			    const struct setup_args * arg)
 {
 	const float max_pixel_value = 255.0;
-	struct color_float max_diff_pipeline = { 0.0f, 0.0f, 0.0f, 0.0f };
+	struct color_float max_diff_pipeline = { .rgb = { 0.0f, 0.0f, 0.0f } };
 	float max_allow_diff = arg->pipeline.tolerance / max_pixel_value;
 	float max_err = 0;
 	float f_max_err = 0;

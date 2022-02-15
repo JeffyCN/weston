@@ -299,7 +299,7 @@ check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot,
 	uint32_t *bg_row = get_middle_row(bg);
 	uint32_t *fg_row = get_middle_row(fg);
 	uint32_t *shot_row = get_middle_row(shot);
-	struct color_float max_diff = { 0.0f, 0.0f, 0.0f, 0.0f };
+	struct color_float max_diff = { .rgb = { 0.0f, 0.0f, 0.0f } };
 	bool ret = true;
 	int x;
 
