@@ -109,14 +109,14 @@ premult_color(uint32_t a, uint32_t r, uint32_t g, uint32_t b)
 static void
 unpremult_float(struct color_float *cf)
 {
+	int i;
+
 	if (cf->a == 0.0f) {
-		cf->r = 0.0f;
-		cf->g = 0.0f;
-		cf->b = 0.0f;
+		for (i = 0; i < COLOR_CHAN_NUM; i++)
+			cf->rgb[i] = 0.0f;
 	} else {
-		cf->r /= cf->a;
-		cf->g /= cf->a;
-		cf->b /= cf->a;
+		for (i = 0; i < COLOR_CHAN_NUM; i++)
+			cf->rgb[i] /= cf->a;
 	}
 }
 
@@ -218,11 +218,13 @@ verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
 			   int x, struct color_float *max_diff,
 			   enum blend_space space)
 {
+	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
 	struct color_float bg = a8r8g8b8_to_float(bg32);
 	struct color_float fg = a8r8g8b8_to_float(fg32);
 	struct color_float dst = a8r8g8b8_to_float(dst32);
 	struct color_float ref;
 	bool ok = true;
+	int i;
 
 	unpremult_float(&bg);
 	unpremult_float(&fg);
@@ -233,16 +235,16 @@ verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
 		sRGB_linearize(&fg);
 	}
 
-	ref.r = (1.0f - fg.a) * bg.r + fg.a * fg.r;
-	ref.g = (1.0f - fg.a) * bg.g + fg.a * fg.g;
-	ref.b = (1.0f - fg.a) * bg.b + fg.a * fg.b;
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		ref.rgb[i] = (1.0f - fg.a) * bg.rgb[i] + fg.a * fg.rgb[i];
 
 	if (space == BLEND_LINEAR)
 		sRGB_delinearize(&ref);
 
-	ok = compare_float(ref.r, dst.r, x, "r", &max_diff->r) && ok;
-	ok = compare_float(ref.g, dst.g, x, "g", &max_diff->g) && ok;
-	ok = compare_float(ref.b, dst.b, x, "b", &max_diff->b) && ok;
+	for (i = 0; i < COLOR_CHAN_NUM; i++) {
+		ok = compare_float(ref.rgb[i], dst.rgb[i], x,
+				   chan_name[i], &max_diff->rgb[i]) && ok;
+	}
 
 	return ok;
 }

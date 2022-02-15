@@ -229,28 +229,19 @@ process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     struct color_float *out)
 {
 	int i, j;
-	float rgb_in[3];
-	float out_blend[3];
+	struct color_float cf;
 	float tmp;
 
-	rgb_in[0] = in->r;
-	rgb_in[1] = in->g;
-	rgb_in[2] = in->b;
-
-	for (i = 0; i < 3; i++)
-		rgb_in[i] = apply_tone_curve(pre_curve, rgb_in[i]);
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		cf.rgb[i] = apply_tone_curve(pre_curve, in->rgb[i]);
 
 	for (i = 0; i < 3; i++) {
 		tmp = 0.0f;
 		for (j = 0; j < 3; j++)
-			tmp += rgb_in[j] * mat->v[j].n[i];
-		out_blend[i] = tmp;
+			tmp += cf.rgb[j] * mat->v[j].n[i];
+		out->rgb[i] = tmp;
 	}
 
-	for (i = 0; i < 3; i++)
-		out_blend[i] = apply_tone_curve(post_curve, out_blend[i]);
-
-	out->r = out_blend[0];
-	out->g = out_blend[1];
-	out->b = out_blend[2];
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		out->rgb[i] = apply_tone_curve(post_curve, out->rgb[i]);
 }

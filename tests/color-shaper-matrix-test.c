@@ -166,7 +166,7 @@ get_image_prop(struct buffer *buf, struct image_header *header)
 static void
 gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 {
-	static const int hue[][3] = {
+	static const int hue[][COLOR_CHAN_NUM] = {
 		{ 1, 1, 1 },	/* White	*/
 		{ 1, 1, 0 },	/* Yellow 	*/
 		{ 0, 1, 1 },	/* Cyan 	*/
@@ -180,6 +180,7 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 	float val_max;
 	int x, y;
 	int hue_index;
+	int chan;
 	float value;
 	unsigned char r, g, b;
 	uint32_t *pixel;
@@ -200,12 +201,10 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 			if (width_bar > 1)
 				value = floor(value * n_steps) / n_steps;
 
-			if (hue[hue_index][0])
-				rgb.r = value;
-			if (hue[hue_index][1])
-				rgb.g = value;
-			if (hue[hue_index][2])
-				rgb.b = value;
+			for (chan = 0; chan < COLOR_CHAN_NUM; chan++) {
+				if (hue[hue_index][chan])
+					rgb.rgb[chan] = value;
+			}
 
 			sRGB_delinearize(&rgb);
 
@@ -359,14 +358,15 @@ process_pipeline_comparison(const struct image_header *src,
 			    const struct image_header *shot,
 			    const struct setup_args * arg)
 {
+	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
 	const float max_pixel_value = 255.0;
 	struct color_float max_diff_pipeline = { .rgb = { 0.0f, 0.0f, 0.0f } };
 	float max_allow_diff = arg->pipeline.tolerance / max_pixel_value;
-	float max_err = 0;
-	float f_max_err = 0;
+	float max_err = 0.0f;
 	bool ok = true;
 	uint32_t *row_ptr, *row_ptr_shot;
 	int y, x;
+	int chan;
 	struct color_float pix_src;
 	struct color_float pix_src_pipeline;
 	struct color_float pix_shot;
@@ -383,26 +383,25 @@ process_pipeline_comparison(const struct image_header *src,
 						     &arg->pipeline.mat,
 						     arg->pipeline.post_fn,
 						     &pix_src, &pix_src_pipeline);
+
 			/* check if pipeline matches to shader variant */
-			ok &= compare_float(pix_src_pipeline.r, pix_shot.r, x,"r",
-					    &max_diff_pipeline.r, max_allow_diff);
-			ok &= compare_float(pix_src_pipeline.g, pix_shot.g, x, "g",
-					    &max_diff_pipeline.g, max_allow_diff);
-			ok &= compare_float(pix_src_pipeline.b, pix_shot.b, x, "b",
-					    &max_diff_pipeline.b, max_allow_diff);
+			for (chan = 0; chan < COLOR_CHAN_NUM; chan++) {
+				ok &= compare_float(pix_src_pipeline.rgb[chan],
+						    pix_shot.rgb[chan],
+						    x, chan_name[chan],
+						    &max_diff_pipeline.rgb[chan],
+						    max_allow_diff);
+			}
 		}
 	}
-	max_err = max_diff_pipeline.r;
-	if (max_err < max_diff_pipeline.g)
-		max_err = max_diff_pipeline.g;
-	if (max_err < max_diff_pipeline.b)
-		max_err = max_diff_pipeline.b;
 
-	f_max_err = max_pixel_value * max_err;
+	for (chan = 0; chan < COLOR_CHAN_NUM; chan++)
+		max_err = MAX(max_err, max_diff_pipeline.rgb[chan]);
 
 	testlog("%s %s %s tol_req %d, tol_cal %f, max diff: r=%f, g=%f, b=%f\n",
 		__func__, ok == true? "SUCCESS":"FAILURE",
-		arg->meta.name, arg->pipeline.tolerance, f_max_err,
+		arg->meta.name, arg->pipeline.tolerance,
+		max_err * max_pixel_value,
 		max_diff_pipeline.r, max_diff_pipeline.g, max_diff_pipeline.b);
 
 	return ok;
