@@ -127,7 +127,7 @@ struct buffer {
 	int data_offsets[VIDEO_MAX_PLANES];
 };
 
-#define NUM_BUFFERS 3
+#define NUM_BUFFERS 4
 
 struct window {
 	struct display *display;

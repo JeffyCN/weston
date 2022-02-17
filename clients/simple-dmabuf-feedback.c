@@ -47,7 +47,7 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-#define NUM_BUFFERS 3
+#define NUM_BUFFERS 4
 
 /* We have to hack the DRM-backend to pretend that planes of the underlying
  * hardware don't support this format. If you change the value of this constant,
