@@ -159,6 +159,18 @@ do { \
 	tmp___; })
 #endif
 
+/** Private symbol export for tests
+ *
+ * Symbols tagged with this are private libweston functions that are exported
+ * only for the test suite to allow unit testing. Nothing else internal or
+ * external to libweston is allowed to use these exports.
+ *
+ * Therefore, the ABI exported with this tag is completely unversioned, and
+ * is allowed to break at any time without any indication or version bump.
+ * This may happen in all git branches, including stable release branches.
+ */
+#define WESTON_EXPORT_FOR_TESTS __attribute__ ((visibility("default")))
+
 #ifdef  __cplusplus
 }
 #endif
