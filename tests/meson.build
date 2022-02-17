@@ -204,10 +204,6 @@ tests = [
 			input_timestamps_unstable_v1_protocol_c,
 		],
 	},
-	{
-		'name': 'vertex-clip',
-		'dep_objs': dep_vertex_clipping,
-	},
 	{	'name': 'viewporter', },
 	{	'name': 'viewporter-shot', },
 	{
@@ -226,6 +222,14 @@ tests = [
 		'dep_objs': [ dep_lib_desktop ]
 	},
 ]
+
+if get_option('renderer-gl')
+	tests += {
+		'name': 'vertex-clip',
+		'link_with': plugin_gl,
+	}
+
+endif
 
 if get_option('color-management-lcms')
 	dep_lcms2 = dependency('lcms2', version: '>= 2.9', required: false)
@@ -338,6 +342,7 @@ foreach t : tests
 		build_by_default: true,
 		include_directories: common_inc,
 		dependencies: t_deps,
+		link_with: t.get('link_with', []),
 		install: false,
 	)
 

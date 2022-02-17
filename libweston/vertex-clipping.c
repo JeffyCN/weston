@@ -26,9 +26,10 @@
 #include <float.h>
 #include <math.h>
 
+#include "shared/helpers.h"
 #include "vertex-clipping.h"
 
-float
+WESTON_EXPORT_FOR_TESTS float
 float_difference(float a, float b)
 {
 	/* http://www.altdevblogaday.com/2012/02/22/comparing-floating-point-numbers-2012-edition/ */
@@ -282,7 +283,7 @@ clip_polygon_bottom(struct clip_context *ctx, const struct polygon8 *src,
 #define min(a, b) (((a) > (b)) ? (b) : (a))
 #define clip(x, a, b)  min(max(x, a), b)
 
-int
+WESTON_EXPORT_FOR_TESTS int
 clip_simple(struct clip_context *ctx,
 	    struct polygon8 *surf,
 	    float *ex,
@@ -296,7 +297,7 @@ clip_simple(struct clip_context *ctx,
 	return surf->n;
 }
 
-int
+WESTON_EXPORT_FOR_TESTS int
 clip_transformed(struct clip_context *ctx,
 		 struct polygon8 *surf,
 		 float *ex,
