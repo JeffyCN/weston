@@ -64,6 +64,12 @@
 	.bits.b = b_, \
 	.bits.a = a_, \
 	.component_type = PIXEL_COMPONENT_TYPE_FIXED
+#define BITS_RGBA_FLOAT(r_, g_, b_, a_) \
+	.bits.r = r_, \
+	.bits.g = g_, \
+	.bits.b = b_, \
+	.bits.a = a_, \
+	.component_type = PIXEL_COMPONENT_TYPE_FLOAT
 
 #define PIXMAN_FMT(fmt) .pixman_format = (PIXMAN_ ## fmt)
 
@@ -340,6 +346,24 @@ static const struct pixel_format_info pixel_format_table[] = {
 		DRM_FORMAT(ABGR16161616),
 		BITS_RGBA_FIXED(16, 16, 16, 16),
 		.opaque_substitute = DRM_FORMAT_XBGR16161616,
+	},
+	{
+		DRM_FORMAT(XBGR16161616F),
+		BITS_RGBA_FLOAT(16, 16, 16, 0),
+	},
+	{
+		DRM_FORMAT(ABGR16161616F),
+		BITS_RGBA_FLOAT(16, 16, 16, 16),
+		.opaque_substitute = DRM_FORMAT_XBGR16161616F,
+	},
+	{
+		DRM_FORMAT(XRGB16161616F),
+		BITS_RGBA_FLOAT(16, 16, 16, 0),
+	},
+	{
+		DRM_FORMAT(ARGB16161616F),
+		BITS_RGBA_FLOAT(16, 16, 16, 16),
+		.opaque_substitute = DRM_FORMAT_XRGB16161616F,
 	},
 	{
 		DRM_FORMAT(YUYV),
