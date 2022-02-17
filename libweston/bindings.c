@@ -310,8 +310,8 @@ weston_compositor_run_key_binding(struct weston_compositor *compositor,
 			/* If this was a key binding and it didn't
 			 * install a keyboard grab, install one now to
 			 * swallow the key press. */
-			if (keyboard->grab ==
-			    &keyboard->default_grab)
+			if (keyboard->grab == &keyboard->default_grab ||
+			    keyboard->grab == &keyboard->input_method_grab)
 				install_binding_grab(keyboard,
 						     time,
 						     key,
