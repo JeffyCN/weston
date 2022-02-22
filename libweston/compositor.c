@@ -4673,6 +4673,10 @@ weston_surface_commit(struct weston_surface *surface)
 	if (status & WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG)
 		weston_surface_commit_subsurface_order(surface);
 
+	/* HACK: Assign outputs */
+	if (!surface->output_mask)
+		weston_compositor_build_view_list(surface->compositor);
+
 	weston_surface_schedule_repaint(surface);
 
 	return status;
