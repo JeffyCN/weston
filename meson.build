@@ -148,15 +148,9 @@ dep_libinput = dependency('libinput', version: '>= 0.8.0')
 dep_libevdev = dependency('libevdev')
 dep_libm = cc.find_library('m')
 dep_libdl = cc.find_library('dl')
-dep_libdrm = dependency('libdrm', version: '>= 2.4.95')
+dep_libdrm = dependency('libdrm', version: '>= 2.4.108')
 dep_libdrm_headers = dep_libdrm.partial_dependency(compile_args: true)
 dep_threads = dependency('threads')
-
-dep_libdrm_version = dep_libdrm.version()
-if dep_libdrm_version.version_compare('>=2.4.107')
-  message('Found libdrm with human format modifier support.')
-  config_h.set('HAVE_HUMAN_FORMAT_MODIFIER', '1')
-endif
 
 dep_lcms2 = dependency('lcms2', version: '>= 2.9', required: false)
 

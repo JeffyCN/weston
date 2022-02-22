@@ -708,7 +708,6 @@ pixel_format_height_for_plane(const struct pixel_format_info *info,
 	return height / pixel_format_vsub(info, plane);
 }
 
-#ifdef HAVE_HUMAN_FORMAT_MODIFIER
 WL_EXPORT char *
 pixel_format_get_modifier(uint64_t modifier)
 {
@@ -748,12 +747,3 @@ pixel_format_get_modifier(uint64_t modifier)
 
 	return mod_str;
 }
-#else
-WL_EXPORT char *
-pixel_format_get_modifier(uint64_t modifier)
-{
-	char *mod_str;
-	str_printf(&mod_str, "0x%llx", (unsigned long long) modifier);
-	return mod_str;
-}
-#endif

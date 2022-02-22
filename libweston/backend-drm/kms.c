@@ -414,19 +414,6 @@ drm_property_info_free(struct drm_property_info *info, int num_props)
 	memset(info, 0, sizeof(*info) * num_props);
 }
 
-static inline uint32_t *
-formats_ptr(struct drm_format_modifier_blob *blob)
-{
-	return (uint32_t *)(((char *)blob) + blob->formats_offset);
-}
-
-static inline struct drm_format_modifier *
-modifiers_ptr(struct drm_format_modifier_blob *blob)
-{
-	return (struct drm_format_modifier *)
-		(((char *)blob) + blob->modifiers_offset);
-}
-
 /**
  * Populates the plane's formats array, using either the IN_FORMATS blob
  * property (if available), or the plane's format list if not.
@@ -437,13 +424,10 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const bool use_modifiers)
 {
 	struct drm_device *device = plane->device;
-	unsigned i, j;
+	uint32_t i, blob_id, fmt_prev = DRM_FORMAT_INVALID;
+	drmModeFormatModifierIterator drm_iter = {0};
+	struct weston_drm_format *fmt = NULL;
 	drmModePropertyBlobRes *blob = NULL;
-	struct drm_format_modifier_blob *fmt_mod_blob;
-	struct drm_format_modifier *blob_modifiers;
-	uint32_t *blob_formats;
-	uint32_t blob_id;
-	struct weston_drm_format *fmt;
 	int ret = 0;
 
 	if (!use_modifiers)
@@ -459,35 +443,22 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 	if (!blob)
 		goto fallback;
 
-	fmt_mod_blob = blob->data;
-	blob_formats = formats_ptr(fmt_mod_blob);
-	blob_modifiers = modifiers_ptr(fmt_mod_blob);
-
-	assert(kplane->count_formats == fmt_mod_blob->count_formats);
-
-	for (i = 0; i < fmt_mod_blob->count_formats; i++) {
-		fmt = weston_drm_format_array_add_format(&plane->formats,
-							 blob_formats[i]);
-		if (!fmt) {
-			ret = -1;
-			goto out;
-		}
-
-		for (j = 0; j < fmt_mod_blob->count_modifiers; j++) {
-			struct drm_format_modifier *mod = &blob_modifiers[j];
-
-			if ((i < mod->offset) || (i > mod->offset + 63))
-				continue;
-			if (!(mod->formats & (1 << (i - mod->offset))))
-				continue;
-
-			ret = weston_drm_format_add_modifier(fmt, mod->modifier);
-			if (ret < 0)
+	while (drmModeFormatModifierBlobIterNext(blob, &drm_iter)) {
+		if (fmt_prev != drm_iter.fmt) {
+			fmt = weston_drm_format_array_add_format(&plane->formats,
+								 drm_iter.fmt);
+			if (!fmt) {
+				ret = -1;
 				goto out;
+			}
+
+			fmt_prev = drm_iter.fmt;
 		}
 
-		if (fmt->modifiers.size == 0)
-			weston_drm_format_array_remove_latest_format(&plane->formats);
+		ret = weston_drm_format_add_modifier(fmt, drm_iter.mod);
+		if (ret < 0)
+			goto out;
+
 	}
 
 out:
