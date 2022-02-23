@@ -1622,16 +1622,16 @@ resize_grab_motion(struct weston_pointer_grab *grab,
 				      pointer->x, pointer->y, &to_x, &to_y);
 
 	width = resize->width;
-	if (resize->edges & WL_SHELL_SURFACE_RESIZE_LEFT) {
+	if (resize->edges & WESTON_DESKTOP_SURFACE_EDGE_LEFT) {
 		width += wl_fixed_to_int(from_x - to_x);
-	} else if (resize->edges & WL_SHELL_SURFACE_RESIZE_RIGHT) {
+	} else if (resize->edges & WESTON_DESKTOP_SURFACE_EDGE_RIGHT) {
 		width += wl_fixed_to_int(to_x - from_x);
 	}
 
 	height = resize->height;
-	if (resize->edges & WL_SHELL_SURFACE_RESIZE_TOP) {
+	if (resize->edges & WESTON_DESKTOP_SURFACE_EDGE_TOP) {
 		height += wl_fixed_to_int(from_y - to_y);
-	} else if (resize->edges & WL_SHELL_SURFACE_RESIZE_BOTTOM) {
+	} else if (resize->edges & WESTON_DESKTOP_SURFACE_EDGE_BOTTOM) {
 		height += wl_fixed_to_int(to_y - from_y);
 	}
 
@@ -1707,9 +1707,9 @@ surface_resize(struct shell_surface *shsurf,
 {
 	struct weston_resize_grab *resize;
 	const unsigned resize_topbottom =
-		WL_SHELL_SURFACE_RESIZE_TOP | WL_SHELL_SURFACE_RESIZE_BOTTOM;
+		WESTON_DESKTOP_SURFACE_EDGE_TOP | WESTON_DESKTOP_SURFACE_EDGE_BOTTOM;
 	const unsigned resize_leftright =
-		WL_SHELL_SURFACE_RESIZE_LEFT | WL_SHELL_SURFACE_RESIZE_RIGHT;
+		WESTON_DESKTOP_SURFACE_EDGE_LEFT | WESTON_DESKTOP_SURFACE_EDGE_RIGHT;
 	const unsigned resize_any = resize_topbottom | resize_leftright;
 	struct weston_geometry geometry;
 
@@ -1719,7 +1719,7 @@ surface_resize(struct shell_surface *shsurf,
 		return 0;
 
 	/* Check for invalid edge combinations. */
-	if (edges == WL_SHELL_SURFACE_RESIZE_NONE || edges > resize_any ||
+	if (edges == WESTON_DESKTOP_SURFACE_EDGE_NONE || edges > resize_any ||
 	    (edges & resize_topbottom) == resize_topbottom ||
 	    (edges & resize_leftright) == resize_leftright)
 		return 0;
@@ -2546,9 +2546,9 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 			sy = 0;
 		}
 
-		if (shsurf->resize_edges & WL_SHELL_SURFACE_RESIZE_LEFT)
+		if (shsurf->resize_edges & WESTON_DESKTOP_SURFACE_EDGE_LEFT)
 			sx = shsurf->last_width - surface->width;
-		if (shsurf->resize_edges & WL_SHELL_SURFACE_RESIZE_TOP)
+		if (shsurf->resize_edges & WESTON_DESKTOP_SURFACE_EDGE_TOP)
 			sy = shsurf->last_height - surface->height;
 
 		weston_view_to_global_float(shsurf->view, 0, 0, &from_x, &from_y);
@@ -3374,18 +3374,18 @@ resize_binding(struct weston_pointer *pointer, const struct timespec *time,
 				&x, &y);
 
 	if (x < surface->width / 3)
-		edges |= WL_SHELL_SURFACE_RESIZE_LEFT;
+		edges |= WESTON_DESKTOP_SURFACE_EDGE_LEFT;
 	else if (x < 2 * surface->width / 3)
 		edges |= 0;
 	else
-		edges |= WL_SHELL_SURFACE_RESIZE_RIGHT;
+		edges |= WESTON_DESKTOP_SURFACE_EDGE_RIGHT;
 
 	if (y < surface->height / 3)
-		edges |= WL_SHELL_SURFACE_RESIZE_TOP;
+		edges |= WESTON_DESKTOP_SURFACE_EDGE_TOP;
 	else if (y < 2 * surface->height / 3)
 		edges |= 0;
 	else
-		edges |= WL_SHELL_SURFACE_RESIZE_BOTTOM;
+		edges |= WESTON_DESKTOP_SURFACE_EDGE_BOTTOM;
 
 	surface_resize(shsurf, pointer, edges);
 }
