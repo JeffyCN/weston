@@ -37,6 +37,7 @@
 #include "compositor/weston.h"
 #include "fullscreen-shell-unstable-v1-server-protocol.h"
 #include "shared/helpers.h"
+#include "shell-utils.h"
 
 struct fullscreen_shell {
 	struct wl_client *client;
@@ -371,41 +372,6 @@ restore_output_mode(struct weston_output *output)
 {
 	if (output && output->original_mode)
 		weston_output_mode_switch_to_native(output);
-}
-
-/*
- * Returns the bounding box of a surface and all its sub-surfaces,
- * in surface-local coordinates. */
-static void
-surface_subsurfaces_boundingbox(struct weston_surface *surface, int32_t *x,
-				int32_t *y, int32_t *w, int32_t *h) {
-	pixman_region32_t region;
-	pixman_box32_t *box;
-	struct weston_subsurface *subsurface;
-
-	pixman_region32_init_rect(&region, 0, 0,
-	                          surface->width,
-	                          surface->height);
-
-	wl_list_for_each(subsurface, &surface->subsurface_list, parent_link) {
-		pixman_region32_union_rect(&region, &region,
-		                           subsurface->position.x,
-		                           subsurface->position.y,
-		                           subsurface->surface->width,
-		                           subsurface->surface->height);
-	}
-
-	box = pixman_region32_extents(&region);
-	if (x)
-		*x = box->x1;
-	if (y)
-		*y = box->y1;
-	if (w)
-		*w = box->x2 - box->x1;
-	if (h)
-		*h = box->y2 - box->y1;
-
-	pixman_region32_fini(&region);
 }
 
 static void

@@ -4,9 +4,10 @@ if get_option('shell-fullscreen')
 		fullscreen_shell_unstable_v1_server_protocol_h,
 		fullscreen_shell_unstable_v1_protocol_c,
 	]
-	deps_shell_fullscreen=[
+	deps_shell_fullscreen = [
 		dep_libweston_public,
 		dep_libexec_weston,
+		dep_shell_utils,
 	]
 	shared_library(
 		'fullscreen-shell',
