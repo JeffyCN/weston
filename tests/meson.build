@@ -217,9 +217,8 @@ tests = [
 	{	'name': 'safe-signal-output-removal',
 		'sources': [
 		  'safe-signal-output-removal-test.c',
-		  '../shared/shell-utils.c',
 		],
-		'dep_objs': [ dep_lib_desktop ]
+		'dep_objs': [ dep_lib_desktop, dep_shell_utils ]
 	},
 ]
 

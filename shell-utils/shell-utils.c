@@ -25,7 +25,7 @@
  */
 
 #include "config.h"
-#include "shared/shell-utils.h"
+#include "shell-utils.h"
 #include <libweston-desktop/libweston-desktop.h>
 
 struct weston_output *

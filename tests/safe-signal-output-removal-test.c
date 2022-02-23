@@ -30,7 +30,7 @@
 #include <stdio.h>
 
 #include "../shared/signal.h"
-#include "../shared/shell-utils.h"
+#include "shell-utils.h"
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 

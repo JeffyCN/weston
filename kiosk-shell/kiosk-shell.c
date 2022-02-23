@@ -33,7 +33,7 @@
 #include "kiosk-shell-grab.h"
 #include "compositor/weston.h"
 #include "shared/helpers.h"
-#include "shared/shell-utils.h"
+#include "shell-utils.h"
 
 #include <libweston/xwayland-api.h>
 

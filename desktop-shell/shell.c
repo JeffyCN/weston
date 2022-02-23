@@ -41,8 +41,8 @@
 #include "weston-desktop-shell-server-protocol.h"
 #include <libweston/config-parser.h>
 #include "shared/helpers.h"
-#include "shared/shell-utils.h"
 #include "shared/timespec-util.h"
+#include "shell-utils.h"
 #include <libweston-desktop/libweston-desktop.h>
 
 #define DEFAULT_NUM_WORKSPACES 1
