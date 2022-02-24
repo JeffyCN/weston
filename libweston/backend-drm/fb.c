@@ -531,6 +531,8 @@ drm_fb_handle_buffer_destroy(struct wl_listener *listener, void *data)
 		drm_fb_unref(buf_fb->fb);
 	}
 
+	wl_list_remove(&listener->link);
+
 	free(buf_fb);
 }
 
