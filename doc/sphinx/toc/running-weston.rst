@@ -174,7 +174,14 @@ Then, weston can be run by selecting the DRM-backend and the seat ``seat-insecur
 
 ::
 
-        ./weston -Bdrm-backend.so --seat=seat-insecure
+        SEATD_VTBOUND=0 ./weston -Bdrm-backend.so --seat=seat-insecure
+
+This assumes you are using the libseat launcher of Weston with the "builtin"
+backend of libseat. Libseat automatically falls back to the builtin backend if
+``seatd`` is not running and a ``logind`` service is not running or refuses.
+You can also force it with ``LIBSEAT_BACKEND=builtin`` if needed.
+``SEATD_VTBOUND=0`` tells libseat that there is no VT associated with the
+chosen seat.
 
 If everything went well you should see weston be up-and-running on an output
 connected to that DRM device.
