@@ -186,11 +186,6 @@ Use graphics and input devices designated for seat
 instead of the seat defined in the environment variable
 .BR XDG_SEAT ". If neither is specified, seat0 will be assumed."
 .TP
-\fB\-\-tty\fR=\fIx\fR
-Launch Weston on tty
-.I x
-instead of using the current tty.
-.TP
 .B \-\-continue\-without\-input
 Allow Weston to start without input devices. Used for testing purposes.
 .

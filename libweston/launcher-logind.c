@@ -736,7 +736,7 @@ launcher_logind_get_session(char **session)
 
 static int
 launcher_logind_connect(struct weston_launcher **out, struct weston_compositor *compositor,
-			int tty, const char *seat_id, bool sync_drm)
+			const char *seat_id, bool sync_drm)
 {
 	struct launcher_logind *wl;
 	struct wl_event_loop *loop;
@@ -783,11 +783,6 @@ launcher_logind_connect(struct weston_launcher **out, struct weston_compositor *
 		r = sd_session_get_vt(wl->sid, &wl->vtnr);
 		if (r < 0) {
 			weston_log("logind: session not running on a VT\n");
-			goto err_session;
-		} else if (tty > 0 && wl->vtnr != (unsigned int )tty) {
-			weston_log("logind: requested VT --tty=%d differs from real session VT %u\n",
-				   tty, wl->vtnr);
-			r = -EINVAL;
 			goto err_session;
 		}
 	} else if (r < 0) {

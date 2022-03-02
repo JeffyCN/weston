@@ -3018,8 +3018,7 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_compositor;
 
 	/* Check if we run drm-backend using a compatible launcher */
-	compositor->launcher = weston_launcher_connect(compositor, config->tty,
-						       seat_id, true);
+	compositor->launcher = weston_launcher_connect(compositor, seat_id, true);
 	if (compositor->launcher == NULL) {
 		weston_log("fatal: your system should either provide the "
 			   "logind D-Bus API, or use seatd.\n");

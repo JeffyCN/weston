@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-#define WESTON_DRM_BACKEND_CONFIG_VERSION 4
+#define WESTON_DRM_BACKEND_CONFIG_VERSION 5
 
 struct libinput_device;
 
@@ -170,9 +170,6 @@ weston_drm_virtual_output_get_api(struct weston_compositor *compositor)
  */
 struct weston_drm_backend_config {
 	struct weston_backend_config base;
-
-	/** The tty to be used. Set to 0 to use the current tty. */
-	int tty;
 
 	/** Whether to use the pixman renderer instead of the OpenGL ES renderer. */
 	bool use_pixman;

@@ -181,7 +181,7 @@ libseat_event(int fd, uint32_t mask, void *data)
 
 static int
 seat_open(struct weston_launcher **out, struct weston_compositor *compositor,
-	  int tty, const char *seat_id, bool sync_drm)
+	  const char *seat_id, bool sync_drm)
 {
 	struct launcher_libseat *wl;
 	struct wl_event_loop *event_loop;

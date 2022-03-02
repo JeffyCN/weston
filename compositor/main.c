@@ -689,7 +689,6 @@ usage(int error_code)
 	fprintf(out,
 		"Options for drm-backend.so:\n\n"
 		"  --seat=SEAT\t\tThe seat that weston should run on, instead of the seat defined in XDG_SEAT\n"
-		"  --tty=TTY\t\tThe tty to use\n"
 		"  --drm-device=CARD\tThe DRM device to use, e.g. \"card0\".\n"
 		"  --use-pixman\t\tUse the pixman (CPU) renderer\n"
 		"  --current-mode\tPrefer current KMS mode over EDID preferred mode\n"
@@ -699,7 +698,6 @@ usage(int error_code)
 #if defined(BUILD_FBDEV_COMPOSITOR)
 	fprintf(out,
 		"Options for fbdev-backend.so:\n\n"
-		"  --tty=TTY\t\tThe tty to use\n"
 		"  --device=DEVICE\tThe framebuffer device to use\n"
 		"  --seat=SEAT\t\tThe seat that weston should run on, instead of the seat defined in XDG_SEAT\n"
 		"\n");
@@ -2639,7 +2637,6 @@ load_drm_backend(struct weston_compositor *c,
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
-		{ WESTON_OPTION_INTEGER, "tty", 0, &config.tty },
 		{ WESTON_OPTION_STRING, "drm-device", 0, &config.specific_device },
 		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &wet->drm_use_current_mode },
 		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
@@ -2882,7 +2879,6 @@ load_fbdev_backend(struct weston_compositor *c,
 	int ret = 0;
 
 	const struct weston_option fbdev_options[] = {
-		{ WESTON_OPTION_INTEGER, "tty", 0, &config.tty },
 		{ WESTON_OPTION_STRING, "device", 0, &config.device },
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
 	};

@@ -34,14 +34,13 @@ extern "C" {
 
 #include <libweston/libweston.h>
 
-#define WESTON_FBDEV_BACKEND_CONFIG_VERSION 2
+#define WESTON_FBDEV_BACKEND_CONFIG_VERSION 3
 
 struct libinput_device;
 
 struct weston_fbdev_backend_config {
 	struct weston_backend_config base;
 
-	int tty;
 	char *device;
 
 	/** Callback used to configure input devices.

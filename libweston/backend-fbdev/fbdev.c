@@ -924,7 +924,7 @@ fbdev_backend_create(struct weston_compositor *compositor,
 	wl_signal_add(&compositor->session_signal,
 		      &backend->session_listener);
 	compositor->launcher =
-		weston_launcher_connect(compositor, param->tty, seat_id, false);
+		weston_launcher_connect(compositor, seat_id, false);
 	if (!compositor->launcher) {
 		weston_log("fatal: your system should either provide the "
 			   "logind D-Bus API, or use seatd.\n");
@@ -968,7 +968,6 @@ out_compositor:
 static void
 config_init_to_defaults(struct weston_fbdev_backend_config *config)
 {
-	config->tty = 0; /* default to current tty */
 	config->device = NULL;
 	config->seat_id = NULL;
 }
