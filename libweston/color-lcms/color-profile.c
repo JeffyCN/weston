@@ -74,14 +74,15 @@ build_eotf_from_clut_profile(cmsContext lcms_ctx,
 	curve_array[1] = red + num_points;
 	curve_array[2] = red + 2 * num_points;
 
-	xyz_profile = cmsCreateXYZProfile();
+	xyz_profile = cmsCreateXYZProfileTHR(lcms_ctx);
 	if (!xyz_profile)
 		goto release;
 
-	transform_rgb_to_xyz = cmsCreateTransform(profile, TYPE_RGB_FLT,
-						  xyz_profile, TYPE_XYZ_FLT,
-						  INTENT_ABSOLUTE_COLORIMETRIC,
-						  0);
+	transform_rgb_to_xyz = cmsCreateTransformTHR(lcms_ctx, profile,
+						     TYPE_RGB_FLT, xyz_profile,
+						     TYPE_XYZ_FLT,
+						     INTENT_ABSOLUTE_COLORIMETRIC,
+						     0);
 	if (!transform_rgb_to_xyz)
 		goto release;
 
