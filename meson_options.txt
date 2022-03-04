@@ -161,7 +161,7 @@ option(
 option(
 	'launcher-libseat',
 	type: 'boolean',
-	value: false,
+	value: true,
 	description: 'Compositor: support libseat'
 )
 
