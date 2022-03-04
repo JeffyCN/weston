@@ -57,7 +57,8 @@ The actually supported pixel formats depend on the DRM driver and hardware,
 and the renderer used. Using Pixman-renderer, DRM-backend supports only
 .BR xrgb8888 " and " rgb565 .
 The formats supported with GL-renderer depend on the EGL and OpenGL ES 2 or 3
-implementations. The names are case-insensitive.
+implementations. The names are case-insensitive. This setting applies only to
+.RB "outputs in SDR mode, see " eotf-mode " in " weston.ini (5).
 
 .RB "If not specified, " xrgb8888 " is used. See also " gbm-format " in"
 .BR output " section."
@@ -134,9 +135,11 @@ and possibly flipped. Possible values are
 .TP
 \fBgbm-format\fR=\fIformat\fR
 Set the DRM KMS framebuffer format for this specific output. If not set,
-.RB "the value from " gbm-format " option in " core " section is used."
+.RB "the value from " gbm-format " option in " core " section is used"
+.RB "for SDR mode outputs and " xrgb2101010 " for other modes."
 .RI "For the possible values for " format " see "
 .BR gbm-format " option in " core " section."
+.RB "For SDR mode, see " eotf-mode " in " weston.ini (7).
 .TP
 \fBpixman-shadow\fR=\fIboolean\fR
 If using the Pixman-renderer, use shadow framebuffers. Defaults to

@@ -1416,10 +1416,10 @@ drm_output_set_gbm_format(struct weston_output *base,
 			  const char *gbm_format)
 {
 	struct drm_output *output = to_drm_output(base);
-	struct drm_backend *b = to_drm_backend(base->compositor);
 
-	if (parse_gbm_format(gbm_format, b->gbm_format, &output->gbm_format) == -1)
-		output->gbm_format = b->gbm_format;
+	if (parse_gbm_format(gbm_format,
+			     DRM_FORMAT_INVALID, &output->gbm_format) == -1)
+		output->gbm_format = DRM_FORMAT_INVALID;
 }
 
 static void
@@ -1854,6 +1854,13 @@ drm_output_enable(struct weston_output *base)
 	int ret;
 
 	assert(!output->virtual);
+
+	if (output->gbm_format == DRM_FORMAT_INVALID) {
+		if (output->base.eotf_mode != WESTON_EOTF_MODE_SDR)
+			output->gbm_format = DRM_FORMAT_XRGB2101010;
+		else
+			output->gbm_format = b->gbm_format;
+	}
 
 	ret = drm_output_attach_crtc(output);
 	if (ret < 0)
@@ -2301,6 +2308,7 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
 	output->backend = b;
 	output->crtc = NULL;
 
+	output->gbm_format = DRM_FORMAT_INVALID;
 #ifdef BUILD_DRM_GBM
 	output->gbm_bo_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 #endif
