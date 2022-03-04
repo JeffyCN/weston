@@ -93,12 +93,18 @@ backend to be used by ``libseat`` can optionally be selected with
 ``seatd`` is not already running, it can be started with ``sudo -- seatd -g
 video``.
 
-Another way of launching Weston is via ssh or a serial terminal.  The simplest
-option here is to use the ``libseat`` launcher with ``seatd``.  The process for
+Launching Weston via ssh or a serial terminal is best with the ``libseat``
+launcher and ``seatd``. Logind will refuse to give access to local seats from
+remote connections directly. The process for
 setting that up is identical to the one described above, where one just need to
 ensure that ``seatd`` is running with the appropriate arguments, after which one
-can just run ``weston``.  Another option, is to rely on logind and start weston
-as systemd user service: :ref:`weston-user-service`.
+can just run ``weston``. ``seatd`` will lend out the current VT, and if you want
+to run on a different VT you need to ``chvt`` first. Make sure nothing will try
+to take over the seat or VT via logind at the same time in case logind is
+running.
+
+If you want to rely on logind, you can start weston as a systemd user service:
+:ref:`weston-user-service`.
 
 Running Weston on a different seat on a stand-alone back-end
 ------------------------------------------------------------
