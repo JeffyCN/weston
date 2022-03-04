@@ -53,7 +53,7 @@ struct runner_test {
 	static void runner_func_##name(struct test_context *);	\
 								\
 	const struct runner_test runner_test_##name		\
-		__attribute__ ((section ("plugin_test_section"))) =	\
+		__attribute__ ((used, section ("plugin_test_section"))) = \
 	{							\
 		#name, runner_func_##name			\
 	};							\
