@@ -61,12 +61,14 @@
 #include "backend.h"
 #include "libweston-internal.h"
 
+#ifdef BUILD_DRM_GBM
 #ifndef GBM_BO_USE_CURSOR
 #define GBM_BO_USE_CURSOR GBM_BO_USE_CURSOR_64X64
 #endif
 
 #ifndef GBM_BO_USE_LINEAR
 #define GBM_BO_USE_LINEAR (1 << 4)
+#endif
 #endif
 
 #ifndef DRM_PLANE_ZPOS_INVALID_PLANE
