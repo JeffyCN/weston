@@ -379,10 +379,16 @@ drm_fb_destroy_dmabuf(struct drm_fb *fb)
 {
 	int i;
 
-	/* We deliberately do not close the GEM handles here; GBM manages
-	 * their lifetime through the BO. */
-	if (fb->bo)
+	if (fb->bo) {
+		/* We deliberately do not close the GEM handles here; GBM manages
+		 * their lifetime through the BO. */
 		gbm_bo_destroy(fb->bo);
+	} else {
+		for (i = 0; i < fb->num_planes; i++) {
+			struct drm_gem_close arg = { fb->handles[i], };
+			drmIoctl(fb->fd, DRM_IOCTL_GEM_CLOSE, &arg);
+		}
+	}
 
 	/*
 	 * If we imported the dmabuf into a scanout device, we are responsible
@@ -477,12 +483,6 @@ drm_fb_get_from_dmabuf_attributes(struct dmabuf_attributes *attributes,
 
 	fb->bo = gbm_bo_import(backend->gbm, GBM_BO_IMPORT_FD_MODIFIER,
 			       &import_mod, GBM_BO_USE_SCANOUT);
-	if (!fb->bo) {
-		if (try_view_on_plane_failure_reasons)
-			*try_view_on_plane_failure_reasons |=
-				FAILURE_REASONS_GBM_BO_IMPORT_FAILED;
-		goto err_free;
-	}
 
 bo_import_skip:
 	fb->width = attributes->width;
@@ -513,16 +513,27 @@ bo_import_skip:
 	}
 
 	fb->num_planes = attributes->n_planes;
-	for (i = 0; fb->bo && i < attributes->n_planes; i++) {
-		union gbm_bo_handle handle;
+	if (fb->bo) {
+		for (i = 0; i < attributes->n_planes; i++) {
+			union gbm_bo_handle handle;
 
-	        handle = gbm_bo_get_handle_for_plane(fb->bo, i);
-		if (handle.s32 == -1) {
-			*try_view_on_plane_failure_reasons |=
-				FAILURE_REASONS_GBM_BO_GET_HANDLE_FAILED;
-			goto err_free;
+		        handle = gbm_bo_get_handle_for_plane(fb->bo, i);
+			if (handle.s32 == -1) {
+				*try_view_on_plane_failure_reasons |=
+					FAILURE_REASONS_GBM_BO_GET_HANDLE_FAILED;
+				goto err_free;
+			}
+			fb->handles[i] = handle.u32;
 		}
-		fb->handles[i] = handle.u32;
+	} else {
+		for (i = 0; i < fb->num_planes; i++) {
+			if (drmPrimeFDToHandle(fb->fd, import_mod.fds[i],
+					       &fb->handles[i])) {
+				*try_view_on_plane_failure_reasons |=
+					FAILURE_REASONS_GBM_BO_IMPORT_FAILED;
+				goto err_free;
+			}
+		}
 	}
 
 	if (drm_fb_addfb(device, fb) != 0) {
