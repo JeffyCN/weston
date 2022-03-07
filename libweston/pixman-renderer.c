@@ -60,6 +60,12 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+
+/* HACK: Force enabling EGL */
+#ifndef ENABLE_EGL
+#define ENABLE_EGL
+#endif
+
 #include "shared/platform.h"
 #include "shared/weston-egl-ext.h"  /* for PFN* stuff */
 #endif
