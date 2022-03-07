@@ -34,6 +34,18 @@
 #define DRM_MOD_VALID(mod) \
 	((mod) != DRM_FORMAT_MOD_LINEAR && (mod) != DRM_FORMAT_MOD_INVALID)
 
+#ifndef DRM_FORMAT_NV15
+#define DRM_FORMAT_NV15         fourcc_code('N', 'V', '1', '5')
+#endif
+
+#ifndef DRM_FORMAT_YUV420_8BIT
+#define DRM_FORMAT_YUV420_8BIT  fourcc_code('Y', 'U', '0', '8')
+#endif
+
+#ifndef DRM_FORMAT_YUV420_10BIT
+#define DRM_FORMAT_YUV420_10BIT fourcc_code('Y', 'U', '1', '0')
+#endif
+
 /* The kernel header drm_fourcc.h defines the DRM formats below.  We duplicate
  * some of the definitions here so that building Weston won't require
  * bleeding-edge kernel headers.
