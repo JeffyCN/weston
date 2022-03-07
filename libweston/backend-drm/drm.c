@@ -1469,10 +1469,8 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 
 	drm_property_info_populate(device, plane_props, plane->props,
 				   WDRM_PLANE__COUNT, props);
-	plane->type =
-		drm_property_get_value(&plane->props[WDRM_PLANE_TYPE],
-				       props,
-				       WDRM_PLANE_TYPE__COUNT);
+
+	plane->type = drm_plane_get_type(plane, props);
 
 	plane->can_scale =
 		drm_property_has_feature(plane->props,
