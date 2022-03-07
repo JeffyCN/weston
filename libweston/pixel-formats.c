@@ -485,6 +485,18 @@ static const struct pixel_format_info pixel_format_table[] = {
 		.num_planes = 3,
 		.chroma_order = ORDER_VU,
 	},
+	{
+		DRM_FORMAT(NV15),
+		.num_planes = 1,
+	},
+	{
+		DRM_FORMAT(YUV420_8BIT),
+		.num_planes = 1,
+	},
+	{
+		DRM_FORMAT(YUV420_10BIT),
+		.num_planes = 1,
+	},
 };
 
 WL_EXPORT const struct pixel_format_info *
