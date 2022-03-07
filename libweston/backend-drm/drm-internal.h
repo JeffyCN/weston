@@ -921,6 +921,9 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 void
 drm_property_info_free(struct drm_property_info *info, int num_props);
 
+enum wdrm_plane_type
+drm_plane_get_type(struct drm_plane *plane, drmModeObjectProperties *props);
+
 extern struct drm_property_enum_info plane_type_enums[];
 extern const struct drm_property_info plane_props[];
 extern struct drm_property_enum_info dpms_state_enums[];
