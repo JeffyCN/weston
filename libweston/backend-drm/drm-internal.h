@@ -888,6 +888,14 @@ drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 void
 drm_property_info_free(struct drm_property_info *info, int num_props);
 
+/**
+ * Get plane type, possibly overridden by environment variable in atomic mode.
+ * The environment variable DRM_PLANE_TYPE_<plane_id> can be set to
+ * "primary", "overlay", or "cursor".
+ */
+enum wdrm_plane_type
+drm_plane_get_type(struct drm_plane *plane, drmModeObjectProperties *props);
+
 extern struct drm_property_enum_info plane_type_enums[];
 extern const struct drm_property_info plane_props[];
 extern struct drm_property_enum_info dpms_state_enums[];
