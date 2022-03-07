@@ -457,6 +457,35 @@ drm_property_info_free(struct drm_property_info *info, int num_props)
 	memset(info, 0, sizeof(*info) * num_props);
 }
 
+enum wdrm_plane_type
+drm_plane_get_type(struct drm_plane *plane, drmModeObjectProperties *props)
+{
+	struct drm_backend *b = plane->backend;
+	enum wdrm_plane_type type;
+	const char *env;
+	char buf[256];
+
+	type = drm_property_get_value(&plane->props[WDRM_PLANE_TYPE],
+				      props,
+				      WDRM_PLANE_TYPE__COUNT);
+	if (!b->atomic_modeset)
+		return type;
+
+	snprintf(buf, sizeof(buf), "DRM_PLANE_TYPE_%d", plane->plane_id);
+	env = getenv(buf);
+	if (!env)
+		return type;
+
+	if (!strcmp(env, "primary"))
+		return WDRM_PLANE_TYPE_PRIMARY;
+	else if (!strcmp(env, "overlay"))
+		return WDRM_PLANE_TYPE_OVERLAY;
+	else if (!strcmp(env, "cursor"))
+		return WDRM_PLANE_TYPE_CURSOR;
+
+	return type;
+}
+
 static inline uint32_t *
 formats_ptr(struct drm_format_modifier_blob *blob)
 {
