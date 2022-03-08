@@ -913,6 +913,56 @@ weston_log_scope_timestamp(struct weston_log_scope *scope,
 	return buf;
 }
 
+/** Returns a timestamp useful for adding it to a log scope.
+ *
+ * @example
+ * char timestr[128];
+ * static int cached_dm = -1;
+ * char *time_buff = weston_log_timestamp(timestr, sizeof(timestr),  &cached_dm);
+ * weston_log_scope_printf(log_scope, "%s %s", time_buff, other_data);
+ *
+ * @param buf a user-supplied buffer
+ * @param len user-supplied length of the buffer
+ * @param cached_tm_mday a cached day of the month, as an integer. Setting this
+ * pointer different from NULL, to an integer value other than was retrieved as
+ * current day of the month, would add an additional line under the form of
+ * 'Date: Y-m-d Z\n'. Setting the pointer to NULL would not print any date, nor
+ * if the value matches the current day of month. Helps identify logs that
+ * spawn multiple days, while still having a shorter time stamp format.
+ * @ingroup log
+ */
+WL_EXPORT char *
+weston_log_timestamp(char *buf, size_t len, int *cached_tm_mday)
+{
+       struct timeval tv;
+       struct tm *brokendown_time;
+       char datestr[128];
+       char timestr[128];
+
+       gettimeofday(&tv, NULL);
+
+       brokendown_time = localtime(&tv.tv_sec);
+       if (brokendown_time == NULL) {
+               snprintf(buf, len, "%s", "[(NULL)localtime] ");
+               return buf;
+       }
+
+       memset(datestr, 0, sizeof(datestr));
+       if (cached_tm_mday && brokendown_time->tm_mday != *cached_tm_mday) {
+               strftime(datestr, sizeof(datestr), "Date: %Y-%m-%d %Z\n",
+                        brokendown_time);
+               *cached_tm_mday = brokendown_time->tm_mday;
+       }
+
+       strftime(timestr, sizeof(timestr), "%H:%M:%S", brokendown_time);
+       /* if datestr is empty it prints only timestr*/
+       snprintf(buf, len, "%s[%s.%03li]", datestr,
+                timestr, (tv.tv_usec / 1000));
+
+       return buf;
+}
+
+
 void
 weston_log_subscriber_release(struct weston_log_subscriber *subscriber)
 {
