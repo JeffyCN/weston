@@ -29,6 +29,7 @@
 #include "backend.h"
 #include "libweston-internal.h"
 #include "shared/timespec-util.h"
+#include "shared/string-helpers.h"
 #include <libweston/backend-drm.h>
 #include <libweston/weston-log.h>
 
@@ -550,7 +551,7 @@ pipewire_output_create(struct weston_compositor *c, char *name)
 	output->pipewire = pipewire;
 	wl_list_insert(pipewire->output_list.prev, &output->link);
 
-	asprintf(&remoting_name, "%s-%s", connector_name, name);
+	str_printf(&remoting_name, "%s-%s", connector_name, name);
 	weston_head_init(head, remoting_name);
 	weston_head_set_subpixel(head, WL_OUTPUT_SUBPIXEL_NONE);
 	weston_head_set_monitor_strings(head, make, model, serial_number);

@@ -38,6 +38,7 @@
 #include <fcntl.h>
 
 #include "shared/helpers.h"
+#include "shared/string-helpers.h"
 #include "weston-test-fixture-compositor.h"
 #include "weston.h"
 #include "test-config.h"
@@ -116,7 +117,8 @@ get_lock_path(void)
 		return NULL;
 	}
 
-	if (asprintf(&lock_path, "%s/%s", env_path, suffix) == -1)
+	str_printf(&lock_path, "%s/%s", env_path, suffix);
+	if (!lock_path)
 		return NULL;
 
 	return lock_path;
@@ -345,10 +347,10 @@ execute_compositor(const struct compositor_setup *setup,
 	prog_args_init(&args);
 
 	/* argv[0] */
-	asprintf(&tmp, "weston-%s", setup->testset_name);
+	str_printf(&tmp, "weston-%s", setup->testset_name);
 	prog_args_take(&args, tmp);
 
-	asprintf(&tmp, "--backend=%s", backend_to_str(setup->backend));
+	str_printf(&tmp, "--backend=%s", backend_to_str(setup->backend));
 	prog_args_take(&args, tmp);
 
 	if (setup->backend == WESTON_BACKEND_DRM) {
@@ -362,7 +364,7 @@ execute_compositor(const struct compositor_setup *setup,
 			ret = RESULT_SKIP;
 			goto out;
 		}
-		asprintf(&tmp, "--drm-device=%s", drm_device);
+		str_printf(&tmp, "--drm-device=%s", drm_device);
 		prog_args_take(&args, tmp);
 
 		prog_args_take(&args, strdup("--seat=weston-test-seat"));
@@ -379,36 +381,36 @@ execute_compositor(const struct compositor_setup *setup,
 	/* Test suite needs the debug protocol to be able to take screenshots */
 	prog_args_take(&args, strdup("--debug"));
 
-	asprintf(&tmp, "--socket=%s", setup->testset_name);
+	str_printf(&tmp, "--socket=%s", setup->testset_name);
 	prog_args_take(&args, tmp);
 
-	asprintf(&tmp, "--modules=%s%s%s", TESTSUITE_PLUGIN_PATH,
-		 setup->extra_module ? "," : "",
-		 setup->extra_module ? setup->extra_module : "");
+	str_printf(&tmp, "--modules=%s%s%s", TESTSUITE_PLUGIN_PATH,
+		   setup->extra_module ? "," : "",
+		   setup->extra_module ? setup->extra_module : "");
 	prog_args_take(&args, tmp);
 
 	if (setup->backend != WESTON_BACKEND_DRM &&
 	    setup->backend != WESTON_BACKEND_FBDEV) {
-		asprintf(&tmp, "--width=%d", setup->width);
+		str_printf(&tmp, "--width=%d", setup->width);
 		prog_args_take(&args, tmp);
 
-		asprintf(&tmp, "--height=%d", setup->height);
+		str_printf(&tmp, "--height=%d", setup->height);
 		prog_args_take(&args, tmp);
 	}
 
 	if (setup->scale != 1) {
-		asprintf(&tmp, "--scale=%d", setup->scale);
+		str_printf(&tmp, "--scale=%d", setup->scale);
 		prog_args_take(&args, tmp);
 	}
 
 	if (setup->transform != WL_OUTPUT_TRANSFORM_NORMAL) {
-		asprintf(&tmp, "--transform=%s",
-			 transform_to_str(setup->transform));
+		str_printf(&tmp, "--transform=%s",
+			   transform_to_str(setup->transform));
 		prog_args_take(&args, tmp);
 	}
 
 	if (setup->config_file) {
-		asprintf(&tmp, "--config=%s", setup->config_file);
+		str_printf(&tmp, "--config=%s", setup->config_file);
 		prog_args_take(&args, tmp);
 		free(setup->config_file);
 	} else {
@@ -419,11 +421,11 @@ execute_compositor(const struct compositor_setup *setup,
 	if (ctmp)
 		prog_args_take(&args, strdup(ctmp));
 
-	asprintf(&tmp, "--shell=%s", shell_to_str(setup->shell));
+	str_printf(&tmp, "--shell=%s", shell_to_str(setup->shell));
 	prog_args_take(&args, tmp);
 
 	if (setup->logging_scopes) {
-		asprintf(&tmp, "--logger-scopes=%s", setup->logging_scopes);
+		str_printf(&tmp, "--logger-scopes=%s", setup->logging_scopes);
 		prog_args_take(&args, tmp);
 	}
 
@@ -472,7 +474,8 @@ open_ini_file(struct compositor_setup *setup)
 	wd = realpath(".", NULL);
 	assert(wd);
 
-	if (asprintf(&tmp_path, "%s/%s.ini", wd, setup->testset_name) == -1) {
+	str_printf(&tmp_path, "%s/%s.ini", wd, setup->testset_name);
+	if (!tmp_path) {
 		fprintf(stderr, "Fail formatting Weston.ini file name.\n");
 		goto out;
 	}
