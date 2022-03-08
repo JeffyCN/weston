@@ -2422,9 +2422,10 @@ resources_has_connector(drmModeRes *resources, uint32_t connector_id)
 }
 
 static void
-drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_device)
+drm_backend_update_connectors(struct drm_device *device,
+			      struct udev_device *drm_device)
 {
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
 	drmModeRes *resources;
 	drmModeConnector *conn;
 	struct weston_head *base, *base_next;
@@ -2471,6 +2472,9 @@ drm_backend_update_connectors(struct drm_backend *b, struct udev_device *drm_dev
 			      &b->compositor->head_list, compositor_link) {
 		head = to_drm_head(base);
 		connector_id = head->connector.connector_id;
+
+		if (head->connector.device != device)
+			continue;
 
 		if (resources_has_connector(resources, connector_id))
 			continue;
@@ -2544,9 +2548,8 @@ drm_backend_update_conn_props(struct drm_backend *b,
 }
 
 static int
-udev_event_is_hotplug(struct drm_backend *b, struct udev_device *udev_device)
+udev_event_is_hotplug(struct drm_device *device, struct udev_device *udev_device)
 {
-	struct drm_device *device = b->drm;
 	const char *sysnum;
 	const char *val;
 
@@ -2595,11 +2598,11 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 
 	event = udev_monitor_receive_device(b->udev_monitor);
 
-	if (udev_event_is_hotplug(b, event)) {
+	if (udev_event_is_hotplug(b->drm, event)) {
 		if (udev_event_is_conn_prop_change(b, event, &conn_id, &prop_id))
 			drm_backend_update_conn_props(b, conn_id, prop_id);
 		else
-			drm_backend_update_connectors(b, event);
+			drm_backend_update_connectors(b->drm, event);
 	}
 
 	udev_device_unref(event);
