@@ -7834,6 +7834,10 @@ weston_compositor_create(struct wl_display *display,
 						weston_timeline_create_subscription,
 						weston_timeline_destroy_subscription,
 						ec);
+	ec->libseat_debug =
+		weston_compositor_add_log_scope(ec, "libseat-debug",
+						"libseat debug messages\n",
+						NULL, NULL, NULL);
 	return ec;
 
 fail:
@@ -8214,6 +8218,9 @@ weston_compositor_destroy(struct weston_compositor *compositor)
 
 	weston_log_scope_destroy(compositor->timeline);
 	compositor->timeline = NULL;
+
+	weston_log_scope_destroy(compositor->libseat_debug);
+	compositor->libseat_debug = NULL;
 
 	if (compositor->default_dmabuf_feedback) {
 		weston_dmabuf_feedback_destroy(compositor->default_dmabuf_feedback);

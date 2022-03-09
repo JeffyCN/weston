@@ -32,6 +32,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -40,6 +41,8 @@
 #include <libseat.h>
 
 #include <libweston/libweston.h>
+#include <libweston/weston-log.h>
+#include "weston-log-internal.h"
 #include "backend.h"
 #include "dbus.h"
 #include "launcher-impl.h"
@@ -59,6 +62,11 @@ struct launcher_libseat {
 	struct wl_event_source *seat_ctx;
 	struct wl_list devices;
 };
+
+/* debug messages go into a dedicated libseat-debug scope, while info and err
+ * log level messages go into the log_scope, which  the compositor has a
+ * subscription by default*/
+static struct weston_log_scope *libseat_debug_scope = NULL;
 
 static struct launcher_libseat_device *
 find_device_by_fd(struct launcher_libseat *wl, int fd)
@@ -179,6 +187,44 @@ libseat_event(int fd, uint32_t mask, void *data)
 	return 1;
 }
 
+static void
+log_libseat_info_err(const char *fmt, va_list ap)
+{
+	/* these all have been set-up by the compositor and use the 'log' scope */
+	weston_vlog(fmt, ap);
+	weston_log_continue("\n");
+}
+
+static void
+log_libseat_debug(const char *fmt, va_list ap)
+{
+	int len_va;
+	char *str;
+	const char *oom = "Out of memory";
+
+	if (!weston_log_scope_is_enabled(libseat_debug_scope))
+		return;
+
+	len_va = vasprintf(&str, fmt, ap);
+	if (len_va >= 0) {
+		weston_log_scope_printf(libseat_debug_scope, "%s\n", str);
+		free(str);
+	} else {
+		weston_log_scope_printf(libseat_debug_scope, "%s\n", oom);
+	}
+}
+
+static void log_libseat(enum libseat_log_level level,
+                       const char *fmt, va_list ap)
+{
+	if (level == LIBSEAT_LOG_LEVEL_DEBUG) {
+		log_libseat_debug(fmt, ap);
+		return;
+	}
+
+	log_libseat_info_err(fmt, ap);
+}
+
 static int
 seat_open(struct weston_launcher **out, struct weston_compositor *compositor,
 	  const char *seat_id, bool sync_drm)
@@ -194,6 +240,13 @@ seat_open(struct weston_launcher **out, struct weston_compositor *compositor,
 	wl->base.iface = &launcher_libseat_iface;
 	wl->compositor = compositor;
 	wl_list_init(&wl->devices);
+
+	libseat_debug_scope = compositor->libseat_debug;
+	assert(libseat_debug_scope);
+	libseat_set_log_handler(log_libseat);
+
+	/* includes (all) other log levels available <= LOG_LEVEL_DEBUG */
+	libseat_set_log_level(LIBSEAT_LOG_LEVEL_DEBUG);
 
 	wl->seat = libseat_open_seat(&seat_listener, wl);
 	if (wl->seat == NULL) {
@@ -230,6 +283,9 @@ static void
 seat_close(struct weston_launcher *launcher)
 {
 	struct launcher_libseat *wl = wl_container_of(launcher, wl, base);
+
+	libseat_debug_scope = NULL;
+	libseat_set_log_handler(NULL);
 
 	if (wl->seat != NULL) {
 		libseat_close_seat(wl->seat);
