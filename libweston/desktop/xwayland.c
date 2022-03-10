@@ -444,10 +444,21 @@ weston_desktop_xwayland_init(struct weston_desktop *desktop)
 	xwayland->client = weston_desktop_client_create(desktop, NULL, NULL, NULL, NULL, 0, 0);
 
 	weston_layer_init(&xwayland->layer, compositor);
-	/* We put this layer on top of regular shell surfaces, but hopefully
-	 * below any UI the shell would add */
+	/* This is the layer we use for override redirect "windows", which
+	 * ends up used for tooltips and drop down menus, among other things.
+	 * Previously this was WESTON_LAYER_POSITION_NORMAL + 1, but this is
+	 * below the fullscreen layer, so fullscreen apps would be above their
+	 * menus and tooltips.
+	 *
+	 * Moving this to just below the TOP_UI layer ensures visibility at all
+	 * times, with the minor drawback that they could be rendered above
+	 * DESKTOP_UI.
+	 *
+	 * For tooltips with no transient window hints, this is probably the best
+	 * we can do.
+	 */
 	weston_layer_set_position(&xwayland->layer,
-				  WESTON_LAYER_POSITION_NORMAL + 1);
+				  WESTON_LAYER_POSITION_TOP_UI - 1);
 
 	compositor->xwayland = xwayland;
 	compositor->xwayland_interface = &weston_desktop_xwayland_interface;
