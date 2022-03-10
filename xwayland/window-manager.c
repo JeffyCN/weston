@@ -171,6 +171,7 @@ struct weston_wm_window {
 	int delete_window;
 	int maximized_vert;
 	int maximized_horz;
+	int take_focus;
 	struct wm_size_hints size_hints;
 	struct motif_wm_hints motif_hints;
 	struct wl_list link;
@@ -530,6 +531,7 @@ weston_wm_window_read_properties(struct weston_wm_window *window)
 	window->size_hints.flags = 0;
 	window->motif_hints.flags = 0;
 	window->delete_window = 0;
+	window->take_focus = 0;
 
 	for (i = 0; i < ARRAY_LENGTH(props); i++)  {
 		reply = xcb_get_property_reply(wm->conn, cookie[i], NULL);
@@ -572,7 +574,8 @@ weston_wm_window_read_properties(struct weston_wm_window *window)
 			for (i = 0; i < reply->value_len; i++)
 				if (atom[i] == wm->atom.wm_delete_window) {
 					window->delete_window = 1;
-					break;
+				} else if (atom[i] == wm->atom.wm_take_focus) {
+					window->take_focus = 1;
 				}
 			break;
 		case TYPE_WM_NORMAL_HINTS:
@@ -936,16 +939,18 @@ weston_wm_send_focus_window(struct weston_wm *wm,
 		if (window->override_redirect)
 			return;
 
-		client_message.response_type = XCB_CLIENT_MESSAGE;
-		client_message.format = 32;
-		client_message.window = window->id;
-		client_message.type = wm->atom.wm_protocols;
-		client_message.data.data32[0] = wm->atom.wm_take_focus;
-		client_message.data.data32[1] = XCB_TIME_CURRENT_TIME;
+		if (window->take_focus) {
+			client_message.response_type = XCB_CLIENT_MESSAGE;
+			client_message.format = 32;
+			client_message.window = window->id;
+			client_message.type = wm->atom.wm_protocols;
+			client_message.data.data32[0] = wm->atom.wm_take_focus;
+			client_message.data.data32[1] = XCB_TIME_CURRENT_TIME;
 
-		xcb_send_event(wm->conn, 0, window->id,
-			       XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-			       (char *) &client_message);
+			xcb_send_event(wm->conn, 0, window->id,
+				       XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+				       (char *) &client_message);
+		}
 
 		xcb_set_input_focus (wm->conn, XCB_INPUT_FOCUS_POINTER_ROOT,
 				     window->id, XCB_TIME_CURRENT_TIME);
