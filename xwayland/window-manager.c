@@ -346,6 +346,7 @@ xcb_cursor_library_load_cursor(struct weston_wm *wm, const char *file)
 	xcb_cursor_t cursor;
 	XcursorImages *images;
 	char *v = NULL;
+	char *theme;
 	int size = 0;
 
 	if (!file)
@@ -358,7 +359,9 @@ xcb_cursor_library_load_cursor(struct weston_wm *wm, const char *file)
 	if (!size)
 		size = 32;
 
-	images = XcursorLibraryLoadImages (file, NULL, size);
+	theme = getenv("XCURSOR_THEME");
+
+	images = XcursorLibraryLoadImages(file, theme, size);
 	if (!images)
 		return -1;
 
