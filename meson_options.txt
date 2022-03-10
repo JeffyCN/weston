@@ -47,7 +47,7 @@ option(
 option(
 	'backend-default',
 	type: 'combo',
-	choices: [ 'auto', 'drm', 'wayland', 'x11', 'headless' ],
+	choices: [ 'auto', 'drm', 'wayland', 'x11', 'headless', 'rdp' ],
 	value: 'drm',
 	description: 'Default backend when no parent display server detected'
 )
