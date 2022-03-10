@@ -732,7 +732,7 @@ struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 	{KBD_ITALIAN, "it", 0},
 	{KBD_ITALIAN_142, "it", "nodeadkeys"},
 	{KBD_JAPANESE, "jp", 0},
-	{KBD_JAPANESE_INPUT_SYSTEM_MS_IME2002, "jp", "kana"},
+	{KBD_JAPANESE_INPUT_SYSTEM_MS_IME2002, "jp", 0},
 	{KBD_KOREAN, "kr", 0},
 	{KBD_KOREAN_INPUT_SYSTEM_IME_2000, "kr", "kr104"},
 	{KBD_DUTCH, "nl", 0},
