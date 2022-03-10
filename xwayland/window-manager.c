@@ -1057,6 +1057,9 @@ weston_wm_window_create_frame(struct weston_wm_window *window)
 	if (window->decorate & MWM_DECOR_MAXIMIZE)
 		buttons |= FRAME_BUTTON_MAXIMIZE;
 
+	if (window->decorate & MWM_DECOR_MINIMIZE)
+		buttons |= FRAME_BUTTON_MINIMIZE;
+
 	window->frame = frame_create(window->wm->theme,
 				     window->width, window->height,
 				     buttons, window->name, NULL);
@@ -1804,6 +1807,27 @@ weston_wm_window_handle_state(struct weston_wm_window *window,
 }
 
 static void
+weston_wm_window_handle_iconic_state(struct weston_wm_window *window,
+				     xcb_client_message_event_t *client_message)
+{
+	struct weston_wm *wm = window->wm;
+	const struct weston_desktop_xwayland_interface *xwayland_interface =
+		wm->server->compositor->xwayland_interface;
+	uint32_t iconic_state;
+
+	if (!window->shsurf)
+		return;
+
+	iconic_state = client_message->data.data32[0];
+
+	if (iconic_state == ICCCM_ICONIC_STATE) {
+		window->saved_height = window->height;
+		window->saved_width = window->width;
+		xwayland_interface->set_minimized(window->shsurf);
+	}
+}
+
+static void
 surface_destroy(struct wl_listener *listener, void *data)
 {
 	struct weston_wm_window *window =
@@ -1880,6 +1904,8 @@ weston_wm_handle_client_message(struct weston_wm *wm,
 		weston_wm_window_handle_state(window, client_message);
 	else if (client_message->type == wm->atom.wl_surface_id)
 		weston_wm_window_handle_surface_id(window, client_message);
+	else if (client_message->type == wm->atom.wm_change_state)
+		weston_wm_window_handle_iconic_state(window, client_message);
 }
 
 enum cursor_type {
@@ -2162,6 +2188,13 @@ weston_wm_handle_button(struct weston_wm *wm, xcb_generic_event_t *event)
 			weston_wm_window_set_toplevel(window);
 		}
 		frame_status_clear(window->frame, FRAME_STATUS_MAXIMIZE);
+	}
+
+	if (frame_status(window->frame) & FRAME_STATUS_MINIMIZE) {
+		window->saved_width = window->width;
+		window->saved_height = window->height;
+		xwayland_interface->set_minimized(window->shsurf);
+		frame_status_clear(window->frame, FRAME_STATUS_MINIMIZE);
 	}
 }
 

@@ -401,6 +401,13 @@ set_maximized(struct weston_desktop_xwayland_surface *surface)
 }
 
 static void
+set_minimized(struct weston_desktop_xwayland_surface *surface)
+{
+	weston_desktop_api_minimized_requested(surface->desktop,
+					       surface->surface);
+}
+
+static void
 set_pid(struct weston_desktop_xwayland_surface *surface, pid_t pid)
 {
 	weston_desktop_surface_set_pid(surface->surface, pid);
@@ -419,6 +426,7 @@ static const struct weston_desktop_xwayland_interface weston_desktop_xwayland_in
 	.set_title = set_title,
 	.set_window_geometry = set_window_geometry,
 	.set_maximized = set_maximized,
+	.set_minimized = set_minimized,
 	.set_pid = set_pid,
 };
 
