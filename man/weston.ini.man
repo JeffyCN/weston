@@ -148,16 +148,6 @@ target vertical blank, increasing output latency. The default value is 7
 milliseconds. The allowed range is from -10 to 1000 milliseconds. Using a
 negative value will force the compositor to always miss the target vblank.
 .TP 7
-.BI "gbm-format="format
-sets the GBM format used for the framebuffer for the GBM backend. Can be
-.B xrgb8888,
-.B xrgb2101010,
-.B rgb565.
-By default, xrgb8888 is used.
-.RS
-.PP
-.RE
-.TP 7
 .BI "idle-time="seconds
 sets Weston's idle timeout in seconds. This idle timeout is the time
 after which Weston will enter an "inactive" mode and screen will fade to

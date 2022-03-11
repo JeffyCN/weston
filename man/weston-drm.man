@@ -43,6 +43,15 @@ section of
 .
 The DRM backend uses the following entries from
 .BR weston.ini .
+.SS Section core
+.TP
+\fBgbm-format\fR=\fIformat\fR
+sets the GBM format used for the framebuffer for the GBM backend. Can be
+.B xrgb8888,
+.B xrgb2101010,
+.B rgb565.
+By default, xrgb8888 is used.
+
 .SS Section output
 .TP
 \fBname\fR=\fIconnector\fR
