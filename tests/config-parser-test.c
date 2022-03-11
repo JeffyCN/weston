@@ -32,6 +32,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <unistd.h>
+#include <math.h>
 
 #include <libweston/config-parser.h>
 
@@ -119,6 +120,13 @@ static struct zuc_fixture config_test_t1 = {
 	"zero=0\n"
 	"negative=-42\n"
 	"flag=false\n"
+	"real=4.667\n"
+	"negreal=-3.2\n"
+	"expval=24.687E+15\n"
+	"negexpval=-3e-2\n"
+	"notanumber=nan\n"
+	"empty=\n"
+	"tiny=0.0000000000000000000000000000000000000063548\n"
 	"\n"
 	"[colors]\n"
 	"none=0x00000000\n"
@@ -598,6 +606,197 @@ ZUC_TEST_F(config_test_t1, test027, data)
 	ZUC_ASSERT_EQ(-1, r);
 	ZUC_ASSERT_EQ(600, n);
 	ZUC_ASSERT_EQ(ERANGE, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_number, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "number", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(5252.0 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_missing, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "+++", &n, 600.0);
+
+	ZUC_ASSERT_EQ(-1, r);
+	ZUC_ASSERT_TRUE(600.0 == n);
+	ZUC_ASSERT_EQ(ENOENT, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_zero, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "zero", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(0.0 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_negative, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "negative", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(-42.0 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_flag, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "flag", &n, 600.0);
+
+	ZUC_ASSERT_EQ(-1, r);
+	ZUC_ASSERT_TRUE(600.0 == n);
+	ZUC_ASSERT_EQ(EINVAL, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_real, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "real", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(4.667 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_negreal, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "negreal", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(-3.2 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_expval, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "expval", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(24.687e+15 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_negexpval, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "negexpval", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(-3e-2 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_notanumber, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "notanumber", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(isnan(n));
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_empty, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "empty", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(0.0 == n);
+	ZUC_ASSERT_EQ(0, errno);
+}
+
+ZUC_TEST_F(config_test_t1, get_double_tiny, data)
+{
+	int r;
+	double n;
+	struct weston_config_section *section;
+	struct weston_config *config = data;
+
+	errno = 0;
+	section = weston_config_get_section(config, "bar", NULL, NULL);
+	r = weston_config_section_get_double(section, "tiny", &n, 600.0);
+
+	ZUC_ASSERT_EQ(0, r);
+	ZUC_ASSERT_TRUE(6.3548e-39 == n);
+	ZUC_ASSERT_EQ(0, errno);
 }
 
 ZUC_TEST_F(config_test_t2, doesnt_parse, data)
