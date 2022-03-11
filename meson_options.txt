@@ -157,6 +157,13 @@ option(
 )
 
 option(
+	'dbus',
+	type: 'boolean',
+	value: true,
+	description: 'D-Bus protocol support'
+)
+
+option(
 	'deprecated-launcher-logind',
 	type: 'boolean',
 	value: false,
