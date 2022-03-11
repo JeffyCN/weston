@@ -307,6 +307,7 @@ static int
 rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 {
 	struct rdp_output *rdpOutput = container_of(output, struct rdp_output, base);
+	struct rdp_backend *rdpBackend = to_rdp_backend(output->compositor);
 	struct rdp_peers_item *rdpPeer;
 	rdpSettings *settings;
 	pixman_image_t *new_shadow_buffer;
@@ -315,7 +316,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 
 	local_mode = ensure_matching_mode(output, target_mode);
 	if (!local_mode) {
-		weston_log("mode %dx%d not available\n", target_mode->width, target_mode->height);
+		rdp_debug(rdpBackend, "mode %dx%d not available\n", target_mode->width, target_mode->height);
 		return -ENOENT;
 	}
 
@@ -523,6 +524,16 @@ rdp_destroy(struct weston_compositor *ec)
 	for (i = 0; i < MAX_FREERDP_FDS; i++)
 		if (b->listener_events[i])
 			wl_event_source_remove(b->listener_events[i]);
+
+	if (b->debug) {
+		weston_log_scope_destroy(b->debug);
+		b->debug = NULL;
+	}
+
+	if (b->verbose) {
+		weston_log_scope_destroy(b->verbose);
+		b->verbose = NULL;
+	}
 
 	weston_compositor_shutdown(ec);
 
@@ -824,7 +835,7 @@ xf_peer_activate(freerdp_peer* client)
 	}
 
 	if (b->force_no_compression && settings->CompressionEnabled) {
-		weston_log("Forcing compression off\n");
+		rdp_debug(b, "Forcing compression off\n");
 		settings->CompressionEnabled = FALSE;
 	}
 
@@ -867,7 +878,7 @@ xf_peer_activate(freerdp_peer* client)
 		return TRUE;
 
 	/* when here it's the first reactivation, we need to setup a little more */
-	weston_log("kbd_layout:0x%x kbd_type:0x%x kbd_subType:0x%x kbd_functionKeys:0x%x\n",
+	rdp_debug(b, "kbd_layout:0x%x kbd_type:0x%x kbd_subType:0x%x kbd_functionKeys:0x%x\n",
 			settings->KeyboardLayout, settings->KeyboardType, settings->KeyboardSubType,
 			settings->KeyboardFunctionKey);
 
@@ -1021,9 +1032,17 @@ xf_input_synchronize_event(rdpInput *input, UINT32 flags)
 {
 	freerdp_peer *client = input->context->peer;
 	RdpPeerContext *peerCtx = (RdpPeerContext *)input->context;
+	struct rdp_backend *b = peerCtx->rdpBackend;
 	struct rdp_output *output = peerCtx->rdpBackend->output;
 	pixman_box32_t box;
 	pixman_region32_t damage;
+
+        rdp_debug_verbose(b, "RDP backend: %s ScrLk:%d, NumLk:%d, CapsLk:%d, KanaLk:%d\n",
+			  __func__,
+			  flags & KBD_SYNC_SCROLL_LOCK ? 1 : 0,
+			  flags & KBD_SYNC_NUM_LOCK ? 1 : 0,
+			  flags & KBD_SYNC_CAPS_LOCK ? 1 : 0,
+			  flags & KBD_SYNC_KANA_LOCK ? 1 : 0);
 
 	/* sends a full refresh */
 	box.x1 = 0;
@@ -1083,7 +1102,11 @@ xf_input_keyboard_event(rdpInput *input, UINT16 flags, UINT16 code)
 static BOOL
 xf_input_unicode_keyboard_event(rdpInput *input, UINT16 flags, UINT16 code)
 {
-	weston_log("Client sent a unicode keyboard event (flags:0x%X code:0x%X)\n", flags, code);
+	RdpPeerContext *peerContext = (RdpPeerContext *)input->context;
+	struct rdp_backend *b = peerContext->rdpBackend;
+
+	rdp_debug(b, "Client sent a unicode keyboard event (flags:0x%X code:0x%X)\n", flags, code);
+
 	return TRUE;
 }
 
@@ -1222,6 +1245,17 @@ rdp_backend_create(struct weston_compositor *compositor,
 	b->force_no_compression = config->force_no_compression;
 	b->remotefx_codec = config->remotefx_codec;
 
+	b->debug = weston_compositor_add_log_scope(compositor,
+						   "rdp-backend",
+						   "Debug messages from RDP backend\n",
+						   NULL, NULL, NULL);
+	b->verbose = weston_compositor_add_log_scope(compositor,
+						     "rdp-backend-verbose",
+						     "Verbose debug messages from RDP backend\n",
+						     NULL, NULL, NULL);
+
+	/* After here, rdp_debug() is ready to be used */
+
 	compositor->backend = &b->base;
 
 	/* activate TLS only if certificate/key are available */
@@ -1291,6 +1325,10 @@ err_compositor:
 
 	weston_compositor_shutdown(compositor);
 err_free_strings:
+	if (b->debug)
+		weston_log_scope_destroy(b->debug);
+	if (b->verbose)
+		weston_log_scope_destroy(b->verbose);
 	free(b->rdp_key);
 	free(b->server_cert);
 	free(b->server_key);

@@ -19,9 +19,14 @@ deps_rdp = [
 	dep_frdp,
 	dep_wpr,
 ]
+srcs_rdp = [
+        'rdp.c',
+        'rdputil.c',
+]
+
 plugin_rdp = shared_library(
 	'rdp-backend',
-	'rdp.c',
+	srcs_rdp,
 	include_directories: common_inc,
 	dependencies: deps_rdp,
 	name_prefix: '',

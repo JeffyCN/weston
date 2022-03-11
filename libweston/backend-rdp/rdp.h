@@ -45,6 +45,7 @@
 #include "backend.h"
 
 #include "shared/helpers.h"
+#include "shared/string-helpers.h"
 
 #define MAX_FREERDP_FDS 32
 #define DEFAULT_AXIS_STEP_DISTANCE 10
@@ -60,6 +61,8 @@ struct rdp_backend {
 	freerdp_listener *listener;
 	struct wl_event_source *listener_events[MAX_FREERDP_FDS];
 	struct rdp_output *output;
+	struct weston_log_scope *debug;
+	struct weston_log_scope *verbose;
 
 	char *server_cert;
 	char *server_key;
@@ -108,6 +111,19 @@ struct rdp_peer_context {
 	struct rdp_peers_item item;
 };
 typedef struct rdp_peer_context RdpPeerContext;
+
+#define rdp_debug_verbose(b, ...) \
+	rdp_debug_print(b->verbose, false, __VA_ARGS__)
+#define rdp_debug_verbose_continue(b, ...) \
+	rdp_debug_print(b->verbose, true,  __VA_ARGS__)
+#define rdp_debug(b, ...) \
+	rdp_debug_print(b->debug, false, __VA_ARGS__)
+#define rdp_debug_continue(b, ...) \
+	rdp_debug_print(b->debug, true,  __VA_ARGS__)
+
+/* rdputil.c */
+void
+rdp_debug_print(struct weston_log_scope *log_scope, bool cont, char *fmt, ...);
 
 static inline struct rdp_head *
 to_rdp_head(struct weston_head *base)
