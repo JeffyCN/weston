@@ -59,7 +59,8 @@ and the renderer used. Using Pixman-renderer, DRM-backend supports only
 The formats supported with GL-renderer depend on the EGL and OpenGL ES 2 or 3
 implementations. The names are case-insensitive.
 
-.RB "If not specified, " xrgb8888 " is used."
+.RB "If not specified, " xrgb8888 " is used. See also " gbm-format " in"
+.BR output " section."
 .TP
 \fBpageflip-timeout\fR=\fImilliseconds\fR
 sets Weston's pageflip timeout in milliseconds.  This sets a timer to exit
@@ -130,6 +131,12 @@ and possibly flipped. Possible values are
 .BR normal ", " rotate-90 ", " rotate-180 ", " rotate-270 ", "
 .BR flipped ", " flipped-rotate-90 ", " flipped-rotate-180 ", and "
 .BR flipped-rotate-270 .
+.TP
+\fBgbm-format\fR=\fIformat\fR
+Set the DRM KMS framebuffer format for this specific output. If not set,
+.RB "the value from " gbm-format " option in " core " section is used."
+.RI "For the possible values for " format " see "
+.BR gbm-format " option in " core " section."
 .TP
 \fBpixman-shadow\fR=\fIboolean\fR
 If using the Pixman-renderer, use shadow framebuffers. Defaults to
