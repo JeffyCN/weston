@@ -14,7 +14,7 @@ modesetting via DRM), as an X client, or inside another Wayland server
 instance.
 
 Weston supports fundamentally different graphical user interface paradigms via
-shell plugins. Two plugins are provided: the desktop shell, and the tablet
+shell plugins. Two plugins are provided: the desktop shell, and the kiosk
 shell.
 
 Weston also supports X clients via
