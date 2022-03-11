@@ -129,8 +129,7 @@ config_section_get_entry(struct weston_config_section *section,
 	return NULL;
 }
 
-WL_EXPORT
-struct weston_config_section *
+WL_EXPORT struct weston_config_section *
 weston_config_get_section(struct weston_config *config, const char *section,
 			  const char *key, const char *value)
 {
@@ -152,8 +151,7 @@ weston_config_get_section(struct weston_config *config, const char *section,
 	return NULL;
 }
 
-WL_EXPORT
-int
+WL_EXPORT int
 weston_config_section_get_int(struct weston_config_section *section,
 			      const char *key,
 			      int32_t *value, int32_t default_value)
@@ -175,8 +173,7 @@ weston_config_section_get_int(struct weston_config_section *section,
 	return 0;
 }
 
-WL_EXPORT
-int
+WL_EXPORT int
 weston_config_section_get_uint(struct weston_config_section *section,
 			       const char *key,
 			       uint32_t *value, uint32_t default_value)
@@ -212,8 +209,7 @@ weston_config_section_get_uint(struct weston_config_section *section,
 	return 0;
 }
 
-WL_EXPORT
-int
+WL_EXPORT int
 weston_config_section_get_color(struct weston_config_section *section,
 				const char *key,
 				uint32_t *color, uint32_t default_color)
@@ -250,8 +246,7 @@ weston_config_section_get_color(struct weston_config_section *section,
 	return 0;
 }
 
-WL_EXPORT
-int
+WL_EXPORT int
 weston_config_section_get_double(struct weston_config_section *section,
 				 const char *key,
 				 double *value, double default_value)
@@ -276,8 +271,7 @@ weston_config_section_get_double(struct weston_config_section *section,
 	return 0;
 }
 
-WL_EXPORT
-int
+WL_EXPORT int
 weston_config_section_get_string(struct weston_config_section *section,
 				 const char *key,
 				 char **value, const char *default_value)
@@ -299,8 +293,7 @@ weston_config_section_get_string(struct weston_config_section *section,
 	return 0;
 }
 
-WL_EXPORT
-int
+WL_EXPORT int
 weston_config_section_get_bool(struct weston_config_section *section,
 			       const char *key,
 			       bool *value, bool default_value)
@@ -327,8 +320,7 @@ weston_config_section_get_bool(struct weston_config_section *section,
 	return 0;
 }
 
-WL_EXPORT
-const char *
+WL_EXPORT const char *
 weston_config_get_name_from_env(void)
 {
 	const char *name;
@@ -389,8 +381,7 @@ section_add_entry(struct weston_config_section *section,
 	return entry;
 }
 
-WL_EXPORT
-struct weston_config *
+WL_EXPORT struct weston_config *
 weston_config_parse(const char *name)
 {
 	FILE *fp;
@@ -471,15 +462,13 @@ weston_config_parse(const char *name)
 	return config;
 }
 
-WL_EXPORT
-const char *
+WL_EXPORT const char *
 weston_config_get_full_path(struct weston_config *config)
 {
 	return config == NULL ? NULL : config->path;
 }
 
-WL_EXPORT
-int
+WL_EXPORT int
 weston_config_next_section(struct weston_config *config,
 			   struct weston_config_section **section,
 			   const char **name)
@@ -502,8 +491,7 @@ weston_config_next_section(struct weston_config *config,
 	return 1;
 }
 
-WL_EXPORT
-void
+WL_EXPORT void
 weston_config_destroy(struct weston_config *config)
 {
 	struct weston_config_section *s, *next_s;
