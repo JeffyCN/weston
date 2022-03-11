@@ -51,6 +51,11 @@ sets the GBM format used for the framebuffer for the GBM backend. Can be
 .B xrgb2101010,
 .B rgb565.
 By default, xrgb8888 is used.
+.TP
+\fBpageflip-timeout\fR=\fImilliseconds\fR
+sets Weston's pageflip timeout in milliseconds.  This sets a timer to exit
+gracefully with a log message and an exit code of 1 in case the DRM driver is
+non-responsive.  Setting it to 0 disables this feature.
 
 .SS Section output
 .TP

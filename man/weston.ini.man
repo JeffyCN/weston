@@ -167,11 +167,6 @@ set to 300 seconds.
 .BI "require-input=" true
 require an input device for launch
 .TP 7
-.BI "pageflip-timeout="milliseconds
-sets Weston's pageflip timeout in milliseconds.  This sets a timer to exit
-gracefully with a log message and an exit code of 1 in case the DRM driver is
-non-responsive.  Setting it to 0 disables this feature.
-.TP 7
 .BI "wait-for-debugger=" true
 Raises SIGSTOP before initializing the compositor. This allows the user to
 attach with a debugger and continue execution by sending SIGCONT. This is
