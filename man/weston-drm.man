@@ -46,11 +46,20 @@ The DRM backend uses the following entries from
 .SS Section core
 .TP
 \fBgbm-format\fR=\fIformat\fR
-sets the GBM format used for the framebuffer for the GBM backend. Can be
-.B xrgb8888,
-.B xrgb2101010,
-.B rgb565.
-By default, xrgb8888 is used.
+Sets the default pixel format for DRM KMS framebuffers.
+.IR Format " can be"
+.BR xrgb8888 ", " xrgb2101010 ", " rgb565
+or others. Weston recognizes the names of most pixel formats defined by
+the kernel DRM subsystem in
+.B drm_fourcc.h
+header without the DRM_FORMAT_ prefix.
+The actually supported pixel formats depend on the DRM driver and hardware,
+and the renderer used. Using Pixman-renderer, DRM-backend supports only
+.BR xrgb8888 " and " rgb565 .
+The formats supported with GL-renderer depend on the EGL and OpenGL ES 2 or 3
+implementations. The names are case-insensitive.
+
+.RB "If not specified, " xrgb8888 " is used."
 .TP
 \fBpageflip-timeout\fR=\fImilliseconds\fR
 sets Weston's pageflip timeout in milliseconds.  This sets a timer to exit
