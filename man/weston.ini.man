@@ -130,7 +130,6 @@ directory are:
 .RS 10
 .nf
 .BR drm-backend.so
-.BR fbdev-backend.so
 .BR headless-backend.so
 .BR rdp-backend.so
 .BR wayland-backend.so

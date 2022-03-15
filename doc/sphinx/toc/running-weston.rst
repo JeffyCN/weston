@@ -6,7 +6,7 @@ underlying environment where it runs on. Ultimately, the back-end is
 responsible for handling the input and generate an output. Weston, as a
 libweston user, can be run on different back-ends, including nested, by using
 the wayland backend, but also on X11 or on a stand-alone back-end like
-DRM/KMS and now deprecated fbdev.
+DRM/KMS.
 
 In most cases, people should allow Weston to choose the backend automatically
 as it will produce the best results. That happens for instance when running
@@ -28,7 +28,6 @@ Available back-ends:
 * **x11** -- run as a x11 application, nested in a X11 display server instance
 * **rdp** -- run as an RDP server without local input or output
 * **headless** -- run without input or output, useful for test suite
-* **fbdev** -- run stand-alone on fbdev/evdev (deprecated)
 
 The job of gathering all the surfaces (windows) being displayed on an output and
 stitching them together is performed by a *renderer*. By doing so, it is

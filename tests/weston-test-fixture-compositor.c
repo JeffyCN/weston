@@ -202,7 +202,6 @@ backend_to_str(enum weston_compositor_backend b)
 {
 	static const char * const names[] = {
 		[WESTON_BACKEND_DRM] = "drm-backend.so",
-		[WESTON_BACKEND_FBDEV] = "fbdev-backend.so",
 		[WESTON_BACKEND_HEADLESS] = "headless-backend.so",
 		[WESTON_BACKEND_RDP] = "rdp-backend.so",
 		[WESTON_BACKEND_WAYLAND] = "wayland-backend.so",
@@ -302,13 +301,6 @@ execute_compositor(const struct compositor_setup *setup,
 	}
 #endif
 
-#ifndef BUILD_FBDEV_COMPOSITOR
-	if (setup->backend == WESTON_BACKEND_FBDEV) {
-		fprintf(stderr, "fbdev-backend required but not built, skipping.\n");
-		return RESULT_SKIP;
-	}
-#endif
-
 #ifndef BUILD_RDP_COMPOSITOR
 	if (setup->backend == WESTON_BACKEND_RDP) {
 		fprintf(stderr, "RDP-backend required but not built, skipping.\n");
@@ -389,8 +381,7 @@ execute_compositor(const struct compositor_setup *setup,
 		   setup->extra_module ? setup->extra_module : "");
 	prog_args_take(&args, tmp);
 
-	if (setup->backend != WESTON_BACKEND_DRM &&
-	    setup->backend != WESTON_BACKEND_FBDEV) {
+	if (setup->backend != WESTON_BACKEND_DRM) {
 		str_printf(&tmp, "--width=%d", setup->width);
 		prog_args_take(&args, tmp);
 

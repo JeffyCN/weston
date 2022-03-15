@@ -58,7 +58,6 @@
 #include <libweston/backend-drm.h>
 #include <libweston/backend-headless.h>
 #include <libweston/backend-rdp.h>
-#include <libweston/backend-fbdev.h>
 #include <libweston/backend-x11.h>
 #include <libweston/backend-wayland.h>
 #include <libweston/windowed-output-api.h>
@@ -620,9 +619,6 @@ usage(int error_code)
 #if defined(BUILD_DRM_COMPOSITOR)
 			"\t\t\t\tdrm-backend.so\n"
 #endif
-#if defined(BUILD_FBDEV_COMPOSITOR)
-			"\t\t\t\tfbdev-backend.so\n"
-#endif
 #if defined(BUILD_HEADLESS_COMPOSITOR)
 			"\t\t\t\theadless-backend.so\n"
 #endif
@@ -663,14 +659,6 @@ usage(int error_code)
 		"  --use-pixman\t\tUse the pixman (CPU) renderer\n"
 		"  --current-mode\tPrefer current KMS mode over EDID preferred mode\n"
 		"  --continue-without-input\tAllow the compositor to start without input devices\n\n");
-#endif
-
-#if defined(BUILD_FBDEV_COMPOSITOR)
-	fprintf(out,
-		"Options for fbdev-backend.so:\n\n"
-		"  --device=DEVICE\tThe framebuffer device to use\n"
-		"  --seat=SEAT\t\tThe seat that weston should run on, instead of the seat defined in XDG_SEAT\n"
-		"\n");
 #endif
 
 #if defined(BUILD_HEADLESS_COMPOSITOR)
@@ -2823,53 +2811,6 @@ load_rdp_backend(struct weston_compositor *c,
 }
 
 static int
-fbdev_backend_output_configure(struct weston_output *output)
-{
-	struct weston_config *wc = wet_get_config(output->compositor);
-	struct weston_config_section *section;
-
-	section = weston_config_get_section(wc, "output", "name", "fbdev");
-
-	if (wet_output_set_transform(output, section,
-				     WL_OUTPUT_TRANSFORM_NORMAL,
-				     UINT32_MAX) < 0) {
-		return -1;
-	}
-
-	weston_output_set_scale(output, 1);
-
-	return 0;
-}
-
-static int
-load_fbdev_backend(struct weston_compositor *c,
-		      int *argc, char **argv, struct weston_config *wc)
-{
-	struct weston_fbdev_backend_config config = {{ 0, }};
-	int ret = 0;
-
-	const struct weston_option fbdev_options[] = {
-		{ WESTON_OPTION_STRING, "device", 0, &config.device },
-		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
-	};
-
-	parse_options(fbdev_options, ARRAY_LENGTH(fbdev_options), argc, argv);
-
-	config.base.struct_version = WESTON_FBDEV_BACKEND_CONFIG_VERSION;
-	config.base.struct_size = sizeof(struct weston_fbdev_backend_config);
-	config.configure_device = configure_input_device;
-
-	wet_set_simple_head_configurator(c, fbdev_backend_output_configure);
-
-	/* load the actual wayland backend and configure it */
-	ret = weston_compositor_load_backend(c, WESTON_BACKEND_FBDEV,
-					     &config.base);
-
-	free(config.device);
-	return ret;
-}
-
-static int
 x11_backend_output_configure(struct weston_output *output)
 {
 	struct wet_output_config defaults = {
@@ -3114,8 +3055,6 @@ load_backend(struct weston_compositor *compositor, const char *backend,
 		return load_headless_backend(compositor, argc, argv, config);
 	else if (strstr(backend, "rdp-backend.so"))
 		return load_rdp_backend(compositor, argc, argv, config);
-	else if (strstr(backend, "fbdev-backend.so"))
-		return load_fbdev_backend(compositor, argc, argv, config);
 	else if (strstr(backend, "drm-backend.so"))
 		return load_drm_backend(compositor, argc, argv, config);
 	else if (strstr(backend, "x11-backend.so"))

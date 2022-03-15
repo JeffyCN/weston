@@ -45,15 +45,9 @@ option(
 	description: 'Weston backend: X11 (nested)'
 )
 option(
-	'deprecated-backend-fbdev',
-	type: 'boolean',
-	value: false,
-	description: 'Weston backend: fbdev (deprecated)'
-)
-option(
 	'backend-default',
 	type: 'combo',
-	choices: [ 'auto', 'drm', 'wayland', 'x11', 'fbdev', 'headless' ],
+	choices: [ 'auto', 'drm', 'wayland', 'x11', 'headless' ],
 	value: 'drm',
 	description: 'Default backend when no parent display server detected'
 )

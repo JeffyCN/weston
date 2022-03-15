@@ -223,7 +223,6 @@ dep_vertex_clipping = declare_dependency(
 subdir('color-lcms')
 subdir('renderer-gl')
 subdir('backend-drm')
-subdir('backend-fbdev')
 subdir('backend-headless')
 subdir('backend-rdp')
 subdir('backend-wayland')

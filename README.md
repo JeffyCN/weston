@@ -287,7 +287,7 @@ Details:
 
 - Child process execution and management will be outside of libweston.
 
-- The different backends (drm, fbdev, x11, etc) will be an internal
+- The different backends (drm, x11, etc) will be an internal
   detail of libweston. Libweston will not support third party
   backends. However, hosting programs need to handle
   backend-specific configuration due to differences in behaviour and
@@ -324,8 +324,6 @@ would be roughly like this:
 - x11-backend (depends of X11/xcb libs)
 
 - xwayland (depends on X11/xcb libs)
-
-- fbdev-backend (depends on libudev...)
 
 - rdp-backend (depends on freerdp)
 
