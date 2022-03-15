@@ -71,6 +71,7 @@ struct rdp_backend {
 	int no_clients_resize;
 	int force_no_compression;
 	bool remotefx_codec;
+	int external_listener_fd;
 };
 
 enum peer_item_flags {

@@ -1354,14 +1354,27 @@ rdp_backend_create(struct weston_compositor *compositor,
 
 	compositor->backend = &b->base;
 
-	/* activate TLS only if certificate/key are available */
 	if (config->server_cert && config->server_key) {
-		weston_log("TLS support activated\n");
 		b->server_cert = strdup(config->server_cert);
 		b->server_key = strdup(config->server_key);
 		if (!b->server_cert || !b->server_key)
 			goto err_free_strings;
-		b->tls_enabled = 1;
+	}
+
+	/* if we are listening for client connections on an external listener
+	 * fd, we don't need to enforce TLS or RDP security, since FreeRDP
+	 * will consider it to be a local connection */
+	fd = config->external_listener_fd;
+	if (fd < 0) {
+		if (!b->rdp_key && (!b->server_cert || !b->server_key)) {
+			weston_log("the RDP compositor requires keys and an optional certificate for RDP or TLS security ("
+				   "--rdp4-key or --rdp-tls-cert/--rdp-tls-key)\n");
+			goto err_free_strings;
+		}
+		if (b->server_cert && b->server_key) {
+			b->tls_enabled = 1;
+			rdp_debug(b, "TLS support activated\n");
+		}
 	}
 
 	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
@@ -1379,9 +1392,18 @@ rdp_backend_create(struct weston_compositor *compositor,
 		b->listener = freerdp_listener_new();
 		b->listener->PeerAccepted = rdp_incoming_peer;
 		b->listener->param4 = b;
-		if (!b->listener->Open(b->listener, config->bind_address, config->port)) {
-			weston_log("unable to bind rdp socket\n");
-			goto err_listener;
+		if (fd >= 0) {
+			rdp_debug(b, "Using external fd for incoming connections: %d\n", fd);
+
+			if (!b->listener->OpenFromSocket(b->listener, fd)) {
+				weston_log("RDP unable to use external listener fd: %d\n", fd);
+				goto err_listener;
+			}
+		} else {
+			if (!b->listener->Open(b->listener, config->bind_address, config->port)) {
+				weston_log("RDP unable to bind socket\n");
+				goto err_listener;
+			}
 		}
 
 		if (rdp_implant_listener(b, b->listener) < 0)
@@ -1444,6 +1466,7 @@ config_init_to_defaults(struct weston_rdp_backend_config *config)
 	config->no_clients_resize = 0;
 	config->force_no_compression = 0;
 	config->remotefx_codec = true;
+	config->external_listener_fd = -1;
 }
 
 WL_EXPORT int
@@ -1469,12 +1492,6 @@ weston_backend_init(struct weston_compositor *compositor,
 
 	config_init_to_defaults(&config);
 	memcpy(&config, config_base, config_base->struct_size);
-
-	if (!config.rdp_key && (!config.server_cert || !config.server_key)) {
-		weston_log("the RDP compositor requires keys and an optional certificate for RDP or TLS security ("
-				"--rdp4-key or --rdp-tls-cert/--rdp-tls-key)\n");
-		return -1;
-	}
 
 	b = rdp_backend_create(compositor, &config);
 	if (b == NULL)

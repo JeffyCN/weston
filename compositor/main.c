@@ -688,6 +688,7 @@ usage(int error_code)
 		"  --width=WIDTH\t\tWidth of desktop\n"
 		"  --height=HEIGHT\tHeight of desktop\n"
 		"  --env-socket\t\tUse socket defined in RDP_FD env variable as peer connection\n"
+		"  --external-listener-fd=FD\tUse socket as listener connection\n"
 		"  --address=ADDR\tThe address to bind\n"
 		"  --port=PORT\t\tThe port to listen on\n"
 		"  --no-clients-resize\tThe RDP peers will be forced to the size of the desktop\n"
@@ -2772,6 +2773,7 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 	config->server_cert = NULL;
 	config->server_key = NULL;
 	config->env_socket = 0;
+	config->external_listener_fd = -1;
 	config->no_clients_resize = 0;
 	config->force_no_compression = 0;
 	config->remotefx_codec = true;
@@ -2793,6 +2795,7 @@ load_rdp_backend(struct weston_compositor *c,
 
 	const struct weston_option rdp_options[] = {
 		{ WESTON_OPTION_BOOLEAN, "env-socket", 0, &config.env_socket },
+		{ WESTON_OPTION_INTEGER, "external-listener-fd", 0, &config.external_listener_fd },
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
 		{ WESTON_OPTION_STRING,  "address", 0, &config.bind_address },
