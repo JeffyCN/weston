@@ -979,6 +979,33 @@ dump_mouseinput(RdpPeerContext *peerContext, UINT16 flags, UINT16 x, UINT16 y, b
 	rdp_debug_verbose_continue(b, "\n");
 }
 
+static void
+rdp_validate_button_state(RdpPeerContext *peerContext, bool pressed, uint32_t *button)
+{
+	struct rdp_backend *b = peerContext->rdpBackend;
+	uint32_t index;
+
+	if (*button < BTN_LEFT || *button > BTN_EXTRA) {
+		weston_log("RDP client posted invalid button event\n");
+		goto ignore;
+	}
+
+	index = *button - BTN_LEFT;
+	assert(index < ARRAY_LENGTH(peerContext->button_state));
+
+	if (pressed == peerContext->button_state[index]) {
+		rdp_debug_verbose(b, "%s: inconsistent button state button:%d (index:%d) pressed:%d\n",
+				  __func__, *button, index, pressed);
+		goto ignore;
+	} else {
+		peerContext->button_state[index] = pressed;
+	}
+	return;
+ignore:
+	/* ignore button input */
+	*button = 0;
+}
+
 static BOOL
 xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 {
@@ -1006,6 +1033,12 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 		button = BTN_RIGHT;
 	else if (flags & PTR_FLAGS_BUTTON3)
 		button = BTN_MIDDLE;
+
+	if (button) {
+		rdp_validate_button_state(peerContext,
+					  flags & PTR_FLAGS_DOWN ? true : false,
+					  &button);
+	}
 
 	if (button) {
 		weston_compositor_get_time(&time);
@@ -1061,6 +1094,12 @@ xf_extendedMouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 		button = BTN_SIDE;
 	else if (flags & PTR_XFLAGS_BUTTON2)
 		button = BTN_EXTRA;
+
+	if (button) {
+		rdp_validate_button_state(peerContext,
+					  flags & PTR_XFLAGS_DOWN ? true : false,
+					  &button);
+	}
 
 	if (button) {
 		weston_compositor_get_time(&time);

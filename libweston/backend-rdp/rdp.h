@@ -109,6 +109,8 @@ struct rdp_peer_context {
 	NSC_CONTEXT *nsc_context;
 
 	struct rdp_peers_item item;
+
+	bool button_state[5];
 };
 typedef struct rdp_peer_context RdpPeerContext;
 
