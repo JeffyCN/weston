@@ -945,6 +945,40 @@ xf_peer_post_connect(freerdp_peer *client)
 	return TRUE;
 }
 
+static void
+dump_mouseinput(RdpPeerContext *peerContext, UINT16 flags, UINT16 x, UINT16 y, bool is_ex)
+{
+	struct rdp_backend *b = peerContext->rdpBackend;
+
+	rdp_debug_verbose(b, "RDP mouse input%s: (%d, %d): flags:%x: ", is_ex ? "_ex" : "", x, y, flags);
+	if (is_ex) {
+		if (flags & PTR_XFLAGS_DOWN)
+			rdp_debug_verbose_continue(b, "DOWN ");
+		if (flags & PTR_XFLAGS_BUTTON1)
+			rdp_debug_verbose_continue(b, "XBUTTON1 ");
+		if (flags & PTR_XFLAGS_BUTTON2)
+			rdp_debug_verbose_continue(b, "XBUTTON2 ");
+	} else {
+		if (flags & PTR_FLAGS_WHEEL)
+			rdp_debug_verbose_continue(b, "WHEEL ");
+		if (flags & PTR_FLAGS_WHEEL_NEGATIVE)
+			rdp_debug_verbose_continue(b, "WHEEL_NEGATIVE ");
+		if (flags & PTR_FLAGS_HWHEEL)
+			rdp_debug_verbose_continue(b, "HWHEEL ");
+		if (flags & PTR_FLAGS_MOVE)
+			rdp_debug_verbose_continue(b, "MOVE ");
+		if (flags & PTR_FLAGS_DOWN)
+			rdp_debug_verbose_continue(b, "DOWN ");
+		if (flags & PTR_FLAGS_BUTTON1)
+			rdp_debug_verbose_continue(b, "BUTTON1 ");
+		if (flags & PTR_FLAGS_BUTTON2)
+			rdp_debug_verbose_continue(b, "BUTTON2 ");
+		if (flags & PTR_FLAGS_BUTTON3)
+			rdp_debug_verbose_continue(b, "BUTTON3 ");
+	}
+	rdp_debug_verbose_continue(b, "\n");
+}
+
 static BOOL
 xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 {
@@ -953,6 +987,8 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 	uint32_t button = 0;
 	bool need_frame = false;
 	struct timespec time;
+
+	dump_mouseinput(peerContext, flags, x, y, false);
 
 	if (flags & PTR_FLAGS_MOVE) {
 		output = peerContext->rdpBackend->output;
@@ -1016,6 +1052,8 @@ xf_extendedMouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 	RdpPeerContext *peerContext = (RdpPeerContext *)input->context;
 	struct rdp_output *output;
 	struct timespec time;
+
+	dump_mouseinput(peerContext, flags, x, y, true);
 
 	output = peerContext->rdpBackend->output;
 	if (x < output->base.width && y < output->base.height) {
