@@ -1342,7 +1342,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 		}
 
 		if (rdp_implant_listener(b, b->listener) < 0)
-			goto err_compositor;
+			goto err_listener;
 	} else {
 		/* get the socket from RDP_FD var */
 		fd_str = getenv("RDP_FD");
