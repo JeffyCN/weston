@@ -1237,6 +1237,7 @@ xf_input_synchronize_event(rdpInput *input, UINT32 flags)
 	RdpPeerContext *peerCtx = (RdpPeerContext *)input->context;
 	struct rdp_backend *b = peerCtx->rdpBackend;
 	struct rdp_output *output = peerCtx->rdpBackend->output;
+	struct weston_keyboard *keyboard;
 	pixman_box32_t box;
 	pixman_region32_t damage;
 
@@ -1246,6 +1247,19 @@ xf_input_synchronize_event(rdpInput *input, UINT32 flags)
 			  flags & KBD_SYNC_NUM_LOCK ? 1 : 0,
 			  flags & KBD_SYNC_CAPS_LOCK ? 1 : 0,
 			  flags & KBD_SYNC_KANA_LOCK ? 1 : 0);
+
+	keyboard = weston_seat_get_keyboard(peerCtx->item.seat);
+	if (keyboard) {
+		uint32_t value = 0;
+
+		if (flags & KBD_SYNC_NUM_LOCK)
+			value |= WESTON_NUM_LOCK;
+		if (flags & KBD_SYNC_CAPS_LOCK)
+			value |= WESTON_CAPS_LOCK;
+		weston_keyboard_set_locks(keyboard,
+					  WESTON_NUM_LOCK | WESTON_CAPS_LOCK,
+					  value);
+	}
 
 	/* sends a full refresh */
 	box.x1 = 0;
