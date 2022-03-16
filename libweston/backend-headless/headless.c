@@ -361,6 +361,8 @@ headless_head_create(struct weston_compositor *compositor,
 
 	weston_head_init(&head->base, name);
 	weston_head_set_connection_status(&head->base, true);
+	weston_head_set_supported_eotf_mask(&head->base,
+					    WESTON_EOTF_MODE_ALL_MASK);
 
 	/* Ideally all attributes of the head would be set here, so that the
 	 * user has all the information when deciding to create outputs.
