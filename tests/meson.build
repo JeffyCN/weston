@@ -235,10 +235,13 @@ if get_option('color-management-lcms')
 	if not dep_lcms2.found()
 		error('color-management-lcms tests require lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
 	endif
-	tests += {
-		'name': 'color-shaper-matrix',
-		'dep_objs': [ dep_libm, dep_lcms2 ]
-	}
+	tests += [
+		{
+			'name': 'color-shaper-matrix',
+			'dep_objs': [ dep_libm, dep_lcms2 ]
+		},
+		{	'name': 'color-metadata-parsing' },
+	]
 endif
 
 
