@@ -1224,7 +1224,13 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 
 	dump_mouseinput(peerContext, flags, x, y, false);
 
-	if (flags & PTR_FLAGS_MOVE) {
+	/* Per RDP spec, the x,y position is valid on all input mouse messages,
+	 * except for PTR_FLAGS_WHEEL and PTR_FLAGS_HWHEEL event. Take the opportunity
+	 * to resample our x,y position even when PTR_FLAGS_MOVE isn't explicitly set,
+	 * for example a button down/up only notification, to ensure proper sync with
+	 * the RDP client.
+	 */
+	if (!(flags & (PTR_FLAGS_WHEEL | PTR_FLAGS_HWHEEL))) {
 		output = peerContext->rdpBackend->output;
 		if (x < output->base.width && y < output->base.height) {
 			weston_compositor_get_time(&time);
