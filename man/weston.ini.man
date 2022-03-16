@@ -567,6 +567,13 @@ The mode can be one of the following strings:
 .IP
 Defaults to
 .BR sdr ". Non-SDR modes require " "color-management=true" .
+.TP 7
+.BI "color_characteristics=" name
+Sets the basic output color characteristics by loading the parameters from the
+.B color_characteristics
+section with the key
+.BI "name=" name
+\&. If an ICC profile is also set, the ICC profile takes precedence.
 .\"---------------------------------------------------------------------
 .SH "INPUT-METHOD SECTION"
 .TP 7
@@ -662,6 +669,69 @@ parallel to Weston, so it does not have to immediately exit. Defaults to empty.
 .BI "watch=" "false"
 If set to true, quit Weston after the auto-launched executable exits. Set to false
 by default.
+.\"---------------------------------------------------------------------
+.SH "COLOR_CHARACTERISTICS SECTION"
+Each
+.B color_characteristics
+section records one set of basic display or monitor color characterisation
+parameters. The parameters are defined in CTA-861-H specification as Static
+Metadata Type 1, and they can also be found in EDID. The parameters are
+divided into groups. Each group must be given either fully or not at all.
+.PP
+Each section should be named with
+.B name
+key by which it can be referenced from other sections. A metadata section is
+just a collection of parameter values and does nothing on its own. It has an
+effect only when referenced from elsewhere.
+.PP
+See
+.BR output " section key " color_characteristics .
+.TP 7
+.BI "name=" name
+An arbitrary name for this section. You can choose any name you want as long as
+it does not contain the colon
+.RB ( : )
+character. Names with at least one colon are reserved.
+.SS Primaries group
+.TP 7
+.BI "red_x=" x
+.TQ
+.BI "red_y=" y
+.TQ
+.BI "green_x=" x
+.TQ
+.BI "green_y=" y
+.TQ
+.BI "blue_x=" x
+.TQ
+.BI "blue_y=" y
+The CIE 1931 xy chromaticity coordinates of the display primaries.
+These floating point values must reside between 0.0 and 1.0, inclusive.
+.SS White point group
+.TP 7
+.BI "white_x=" x
+.TQ
+.BI "white_y=" y
+The CIE 1931 xy chromaticity coordinates of the display white point.
+These floating point values must reside between 0.0 and 1.0, inclusive.
+.SS Independent parameters
+Each parameter listed here has its own group and therefore can be given
+alone.
+.TP 7
+.BI "max_L=" L
+Display's desired maximum content luminance (peak)
+.IR L \~cd/m²,
+a floating point value in the range 0.0\(en100000.0.
+.TP 7
+.BI "min_L=" L
+Display's desired minimum content luminance
+.IR L \~cd/m²,
+a floating point value in the range 0.0\(en100000.0.
+.TP 7
+.BI "maxFALL=" L
+Display's desired maximum frame-average light level
+.IR L \~cd/m²,
+a floating point value in the range 0.0\(en100000.0.
 .\"---------------------------------------------------------------------
 .SH "SEE ALSO"
 .BR weston (1),

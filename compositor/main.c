@@ -1,7 +1,7 @@
 /*
  * Copyright © 2010-2011 Intel Corporation
  * Copyright © 2008-2011 Kristian Høgsberg
- * Copyright © 2012-2018 Collabora, Ltd.
+ * Copyright © 2012-2018,2022 Collabora, Ltd.
  * Copyright © 2010-2011 Benjamin Franzke
  * Copyright © 2013 Jason Ekstrand
  * Copyright © 2017, 2018 General Electric Company
@@ -36,6 +36,7 @@
 #include <dlfcn.h>
 #include <stdint.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/utsname.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -54,6 +55,7 @@
 #include "git-version.h"
 #include <libweston/version.h>
 #include "weston.h"
+#include "weston-private.h"
 
 #include <libweston/backend-drm.h>
 #include <libweston/backend-headless.h>
@@ -1383,6 +1385,156 @@ wet_output_set_eotf_mode(struct weston_output *output,
 	return 0;
 }
 
+struct wet_color_characteristics_keys {
+	const char *name;
+	enum weston_color_characteristics_groups group;
+	float minval;
+	float maxval;
+};
+
+#define COLOR_CHARAC_NAME "color_characteristics"
+
+static int
+parse_color_characteristics(struct weston_color_characteristics *cc_out,
+			      struct weston_config_section *section)
+{
+	static const struct wet_color_characteristics_keys keys[] = {
+		{ "red_x",   WESTON_COLOR_CHARACTERISTICS_GROUP_PRIMARIES, 0.0f, 1.0f },
+		{ "red_y",   WESTON_COLOR_CHARACTERISTICS_GROUP_PRIMARIES, 0.0f, 1.0f },
+		{ "green_x", WESTON_COLOR_CHARACTERISTICS_GROUP_PRIMARIES, 0.0f, 1.0f },
+		{ "green_y", WESTON_COLOR_CHARACTERISTICS_GROUP_PRIMARIES, 0.0f, 1.0f },
+		{ "blue_x",  WESTON_COLOR_CHARACTERISTICS_GROUP_PRIMARIES, 0.0f, 1.0f },
+		{ "blue_y",  WESTON_COLOR_CHARACTERISTICS_GROUP_PRIMARIES, 0.0f, 1.0f },
+		{ "white_x", WESTON_COLOR_CHARACTERISTICS_GROUP_WHITE,     0.0f, 1.0f },
+		{ "white_y", WESTON_COLOR_CHARACTERISTICS_GROUP_WHITE,     0.0f, 1.0f },
+		{ "max_L",   WESTON_COLOR_CHARACTERISTICS_GROUP_MAXL,      0.0f, 1e5f },
+		{ "min_L",   WESTON_COLOR_CHARACTERISTICS_GROUP_MINL,      0.0f, 1e5f },
+		{ "maxFALL", WESTON_COLOR_CHARACTERISTICS_GROUP_MAXFALL,   0.0f, 1e5f },
+	};
+	static const char *msgpfx = "Config error in weston.ini [" COLOR_CHARAC_NAME "]";
+	struct weston_color_characteristics cc = {};
+	float *const keyvalp[ARRAY_LENGTH(keys)] = {
+		/* These must be in the same order as keys[]. */
+		&cc.primary[0].x, &cc.primary[0].y,
+		&cc.primary[1].x, &cc.primary[1].y,
+		&cc.primary[2].x, &cc.primary[2].y,
+		&cc.white.x, &cc.white.y,
+		&cc.max_luminance,
+		&cc.min_luminance,
+		&cc.maxFALL,
+	};
+	bool found[ARRAY_LENGTH(keys)] = {};
+	uint32_t missing_group_mask = 0;
+	unsigned i;
+	char *section_name;
+	int ret = 0;
+
+	weston_config_section_get_string(section, "name",
+					 &section_name, "<unnamed>");
+	if (strchr(section_name, ':') != NULL) {
+		ret = -1;
+		weston_log("%s name=%s: reserved name. Do not use ':' character in the name.\n",
+			   msgpfx, section_name);
+	}
+
+	/* Parse keys if they exist */
+	for (i = 0; i < ARRAY_LENGTH(keys); i++) {
+		double value;
+
+		if (weston_config_section_get_double(section, keys[i].name,
+						     &value, NAN) == 0) {
+			float f = value;
+
+			found[i] = true;
+
+			/* Range check, NaN shall not pass. */
+			if (f >= keys[i].minval && f <= keys[i].maxval) {
+				/* Key found, parsed, and good value. */
+				*keyvalp[i] = f;
+				continue;
+			}
+
+			ret = -1;
+			weston_log("%s name=%s: %s value %f is outside of the range %f - %f.\n",
+				   msgpfx, section_name, keys[i].name, value,
+				   keys[i].minval, keys[i].maxval);
+			continue;
+		}
+
+		if (errno == EINVAL) {
+			found[i] = true;
+			ret = -1;
+			weston_log("%s name=%s: failed to parse the value of key %s.\n",
+				   msgpfx, section_name, keys[i].name);
+		}
+	}
+
+	/* Collect set and unset groups */
+	for (i = 0; i < ARRAY_LENGTH(keys); i++) {
+		uint32_t group = keys[i].group;
+
+		if (found[i])
+			cc.group_mask |= group;
+		else
+			missing_group_mask |= group;
+	}
+
+	/* Ensure groups are given fully or not at all. */
+	for (i = 0; i < ARRAY_LENGTH(keys); i++) {
+		uint32_t group = keys[i].group;
+
+		if ((cc.group_mask & group) && (missing_group_mask & group)) {
+			ret = -1;
+			weston_log("%s name=%s: group %d key %s is %s. "
+				   "You must set either none or all keys of a group.\n",
+				   msgpfx, section_name, ffs(group), keys[i].name,
+				   found[i] ? "set" : "missing");
+		}
+	}
+
+	free(section_name);
+
+	if (ret == 0)
+		*cc_out = cc;
+
+	return ret;
+}
+
+WESTON_EXPORT_FOR_TESTS int
+wet_output_set_color_characteristics(struct weston_output *output,
+				     struct weston_config *wc,
+				     struct weston_config_section *section)
+{
+	char *cc_name = NULL;
+	struct weston_config_section *cc_section;
+	struct weston_color_characteristics cc;
+
+	weston_config_section_get_string(section, COLOR_CHARAC_NAME,
+					 &cc_name, NULL);
+	if (!cc_name)
+		return 0;
+
+	cc_section = weston_config_get_section(wc, COLOR_CHARAC_NAME,
+					       "name", cc_name);
+	if (!cc_section) {
+		weston_log("Config error in weston.ini, output %s: "
+			   "no [" COLOR_CHARAC_NAME "] section with 'name=%s' found.\n",
+			   output->name, cc_name);
+		goto out_error;
+	}
+
+	if (parse_color_characteristics(&cc, cc_section) < 0)
+		goto out_error;
+
+	weston_output_set_color_characteristics(output, &cc);
+	free(cc_name);
+	return 0;
+
+out_error:
+	free(cc_name);
+	return -1;
+}
+
 static void
 allow_content_protection(struct weston_output *output,
 			struct weston_config_section *section)
@@ -1907,6 +2059,10 @@ drm_backend_output_configure(struct weston_output *output,
 	allow_content_protection(output, section);
 
 	if (wet_output_set_eotf_mode(output, section) < 0)
+		return -1;
+
+	if (wet_output_set_color_characteristics(output,
+						 wet->config, section) < 0)
 		return -1;
 
 	return 0;
@@ -2730,6 +2886,9 @@ headless_backend_output_configure(struct weston_output *output)
 
 	section = weston_config_get_section(wc, "output", "name", output->name);
 	if (wet_output_set_eotf_mode(output, section) < 0)
+		return -1;
+
+	if (wet_output_set_color_characteristics(output, wc, section) < 0)
 		return -1;
 
 	return wet_configure_windowed_output_from_config(output, &defaults);
