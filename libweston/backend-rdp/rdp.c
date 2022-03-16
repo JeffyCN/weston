@@ -1050,16 +1050,34 @@ static BOOL
 xf_extendedMouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 {
 	RdpPeerContext *peerContext = (RdpPeerContext *)input->context;
+	uint32_t button = 0;
+	bool need_frame = false;
 	struct rdp_output *output;
 	struct timespec time;
 
 	dump_mouseinput(peerContext, flags, x, y, true);
 
+	if (flags & PTR_XFLAGS_BUTTON1)
+		button = BTN_SIDE;
+	else if (flags & PTR_XFLAGS_BUTTON2)
+		button = BTN_EXTRA;
+
+	if (button) {
+		weston_compositor_get_time(&time);
+		notify_button(peerContext->item.seat, &time, button,
+			      (flags & PTR_XFLAGS_DOWN) ? WL_POINTER_BUTTON_STATE_PRESSED : WL_POINTER_BUTTON_STATE_RELEASED);
+		need_frame = true;
+	}
+
 	output = peerContext->rdpBackend->output;
 	if (x < output->base.width && y < output->base.height) {
 		weston_compositor_get_time(&time);
 		notify_motion_absolute(peerContext->item.seat, &time, x, y);
+		need_frame = true;
 	}
+
+	if (need_frame)
+		notify_pointer_frame(peerContext->item.seat);
 
 	return TRUE;
 }
@@ -1206,6 +1224,7 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	settings->NSCodec = TRUE;
 	settings->FrameMarkerCommandEnabled = TRUE;
 	settings->SurfaceFrameMarkerEnabled = TRUE;
+	settings->HasExtendedMouseEvent = TRUE;
 
 	client->Capabilities = xf_peer_capabilities;
 	client->PostConnect = xf_peer_post_connect;
