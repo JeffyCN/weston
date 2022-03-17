@@ -127,6 +127,10 @@ tests = [
 	},
 	{	'name': 'bad-buffer', },
 	{	'name': 'buffer-transforms', },
+	{
+		'name': 'color-metadata-errors',
+		'dep_objs': dep_libexec_weston,
+	},
 	{	'name': 'color-manager', },
 	{	'name': 'devices', },
 	{

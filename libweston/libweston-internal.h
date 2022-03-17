@@ -462,4 +462,9 @@ weston_view_find_paint_node(struct weston_view *view,
 int
 wl_data_device_manager_init(struct wl_display *display);
 
+/* Exclusively for unit tests */
+
+bool
+weston_output_set_color_outcome(struct weston_output *output);
+
 #endif

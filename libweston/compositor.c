@@ -6516,7 +6516,7 @@ weston_output_color_outcome_destroy(struct weston_output_color_outcome **pco)
 	*pco = NULL;
 }
 
-static bool
+WESTON_EXPORT_FOR_TESTS bool
 weston_output_set_color_outcome(struct weston_output *output)
 {
 	struct weston_color_manager *cm = output->compositor->color_manager;
