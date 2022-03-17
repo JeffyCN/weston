@@ -25,6 +25,19 @@ The RDP backend is multi-seat aware, so if two clients connect on the backend,
 they will get their own seat.
 
 .\" ***************************************************************
+.SH CONFIGURATION
+.
+The RDP backend uses the following entries from
+.BR weston.ini .
+.SS Section rdp
+.TP
+\fBrefresh-rate\fR=\fIrate\fR
+Specifies the desktop redraw rate in Hz. If unspecified, the default is 60Hz. Changing
+this may be useful if you have a faster than 60Hz display, or if you want to reduce updates to
+reduce network traffic.
+
+
+.\" ***************************************************************
 .SH OPTIONS
 .
 When the RDP backend is loaded,

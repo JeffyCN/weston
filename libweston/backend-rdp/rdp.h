@@ -49,7 +49,6 @@
 
 #define MAX_FREERDP_FDS 32
 #define DEFAULT_AXIS_STEP_DISTANCE 10
-#define RDP_MODE_FREQ 60 * 1000
 #define DEFAULT_PIXEL_FORMAT PIXEL_FORMAT_BGRA32
 
 struct rdp_output;
@@ -72,6 +71,7 @@ struct rdp_backend {
 	int force_no_compression;
 	bool remotefx_codec;
 	int external_listener_fd;
+	int rdp_monitor_refresh_rate;
 };
 
 enum peer_item_flags {

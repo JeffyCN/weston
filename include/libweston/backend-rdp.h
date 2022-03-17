@@ -34,6 +34,7 @@ extern "C" {
 #include <libweston/plugin-registry.h>
 
 #define WESTON_RDP_OUTPUT_API_NAME "weston_rdp_output_api_v1"
+#define RDP_DEFAULT_FREQ 60
 
 struct weston_rdp_output_api {
 	/** Initialize a RDP output with specified width and height.
@@ -68,6 +69,7 @@ struct weston_rdp_backend_config {
 	int force_no_compression;
 	bool remotefx_codec;
 	int external_listener_fd;
+	int refresh_rate;
 };
 
 #ifdef  __cplusplus

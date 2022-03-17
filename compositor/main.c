@@ -2777,6 +2777,7 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 	config->no_clients_resize = 0;
 	config->force_no_compression = 0;
 	config->remotefx_codec = true;
+	config->refresh_rate = RDP_DEFAULT_FREQ;
 }
 
 static int
@@ -2784,6 +2785,7 @@ load_rdp_backend(struct weston_compositor *c,
 		int *argc, char *argv[], struct weston_config *wc)
 {
 	struct weston_rdp_backend_config config  = {{ 0, }};
+	struct weston_config_section *section;
 	int ret = 0;
 	bool no_remotefx_codec = false;
 
@@ -2812,6 +2814,10 @@ load_rdp_backend(struct weston_compositor *c,
 	config.remotefx_codec = !no_remotefx_codec;
 
 	wet_set_simple_head_configurator(c, rdp_backend_output_configure);
+	section = weston_config_get_section(wc, "rdp", NULL, NULL);
+	weston_config_section_get_int(section, "refresh-rate",
+				      &config.refresh_rate,
+				      RDP_DEFAULT_FREQ);
 
 	ret = weston_compositor_load_backend(c, WESTON_BACKEND_RDP,
 					     &config.base);

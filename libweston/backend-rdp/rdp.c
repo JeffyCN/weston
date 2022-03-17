@@ -311,6 +311,7 @@ rdp_insert_new_mode(struct weston_output *output, int width, int height, int rat
 static struct weston_mode *
 ensure_matching_mode(struct weston_output *output, struct weston_mode *target)
 {
+	struct rdp_backend *b = to_rdp_backend(output->compositor);
 	struct weston_mode *local;
 
 	wl_list_for_each(local, &output->mode_list, link) {
@@ -318,7 +319,7 @@ ensure_matching_mode(struct weston_output *output, struct weston_mode *target)
 			return local;
 	}
 
-	return rdp_insert_new_mode(output, target->width, target->height, RDP_MODE_FREQ);
+	return rdp_insert_new_mode(output, target->width, target->height, b->rdp_monitor_refresh_rate);
 }
 
 static int
@@ -379,6 +380,7 @@ rdp_output_set_size(struct weston_output *base,
 		    int width, int height)
 {
 	struct rdp_output *output = to_rdp_output(base);
+	struct rdp_backend *rdpBackend = to_rdp_backend(base->compositor);
 	struct weston_head *head;
 	struct weston_mode *currentMode;
 	struct weston_mode initMode;
@@ -399,8 +401,7 @@ rdp_output_set_size(struct weston_output *base,
 	initMode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
 	initMode.width = width;
 	initMode.height = height;
-	initMode.refresh = RDP_MODE_FREQ;
-
+	initMode.refresh = rdpBackend->rdp_monitor_refresh_rate;
 	currentMode = ensure_matching_mode(&output->base, &initMode);
 	if (!currentMode)
 		return -1;
@@ -1370,6 +1371,9 @@ rdp_backend_create(struct weston_compositor *compositor,
 
 	/* After here, rdp_debug() is ready to be used */
 
+	b->rdp_monitor_refresh_rate = config->refresh_rate * 1000;
+	rdp_debug(b, "RDP backend: WESTON_RDP_MONITOR_REFRESH_RATE: %d\n", b->rdp_monitor_refresh_rate);
+
 	compositor->backend = &b->base;
 
 	if (config->server_cert && config->server_key) {
@@ -1485,6 +1489,7 @@ config_init_to_defaults(struct weston_rdp_backend_config *config)
 	config->force_no_compression = 0;
 	config->remotefx_codec = true;
 	config->external_listener_fd = -1;
+	config->refresh_rate = RDP_DEFAULT_FREQ;
 }
 
 WL_EXPORT int
