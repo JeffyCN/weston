@@ -3678,16 +3678,18 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 
 	weston_view_activate_input(view, seat, flags);
 
-	if (shseat && shseat->focused_surface) {
+	if (shseat && shseat->focused_surface &&
+	    shseat->focused_surface != main_surface) {
 		struct shell_surface *current_focus =
 			get_shell_surface(shseat->focused_surface);
 		assert(current_focus);
 		shell_surface_deactivate(current_focus);
 	}
 
-	if (shseat)
+	if (shseat && shseat->focused_surface != main_surface) {
+		shell_surface_activate(shsurf);
 		shseat->focused_surface = main_surface;
-	shell_surface_activate(shsurf);
+	}
 
 	state = ensure_focus_state(shell, seat);
 	if (state == NULL)
