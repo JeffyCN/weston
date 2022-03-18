@@ -1388,7 +1388,7 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 	int dx = wl_fixed_to_int(grab->touch->grab_x + move->dx);
 	int dy = wl_fixed_to_int(grab->touch->grab_y + move->dy);
 
-	if (!shsurf || !move->active)
+	if (!shsurf || !shsurf->desktop_surface || !move->active)
 		return;
 
 	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
@@ -1520,7 +1520,7 @@ move_grab_motion(struct weston_pointer_grab *grab,
 	int cx, cy;
 
 	weston_pointer_move(pointer, event);
-	if (!shsurf)
+	if (!shsurf || !shsurf->desktop_surface)
 		return;
 
 	surface = weston_desktop_surface_get_surface(shsurf->desktop_surface);
