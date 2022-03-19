@@ -478,7 +478,7 @@ drm_property_info_populate(struct drm_device *device,
 			continue;
 
 		for (j = 0; j < num_infos; j++) {
-			if (!strcmp(prop->name, info[j].name))
+			if (!strcasecmp(prop->name, info[j].name))
 				break;
 		}
 
@@ -532,7 +532,7 @@ drm_property_info_populate(struct drm_device *device,
 			int l;
 
 			for (l = 0; l < prop->count_enums; l++) {
-				if (!strcmp(prop->enums[l].name,
+				if (!strcasecmp(prop->enums[l].name,
 					    info[j].enum_values[k].name))
 					break;
 			}
