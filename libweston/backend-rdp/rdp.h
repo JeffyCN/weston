@@ -134,6 +134,9 @@ typedef struct rdp_peer_context RdpPeerContext;
 void
 rdp_debug_print(struct weston_log_scope *log_scope, bool cont, char *fmt, ...);
 
+void
+convert_rdp_keyboard_to_xkb_rule_names(UINT32 KeyboardType, UINT32 KeyboardSubType, UINT32 KeyboardLayout, struct xkb_rule_names *xkbRuleNames);
+
 static inline struct rdp_head *
 to_rdp_head(struct weston_head *base)
 {

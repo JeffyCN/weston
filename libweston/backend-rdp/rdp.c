@@ -818,6 +818,29 @@ struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 	{0x00000000, 0, 0},
 };
 
+void
+convert_rdp_keyboard_to_xkb_rule_names(UINT32 KeyboardType,
+				       UINT32 KeyboardSubType,
+				       UINT32 KeyboardLayout,
+				       struct xkb_rule_names *xkbRuleNames)
+{
+	int i;
+
+	memset(xkbRuleNames, 0, sizeof(*xkbRuleNames));
+	xkbRuleNames->model = "pc105";
+	for (i = 0; rdp_keyboards[i].rdpLayoutCode; i++) {
+		if (rdp_keyboards[i].rdpLayoutCode == KeyboardLayout) {
+			xkbRuleNames->layout = rdp_keyboards[i].xkbLayout;
+			xkbRuleNames->variant = rdp_keyboards[i].xkbVariant;
+			break;
+		}
+	}
+
+	weston_log("%s: matching model=%s layout=%s variant=%s options=%s\n",
+		   __func__, xkbRuleNames->model, xkbRuleNames->layout,
+		   xkbRuleNames->variant, xkbRuleNames->options);
+}
+
 static BOOL
 xf_peer_activate(freerdp_peer* client)
 {
@@ -830,7 +853,6 @@ xf_peer_activate(freerdp_peer* client)
 	struct xkb_rule_names xkbRuleNames;
 	struct xkb_keymap *keymap;
 	struct weston_output *weston_output;
-	int i;
 	pixman_box32_t box;
 	pixman_region32_t damage;
 	char seat_name[50];
@@ -895,17 +917,10 @@ xf_peer_activate(freerdp_peer* client)
 			settings->KeyboardLayout, settings->KeyboardType, settings->KeyboardSubType,
 			settings->KeyboardFunctionKey);
 
-	memset(&xkbRuleNames, 0, sizeof(xkbRuleNames));
-	xkbRuleNames.model = "pc105";
-	for (i = 0; rdp_keyboards[i].rdpLayoutCode; i++) {
-		if (rdp_keyboards[i].rdpLayoutCode == settings->KeyboardLayout) {
-			xkbRuleNames.layout = rdp_keyboards[i].xkbLayout;
-			xkbRuleNames.variant = rdp_keyboards[i].xkbVariant;
-			weston_log("%s: matching layout=%s variant=%s\n", __FUNCTION__,
-					xkbRuleNames.layout, xkbRuleNames.variant);
-			break;
-		}
-	}
+	convert_rdp_keyboard_to_xkb_rule_names(settings->KeyboardType,
+					       settings->KeyboardSubType,
+					       settings->KeyboardLayout,
+					       &xkbRuleNames);
 
 	keymap = NULL;
 	if (xkbRuleNames.layout) {
