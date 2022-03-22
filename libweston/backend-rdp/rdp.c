@@ -1025,6 +1025,33 @@ ignore:
 	*button = 0;
 }
 
+static void
+rdp_notify_wheel_scroll(RdpPeerContext *peerContext, UINT16 flags)
+{
+	struct weston_pointer_axis_event weston_event;
+	double value;
+	struct timespec time;
+
+	/* DEFAULT_AXIS_STEP_DISTANCE is stolen from compositor-x11.c
+	 * The RDP specs says the lower bits of flags contains the "the number of rotation
+	 * units the mouse wheel was rotated".
+	 *
+	 * https://devblogs.microsoft.com/oldnewthing/20130123-00/?p=5473 explains the 120 value
+	 */
+	value = -(flags & 0xff) / 120.0;
+	if (flags & PTR_FLAGS_WHEEL_NEGATIVE)
+		value = -value;
+
+	weston_event.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
+	weston_event.value = DEFAULT_AXIS_STEP_DISTANCE * value;
+	weston_event.discrete = (int)value;
+	weston_event.has_discrete = true;
+
+	weston_compositor_get_time(&time);
+
+	notify_axis(peerContext->item.seat, &time, &weston_event);
+}
+
 static BOOL
 xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 {
@@ -1068,27 +1095,7 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 	}
 
 	if (flags & PTR_FLAGS_WHEEL) {
-		struct weston_pointer_axis_event weston_event;
-		double value;
-
-		/* DEFAULT_AXIS_STEP_DISTANCE is stolen from compositor-x11.c
-		 * The RDP specs says the lower bits of flags contains the "the number of rotation
-		 * units the mouse wheel was rotated".
-		 *
-		 * https://devblogs.microsoft.com/oldnewthing/20130123-00/?p=5473 explains the 120 value
-		 */
-		value = -(flags & 0xff) / 120.0;
-		if (flags & PTR_FLAGS_WHEEL_NEGATIVE)
-			value = -value;
-
-		weston_event.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
-		weston_event.value = DEFAULT_AXIS_STEP_DISTANCE * value;
-		weston_event.discrete = (int)value;
-		weston_event.has_discrete = true;
-
-		weston_compositor_get_time(&time);
-
-		notify_axis(peerContext->item.seat, &time, &weston_event);
+		rdp_notify_wheel_scroll(peerContext, flags);
 		need_frame = true;
 	}
 
