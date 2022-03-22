@@ -112,6 +112,9 @@ struct rdp_peer_context {
 	struct rdp_peers_item item;
 
 	bool button_state[5];
+
+	int verticalAccumWheelRotationPrecise;
+	int verticalAccumWheelRotationDiscrete;
 };
 typedef struct rdp_peer_context RdpPeerContext;
 

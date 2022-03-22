@@ -1025,31 +1025,71 @@ ignore:
 	*button = 0;
 }
 
-static void
+static bool
 rdp_notify_wheel_scroll(RdpPeerContext *peerContext, UINT16 flags)
 {
 	struct weston_pointer_axis_event weston_event;
+	struct rdp_backend *b = peerContext->rdpBackend;
+	int ivalue;
 	double value;
 	struct timespec time;
+	int *accumWheelRotationPrecise;
+	int *accumWheelRotationDiscrete;
 
-	/* DEFAULT_AXIS_STEP_DISTANCE is stolen from compositor-x11.c
-	 * The RDP specs says the lower bits of flags contains the "the number of rotation
-	 * units the mouse wheel was rotated".
-	 *
-	 * https://devblogs.microsoft.com/oldnewthing/20130123-00/?p=5473 explains the 120 value
-	 */
-	value = -(flags & 0xff) / 120.0;
+	/*
+	* The RDP specs says the lower bits of flags contains the "the number of rotation
+	* units the mouse wheel was rotated".
+	*/
+	ivalue = ((int)flags & 0x000000ff);
 	if (flags & PTR_FLAGS_WHEEL_NEGATIVE)
-		value = -value;
+		ivalue = (0xff - ivalue) * -1;
 
-	weston_event.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
-	weston_event.value = DEFAULT_AXIS_STEP_DISTANCE * value;
-	weston_event.discrete = (int)value;
-	weston_event.has_discrete = true;
+	/*
+	* Flip the scroll direction as the RDP direction is inverse of X/Wayland
+	* for vertical scroll
+	*/
+	ivalue *= -1;
 
-	weston_compositor_get_time(&time);
+	accumWheelRotationPrecise = &peerContext->verticalAccumWheelRotationPrecise;
+	accumWheelRotationDiscrete = &peerContext->verticalAccumWheelRotationDiscrete;
 
-	notify_axis(peerContext->item.seat, &time, &weston_event);
+	/*
+	* Accumulate the wheel increments.
+	*
+	* Every 12 wheel increments, we will send an update to our Wayland
+	* clients with an updated value for the wheel for smooth scrolling.
+	*
+	* Every 120 wheel increments, we tick one discrete wheel click.
+	*
+	* https://devblogs.microsoft.com/oldnewthing/20130123-00/?p=5473 explains the 120 value
+	*/
+	*accumWheelRotationPrecise += ivalue;
+	*accumWheelRotationDiscrete += ivalue;
+	rdp_debug_verbose(b, "wheel: rawValue:%d accumPrecise:%d accumDiscrete %d\n",
+			  ivalue, *accumWheelRotationPrecise, *accumWheelRotationDiscrete);
+
+	if (abs(*accumWheelRotationPrecise) >= 12) {
+		value = (double)(*accumWheelRotationPrecise / 12);
+
+		weston_event.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
+		weston_event.value = value;
+		weston_event.discrete = *accumWheelRotationDiscrete / 120;
+		weston_event.has_discrete = true;
+
+		rdp_debug_verbose(b, "wheel: value:%f discrete:%d\n",
+				  weston_event.value, weston_event.discrete);
+
+		weston_compositor_get_time(&time);
+
+		notify_axis(peerContext->item.seat, &time, &weston_event);
+
+		*accumWheelRotationPrecise %= 12;
+		*accumWheelRotationDiscrete %= 120;
+
+		return true;
+	}
+
+	return false;
 }
 
 static BOOL
@@ -1095,8 +1135,8 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 	}
 
 	if (flags & PTR_FLAGS_WHEEL) {
-		rdp_notify_wheel_scroll(peerContext, flags);
-		need_frame = true;
+		if (rdp_notify_wheel_scroll(peerContext, flags))
+			need_frame = true;
 	}
 
 	if (need_frame)
