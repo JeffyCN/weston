@@ -1026,7 +1026,7 @@ ignore:
 }
 
 static bool
-rdp_notify_wheel_scroll(RdpPeerContext *peerContext, UINT16 flags)
+rdp_notify_wheel_scroll(RdpPeerContext *peerContext, UINT16 flags, uint32_t axis)
 {
 	struct weston_pointer_axis_event weston_event;
 	struct rdp_backend *b = peerContext->rdpBackend;
@@ -1048,10 +1048,16 @@ rdp_notify_wheel_scroll(RdpPeerContext *peerContext, UINT16 flags)
 	* Flip the scroll direction as the RDP direction is inverse of X/Wayland
 	* for vertical scroll
 	*/
-	ivalue *= -1;
+	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
+		ivalue *= -1;
 
-	accumWheelRotationPrecise = &peerContext->verticalAccumWheelRotationPrecise;
-	accumWheelRotationDiscrete = &peerContext->verticalAccumWheelRotationDiscrete;
+		accumWheelRotationPrecise = &peerContext->verticalAccumWheelRotationPrecise;
+		accumWheelRotationDiscrete = &peerContext->verticalAccumWheelRotationDiscrete;
+	}
+	else {
+		accumWheelRotationPrecise = &peerContext->horizontalAccumWheelRotationPrecise;
+		accumWheelRotationDiscrete = &peerContext->horizontalAccumWheelRotationDiscrete;
+	}
 
 	/*
 	* Accumulate the wheel increments.
@@ -1071,7 +1077,7 @@ rdp_notify_wheel_scroll(RdpPeerContext *peerContext, UINT16 flags)
 	if (abs(*accumWheelRotationPrecise) >= 12) {
 		value = (double)(*accumWheelRotationPrecise / 12);
 
-		weston_event.axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
+		weston_event.axis = axis;
 		weston_event.value = value;
 		weston_event.discrete = *accumWheelRotationDiscrete / 120;
 		weston_event.has_discrete = true;
@@ -1134,8 +1140,14 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 		need_frame = true;
 	}
 
+	/* Per RDP spec, if both PTRFLAGS_WHEEL and PTRFLAGS_HWHEEL are specified
+	 * then PTRFLAGS_WHEEL takes precedent
+	 */
 	if (flags & PTR_FLAGS_WHEEL) {
-		if (rdp_notify_wheel_scroll(peerContext, flags))
+		if (rdp_notify_wheel_scroll(peerContext, flags, WL_POINTER_AXIS_VERTICAL_SCROLL))
+			need_frame = true;
+	} else if (flags & PTR_FLAGS_HWHEEL) {
+		if (rdp_notify_wheel_scroll(peerContext, flags, WL_POINTER_AXIS_HORIZONTAL_SCROLL))
 			need_frame = true;
 	}
 
@@ -1330,6 +1342,7 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	settings->FrameMarkerCommandEnabled = TRUE;
 	settings->SurfaceFrameMarkerEnabled = TRUE;
 	settings->HasExtendedMouseEvent = TRUE;
+	settings->HasHorizontalWheel = TRUE;
 
 	client->Capabilities = xf_peer_capabilities;
 	client->PostConnect = xf_peer_post_connect;

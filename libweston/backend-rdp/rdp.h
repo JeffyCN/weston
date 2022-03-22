@@ -115,6 +115,9 @@ struct rdp_peer_context {
 
 	int verticalAccumWheelRotationPrecise;
 	int verticalAccumWheelRotationDiscrete;
+	int horizontalAccumWheelRotationPrecise;
+	int horizontalAccumWheelRotationDiscrete;
+
 };
 typedef struct rdp_peer_context RdpPeerContext;
 
