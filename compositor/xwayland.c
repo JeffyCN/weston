@@ -36,6 +36,12 @@
 #include <libweston/xwayland-api.h>
 #include "shared/helpers.h"
 
+#ifdef HAVE_XWAYLAND_LISTENFD
+#  define LISTEN_STR "-listenfd"
+#else
+#  define LISTEN_STR "-listen"
+#endif
+
 struct wet_xwayland {
 	struct weston_compositor *compositor;
 	const struct weston_xwayland_api *api;
@@ -123,22 +129,13 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 			  xserver,
 			  display,
 			  "-rootless",
-#ifdef HAVE_XWAYLAND_LISTENFD
-			  "-listenfd", abstract_fd_str,
-			  "-listenfd", unix_fd_str,
-#else
-			  "-listen", abstract_fd_str,
-			  "-listen", unix_fd_str,
-#endif
+			  LISTEN_STR, abstract_fd_str,
+			  LISTEN_STR, unix_fd_str,
 			  "-wm", wm_fd_str,
 			  "-terminate",
 			  NULL) < 0)
 			weston_log("exec of '%s %s -rootless "
-#ifdef HAVE_XWAYLAND_LISTENFD
-				   "-listenfd %s -listenfd %s "
-#else
-				   "-listen %s -listen %s "
-#endif
+				   LISTEN_STR " %s " LISTEN_STR " %s "
 				   "-wm %s -terminate' failed: %s\n",
 				   xserver, display,
 				   abstract_fd_str, unix_fd_str, wm_fd_str,
