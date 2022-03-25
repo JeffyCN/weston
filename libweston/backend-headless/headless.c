@@ -503,6 +503,8 @@ headless_destroy(struct weston_backend *backend)
 	struct weston_compositor *ec = b->compositor;
 	struct weston_head *base, *next;
 
+	wl_list_remove(&b->base.link);
+
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
 		if (to_headless_head(base))
 			headless_head_destroy(base);
@@ -537,7 +539,7 @@ headless_backend_create(struct weston_compositor *compositor,
 		return NULL;
 
 	b->compositor = compositor;
-	compositor->backend = &b->base;
+	wl_list_insert(&compositor->backend_list, &b->base.link);
 
 	b->base.supported_presentation_clocks =
 			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
@@ -621,6 +623,7 @@ err_input:
 	if (b->theme)
 		theme_destroy(b->theme);
 err_free:
+	wl_list_remove(&b->base.link);
 	free(b);
 	return NULL;
 }
@@ -641,6 +644,11 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_version != WESTON_HEADLESS_BACKEND_CONFIG_VERSION ||
 	    config_base->struct_size > sizeof(struct weston_headless_backend_config)) {
 		weston_log("headless backend config structure is invalid\n");
+		return -1;
+	}
+
+	if (compositor->renderer) {
+		weston_log("headless backend must be the primary backend\n");
 		return -1;
 	}
 
