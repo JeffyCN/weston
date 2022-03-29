@@ -829,7 +829,7 @@ handle_primary_client_destroyed(struct wl_listener *listener, void *data)
 static int
 weston_create_listening_socket(struct wl_display *display, const char *socket_name)
 {
-	char name_candidate[16];
+	char name_candidate[32];
 
 	if (socket_name) {
 		if (wl_display_add_socket(display, socket_name)) {
