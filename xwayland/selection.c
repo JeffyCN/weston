@@ -152,7 +152,7 @@ struct x11_data_source {
 
 static void
 data_source_accept(struct weston_data_source *source,
-		   uint32_t time, const char *mime_type)
+		   uint32_t serial, const char *mime_type)
 {
 }
 

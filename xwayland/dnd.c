@@ -51,7 +51,7 @@ struct dnd_data_source {
 
 static void
 data_source_accept(struct weston_data_source *base,
-		   uint32_t time, const char *mime_type)
+		   uint32_t serial, const char *mime_type)
 {
 	struct dnd_data_source *source = (struct dnd_data_source *) base;
 	xcb_client_message_event_t client_message;

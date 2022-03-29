@@ -1239,7 +1239,7 @@ destroy_data_source(struct wl_resource *resource)
 
 static void
 client_source_accept(struct weston_data_source *source,
-		     uint32_t time, const char *mime_type)
+		     uint32_t serial, const char *mime_type)
 {
 	wl_data_source_send_target(source->resource, mime_type);
 }
