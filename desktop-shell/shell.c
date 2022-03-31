@@ -4966,9 +4966,17 @@ desktop_shell_destroy_layer(struct weston_layer *layer)
 		 * additional black_view created and added to its layer_link
 		 * fullscreen view. See shell_ensure_fullscreen_black_view()
 		 *
-		 * As that black_view it is not a weston_desktop_surface
-		 * we can't have a shsurf for it so we just destroy it like
-		 * we do it in desktop_surface_removed() */
+		 * Note that we do not choose to destroy all other potential
+		 * views we find in the layer, but instead we explicitly verify
+		 * if the view in question was explicitly created by
+		 * desktop-shell, rather than libweston-desktop (in
+		 * desktop_surface_added()).
+		 *
+		 * This is particularly important because libweston-desktop
+		 * could create additional views, which are managed implicitly,
+		 * but which are still being added to the layer list.
+		 *
+		 */
 		if (shsurf)
 			desktop_shell_destroy_surface(shsurf);
 		else
