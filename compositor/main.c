@@ -3175,6 +3175,12 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
 		weston_log_setup_scopes(log_ctx, flight_rec, flight_rec_scopes);
 }
 
+static void
+sigint_helper(int sig)
+{
+	raise(SIGUSR2);
+}
+
 WL_EXPORT int
 wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 {
@@ -3211,6 +3217,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	struct weston_log_subscriber *logger = NULL;
 	struct weston_log_subscriber *flight_rec = NULL;
 	sigset_t mask;
+	struct sigaction action;
 
 	bool wait_for_debugger = false;
 	struct wl_protocol_logger *protologger = NULL;
@@ -3301,13 +3308,27 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	loop = wl_display_get_event_loop(display);
 	signals[0] = wl_event_loop_add_signal(loop, SIGTERM, on_term_signal,
 					      display);
-	signals[1] = wl_event_loop_add_signal(loop, SIGINT, on_term_signal,
+	signals[1] = wl_event_loop_add_signal(loop, SIGUSR2, on_term_signal,
 					      display);
 
 	wl_list_init(&wet.child_process_list);
 	signals[2] = wl_event_loop_add_signal(loop, SIGCHLD, sigchld_handler,
 					      &wet);
 
+	/* When debugging weston, if use wl_event_loop_add_signal() to catch
+	 * SIGINT, the debugger can't catch it, and attempting to stop
+	 * weston from within the debugger results in weston exiting
+	 * cleanly.
+	 *
+	 * Instead, use the sigaction() function, which sets up the signal
+	 * in a way that gdb can successfully catch, but have the handler
+	 * for SIGINT send SIGUSR2 (xwayland uses SIGUSR1), which we catch
+	 * via wl_event_loop_add_signal().
+	 */
+	action.sa_handler = sigint_helper;
+	sigemptyset(&action.sa_mask);
+	action.sa_flags = 0;
+	sigaction(SIGINT, &action, NULL);
 	if (!signals[0] || !signals[1] || !signals[2])
 		goto out_signals;
 
