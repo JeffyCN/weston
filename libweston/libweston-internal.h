@@ -389,6 +389,8 @@ const uint64_t *
 weston_drm_format_get_modifiers(const struct weston_drm_format *format,
 				unsigned int *count_out);
 
+void
+weston_compositor_destroy_touch_calibrator(struct weston_compositor *compositor);
 /**
  * paint node
  *
