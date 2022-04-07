@@ -427,6 +427,13 @@ weston_client_launch(struct weston_compositor *compositor,
 	}
 
 	if (pid == 0) {
+		/* Put the client in a new session so it won't catch signals
+		 * intended for the parent. Sharing a session can be
+		 * confusing when launching weston under gdb, as the ctrl-c
+		 * intended for gdb will pass to the child, and weston
+		 * will cleanly shut down when the child exits.
+		 */
+		setsid();
 		child_client_exec(sv[1], path);
 		_exit(-1);
 	}
