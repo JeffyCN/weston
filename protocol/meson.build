@@ -6,6 +6,7 @@ dir_wp_base = dep_wp.get_pkgconfig_variable('pkgdatadir')
 
 install_data(
 	[
+		'weston-content-protection.xml',
 		'weston-debug.xml',
 		'weston-direct-display.xml',
 	],
