@@ -87,7 +87,6 @@ integer, and boolean. Strings must not be quoted, do not support any
 escape sequences, and run till the end of the line. Integers can
 be given in decimal (e.g. 123), octal (e.g. 0173), and hexadecimal
 (e.g. 0x7b) form. Boolean values can be only 'true' or 'false'.
-.RE
 .SH "CORE SECTION"
 The
 .B core
@@ -108,7 +107,6 @@ directory are:
 .TP 7
 .BI "xwayland=" true
 ask Weston to load the XWayland module (boolean).
-.RE
 .TP 7
 .BI "modules=" cms-colord.so,screen-share.so
 specifies the modules to load (string). Available modules in the
@@ -159,9 +157,6 @@ means that if both weston.ini and command line define this idle-timeout
 time, the one specified in the command-line will be used. On the other
 hand, if none of these sets the value, default idle timeout will be
 set to 300 seconds.
-.RS
-.PP
-.RE
 .TP 7
 .BI "require-input=" true
 require an input device for launch
@@ -192,7 +187,6 @@ Enables pixman-based rendering for all outputs on backends that support it.
 Boolean, defaults to
 .BR false .
 There is also a command line option to do the same.
-.RE
 .TP 7
 .BI "color-management=" true
 Enables color management and requires using GL-renderer.
@@ -315,17 +309,17 @@ Weston will use the new calibration immediately.
 The program is invoked as:
 .PP
 .RS 10
+.nf
 .I calibration_helper syspath m1 m2 m3 m4 m5 m6
+.fi
 .RE
-.RS
-.PP
+.IP
 .RI "where " syspath
 is the udev sys path for the device and
 .IR m1 "  through " m6
 are the calibration matrix elements in libinput's
 .BR LIBINPUT_CALIBRATION_MATRIX " udev property format."
 The sys path is an absolute path and starts with the sys mount point.
-.RE
 
 .SH "SHELL SECTION"
 The
@@ -438,7 +432,6 @@ sets the cursor theme (string).
 .TP 7
 .BI "cursor-size=" 24
 sets the cursor size (unsigned integer).
-.RE
 .SH "LAUNCHER SECTION"
 There can be multiple launcher sections, one for each launcher.
 .TP 7
@@ -458,7 +451,6 @@ example:
 path=GDK_BACKEND=wayland gnome-terminal --full-screen
 .in
 .fi
-.PP
 .SH "OUTPUT SECTION"
 There can be multiple output sections, each corresponding to one output. It is
 currently only recognized by the drm and x11 backends.
@@ -477,12 +469,10 @@ Examples of usage:
 .BR "WL1      " "Wayland backend, Wayland window no.1"
 .fi
 .RE
-.RS
-.PP
+.IP
 See
 .B "weston-drm(7)"
 for more details.
-.RE
 .TP 7
 .BI "mode=" mode
 sets the output mode (string). The mode parameter is handled differently
@@ -493,7 +483,6 @@ The DRM backend accepts different modes, along with an option of a modeline stri
 See
 .B "weston-drm(7)"
 for examples of modes-formats supported by DRM backend.
-.RE
 .TP 7
 .BI "transform=" normal
 How you have rotated your monitor from its normal orientation (string).
@@ -522,12 +511,9 @@ multiplier, to make them readable. Applications that do support their own output
 scaling can draw their content in high resolution, in which case they avoid
 compositor scaling. Weston will not scale the output of such applications, and
 they are not affected by this multiplier.
-.RE
-.RS
-.PP
+.IP
 An integer, 1 by default, typically configured as 2 or higher when needed,
 denoting the scaling multiplier for the output.
-.RE
 .TP 7
 .BI "icc_profile=" file
 If option
@@ -535,7 +521,6 @@ If option
 is true, load the given ICC file as the output color profile. This works only
 on DRM, headless, wayland, and x11 backends, and for remoting and pipewire
 outputs.
-.RE
 .TP 7
 .BI "seat=" name
 The logical seat name that this output should be associated with. If this
@@ -544,7 +529,6 @@ set on it. The expectation is that this functionality will be used in a
 multiheaded environment with a single compositor for multiple output and input
 configurations. The default seat is called "default" and will always be
 present. This seat can be constrained like any other.
-.RE
 .TP 7
 .BI "allow_hdcp=" true
 Allows HDCP support for this output. If set to true, HDCP can be tried for the
@@ -553,82 +537,58 @@ default, HDCP support is always allowed for an output. The
 content-protection can actually be realized, only if the hardware
 (source and sink) support HDCP, and the backend has the implementation
 of content-protection protocol. Currently, HDCP is supported by drm-backend.
-.RE
 .TP 7
 .BI "app-ids=" app-id[,app_id]*
 A comma separated list of the IDs of applications to place on this output.
 These IDs should match the application IDs as set with the xdg_shell.set_app_id
 request. Currently, this option is supported by kiosk-shell.
-.RE
 .SH "INPUT-METHOD SECTION"
 .TP 7
 .BI "path=" "@weston_libexecdir@/weston-keyboard"
 sets the path of the on screen keyboard input method (string).
-.RE
-.RE
 .TP 7
 .BI "overlay-keyboard=" false
 sets weston-keyboard as overlay panel.
-.RE
-.RE
 .SH "KEYBOARD SECTION"
 This section contains the following keys:
 .TP 7
 .BI "keymap_rules=" "evdev"
 sets the keymap rules file (string). Used to map layout and model to input
 device.
-.RE
-.RE
 .TP 7
 .BI "keymap_model=" "pc105"
 sets the keymap model (string). See the Models section in
 .B "xkeyboard-config(7)."
-.RE
-.RE
 .TP 7
 .BI "keymap_layout=" "us,de,gb"
 sets the comma separated list of keyboard layout codes (string). See the
 Layouts section in
 .B "xkeyboard-config(7)."
-.RE
-.RE
 .TP 7
 .BI "keymap_variant=" "euro,,intl"
 sets the comma separated list of keyboard layout variants (string). The number
 of variants must be the same as the number of layouts above. See the Layouts
 section in
 .B "xkeyboard-config(7)."
-.RE
-.RE
 .TP 7
 .BI "keymap_options=" "grp:alt_shift_toggle,grp_led:scroll"
 sets the keymap options (string). See the Options section in
 .B "xkeyboard-config(7)."
-.RE
-.RE
 .TP 7
 .BI "repeat-rate=" "40"
 sets the rate of repeating keys in characters per second (unsigned integer)
-.RE
-.RE
 .TP 7
 .BI "repeat-delay=" "400"
 sets the delay in milliseconds since key down until repeating starts (unsigned
 integer)
-.RE
-.RE
 .TP 7
 .BI "numlock-on=" "false"
 sets the default state of the numlock on weston startup for the backends which
 support it.
-.RE
-.RE
 .TP 7
 .BI "vt-switching=" "true"
 Whether to allow the use of Ctrl+Alt+Fn key combinations to switch away from
 the compositor's virtual console.
-.RE
-.RE
 .SH "TERMINAL SECTION"
 Contains settings for the weston terminal application (weston-terminal). It
 allows to customize the font and shell of the command line interface.
@@ -636,49 +596,34 @@ allows to customize the font and shell of the command line interface.
 .BI "font=" "DejaVu Sans Mono"
 sets the font of the terminal (string). For a good experience it is recommended
 to use monospace fonts. In case the font is not found, the default one is used.
-.RE
-.RE
 .TP 7
 .BI "font-size=" "14"
 sets the size of the terminal font (unsigned integer).
-.RE
-.RE
 .TP 7
 .BI "term=" "xterm-256color"
 The terminal shell (string). Sets the $TERM variable.
-.RE
-.RE
 .SH "XWAYLAND SECTION"
 .TP 7
 .BI "path=" "@xserver_path@"
 sets the path to the xserver to run (string).
-.RE
-.RE
 .SH "SCREEN-SHARE SECTION"
 .TP 7
 .BI "command=" "@weston_bindir@/weston --backend=rdp-backend.so \
 --shell=fullscreen-shell.so --no-clients-resize"
 sets the command to start a fullscreen-shell server for screen sharing (string).
-.RE
-.RE
 .TP 7
 .BI "start-on-startup=" "false"
 If set to true, start screen sharing of all outputs available on Weston startup.
 Set to false by default.
-.RE
-.RE
 .SH "AUTOLAUNCH SECTION"
 .TP 7
 .BI "path=" "/usr/bin/echo"
 Path to an executable file to run after startup. This file is executed in
 parallel to Weston, so it does not have to immediately exit. Defaults to empty.
-.RE
 .TP 7
 .BI "watch=" "false"
 If set to true, quit Weston after the auto-launched executable exits. Set to false
 by default.
-.RE
-.RE
 .SH "SEE ALSO"
 .BR weston (1),
 .BR weston-bindings (7),
