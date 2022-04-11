@@ -35,6 +35,7 @@
 #include "compositor/weston.h"
 #include <libweston/xwayland-api.h>
 #include "shared/helpers.h"
+#include "shared/os-compatibility.h"
 
 #ifdef HAVE_XWAYLAND_LISTENFD
 #  define LISTEN_STR "-listenfd"
@@ -46,24 +47,44 @@ struct wet_xwayland {
 	struct weston_compositor *compositor;
 	const struct weston_xwayland_api *api;
 	struct weston_xwayland *xwayland;
-	struct wl_event_source *sigusr1_source;
+	struct wl_event_source *display_fd_source;
 	struct wl_client *client;
 	int wm_fd;
 	struct weston_process process;
 };
 
 static int
-handle_sigusr1(int signal_number, void *data)
+handle_display_fd(int fd, uint32_t mask, void *data)
 {
 	struct wet_xwayland *wxw = data;
+	char buf[64];
+	ssize_t n;
 
-	/* We'd be safer if we actually had the struct
-	 * signalfd_siginfo from the signalfd data and could verify
-	 * this came from Xwayland.*/
+	/* xwayland exited before being ready, don't finish initialization,
+	 * the process watcher will cleanup */
+	if (!(mask & WL_EVENT_READABLE))
+		goto out;
+
+	/* Xwayland writes to the pipe twice, so if we close it too early
+	 * it's possible the second write will fail and Xwayland shuts down.
+	 * Make sure we read until end of line marker to avoid this. */
+	n = read(fd, buf, sizeof buf);
+	if (n < 0 && errno != EAGAIN) {
+		weston_log("read from Xwayland display_fd failed: %s\n",
+			   strerror(errno));
+		goto out;
+	}
+	/* Returning 1 here means recheck and call us again if required. */
+	if (n <= 0 || (n > 0 && buf[n - 1] != '\n'))
+		return 1;
+
 	wxw->api->xserver_loaded(wxw->xwayland, wxw->client, wxw->wm_fd);
-	wl_event_source_remove(wxw->sigusr1_source);
 
-	return 1;
+out:
+	wl_event_source_remove(wxw->display_fd_source);
+	close(fd);
+
+	return 0;
 }
 
 static pid_t
@@ -72,10 +93,12 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	struct wet_xwayland *wxw = user_data;
 	pid_t pid;
 	char s[12], abstract_fd_str[12], unix_fd_str[12], wm_fd_str[12];
-	int sv[2], wm[2], fd;
+	char display_fd_str[12];
+	int sv[2], wm[2], fd, display_fd[2];
 	char *xserver = NULL;
 	struct weston_config *config = wet_get_config(wxw->compositor);
 	struct weston_config_section *section;
+	struct wl_event_loop *loop;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) < 0) {
 		weston_log("wl connection socketpair failed\n");
@@ -84,6 +107,16 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wm) < 0) {
 		weston_log("X wm connection socketpair failed\n");
+		return 1;
+	}
+
+	if (pipe(display_fd) < 0) {
+		weston_log("pipe creation for displayfd failed\n");
+		return 1;
+	}
+
+	if (os_fd_set_cloexec(display_fd[0]) != 0) {
+		weston_log("failed setting remaining end of displayfd as cloexec\n");
 		return 1;
 	}
 
@@ -110,20 +143,12 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		if (fd < 0)
 			goto fail;
 		snprintf(wm_fd_str, sizeof wm_fd_str, "%d", fd);
+		snprintf(display_fd_str, sizeof display_fd_str, "%d", display_fd[1]);
 
 		section = weston_config_get_section(config,
 						    "xwayland", NULL, NULL);
 		weston_config_section_get_string(section, "path",
 						 &xserver, XSERVER_PATH);
-
-		/* Ignore SIGUSR1 in the child, which will make the X
-		 * server send SIGUSR1 to the parent (weston) when
-		 * it's done with initialization.  During
-		 * initialization the X server will round trip and
-		 * block on the wayland compositor, so avoid making
-		 * blocking requests (like xcb_connect_to_fd) until
-		 * it's done with that. */
-		signal(SIGUSR1, SIG_IGN);
 
 		if (execl(xserver,
 			  xserver,
@@ -131,6 +156,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 			  "-rootless",
 			  LISTEN_STR, abstract_fd_str,
 			  LISTEN_STR, unix_fd_str,
+			  "-displayfd", display_fd_str,
 			  "-wm", wm_fd_str,
 			  "-terminate",
 			  NULL) < 0)
@@ -150,6 +176,16 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		close(wm[1]);
 		wxw->wm_fd = wm[0];
 
+		/* During initialization the X server will round trip
+		 * and block on the wayland compositor, so avoid making
+		 * blocking requests (like xcb_connect_to_fd) until
+		 * it's done with that. */
+		close(display_fd[1]);
+		loop = wl_display_get_event_loop(wxw->compositor->wl_display);
+		wxw->display_fd_source =
+			wl_event_loop_add_fd(loop, display_fd[0], WL_EVENT_READABLE,
+					handle_display_fd, wxw);
+
 		wxw->process.pid = pid;
 		wet_watch_process(wxw->compositor, &wxw->process);
 		break;
@@ -167,12 +203,8 @@ xserver_cleanup(struct weston_process *process, int status)
 {
 	struct wet_xwayland *wxw =
 		container_of(process, struct wet_xwayland, process);
-	struct wl_event_loop *loop =
-		wl_display_get_event_loop(wxw->compositor->wl_display);
 
 	wxw->api->xserver_exited(wxw->xwayland, status);
-	wxw->sigusr1_source = wl_event_loop_add_signal(loop, SIGUSR1,
-	                                               handle_sigusr1, wxw);
 	wxw->client = NULL;
 }
 
@@ -182,7 +214,6 @@ wet_load_xwayland(struct weston_compositor *comp)
 	const struct weston_xwayland_api *api;
 	struct weston_xwayland *xwayland;
 	struct wet_xwayland *wxw;
-	struct wl_event_loop *loop;
 
 	if (weston_compositor_load_xwayland(comp) < 0)
 		return -1;
@@ -209,10 +240,6 @@ wet_load_xwayland(struct weston_compositor *comp)
 	wxw->process.cleanup = xserver_cleanup;
 	if (api->listen(xwayland, wxw, spawn_xserver) < 0)
 		return -1;
-
-	loop = wl_display_get_event_loop(comp->wl_display);
-	wxw->sigusr1_source = wl_event_loop_add_signal(loop, SIGUSR1,
-						       handle_sigusr1, wxw);
 
 	return 0;
 }
