@@ -3181,7 +3181,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	int ret = EXIT_FAILURE;
 	char *cmdline;
 	struct wl_display *display;
-	struct wl_event_source *signals[4];
+	struct wl_event_source *signals[3];
 	struct wl_event_loop *loop;
 	int i, fd;
 	char *backend = NULL;
@@ -3303,14 +3303,12 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 					      display);
 	signals[1] = wl_event_loop_add_signal(loop, SIGINT, on_term_signal,
 					      display);
-	signals[2] = wl_event_loop_add_signal(loop, SIGQUIT, on_term_signal,
-					      display);
 
 	wl_list_init(&wet.child_process_list);
-	signals[3] = wl_event_loop_add_signal(loop, SIGCHLD, sigchld_handler,
+	signals[2] = wl_event_loop_add_signal(loop, SIGCHLD, sigchld_handler,
 					      &wet);
 
-	if (!signals[0] || !signals[1] || !signals[2] || !signals[3])
+	if (!signals[0] || !signals[1] || !signals[2])
 		goto out_signals;
 
 	/* Xwayland uses SIGUSR1 for communicating with weston. Since some
