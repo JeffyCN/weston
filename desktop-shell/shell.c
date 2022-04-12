@@ -3858,6 +3858,16 @@ shell_fade_done_for_output(struct weston_view_animation *animation, void *data)
 	}
 }
 
+static int
+fade_surface_get_label(struct weston_surface *surface,
+		       char *buf, size_t len)
+{
+	struct shell_output *output = surface->committed_private;
+
+	return snprintf(buf, len, "desktop shell fade surface for %s",
+			output->output->name);
+}
+
 static struct weston_curtain *
 shell_fade_create_view_for_output(struct desktop_shell *shell,
 				  struct shell_output *shell_output)
@@ -3869,7 +3879,7 @@ shell_fade_create_view_for_output(struct desktop_shell *shell,
 		.x = output->x, .y = output->y,
 		.width = output->width, .height = output->height,
 		.surface_committed = black_surface_committed,
-		.get_label = black_surface_get_label,
+		.get_label = fade_surface_get_label,
 		.surface_private = shell_output,
 		.capture_input = false,
 	};
