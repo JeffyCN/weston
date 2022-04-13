@@ -40,7 +40,7 @@
 #include <libweston/libweston.h>
 #include "xwayland.h"
 
-#include "hash.h"
+#include "shared/hash.h"
 
 struct dnd_data_source {
 	struct weston_data_source base;

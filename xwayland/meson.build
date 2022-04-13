@@ -14,7 +14,6 @@ srcs_xwayland = [
 	'window-manager.c',
 	'selection.c',
 	'dnd.c',
-	'hash.c',
 ]
 
 dep_names_xwayland = [

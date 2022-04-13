@@ -46,7 +46,7 @@
 #include "xwayland-internal-interface.h"
 
 #include "shared/cairo-util.h"
-#include "hash.h"
+#include "shared/hash.h"
 #include "shared/helpers.h"
 #include "shared/xcb-xwayland.h"
 
