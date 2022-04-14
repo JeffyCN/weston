@@ -1,15 +1,18 @@
 .\" shorthand for double quote that works everywhere.
 .ds q \N'34'
 .TH weston.ini 5 "2019-03-26" "Weston @version@"
+.\"---------------------------------------------------------------------
 .SH NAME
 weston.ini \- configuration file for
 .B Weston
 \- the reference Wayland
 compositor
+.\"---------------------------------------------------------------------
 .SH INTRODUCTION
 .B Weston
 obtains configuration from its command line parameters and the configuration
 file described here.
+.\"---------------------------------------------------------------------
 .SH DESCRIPTION
 .B Weston
 uses a configuration file called
@@ -87,6 +90,7 @@ integer, and boolean. Strings must not be quoted, do not support any
 escape sequences, and run till the end of the line. Integers can
 be given in decimal (e.g. 123), octal (e.g. 0173), and hexadecimal
 (e.g. 0x7b) form. Boolean values can be only 'true' or 'false'.
+.\"---------------------------------------------------------------------
 .SH "CORE SECTION"
 The
 .B core
@@ -200,7 +204,7 @@ spaces and perform monitor profiling, and tone mapping required to enable HDR
 video modes. This extended functionality comes at the cost of heavier image
 processing and sometimes a loss of some hardware off-loading features like
 composite-bypass.
-
+.\"---------------------------------------------------------------------
 .SH "LIBINPUT SECTION"
 The
 .B libinput
@@ -320,7 +324,7 @@ is the udev sys path for the device and
 are the calibration matrix elements in libinput's
 .BR LIBINPUT_CALIBRATION_MATRIX " udev property format."
 The sys path is an absolute path and starts with the sys mount point.
-
+.\"---------------------------------------------------------------------
 .SH "SHELL SECTION"
 The
 .B shell
@@ -432,6 +436,7 @@ sets the cursor theme (string).
 .TP 7
 .BI "cursor-size=" 24
 sets the cursor size (unsigned integer).
+.\"---------------------------------------------------------------------
 .SH "LAUNCHER SECTION"
 There can be multiple launcher sections, one for each launcher.
 .TP 7
@@ -451,6 +456,7 @@ example:
 path=GDK_BACKEND=wayland gnome-terminal --full-screen
 .in
 .fi
+.\"---------------------------------------------------------------------
 .SH "OUTPUT SECTION"
 There can be multiple output sections, each corresponding to one output. It is
 currently only recognized by the drm and x11 backends.
@@ -542,6 +548,7 @@ of content-protection protocol. Currently, HDCP is supported by drm-backend.
 A comma separated list of the IDs of applications to place on this output.
 These IDs should match the application IDs as set with the xdg_shell.set_app_id
 request. Currently, this option is supported by kiosk-shell.
+.\"---------------------------------------------------------------------
 .SH "INPUT-METHOD SECTION"
 .TP 7
 .BI "path=" "@weston_libexecdir@/weston-keyboard"
@@ -549,6 +556,7 @@ sets the path of the on screen keyboard input method (string).
 .TP 7
 .BI "overlay-keyboard=" false
 sets weston-keyboard as overlay panel.
+.\"---------------------------------------------------------------------
 .SH "KEYBOARD SECTION"
 This section contains the following keys:
 .TP 7
@@ -589,6 +597,7 @@ support it.
 .BI "vt-switching=" "true"
 Whether to allow the use of Ctrl+Alt+Fn key combinations to switch away from
 the compositor's virtual console.
+.\"---------------------------------------------------------------------
 .SH "TERMINAL SECTION"
 Contains settings for the weston terminal application (weston-terminal). It
 allows to customize the font and shell of the command line interface.
@@ -602,10 +611,12 @@ sets the size of the terminal font (unsigned integer).
 .TP 7
 .BI "term=" "xterm-256color"
 The terminal shell (string). Sets the $TERM variable.
+.\"---------------------------------------------------------------------
 .SH "XWAYLAND SECTION"
 .TP 7
 .BI "path=" "@xserver_path@"
 sets the path to the xserver to run (string).
+.\"---------------------------------------------------------------------
 .SH "SCREEN-SHARE SECTION"
 .TP 7
 .BI "command=" "@weston_bindir@/weston --backend=rdp-backend.so \
@@ -615,6 +626,7 @@ sets the command to start a fullscreen-shell server for screen sharing (string).
 .BI "start-on-startup=" "false"
 If set to true, start screen sharing of all outputs available on Weston startup.
 Set to false by default.
+.\"---------------------------------------------------------------------
 .SH "AUTOLAUNCH SECTION"
 .TP 7
 .BI "path=" "/usr/bin/echo"
@@ -624,6 +636,7 @@ parallel to Weston, so it does not have to immediately exit. Defaults to empty.
 .BI "watch=" "false"
 If set to true, quit Weston after the auto-launched executable exits. Set to false
 by default.
+.\"---------------------------------------------------------------------
 .SH "SEE ALSO"
 .BR weston (1),
 .BR weston-bindings (7),
