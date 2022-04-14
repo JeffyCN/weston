@@ -2774,6 +2774,7 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 	config->env_socket = 0;
 	config->no_clients_resize = 0;
 	config->force_no_compression = 0;
+	config->remotefx_codec = true;
 }
 
 static int
@@ -2782,6 +2783,7 @@ load_rdp_backend(struct weston_compositor *c,
 {
 	struct weston_rdp_backend_config config  = {{ 0, }};
 	int ret = 0;
+	bool no_remotefx_codec = false;
 
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
 	if (!parsed_options)
@@ -2800,9 +2802,11 @@ load_rdp_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_STRING,  "rdp-tls-cert", 0, &config.server_cert },
 		{ WESTON_OPTION_STRING,  "rdp-tls-key", 0, &config.server_key },
 		{ WESTON_OPTION_BOOLEAN, "force-no-compression", 0, &config.force_no_compression },
+		{ WESTON_OPTION_BOOLEAN, "no-remotefx-codec", 0, &no_remotefx_codec },
 	};
 
 	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
+	config.remotefx_codec = !no_remotefx_codec;
 
 	wet_set_simple_head_configurator(c, rdp_backend_output_configure);
 

@@ -1141,7 +1141,7 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	settings->OsMinorType = OSMINORTYPE_PSEUDO_XSERVER;
 	settings->ColorDepth = 32;
 	settings->RefreshRect = TRUE;
-	settings->RemoteFxCodec = TRUE;
+	settings->RemoteFxCodec = b->remotefx_codec;
 	settings->NSCodec = TRUE;
 	settings->FrameMarkerCommandEnabled = TRUE;
 	settings->SurfaceFrameMarkerEnabled = TRUE;
@@ -1220,6 +1220,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 	b->rdp_key = config->rdp_key ? strdup(config->rdp_key) : NULL;
 	b->no_clients_resize = config->no_clients_resize;
 	b->force_no_compression = config->force_no_compression;
+	b->remotefx_codec = config->remotefx_codec;
 
 	compositor->backend = &b->base;
 
@@ -1308,6 +1309,7 @@ config_init_to_defaults(struct weston_rdp_backend_config *config)
 	config->env_socket = 0;
 	config->no_clients_resize = 0;
 	config->force_no_compression = 0;
+	config->remotefx_codec = true;
 }
 
 WL_EXPORT int

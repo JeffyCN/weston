@@ -66,6 +66,7 @@ struct weston_rdp_backend_config {
 	int env_socket;
 	int no_clients_resize;
 	int force_no_compression;
+	bool remotefx_codec;
 };
 
 #ifdef  __cplusplus

@@ -43,6 +43,11 @@ By default when a client connects on the RDP backend, it will instruct weston to
 resize to the dimensions of the client's announced resolution. When this option is
 set, weston will force the client to resize to its own resolution.
 .TP
+\fB\-\-no-remotefx-codec
+The RemoteFX compression codec is enabled by default, but it may be necessary
+to disable it to work around incompatabilities between implementations. This
+option may be removed in the future when all known issues are resolved.
+.TP
 \fB\-\-rdp4\-key\fR=\fIfile\fR
 The file containing the RSA key for doing RDP security. As RDP security is known
 to be insecure, this option should be avoided in production.
