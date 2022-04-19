@@ -949,7 +949,7 @@ input_method_init_seat(struct weston_seat *seat)
 	seat->input_method->focus_listener_initialized = true;
 }
 
-static void launch_input_method(struct text_backend *text_backend);
+static void launch_input_method(void *data);
 
 static void
 respawn_input_method_process(struct text_backend *text_backend)
@@ -989,8 +989,10 @@ input_method_client_notifier(struct wl_listener *listener, void *data)
 }
 
 static void
-launch_input_method(struct text_backend *text_backend)
+launch_input_method(void *data)
 {
+	struct text_backend *text_backend = data;
+
 	if (!text_backend->input_method.path)
 		return;
 
@@ -1093,6 +1095,7 @@ text_backend_init(struct weston_compositor *ec)
 {
 	struct text_backend *text_backend;
 	struct weston_seat *seat;
+	struct wl_event_loop *loop;
 
 	text_backend = zalloc(sizeof(*text_backend));
 	if (text_backend == NULL)
@@ -1110,7 +1113,8 @@ text_backend_init(struct weston_compositor *ec)
 
 	text_input_manager_create(ec);
 
-	launch_input_method(text_backend);
+	loop = wl_display_get_event_loop(ec->wl_display);
+	wl_event_loop_add_idle(loop, launch_input_method, text_backend);
 
 	return text_backend;
 }
