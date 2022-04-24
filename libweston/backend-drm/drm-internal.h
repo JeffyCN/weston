@@ -245,6 +245,7 @@ enum try_view_on_plane_failure_reasons {
 	FAILURE_REASONS_BUFFER_TYPE = 1 << 9,
 	FAILURE_REASONS_GLOBAL_ALPHA = 1 << 10,
 	FAILURE_REASONS_NO_GBM = 1 << 11,
+	FAILURE_REASONS_GBM_BO_IMPORT_FAILED = 1 << 12,
 };
 
 /**

@@ -340,7 +340,8 @@ dmabuf_feedback_maybe_update(struct drm_backend *b, struct weston_view *ev,
 	if (try_view_on_plane_failure_reasons &
 		(FAILURE_REASONS_ADD_FB_FAILED |
 		 FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE |
-		 FAILURE_REASONS_DMABUF_MODIFIER_INVALID))
+		 FAILURE_REASONS_DMABUF_MODIFIER_INVALID |
+		 FAILURE_REASONS_GBM_BO_IMPORT_FAILED))
 		action_needed |= ACTION_NEEDED_ADD_SCANOUT_TRANCHE;
 
 	assert(action_needed != (ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE |
