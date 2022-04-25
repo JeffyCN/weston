@@ -1223,7 +1223,7 @@ dmabuf_feedback_tranche_done(void *data,
 	dmabuf_feedback_tranche_init(&feedback->pending_tranche);
 }
 
-static void
+static bool
 pick_initial_format_from_renderer_tranche(struct window *window,
 					  struct dmabuf_feedback_tranche *tranche)
 {
@@ -1237,13 +1237,12 @@ pick_initial_format_from_renderer_tranche(struct window *window,
 		window->format.format = fmt->format;
 		wl_array_copy(&window->format.modifiers, &fmt->modifiers);
 
-		return;
+		return true;
 	}
-
-	assert(0 && "error: INITIAL_BUFFER_FORMAT not supported by the hardware");
+	return false;
 }
 
-static void
+static bool
 pick_format_from_scanout_tranche(struct window *window,
 				 struct dmabuf_feedback_tranche *tranche)
 {
@@ -1252,8 +1251,9 @@ pick_format_from_scanout_tranche(struct window *window,
 
 	wl_array_for_each(fmt, &tranche->formats.arr) {
 
-		/* Ignore format that we're already using. */
-		if (fmt->format == window->format.format)
+		/* Ignore the format that we want to pick from the render
+		 * tranche. */
+		if (fmt->format == INITIAL_BUFFER_FORMAT)
 			continue;
 
 		/* Format should be supported by the compositor. */
@@ -1267,10 +1267,9 @@ pick_format_from_scanout_tranche(struct window *window,
 		window->format.format = fmt->format;
 		wl_array_copy(&window->format.modifiers, &fmt->modifiers);
 
-		return;
+		return true;
 	}
-
-	assert(0 && "error: no valid pair of format/modifier in the scanout tranche");
+	return false;
 }
 
 static void
@@ -1278,25 +1277,37 @@ dmabuf_feedback_done(void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_fee
 {
 	struct window *window = data;
 	struct dmabuf_feedback_tranche *tranche;
+	bool got_scanout_tranche = false;
 	unsigned int i;
 
 	fprintf(stderr, L_LAST " end of dma-buf feedback\n\n");
 
 	/* The first time that we receive dma-buf feedback for a surface it
-	 * contains only the renderer tranche. We pick the INITIAL_BUFFER_FORMAT
+	 * contains only the renderer tranches. We pick the INITIAL_BUFFER_FORMAT
 	 * from there. Then the compositor should detect that the format is
 	 * unsupported by the underlying hardware (not actually, but you should
-	 * have faked this in the DRM-backend) and send the scanout tranche. We
-	 * use the formats/modifiers of the scanout tranche to reallocate our
+	 * have faked this in the DRM-backend) and send the scanout tranches. We
+	 * use the formats/modifiers of the scanout tranches to reallocate our
 	 * buffers. */
 	wl_array_for_each(tranche, &window->pending_dmabuf_feedback.tranches) {
 		if (tranche->is_scanout_tranche) {
-			pick_format_from_scanout_tranche(window, tranche);
-			for (i = 0; i < NUM_BUFFERS; i++)
-				window->buffers[i].recreate = true;
-			break;
+			got_scanout_tranche = true;
+			if (pick_format_from_scanout_tranche(window, tranche)) {
+				for (i = 0; i < NUM_BUFFERS; i++)
+					window->buffers[i].recreate = true;
+				break;
+			}
 		}
-		pick_initial_format_from_renderer_tranche(window, tranche);
+		if (pick_initial_format_from_renderer_tranche(window, tranche))
+			break;
+	}
+
+	if (got_scanout_tranche) {
+		assert(window->format.format != INITIAL_BUFFER_FORMAT &&
+		       "error: no valid pair of format/modifier in the scanout tranches");
+	} else {
+		assert(window->format.format == INITIAL_BUFFER_FORMAT &&
+		       "error: INITIAL_BUFFER_FORMAT not supported by the hardware");
 	}
 
 	dmabuf_feedback_fini(&window->dmabuf_feedback);
