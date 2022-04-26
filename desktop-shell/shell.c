@@ -490,11 +490,6 @@ shell_configuration(struct desktop_shell *shell)
 	shell->binding_modifier = get_modifier(s);
 	free(s);
 
-	weston_config_section_get_string(section,
-					 "exposay-modifier", &s, "none");
-	shell->exposay_modifier = get_modifier(s);
-	free(s);
-
 	weston_config_section_get_string(section, "animation", &s, "none");
 	shell->win_animation_type = get_animation_type(s);
 	free(s);
@@ -4917,11 +4912,6 @@ shell_add_bindings(struct weston_compositor *ec, struct desktop_shell *shell)
 	weston_compositor_add_key_binding(ec, KEY_BRIGHTNESSUP, 0,
 				          backlight_binding, ec);
 
-	/* configurable bindings */
-	if (shell->exposay_modifier)
-		weston_compositor_add_modifier_binding(ec, shell->exposay_modifier,
-						       exposay_binding, shell);
-
 	mod = shell->binding_modifier;
 	if (!mod)
 		return;
@@ -5047,9 +5037,6 @@ wet_shell_init(struct weston_compositor *ec,
 		return -1;
 
 	shell_configuration(shell);
-
-	shell->exposay.state_cur = EXPOSAY_LAYOUT_INACTIVE;
-	shell->exposay.state_target = EXPOSAY_TARGET_CANCEL;
 
 	for (i = 0; i < shell->workspaces.num; i++) {
 		pws = wl_array_add(&shell->workspaces.array, sizeof *pws);
