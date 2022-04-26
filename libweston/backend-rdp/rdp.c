@@ -812,18 +812,6 @@ struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 	{0x00000000, 0, 0},
 };
 
-/* taken from 2.2.7.1.6 Input Capability Set (TS_INPUT_CAPABILITYSET) */
-static const char *rdp_keyboard_types[] = {
-	"",	/* 0: unused */
-	"", /* 1: IBM PC/XT or compatible (83-key) keyboard */
-	"", /* 2: Olivetti "ICO" (102-key) keyboard */
-	"", /* 3: IBM PC/AT (84-key) or similar keyboard */
-	"pc102",/* 4: IBM enhanced (101- or 102-key) keyboard */
-	"", /* 5: Nokia 1050 and similar keyboards */
-	"",	/* 6: Nokia 9140 and similar keyboards */
-	""	/* 7: Japanese keyboard */
-};
-
 static BOOL
 xf_peer_activate(freerdp_peer* client)
 {
@@ -902,8 +890,7 @@ xf_peer_activate(freerdp_peer* client)
 			settings->KeyboardFunctionKey);
 
 	memset(&xkbRuleNames, 0, sizeof(xkbRuleNames));
-	if (settings->KeyboardType <= 7)
-		xkbRuleNames.model = rdp_keyboard_types[settings->KeyboardType];
+	xkbRuleNames.model = "pc105";
 	for (i = 0; rdp_keyboards[i].rdpLayoutCode; i++) {
 		if (rdp_keyboards[i].rdpLayoutCode == settings->KeyboardLayout) {
 			xkbRuleNames.layout = rdp_keyboards[i].xkbLayout;
