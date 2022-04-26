@@ -2096,12 +2096,10 @@ unsupported:
 
 	gb->pitch = pitch;
 	gb->shader_variant = shader_variant;
-	memcpy(gb->offset, offset, sizeof(offset));
-	memcpy(gb->hsub, hsub, sizeof(hsub));
-	memcpy(gb->vsub, vsub, sizeof(vsub));
-	gb->gl_format[0] = gl_format[0];
-	gb->gl_format[1] = gl_format[1];
-	gb->gl_format[2] = gl_format[2];
+	ARRAY_COPY(gb->offset, offset);
+	ARRAY_COPY(gb->hsub, hsub);
+	ARRAY_COPY(gb->vsub, vsub);
+	ARRAY_COPY(gb->gl_format, gl_format);
 	gb->gl_pixel_type = gl_pixel_type;
 	gb->needs_full_upload = true;
 
