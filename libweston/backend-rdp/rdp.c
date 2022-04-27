@@ -758,7 +758,7 @@ struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 	{KBD_ESTONIAN, "ee", 0},
 	{KBD_LATVIAN, "lv", 0},
 	{KBD_LITHUANIAN_IBM, "lt", "ibm"},
-	{KBD_FARSI, "af", 0},
+	{KBD_FARSI, "ir", "pes"},
 	{KBD_PERSIAN, "af", "basic"},
 	{KBD_VIETNAMESE, "vn", 0},
 	{KBD_ARMENIAN_EASTERN, "am", 0},
