@@ -1911,53 +1911,12 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	int offset[3] = { 0, 0, 0 };
 	int hsub[3] = { 1, 0, 0 };
 	int vsub[3] = { 1, 0, 0 };
-	int num_planes;
 	unsigned int i;
+	int num_planes = 1;
+	int bpp;
 	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
 
-	num_planes = 1;
-	gl_format[0] = buffer->pixel_format->gl_format;
-	gl_pixel_type = buffer->pixel_format->gl_type;
-
 	switch (buffer->pixel_format->format) {
-	case DRM_FORMAT_XRGB8888:
-		shader_variant = SHADER_VARIANT_RGBX;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		break;
-	case DRM_FORMAT_ARGB8888:
-		shader_variant = SHADER_VARIANT_RGBA;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		break;
-	case DRM_FORMAT_RGB565:
-		shader_variant = SHADER_VARIANT_RGBX;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
-		break;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	case DRM_FORMAT_ABGR2101010:
-		shader_variant = SHADER_VARIANT_RGBA;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		break;
-	case DRM_FORMAT_XBGR2101010:
-		shader_variant = SHADER_VARIANT_RGBX;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		break;
-	case DRM_FORMAT_ABGR16161616F:
-		shader_variant = SHADER_VARIANT_RGBA;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		break;
-	case DRM_FORMAT_XBGR16161616F:
-		shader_variant = SHADER_VARIANT_RGBX;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		break;
-	case DRM_FORMAT_ABGR16161616:
-		shader_variant = SHADER_VARIANT_RGBA;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		break;
-	case DRM_FORMAT_XBGR16161616:
-		shader_variant = SHADER_VARIANT_RGBX;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		break;
-#endif
 	case DRM_FORMAT_YUV420:
 		shader_variant = SHADER_VARIANT_Y_U_V;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
@@ -2009,9 +1968,20 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		break;
 	default:
-		weston_log("warning: unknown or unsupported shm buffer format: %08x\n",
-			   wl_shm_buffer_get_format(shm_buffer));
-		return false;
+		assert(pixel_format_get_plane_count(buffer->pixel_format) == 1);
+
+		if (pixel_format_is_opaque(buffer->pixel_format))
+			shader_variant = SHADER_VARIANT_RGBX;
+		else
+			shader_variant = SHADER_VARIANT_RGBA;
+
+		bpp = buffer->pixel_format->bpp;
+		assert(bpp > 0 && !(bpp & 7));
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / (bpp / 8);
+
+		gl_format[0] = buffer->pixel_format->gl_format;
+		gl_pixel_type = buffer->pixel_format->gl_type;
+		break;
 	}
 
 	for (i = 0; i < ARRAY_LENGTH(gb->gl_format); i++) {
