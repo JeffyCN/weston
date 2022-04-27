@@ -1970,6 +1970,7 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 {
 	const struct weston_testsuite_quirks *quirks =
 		&surface->compositor->test_data.test_quirks;
+	struct gl_renderer *gr = get_renderer(surface->compositor);
 	struct gl_surface_state *gs = get_surface_state(surface);
 	struct gl_buffer_state *gb = gs->buffer;
 	struct weston_view *view;
@@ -2011,6 +2012,27 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 	data = wl_shm_buffer_get_data(buffer->shm_buffer);
 
 	glActiveTexture(GL_TEXTURE0);
+
+	if (!gr->has_unpack_subimage) {
+		wl_shm_buffer_begin_access(buffer->shm_buffer);
+		for (j = 0; j < gb->num_textures; j++) {
+			int hsub = pixel_format_hsub(buffer->pixel_format, j);
+			int vsub = pixel_format_vsub(buffer->pixel_format, j);
+
+			glBindTexture(GL_TEXTURE_2D, gb->textures[j]);
+			glTexImage2D(GL_TEXTURE_2D, 0,
+				     gb->gl_format[j],
+				     gb->pitch / hsub,
+				     buffer->height / vsub,
+				     0,
+				     gl_format_from_internal(gb->gl_format[j]),
+				     gb->gl_pixel_type,
+				     data + gb->offset[j]);
+		}
+		wl_shm_buffer_end_access(buffer->shm_buffer);
+
+		goto done;
+	}
 
 	if (gb->needs_full_upload || quirks->gl_force_full_upload) {
 		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
@@ -4103,11 +4125,9 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	else
 		ec->read_format = pixel_format_get_info_by_pixman(PIXMAN_a8b8g8r8);
 
-	if (gr->gl_version < gr_gl_version(3, 0) &&
-	    !weston_check_egl_extension(extensions, "GL_EXT_unpack_subimage")) {
-		weston_log("GL_EXT_unpack_subimage not available.\n");
-		return -1;
-	}
+	if (gr->gl_version >= gr_gl_version(3, 0) ||
+	    weston_check_egl_extension(extensions, "GL_EXT_unpack_subimage"))
+		gr->has_unpack_subimage = true;
 
 	if (gr->gl_version >= gr_gl_version(3, 0) ||
 	    weston_check_egl_extension(extensions, "GL_EXT_texture_type_2_10_10_10_REV"))
@@ -4206,6 +4226,8 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 			    yesno(gr->has_gl_texture_rg));
 	weston_log_continue(STAMP_SPACE "OES_EGL_image_external: %s\n",
 			    yesno(gr->has_egl_image_external));
+	weston_log_continue(STAMP_SPACE "wl_shm sub-image to texture: %s\n",
+			    gr->has_unpack_subimage ? "yes" : "no");
 
 	return 0;
 }
