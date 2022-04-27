@@ -2066,18 +2066,8 @@ unsupported:
 	if (gs->buffer &&
 	    buffer->width == old_buffer->width &&
 	    buffer->height == old_buffer->height &&
-	    hsub[0] == gs->buffer->hsub[0] &&
-	    hsub[1] == gs->buffer->hsub[1] &&
-	    hsub[2] == gs->buffer->hsub[2] &&
-	    vsub[0] == gs->buffer->vsub[0] &&
-	    vsub[1] == gs->buffer->vsub[1] &&
-	    vsub[2] == gs->buffer->vsub[2] &&
-	    gl_format[0] == gs->buffer->gl_format[0] &&
-	    gl_format[1] == gs->buffer->gl_format[1] &&
-	    gl_format[2] == gs->buffer->gl_format[2] &&
-	    gl_pixel_type == gs->buffer->gl_pixel_type) {
+	    buffer->pixel_format == old_buffer->pixel_format) {
 		gs->buffer->pitch = pitch;
-		gs->buffer->shader_variant = shader_variant;
 		memcpy(gs->buffer->offset, offset, sizeof(offset));
 		return true;
 	}
