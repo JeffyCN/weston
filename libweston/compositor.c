@@ -258,10 +258,6 @@ weston_mode_switch_finish(struct weston_output *output,
 					       mode_changed, scale_changed);
 }
 
-static void
-weston_compositor_reflow_outputs(struct weston_compositor *compositor,
-				struct weston_output *resized_output, int delta_width);
-
 /**
  * \ingroup output
  */
@@ -272,7 +268,6 @@ weston_output_mode_set_native(struct weston_output *output,
 {
 	int ret;
 	int mode_changed = 0, scale_changed = 0;
-	int32_t old_width;
 
 	if (!output->switch_mode)
 		return -1;
@@ -288,14 +283,13 @@ weston_output_mode_set_native(struct weston_output *output,
 		}
 	}
 
-	old_width = output->width;
 	output->native_mode = mode;
 	output->native_scale = scale;
 
 	weston_mode_switch_finish(output, mode_changed, scale_changed);
 
 	if (mode_changed || scale_changed) {
-		weston_compositor_reflow_outputs(output->compositor, output, output->width - old_width);
+		weston_compositor_reflow_outputs(output->compositor);
 
 		wl_signal_emit(&output->compositor->output_resized_signal, output);
 	}
@@ -6439,30 +6433,29 @@ weston_head_get_destroy_listener(struct weston_head *head,
 static void
 weston_output_set_position(struct weston_output *output, int x, int y);
 
-/* Move other outputs when one is resized so the space remains contiguous. */
-static void
-weston_compositor_reflow_outputs(struct weston_compositor *compositor,
-				struct weston_output *resized_output, int delta_width)
+WL_EXPORT void
+weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 {
 	struct weston_output *output;
-	bool start_resizing = false;
+	int x, y, next_x, next_y;
 
 	if (compositor->output_flow_dirty)
 		return;
 
-	if (!delta_width)
-		return;
-
+	next_x = next_y = 0;
 	wl_list_for_each(output, &compositor->output_list, link) {
-		if (output == resized_output) {
-			start_resizing = true;
+		if (output->destroying)
 			continue;
-		}
 
-		if (start_resizing) {
-			weston_output_set_position(output, output->x + delta_width, output->y);
-			output->dirty = 1;
-		}
+		x = next_x;
+		y = next_y;
+
+		if (compositor->output_flow == WESTON_OUTPUT_FLOW_HORIZONTAL)
+			next_x += output->width;
+		else if (compositor->output_flow == WESTON_OUTPUT_FLOW_VERTICAL)
+			next_y += output->height;
+
+		weston_output_set_position(output, x, y);
 	}
 }
 
@@ -6554,6 +6547,8 @@ weston_output_transform_scale_init(struct weston_output *output, uint32_t transf
 static void
 weston_output_init_geometry(struct weston_output *output, int x, int y)
 {
+	output->dirty = 1;
+
 	output->x = x;
 	output->y = y;
 
@@ -6586,8 +6581,6 @@ weston_output_set_position(struct weston_output *output, int x, int y)
 		return;
 
 	weston_output_init_geometry(output, x, y);
-
-	output->dirty = 1;
 
 	/* Move views on this output. */
 	wl_signal_emit(&output->compositor->output_moved_signal, output);
@@ -6880,7 +6873,7 @@ weston_compositor_remove_output(struct weston_output *output)
 
 	weston_presentation_feedback_discard_list(&output->feedback_list);
 
-	weston_compositor_reflow_outputs(compositor, output, -output->width);
+	weston_compositor_reflow_outputs(compositor);
 
 	wl_list_remove(&output->link);
 	wl_list_insert(compositor->pending_output_list.prev, &output->link);
@@ -6954,7 +6947,7 @@ weston_output_set_transform(struct weston_output *output,
 
 	weston_output_init_geometry(output, output->x, output->y);
 
-	output->dirty = 1;
+	weston_compositor_reflow_outputs(output->compositor);
 
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
@@ -7317,7 +7310,6 @@ weston_output_enable(struct weston_output *output)
 	/* Make sure we have a transform set */
 	assert(output->transform != UINT32_MAX);
 
-	output->dirty = 1;
 	output->original_scale = output->scale;
 
 	wl_signal_init(&output->frame_signal);
@@ -7355,6 +7347,8 @@ weston_output_enable(struct weston_output *output)
 	weston_log("Output '%s' enabled with head(s) %s\n",
 		   output->name, head_names);
 	free(head_names);
+
+	weston_compositor_reflow_outputs(output->compositor);
 
 	return 0;
 }

@@ -3651,6 +3651,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	struct weston_log_subscriber *flight_rec = NULL;
 	sigset_t mask;
 	struct sigaction action;
+	char *buf;
 
 	bool wait_for_debugger = false;
 	struct wl_protocol_logger *protologger = NULL;
@@ -3802,6 +3803,16 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	if (wet.compositor == NULL) {
 		weston_log("fatal: failed to create compositor\n");
 		goto out;
+	}
+
+	wet.compositor->output_flow = WESTON_OUTPUT_FLOW_HORIZONTAL;
+
+	buf = getenv("WESTON_OUTPUT_FLOW");
+	if (buf) {
+		if (!strcmp(buf, "vertical"))
+			wet.compositor->output_flow = WESTON_OUTPUT_FLOW_VERTICAL;
+		else if (!strcmp(buf, "same-as"))
+			wet.compositor->output_flow = WESTON_OUTPUT_FLOW_SAME_AS;
 	}
 
 	protocol_scope =
