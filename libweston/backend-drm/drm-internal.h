@@ -300,6 +300,9 @@ struct drm_backend {
 	/* Virtual screen size for resolution scaling */
 	int virtual_width;
 	int virtual_height;
+
+	/* Master mode flag, controls CRTC management */
+	bool master;
 };
 
 struct drm_mode {

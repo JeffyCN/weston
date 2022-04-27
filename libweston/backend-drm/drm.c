@@ -2915,6 +2915,10 @@ drm_output_detach_crtc(struct drm_output *output)
 
 	crtc->output = NULL;
 	output->crtc = NULL;
+
+	/* HACK: This is done here instead of in kms.c for the master mode */
+	drmModeSetCrtc(crtc->device->kms_device->fd,
+		       crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
 }
 
 static bool
@@ -4667,6 +4671,10 @@ drm_backend_create(struct weston_compositor *compositor,
 	buf = getenv("WESTON_DRM_VIRTUAL_SIZE");
 	if (buf)
 		sscanf(buf, "%dx%d", &b->virtual_width, &b->virtual_height);
+
+	buf = getenv("WESTON_DRM_MASTER");
+	if (buf && buf[0] == '1')
+		b->master = true;
 
 	wl_list_init(&b->kms_list);
 
