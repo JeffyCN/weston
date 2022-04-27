@@ -403,6 +403,7 @@ struct drm_backend {
 	int64_t last_update_ms;
 	int64_t resize_freeze_ms;
 
+	bool master;
 	bool single_head;
 	bool head_fallback;
 	bool head_fallback_all;
