@@ -883,8 +883,13 @@ constrain_position(struct weston_move_grab *move)
 	    WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP) {
 		struct shell_output *shoutput = NULL;
 
-		if (surface->output)
+		if (surface->output) {
 			shoutput = weston_output_get_shell_private(surface->output);
+
+			/* HACK: Only primary output gets panel in vertical flow */
+			if (!surface->output->pos.c.y)
+				return c;
+		}
 
 		get_output_work_area(shsurf->shell, shoutput, &area);
 		geometry =
@@ -2775,18 +2780,25 @@ desktop_shell_set_panel(struct wl_client *client,
 	struct weston_head *head = weston_head_from_resource(output_resource);
 	char *label;
 
+	if (!head)
+		return;
+
+	sh_output = weston_output_get_shell_private(head->output);
+
+	if (surface == sh_output->panel_surface) {
+		/* HACK: Re-set panel to destroy it */
+		weston_desktop_shell_send_configure(resource, 0,
+						    surface_resource,
+						    0, 0);
+		return;
+	}
+
 	if (surface->committed) {
 		wl_resource_post_error(surface_resource,
 				       WL_DISPLAY_ERROR_INVALID_OBJECT,
 				       "surface role already assigned");
 		return;
 	}
-
-	if (!head)
-		return;
-
-	surface->output = head->output;
-	sh_output = weston_output_get_shell_private(surface->output);
 
 	if (sh_output->panel_surface) {
 		wl_resource_post_error(surface_resource,
@@ -2795,6 +2807,7 @@ desktop_shell_set_panel(struct wl_client *client,
 		return;
 	}
 
+	surface->output = head->output;
 	surface->committed = panel_committed;
 	surface->committed_private = sh_output;
 

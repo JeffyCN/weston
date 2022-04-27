@@ -732,10 +732,6 @@ weston_mode_switch_finish(struct weston_output *output,
 					       mode_changed, scale_changed);
 }
 
-static void
-weston_compositor_reflow_outputs(struct weston_compositor *compositor,
-				struct weston_output *resized_output, int delta_width);
-
 /** Set up the native mode for an output
  *
  * \param output     The weston_output object
@@ -776,7 +772,6 @@ weston_output_mode_set_native(struct weston_output *output,
 {
 	int ret;
 	int mode_changed = 0, scale_changed = 0;
-	int32_t old_width;
 
 	if (!output->switch_mode)
 		return -1;
@@ -792,14 +787,13 @@ weston_output_mode_set_native(struct weston_output *output,
 		}
 	}
 
-	old_width = output->width;
 	weston_output_copy_native_mode(output, mode);
 	output->native_scale = scale;
 
 	weston_mode_switch_finish(output, mode_changed, scale_changed);
 
 	if (mode_changed || scale_changed) {
-		weston_compositor_reflow_outputs(output->compositor, output, output->width - old_width);
+		weston_compositor_reflow_outputs(output->compositor);
 
 		wl_signal_emit(&output->compositor->output_resized_signal, output);
 	}
@@ -7524,36 +7518,39 @@ weston_head_get_destroy_listener(struct weston_head *head,
 	return wl_signal_get(&head->destroy_signal, notify);
 }
 
-/* Move other outputs when one is resized so the space remains contiguous. */
-static void
-weston_compositor_reflow_outputs(struct weston_compositor *compositor,
-				struct weston_output *resized_output, int delta_width)
+WL_EXPORT void
+weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 {
 	struct weston_output *output;
+	int next_x, next_y;
 
 	if (compositor->output_flow_dirty)
 		return;
 
-	if (!delta_width)
-		return;
-
+	next_x = next_y = 0;
 	wl_list_for_each(output, &compositor->output_list, link) {
-		struct weston_coord_global pos = output->pos;
+		struct weston_coord_global pos;
 
-		/* Since outputs are in a horizontal line, reflow any to the
-		 * right of the removed output.
-		 *
-		 * There's an easter egg here - with mirrored outputs, there
-		 * may still be an output at the same place as the removed
-		 * output, and we don't want to move its contents, so we use
-		 * <= here.
-		 */
-		if (pos.c.x <= resized_output->pos.c.x)
+		if (output->destroying || output->mirror_of)
 			continue;
 
-		pos.c.x += delta_width;
+		pos.c = weston_coord(next_x, next_y);
 		weston_output_set_position(output, pos);
+
+		if (compositor->output_flow == WESTON_OUTPUT_FLOW_HORIZONTAL)
+			next_x += output->width;
+		else if (compositor->output_flow == WESTON_OUTPUT_FLOW_VERTICAL)
+			next_y += output->height;
 	}
+
+	wl_list_for_each(output, &compositor->output_list, link) {
+		if (!output->mirror_of)
+			continue;
+
+		weston_output_set_position(output, output->mirror_of->pos);
+	}
+
+	compositor->view_list_needs_rebuild = true;
 }
 
 /** Transform a region from global to output coordinates
@@ -8165,7 +8162,7 @@ weston_compositor_remove_output(struct weston_output *output)
 
 	weston_presentation_feedback_discard_list(&output->feedback_list);
 
-	weston_compositor_reflow_outputs(compositor, output, -output->width);
+	weston_compositor_reflow_outputs(compositor);
 
 	wl_list_remove(&output->link);
 	wl_list_insert(compositor->pending_output_list.prev, &output->link);
@@ -8245,6 +8242,8 @@ weston_output_set_transform(struct weston_output *output,
 	weston_output_init_geometry(output, output->pos);
 
 	weston_output_update_matrix(output);
+
+	weston_compositor_reflow_outputs(output->compositor);
 
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
@@ -8751,6 +8750,8 @@ weston_output_enable(struct weston_output *output)
 	weston_log("Output '%s' enabled with head(s) %s\n",
 		   output->name, head_names);
 	free(head_names);
+
+	weston_compositor_reflow_outputs(output->compositor);
 
 	return 0;
 }
