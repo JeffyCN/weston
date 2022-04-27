@@ -3404,7 +3404,8 @@ gl_renderer_flush_damage(struct weston_paint_node *pnode)
 
 	data = wl_shm_buffer_get_data(buffer->shm_buffer);
 
-	if (gb->needs_full_upload || quirks->force_full_upload) {
+	if (gb->needs_full_upload || quirks->force_full_upload ||
+		!gl_extensions_has(gr, EXTENSION_EXT_UNPACK_SUBIMAGE)) {
 		wl_shm_buffer_begin_access(buffer->shm_buffer);
 
 		for (j = 0; j < gb->num_textures; j++) {
@@ -3412,8 +3413,11 @@ gl_renderer_flush_damage(struct weston_paint_node *pnode)
 			int vsub = pixel_format_vsub(buffer->pixel_format, j);
 
 			glBindTexture(GL_TEXTURE_2D, gb->textures[j]);
-			glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT,
-				      gb->pitch / hsub);
+
+			if (gl_extensions_has(gr, EXTENSION_EXT_UNPACK_SUBIMAGE))
+				glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT,
+					      gb->pitch / hsub);
+
 			gl_texture_2d_store(gr, 0, 0, 0, buffer->width / hsub,
 					    buffer->height / vsub,
 					    gb->texture_format[j].external,
@@ -5655,7 +5659,6 @@ gl_renderer_setup(struct weston_compositor *ec)
 	if (gr->gl_version < gl_version(3, 0) &&
 	    !gl_extensions_has(gr, EXTENSION_EXT_UNPACK_SUBIMAGE)) {
 		weston_log("GL_EXT_unpack_subimage not available.\n");
-		return -1;
 	}
 
 	if (gl_extensions_has(gr, EXTENSION_OES_MAPBUFFER))
