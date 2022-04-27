@@ -1934,40 +1934,26 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		break;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 	case WL_SHM_FORMAT_ABGR2101010:
-		if (!gr->has_texture_type_2_10_10_10_rev) {
-			goto unsupported;
-		}
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		break;
 	case WL_SHM_FORMAT_XBGR2101010:
-		if (!gr->has_texture_type_2_10_10_10_rev) {
-			goto unsupported;
-		}
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		break;
 	case WL_SHM_FORMAT_ABGR16161616F:
-		if (!gr->gl_supports_color_transforms)
-			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
 	case WL_SHM_FORMAT_XBGR16161616F:
-		if (!gr->gl_supports_color_transforms)
-			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
 	case WL_SHM_FORMAT_ABGR16161616:
-		if (!gr->has_texture_norm16)
-			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
 	case WL_SHM_FORMAT_XBGR16161616:
-		if (!gr->has_texture_norm16)
-			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
@@ -2023,7 +2009,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		break;
 	default:
-unsupported:
 		weston_log("warning: unknown or unsupported shm buffer format: %08x\n",
 			   wl_shm_buffer_get_format(shm_buffer));
 		return false;
