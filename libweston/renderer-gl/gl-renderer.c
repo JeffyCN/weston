@@ -1919,46 +1919,46 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	gl_format[0] = buffer->pixel_format->gl_format;
 	gl_pixel_type = buffer->pixel_format->gl_type;
 
-	switch (wl_shm_buffer_get_format(shm_buffer)) {
-	case WL_SHM_FORMAT_XRGB8888:
+	switch (buffer->pixel_format->format) {
+	case DRM_FORMAT_XRGB8888:
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		break;
-	case WL_SHM_FORMAT_ARGB8888:
+	case DRM_FORMAT_ARGB8888:
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		break;
-	case WL_SHM_FORMAT_RGB565:
+	case DRM_FORMAT_RGB565:
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		break;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-	case WL_SHM_FORMAT_ABGR2101010:
+	case DRM_FORMAT_ABGR2101010:
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		break;
-	case WL_SHM_FORMAT_XBGR2101010:
+	case DRM_FORMAT_XBGR2101010:
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
 		break;
-	case WL_SHM_FORMAT_ABGR16161616F:
+	case DRM_FORMAT_ABGR16161616F:
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
-	case WL_SHM_FORMAT_XBGR16161616F:
+	case DRM_FORMAT_XBGR16161616F:
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
-	case WL_SHM_FORMAT_ABGR16161616:
+	case DRM_FORMAT_ABGR16161616:
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
-	case WL_SHM_FORMAT_XBGR16161616:
+	case DRM_FORMAT_XBGR16161616:
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
 		break;
 #endif
-	case WL_SHM_FORMAT_YUV420:
+	case DRM_FORMAT_YUV420:
 		shader_variant = SHADER_VARIANT_Y_U_V;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
@@ -1975,7 +1975,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		gl_format[1] = GL_R8_EXT;
 		gl_format[2] = GL_R8_EXT;
 		break;
-	case WL_SHM_FORMAT_NV12:
+	case DRM_FORMAT_NV12:
 		shader_variant = SHADER_VARIANT_Y_UV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
@@ -1987,7 +1987,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		gl_format[0] = GL_R8_EXT;
 		gl_format[1] = GL_RG8_EXT;
 		break;
-	case WL_SHM_FORMAT_YUYV:
+	case DRM_FORMAT_YUYV:
 		shader_variant = SHADER_VARIANT_Y_XUXV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
@@ -1998,7 +1998,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		gl_format[0] = GL_RG8_EXT;
 		gl_format[1] = GL_BGRA_EXT;
 		break;
-	case WL_SHM_FORMAT_XYUV8888:
+	case DRM_FORMAT_XYUV8888:
 		/*
 		 * [31:0] X:Y:Cb:Cr 8:8:8:8 little endian
 		 *        a:b: g: r in SHADER_VARIANT_XYUV
