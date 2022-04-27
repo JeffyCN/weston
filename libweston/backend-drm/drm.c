@@ -2255,6 +2255,9 @@ drm_output_detach_crtc(struct drm_output *output)
 	/* Force resetting unused CRTCs */
 	b->state_invalid = true;
 	output->state_invalid = true;
+
+	/* HACK: Do it here rather than in the kms.c for drm-master config */
+	drmModeSetCrtc(b->drm.fd, crtc->crtc_id, 0, 0, 0, NULL, 0, NULL);
 }
 
 static int
@@ -4199,6 +4202,10 @@ drm_backend_create(struct weston_compositor *compositor,
 	b = zalloc(sizeof *b);
 	if (b == NULL)
 		return NULL;
+
+	buf = getenv("WESTON_DRM_MASTER");
+	if (buf && buf[0] == '1')
+		b->master = true;
 
 	buf = getenv("WESTON_DRM_SINGLE_HEAD");
 	if (buf && buf[0] == '1')

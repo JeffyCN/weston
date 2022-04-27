@@ -1196,7 +1196,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		break;
 	}
 
-	if (b->state_invalid) {
+	if (b->state_invalid && b->master) {
 		struct weston_head *head_base;
 		struct drm_head *head;
 		struct drm_crtc *crtc;
@@ -1394,7 +1394,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_APPLY_ASYNC);
 
-	if (b->state_invalid) {
+	if (b->state_invalid && b->master) {
 		/* If we need to reset all our state (e.g. because we've
 		 * just started, or just been VT-switched in), explicitly
 		 * disable all the CRTCs we aren't using. This also disables
@@ -1470,7 +1470,7 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_APPLY_SYNC);
 
-	if (b->state_invalid) {
+	if (b->state_invalid && b->master) {
 		/* If we need to reset all our state (e.g. because we've
 		 * just started, or just been VT-switched in), explicitly
 		 * disable all the CRTCs we aren't using. This also disables
