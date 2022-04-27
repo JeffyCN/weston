@@ -1367,6 +1367,12 @@ struct weston_dmabuf_feedback;
 struct weston_dmabuf_feedback_format_table;
 struct weston_renderer;
 
+enum weston_output_flow {
+	WESTON_OUTPUT_FLOW_HORIZONTAL,
+	WESTON_OUTPUT_FLOW_VERTICAL,
+	WESTON_OUTPUT_FLOW_SAME_AS,
+};
+
 /** Main object, container-like structure which aggregates all other objects.
  *
  * \ingroup compositor
@@ -1517,6 +1523,8 @@ struct weston_compositor {
 		struct wl_global *weston_capture_v1;
 		struct wl_signal ask_auth;
 	} output_capture;
+
+	enum weston_output_flow output_flow;
 };
 
 struct weston_solid_buffer_values {
@@ -2686,6 +2694,9 @@ weston_compositor_add_screenshot_authority(struct weston_compositor *compositor,
 
 int
 weston_compositor_backends_loaded(struct weston_compositor *compositor);
+
+void
+weston_compositor_reflow_outputs(struct weston_compositor *compositor);
 
 #ifdef  __cplusplus
 }
