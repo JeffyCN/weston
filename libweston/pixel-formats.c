@@ -48,6 +48,7 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <GLES3/gl3.h>
 #define GL_FORMAT(fmt) .gl_format = (fmt)
 #define GL_TYPE(type) .gl_type = (type)
 #define SAMPLER_TYPE(type) .sampler_type = (type)
@@ -341,20 +342,36 @@ static const struct pixel_format_info pixel_format_table[] = {
 	{
 		DRM_FORMAT(XBGR16161616),
 		BITS_RGBA_FIXED(16, 16, 16, 0),
+#if __BYTE_ORDER__ == __LITTLE_ENDIAN
+		GL_FORMAT(GL_RGBA16_EXT),
+		GL_TYPE(GL_UNSIGNED_SHORT),
+#endif
 	},
 	{
 		DRM_FORMAT(ABGR16161616),
 		BITS_RGBA_FIXED(16, 16, 16, 16),
 		.opaque_substitute = DRM_FORMAT_XBGR16161616,
+#if __BYTE_ORDER__ == __LITTLE_ENDIAN
+		GL_FORMAT(GL_RGBA16_EXT),
+		GL_TYPE(GL_UNSIGNED_SHORT),
+#endif
 	},
 	{
 		DRM_FORMAT(XBGR16161616F),
 		BITS_RGBA_FLOAT(16, 16, 16, 0),
+#if __BYTE_ORDER__ == __LITTLE_ENDIAN
+		GL_FORMAT(GL_RGBA16F),
+		GL_TYPE(GL_HALF_FLOAT),
+#endif
 	},
 	{
 		DRM_FORMAT(ABGR16161616F),
 		BITS_RGBA_FLOAT(16, 16, 16, 16),
 		.opaque_substitute = DRM_FORMAT_XBGR16161616F,
+#if __BYTE_ORDER__ == __LITTLE_ENDIAN
+		GL_FORMAT(GL_RGBA16F),
+		GL_TYPE(GL_HALF_FLOAT),
+#endif
 	},
 	{
 		DRM_FORMAT(XRGB16161616F),
