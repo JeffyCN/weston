@@ -399,9 +399,6 @@ create_surface(struct window *window)
 	if (!window->frame_sync)
 		eglSwapInterval(display->egl.dpy, 0);
 
-	if (!display->wm_base)
-		return;
-
 	if (window->fullscreen)
 		xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
 	else if (window->maximized)
