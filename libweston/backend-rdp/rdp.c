@@ -811,7 +811,7 @@ struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 	{KBD_IRISH, 0, 0},
 	{KBD_BOSNIAN_CYRILLIC, "ba", "us"},
 	{KBD_UNITED_STATES_DVORAK, "us", "dvorak"},
-	{KBD_PORTUGUESE_BRAZILIAN_ABNT2, "br", "nativo"},
+	{KBD_PORTUGUESE_BRAZILIAN_ABNT2, "br", "abnt2"},
 	{KBD_CANADIAN_MULTILINGUAL_STANDARD, "ca", "multix"},
 	{KBD_GAELIC, "ie", "CloGaelach"},
 
