@@ -51,6 +51,20 @@
 #define DEFAULT_AXIS_STEP_DISTANCE 10
 #define DEFAULT_PIXEL_FORMAT PIXEL_FORMAT_BGRA32
 
+/* https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getkeyboardtype
+ * defines a keyboard type that isn't currently defined in FreeRDP, but is
+ * available for RDP connections */
+#ifndef KBD_TYPE_KOREAN
+#define KBD_TYPE_KOREAN 8
+#endif
+
+/* WinPR's GetVirtualKeyCodeFromVirtualScanCode() can't handle hangul/hanja keys */
+/* 0x1f1 and 0x1f2 keys are only exists on Korean 103 keyboard (Type 8:SubType 6) */
+
+/* From Linux's keyboard driver at drivers/input/keyboard/atkbd.c */
+#define ATKBD_RET_HANJA 0xf1
+#define ATKBD_RET_HANGEUL 0xf2
+
 struct rdp_output;
 
 struct rdp_backend {
