@@ -1057,6 +1057,12 @@ struct weston_color_manager;
 struct weston_dmabuf_feedback;
 struct weston_dmabuf_feedback_format_table;
 
+enum weston_output_flow {
+	WESTON_OUTPUT_FLOW_HORIZONTAL,
+	WESTON_OUTPUT_FLOW_VERTICAL,
+	WESTON_OUTPUT_FLOW_SAME_AS,
+};
+
 /** Main object, container-like structure which aggregates all other objects.
  *
  * \ingroup compositor
@@ -1184,6 +1190,8 @@ struct weston_compositor {
 	struct weston_log_scope *timeline;
 
 	struct content_protection *content_protection;
+
+	enum weston_output_flow output_flow;
 };
 
 struct weston_buffer {
@@ -2154,6 +2162,9 @@ weston_color_profile_get_description(struct weston_color_profile *cprof);
 struct weston_color_profile *
 weston_compositor_load_icc_file(struct weston_compositor *compositor,
 				const char *path);
+
+void
+weston_compositor_reflow_outputs(struct weston_compositor *compositor);
 
 #ifdef  __cplusplus
 }
