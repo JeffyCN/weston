@@ -404,6 +404,8 @@ create_surface(struct window *window)
 
 	if (window->fullscreen)
 		xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
+	else if (window->maximized)
+		xdg_toplevel_set_maximized(window->xdg_toplevel);
 }
 
 static void
@@ -806,6 +808,7 @@ usage(int error_code)
 	fprintf(stderr, "Usage: simple-egl [OPTIONS]\n\n"
 		"  -d <us>\tBuffer swap delay in microseconds\n"
 		"  -f\tRun in fullscreen mode\n"
+		"  -m\tRun in maximized mode\n"
 		"  -o\tCreate an opaque surface\n"
 		"  -s\tUse a 16 bpp EGL config\n"
 		"  -b\tDon't sync to compositor redraw (eglSwapInterval 0)\n"
@@ -836,6 +839,8 @@ main(int argc, char **argv)
 			window.delay = atoi(argv[++i]);
 		else if (strcmp("-f", argv[i]) == 0)
 			window.fullscreen = 1;
+		else if (strcmp("-m", argv[i]) == 0)
+			window.maximized = 1;
 		else if (strcmp("-o", argv[i]) == 0)
 			window.opaque = 1;
 		else if (strcmp("-s", argv[i]) == 0)
