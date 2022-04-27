@@ -78,7 +78,8 @@ struct pixel_format_info {
 	 *  function (not AddFB2), using this and the bpp member. */
 	int addfb_legacy_depth;
 
-	/** See 'depth' member above. */
+	/** Number of bits required to store a single pixel, for
+	 *  single-planar formats. */
 	int bpp;
 
 	/** Horizontal subsampling; if non-zero, divide the width by this
