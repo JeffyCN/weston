@@ -2170,7 +2170,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		break;
 	}
 
-	if (device->recovery_status == DRM_RECOVERY_SCHEDULED) {
+	if (b->master && device->recovery_status == DRM_RECOVERY_SCHEDULED) {
 		struct weston_head *head_base;
 		struct drm_head *head;
 		struct drm_crtc *crtc;
@@ -2374,7 +2374,7 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_APPLY_ASYNC);
 
-	if (device->recovery_status == DRM_RECOVERY_SCHEDULED) {
+	if (b->master && device->recovery_status == DRM_RECOVERY_SCHEDULED) {
 		/* If we need to reset all our state (e.g. because we've
 		 * just started, or just been VT-switched in), explicitly
 		 * disable all the CRTCs we aren't using. This also disables
@@ -2443,6 +2443,7 @@ int
 drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 {
 	struct drm_device *device = pending_state->device;
+	struct drm_backend *b = device->backend;
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
 	bool failed = false;
@@ -2451,7 +2452,7 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_APPLY_SYNC);
 
-	if (device->recovery_status == DRM_RECOVERY_SCHEDULED) {
+	if (b->master && device->recovery_status == DRM_RECOVERY_SCHEDULED) {
 		/* If we need to reset all our state (e.g. because we've
 		 * just started, or just been VT-switched in), explicitly
 		 * disable all the CRTCs we aren't using. This also disables
