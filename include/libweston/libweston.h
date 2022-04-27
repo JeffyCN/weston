@@ -1374,6 +1374,12 @@ struct weston_dmabuf_feedback_format_table;
 struct weston_renderer;
 struct weston_content_update;
 
+enum weston_output_flow {
+	WESTON_OUTPUT_FLOW_HORIZONTAL,
+	WESTON_OUTPUT_FLOW_VERTICAL,
+	WESTON_OUTPUT_FLOW_SAME_AS,
+};
+
 /** Main object, container-like structure which aggregates all other objects.
  *
  * \ingroup compositor
@@ -1566,6 +1572,8 @@ struct weston_compositor {
 	struct wl_listener client_created_listener;
 	uint64_t client_counter;
 	uint64_t internal_id_counter;
+
+	enum weston_output_flow output_flow;
 };
 
 struct weston_solid_buffer_values {
@@ -2871,6 +2879,9 @@ weston_client_set_internal_name(struct weston_client *client,
 uint64_t
 weston_client_new_internal_id(struct weston_compositor *compositor,
 			      struct weston_client *client);
+
+void
+weston_compositor_reflow_outputs(struct weston_compositor *compositor);
 
 #ifdef  __cplusplus
 }
