@@ -336,10 +336,6 @@ weston_mode_switch_finish(struct weston_output *output,
 					       mode_changed, scale_changed);
 }
 
-static void
-weston_compositor_reflow_outputs(struct weston_compositor *compositor,
-				struct weston_output *resized_output, int delta_width);
-
 /**
  * \ingroup output
  */
@@ -350,7 +346,6 @@ weston_output_mode_set_native(struct weston_output *output,
 {
 	int ret;
 	int mode_changed = 0, scale_changed = 0;
-	int32_t old_width;
 
 	if (!output->switch_mode)
 		return -1;
@@ -366,14 +361,13 @@ weston_output_mode_set_native(struct weston_output *output,
 		}
 	}
 
-	old_width = output->width;
 	output->native_mode = mode;
 	output->native_scale = scale;
 
 	weston_mode_switch_finish(output, mode_changed, scale_changed);
 
 	if (mode_changed || scale_changed) {
-		weston_compositor_reflow_outputs(output->compositor, output, output->width - old_width);
+		weston_compositor_reflow_outputs(output->compositor);
 
 		wl_signal_emit(&output->compositor->output_resized_signal, output);
 	}
@@ -6402,33 +6396,29 @@ static void
 weston_output_set_position(struct weston_output *output,
 			   struct weston_coord_global pos);
 
-/* Move other outputs when one is resized so the space remains contiguous. */
-static void
-weston_compositor_reflow_outputs(struct weston_compositor *compositor,
-				struct weston_output *resized_output, int delta_width)
+WL_EXPORT void
+weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 {
 	struct weston_output *output;
-	bool start_resizing = false;
+	int next_x, next_y;
 
 	if (compositor->output_flow_dirty)
 		return;
 
-	if (!delta_width)
-		return;
-
+	next_x = next_y = 0;
 	wl_list_for_each(output, &compositor->output_list, link) {
-		if (output == resized_output) {
-			start_resizing = true;
+		struct weston_coord_global pos;
+
+		if (output->destroying)
 			continue;
-		}
 
-		if (start_resizing) {
-			struct weston_coord_global pos;
+		pos.c = weston_coord(next_x, next_y);
+		weston_output_set_position(output, pos);
 
-			pos.c = weston_coord(output->x + delta_width,
-					     output->y);
-			weston_output_set_position(output, pos);
-		}
+		if (compositor->output_flow == WESTON_OUTPUT_FLOW_HORIZONTAL)
+			next_x += output->width;
+		else if (compositor->output_flow == WESTON_OUTPUT_FLOW_VERTICAL)
+			next_y += output->height;
 	}
 }
 
@@ -6804,7 +6794,7 @@ weston_compositor_remove_output(struct weston_output *output)
 
 	weston_presentation_feedback_discard_list(&output->feedback_list);
 
-	weston_compositor_reflow_outputs(compositor, output, -output->width);
+	weston_compositor_reflow_outputs(compositor);
 
 	wl_list_remove(&output->link);
 	wl_list_insert(compositor->pending_output_list.prev, &output->link);
@@ -6884,6 +6874,8 @@ weston_output_set_transform(struct weston_output *output,
 	weston_output_init_geometry(output, output->x, output->y);
 
 	weston_output_update_matrix(output);
+
+	weston_compositor_reflow_outputs(output->compositor);
 
 	/* Notify clients of the change for output transform. */
 	wl_list_for_each(head, &output->head_list, output_link) {
@@ -7328,6 +7320,8 @@ weston_output_enable(struct weston_output *output)
 	weston_log("Output '%s' enabled with head(s) %s\n",
 		   output->name, head_names);
 	free(head_names);
+
+	weston_compositor_reflow_outputs(output->compositor);
 
 	return 0;
 }
