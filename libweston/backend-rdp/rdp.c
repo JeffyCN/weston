@@ -849,7 +849,15 @@ convert_rdp_keyboard_to_xkb_rule_names(UINT32 KeyboardType,
 			xkbRuleNames->variant = "kr104"; /* kr(ralt_hangul)/kr(rctrl_hanja) */
 		else if (KeyboardSubType == 6) /* PC/AT 103 Enhanced Korean Keyboard */
 			xkbRuleNames->variant = "kr106"; /* kr(hw_keys) */
+	} else if (KeyboardType != KBD_TYPE_JAPANESE && ((KeyboardLayout & 0xFFFF) == 0x411)) {
+		/* when Japanese keyboard layout is used without a Japanese 106/109
+		 * keyboard (keyboard type 7), use the "us" layout, since the "jp"
+		 * layout in xkb expects the Japanese 106/109 keyboard layout.
+		 */
+		xkbRuleNames->layout = "us";
+		xkbRuleNames->variant = 0;
 	}
+
 	weston_log("%s: matching model=%s layout=%s variant=%s options=%s\n",
 		   __func__, xkbRuleNames->model, xkbRuleNames->layout,
 		   xkbRuleNames->variant, xkbRuleNames->options);
