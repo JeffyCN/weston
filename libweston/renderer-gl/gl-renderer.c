@@ -1792,6 +1792,7 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 		glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, 0);
 		glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, 0);
 		wl_shm_buffer_begin_access(buffer->shm_buffer);
+
 		for (j = 0; j < gb->num_textures; j++) {
 			glBindTexture(GL_TEXTURE_2D, gb->textures[j]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT,
@@ -1915,25 +1916,21 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
 
 	num_planes = 1;
+	gl_format[0] = buffer->pixel_format->gl_format;
+	gl_pixel_type = buffer->pixel_format->gl_type;
 
 	switch (wl_shm_buffer_get_format(shm_buffer)) {
 	case WL_SHM_FORMAT_XRGB8888:
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		gl_format[0] = GL_BGRA_EXT;
-		gl_pixel_type = GL_UNSIGNED_BYTE;
 		break;
 	case WL_SHM_FORMAT_ARGB8888:
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		gl_format[0] = GL_BGRA_EXT;
-		gl_pixel_type = GL_UNSIGNED_BYTE;
 		break;
 	case WL_SHM_FORMAT_RGB565:
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
-		gl_format[0] = GL_RGB;
-		gl_pixel_type = GL_UNSIGNED_SHORT_5_6_5;
 		break;
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 	case WL_SHM_FORMAT_ABGR2101010:
@@ -1942,8 +1939,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		}
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		gl_format[0] = GL_RGB10_A2;
-		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
 		break;
 	case WL_SHM_FORMAT_XBGR2101010:
 		if (!gr->has_texture_type_2_10_10_10_rev) {
@@ -1951,40 +1946,30 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		}
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		gl_format[0] = GL_RGB10_A2;
-		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
 		break;
 	case WL_SHM_FORMAT_ABGR16161616F:
 		if (!gr->gl_supports_color_transforms)
 			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		gl_format[0] = GL_RGBA16F;
-		gl_pixel_type = GL_HALF_FLOAT;
 		break;
 	case WL_SHM_FORMAT_XBGR16161616F:
 		if (!gr->gl_supports_color_transforms)
 			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		gl_format[0] = GL_RGBA16F;
-		gl_pixel_type = GL_HALF_FLOAT;
 		break;
 	case WL_SHM_FORMAT_ABGR16161616:
 		if (!gr->has_texture_norm16)
 			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		gl_format[0] = GL_RGBA16_EXT;
-		gl_pixel_type = GL_UNSIGNED_SHORT;
 		break;
 	case WL_SHM_FORMAT_XBGR16161616:
 		if (!gr->has_texture_norm16)
 			goto unsupported;
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 8;
-		gl_format[0] = GL_RGBA16_EXT;
-		gl_pixel_type = GL_UNSIGNED_SHORT;
 		break;
 #endif
 	case WL_SHM_FORMAT_YUV420:
