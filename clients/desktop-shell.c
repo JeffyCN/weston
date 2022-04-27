@@ -135,6 +135,8 @@ struct output {
 	int y;
 	struct panel *panel;
 	struct background *background;
+
+	struct desktop *desktop;
 };
 
 struct panel_launcher {
@@ -1227,9 +1229,26 @@ output_handle_geometry(void *data,
                        int transform)
 {
 	struct output *output = data;
+	struct desktop *desktop = output->desktop;
+	struct wl_surface *surface;
 
 	output->x = x;
 	output->y = y;
+
+	if (y && output->panel) {
+		/* HACK: Re-set the panel to destroy it */
+		surface = window_get_wl_surface(output->panel->window);
+		weston_desktop_shell_set_panel(desktop->shell,
+					       output->output, surface);
+	}
+
+	if (!y && desktop->want_panel && !output->panel) {
+		/* based on output_init() */
+		output->panel = panel_create(desktop, output);
+		surface = window_get_wl_surface(output->panel->window);
+		weston_desktop_shell_set_panel(desktop->shell,
+					       output->output, surface);
+	}
 
 	if (output->panel)
 		window_set_buffer_transform(output->panel->window, transform);
@@ -1300,6 +1319,7 @@ create_output(struct desktop *desktop, uint32_t id)
 	if (!output)
 		return;
 
+	output->desktop = desktop;
 	output->output =
 		display_bind(desktop->display, id, &wl_output_interface, 2);
 	output->server_output_id = id;

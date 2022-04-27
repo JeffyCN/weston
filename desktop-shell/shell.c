@@ -1020,7 +1020,7 @@ constrain_position(struct weston_move_grab *move, int *cx, int *cy)
 	y = wl_fixed_to_int(pointer->y + move->dy);
 
 	if (shsurf->shell->panel_position ==
-	    WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP) {
+	    WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP && !surface->output->y) {
 		get_output_work_area(shsurf->shell, surface->output, &area);
 		geometry =
 			weston_desktop_surface_get_geometry(shsurf->desktop_surface);
@@ -2658,6 +2658,18 @@ desktop_shell_set_panel(struct wl_client *client,
 		wl_resource_get_user_data(surface_resource);
 	struct weston_view *view, *next;
 	struct shell_output *sh_output;
+	struct weston_output *output;
+
+	output = weston_head_from_resource(output_resource)->output;
+	sh_output = find_shell_output_from_weston_output(shell, output);
+
+	if (surface == sh_output->panel_surface) {
+		/* HACK: Re-set to destroy output panel */
+		weston_desktop_shell_send_configure(resource, 0,
+						    surface_resource,
+						    0, 0);
+		return;
+	}
 
 	if (surface->committed) {
 		wl_resource_post_error(surface_resource,
@@ -2673,10 +2685,9 @@ desktop_shell_set_panel(struct wl_client *client,
 	surface->committed = panel_committed;
 	surface->committed_private = shell;
 	weston_surface_set_label_func(surface, panel_get_label);
-	surface->output = weston_head_from_resource(output_resource)->output;
+	surface->output = output;
 	weston_view_set_output(view, surface->output);
 
-	sh_output = find_shell_output_from_weston_output(shell, surface->output);
 	if (sh_output->panel_surface) {
 		/* The output already has a panel, tell our helper
 		 * there is no need for another one. */
