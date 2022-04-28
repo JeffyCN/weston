@@ -125,18 +125,11 @@ struct yuv_plane_descriptor {
 	int plane_index;
 };
 
-enum texture_type {
-	TEXTURE_Y_XUXV_WL,
-	TEXTURE_Y_UV_WL,
-	TEXTURE_Y_U_V_WL,
-	TEXTURE_XYUV_WL
-};
-
 struct yuv_format_descriptor {
 	uint32_t format;
 	int input_planes;
 	int output_planes;
-	enum texture_type texture_type;
+	enum gl_shader_texture_variant shader_variant;
 	struct yuv_plane_descriptor plane[4];
 };
 
@@ -2298,7 +2291,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_YUYV,
 		.input_planes = 1,
 		.output_planes = 2,
-		.texture_type = TEXTURE_Y_XUXV_WL,
+		.shader_variant = SHADER_VARIANT_Y_XUXV,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2314,7 +2307,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_NV12,
 		.input_planes = 2,
 		.output_planes = 2,
-		.texture_type = TEXTURE_Y_UV_WL,
+		.shader_variant = SHADER_VARIANT_Y_UV,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2330,7 +2323,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_YUV420,
 		.input_planes = 3,
 		.output_planes = 3,
-		.texture_type = TEXTURE_Y_U_V_WL,
+		.shader_variant = SHADER_VARIANT_Y_U_V,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2351,7 +2344,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_YUV444,
 		.input_planes = 3,
 		.output_planes = 3,
-		.texture_type = TEXTURE_Y_U_V_WL,
+		.shader_variant = SHADER_VARIANT_Y_U_V,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2372,7 +2365,7 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.format = DRM_FORMAT_XYUV8888,
 		.input_planes = 1,
 		.output_planes = 1,
-		.texture_type = TEXTURE_XYUV_WL,
+		.shader_variant = SHADER_VARIANT_XYUV,
 		{{
 			.width_divisor = 1,
 			.height_divisor = 1,
@@ -2458,23 +2451,7 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 	}
 
 	gb->num_images = format->output_planes;
-
-	switch (format->texture_type) {
-	case TEXTURE_Y_XUXV_WL:
-		gb->shader_variant = SHADER_VARIANT_Y_XUXV;
-		break;
-	case TEXTURE_Y_UV_WL:
-		gb->shader_variant = SHADER_VARIANT_Y_UV;
-		break;
-	case TEXTURE_Y_U_V_WL:
-		gb->shader_variant = SHADER_VARIANT_Y_U_V;
-		break;
-	case TEXTURE_XYUV_WL:
-		gb->shader_variant = SHADER_VARIANT_XYUV;
-		break;
-	default:
-		assert(false);
-	}
+	gb->shader_variant = format->shader_variant;
 
 	target = gl_shader_texture_variant_get_target(gb->shader_variant);
 	ensure_textures(gb, target, gb->num_images);
