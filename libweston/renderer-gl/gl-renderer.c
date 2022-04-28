@@ -1911,6 +1911,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	int hsub[3] = { 1, 0, 0 };
 	int vsub[3] = { 1, 0, 0 };
 	int num_planes;
+	unsigned int i;
 	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
 
 	num_planes = 1;
@@ -1941,7 +1942,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		}
 		shader_variant = SHADER_VARIANT_RGBA;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
+		gl_format[0] = GL_RGB10_A2;
 		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
 		break;
 	case WL_SHM_FORMAT_XBGR2101010:
@@ -1950,7 +1951,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		}
 		shader_variant = SHADER_VARIANT_RGBX;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		gl_format[0] = using_glesv2 ? GL_RGBA : GL_RGB10_A2;
+		gl_format[0] = GL_RGB10_A2;
 		gl_pixel_type = GL_UNSIGNED_INT_2_10_10_10_REV_EXT;
 		break;
 	case WL_SHM_FORMAT_ABGR16161616F:
@@ -1999,17 +2000,12 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 				(buffer->height / vsub[1]);
 		hsub[2] = 2;
 		vsub[2] = 2;
-		if (gr->has_gl_texture_rg) {
-			gl_format[0] = GL_R8_EXT;
-			gl_format[1] = GL_R8_EXT;
-			gl_format[2] = GL_R8_EXT;
-		} else {
-			gl_format[0] = GL_LUMINANCE;
-			gl_format[1] = GL_LUMINANCE;
-			gl_format[2] = GL_LUMINANCE;
-		}
+		gl_format[0] = GL_R8_EXT;
+		gl_format[1] = GL_R8_EXT;
+		gl_format[2] = GL_R8_EXT;
 		break;
 	case WL_SHM_FORMAT_NV12:
+		shader_variant = SHADER_VARIANT_Y_UV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 2;
@@ -2017,15 +2013,8 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 				(buffer->height / vsub[0]);
 		hsub[1] = 2;
 		vsub[1] = 2;
-		if (gr->has_gl_texture_rg) {
-			shader_variant = SHADER_VARIANT_Y_UV;
-			gl_format[0] = GL_R8_EXT;
-			gl_format[1] = GL_RG8_EXT;
-		} else {
-			shader_variant = SHADER_VARIANT_Y_XUXV;
-			gl_format[0] = GL_LUMINANCE;
-			gl_format[1] = GL_LUMINANCE_ALPHA;
-		}
+		gl_format[0] = GL_R8_EXT;
+		gl_format[1] = GL_RG8_EXT;
 		break;
 	case WL_SHM_FORMAT_YUYV:
 		shader_variant = SHADER_VARIANT_Y_XUXV;
@@ -2035,10 +2024,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		offset[1] = 0;
 		hsub[1] = 2;
 		vsub[1] = 1;
-		if (gr->has_gl_texture_rg)
-			gl_format[0] = GL_RG8_EXT;
-		else
-			gl_format[0] = GL_LUMINANCE_ALPHA;
+		gl_format[0] = GL_RG8_EXT;
 		gl_format[1] = GL_BGRA_EXT;
 		break;
 	case WL_SHM_FORMAT_XYUV8888:
@@ -2056,6 +2042,31 @@ unsupported:
 		weston_log("warning: unknown or unsupported shm buffer format: %08x\n",
 			   wl_shm_buffer_get_format(shm_buffer));
 		return false;
+	}
+
+	for (i = 0; i < ARRAY_LENGTH(gb->gl_format); i++) {
+		/* Fall back to GL_RGBA for 10bpc formats on ES2 */
+		if (using_glesv2 && gl_format[i] == GL_RGB10_A2) {
+			assert(gl_pixel_type == GL_UNSIGNED_INT_2_10_10_10_REV_EXT);
+			gl_format[i] = GL_RGBA;
+		}
+
+		/* Fall back to old luminance-based formats if we don't have
+		 * GL_EXT_texture_rg, which requires different sampling for
+		 * two-component formats. */
+		if (!gr->has_gl_texture_rg && gl_format[i] == GL_R8_EXT) {
+			assert(gl_pixel_type == GL_UNSIGNED_BYTE);
+			assert(shader_variant == SHADER_VARIANT_Y_U_V ||
+			       shader_variant == SHADER_VARIANT_Y_UV);
+			gl_format[i] = GL_LUMINANCE;
+		}
+		if (!gr->has_gl_texture_rg && gl_format[i] == GL_RG8_EXT) {
+			assert(gl_pixel_type == GL_UNSIGNED_BYTE);
+			assert(shader_variant == SHADER_VARIANT_Y_UV ||
+			       shader_variant == SHADER_VARIANT_Y_XUXV);
+			shader_variant = SHADER_VARIANT_Y_XUXV;
+			gl_format[i] = GL_LUMINANCE_ALPHA;
+		}
 	}
 
 	/* If this surface previously had a SHM buffer, its gl_buffer_state will
