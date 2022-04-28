@@ -2522,16 +2522,13 @@ choose_texture_target(struct gl_renderer *gr,
 
 		for (i = 0; i < format->num_modifiers; ++i) {
 			if (format->modifiers[i] == attributes->modifier[0]) {
-				if(format->external_only[i])
+				if (format->external_only[i])
 					return GL_TEXTURE_EXTERNAL_OES;
 				else
 					return GL_TEXTURE_2D;
 			}
 		}
 	}
-
-	if (attributes->n_planes > 1)
-		return GL_TEXTURE_EXTERNAL_OES;
 
 	switch (attributes->format & ~DRM_FORMAT_BIG_ENDIAN) {
 	case DRM_FORMAT_YUYV:
