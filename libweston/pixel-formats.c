@@ -655,15 +655,33 @@ pixel_format_get_info_by_opaque_substitute(uint32_t format)
 }
 
 WL_EXPORT unsigned int
+pixel_format_hsub(const struct pixel_format_info *info,
+		  unsigned int plane)
+{
+	/* We don't support any formats where the first plane is subsampled. */
+	if (plane == 0 || info->hsub == 0)
+		return 1;
+
+	return info->hsub;
+}
+
+WL_EXPORT unsigned int
+pixel_format_vsub(const struct pixel_format_info *info,
+		  unsigned int plane)
+{
+	/* We don't support any formats where the first plane is subsampled. */
+	if (plane == 0 || info->vsub == 0)
+		return 1;
+
+	return info->vsub;
+}
+
+WL_EXPORT unsigned int
 pixel_format_width_for_plane(const struct pixel_format_info *info,
 			     unsigned int plane,
 			     unsigned int width)
 {
-	/* We don't support any formats where the first plane is subsampled. */
-	if (plane == 0 || !info->hsub)
-		return width;
-
-	return width / info->hsub;
+	return width / pixel_format_hsub(info, plane);
 }
 
 WL_EXPORT unsigned int
@@ -671,11 +689,7 @@ pixel_format_height_for_plane(const struct pixel_format_info *info,
 			      unsigned int plane,
 			      unsigned int height)
 {
-	/* We don't support any formats where the first plane is subsampled. */
-	if (plane == 0 || !info->vsub)
-		return height;
-
-	return height / info->vsub;
+	return height / pixel_format_vsub(info, plane);
 }
 
 #ifdef HAVE_HUMAN_FORMAT_MODIFIER

@@ -249,6 +249,36 @@ const struct pixel_format_info *
 pixel_format_get_info_by_opaque_substitute(uint32_t format);
 
 /**
+ * Return the horizontal subsampling factor for a given plane
+ *
+ * When horizontal subsampling is effective, a sampler bound to a secondary
+ * plane must bind the sampler with a smaller effective width. This function
+ * returns the subsampling factor to use for the given plane.
+ *
+ * @param format Pixel format info structure
+ * @param plane Zero-indexed plane number
+ * @returns Horizontal subsampling factor for the given plane
+ */
+unsigned int
+pixel_format_hsub(const struct pixel_format_info *format,
+		  unsigned int plane);
+
+/**
+ * Return the vertical subsampling factor for a given plane
+ *
+ * When vertical subsampling is effective, a sampler bound to a secondary
+ * plane must bind the sampler with a smaller effective height. This function
+ * returns the subsampling factor to use for the given plane.
+ *
+ * @param format Pixel format info structure
+ * @param plane Zero-indexed plane number
+ * @returns Vertical subsampling factor for the given plane
+ */
+unsigned int
+pixel_format_vsub(const struct pixel_format_info *format,
+		  unsigned int plane);
+
+/**
  * Return the effective sampling width for a given plane
  *
  * When horizontal subsampling is effective, a sampler bound to a secondary
