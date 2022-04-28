@@ -159,8 +159,6 @@ struct gl_buffer_state {
 
 	/* Extension needed for SHM YUV texture */
 	int offset[3]; /* offset per plane */
-	int hsub[3];  /* horizontal subsampling per plane */
-	int vsub[3];  /* vertical subsampling per plane */
 
 	GLuint textures[3];
 	int num_textures;
@@ -1794,13 +1792,16 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 		wl_shm_buffer_begin_access(buffer->shm_buffer);
 
 		for (j = 0; j < gb->num_textures; j++) {
+			int hsub = pixel_format_hsub(buffer->pixel_format, j);
+			int vsub = pixel_format_vsub(buffer->pixel_format, j);
+
 			glBindTexture(GL_TEXTURE_2D, gb->textures[j]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT,
-				      gb->pitch / gb->hsub[j]);
+				      gb->pitch / hsub);
 			glTexImage2D(GL_TEXTURE_2D, 0,
 				     gb->gl_format[j],
-				     buffer->width / gb->hsub[j],
-				     buffer->height / gb->vsub[j],
+				     buffer->width / hsub,
+				     buffer->height / vsub,
 				     0,
 				     gl_format_from_internal(gb->gl_format[j]),
 				     gb->gl_pixel_type,
@@ -1818,18 +1819,19 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 		r = weston_surface_to_buffer_rect(surface, rectangles[i]);
 
 		for (j = 0; j < gb->num_textures; j++) {
+			int hsub = pixel_format_hsub(buffer->pixel_format, j);
+			int vsub = pixel_format_vsub(buffer->pixel_format, j);
+
 			glBindTexture(GL_TEXTURE_2D, gb->textures[j]);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT,
-				      gb->pitch / gb->hsub[j]);
-			glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT,
-				      r.x1 / gb->hsub[j]);
-			glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT,
-				      r.y1 / gb->vsub[j]);
+				      gb->pitch / hsub);
+			glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT, r.x1 / hsub);
+			glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT, r.y1 / vsub);
 			glTexSubImage2D(GL_TEXTURE_2D, 0,
-					r.x1 / gb->hsub[j],
-					r.y1 / gb->vsub[j],
-					(r.x2 - r.x1) / gb->hsub[j],
-					(r.y2 - r.y1) / gb->vsub[j],
+					r.x1 / hsub,
+					r.y1 / vsub,
+					(r.x2 - r.x1) / hsub,
+					(r.y2 - r.y1) / vsub,
 					gl_format_from_internal(gb->gl_format[j]),
 					gb->gl_pixel_type,
 					data + gb->offset[j]);
@@ -1909,8 +1911,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	enum gl_shader_texture_variant shader_variant;
 	int pitch;
 	int offset[3] = { 0, 0, 0 };
-	int hsub[3] = { 1, 0, 0 };
-	int vsub[3] = { 1, 0, 0 };
 	unsigned int i;
 	int num_planes = 1;
 	int bpp;
@@ -1922,14 +1922,8 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 3;
-		offset[1] = offset[0] + (pitch / hsub[0]) *
-				(buffer->height / vsub[0]);
-		hsub[1] = 2;
-		vsub[1] = 2;
-		offset[2] = offset[1] + (pitch / hsub[1]) *
-				(buffer->height / vsub[1]);
-		hsub[2] = 2;
-		vsub[2] = 2;
+		offset[1] = offset[0] + pitch * buffer->height;
+		offset[2] = offset[1] + (pitch / 2) * (buffer->height / 2);
 		gl_format[0] = GL_R8_EXT;
 		gl_format[1] = GL_R8_EXT;
 		gl_format[2] = GL_R8_EXT;
@@ -1939,10 +1933,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 2;
-		offset[1] = offset[0] + (pitch / hsub[0]) *
-				(buffer->height / vsub[0]);
-		hsub[1] = 2;
-		vsub[1] = 2;
+		offset[1] = offset[0] + pitch * buffer->height;
 		gl_format[0] = GL_R8_EXT;
 		gl_format[1] = GL_RG8_EXT;
 		break;
@@ -1952,8 +1943,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 2;
 		offset[1] = 0;
-		hsub[1] = 2;
-		vsub[1] = 1;
 		gl_format[0] = GL_RG8_EXT;
 		gl_format[1] = GL_BGRA_EXT;
 		break;
@@ -2038,8 +2027,6 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	gb->pitch = pitch;
 	gb->shader_variant = shader_variant;
 	ARRAY_COPY(gb->offset, offset);
-	ARRAY_COPY(gb->hsub, hsub);
-	ARRAY_COPY(gb->vsub, vsub);
 	ARRAY_COPY(gb->gl_format, gl_format);
 	gb->gl_pixel_type = gl_pixel_type;
 	gb->needs_full_upload = true;
