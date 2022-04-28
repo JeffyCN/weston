@@ -582,7 +582,7 @@ pixman_renderer_repaint_output(struct weston_output *output,
 	pixman_region32_t hw_damage;
 
 	assert(output->from_blend_to_output_by_backend ||
-	       output->from_blend_to_output == NULL);
+	       output->color_outcome->from_blend_to_output == NULL);
 
 	if (!po->hw_buffer) {
 		po->hw_extra_damage = NULL;

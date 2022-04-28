@@ -6463,15 +6463,24 @@ weston_output_transform_coordinate(struct weston_output *output,
 	*y = p.f[1] / p.f[3];
 }
 
-static void
-weston_output_reset_color_transforms(struct weston_output *output)
+WL_EXPORT void
+weston_output_color_outcome_destroy(struct weston_output_color_outcome **pco)
 {
-	weston_color_transform_unref(output->from_sRGB_to_output);
-	output->from_sRGB_to_output = NULL;
-	weston_color_transform_unref(output->from_sRGB_to_blend);
-	output->from_sRGB_to_blend = NULL;
-	weston_color_transform_unref(output->from_blend_to_output);
-	output->from_blend_to_output = NULL;
+	struct weston_output_color_outcome *co = *pco;
+
+	if (!co)
+		return;
+
+	weston_color_transform_unref(co->from_sRGB_to_output);
+	co->from_sRGB_to_output = NULL;
+	weston_color_transform_unref(co->from_sRGB_to_blend);
+	co->from_sRGB_to_blend = NULL;
+	weston_color_transform_unref(co->from_blend_to_output);
+	co->from_blend_to_output = NULL;
+
+	/* XXX: added in the next commit */
+	/* free(co); */
+	*pco = NULL;
 }
 
 static bool
@@ -6498,11 +6507,15 @@ weston_output_set_color_transforms(struct weston_output *output)
 		return false;
 	}
 
-	weston_output_reset_color_transforms(output);
-	output->from_blend_to_output = blend_to_output;
+	weston_output_color_outcome_destroy(&output->color_outcome);
+
+	/* XXX: temporary allocation to be removed in the next commit */
+	output->color_outcome = &output->colorout_;
+
+	output->color_outcome->from_blend_to_output = blend_to_output;
+	output->color_outcome->from_sRGB_to_output = sRGB_to_output;
+	output->color_outcome->from_sRGB_to_blend = sRGB_to_blend;
 	output->from_blend_to_output_by_backend = false;
-	output->from_sRGB_to_output = sRGB_to_output;
-	output->from_sRGB_to_blend = sRGB_to_blend;
 
 	weston_log("Output '%s' using color profile: %s\n", output->name,
 		   weston_color_profile_get_description(output->color_profile));
@@ -6567,7 +6580,7 @@ weston_compositor_remove_output(struct weston_output *output)
 			weston_view_assign_output(view);
 	}
 
-	weston_output_reset_color_transforms(output);
+	weston_output_color_outcome_destroy(&output->color_outcome);
 
 	weston_presentation_feedback_discard_list(&output->feedback_list);
 
@@ -6986,7 +6999,7 @@ weston_output_enable(struct weston_output *output)
 	 */
 	if (output->enable(output) < 0) {
 		weston_log("Enabling output \"%s\" failed.\n", output->name);
-		weston_output_reset_color_transforms(output);
+		weston_output_color_outcome_destroy(&output->color_outcome);
 		return -1;
 	}
 
@@ -7146,6 +7159,7 @@ weston_output_release(struct weston_output *output)
 		weston_compositor_remove_output(output);
 
 	weston_color_profile_unref(output->color_profile);
+	assert(output->color_outcome == NULL);
 
 	pixman_region32_fini(&output->region);
 	wl_list_remove(&output->link);

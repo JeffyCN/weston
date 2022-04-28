@@ -283,6 +283,26 @@ struct weston_head {
 	enum weston_hdcp_protection current_protection;
 };
 
+/** Output properties derived from its color characteristics and profile
+ *
+ * These are constructed by a color manager.
+ *
+ * A weston_output_color_outcome owns (a reference to) everything it contains.
+ *
+ * \ingroup output
+ * \internal
+ */
+struct weston_output_color_outcome {
+	/** sRGB to output color space transformation */
+	struct weston_color_transform *from_sRGB_to_output;
+
+	/** sRGB to blending color space transformation */
+	struct weston_color_transform *from_sRGB_to_blend;
+
+	/** Blending to output color space transformation */
+	struct weston_color_transform *from_blend_to_output;
+};
+
 /** Content producer for heads
  *
  * \rst
@@ -392,11 +412,13 @@ struct weston_output {
 	int scale;
 
 	struct weston_color_profile *color_profile;
-	struct weston_color_transform *from_sRGB_to_output;
-	struct weston_color_transform *from_sRGB_to_blend;
-	struct weston_color_transform *from_blend_to_output;
 	bool from_blend_to_output_by_backend;
 	enum weston_eotf_mode eotf_mode;
+
+	/* XXX: temporary allocation to be removed in the next commit */
+	struct weston_output_color_outcome colorout_;
+
+	struct weston_output_color_outcome *color_outcome;
 
 	int (*enable)(struct weston_output *output);
 	int (*disable)(struct weston_output *output);

@@ -385,4 +385,7 @@ weston_eotf_mode_to_str(enum weston_eotf_mode e);
 char *
 weston_eotf_mask_to_str(uint32_t eotf_mask);
 
+void
+weston_output_color_outcome_destroy(struct weston_output_color_outcome **pco);
+
 #endif /* WESTON_COLOR_H */

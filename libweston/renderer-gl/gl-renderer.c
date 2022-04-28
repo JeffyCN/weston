@@ -740,6 +740,7 @@ triangle_fan_debug(struct gl_renderer *gr,
 	static int color_idx = 0;
 	struct gl_shader_config alt;
 	const GLfloat *col;
+	struct weston_color_transform *ctransf;
 	static const GLfloat color[][4] = {
 			{ 1.0, 0.0, 0.0, 1.0 },
 			{ 0.0, 1.0, 0.0, 1.0 },
@@ -758,8 +759,8 @@ triangle_fan_debug(struct gl_renderer *gr,
 		.unicolor = { col[0], col[1], col[2], col[3] },
 	};
 
-	if (!gl_shader_config_set_color_transform(&alt,
-						  output->from_sRGB_to_blend)) {
+	ctransf = output->color_outcome->from_sRGB_to_blend;
+	if (!gl_shader_config_set_color_transform(&alt, ctransf)) {
 		weston_log("GL-renderer: %s failed to generate a color transformation.\n",
 			   __func__);
 		return;
@@ -932,6 +933,7 @@ static void
 censor_override(struct gl_shader_config *sconf,
 		struct weston_output *output)
 {
+	struct weston_color_transform *ctransf;
 	struct gl_shader_config alt = {
 		.req = {
 			.variant = SHADER_VARIANT_SOLID,
@@ -942,8 +944,8 @@ censor_override(struct gl_shader_config *sconf,
 		.unicolor = { 0.40, 0.0, 0.0, 1.0 },
 	};
 
-	if (!gl_shader_config_set_color_transform(&alt,
-						  output->from_sRGB_to_blend)) {
+	ctransf = output->color_outcome->from_sRGB_to_blend;
+	if (!gl_shader_config_set_color_transform(&alt, ctransf)) {
 		weston_log("GL-renderer: %s failed to generate a color transformation.\n",
 			   __func__);
 	}
@@ -1307,6 +1309,7 @@ draw_output_borders(struct weston_output *output,
 		},
 		.view_alpha = 1.0f,
 	};
+	struct weston_color_transform *ctransf;
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	struct gl_border_image *top, *bottom, *left, *right;
@@ -1315,7 +1318,8 @@ draw_output_borders(struct weston_output *output,
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
 
-	if (!gl_shader_config_set_color_transform(&sconf, output->from_sRGB_to_output)) {
+	ctransf = output->color_outcome->from_sRGB_to_output;
+	if (!gl_shader_config_set_color_transform(&sconf, ctransf)) {
 		weston_log("GL-renderer: %s failed to generate a color transformation.\n", __func__);
 		return;
 	}
@@ -1550,13 +1554,15 @@ blit_shadow_to_output(struct weston_output *output,
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	double width = output->current_mode->width;
 	double height = output->current_mode->height;
+	struct weston_color_transform *ctransf;
 	pixman_box32_t *rects;
 	int n_rects;
 	int i;
 	pixman_region32_t translated_damage;
 	GLfloat verts[4 * 2];
 
-	if (!gl_shader_config_set_color_transform(&sconf, output->from_blend_to_output)) {
+	ctransf = output->color_outcome->from_blend_to_output;
+	if (!gl_shader_config_set_color_transform(&sconf, ctransf)) {
 		weston_log("GL-renderer: %s failed to generate a color transformation.\n", __func__);
 		return;
 	}
@@ -1624,7 +1630,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 	struct weston_paint_node *pnode;
 
 	assert(output->from_blend_to_output_by_backend ||
-	       output->from_blend_to_output == NULL || shadow_exists(go));
+	       output->color_outcome->from_blend_to_output == NULL ||
+	       shadow_exists(go));
 
 	if (use_output(output) < 0)
 		return;
@@ -3439,7 +3446,7 @@ gl_renderer_output_create(struct weston_output *output,
 	go->begin_render_sync = EGL_NO_SYNC_KHR;
 	go->end_render_sync = EGL_NO_SYNC_KHR;
 
-	if ((output->from_blend_to_output != NULL &&
+	if ((output->color_outcome->from_blend_to_output != NULL &&
 	     output->from_blend_to_output_by_backend == false) ||
 	    quirks->gl_force_full_redraw_of_shadow_fb) {
 		assert(gr->gl_supports_color_transforms);
