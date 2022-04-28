@@ -392,16 +392,16 @@ create_surface(struct window *window)
 	xdg_toplevel_set_app_id(window->xdg_toplevel,
 			"org.freedesktop.weston.simple-egl");
 
+	if (window->fullscreen)
+		xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
+	else if (window->maximized)
+		xdg_toplevel_set_maximized(window->xdg_toplevel);
+
 	window->wait_for_configure = true;
 	wl_surface_commit(window->surface);
 
 	if (!window->frame_sync)
 		eglSwapInterval(display->egl.dpy, 0);
-
-	if (window->fullscreen)
-		xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
-	else if (window->maximized)
-		xdg_toplevel_set_maximized(window->xdg_toplevel);
 }
 
 static void
