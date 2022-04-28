@@ -36,6 +36,7 @@
 #include "color.h"
 #include "pixel-formats.h"
 #include "shared/helpers.h"
+#include "shared/signal.h"
 
 #include <linux/input.h>
 
@@ -488,6 +489,19 @@ draw_paint_node(struct weston_paint_node *pnode,
 	/* No buffer attached */
 	if (!ps->image)
 		return;
+
+	/* if we still have a reference, but the underlying buffer is no longer
+	 * available signal that we should unref image_t as well. This happens
+	 * when using close animations, with the reference surviving the
+	 * animation while the underlying buffer went away as the client was
+	 * terminated. This is a particular use-case and should probably be
+	 * refactored to provide some analogue with the GL-renderer (as in, to
+	 * still maintain the buffer and let the compositor dispose of it). */
+	if (ps->buffer_ref.buffer && !ps->buffer_ref.buffer->shm_buffer) {
+		pixman_image_unref(ps->image);
+		ps->image = NULL;
+		return;
+	}
 
 	pixman_region32_init(&repaint);
 	pixman_region32_intersect(&repaint,
