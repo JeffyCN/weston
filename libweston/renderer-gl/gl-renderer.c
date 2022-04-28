@@ -139,16 +139,14 @@ struct gl_buffer_state {
 	pixman_region32_t texture_damage;
 
 	/* Only needed between attach() and flush_damage() */
-	int pitch;
-	GLenum gl_format[3];
+	int pitch; /* plane 0 pitch in pixels */
 	GLenum gl_pixel_type;
+	GLenum gl_format[3];
+	int offset[3]; /* per-plane pitch in bytes */
 
 	EGLImageKHR images[3];
 	int num_images;
 	enum gl_shader_texture_variant shader_variant;
-
-	/* Extension needed for SHM YUV texture */
-	int offset[3]; /* offset per plane */
 
 	GLuint textures[3];
 	int num_textures;
@@ -239,6 +237,69 @@ shadow_exists(const struct gl_output_state *go)
 {
 	return go->shadow.fbo != 0;
 }
+
+struct yuv_format_descriptor yuv_formats[] = {
+	{
+		.format = DRM_FORMAT_YUYV,
+		.output_planes = 2,
+		.shader_variant = SHADER_VARIANT_Y_XUXV,
+		{{
+			.format = DRM_FORMAT_GR88,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_ARGB8888,
+			.plane_index = 0
+		}}
+	}, {
+		.format = DRM_FORMAT_NV12,
+		.output_planes = 2,
+		.shader_variant = SHADER_VARIANT_Y_UV,
+		{{
+			.format = DRM_FORMAT_R8,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_GR88,
+			.plane_index = 1
+		}}
+	}, {
+		.format = DRM_FORMAT_YUV420,
+		.output_planes = 3,
+		.shader_variant = SHADER_VARIANT_Y_U_V,
+		{{
+			.format = DRM_FORMAT_R8,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_R8,
+			.plane_index = 1
+		}, {
+			.format = DRM_FORMAT_R8,
+			.plane_index = 2
+		}}
+	}, {
+		.format = DRM_FORMAT_YUV444,
+		.output_planes = 3,
+		.shader_variant = SHADER_VARIANT_Y_U_V,
+		{{
+			.format = DRM_FORMAT_R8,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_R8,
+			.plane_index = 1
+		}, {
+			.format = DRM_FORMAT_R8,
+			.plane_index = 2
+		}}
+	}, {
+		.format = DRM_FORMAT_XYUV8888,
+		.output_planes = 1,
+		.shader_variant = SHADER_VARIANT_XYUV,
+		{{
+			.format = DRM_FORMAT_XBGR8888,
+			.plane_index = 0
+		}}
+	}
+};
+
 
 static void
 timeline_render_point_destroy(struct timeline_render_point *trp)
@@ -1901,69 +1962,82 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	enum gl_shader_texture_variant shader_variant;
 	int pitch;
 	int offset[3] = { 0, 0, 0 };
+	unsigned int num_planes;
 	unsigned int i;
-	int num_planes = 1;
-	int bpp;
 	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
+	const struct yuv_format_descriptor *yuv = NULL;
 
-	switch (buffer->pixel_format->format) {
-	case DRM_FORMAT_YUV420:
-	case DRM_FORMAT_YUV444:
-		shader_variant = SHADER_VARIANT_Y_U_V;
-		pitch = wl_shm_buffer_get_stride(shm_buffer);
-		gl_pixel_type = GL_UNSIGNED_BYTE;
-		num_planes = 3;
-		offset[1] = offset[0] + pitch * buffer->height;
-		offset[2] = offset[1] +
-			(pitch / pixel_format_hsub(buffer->pixel_format, 1)) *
-			(buffer->height / pixel_format_vsub(buffer->pixel_format, 1));
-		gl_format[0] = GL_R8_EXT;
-		gl_format[1] = GL_R8_EXT;
-		gl_format[2] = GL_R8_EXT;
-		break;
-	case DRM_FORMAT_NV12:
-		shader_variant = SHADER_VARIANT_Y_UV;
-		pitch = wl_shm_buffer_get_stride(shm_buffer);
-		gl_pixel_type = GL_UNSIGNED_BYTE;
-		num_planes = 2;
-		offset[1] = offset[0] + pitch * buffer->height;
-		gl_format[0] = GL_R8_EXT;
-		gl_format[1] = GL_RG8_EXT;
-		break;
-	case DRM_FORMAT_YUYV:
-		shader_variant = SHADER_VARIANT_Y_XUXV;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
-		gl_pixel_type = GL_UNSIGNED_BYTE;
-		num_planes = 2;
-		offset[1] = 0;
-		gl_format[0] = GL_RG8_EXT;
-		gl_format[1] = GL_BGRA_EXT;
-		break;
-	case DRM_FORMAT_XYUV8888:
-		/*
-		 * [31:0] X:Y:Cb:Cr 8:8:8:8 little endian
-		 *        a:b: g: r in SHADER_VARIANT_XYUV
+	/* When sampling YUV input textures and converting to RGB by hand, we
+	 * have to bind to each plane separately, with a different format. For
+	 * example, YUYV will have a single wl_shm input plane, but be bound as
+	 * two planes within gl-renderer, one as GR88 and one as ARGB8888.
+	 *
+	 * The yuv_formats array gives us this translation.
+	 */
+	for (i = 0; i < ARRAY_LENGTH(yuv_formats); ++i) {
+		if (yuv_formats[i].format == buffer->pixel_format->format) {
+			yuv = &yuv_formats[i];
+			break;
+		}
+	}
+
+	if (yuv) {
+		unsigned int out;
+		unsigned int shm_plane_count;
+		int shm_offset[3] = { 0 };
+		int bpp = buffer->pixel_format->bpp;
+
+		/* XXX: Pitch here is given in pixel units, whereas offset is
+		 * given in byte units. This is fragile and will break with
+		 * new formats.
 		 */
-		shader_variant = SHADER_VARIANT_XYUV;
-		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
-		gl_format[0] = GL_RGBA;
+		if (!bpp)
+			bpp = pixel_format_get_info(yuv->plane[0].format)->bpp;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / (bpp / 8);
+
+		/* well, they all are so far ... */
 		gl_pixel_type = GL_UNSIGNED_BYTE;
-		break;
-	default:
+		shader_variant = yuv->shader_variant;
+
+		/* pre-compute all plane offsets in shm buffer */
+		shm_plane_count = pixel_format_get_plane_count(buffer->pixel_format);
+		assert(shm_plane_count <= ARRAY_LENGTH(shm_offset));
+		for (i = 1; i < shm_plane_count; i++) {
+			int hsub, vsub;
+
+			hsub = pixel_format_hsub(buffer->pixel_format, i - 1);
+			vsub = pixel_format_vsub(buffer->pixel_format, i - 1);
+			shm_offset[i] = shm_offset[i - 1] +
+				((pitch / hsub) * (buffer->height / vsub));
+		}
+
+		num_planes = yuv->output_planes;
+		for (out = 0; out < num_planes; out++) {
+			const struct pixel_format_info *sub_info =
+				pixel_format_get_info(yuv->plane[out].format);
+
+			assert(sub_info);
+			assert(yuv->plane[out].plane_index < (int) shm_plane_count);
+
+			gl_format[out] = sub_info->gl_format;
+			offset[out] = shm_offset[yuv->plane[out].plane_index];
+		}
+	} else {
+		int bpp = buffer->pixel_format->bpp;
+
 		assert(pixel_format_get_plane_count(buffer->pixel_format) == 1);
+		num_planes = 1;
 
 		if (pixel_format_is_opaque(buffer->pixel_format))
 			shader_variant = SHADER_VARIANT_RGBX;
 		else
 			shader_variant = SHADER_VARIANT_RGBA;
 
-		bpp = buffer->pixel_format->bpp;
 		assert(bpp > 0 && !(bpp & 7));
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / (bpp / 8);
 
 		gl_format[0] = buffer->pixel_format->gl_format;
 		gl_pixel_type = buffer->pixel_format->gl_type;
-		break;
 	}
 
 	for (i = 0; i < ARRAY_LENGTH(gb->gl_format); i++) {
@@ -2282,68 +2356,6 @@ import_simple_dmabuf(struct gl_renderer *gr,
 	return gr->create_image(gr->egl_display, EGL_NO_CONTEXT,
 				EGL_LINUX_DMA_BUF_EXT, NULL, attribs);
 }
-
-struct yuv_format_descriptor yuv_formats[] = {
-	{
-		.format = DRM_FORMAT_YUYV,
-		.output_planes = 2,
-		.shader_variant = SHADER_VARIANT_Y_XUXV,
-		{{
-			.format = DRM_FORMAT_GR88,
-			.plane_index = 0
-		}, {
-			.format = DRM_FORMAT_ARGB8888,
-			.plane_index = 0
-		}}
-	}, {
-		.format = DRM_FORMAT_NV12,
-		.output_planes = 2,
-		.shader_variant = SHADER_VARIANT_Y_UV,
-		{{
-			.format = DRM_FORMAT_R8,
-			.plane_index = 0
-		}, {
-			.format = DRM_FORMAT_GR88,
-			.plane_index = 1
-		}}
-	}, {
-		.format = DRM_FORMAT_YUV420,
-		.output_planes = 3,
-		.shader_variant = SHADER_VARIANT_Y_U_V,
-		{{
-			.format = DRM_FORMAT_R8,
-			.plane_index = 0
-		}, {
-			.format = DRM_FORMAT_R8,
-			.plane_index = 1
-		}, {
-			.format = DRM_FORMAT_R8,
-			.plane_index = 2
-		}}
-	}, {
-		.format = DRM_FORMAT_YUV444,
-		.output_planes = 3,
-		.shader_variant = SHADER_VARIANT_Y_U_V,
-		{{
-			.format = DRM_FORMAT_R8,
-			.plane_index = 0
-		}, {
-			.format = DRM_FORMAT_R8,
-			.plane_index = 1
-		}, {
-			.format = DRM_FORMAT_R8,
-			.plane_index = 2
-		}}
-	}, {
-		.format = DRM_FORMAT_XYUV8888,
-		.output_planes = 1,
-		.shader_variant = SHADER_VARIANT_XYUV,
-		{{
-			.format = DRM_FORMAT_XBGR8888,
-			.plane_index = 0
-		}}
-	}
-};
 
 static EGLImageKHR
 import_dmabuf_single_plane(struct gl_renderer *gr,
