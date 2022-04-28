@@ -127,7 +127,6 @@ struct yuv_plane_descriptor {
 
 struct yuv_format_descriptor {
 	uint32_t format;
-	int input_planes;
 	int output_planes;
 	enum gl_shader_texture_variant shader_variant;
 	struct yuv_plane_descriptor plane[4];
@@ -2289,7 +2288,6 @@ import_simple_dmabuf(struct gl_renderer *gr,
 struct yuv_format_descriptor yuv_formats[] = {
 	{
 		.format = DRM_FORMAT_YUYV,
-		.input_planes = 1,
 		.output_planes = 2,
 		.shader_variant = SHADER_VARIANT_Y_XUXV,
 		{{
@@ -2305,7 +2303,6 @@ struct yuv_format_descriptor yuv_formats[] = {
 		}}
 	}, {
 		.format = DRM_FORMAT_NV12,
-		.input_planes = 2,
 		.output_planes = 2,
 		.shader_variant = SHADER_VARIANT_Y_UV,
 		{{
@@ -2321,7 +2318,6 @@ struct yuv_format_descriptor yuv_formats[] = {
 		}}
 	}, {
 		.format = DRM_FORMAT_YUV420,
-		.input_planes = 3,
 		.output_planes = 3,
 		.shader_variant = SHADER_VARIANT_Y_U_V,
 		{{
@@ -2342,7 +2338,6 @@ struct yuv_format_descriptor yuv_formats[] = {
 		}}
 	}, {
 		.format = DRM_FORMAT_YUV444,
-		.input_planes = 3,
 		.output_planes = 3,
 		.shader_variant = SHADER_VARIANT_Y_U_V,
 		{{
@@ -2363,7 +2358,6 @@ struct yuv_format_descriptor yuv_formats[] = {
 		}}
 	}, {
 		.format = DRM_FORMAT_XYUV8888,
-		.input_planes = 1,
 		.output_planes = 1,
 		.shader_variant = SHADER_VARIANT_XYUV,
 		{{
@@ -2411,6 +2405,8 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 	unsigned i;
 	int j;
 	struct yuv_format_descriptor *format = NULL;
+	const struct pixel_format_info *info;
+	int plane_count;
 	GLenum target;
 	char fmt[4];
 
@@ -2428,11 +2424,15 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 		return false;
 	}
 
-	if (attributes->n_planes != format->input_planes) {
+	info = pixel_format_get_info(attributes->format);
+	assert(info);
+	plane_count = pixel_format_get_plane_count(info);
+
+	if (attributes->n_planes != plane_count) {
 		weston_log("%.4s dmabuf must contain %d plane%s (%d provided)\n",
 		           dump_format(format->format, fmt),
-		           format->input_planes,
-		           (format->input_planes > 1) ? "s" : "",
+		           plane_count,
+		           (plane_count > 1) ? "s" : "",
 		           attributes->n_planes);
 		return false;
 	}
