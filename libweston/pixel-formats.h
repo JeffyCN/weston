@@ -42,6 +42,10 @@ struct pixel_format_info {
 	/** The DRM format name without the DRM_FORMAT_ prefix. */
 	const char *drm_format_name;
 
+	/** If true, is only for internal use and should not be advertised to
+	 * clients to allow them to create buffers of this format. */
+	bool hide_from_clients;
+
 	/** If non-zero, number of planes in base (non-modified) format. */
 	int num_planes;
 

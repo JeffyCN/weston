@@ -2439,7 +2439,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 			pixel_format_get_info_shm(wl_shm_buffer_get_format(shm));
 		buffer->format_modifier = DRM_FORMAT_MOD_LINEAR;
 
-		if (!buffer->pixel_format)
+		if (!buffer->pixel_format || buffer->pixel_format->hide_from_clients)
 			goto fail;
 	} else if ((dmabuf = linux_dmabuf_buffer_get(buffer->resource))) {
 		buffer->type = WESTON_BUFFER_DMABUF;
@@ -2451,7 +2451,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 			pixel_format_get_info(dmabuf->attributes.format);
 		/* dmabuf import should assure we don't create a buffer with an
 		 * unknown format */
-		assert(buffer->pixel_format);
+		assert(buffer->pixel_format && !buffer->pixel_format->hide_from_clients);
 		buffer->format_modifier = dmabuf->attributes.modifier[0];
 		if (dmabuf->attributes.flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT)
 			buffer->buffer_origin = ORIGIN_BOTTOM_LEFT;

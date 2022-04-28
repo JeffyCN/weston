@@ -2796,7 +2796,10 @@ populate_supported_formats(struct weston_compositor *ec,
 		return 0;
 
 	for (i = 0; i < num_formats; i++) {
-		if (!pixel_format_get_info(formats[i]))
+		const struct pixel_format_info *info =
+			pixel_format_get_info(formats[i]);
+
+		if (!info || info->hide_from_clients)
 			continue;
 
 		fmt = weston_drm_format_array_add_format(supported_formats,
