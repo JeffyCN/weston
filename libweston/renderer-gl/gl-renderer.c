@@ -119,8 +119,6 @@ struct dmabuf_format {
 };
 
 struct yuv_plane_descriptor {
-	int width_divisor;
-	int height_divisor;
 	uint32_t format;
 	int plane_index;
 };
@@ -2291,13 +2289,9 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.output_planes = 2,
 		.shader_variant = SHADER_VARIANT_Y_XUXV,
 		{{
-			.width_divisor = 1,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_GR88,
 			.plane_index = 0
 		}, {
-			.width_divisor = 2,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_ARGB8888,
 			.plane_index = 0
 		}}
@@ -2306,13 +2300,9 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.output_planes = 2,
 		.shader_variant = SHADER_VARIANT_Y_UV,
 		{{
-			.width_divisor = 1,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 0
 		}, {
-			.width_divisor = 2,
-			.height_divisor = 2,
 			.format = DRM_FORMAT_GR88,
 			.plane_index = 1
 		}}
@@ -2321,18 +2311,12 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.output_planes = 3,
 		.shader_variant = SHADER_VARIANT_Y_U_V,
 		{{
-			.width_divisor = 1,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 0
 		}, {
-			.width_divisor = 2,
-			.height_divisor = 2,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 1
 		}, {
-			.width_divisor = 2,
-			.height_divisor = 2,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 2
 		}}
@@ -2341,18 +2325,12 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.output_planes = 3,
 		.shader_variant = SHADER_VARIANT_Y_U_V,
 		{{
-			.width_divisor = 1,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 0
 		}, {
-			.width_divisor = 1,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 1
 		}, {
-			.width_divisor = 1,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_R8,
 			.plane_index = 2
 		}}
@@ -2361,8 +2339,6 @@ struct yuv_format_descriptor yuv_formats[] = {
 		.output_planes = 1,
 		.shader_variant = SHADER_VARIANT_XYUV,
 		{{
-			.width_divisor = 1,
-			.height_divisor = 1,
 			.format = DRM_FORMAT_XBGR8888,
 			.plane_index = 0
 		}}
@@ -2371,15 +2347,19 @@ struct yuv_format_descriptor yuv_formats[] = {
 
 static EGLImageKHR
 import_dmabuf_single_plane(struct gl_renderer *gr,
+                           const struct pixel_format_info *info,
+                           int idx,
                            const struct dmabuf_attributes *attributes,
                            struct yuv_plane_descriptor *descriptor)
 {
 	struct dmabuf_attributes plane;
 	EGLImageKHR image;
 	char fmt[4];
+	int hsub = pixel_format_hsub(info, idx);
+	int vsub = pixel_format_vsub(info, idx);
 
-	plane.width = attributes->width / descriptor->width_divisor;
-	plane.height = attributes->height / descriptor->height_divisor;
+	plane.width = attributes->width / hsub;
+	plane.height = attributes->height / vsub;
 	plane.format = descriptor->format;
 	plane.n_planes = 1;
 	plane.fd[0] = attributes->fd[descriptor->plane_index];
@@ -2438,7 +2418,7 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 	}
 
 	for (j = 0; j < format->output_planes; ++j) {
-		gb->images[j] = import_dmabuf_single_plane(gr, attributes,
+		gb->images[j] = import_dmabuf_single_plane(gr, info, j, attributes,
 		                                           &format->plane[j]);
 		if (gb->images[j] == EGL_NO_IMAGE_KHR) {
 			while (--j >= 0) {
