@@ -150,12 +150,13 @@ x8r8g8b8_to_ycbcr8_bt601(uint32_t xrgb,
  * plane 0: Y plane, [7:0] Y
  * plane 1: Cb plane, [7:0] Cb
  * plane 2: Cr plane, [7:0] Cr
- * 2x2 subsampled Cb (1) and Cr (2) planes
+ * YUV420: 2x2 subsampled Cb (1) and Cr (2) planes
+ * YUV444: no subsampling
  */
 static struct yuv_buffer *
-yuv420_create_buffer(struct client *client,
-		     uint32_t drm_format,
-		     pixman_image_t *rgb_image)
+y_u_v_create_buffer(struct client *client,
+		    uint32_t drm_format,
+		    pixman_image_t *rgb_image)
 {
 	struct yuv_buffer *buf;
 	size_t bytes;
@@ -172,27 +173,29 @@ yuv420_create_buffer(struct client *client,
 	uint8_t *u_row;
 	uint8_t *v_row;
 	uint32_t argb;
+	int sub = (drm_format == DRM_FORMAT_YUV420) ? 2 : 1;
 
-	assert(drm_format == DRM_FORMAT_YUV420);
+	assert(drm_format == DRM_FORMAT_YUV420 ||
+	       drm_format == DRM_FORMAT_YUV444);
 
 	width = pixman_image_get_width(rgb_image);
 	height = pixman_image_get_height(rgb_image);
 	rgb_pixels = pixman_image_get_data(rgb_image);
 	rgb_stride_bytes = pixman_image_get_stride(rgb_image);
 
-	/* Full size Y, quarter U and V */
-	bytes = width * height + (width / 2) * (height / 2) * 2;
+	/* Full size Y plus quarter U and V */
+	bytes = width * height + (width / sub) * (height / sub) * 2;
 	buf = yuv_buffer_create(client, bytes, width, height, width, drm_format);
 
 	y_base = buf->data;
 	u_base = y_base + width * height;
-	v_base = u_base + (width / 2) * (height / 2);
+	v_base = u_base + (width / sub) * (height / sub);
 
 	for (y = 0; y < height; y++) {
 		rgb_row = rgb_pixels + (y / 2 * 2) * rgb_stride_bytes;
 		y_row = y_base + y * width;
-		u_row = u_base + (y / 2) * (width / 2);
-		v_row = v_base + (y / 2) * (width / 2);
+		u_row = u_base + (y / sub) * (width / sub);
+		v_row = v_base + (y / sub) * (width / sub);
 
 		for (x = 0; x < width; x++) {
 			/*
@@ -207,10 +210,10 @@ yuv420_create_buffer(struct client *client,
 			 * do the necessary filtering/averaging/siting or
 			 * alternate Cb/Cr rows.
 			 */
-			if ((y & 1) == 0 && (x & 1) == 0) {
+			if ((y & (sub - 1)) == 0 && (x & (sub - 1)) == 0) {
 				x8r8g8b8_to_ycbcr8_bt601(argb, y_row + x,
-							 u_row + x / 2,
-							 v_row + x / 2);
+							 u_row + x / sub,
+							 v_row + x / sub);
 			} else {
 				x8r8g8b8_to_ycbcr8_bt601(argb, y_row + x,
 							 NULL, NULL);
@@ -435,7 +438,8 @@ show_window_with_yuv(struct client *client, struct yuv_buffer *buf)
 
 static const struct yuv_case yuv_cases[] = {
 #define FMT(x) DRM_FORMAT_ ##x, #x
-	{ FMT(YUV420), yuv420_create_buffer },
+	{ FMT(YUV420), y_u_v_create_buffer },
+	{ FMT(YUV444), y_u_v_create_buffer },
 	{ FMT(NV12), nv12_create_buffer },
 	{ FMT(YUYV), yuyv_create_buffer },
 	{ FMT(XYUV8888), xyuv8888_create_buffer },

@@ -1918,12 +1918,15 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 
 	switch (buffer->pixel_format->format) {
 	case DRM_FORMAT_YUV420:
+	case DRM_FORMAT_YUV444:
 		shader_variant = SHADER_VARIANT_Y_U_V;
 		pitch = wl_shm_buffer_get_stride(shm_buffer);
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		num_planes = 3;
 		offset[1] = offset[0] + pitch * buffer->height;
-		offset[2] = offset[1] + (pitch / 2) * (buffer->height / 2);
+		offset[2] = offset[1] +
+			(pitch / pixel_format_hsub(buffer->pixel_format, 1)) *
+			(buffer->height / pixel_format_vsub(buffer->pixel_format, 1));
 		gl_format[0] = GL_R8_EXT;
 		gl_format[1] = GL_R8_EXT;
 		gl_format[2] = GL_R8_EXT;
@@ -3693,6 +3696,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV444);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
