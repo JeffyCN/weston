@@ -1824,7 +1824,7 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 			glPixelStorei(GL_UNPACK_SKIP_PIXELS_EXT,
 				      r.x1 / gb->hsub[j]);
 			glPixelStorei(GL_UNPACK_SKIP_ROWS_EXT,
-				      r.y1 / gb->hsub[j]);
+				      r.y1 / gb->vsub[j]);
 			glTexSubImage2D(GL_TEXTURE_2D, 0,
 					r.x1 / gb->hsub[j],
 					r.y1 / gb->vsub[j],
