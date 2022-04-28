@@ -83,6 +83,22 @@
  */
 static const struct pixel_format_info pixel_format_table[] = {
 	{
+		DRM_FORMAT(R8),
+		BITS_RGBA_FIXED(8, 0, 0, 0),
+		.bpp = 8,
+		.hide_from_clients = true,
+		GL_FORMAT(GL_R8_EXT),
+		GL_TYPE(GL_UNSIGNED_BYTE),
+	},
+	{
+		DRM_FORMAT(GR88),
+		BITS_RGBA_FIXED(8, 8, 0, 0),
+		.bpp = 16,
+		.hide_from_clients = true,
+		GL_FORMAT(GL_RG8_EXT),
+		GL_TYPE(GL_UNSIGNED_BYTE),
+	},
+	{
 		DRM_FORMAT(XRGB4444),
 		BITS_RGBA_FIXED(4, 4, 4, 0),
 		.bpp = 16,
