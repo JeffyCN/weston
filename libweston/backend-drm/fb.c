@@ -98,7 +98,7 @@ drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 
 	/* Legacy AddFB can't always infer the format from depth/bpp alone, so
 	 * check if our format is one of the lucky ones. */
-	if (!fb->format->depth || !fb->format->bpp)
+	if (!fb->format->addfb_legacy_depth || !fb->format->bpp)
 		return ret;
 
 	/* Cannot fall back to AddFB for multi-planar formats either. */
@@ -106,7 +106,7 @@ drm_fb_addfb(struct drm_backend *b, struct drm_fb *fb)
 		return ret;
 
 	ret = drmModeAddFB(fb->fd, fb->width, fb->height,
-			   fb->format->depth, fb->format->bpp,
+			   fb->format->addfb_legacy_depth, fb->format->bpp,
 			   fb->strides[0], fb->handles[0], &fb->fb_id);
 	return ret;
 }
@@ -134,7 +134,7 @@ drm_fb_create_dumb(struct drm_backend *b, int width, int height,
 		goto err_fb;
 	}
 
-	if (!fb->format->depth || !fb->format->bpp) {
+	if (!fb->format->addfb_legacy_depth || !fb->format->bpp) {
 		weston_log("format 0x%lx is not compatible with dumb buffers\n",
 			   (unsigned long) format);
 		goto err_fb;

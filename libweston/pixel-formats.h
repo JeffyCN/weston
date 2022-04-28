@@ -76,7 +76,7 @@ struct pixel_format_info {
 
 	/** If set, this format can be used with the legacy drmModeAddFB()
 	 *  function (not AddFB2), using this and the bpp member. */
-	int depth;
+	int addfb_legacy_depth;
 
 	/** See 'depth' member above. */
 	int bpp;
