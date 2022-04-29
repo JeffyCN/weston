@@ -415,9 +415,6 @@ struct weston_output {
 	bool from_blend_to_output_by_backend;
 	enum weston_eotf_mode eotf_mode;
 
-	/* XXX: temporary allocation to be removed in the next commit */
-	struct weston_output_color_outcome colorout_;
-
 	struct weston_output_color_outcome *color_outcome;
 
 	int (*enable)(struct weston_output *output);

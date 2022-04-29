@@ -297,53 +297,19 @@ struct weston_color_manager {
 				       struct weston_output *output,
 				       struct weston_surface_color_transform *surf_xform);
 
-	/** Get output's blending space to output transformation
+	/** Compute derived color properties for an output
 	 *
 	 * \param cm The color manager.
-	 * \param output The output for the destination color space.
-	 * \param xform_out Pointer for storing the weston_color_transform.
-	 * \return True on success, false on failure.
+	 * \param output The output.
+	 * \return A new color_outcome object on success, NULL on failure.
 	 *
-	 * The callee is responsible for increasing the reference count on the
-	 * weston_color_transform it stores via xform_out. On failure, xform_out
-	 * is untouched.
+	 * The callee (color manager) must inspect the weston_output (color
+	 * profile, EOTF mode, etc.) and create a fully populated
+	 * weston_output_color_outcome object.
 	 */
-	bool
-	(*get_output_color_transform)(struct weston_color_manager *cm,
-				      struct weston_output *output,
-				      struct weston_color_transform **xform_out);
-
-	/** Get sRGB to output transformation
-	 *
-	 * \param cm The color manager.
-	 * \param output The output for the destination color space.
-	 * \param xform_out Pointer for storing the weston_color_transform.
-	 * \return True on success, false on failure.
-	 *
-	 * The callee is responsible for increasing the reference count on the
-	 * weston_color_transform it stores via xform_out. On failure, xform_out
-	 * is untouched.
-	 */
-	bool
-	(*get_sRGB_to_output_color_transform)(struct weston_color_manager *cm,
-					      struct weston_output *output,
-					      struct weston_color_transform **xform_out);
-
-	/** Get sRGB to output's blending space transformation
-	 *
-	 * \param cm The color manager.
-	 * \param output The output for the destination blending color space.
-	 * \param xform_out Pointer for storing the weston_color_transform.
-	 * \return True on success, false on failure.
-	 *
-	 * The callee is responsible for increasing the reference count on the
-	 * weston_color_transform it stores via xform_out. On failure, xform_out
-	 * is untouched.
-	 */
-	bool
-	(*get_sRGB_to_blend_color_transform)(struct weston_color_manager *cm,
-					     struct weston_output *output,
-					     struct weston_color_transform **xform_out);
+	struct weston_output_color_outcome *
+	(*create_output_color_outcome)(struct weston_color_manager *cm,
+				       struct weston_output *output);
 };
 
 void

@@ -96,52 +96,27 @@ cmnoop_get_surface_color_transform(struct weston_color_manager *cm_base,
 	return true;
 }
 
-static bool
-cmnoop_get_output_color_transform(struct weston_color_manager *cm_base,
-				  struct weston_output *output,
-				  struct weston_color_transform **xform_out)
+static struct weston_output_color_outcome *
+cmnoop_create_output_color_outcome(struct weston_color_manager *cm_base,
+				   struct weston_output *output)
 {
+	struct weston_output_color_outcome *co;
+
 	assert(output->color_profile == NULL);
 
 	if (!check_output_eotf_mode(output))
-		return false;
+		return NULL;
 
-	/* Identity transform */
-	*xform_out = NULL;
+	co = zalloc(sizeof *co);
+	if (!co)
+		return NULL;
 
-	return true;
-}
+	/* Identity transform on everything */
+	co->from_blend_to_output = NULL;
+	co->from_sRGB_to_blend = NULL;
+	co->from_sRGB_to_output = NULL;
 
-static bool
-cmnoop_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
-					  struct weston_output *output,
-					  struct weston_color_transform **xform_out)
-{
-	assert(output->color_profile == NULL);
-
-	if (!check_output_eotf_mode(output))
-		return false;
-
-	/* Identity transform */
-	*xform_out = NULL;
-
-	return true;
-}
-
-static bool
-cmnoop_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
-					 struct weston_output *output,
-					 struct weston_color_transform **xform_out)
-{
-	assert(output->color_profile == NULL);
-
-	if (!check_output_eotf_mode(output))
-		return false;
-
-	/* Identity transform */
-	*xform_out = NULL;
-
-	return true;
+	return co;
 }
 
 static bool
@@ -177,13 +152,8 @@ weston_color_manager_noop_create(struct weston_compositor *compositor)
 	cm->base.destroy_color_profile = cmnoop_destroy_color_profile;
 	cm->base.get_color_profile_from_icc = cmnoop_get_color_profile_from_icc;
 	cm->base.destroy_color_transform = cmnoop_destroy_color_transform;
-	cm->base.get_surface_color_transform =
-	      cmnoop_get_surface_color_transform;
-	cm->base.get_output_color_transform = cmnoop_get_output_color_transform;
-	cm->base.get_sRGB_to_output_color_transform =
-	      cmnoop_get_sRGB_to_output_color_transform;
-	cm->base.get_sRGB_to_blend_color_transform =
-	      cmnoop_get_sRGB_to_blend_color_transform;
+	cm->base.get_surface_color_transform = cmnoop_get_surface_color_transform;
+	cm->base.create_output_color_outcome = cmnoop_create_output_color_outcome;
 
 	return &cm->base;
 }

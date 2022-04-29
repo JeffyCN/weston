@@ -126,11 +126,10 @@ cmlcms_get_surface_color_transform(struct weston_color_manager *cm_base,
 }
 
 static bool
-cmlcms_get_output_color_transform(struct weston_color_manager *cm_base,
-				  struct weston_output *output,
-				  struct weston_color_transform **xform_out)
+cmlcms_get_blend_to_output_color_transform(struct weston_color_manager_lcms *cm,
+					   struct weston_output *output,
+					   struct weston_color_transform **xform_out)
 {
-	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
 	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
@@ -148,11 +147,10 @@ cmlcms_get_output_color_transform(struct weston_color_manager *cm_base,
 }
 
 static bool
-cmlcms_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
+cmlcms_get_sRGB_to_output_color_transform(struct weston_color_manager_lcms *cm,
 					  struct weston_output *output,
 					  struct weston_color_transform **xform_out)
 {
-	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
 	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
@@ -177,11 +175,10 @@ cmlcms_get_sRGB_to_output_color_transform(struct weston_color_manager *cm_base,
 }
 
 static bool
-cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
+cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager_lcms *cm,
 					 struct weston_output *output,
 					 struct weston_color_transform **xform_out)
 {
-	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
 	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
@@ -196,6 +193,36 @@ cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager *cm_base,
 
 	*xform_out = &xform->base;
 	return true;
+}
+
+static struct weston_output_color_outcome *
+cmlcms_create_output_color_outcome(struct weston_color_manager *cm_base,
+				   struct weston_output *output)
+{
+	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
+	struct weston_output_color_outcome *co;
+
+	co = zalloc(sizeof *co);
+	if (!co)
+		return NULL;
+
+	if (!cmlcms_get_blend_to_output_color_transform(cm, output,
+							&co->from_blend_to_output))
+		goto out_fail;
+
+	if (!cmlcms_get_sRGB_to_blend_color_transform(cm, output,
+						      &co->from_sRGB_to_blend))
+		goto out_fail;
+
+	if (!cmlcms_get_sRGB_to_output_color_transform(cm, output,
+						       &co->from_sRGB_to_output))
+		goto out_fail;
+
+	return co;
+
+out_fail:
+	weston_output_color_outcome_destroy(&co);
+	return NULL;
 }
 
 static void
@@ -264,13 +291,8 @@ weston_color_manager_create(struct weston_compositor *compositor)
 	cm->base.destroy_color_profile = cmlcms_destroy_color_profile;
 	cm->base.get_color_profile_from_icc = cmlcms_get_color_profile_from_icc;
 	cm->base.destroy_color_transform = cmlcms_destroy_color_transform;
-	cm->base.get_surface_color_transform =
-	      cmlcms_get_surface_color_transform;
-	cm->base.get_output_color_transform = cmlcms_get_output_color_transform;
-	cm->base.get_sRGB_to_output_color_transform =
-	      cmlcms_get_sRGB_to_output_color_transform;
-	cm->base.get_sRGB_to_blend_color_transform =
-	      cmlcms_get_sRGB_to_blend_color_transform;
+	cm->base.get_surface_color_transform = cmlcms_get_surface_color_transform;
+	cm->base.create_output_color_outcome = cmlcms_create_output_color_outcome;
 
 	wl_list_init(&cm->color_transform_list);
 	wl_list_init(&cm->color_profile_list);

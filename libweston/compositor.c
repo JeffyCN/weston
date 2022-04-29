@@ -6472,49 +6472,30 @@ weston_output_color_outcome_destroy(struct weston_output_color_outcome **pco)
 		return;
 
 	weston_color_transform_unref(co->from_sRGB_to_output);
-	co->from_sRGB_to_output = NULL;
 	weston_color_transform_unref(co->from_sRGB_to_blend);
-	co->from_sRGB_to_blend = NULL;
 	weston_color_transform_unref(co->from_blend_to_output);
-	co->from_blend_to_output = NULL;
 
-	/* XXX: added in the next commit */
-	/* free(co); */
+	free(co);
 	*pco = NULL;
 }
 
 static bool
-weston_output_set_color_transforms(struct weston_output *output)
+weston_output_set_color_outcome(struct weston_output *output)
 {
 	struct weston_color_manager *cm = output->compositor->color_manager;
-	struct weston_color_transform *blend_to_output = NULL;
-	struct weston_color_transform *sRGB_to_output = NULL;
-	struct weston_color_transform *sRGB_to_blend = NULL;
-	bool ok;
+	struct weston_output_color_outcome *colorout;
 
-	ok = cm->get_output_color_transform(cm, output, &blend_to_output);
-	ok = ok && cm->get_sRGB_to_output_color_transform(cm, output,
-							  &sRGB_to_output);
-	ok = ok && cm->get_sRGB_to_blend_color_transform(cm, output,
-							 &sRGB_to_blend);
-	if (!ok) {
+	colorout = cm->create_output_color_outcome(cm, output);
+	if (!colorout) {
 		weston_log("Creating color transformation for output \"%s\" failed.\n",
 			   output->name);
-		weston_color_transform_unref(blend_to_output);
-		weston_color_transform_unref(sRGB_to_output);
-		weston_color_transform_unref(sRGB_to_blend);
 
 		return false;
 	}
 
 	weston_output_color_outcome_destroy(&output->color_outcome);
+	output->color_outcome = colorout;
 
-	/* XXX: temporary allocation to be removed in the next commit */
-	output->color_outcome = &output->colorout_;
-
-	output->color_outcome->from_blend_to_output = blend_to_output;
-	output->color_outcome->from_sRGB_to_output = sRGB_to_output;
-	output->color_outcome->from_sRGB_to_blend = sRGB_to_blend;
 	output->from_blend_to_output_by_backend = false;
 
 	weston_log("Output '%s' using color profile: %s\n", output->name,
@@ -6734,7 +6715,7 @@ weston_output_set_color_profile(struct weston_output *output,
 	output->color_profile = weston_color_profile_ref(cprof);
 
 	if (output->enabled) {
-		if (!weston_output_set_color_transforms(output)) {
+		if (!weston_output_set_color_outcome(output)) {
 			/* Failed, roll back */
 			weston_color_profile_unref(output->color_profile);
 			output->color_profile = old;
@@ -6990,7 +6971,7 @@ weston_output_enable(struct weston_output *output)
 	weston_log("Output '%s' attempts EOTF mode: %s\n", output->name,
 		   weston_eotf_mode_to_str(output->eotf_mode));
 
-	if (!weston_output_set_color_transforms(output))
+	if (!weston_output_set_color_outcome(output))
 		return -1;
 
 	/* Enable the output (set up the crtc or create a
