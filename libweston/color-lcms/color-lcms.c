@@ -47,42 +47,15 @@ cmlcms_get_render_intent(enum cmlcms_category cat,
 	return intent;
 }
 
-static void
-setup_search_param(enum cmlcms_category cat,
-		   struct weston_surface *surface,
-		   struct weston_output *output,
-		   struct cmlcms_color_profile *stock_sRGB_profile,
-		   struct cmlcms_color_transform_search_param *search_param)
+static struct cmlcms_color_profile *
+get_cprof_or_stock_sRGB(struct weston_color_manager_lcms *cm,
+			struct weston_color_profile *cprof_base)
 {
-	struct cmlcms_color_profile *input_profile = NULL;
-	struct cmlcms_color_profile *output_profile = NULL;
-
-	/*
-	 * TODO: un-comment when declare color_profile in struct weston_surface
-	 */
-	/* if (surface && surface->color_profile)
-		input_profile = get_cprof(surface->color_profile); */
-	if (output && output->color_profile)
-		output_profile = get_cprof(output->color_profile);
-
-	search_param->category = cat;
-	switch (cat) {
-	case CMLCMS_CATEGORY_INPUT_TO_BLEND:
-	case CMLCMS_CATEGORY_INPUT_TO_OUTPUT:
-		search_param->input_profile =
-			input_profile ? input_profile : stock_sRGB_profile;
-		search_param->output_profile =
-			output_profile ? output_profile : stock_sRGB_profile;
-		break;
-	case CMLCMS_CATEGORY_BLEND_TO_OUTPUT:
-		search_param->output_profile =
-			output_profile ? output_profile : stock_sRGB_profile;
-		break;
-	}
-	search_param->intent_output = cmlcms_get_render_intent(cat, surface,
-							       output);
+	if (cprof_base)
+		return get_cprof(cprof_base);
+	else
+		return cm->sRGB_profile;
 }
-
 
 static void
 cmlcms_destroy_color_transform(struct weston_color_transform *xform_base)
@@ -99,13 +72,17 @@ cmlcms_get_surface_color_transform(struct weston_color_manager *cm_base,
 				   struct weston_surface_color_transform *surf_xform)
 {
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
-	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
 	/* TODO: take weston_output::eotf_mode into account */
 
-	setup_search_param(CMLCMS_CATEGORY_INPUT_TO_BLEND, surface, output,
-			   cm->sRGB_profile, &param);
+	struct cmlcms_color_transform_search_param param = {
+		.category = CMLCMS_CATEGORY_INPUT_TO_BLEND,
+		.input_profile = get_cprof_or_stock_sRGB(cm, NULL /* TODO: surface->color_profile */),
+		.output_profile = get_cprof_or_stock_sRGB(cm, output->color_profile),
+	};
+	param.intent_output = cmlcms_get_render_intent(param.category,
+						       surface, output);
 
 	xform = cmlcms_color_transform_get(cm, &param);
 	if (!xform)
@@ -130,13 +107,17 @@ cmlcms_get_blend_to_output_color_transform(struct weston_color_manager_lcms *cm,
 					   struct weston_output *output,
 					   struct weston_color_transform **xform_out)
 {
-	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
 	/* TODO: take weston_output::eotf_mode into account */
 
-	setup_search_param(CMLCMS_CATEGORY_BLEND_TO_OUTPUT, NULL, output,
-			   cm->sRGB_profile, &param);
+	struct cmlcms_color_transform_search_param param = {
+		.category = CMLCMS_CATEGORY_BLEND_TO_OUTPUT,
+		.input_profile = NULL,
+		.output_profile = get_cprof_or_stock_sRGB(cm, output->color_profile),
+	};
+	param.intent_output = cmlcms_get_render_intent(param.category,
+						       NULL, output);
 
 	xform = cmlcms_color_transform_get(cm, &param);
 	if (!xform)
@@ -151,13 +132,18 @@ cmlcms_get_sRGB_to_output_color_transform(struct weston_color_manager_lcms *cm,
 					  struct weston_output *output,
 					  struct weston_color_transform **xform_out)
 {
-	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
 	/* TODO: take weston_output::eotf_mode into account */
 
-	setup_search_param(CMLCMS_CATEGORY_INPUT_TO_OUTPUT, NULL, output,
-			   cm->sRGB_profile, &param);
+	struct cmlcms_color_transform_search_param param = {
+		.category = CMLCMS_CATEGORY_INPUT_TO_OUTPUT,
+		.input_profile = cm->sRGB_profile,
+		.output_profile = get_cprof_or_stock_sRGB(cm, output->color_profile),
+	};
+	param.intent_output = cmlcms_get_render_intent(param.category,
+						       NULL, output);
+
 	/*
 	 * Create a color transformation when output profile is not stock
 	 * sRGB profile.
@@ -179,13 +165,17 @@ cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager_lcms *cm,
 					 struct weston_output *output,
 					 struct weston_color_transform **xform_out)
 {
-	struct cmlcms_color_transform_search_param param = {};
 	struct cmlcms_color_transform *xform;
 
 	/* TODO: take weston_output::eotf_mode into account */
 
-	setup_search_param(CMLCMS_CATEGORY_INPUT_TO_BLEND, NULL, output,
-			   cm->sRGB_profile, &param);
+	struct cmlcms_color_transform_search_param param = {
+		.category = CMLCMS_CATEGORY_INPUT_TO_BLEND,
+		.input_profile = cm->sRGB_profile,
+		.output_profile = get_cprof_or_stock_sRGB(cm, output->color_profile),
+	};
+	param.intent_output = cmlcms_get_render_intent(param.category,
+						       NULL, output);
 
 	xform = cmlcms_color_transform_get(cm, &param);
 	if (!xform)
