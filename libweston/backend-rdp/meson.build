@@ -4,6 +4,10 @@ endif
 
 config_h.set('BUILD_RDP_COMPOSITOR', '1')
 
+if get_option('rdp-thread-check')
+        config_h.set('ENABLE_RDP_THREAD_CHECK', '1')
+endif
+
 dep_frdp = dependency('freerdp2', version: '>= 2.2.0', required: false)
 if not dep_frdp.found()
 	error('RDP-backend requires freerdp >= 2.2.0 which was not found. Or, you can use \'-Dbackend-rdp=false\'.')

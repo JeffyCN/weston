@@ -75,3 +75,154 @@ void rdp_debug_print(struct weston_log_scope *log_scope, bool cont, char *fmt, .
 end:
 	va_end(ap);
 }
+
+#ifdef ENABLE_RDP_THREAD_CHECK
+void
+assert_compositor_thread(struct rdp_backend *b)
+{
+	assert(b->compositor_tid == gettid());
+}
+
+void
+assert_not_compositor_thread(struct rdp_backend *b)
+{
+	assert(b->compositor_tid != gettid());
+}
+#endif /* ENABLE_RDP_THREAD_CHECK */
+
+bool
+rdp_event_loop_add_fd(struct wl_event_loop *loop,
+		      int fd, uint32_t mask,
+		      wl_event_loop_fd_func_t func,
+		      void *data, struct wl_event_source **event_source)
+{
+	*event_source = wl_event_loop_add_fd(loop, fd, 0, func, data);
+	if (!*event_source) {
+		weston_log("%s: wl_event_loop_add_fd failed.\n", __func__);
+		return false;
+	}
+
+	wl_event_source_fd_update(*event_source, mask);
+	return true;
+}
+
+void
+rdp_dispatch_task_to_display_loop(RdpPeerContext *peerCtx,
+				  rdp_loop_task_func_t func,
+				  struct rdp_loop_task *task)
+{
+	/* this function is ONLY used to queue the task from FreeRDP thread,
+	 * and the task to be processed at wayland display loop thread. */
+	ASSERT_NOT_COMPOSITOR_THREAD(peerCtx->rdpBackend);
+
+	task->peerCtx = peerCtx;
+	task->func = func;
+
+	pthread_mutex_lock(&peerCtx->loop_task_list_mutex);
+	/* this inserts at head */
+	wl_list_insert(&peerCtx->loop_task_list, &task->link);
+	pthread_mutex_unlock(&peerCtx->loop_task_list_mutex);
+
+	eventfd_write(peerCtx->loop_task_event_source_fd, 1);
+}
+
+static int
+rdp_dispatch_task(int fd, uint32_t mask, void *arg)
+{
+	RdpPeerContext *peerCtx = (RdpPeerContext *)arg;
+	struct rdp_loop_task *task, *tmp;
+	eventfd_t dummy;
+
+	/* this must be called back at wayland display loop thread */
+	ASSERT_COMPOSITOR_THREAD(peerCtx->rdpBackend);
+
+	eventfd_read(peerCtx->loop_task_event_source_fd, &dummy);
+
+	pthread_mutex_lock(&peerCtx->loop_task_list_mutex);
+	/* dequeue the first task which is at last, so use reverse. */
+	assert(!wl_list_empty(&peerCtx->loop_task_list));
+	wl_list_for_each_reverse_safe(task, tmp, &peerCtx->loop_task_list, link) {
+		wl_list_remove(&task->link);
+		break;
+	}
+	pthread_mutex_unlock(&peerCtx->loop_task_list_mutex);
+
+	/* Dispatch and task will be freed by caller. */
+	task->func(false, task);
+
+	return 0;
+}
+
+bool
+rdp_initialize_dispatch_task_event_source(RdpPeerContext *peerCtx)
+{
+	struct rdp_backend *b = peerCtx->rdpBackend;
+	struct wl_event_loop *loop;
+	bool ret;
+
+	if (pthread_mutex_init(&peerCtx->loop_task_list_mutex, NULL) == -1) {
+		weston_log("%s: pthread_mutex_init failed. %s\n", __func__, strerror(errno));
+		goto error_mutex;
+	}
+
+	assert(peerCtx->loop_task_event_source_fd == -1);
+	peerCtx->loop_task_event_source_fd = eventfd(0, EFD_SEMAPHORE | EFD_CLOEXEC);
+	if (peerCtx->loop_task_event_source_fd == -1) {
+		weston_log("%s: eventfd(EFD_SEMAPHORE) failed. %s\n", __func__, strerror(errno));
+		goto error_event_source_fd;
+	}
+
+	assert(wl_list_empty(&peerCtx->loop_task_list));
+
+	loop = wl_display_get_event_loop(b->compositor->wl_display);
+	assert(peerCtx->loop_task_event_source == NULL);
+
+	ret = rdp_event_loop_add_fd(loop,
+				    peerCtx->loop_task_event_source_fd,
+				    WL_EVENT_READABLE, rdp_dispatch_task,
+				    peerCtx,
+				    &peerCtx->loop_task_event_source);
+	if (!ret)
+		goto error_event_loop_add_fd;
+
+	return true;
+
+error_event_loop_add_fd:
+	close(peerCtx->loop_task_event_source_fd);
+	peerCtx->loop_task_event_source_fd = -1;
+
+error_event_source_fd:
+	pthread_mutex_destroy(&peerCtx->loop_task_list_mutex);
+
+error_mutex:
+	return false;
+}
+
+void
+rdp_destroy_dispatch_task_event_source(RdpPeerContext *peerCtx)
+{
+	struct rdp_loop_task *task, *tmp;
+
+	/* This function must be called all virtual channel thread at FreeRDP is terminated,
+	 * that ensures no more incoming tasks. */
+
+	if (peerCtx->loop_task_event_source) {
+		wl_event_source_remove(peerCtx->loop_task_event_source);
+		peerCtx->loop_task_event_source = NULL;
+	}
+
+	wl_list_for_each_reverse_safe(task, tmp, &peerCtx->loop_task_list, link) {
+		wl_list_remove(&task->link);
+		/* inform caller task is not really scheduled prior to context destruction,
+		 * inform them to clean them up. */
+		task->func(true /* freeOnly */, task);
+	}
+	assert(wl_list_empty(&peerCtx->loop_task_list));
+
+	if (peerCtx->loop_task_event_source_fd != -1) {
+		close(peerCtx->loop_task_event_source_fd);
+		peerCtx->loop_task_event_source_fd = -1;
+	}
+
+	pthread_mutex_destroy(&peerCtx->loop_task_list_mutex);
+}

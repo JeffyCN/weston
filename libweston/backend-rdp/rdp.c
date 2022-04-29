@@ -31,6 +31,7 @@
 #include <string.h>
 #include <errno.h>
 #include <linux/input.h>
+#include <unistd.h>
 
 #include "rdp.h"
 
@@ -621,6 +622,10 @@ rdp_peer_context_new(freerdp_peer* client, RdpPeerContext* context)
 	context->item.peer = client;
 	context->item.flags = RDP_PEER_OUTPUT_ENABLED;
 
+	context->loop_task_event_source_fd = -1;
+	context->loop_task_event_source = NULL;
+	wl_list_init(&context->loop_task_list);
+
 	context->rfx_context = rfx_context_new(TRUE);
 	if (!context->rfx_context)
 		return FALSE;
@@ -660,6 +665,8 @@ rdp_peer_context_free(freerdp_peer* client, RdpPeerContext* context)
 		if (context->events[i])
 			wl_event_source_remove(context->events[i]);
 	}
+
+	rdp_destroy_dispatch_task_event_source(context);
 
 	if (context->item.flags & RDP_PEER_ACTIVATED) {
 		weston_seat_release_keyboard(context->item.seat);
@@ -1459,6 +1466,10 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 		peerCtx->events[i] = 0;
 
 	wl_list_insert(&b->output->peers, &peerCtx->item.link);
+
+	if (!rdp_initialize_dispatch_task_event_source(peerCtx))
+		goto error_initialize;
+
 	return 0;
 
 error_initialize:
@@ -1498,6 +1509,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 	if (b == NULL)
 		return NULL;
 
+	b->compositor_tid = gettid();
 	b->compositor = compositor;
 	b->base.destroy = rdp_destroy;
 	b->base.create_output = rdp_output_create;

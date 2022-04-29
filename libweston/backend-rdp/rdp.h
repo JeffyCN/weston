@@ -86,6 +86,7 @@ struct rdp_backend {
 	bool remotefx_codec;
 	int external_listener_fd;
 	int rdp_monitor_refresh_rate;
+	pid_t compositor_tid;
 };
 
 enum peer_item_flags {
@@ -132,8 +133,31 @@ struct rdp_peer_context {
 	int horizontalAccumWheelRotationPrecise;
 	int horizontalAccumWheelRotationDiscrete;
 
+	/* list of outstanding event_source sent from FreeRDP thread to display loop.*/
+	int loop_task_event_source_fd;
+	struct wl_event_source *loop_task_event_source;
+	pthread_mutex_t loop_task_list_mutex;
+	struct wl_list loop_task_list; /* struct rdp_loop_task::link */
+
 };
+
 typedef struct rdp_peer_context RdpPeerContext;
+
+typedef void (*rdp_loop_task_func_t)(bool freeOnly, void *data);
+
+struct rdp_loop_task {
+	struct wl_list link;
+	RdpPeerContext *peerCtx;
+	rdp_loop_task_func_t func;
+};
+
+#ifdef ENABLE_RDP_THREAD_CHECK
+#define ASSERT_COMPOSITOR_THREAD(b)     assert_compositor_thread(b)
+#define ASSERT_NOT_COMPOSITOR_THREAD(b) assert_not_compositor_thread(b)
+#else
+#define ASSERT_COMPOSITOR_THREAD(b) (void)b
+#define ASSERT_NOT_COMPOSITOR_THREAD(b) (void)b
+#endif /* ENABLE_RDP_THREAD_CHECK */
 
 #define rdp_debug_verbose(b, ...) \
 	rdp_debug_print(b->verbose, false, __VA_ARGS__)
@@ -150,6 +174,32 @@ rdp_debug_print(struct weston_log_scope *log_scope, bool cont, char *fmt, ...);
 
 void
 convert_rdp_keyboard_to_xkb_rule_names(UINT32 KeyboardType, UINT32 KeyboardSubType, UINT32 KeyboardLayout, struct xkb_rule_names *xkbRuleNames);
+
+#ifdef ENABLE_RDP_THREAD_CHECK
+void
+assert_compositor_thread(struct rdp_backend *b);
+
+void
+assert_not_compositor_thread(struct rdp_backend *b);
+#endif /* ENABLE_RDP_THREAD_CHECK */
+
+bool
+rdp_event_loop_add_fd(struct wl_event_loop *loop,
+		      int fd, uint32_t mask,
+		      wl_event_loop_fd_func_t func,
+		      void *data,
+		      struct wl_event_source **event_source);
+
+void
+rdp_dispatch_task_to_display_loop(RdpPeerContext *peerCtx,
+				  rdp_loop_task_func_t func,
+				  struct rdp_loop_task *task);
+
+bool
+rdp_initialize_dispatch_task_event_source(RdpPeerContext *peerCtx);
+
+void
+rdp_destroy_dispatch_task_event_source(RdpPeerContext *peerCtx);
 
 static inline struct rdp_head *
 to_rdp_head(struct weston_head *base)
