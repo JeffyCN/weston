@@ -262,6 +262,19 @@ init_gl(struct window *window)
 	GLuint frag, vert;
 	GLuint program;
 	GLint status;
+	EGLBoolean ret;
+
+	window->native = wl_egl_window_create(window->surface,
+					      window->geometry.width,
+					      window->geometry.height);
+	window->egl_surface =
+		weston_platform_create_egl_surface(window->display->egl.dpy,
+						   window->display->egl.conf,
+						   window->native, NULL);
+
+	ret = eglMakeCurrent(window->display->egl.dpy, window->egl_surface,
+			     window->egl_surface, window->display->egl.ctx);
+	assert(ret == EGL_TRUE);
 
 	frag = create_shader(window, frag_shader_text, GL_FRAGMENT_SHADER);
 	vert = create_shader(window, vert_shader_text, GL_VERTEX_SHADER);
@@ -362,18 +375,8 @@ static void
 create_surface(struct window *window)
 {
 	struct display *display = window->display;
-	EGLBoolean ret;
 
 	window->surface = wl_compositor_create_surface(display->compositor);
-
-	window->native =
-		wl_egl_window_create(window->surface,
-				     window->geometry.width,
-				     window->geometry.height);
-	window->egl_surface =
-		weston_platform_create_egl_surface(display->egl.dpy,
-						   display->egl.conf,
-						   window->native, NULL);
 
 	window->xdg_surface = xdg_wm_base_get_xdg_surface(display->wm_base,
 							  window->surface);
@@ -391,10 +394,6 @@ create_surface(struct window *window)
 
 	window->wait_for_configure = true;
 	wl_surface_commit(window->surface);
-
-	ret = eglMakeCurrent(window->display->egl.dpy, window->egl_surface,
-			     window->egl_surface, window->display->egl.ctx);
-	assert(ret == EGL_TRUE);
 
 	if (!window->frame_sync)
 		eglSwapInterval(display->egl.dpy, 0);
@@ -866,7 +865,17 @@ main(int argc, char **argv)
 
 	init_egl(&display, &window);
 	create_surface(&window);
-	init_gl(&window);
+
+	/* we already have wait_for_configure set after create_surface() */
+	while (running && ret != -1 && window.wait_for_configure) {
+		ret = wl_display_dispatch(display.display);
+
+		/* wait until xdg_surface::configure acks the new dimensions */
+		if (window.wait_for_configure)
+			continue;
+
+		init_gl(&window);
+	}
 
 	display.cursor_surface =
 		wl_compositor_create_surface(display.compositor);
@@ -876,17 +885,9 @@ main(int argc, char **argv)
 	sigint.sa_flags = SA_RESETHAND;
 	sigaction(SIGINT, &sigint, NULL);
 
-	/* The mainloop here is a little subtle.  Redrawing will cause
-	 * EGL to read events so we can just call
-	 * wl_display_dispatch_pending() to handle any events that got
-	 * queued up as a side effect. */
 	while (running && ret != -1) {
-		if (window.wait_for_configure) {
-			ret = wl_display_dispatch(display.display);
-		} else {
-			ret = wl_display_dispatch_pending(display.display);
-			redraw(&window, NULL, 0);
-		}
+		ret = wl_display_dispatch_pending(display.display);
+		redraw(&window, NULL, 0);
 	}
 
 	fprintf(stderr, "simple-egl exiting\n");
