@@ -55,10 +55,6 @@ struct lcms_pipeline {
 	 * tone curve enum
 	 */
 	enum transfer_fn post_fn;
-	/**
-	 * 2/255 or 3/255 maximum possible error, where 255 is 8 bit max value
-	 */
-	int tolerance;
 };
 
 static const int WINDOW_WIDTH  = 256;
@@ -66,9 +62,9 @@ static const int WINDOW_HEIGHT = 24;
 
 static cmsCIExyY wp_d65 = { 0.31271, 0.32902, 1.0 };
 
-struct setup_args {
-	struct fixture_metadata meta;
-	struct lcms_pipeline pipeline;
+enum profile_type {
+	PTYPE_MATRIX_SHAPER,
+	PTYPE_CLUT,
 };
 
 /*
@@ -78,69 +74,77 @@ struct setup_args {
  * colour.matrix_RGB_to_RGB(colour.RGB_COLOURSPACES['sRGB'], colour.RGB_COLOURSPACES['Adobe RGB (1998)'], None)
  * colour.matrix_RGB_to_RGB(colour.RGB_COLOURSPACES['sRGB'], colour.RGB_COLOURSPACES['ITU-R BT.2020'], None)
  */
-const struct setup_args arr_setup[] = {
-	{
-		.meta.name = "sRGB->sRGB unity",
-		.pipeline = {
-			.color_space = "sRGB",
-			.prim_output = {
-				.Red =   { 0.640, 0.330, 1.0 },
-				.Green = { 0.300, 0.600, 1.0 },
-				.Blue =  { 0.150, 0.060, 1.0 }
-			},
-			.pre_fn = TRANSFER_FN_SRGB_EOTF,
-			.mat = LCMSMAT3(1.0, 0.0, 0.0,
-					0.0, 1.0, 0.0,
-					0.0, 0.0, 1.0),
-			.post_fn = TRANSFER_FN_SRGB_EOTF_INVERSE,
-			.tolerance = 0
-		}
+
+const struct lcms_pipeline pipeline_sRGB = {
+	.color_space = "sRGB",
+	.prim_output = {
+		.Red =   { 0.640, 0.330, 1.0 },
+		.Green = { 0.300, 0.600, 1.0 },
+		.Blue =  { 0.150, 0.060, 1.0 }
 	},
-	{
-		.meta.name = "sRGB->adobeRGB",
-		.pipeline = {
-			.color_space = "adobeRGB",
-			.prim_output = {
-				.Red =   { 0.640, 0.330, 1.0 },
-				.Green = { 0.210, 0.710, 1.0 },
-				.Blue =  { 0.150, 0.060, 1.0 }
-			},
-			.pre_fn = TRANSFER_FN_SRGB_EOTF,
-			.mat = LCMSMAT3(0.715119, 0.284881, 0.0,
-					0.0,      1.0,      0.0,
-					0.0,      0.041169, 0.958831),
-			.post_fn = TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE,
-			.tolerance = 1
-			/*
-			 * Tolerance depends more on the 1D LUT used for the
-			 * inv EOTF than the tested 3D LUT size:
-			 * 9x9x9, 17x17x17, 33x33x33, 127x127x127
-			 */
-		}
+	.pre_fn = TRANSFER_FN_SRGB_EOTF,
+	.mat = LCMSMAT3(1.0, 0.0, 0.0,
+			0.0, 1.0, 0.0,
+			0.0, 0.0, 1.0),
+	.post_fn = TRANSFER_FN_SRGB_EOTF_INVERSE
+};
+
+const struct lcms_pipeline pipeline_adobeRGB = {
+	.color_space = "adobeRGB",
+	.prim_output = {
+		.Red =   { 0.640, 0.330, 1.0 },
+		.Green = { 0.210, 0.710, 1.0 },
+		.Blue =  { 0.150, 0.060, 1.0 }
 	},
-	{
-		.meta.name = "sRGB->bt2020",
-		.pipeline = {
-			.color_space = "bt2020",
-			.prim_output = {
-				.Red =   { 0.708, 0.292, 1.0 },
-				.Green = { 0.170, 0.797, 1.0 },
-				.Blue =  { 0.131, 0.046, 1.0 }
-			},
-			.pre_fn = TRANSFER_FN_SRGB_EOTF,
-			.mat = LCMSMAT3(0.627402, 0.329292, 0.043306,
-					0.069095, 0.919544, 0.011360,
-					0.016394, 0.088028, 0.895578),
-			/* this is equivalent to BT.1886 with zero black level */
-			.post_fn = TRANSFER_FN_POWER2_4_EOTF_INVERSE,
-			.tolerance = 5
-			/*
-			 * TODO: when we add power-law in the curve enumeration
-			 * in GL-renderer, then we should fix the tolerance
-			 * as the error should reduce a lot.
-			 */
-		}
-	}
+	.pre_fn = TRANSFER_FN_SRGB_EOTF,
+	.mat = LCMSMAT3( 0.715127, 0.284868, 0.000005,
+			 0.000001, 0.999995, 0.000004,
+			-0.000003, 0.041155, 0.958848),
+	.post_fn = TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE
+};
+
+const struct lcms_pipeline pipeline_BT2020 = {
+	.color_space = "bt2020",
+	.prim_output = {
+		.Red =   { 0.708, 0.292, 1.0 },
+		.Green = { 0.170, 0.797, 1.0 },
+		.Blue =  { 0.131, 0.046, 1.0 }
+	},
+	.pre_fn = TRANSFER_FN_SRGB_EOTF,
+	.mat = LCMSMAT3(0.627402, 0.329292, 0.043306,
+			0.069095, 0.919544, 0.011360,
+			0.016394, 0.088028, 0.895578),
+	/* this is equivalent to BT.1886 with zero black level */
+	.post_fn = TRANSFER_FN_POWER2_4_EOTF_INVERSE,
+};
+
+struct setup_args {
+	struct fixture_metadata meta;
+	const struct lcms_pipeline *pipeline;
+	/**
+	 * 2/255 or 3/255 maximum possible error, where 255 is 8 bit max value
+	 *
+	 * Tolerance depends more on the 1D LUT used for the
+	 * inv EOTF than the tested 3D LUT size:
+	 * 9x9x9, 17x17x17, 33x33x33, 127x127x127
+	 *
+	 * TODO: when we add power-law in the curve enumeration
+	 * in GL-renderer, then we should fix the tolerance
+	 * as the error should reduce a lot.
+	 */
+	int tolerance;
+	/**
+	 * 3DLUT dimension size
+	 */
+	int dim_size;
+	enum profile_type type;
+};
+
+static const struct setup_args my_setup_args[] = {
+	/* name,                pipeline,   tolerance, dim, profile type */
+	{ { "sRGB->sRGB" },     &pipeline_sRGB,     0,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->adobeRGB" }, &pipeline_adobeRGB, 1,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->BT2020" },   &pipeline_BT2020,   5,  0, PTYPE_MATRIX_SHAPER },
 };
 
 struct image_header {
@@ -219,7 +223,8 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 }
 
 static cmsHPROFILE
-build_lcms_profile_output(const struct lcms_pipeline *pipeline)
+build_lcms_matrix_shaper_profile_output(cmsContext context_id,
+					const struct lcms_pipeline *pipeline)
 {
 	cmsToneCurve *arr_curves[3];
 	cmsHPROFILE hRGB;
@@ -240,12 +245,12 @@ build_lcms_profile_output(const struct lcms_pipeline *pipeline)
 	 */
 
 	arr_curves[0] = arr_curves[1] = arr_curves[2] =
-		cmsBuildParametricToneCurve(NULL,
+		cmsBuildParametricToneCurve(context_id,
 					    (-1) * type_inverse_tone_curve,
 					    inverse_tone_curve_param);
 
 	assert(arr_curves[0]);
-	hRGB = cmsCreateRGBProfileTHR(NULL, &wp_d65,
+	hRGB = cmsCreateRGBProfileTHR(context_id, &wp_d65,
 				      &pipeline->prim_output, arr_curves);
 	assert(hRGB);
 
@@ -253,8 +258,22 @@ build_lcms_profile_output(const struct lcms_pipeline *pipeline)
 	return hRGB;
 }
 
+static cmsHPROFILE
+build_lcms_profile_output(cmsContext context_id, const struct setup_args *arg)
+{
+	switch (arg->type) {
+	case PTYPE_MATRIX_SHAPER:
+		return build_lcms_matrix_shaper_profile_output(context_id,
+							       arg->pipeline);
+	case PTYPE_CLUT:
+		return NULL;
+	}
+
+	return NULL;
+}
+
 static char *
-build_output_icc_profile(const struct lcms_pipeline *pipe)
+build_output_icc_profile(const struct setup_args *arg)
 {
 	char *profile_name = NULL;
 	cmsHPROFILE profile = NULL;
@@ -264,11 +283,15 @@ build_output_icc_profile(const struct lcms_pipeline *pipe)
 
 	wd = realpath(".", NULL);
 	assert(wd);
-	ret = asprintf(&profile_name, "%s/matrix-shaper-test-%s.icm", wd,
-		       pipe->color_space);
+	if (arg->type == PTYPE_MATRIX_SHAPER)
+		ret = asprintf(&profile_name, "%s/matrix-shaper-test-%s.icm", wd,
+			       arg->pipeline->color_space);
+	else
+		ret = asprintf(&profile_name, "%s/cLUT-test-%s.icm", wd,
+			       arg->pipeline->color_space);
 	assert(ret > 0);
 
-	profile = build_lcms_profile_output(pipe);
+	profile = build_lcms_profile_output(NULL, arg);
 	assert(profile);
 
 	saved = cmsSaveProfileToFile(profile, profile_name);
@@ -293,7 +316,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 	setup.height = WINDOW_HEIGHT;
 	setup.shell = SHELL_TEST_DESKTOP;
 
-	file_name = build_output_icc_profile(&arg->pipeline);
+	file_name = build_output_icc_profile(arg);
 	if (!file_name)
 		return RESULT_HARD_ERROR;
 
@@ -308,7 +331,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
-DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, arr_setup, meta);
+DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args, meta);
 
 static bool
 compare_float(float ref, float dst, int x, const char *chan,
@@ -362,7 +385,7 @@ process_pipeline_comparison(const struct image_header *src,
 	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
 	const float max_pixel_value = 255.0;
 	struct color_float max_diff_pipeline = { .rgb = { 0.0f, 0.0f, 0.0f } };
-	float max_allow_diff = arg->pipeline.tolerance / max_pixel_value;
+	float max_allow_diff = arg->tolerance / max_pixel_value;
 	float max_err = 0.0f;
 	bool ok = true;
 	uint32_t *row_ptr, *row_ptr_shot;
@@ -380,9 +403,9 @@ process_pipeline_comparison(const struct image_header *src,
 			pix_src = a8r8g8b8_to_float(row_ptr[x]);
 			pix_shot = a8r8g8b8_to_float(row_ptr_shot[x]);
 			/* do pipeline processing */
-			process_pixel_using_pipeline(arg->pipeline.pre_fn,
-						     &arg->pipeline.mat,
-						     arg->pipeline.post_fn,
+			process_pixel_using_pipeline(arg->pipeline->pre_fn,
+						     &arg->pipeline->mat,
+						     arg->pipeline->post_fn,
 						     &pix_src, &pix_src_pipeline);
 
 			/* check if pipeline matches to shader variant */
@@ -399,11 +422,12 @@ process_pipeline_comparison(const struct image_header *src,
 	for (chan = 0; chan < COLOR_CHAN_NUM; chan++)
 		max_err = MAX(max_err, max_diff_pipeline.rgb[chan]);
 
-	testlog("%s %s %s tol_req %d, tol_cal %f, max diff: r=%f, g=%f, b=%f\n",
+	testlog("%s %s %s tol_req %d, tol_cal %f, max diff: r=%f, g=%f, b=%f %s\n",
 		__func__, ok == true? "SUCCESS":"FAILURE",
-		arg->meta.name, arg->pipeline.tolerance,
+		arg->meta.name, arg->tolerance,
 		max_err * max_pixel_value,
-		max_diff_pipeline.r, max_diff_pipeline.g, max_diff_pipeline.b);
+		max_diff_pipeline.r, max_diff_pipeline.g, max_diff_pipeline.b,
+		arg->type == PTYPE_MATRIX_SHAPER ? "matrix-shaper" : "cLUT");
 
 	return ok;
 }
@@ -462,7 +486,7 @@ TEST(shaper_matrix)
 	assert(shot);
 
 	match = verify_image(shot, "shaper_matrix", seq_no, NULL, seq_no);
-	assert(check_process_pattern_ex(buf, shot, &arr_setup[seq_no]));
+	assert(check_process_pattern_ex(buf, shot, &my_setup_args[seq_no]));
 	assert(match);
 	buffer_destroy(shot);
 	buffer_destroy(buf);
