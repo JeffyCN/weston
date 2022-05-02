@@ -49,6 +49,11 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
+#define L_LINE "│   "
+#define L_VAL  "├───"
+#define L_LAST "└───"
+#define L_GAP  "    "
+
 #define NUM_BUFFERS 4
 
 /* We have to hack the DRM-backend to pretend that planes of the underlying
@@ -1062,8 +1067,7 @@ dmabuf_feedback_main_device(void *data,
 	drm_node = get_drm_node(feedback->main_device, false);
 	assert(drm_node && "error: failed to retrieve drm node");
 
-	fprintf(stderr, "compositor sent main_device event for dma-buf feedback - %s\n",
-		drm_node);
+	fprintf(stderr, "feedback: main device %s\n", drm_node);
 
 	if (!window->card_fd) {
 		window->card_fd = open(drm_node, O_RDWR | O_CLOEXEC);
@@ -1172,12 +1176,12 @@ print_tranche_format_modifier(uint32_t format, uint64_t modifier)
 		char fourcc_str[5];
 
 		fourcc2str(format, fourcc_str, sizeof(fourcc_str));
-		len = asprintf(&format_str, "0x%08x (%s)", format, fourcc_str);
+		len = asprintf(&format_str, "%s (0x%08x)", fourcc_str, format);
 	}
 	assert(len > 0);
 
-	fprintf(stderr, "│	├────────tranche format/modifier pair - format %s, modifier %s\n",
-			format_str, mod_name);
+	fprintf(stderr, L_LINE L_VAL " format %s, modifier %s\n",
+		format_str, mod_name);
 
 	free(format_str);
 	free(mod_name);
@@ -1193,14 +1197,14 @@ print_dmabuf_feedback_tranche(struct dmabuf_feedback_tranche *tranche)
 	drm_node = get_drm_node(tranche->target_device, tranche->is_scanout_tranche);
 	assert(drm_node && "error: could not retrieve drm node");
 
-	fprintf(stderr, "├──────target_device for tranche - %s\n", drm_node);
-	fprintf(stderr, "│	└scanout tranche? %s\n", tranche->is_scanout_tranche ? "yes" : "no");
+	fprintf(stderr, L_VAL " tranche: target device %s, %s\n",
+		drm_node, tranche->is_scanout_tranche ? "scanout" : "no flags");
 
 	wl_array_for_each(fmt, &tranche->formats.arr)
 		wl_array_for_each(mod, &fmt->modifiers)
 			print_tranche_format_modifier(fmt->format, *mod);
 
-	fprintf(stderr, "│	└end of tranche\n");
+	fprintf(stderr, L_LINE L_LAST " end of tranche\n");
 }
 
 static void
@@ -1278,7 +1282,7 @@ dmabuf_feedback_done(void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_fee
 	struct dmabuf_feedback_tranche *tranche;
 	unsigned int i;
 
-	fprintf(stderr, "└end of dma-buf feedback\n\n");
+	fprintf(stderr, L_LAST " end of dma-buf feedback\n\n");
 
 	/* The first time that we receive dma-buf feedback for a surface it
 	 * contains only the renderer tranche. We pick the INITIAL_BUFFER_FORMAT
