@@ -27,6 +27,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <string.h>
 #include <libweston/libweston.h>
 
 #include "color.h"
@@ -185,6 +186,102 @@ cmlcms_get_sRGB_to_blend_color_transform(struct weston_color_manager_lcms *cm,
 	return true;
 }
 
+static float
+meta_clamp(float value, const char *valname, float min, float max,
+	   struct weston_output *output)
+{
+	float ret = value;
+
+	/* Paranoia against NaN */
+	if (!(ret >= min))
+		ret = min;
+
+	if (!(ret <= max))
+		ret = max;
+
+	if (ret != value) {
+		weston_log("output '%s' clamping %s value from %f to %f.\n",
+			   output->name, valname, value, ret);
+	}
+
+	return ret;
+}
+
+static bool
+cmlcms_get_hdr_meta(struct weston_output *output,
+		    struct weston_hdr_metadata_type1 *hdr_meta)
+{
+	const struct weston_color_characteristics *cc;
+
+	hdr_meta->group_mask = 0;
+
+	/* Only SMPTE ST 2084 mode uses HDR Static Metadata Type 1 */
+	if (weston_output_get_eotf_mode(output) != WESTON_EOTF_MODE_ST2084)
+		return true;
+
+	/* ICC profile overrides color characteristics */
+	if (output->color_profile) {
+		/*
+		 * TODO: extract characteristics from profile?
+		 * Get dynamic range from weston_color_characteristics?
+		 */
+
+		return true;
+	}
+
+	cc = weston_output_get_color_characteristics(output);
+
+	/* Target content chromaticity */
+	if (cc->group_mask & WESTON_COLOR_CHARACTERISTICS_GROUP_PRIMARIES) {
+		unsigned i;
+
+		for (i = 0; i < 3; i++) {
+			hdr_meta->primary[i].x = meta_clamp(cc->primary[i].x,
+							    "primary", 0.0, 1.0,
+							    output);
+			hdr_meta->primary[i].y = meta_clamp(cc->primary[i].y,
+							    "primary", 0.0, 1.0,
+							    output);
+		}
+		hdr_meta->group_mask |= WESTON_HDR_METADATA_TYPE1_GROUP_PRIMARIES;
+	}
+
+	/* Target content white point */
+	if (cc->group_mask & WESTON_COLOR_CHARACTERISTICS_GROUP_WHITE) {
+		hdr_meta->white.x = meta_clamp(cc->white.x, "white",
+					       0.0, 1.0, output);
+		hdr_meta->white.y = meta_clamp(cc->white.y, "white",
+					       0.0, 1.0, output);
+		hdr_meta->group_mask |= WESTON_HDR_METADATA_TYPE1_GROUP_WHITE;
+	}
+
+	/* Target content peak and max mastering luminance */
+	if (cc->group_mask & WESTON_COLOR_CHARACTERISTICS_GROUP_MAXL) {
+		hdr_meta->maxDML = meta_clamp(cc->max_luminance, "maxDML",
+					      1.0, 65535.0, output);
+		hdr_meta->maxCLL = meta_clamp(cc->max_luminance, "maxCLL",
+					      1.0, 65535.0, output);
+		hdr_meta->group_mask |= WESTON_HDR_METADATA_TYPE1_GROUP_MAXDML;
+		hdr_meta->group_mask |= WESTON_HDR_METADATA_TYPE1_GROUP_MAXCLL;
+	}
+
+	/* Target content min mastering luminance */
+	if (cc->group_mask & WESTON_COLOR_CHARACTERISTICS_GROUP_MINL) {
+		hdr_meta->minDML = meta_clamp(cc->min_luminance, "minDML",
+					      0.0001, 6.5535, output);
+		hdr_meta->group_mask |= WESTON_HDR_METADATA_TYPE1_GROUP_MINDML;
+	}
+
+	/* Target content max frame-average luminance */
+	if (cc->group_mask & WESTON_COLOR_CHARACTERISTICS_GROUP_MAXFALL) {
+		hdr_meta->maxFALL = meta_clamp(cc->maxFALL, "maxFALL",
+					       1.0, 65535.0, output);
+		hdr_meta->group_mask |= WESTON_HDR_METADATA_TYPE1_GROUP_MAXFALL;
+	}
+
+	return true;
+}
+
 static struct weston_output_color_outcome *
 cmlcms_create_output_color_outcome(struct weston_color_manager *cm_base,
 				   struct weston_output *output)
@@ -195,6 +292,19 @@ cmlcms_create_output_color_outcome(struct weston_color_manager *cm_base,
 	co = zalloc(sizeof *co);
 	if (!co)
 		return NULL;
+
+	if (!cmlcms_get_hdr_meta(output, &co->hdr_meta))
+		goto out_fail;
+
+	/*
+	 * TODO: if output->color_profile is NULL, maybe manufacture a
+	 * profile from weston_color_characteristics if it has enough
+	 * information?
+	 * Or let the frontend decide to call a "create a profile from
+	 * characteristics" API?
+	 */
+
+	/* TODO: take container color space into account */
 
 	if (!cmlcms_get_blend_to_output_color_transform(cm, output,
 							&co->from_blend_to_output))
@@ -207,8 +317,6 @@ cmlcms_create_output_color_outcome(struct weston_color_manager *cm_base,
 	if (!cmlcms_get_sRGB_to_output_color_transform(cm, output,
 						       &co->from_sRGB_to_output))
 		goto out_fail;
-
-	co->hdr_meta.group_mask = 0;
 
 	return co;
 
