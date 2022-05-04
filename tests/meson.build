@@ -261,7 +261,7 @@ if get_option('color-management-lcms')
 		{	'name': 'color-metadata-parsing' },
 		{
 			'name': 'color-shaper-matrix',
-			'dep_objs': [ dep_libm, dep_lcms2 ]
+			'dep_objs': [ dep_libm, dep_lcms_util ]
 		},
 		{
 			'name': 'lcms-util',

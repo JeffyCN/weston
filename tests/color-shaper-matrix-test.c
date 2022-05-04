@@ -26,13 +26,15 @@
 #include "config.h"
 
 #include <math.h>
+#include <string.h>
+#include <linux/limits.h>
+
+#include <lcms2.h>
 
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 #include "color_util.h"
-#include <string.h>
-#include <lcms2.h>
-#include <linux/limits.h>
+#include "lcms_util.h"
 
 struct lcms_pipeline {
 	/**
@@ -51,6 +53,11 @@ struct lcms_pipeline {
 	 * Transform matrix from sRGB to target chromaticities in prim_output
 	 */
 	struct lcmsMAT3 mat;
+	/**
+	 * matrix from prim_output to XYZ, for example matrix conversion
+	 * sRGB->XYZ, adobeRGB->XYZ, bt2020->XYZ
+	 */
+	struct lcmsMAT3 mat2XYZ;
 	/**
 	 * tone curve enum
 	 */
@@ -86,6 +93,9 @@ const struct lcms_pipeline pipeline_sRGB = {
 	.mat = LCMSMAT3(1.0, 0.0, 0.0,
 			0.0, 1.0, 0.0,
 			0.0, 0.0, 1.0),
+	.mat2XYZ = LCMSMAT3(0.436037, 0.385124, 0.143039,
+			    0.222482, 0.716913, 0.060605,
+			    0.013922, 0.097078, 0.713899),
 	.post_fn = TRANSFER_FN_SRGB_EOTF_INVERSE
 };
 
@@ -100,6 +110,9 @@ const struct lcms_pipeline pipeline_adobeRGB = {
 	.mat = LCMSMAT3( 0.715127, 0.284868, 0.000005,
 			 0.000001, 0.999995, 0.000004,
 			-0.000003, 0.041155, 0.958848),
+	.mat2XYZ = LCMSMAT3(0.609740, 0.205279, 0.149181,
+			    0.311111, 0.625681, 0.063208,
+			    0.019469, 0.060879, 0.744552),
 	.post_fn = TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE
 };
 
@@ -139,13 +152,18 @@ struct setup_args {
 	 */
 	int dim_size;
 	enum profile_type type;
+
+	/** Two-norm error limit for cLUT DToB->BToD roundtrip */
+	float clut_roundtrip_tolerance;
 };
 
 static const struct setup_args my_setup_args[] = {
-	/* name,          ref img, pipeline,   tolerance, dim, profile type */
+	/* name,          ref img, pipeline,   tolerance, dim, profile type, clut tolerance */
 	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0,  0, PTYPE_MATRIX_SHAPER },
 	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1,  0, PTYPE_MATRIX_SHAPER },
 	{ { "sRGB->BT2020" },   2, &pipeline_BT2020,   5,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0, 17, PTYPE_CLUT,         0.0005 },
+	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1, 17, PTYPE_CLUT,         0.0065 },
 };
 
 struct image_header {
@@ -223,6 +241,184 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 	}
 }
 
+static void
+test_roundtrip(uint8_t r, uint8_t g, uint8_t b, cmsPipeline *pip,
+	       struct rgb_diff_stat *stat)
+{
+	struct color_float in = { .rgb = { r / 255.0, g / 255.0, b / 255.0 } };
+	struct color_float out = {};
+
+	cmsPipelineEvalFloat(in.rgb, out.rgb, pip);
+	rgb_diff_stat_update(stat, &in, &out);
+}
+
+/*
+ * Roundtrip verification tests that converting device -> PCS -> device
+ * results in the original color values close enough.
+ *
+ * This ensures that the two pipelines are probably built correctly, and we
+ * do not have problems with unexpected value clamping or with representing
+ * (inverse) EOTF curves.
+ */
+static void
+roundtrip_verification(cmsPipeline *DToB, cmsPipeline *BToD, float tolerance)
+{
+	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
+	unsigned i;
+	unsigned r, g, b;
+	struct rgb_diff_stat stat = {};
+	cmsPipeline *pip;
+
+	pip = cmsPipelineDup(DToB);
+	cmsPipelineCat(pip, BToD);
+
+	/*
+	 * Inverse-EOTF is known to have precision problems near zero, so
+	 * sample near zero densely, the rest can be more sparse to run faster.
+	 */
+	for (r = 0; r < 256; r += (r < 15) ? 1 : 8) {
+		for (g = 0; g < 256; g += (g < 15) ? 1 : 8) {
+			for (b = 0; b < 256; b += (b < 15) ? 1 : 8)
+				test_roundtrip(r, g, b, pip, &stat);
+		}
+	}
+
+	cmsPipelineFree(pip);
+
+	testlog("DToB->BToD roundtrip error statistics (%u samples):\n",
+		stat.two_norm.count);
+	for (i = 0; i < COLOR_CHAN_NUM; i++) {
+		testlog("  ch %s error:\n", chan_name[i]);
+		scalar_stat_print_rgb8bit(&stat.rgb[i]);
+	}
+	testlog("  Two-norm error:\n");
+	scalar_stat_print_rgb8bit(&stat.two_norm);
+
+	assert(stat.two_norm.max < tolerance);
+}
+
+static cmsInt32Number
+sampler_matrix(const float src[], float dst[], void *cargo)
+{
+	const struct lcmsMAT3 *mat = cargo;
+	struct color_float in = { .r = src[0], .g = src[1], .b = src[2] };
+	struct color_float cf;
+	unsigned i;
+
+	cf = color_float_apply_matrix(mat, in);
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		dst[i] = cf.rgb[i];
+
+	return 1;
+}
+
+static cmsStage *
+create_cLUT_from_matrix(cmsContext context_id, const struct lcmsMAT3 *mat, int dim_size)
+{
+	cmsStage *cLUT_stage;
+
+	cLUT_stage = cmsStageAllocCLutFloat(context_id, dim_size, 3, 3, NULL);
+	cmsStageSampleCLutFloat(cLUT_stage, sampler_matrix, (void *)mat, 0);
+
+	return cLUT_stage;
+}
+
+/*
+ * Originally the cLUT profile test attempted to use the AToB/BToA tags. Those
+ * come with serious limitations though: at most uint16 representation for
+ * values in a LUT which means LUT entry precision is limited and range is
+ * [0.0, 1.0]. This poses difficulties such as:
+ * - for AToB, the resulting PCS XYZ values may need to be > 1.0
+ * - for BToA, it is easy to fall outside of device color volume meaning that
+ *   out-of-range values are needed in the 3D LUT
+ * Working around these could require offsetting and scaling of values
+ * before and after the 3D LUT, and even that may not always be possible.
+ *
+ * DToB/BToD tags do not have most of these problems, because there pipelines
+ * use float32 representation throughout. We have much more precision, and
+ * we can mostly use negative and greater than 1.0 values. LUT elements
+ * still clamp their input to [0.0, 1.0] before applying the LUT. This type of
+ * pipeline is called multiProcessElement (MPE).
+ *
+ * MPE also allows us to represent curves in a few analytical forms. These are
+ * just enough to represent the EOTF curves we have and their inverses, but
+ * they do not allow encoding extended EOTF curves or their inverses
+ * (defined for all real numbers by extrapolation, and mirroring for negative
+ * inputs). Using MPE curves we avoid the precision problems that arise from
+ * attempting to represent an inverse-EOTF as a LUT. For the precision issue,
+ * see: https://gitlab.freedesktop.org/pq/color-and-hdr/-/merge_requests/9
+ *
+ * MPE is not a complete remedy, because 3D LUT inputs are still always clamped
+ * to [0.0, 1.0]. Therefore a 3D LUT cannot represent the inverse of a matrix
+ * that can produce negative or greater than 1.0 values without further tricks
+ * (scaling and offsetting) in the pipeline. Rather than implementing that
+ * complication, we decided to just not test with such matrices. Therefore
+ * BT.2020 color space is not used in the cLUT test. AdobeRGB is enough.
+ */
+static cmsHPROFILE
+build_lcms_clut_profile_output(cmsContext context_id,
+			       const struct setup_args *arg)
+{
+	enum transfer_fn inv_eotf_fn = arg->pipeline->post_fn;
+	enum transfer_fn eotf_fn = transfer_fn_invert(inv_eotf_fn);
+	cmsHPROFILE hRGB;
+	cmsPipeline *DToB0, *BToD0;
+	cmsStage *stage;
+	cmsStage *stage_inv_eotf;
+	cmsStage *stage_eotf;
+	struct lcmsMAT3 mat2XYZ_inv;
+
+	lcmsMAT3_invert(&mat2XYZ_inv, &arg->pipeline->mat2XYZ);
+
+	hRGB = cmsCreateProfilePlaceholder(context_id);
+	cmsSetProfileVersion(hRGB, 4.3);
+	cmsSetDeviceClass(hRGB, cmsSigDisplayClass);
+	cmsSetColorSpace(hRGB, cmsSigRgbData);
+	cmsSetPCS(hRGB, cmsSigXYZData);
+	SetTextTags(hRGB, L"cLut profile");
+
+	stage_eotf = build_MPE_curve_stage(context_id, eotf_fn);
+	stage_inv_eotf = build_MPE_curve_stage(context_id, inv_eotf_fn);
+
+	/*
+	 * Pipeline from PCS (optical) to device (electrical)
+	 */
+	BToD0 = cmsPipelineAlloc(context_id, 3, 3);
+
+	stage = create_cLUT_from_matrix(context_id, &mat2XYZ_inv, arg->dim_size);
+	cmsPipelineInsertStage(BToD0, cmsAT_END, stage);
+	cmsPipelineInsertStage(BToD0, cmsAT_END, cmsStageDup(stage_inv_eotf));
+
+	cmsWriteTag(hRGB, cmsSigBToD0Tag, BToD0);
+	cmsLinkTag(hRGB, cmsSigBToD1Tag, cmsSigBToD0Tag);
+	cmsLinkTag(hRGB, cmsSigBToD2Tag, cmsSigBToD0Tag);
+	cmsLinkTag(hRGB, cmsSigBToD3Tag, cmsSigBToD0Tag);
+
+	/*
+	 * Pipeline from device (electrical) to PCS (optical)
+	 */
+	DToB0 = cmsPipelineAlloc(context_id, 3, 3);
+
+	cmsPipelineInsertStage(DToB0, cmsAT_END, cmsStageDup(stage_eotf));
+	stage = create_cLUT_from_matrix(context_id, &arg->pipeline->mat2XYZ, arg->dim_size);
+	cmsPipelineInsertStage(DToB0, cmsAT_END, stage);
+
+	cmsWriteTag(hRGB, cmsSigDToB0Tag, DToB0);
+	cmsLinkTag(hRGB, cmsSigDToB1Tag, cmsSigDToB0Tag);
+	cmsLinkTag(hRGB, cmsSigDToB2Tag, cmsSigDToB0Tag);
+	cmsLinkTag(hRGB, cmsSigDToB3Tag, cmsSigDToB0Tag);
+
+	roundtrip_verification(DToB0, BToD0, arg->clut_roundtrip_tolerance);
+
+	cmsPipelineFree(BToD0);
+	cmsPipelineFree(DToB0);
+	cmsStageFree(stage_eotf);
+	cmsStageFree(stage_inv_eotf);
+
+	return hRGB;
+}
+
 static cmsHPROFILE
 build_lcms_matrix_shaper_profile_output(cmsContext context_id,
 					const struct lcms_pipeline *pipeline)
@@ -267,7 +463,7 @@ build_lcms_profile_output(cmsContext context_id, const struct setup_args *arg)
 		return build_lcms_matrix_shaper_profile_output(context_id,
 							       arg->pipeline);
 	case PTYPE_CLUT:
-		return NULL;
+		return build_lcms_clut_profile_output(context_id, arg);
 	}
 
 	return NULL;
@@ -304,11 +500,21 @@ build_output_icc_profile(const struct setup_args *arg)
 	return profile_name;
 }
 
+static void
+test_lcms_error_logger(cmsContext context_id,
+		       cmsUInt32Number error_code,
+		       const char *text)
+{
+	testlog("LittleCMS error: %s\n", text);
+}
+
 static enum test_result_code
 fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 {
 	struct compositor_setup setup;
 	char *file_name;
+
+	cmsSetLogErrorHandler(test_lcms_error_logger);
 
 	compositor_setup_defaults(&setup);
 	setup.renderer = RENDERER_GL;
@@ -456,7 +662,7 @@ check_process_pattern_ex(struct buffer *src, struct buffer *shot,
 /*
  * Test that matrix-shaper profile does CM correctly, it is used color ramp pattern
  */
-TEST(shaper_matrix)
+TEST(shaper_matrix_and_cLUT)
 {
 	int seq_no = get_test_fixture_index();
 	const struct setup_args *arg = &my_setup_args[seq_no];
