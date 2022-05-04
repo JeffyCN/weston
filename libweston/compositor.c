@@ -4189,54 +4189,22 @@ static const struct wl_surface_interface surface_interface = {
 	surface_damage_buffer
 };
 
-static int
-create_surface_dmabuf_feedback(struct weston_compositor *ec,
-			       struct weston_surface *surface)
-{
-	struct weston_dmabuf_feedback_tranche *tranche;
-	dev_t main_device = ec->default_dmabuf_feedback->main_device;
-	uint32_t flags = 0;
-
-	surface->dmabuf_feedback = weston_dmabuf_feedback_create(main_device);
-	if (!surface->dmabuf_feedback)
-		return -1;
-
-	tranche = weston_dmabuf_feedback_tranche_create(surface->dmabuf_feedback,
-							ec->dmabuf_feedback_format_table,
-							main_device, flags,
-							RENDERER_PREF);
-	if (!tranche) {
-		weston_dmabuf_feedback_destroy(surface->dmabuf_feedback);
-		surface->dmabuf_feedback = NULL;
-		return -1;
-	}
-
-	return 0;
-}
-
 static void
 compositor_create_surface(struct wl_client *client,
 			  struct wl_resource *resource, uint32_t id)
 {
 	struct weston_compositor *ec = wl_resource_get_user_data(resource);
 	struct weston_surface *surface;
-	int ret;
 
 	surface = weston_surface_create(ec);
 	if (surface == NULL)
 		goto err;
 
-	if (ec->default_dmabuf_feedback) {
-		ret = create_surface_dmabuf_feedback(ec, surface);
-		if (ret < 0)
-			goto err_dmabuf_feedback;
-	}
-
 	surface->resource =
 		wl_resource_create(client, &wl_surface_interface,
 				   wl_resource_get_version(resource), id);
 	if (surface->resource == NULL)
-		goto err_dmabuf_feedback;
+		goto err_res;
 	wl_resource_set_implementation(surface->resource, &surface_interface,
 				       surface, destroy_surface);
 
@@ -4244,7 +4212,7 @@ compositor_create_surface(struct wl_client *client,
 
 	return;
 
-err_dmabuf_feedback:
+err_res:
 	weston_surface_destroy(surface);
 err:
 	wl_resource_post_no_memory(resource);
