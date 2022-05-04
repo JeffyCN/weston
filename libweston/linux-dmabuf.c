@@ -684,6 +684,7 @@ weston_dmabuf_feedback_destroy(struct weston_dmabuf_feedback *dmabuf_feedback)
 	wl_resource_for_each_safe(res, res_tmp, &dmabuf_feedback->resource_list) {
 		wl_list_remove(wl_resource_get_link(res));
 		wl_list_init(wl_resource_get_link(res));
+		wl_resource_set_user_data(res, NULL);
 	}
 
 	free(dmabuf_feedback);
@@ -786,6 +787,7 @@ weston_dmabuf_feedback_send_all(struct weston_dmabuf_feedback *dmabuf_feedback,
 {
 	struct wl_resource *res;
 
+	assert(!wl_list_empty(&dmabuf_feedback->resource_list));
 	wl_resource_for_each(res, &dmabuf_feedback->resource_list)
 		weston_dmabuf_feedback_send(dmabuf_feedback,
 					    format_table, res, false);
@@ -794,7 +796,16 @@ weston_dmabuf_feedback_send_all(struct weston_dmabuf_feedback *dmabuf_feedback,
 static void
 dmabuf_feedback_resource_destroy(struct wl_resource *resource)
 {
+	struct weston_surface *surface =
+		wl_resource_get_user_data(resource);
+
 	wl_list_remove(wl_resource_get_link(resource));
+
+	if (surface &&
+	    wl_list_empty(&surface->dmabuf_feedback->resource_list)) {
+		weston_dmabuf_feedback_destroy(surface->dmabuf_feedback);
+		surface->dmabuf_feedback = NULL;
+	}
 }
 
 static void
@@ -810,7 +821,8 @@ zwp_linux_dmabuf_feedback_implementation = {
 
 static struct wl_resource *
 dmabuf_feedback_resource_create(struct wl_resource *dmabuf_resource,
-				struct wl_client *client, uint32_t dmabuf_feedback_id)
+				struct wl_client *client, uint32_t dmabuf_feedback_id,
+				struct weston_surface *surface)
 {
 	struct wl_resource *dmabuf_feedback_res;
 	uint32_t version;
@@ -826,7 +838,7 @@ dmabuf_feedback_resource_create(struct wl_resource *dmabuf_resource,
 	wl_list_init(wl_resource_get_link(dmabuf_feedback_res));
 	wl_resource_set_implementation(dmabuf_feedback_res,
 				       &zwp_linux_dmabuf_feedback_implementation,
-				       NULL, dmabuf_feedback_resource_destroy);
+				       surface, dmabuf_feedback_resource_destroy);
 
 	return dmabuf_feedback_res;
 }
@@ -842,7 +854,8 @@ linux_dmabuf_get_default_feedback(struct wl_client *client,
 
 	dmabuf_feedback_resource =
 		dmabuf_feedback_resource_create(dmabuf_resource,
-						client, dmabuf_feedback_id);
+						client, dmabuf_feedback_id,
+						NULL);
 	if (!dmabuf_feedback_resource) {
 		wl_resource_post_no_memory(dmabuf_resource);
 		return;
@@ -853,22 +866,55 @@ linux_dmabuf_get_default_feedback(struct wl_client *client,
 				    dmabuf_feedback_resource, true);
 }
 
+static int
+create_surface_dmabuf_feedback(struct weston_compositor *ec,
+			       struct weston_surface *surface)
+{
+	struct weston_dmabuf_feedback_tranche *tranche;
+	dev_t main_device = ec->default_dmabuf_feedback->main_device;
+	uint32_t flags = 0;
+
+	surface->dmabuf_feedback = weston_dmabuf_feedback_create(main_device);
+	if (!surface->dmabuf_feedback)
+		return -1;
+
+	tranche = weston_dmabuf_feedback_tranche_create(surface->dmabuf_feedback,
+							ec->dmabuf_feedback_format_table,
+							main_device, flags,
+							RENDERER_PREF);
+	if (!tranche) {
+		weston_dmabuf_feedback_destroy(surface->dmabuf_feedback);
+		surface->dmabuf_feedback = NULL;
+		return -1;
+	}
+
+	return 0;
+}
+
 static void
 linux_dmabuf_get_per_surface_feedback(struct wl_client *client,
 				      struct wl_resource *dmabuf_resource,
 				      uint32_t dmabuf_feedback_id,
 				      struct wl_resource *surface_resource)
 {
+	struct weston_compositor *compositor =
+		wl_resource_get_user_data(dmabuf_resource);
 	struct weston_surface *surface =
 		wl_resource_get_user_data(surface_resource);
 	struct wl_resource *dmabuf_feedback_resource;
+	int ret;
 
 	dmabuf_feedback_resource =
 		dmabuf_feedback_resource_create(dmabuf_resource,
-						client, dmabuf_feedback_id);
-	if (!dmabuf_feedback_resource) {
-		wl_resource_post_no_memory(dmabuf_resource);
-		return;
+						client, dmabuf_feedback_id,
+						surface);
+	if (!dmabuf_feedback_resource)
+		goto err;
+
+	if (!surface->dmabuf_feedback) {
+		ret = create_surface_dmabuf_feedback(compositor, surface);
+		if (ret < 0)
+			goto err_feedback;
 	}
 
 	/* Surface dma-buf feedback is dynamic and may need to be resent to
@@ -879,6 +925,13 @@ linux_dmabuf_get_per_surface_feedback(struct wl_client *client,
 	weston_dmabuf_feedback_send(surface->dmabuf_feedback,
 				    surface->compositor->dmabuf_feedback_format_table,
 				    dmabuf_feedback_resource, true);
+	return;
+
+err_feedback:
+	wl_resource_set_user_data(dmabuf_feedback_resource, NULL);
+	wl_resource_destroy(dmabuf_feedback_resource);
+err:
+	wl_resource_post_no_memory(dmabuf_resource);
 }
 
 /** Get the linux_dmabuf_buffer from a wl_buffer resource
