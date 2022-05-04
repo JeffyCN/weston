@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <libudev.h>
 #include <sys/mman.h>
+#include <time.h>
 
 #include "shared/helpers.h"
 #include "shared/platform.h"
@@ -175,7 +176,6 @@ struct window {
 	struct wp_presentation_feedback *presentation_feedback;
 	bool wait_for_configure;
 	bool presented_zero_copy;
-	uint32_t n_redraws;
 	struct zwp_linux_dmabuf_feedback_v1 *dmabuf_feedback_obj;
 	struct dmabuf_feedback dmabuf_feedback, pending_dmabuf_feedback;
 	int card_fd;
@@ -689,8 +689,6 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 		      window->display->output.height);
 	wl_surface_set_opaque_region(window->surface, region);
 	wl_region_destroy(region);
-
-	window->n_redraws++;
 }
 
 static const struct wl_callback_listener frame_listener = {
@@ -1512,6 +1510,9 @@ main(int argc, char **argv)
 	struct display *display;
 	struct window *window;
 	int ret = 0;
+	struct timespec start_time, current_time;
+	const time_t MAX_TIME_SECONDS = 3;
+	time_t delta_time = 0;
 
 	fprintf(stderr, "This client was written with the purpose of manually test " \
 			"Weston's dma-buf feedback implementation. See main() " \
@@ -1520,9 +1521,14 @@ main(int argc, char **argv)
 	display = create_display();
 	window = create_window(display);
 
+	clock_gettime(CLOCK_MONOTONIC, &start_time);
+
 	redraw(window, NULL, 0);
-	while (ret != -1 && window->n_redraws < 200)
+	while (ret != -1 && delta_time < MAX_TIME_SECONDS) {
 		ret = wl_display_dispatch(display->display);
+		clock_gettime(CLOCK_MONOTONIC, &current_time);
+		delta_time = current_time.tv_sec - start_time.tv_sec;
+	}
 
 	destroy_window(window);
 	destroy_display(display);
