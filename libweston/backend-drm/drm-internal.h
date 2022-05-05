@@ -403,6 +403,12 @@ struct drm_fb {
 struct drm_buffer_fb {
 	struct drm_fb *fb;
 	enum try_view_on_plane_failure_reasons failure_reasons;
+	struct drm_device *device;
+	struct wl_list link;
+};
+
+struct drm_fb_private {
+	struct wl_list buffer_fb_list;
 	struct wl_listener buffer_destroy_listener;
 };
 

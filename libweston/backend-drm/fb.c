@@ -512,18 +512,24 @@ drm_fb_compatible_with_plane(struct drm_fb *fb, struct drm_plane *plane)
 static void
 drm_fb_handle_buffer_destroy(struct wl_listener *listener, void *data)
 {
-	struct drm_buffer_fb *buf_fb =
-		container_of(listener, struct drm_buffer_fb, buffer_destroy_listener);
+	struct drm_fb_private *private =
+		container_of(listener, struct drm_fb_private, buffer_destroy_listener);
+	struct drm_buffer_fb *buf_fb;
+	struct drm_buffer_fb *tmp;
 
-	wl_list_remove(&buf_fb->buffer_destroy_listener.link);
+	wl_list_remove(&private->buffer_destroy_listener.link);
 
-	if (buf_fb->fb) {
-		assert(buf_fb->fb->type == BUFFER_CLIENT ||
-		       buf_fb->fb->type == BUFFER_DMABUF);
-		drm_fb_unref(buf_fb->fb);
+	wl_list_for_each_safe(buf_fb, tmp, &private->buffer_fb_list, link) {
+		if (buf_fb->fb) {
+			assert(buf_fb->fb->type == BUFFER_CLIENT ||
+			       buf_fb->fb->type == BUFFER_DMABUF);
+			drm_fb_unref(buf_fb->fb);
+		}
+		wl_list_remove(&buf_fb->link);
+		free(buf_fb);
 	}
 
-	free(buf_fb);
+	free(private);
 }
 
 struct drm_fb *
@@ -535,6 +541,7 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 	struct drm_device *device = output->device;
 	struct weston_view *ev = pnode->view;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
+	struct drm_fb_private *private;
 	struct drm_buffer_fb *buf_fb;
 	bool is_opaque = weston_view_is_opaque(ev, &ev->transform.boundingbox);
 	struct drm_fb *fb;
@@ -558,16 +565,26 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 		return NULL;
 	}
 
-	if (buffer->backend_private) {
-		buf_fb = buffer->backend_private;
-		pnode->try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
-		return buf_fb->fb ? drm_fb_ref(buf_fb->fb) : NULL;
+	if (!buffer->backend_private) {
+		private = zalloc(sizeof(*private));
+		buffer->backend_private = private;
+		wl_list_init(&private->buffer_fb_list);
+		private->buffer_destroy_listener.notify = drm_fb_handle_buffer_destroy;
+		wl_signal_add(&buffer->destroy_signal, &private->buffer_destroy_listener);
+	} else {
+		private = buffer->backend_private;
+	}
+
+	wl_list_for_each(buf_fb, &private->buffer_fb_list, link) {
+		if (buf_fb->device == device) {
+			pnode->try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
+			return buf_fb->fb ? drm_fb_ref(buf_fb->fb) : NULL;
+		}
 	}
 
 	buf_fb = zalloc(sizeof(*buf_fb));
-	buffer->backend_private = buf_fb;
-	buf_fb->buffer_destroy_listener.notify = drm_fb_handle_buffer_destroy;
-	wl_signal_add(&buffer->destroy_signal, &buf_fb->buffer_destroy_listener);
+	buf_fb->device = device;
+	wl_list_insert(&private->buffer_fb_list, &buf_fb->link);
 
 	/* GBM is used for dmabuf import as well as from client wl_buffer. */
 	if (!b->gbm) {
