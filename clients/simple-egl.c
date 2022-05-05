@@ -95,7 +95,6 @@ struct window {
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 	EGLSurface egl_surface;
-	struct wl_callback *callback;
 	int fullscreen, maximized, opaque, buffer_size, frame_sync, delay;
 	bool wait_for_configure;
 };
@@ -421,15 +420,11 @@ destroy_surface(struct window *window)
 	if (window->xdg_surface)
 		xdg_surface_destroy(window->xdg_surface);
 	wl_surface_destroy(window->surface);
-
-	if (window->callback)
-		wl_callback_destroy(window->callback);
 }
 
 static void
-redraw(void *data, struct wl_callback *callback, uint32_t time)
+redraw(struct window *window)
 {
-	struct window *window = data;
 	struct display *display = window->display;
 	static const GLfloat verts[3][2] = {
 		{ -0.5, -0.5 },
@@ -454,14 +449,8 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	EGLint buffer_age = 0;
 	struct timeval tv;
 
-	assert(window->callback == callback);
-	window->callback = NULL;
-
-	if (callback)
-		wl_callback_destroy(callback);
-
 	gettimeofday(&tv, NULL);
-	time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	uint32_t time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 	if (window->frames == 0)
 		window->benchmark_time = time;
 	if (time - window->benchmark_time > (benchmark_interval * 1000)) {
@@ -887,7 +876,7 @@ main(int argc, char **argv)
 
 	while (running && ret != -1) {
 		ret = wl_display_dispatch_pending(display.display);
-		redraw(&window, NULL, 0);
+		redraw(&window);
 	}
 
 	fprintf(stderr, "simple-egl exiting\n");
