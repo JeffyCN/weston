@@ -267,6 +267,7 @@ desktop_shell_destroy_surface(struct shell_surface *shsurf)
 		wl_list_init(&shsurf_child->children_link);
 	}
 	wl_list_remove(&shsurf->children_link);
+	weston_desktop_surface_unlink_view(shsurf->view);
 
 	wl_signal_emit(&shsurf->destroy_signal, shsurf);
 	weston_surface_unref(shsurf->wsurface_anim_fade);
@@ -2345,7 +2346,6 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	weston_desktop_surface_set_user_data(shsurf->desktop_surface, NULL);
 	shsurf->desktop_surface = NULL;
 
-	weston_desktop_surface_unlink_view(shsurf->view);
 	if (weston_surface_is_mapped(surface) &&
 	    shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
 
