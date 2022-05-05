@@ -883,7 +883,7 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 }
 
 static void
-desktop_shell_destroy_views_on_layer(struct weston_layer *layer);
+desktop_shell_destroy_layer(struct weston_layer *layer);
 
 static void
 workspace_destroy(struct workspace *ws)
@@ -898,7 +898,7 @@ workspace_destroy(struct workspace *ws)
 	if (ws->fsurf_back)
 		focus_surface_destroy(ws->fsurf_back);
 
-	desktop_shell_destroy_views_on_layer(&ws->layer);
+	desktop_shell_destroy_layer(&ws->layer);
 	free(ws);
 }
 
@@ -4955,7 +4955,7 @@ setup_output_destroy_handler(struct weston_compositor *ec,
 }
 
 static void
-desktop_shell_destroy_views_on_layer(struct weston_layer *layer)
+desktop_shell_destroy_layer(struct weston_layer *layer)
 {
 	struct weston_view *view, *view_next;
 
@@ -5020,12 +5020,12 @@ shell_destroy(struct wl_listener *listener, void *data)
 		workspace_destroy(*ws);
 	wl_array_release(&shell->workspaces.array);
 
-	desktop_shell_destroy_views_on_layer(&shell->panel_layer);
-	desktop_shell_destroy_views_on_layer(&shell->background_layer);
-	desktop_shell_destroy_views_on_layer(&shell->lock_layer);
-	desktop_shell_destroy_views_on_layer(&shell->input_panel_layer);
-	desktop_shell_destroy_views_on_layer(&shell->minimized_layer);
-	desktop_shell_destroy_views_on_layer(&shell->fullscreen_layer);
+	desktop_shell_destroy_layer(&shell->panel_layer);
+	desktop_shell_destroy_layer(&shell->background_layer);
+	desktop_shell_destroy_layer(&shell->lock_layer);
+	desktop_shell_destroy_layer(&shell->input_panel_layer);
+	desktop_shell_destroy_layer(&shell->minimized_layer);
+	desktop_shell_destroy_layer(&shell->fullscreen_layer);
 
 	free(shell->client);
 	free(shell);
