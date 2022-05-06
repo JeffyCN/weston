@@ -6537,6 +6537,7 @@ weston_output_set_color_outcome(struct weston_output *output)
 
 	weston_output_color_outcome_destroy(&output->color_outcome);
 	output->color_outcome = colorout;
+	output->color_outcome_serial++;
 
 	output->from_blend_to_output_by_backend = false;
 

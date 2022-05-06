@@ -113,7 +113,8 @@ drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output)
 	uint32_t blob_id = 0;
 	int ret;
 
-	if (output->hdr_output_metadata_blob_id)
+	if (output->hdr_output_metadata_blob_id &&
+	    output->ackd_color_outcome_serial == output->base.color_outcome_serial)
 		return 0;
 
 	src = weston_output_get_hdr_metadata_type1(&output->base);
@@ -167,7 +168,11 @@ drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output)
 		return -1;
 	}
 
+	drmModeDestroyPropertyBlob(output->backend->drm.fd,
+				   output->hdr_output_metadata_blob_id);
+
 	output->hdr_output_metadata_blob_id = blob_id;
+	output->ackd_color_outcome_serial = output->base.color_outcome_serial;
 
 	return 0;
 }

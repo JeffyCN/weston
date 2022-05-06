@@ -534,6 +534,7 @@ struct weston_output {
 	struct weston_color_characteristics color_characteristics;
 
 	struct weston_output_color_outcome *color_outcome;
+	uint64_t color_outcome_serial;
 
 	int (*enable)(struct weston_output *output);
 	int (*disable)(struct weston_output *output);
