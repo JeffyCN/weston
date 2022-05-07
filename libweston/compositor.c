@@ -1327,6 +1327,7 @@ weston_view_set_output(struct weston_view *view, struct weston_output *output)
 	}
 	view->output = output;
 	if (output) {
+		view->output_mask = output->id;
 		view->output_destroy_listener.notify =
 			notify_view_output_destroy;
 		wl_signal_add(&output->destroy_signal,
@@ -2846,6 +2847,10 @@ view_list_add(struct weston_compositor *compositor,
 	struct weston_paint_node *pnode;
 	struct weston_subsurface *sub;
 
+	/* HACK: Avoid adding views to other outputs */
+	if (output && !(view->output_mask & 1 << output->id))
+		output = NULL;
+
 	weston_view_update_transform(view);
 	pnode = view_ensure_paint_node(view, output);
 
@@ -3981,6 +3986,12 @@ weston_surface_commit(struct weston_surface *surface)
 	weston_surface_commit_state(surface, &surface->pending);
 
 	weston_surface_commit_subsurface_order(surface);
+
+	/* HACK: Assign outputs */
+	if (!surface->output_mask) {
+		weston_compositor_build_view_list(surface->compositor, NULL);
+		weston_compositor_schedule_repaint(surface->compositor);
+	}
 
 	weston_surface_schedule_repaint(surface);
 }
