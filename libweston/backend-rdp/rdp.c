@@ -42,9 +42,12 @@
 #include <libweston/backend-rdp.h>
 #include "pixman-renderer.h"
 
-/* This can be removed when we bump FreeRDP dependency past 3.0.0 in the future */
+/* These can be removed when we bump FreeRDP dependency past 3.0.0 in the future */
 #ifndef KBD_PERSIAN
 #define KBD_PERSIAN 0x50429
+#endif
+#ifndef KBD_HEBREW_STANDARD
+#define KBD_HEBREW_STANDARD 0x2040D
 #endif
 
 static void
@@ -726,6 +729,7 @@ struct rdp_to_xkb_keyboard_layout rdp_keyboards[] = {
 	{KBD_FINNISH, "fi", 0},
 	{KBD_FRENCH, "fr", 0},
 	{KBD_HEBREW, "il", 0},
+	{KBD_HEBREW_STANDARD, "il", "basic"},
 	{KBD_HUNGARIAN, "hu", 0},
 	{KBD_HUNGARIAN_101_KEY, "hu", "standard"},
 	{KBD_ICELANDIC, "is", 0},
