@@ -726,6 +726,9 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_backend *backend,
 void
 drm_output_set_cursor_view(struct drm_output *output, struct weston_view *ev);
 
+int
+drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output);
+
 #ifdef BUILD_DRM_GBM
 extern struct drm_fb *
 drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
