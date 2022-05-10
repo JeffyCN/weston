@@ -93,6 +93,29 @@ find_tone_curve_type(enum transfer_fn fn, int *type, double params[5])
 	return false;
 }
 
+enum transfer_fn
+transfer_fn_invert(enum transfer_fn fn)
+{
+	switch (fn) {
+	case TRANSFER_FN_ADOBE_RGB_EOTF:
+		return TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE;
+	case TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE:
+		return TRANSFER_FN_ADOBE_RGB_EOTF;
+	case TRANSFER_FN_IDENTITY:
+		return TRANSFER_FN_IDENTITY;
+	case TRANSFER_FN_POWER2_4_EOTF:
+		return TRANSFER_FN_POWER2_4_EOTF_INVERSE;
+	case TRANSFER_FN_POWER2_4_EOTF_INVERSE:
+		return TRANSFER_FN_POWER2_4_EOTF;
+	case TRANSFER_FN_SRGB_EOTF:
+		return TRANSFER_FN_SRGB_EOTF_INVERSE;
+	case TRANSFER_FN_SRGB_EOTF_INVERSE:
+		return TRANSFER_FN_SRGB_EOTF;
+	}
+	assert(0 && "bad transfer_fn");
+	return 0;
+}
+
 /**
  * NaN comes out as is
  *This function is not intended for hiding NaN.

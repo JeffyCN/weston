@@ -106,3 +106,6 @@ process_pixel_using_pipeline(enum transfer_fn pre_curve,
 
 struct color_float
 color_float_apply_matrix(const struct lcmsMAT3 *mat, struct color_float c);
+
+enum transfer_fn
+transfer_fn_invert(enum transfer_fn fn);
