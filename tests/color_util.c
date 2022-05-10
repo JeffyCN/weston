@@ -232,6 +232,29 @@ color_float_apply_curve(enum transfer_fn fn, struct color_float c)
 	return c;
 }
 
+/*
+ * Returns the result of the matrix-vector multiplication mat * c.
+ */
+struct color_float
+color_float_apply_matrix(const struct lcmsMAT3 *mat, struct color_float c)
+{
+	struct color_float result;
+	unsigned i, j;
+
+	/*
+	 * The matrix has an array of columns, hence i indexes to rows and
+	 * j indexes to columns.
+	 */
+	for (i = 0; i < 3; i++) {
+		result.rgb[i] = 0.0f;
+		for (j = 0; j < 3; j++)
+			result.rgb[i] += mat->v[j].n[i] * c.rgb[j];
+	}
+
+	result.a = c.a;
+	return result;
+}
+
 void
 process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     const struct lcmsMAT3 *mat,
@@ -239,18 +262,9 @@ process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     const struct color_float *in,
 			     struct color_float *out)
 {
-	int i, j;
 	struct color_float cf;
-	float tmp;
 
 	cf = color_float_apply_curve(pre_curve, *in);
-
-	for (i = 0; i < 3; i++) {
-		tmp = 0.0f;
-		for (j = 0; j < 3; j++)
-			tmp += cf.rgb[j] * mat->v[j].n[i];
-		out->rgb[i] = tmp;
-	}
-
-	*out = color_float_apply_curve(post_curve, *out);
+	cf = color_float_apply_matrix(mat, cf);
+	*out = color_float_apply_curve(post_curve, cf);
 }

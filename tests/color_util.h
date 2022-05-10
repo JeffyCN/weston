@@ -36,6 +36,7 @@ enum color_chan_index {
 	COLOR_CHAN_NUM
 };
 
+/* column vector when used in linear algebra */
 struct color_float {
 	union {
 		float rgb[COLOR_CHAN_NUM];
@@ -46,11 +47,13 @@ struct color_float {
 	float a;
 };
 
+/* column vector */
 struct lcmsVEC3 {
 	float n[3];
 };
 
 struct lcmsMAT3 {
+	/* array of columns */
 	struct lcmsVEC3 v[3];
 };
 
@@ -99,3 +102,6 @@ process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     enum transfer_fn post_curve,
 			     const struct color_float *in,
 			     struct color_float *out);
+
+struct color_float
+color_float_apply_matrix(const struct lcmsMAT3 *mat, struct color_float c);
