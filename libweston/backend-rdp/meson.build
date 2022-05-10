@@ -31,6 +31,7 @@ deps_rdp = [
 ]
 srcs_rdp = [
         'rdp.c',
+        'rdpclip.c',
         'rdputil.c',
 ]
 

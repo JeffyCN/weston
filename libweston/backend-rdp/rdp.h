@@ -38,6 +38,7 @@
 #include <freerdp/codec/nsc.h>
 #include <freerdp/locale/keyboard.h>
 #include <freerdp/channels/wtsvc.h>
+#include <freerdp/server/cliprdr.h>
 
 #include <libweston/libweston.h>
 #include <libweston/backend-rdp.h>
@@ -77,6 +78,9 @@ struct rdp_backend {
 	struct rdp_output *output;
 	struct weston_log_scope *debug;
 	struct weston_log_scope *verbose;
+
+	struct weston_log_scope *clipboard_debug;
+	struct weston_log_scope *clipboard_verbose;
 
 	char *server_cert;
 	char *server_key;
@@ -142,6 +146,13 @@ struct rdp_peer_context {
 	pthread_mutex_t loop_task_list_mutex;
 	struct wl_list loop_task_list; /* struct rdp_loop_task::link */
 
+	/* Clipboard support */
+	CliprdrServerContext *clipboard_server_context;
+
+	struct rdp_clipboard_data_source *clipboard_client_data_source;
+	struct rdp_clipboard_data_source *clipboard_inflight_client_data_source;
+
+	struct wl_listener clipboard_selection_listener;
 };
 
 typedef struct rdp_peer_context RdpPeerContext;
@@ -171,9 +182,21 @@ struct rdp_loop_task {
 #define rdp_debug_continue(b, ...) \
 	rdp_debug_print(b->debug, true,  __VA_ARGS__)
 
+#define rdp_debug_clipboard_verbose(b, ...) \
+	rdp_debug_print(b->clipboard_verbose, false, __VA_ARGS__)
+#define rdp_debug_clipboard_verbose_continue(b, ...) \
+	rdp_debug_print(b->clipboard_verbose, true,  __VA_ARGS__)
+#define rdp_debug_clipboard(b, ...) \
+	rdp_debug_print(b->clipboard_debug, false, __VA_ARGS__)
+#define rdp_debug_clipboard_continue(b, ...) \
+	rdp_debug_print(b->clipboard_debug, true,  __VA_ARGS__)
+
 /* rdputil.c */
 void
 rdp_debug_print(struct weston_log_scope *log_scope, bool cont, char *fmt, ...);
+
+int
+rdp_wl_array_read_fd(struct wl_array *array, int fd);
 
 void
 convert_rdp_keyboard_to_xkb_rule_names(UINT32 KeyboardType, UINT32 KeyboardSubType, UINT32 KeyboardLayout, struct xkb_rule_names *xkbRuleNames);
@@ -203,6 +226,13 @@ rdp_initialize_dispatch_task_event_source(RdpPeerContext *peerCtx);
 
 void
 rdp_destroy_dispatch_task_event_source(RdpPeerContext *peerCtx);
+
+/* rdpclip.c */
+int
+rdp_clipboard_init(freerdp_peer *client);
+
+void
+rdp_clipboard_destroy(RdpPeerContext *peerCtx);
 
 static inline struct rdp_head *
 to_rdp_head(struct weston_head *base)

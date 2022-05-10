@@ -555,6 +555,16 @@ rdp_destroy(struct weston_compositor *ec)
 		if (b->listener_events[i])
 			wl_event_source_remove(b->listener_events[i]);
 
+	if (b->clipboard_debug) {
+		weston_log_scope_destroy(b->clipboard_debug);
+		b->clipboard_debug = NULL;
+	}
+
+	if (b->clipboard_verbose) {
+		weston_log_scope_destroy(b->clipboard_verbose);
+		b->clipboard_verbose = NULL;
+	}
+
 	if (b->debug) {
 		weston_log_scope_destroy(b->debug);
 		b->debug = NULL;
@@ -668,6 +678,8 @@ rdp_peer_context_free(freerdp_peer* client, RdpPeerContext* context)
 		if (context->events[i])
 			wl_event_source_remove(context->events[i]);
 	}
+
+	rdp_clipboard_destroy(context);
 
 	if (context->vcm)
 		WTSCloseServer(context->vcm);
@@ -924,6 +936,13 @@ xf_peer_activate(freerdp_peer* client)
 		settings->CompressionEnabled = FALSE;
 	}
 
+	if (settings->RedirectClipboard) {
+		if (!peerCtx->vcm) {
+			weston_log("Virtual channel is required for clipboard\n");
+			goto error_exit;
+		}
+	}
+
 	if (output->base.width != (int)settings->DesktopWidth ||
 			output->base.height != (int)settings->DesktopHeight)
 	{
@@ -995,6 +1014,11 @@ xf_peer_activate(freerdp_peer* client)
 	xkb_keymap_unref(keymap);
 	weston_seat_init_pointer(peersItem->seat);
 
+	/* Initialize RDP clipboard after seat is initialized */
+	if (settings->RedirectClipboard)
+		if (rdp_clipboard_init(client) != 0)
+			goto error_exit;
+
 	peersItem->flags |= RDP_PEER_ACTIVATED;
 
 	/* disable pointer on the client side */
@@ -1014,6 +1038,12 @@ xf_peer_activate(freerdp_peer* client)
 	pixman_region32_fini(&damage);
 
 	return TRUE;
+
+error_exit:
+
+	rdp_clipboard_destroy(peerCtx);
+
+	return FALSE;
 }
 
 static BOOL
@@ -1450,6 +1480,7 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	settings->NSCodec = TRUE;
 	settings->FrameMarkerCommandEnabled = TRUE;
 	settings->SurfaceFrameMarkerEnabled = TRUE;
+	settings->RedirectClipboard = TRUE;
 	settings->HasExtendedMouseEvent = TRUE;
 	settings->HasHorizontalWheel = TRUE;
 
@@ -1569,6 +1600,15 @@ rdp_backend_create(struct weston_compositor *compositor,
 	b->rdp_monitor_refresh_rate = config->refresh_rate * 1000;
 	rdp_debug(b, "RDP backend: WESTON_RDP_MONITOR_REFRESH_RATE: %d\n", b->rdp_monitor_refresh_rate);
 
+	b->clipboard_debug = weston_log_ctx_add_log_scope(b->compositor->weston_log_ctx,
+							  "rdp-backend-clipboard",
+							  "Debug messages from RDP backend clipboard\n",
+							  NULL, NULL, NULL);
+	b->clipboard_verbose = weston_log_ctx_add_log_scope(b->compositor->weston_log_ctx,
+							    "rdp-backend-clipboard-verbose",
+							    "Debug messages from RDP backend clipboard\n",
+							    NULL, NULL, NULL);
+
 	compositor->backend = &b->base;
 
 	if (config->server_cert && config->server_key) {
@@ -1660,6 +1700,10 @@ err_compositor:
 
 	weston_compositor_shutdown(compositor);
 err_free_strings:
+	if (b->clipboard_debug)
+		weston_log_scope_destroy(b->clipboard_debug);
+	if (b->clipboard_verbose)
+		weston_log_scope_destroy(b->clipboard_verbose);
 	if (b->debug)
 		weston_log_scope_destroy(b->debug);
 	if (b->verbose)
