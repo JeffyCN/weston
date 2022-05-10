@@ -167,6 +167,9 @@ apply_tone_curve(enum transfer_fn fn, float r)
 	float ret = 0;
 
 	switch(fn) {
+	case TRANSFER_FN_IDENTITY:
+		ret = r;
+		break;
 	case TRANSFER_FN_SRGB_EOTF:
 		ret = sRGB_EOTF(r);
 		break;
