@@ -50,26 +50,26 @@ struct color_tone_curve {
 	double param[5];
 };
 
+/* Mapping from enum transfer_fn to LittleCMS curve parameters. */
 const struct color_tone_curve arr_curves[] = {
-		{
-			.fn = TRANSFER_FN_SRGB_EOTF,
-			.inv_fn = TRANSFER_FN_SRGB_EOTF_INVERSE,
-			.internal_type = 4,
-			.param = { 2.4, 1. / 1.055, 0.055 / 1.055, 1. / 12.92, 0.04045 } ,
-		},
-		{
-			.fn = TRANSFER_FN_ADOBE_RGB_EOTF,
-			.inv_fn = TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE,
-			.internal_type = 1,
-			.param = { 563./256., 0.0, 0.0, 0.0 , 0.0 } ,
-		},
-		{
-			.fn = TRANSFER_FN_POWER2_4_EOTF,
-			.inv_fn = TRANSFER_FN_POWER2_4_EOTF_INVERSE,
-			.internal_type = 1,
-			.param = { 2.4, 0.0, 0.0, 0.0 , 0.0 } ,
-		}
-
+	{
+		.fn = TRANSFER_FN_SRGB_EOTF,
+		.inv_fn = TRANSFER_FN_SRGB_EOTF_INVERSE,
+		.internal_type = 4,
+		.param = { 2.4, 1. / 1.055, 0.055 / 1.055, 1. / 12.92, 0.04045 },
+	},
+	{
+		.fn = TRANSFER_FN_ADOBE_RGB_EOTF,
+		.inv_fn = TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE,
+		.internal_type = 1,
+		.param = { 563./256., 0.0, 0.0, 0.0 , 0.0 },
+	},
+	{
+		.fn = TRANSFER_FN_POWER2_4_EOTF,
+		.inv_fn = TRANSFER_FN_POWER2_4_EOTF_INVERSE,
+		.internal_type = 1,
+		.param = { 2.4, 0.0, 0.0, 0.0 , 0.0 },
+	}
 };
 
 bool
