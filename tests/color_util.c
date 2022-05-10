@@ -221,6 +221,17 @@ a8r8g8b8_to_float(uint32_t v)
 	return cf;
 }
 
+static struct color_float
+color_float_apply_curve(enum transfer_fn fn, struct color_float c)
+{
+	unsigned i;
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		c.rgb[i] = apply_tone_curve(fn, c.rgb[i]);
+
+	return c;
+}
+
 void
 process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     const struct lcmsMAT3 *mat,
@@ -232,8 +243,7 @@ process_pixel_using_pipeline(enum transfer_fn pre_curve,
 	struct color_float cf;
 	float tmp;
 
-	for (i = 0; i < COLOR_CHAN_NUM; i++)
-		cf.rgb[i] = apply_tone_curve(pre_curve, in->rgb[i]);
+	cf = color_float_apply_curve(pre_curve, *in);
 
 	for (i = 0; i < 3; i++) {
 		tmp = 0.0f;
@@ -242,6 +252,5 @@ process_pixel_using_pipeline(enum transfer_fn pre_curve,
 		out->rgb[i] = tmp;
 	}
 
-	for (i = 0; i < COLOR_CHAN_NUM; i++)
-		out->rgb[i] = apply_tone_curve(post_curve, out->rgb[i]);
+	*out = color_float_apply_curve(post_curve, *out);
 }
