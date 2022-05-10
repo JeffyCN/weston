@@ -23,13 +23,17 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #include "config.h"
+
 #include <math.h>
-#include "color_util.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+
+#include <libweston/matrix.h>
+#include "color_util.h"
 #include "shared/helpers.h"
 
 static_assert(sizeof(struct color_float) == 4 * sizeof(float),
@@ -287,4 +291,42 @@ process_pixel_using_pipeline(enum transfer_fn pre_curve,
 	cf = color_float_apply_curve(pre_curve, *in);
 	cf = color_float_apply_matrix(mat, cf);
 	*out = color_float_apply_curve(post_curve, cf);
+}
+
+static void
+weston_matrix_from_lcmsMAT3(struct weston_matrix *w, const struct lcmsMAT3 *m)
+{
+	unsigned r, c;
+
+	/* column-major */
+	weston_matrix_init(w);
+
+	for (c = 0; c < 3; c++) {
+		for (r = 0; r < 3; r++)
+			w->d[c * 4 + r] = m->v[c].n[r];
+	}
+}
+
+static void
+lcmsMAT3_from_weston_matrix(struct lcmsMAT3 *m, const struct weston_matrix *w)
+{
+	unsigned r, c;
+
+	for (c = 0; c < 3; c++) {
+		for (r = 0; r < 3; r++)
+			m->v[c].n[r] = w->d[c * 4 + r];
+	}
+}
+
+void
+lcmsMAT3_invert(struct lcmsMAT3 *result, const struct lcmsMAT3 *mat)
+{
+	struct weston_matrix inv;
+	struct weston_matrix w;
+	int ret;
+
+	weston_matrix_from_lcmsMAT3(&w, mat);
+	ret = weston_matrix_invert(&inv, &w);
+	assert(ret == 0);
+	lcmsMAT3_from_weston_matrix(result, &inv);
 }

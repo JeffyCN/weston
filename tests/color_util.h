@@ -109,3 +109,6 @@ color_float_apply_matrix(const struct lcmsMAT3 *mat, struct color_float c);
 
 enum transfer_fn
 transfer_fn_invert(enum transfer_fn fn);
+
+void
+lcmsMAT3_invert(struct lcmsMAT3 *result, const struct lcmsMAT3 *mat);
