@@ -37,6 +37,7 @@
 #include <freerdp/codec/rfx.h>
 #include <freerdp/codec/nsc.h>
 #include <freerdp/locale/keyboard.h>
+#include <freerdp/channels/wtsvc.h>
 
 #include <libweston/libweston.h>
 #include <libweston/backend-rdp.h>
@@ -118,7 +119,7 @@ struct rdp_peer_context {
 	rdpContext _p;
 
 	struct rdp_backend *rdpBackend;
-	struct wl_event_source *events[MAX_FREERDP_FDS];
+	struct wl_event_source *events[MAX_FREERDP_FDS + 1]; /* +1 for WTSVirtualChannelManagerGetFileDescriptor */
 	RFX_CONTEXT *rfx_context;
 	wStream *encode_stream;
 	RFX_RECT *rfx_rects;
@@ -132,6 +133,8 @@ struct rdp_peer_context {
 	int verticalAccumWheelRotationDiscrete;
 	int horizontalAccumWheelRotationPrecise;
 	int horizontalAccumWheelRotationDiscrete;
+
+	HANDLE vcm;
 
 	/* list of outstanding event_source sent from FreeRDP thread to display loop.*/
 	int loop_task_event_source_fd;

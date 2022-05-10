@@ -51,6 +51,8 @@
 #define KBD_HEBREW_STANDARD 0x2040D
 #endif
 
+extern PWtsApiFunctionTable FreeRDP_InitWtsApi(void);
+
 static void
 rdp_peer_refresh_rfx(pixman_region32_t *damage, pixman_image_t *image, freerdp_peer *peer)
 {
@@ -656,15 +658,19 @@ out_error_stream:
 static void
 rdp_peer_context_free(freerdp_peer* client, RdpPeerContext* context)
 {
-	int i;
+	unsigned i;
 	if (!context)
 		return;
 
 	wl_list_remove(&context->item.link);
-	for (i = 0; i < MAX_FREERDP_FDS; i++) {
+
+	for (i = 0; i < ARRAY_LENGTH(context->events); i++) {
 		if (context->events[i])
 			wl_event_source_remove(context->events[i]);
 	}
+
+	if (context->vcm)
+		WTSCloseServer(context->vcm);
 
 	rdp_destroy_dispatch_task_event_source(context);
 
@@ -686,11 +692,21 @@ static int
 rdp_client_activity(int fd, uint32_t mask, void *data)
 {
 	freerdp_peer* client = (freerdp_peer *)data;
+	RdpPeerContext *peerCtx = (RdpPeerContext *)client->context;
 
 	if (!client->CheckFileDescriptor(client)) {
 		weston_log("unable to checkDescriptor for %p\n", client);
 		goto out_clean;
 	}
+
+	if (peerCtx && peerCtx->vcm)
+	{
+		if (!WTSVirtualChannelManagerCheckFileDescriptor(peerCtx->vcm)) {
+			weston_log("failed to check FreeRDP WTS VC file descriptor for %p\n", client);
+			goto out_clean;
+		}
+	}
+
 	return 0;
 
 out_clean:
@@ -1394,7 +1410,7 @@ static int
 rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 {
 	int rcount = 0;
-	void *rfds[MAX_FREERDP_FDS];
+	void *rfds[MAX_FREERDP_FDS + 1]; /* +1 for WTSVirtualChannelManagerGetFileDescriptor. */
 	int i, fd;
 	struct wl_event_loop *loop;
 	rdpSettings	*settings;
@@ -1455,6 +1471,15 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 		goto error_initialize;
 	}
 
+	PWtsApiFunctionTable fn = FreeRDP_InitWtsApi();
+	WTSRegisterWtsApiFunctionTable(fn);
+	peerCtx->vcm = WTSOpenServerA((LPSTR)peerCtx);
+	if (peerCtx->vcm) {
+		WTSVirtualChannelManagerGetFileDescriptor(peerCtx->vcm, rfds, &rcount);
+	} else {
+		weston_log("WTSOpenServer is failed! continue without virtual channel.\n");
+	}
+
 	loop = wl_display_get_event_loop(b->compositor->wl_display);
 	for (i = 0; i < rcount; i++) {
 		fd = (int)(long)(rfds[i]);
@@ -1462,15 +1487,27 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 		peerCtx->events[i] = wl_event_loop_add_fd(loop, fd, WL_EVENT_READABLE,
 				rdp_client_activity, client);
 	}
-	for ( ; i < MAX_FREERDP_FDS; i++)
+	for ( ; i < (int)ARRAY_LENGTH(peerCtx->events); i++)
 		peerCtx->events[i] = 0;
 
 	wl_list_insert(&b->output->peers, &peerCtx->item.link);
 
 	if (!rdp_initialize_dispatch_task_event_source(peerCtx))
-		goto error_initialize;
+		goto error_dispatch_initialize;
 
 	return 0;
+
+error_dispatch_initialize:
+	for (i = 0; i < (int)ARRAY_LENGTH(peerCtx->events); i++) {
+		if (peerCtx->events[i]) {
+			wl_event_source_remove(peerCtx->events[i]);
+			peerCtx->events[i] = NULL;
+		}
+	}
+	if (peerCtx->vcm) {
+		WTSCloseServer(peerCtx->vcm);
+		peerCtx->vcm = NULL;
+	}
 
 error_initialize:
 	client->Close(client);

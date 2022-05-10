@@ -13,6 +13,11 @@ if not dep_frdp.found()
 	error('RDP-backend requires freerdp >= 2.2.0 which was not found. Or, you can use \'-Dbackend-rdp=false\'.')
 endif
 
+dep_frdp_server = dependency('freerdp-server2', version: '>= 2.2.0', required: false)
+if not dep_frdp_server.found()
+	error('RDP-backend requires freerdp-server2 >= 2.2.0 which was not found. Or, you can use \'-Dbackend-rdp=false\'.')
+endif
+
 dep_wpr = dependency('winpr2', version: '>= 2.2.0', required: false)
 if not dep_wpr.found()
 	error('RDP-backend requires winpr >= 2.2.0 which was not found. Or, you can use \'-Dbackend-rdp=false\'.')
@@ -21,6 +26,7 @@ endif
 deps_rdp = [
 	dep_libweston_private,
 	dep_frdp,
+	dep_frdp_server,
 	dep_wpr,
 ]
 srcs_rdp = [
