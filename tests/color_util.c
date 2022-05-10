@@ -161,15 +161,6 @@ Power2_4_EOTF_inv(float o)
 	return pow(o, 1./2.4);
 }
 
-void
-sRGB_linearize(struct color_float *cf)
-{
-	int i;
-
-	for (i = 0; i < COLOR_CHAN_NUM; i++)
-		cf->rgb[i] = sRGB_EOTF(cf->rgb[i]);
-}
-
 static float
 apply_tone_curve(enum transfer_fn fn, float r)
 {
@@ -199,15 +190,6 @@ apply_tone_curve(enum transfer_fn fn, float r)
 	return ret;
 }
 
-void
-sRGB_delinearize(struct color_float *cf)
-{
-	int i;
-
-	for (i = 0; i < COLOR_CHAN_NUM; i++)
-		cf->rgb[i] = sRGB_EOTF_inv(cf->rgb[i]);
-}
-
 struct color_float
 a8r8g8b8_to_float(uint32_t v)
 {
@@ -230,6 +212,18 @@ color_float_apply_curve(enum transfer_fn fn, struct color_float c)
 		c.rgb[i] = apply_tone_curve(fn, c.rgb[i]);
 
 	return c;
+}
+
+void
+sRGB_linearize(struct color_float *cf)
+{
+	*cf = color_float_apply_curve(TRANSFER_FN_SRGB_EOTF, *cf);
+}
+
+void
+sRGB_delinearize(struct color_float *cf)
+{
+	*cf = color_float_apply_curve(TRANSFER_FN_SRGB_EOTF_INVERSE, *cf);
 }
 
 /*
