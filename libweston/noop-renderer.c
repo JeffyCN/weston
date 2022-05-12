@@ -58,7 +58,7 @@ noop_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	struct wl_shm_buffer *shm_buffer;
 	uint8_t *data;
 	uint32_t size, i, width, height, stride;
-	volatile unsigned char unused = 0; /* volatile so it's not optimized out */
+	__attribute__((unused)) int unused = 0;
 
 	if (!buffer)
 		return;
