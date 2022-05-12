@@ -343,12 +343,22 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 
 #ifdef HAVE_GBM_MODIFIERS
 	if (display->modifiers_count > 0) {
+#ifdef HAVE_GBM_BO_CREATE_WITH_MODIFIERS2
+		buffer->bo = gbm_bo_create_with_modifiers2(display->gbm.device,
+							   buffer->width,
+							   buffer->height,
+							   buffer->format,
+							   display->modifiers,
+							   display->modifiers_count,
+							   GBM_BO_USE_RENDERING);
+#else
 		buffer->bo = gbm_bo_create_with_modifiers(display->gbm.device,
 							  buffer->width,
 							  buffer->height,
 							  buffer->format,
 							  display->modifiers,
 							  display->modifiers_count);
+#endif
 		if (buffer->bo)
 			buffer->modifier = gbm_bo_get_modifier(buffer->bo);
 	}

@@ -180,6 +180,7 @@ struct window {
 	struct dmabuf_feedback dmabuf_feedback, pending_dmabuf_feedback;
 	int card_fd;
 	struct drm_format format;
+	uint32_t bo_flags;
 	struct buffer buffers[NUM_BUFFERS];
 };
 
@@ -461,7 +462,7 @@ buffer_free(struct buffer *buf)
 static void
 create_dmabuf_buffer(struct window *window, struct buffer *buf, uint32_t width,
 		     uint32_t height, uint32_t format, unsigned int count_modifiers,
-		     uint64_t *modifiers);
+		     uint64_t *modifiers, uint32_t bo_flags);
 
 static void
 buffer_recreate(struct buffer *buf)
@@ -474,7 +475,7 @@ buffer_recreate(struct buffer *buf)
 	create_dmabuf_buffer(window, buf, width, height,
 			     window->format.format,
 			     window->format.modifiers.size / sizeof(uint64_t),
-			     window->format.modifiers.data);
+			     window->format.modifiers.data, window->bo_flags);
 	buf->recreate = false;
 }
 
@@ -524,7 +525,7 @@ static const struct zwp_linux_buffer_params_v1_listener params_listener = {
 static void
 create_dmabuf_buffer(struct window *window, struct buffer *buf, uint32_t width,
 		     uint32_t height, uint32_t format, unsigned int count_modifiers,
-		     uint64_t *modifiers)
+		     uint64_t *modifiers, uint32_t bo_flags)
 {
 	struct display *display = window->display;
 	static uint32_t flags = 0;
@@ -539,10 +540,18 @@ create_dmabuf_buffer(struct window *window, struct buffer *buf, uint32_t width,
 
 #ifdef HAVE_GBM_MODIFIERS
 	if (count_modifiers > 0) {
+#ifdef HAVE_GBM_BO_CREATE_WITH_MODIFIERS2
+		buf->bo = gbm_bo_create_with_modifiers2(display->gbm_device,
+							buf->width, buf->height,
+							format, modifiers,
+							count_modifiers,
+							bo_flags);
+#else
 		buf->bo = gbm_bo_create_with_modifiers(display->gbm_device,
 						       buf->width, buf->height,
 						       format, modifiers,
 						       count_modifiers);
+#endif
 		if (buf->bo)
 			buf->modifier = gbm_bo_get_modifier(buf->bo);
 	}
@@ -551,7 +560,7 @@ create_dmabuf_buffer(struct window *window, struct buffer *buf, uint32_t width,
 	if (!buf->bo) {
 		buf->bo = gbm_bo_create(display->gbm_device, buf->width,
 					buf->height, buf->format,
-					GBM_BO_USE_RENDERING);
+					bo_flags);
 		buf->modifier = DRM_FORMAT_MOD_INVALID;
 	}
 
@@ -938,7 +947,7 @@ create_window(struct display *display)
 		create_dmabuf_buffer(window, &window->buffers[i], width, height,
 				     window->format.format,
 				     window->format.modifiers.size / sizeof(uint64_t),
-				     window->format.modifiers.data);
+				     window->format.modifiers.data, window->bo_flags);
 
 
 	window->xdg_surface = xdg_wm_base_get_xdg_surface(display->wm_base,
@@ -1237,6 +1246,8 @@ pick_initial_format_from_renderer_tranche(struct window *window,
 		window->format.format = fmt->format;
 		wl_array_copy(&window->format.modifiers, &fmt->modifiers);
 
+		window->bo_flags = GBM_BO_USE_RENDERING;
+
 		return true;
 	}
 	return false;
@@ -1266,6 +1277,8 @@ pick_format_from_scanout_tranche(struct window *window,
 
 		window->format.format = fmt->format;
 		wl_array_copy(&window->format.modifiers, &fmt->modifiers);
+
+		window->bo_flags = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
 
 		return true;
 	}
