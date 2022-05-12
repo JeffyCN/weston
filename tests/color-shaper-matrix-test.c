@@ -275,6 +275,7 @@ build_output_icc_profile(const struct lcms_pipeline *pipe)
 	assert(saved);
 
 	cmsCloseProfile(profile);
+	free(wd);
 
 	return profile_name;
 }
