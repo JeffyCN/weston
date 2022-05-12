@@ -2208,6 +2208,8 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	case EGL_TEXTURE_Y_U_V_WL:
 		fourcc = DRM_FORMAT_YUV420;
 		break;
+	default:
+		assert(0 && "not reached");
 	}
 
 	buffer->pixel_format = pixel_format_get_info(fourcc);
