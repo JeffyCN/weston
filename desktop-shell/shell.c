@@ -268,6 +268,7 @@ desktop_shell_destroy_surface(struct shell_surface *shsurf)
 	}
 	wl_list_remove(&shsurf->children_link);
 	weston_desktop_surface_unlink_view(shsurf->view);
+	weston_view_destroy(shsurf->view);
 
 	wl_signal_emit(&shsurf->destroy_signal, shsurf);
 	weston_surface_destroy(shsurf->wsurface_anim_fade);
