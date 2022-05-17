@@ -92,6 +92,11 @@ struct rdp_backend {
 	int external_listener_fd;
 	int rdp_monitor_refresh_rate;
 	pid_t compositor_tid;
+
+        rdp_audio_in_setup audio_in_setup;
+        rdp_audio_in_teardown audio_in_teardown;
+        rdp_audio_out_setup audio_out_setup;
+        rdp_audio_out_teardown audio_out_teardown;
 };
 
 enum peer_item_flags {
@@ -148,6 +153,9 @@ struct rdp_peer_context {
 
 	/* Clipboard support */
 	CliprdrServerContext *clipboard_server_context;
+
+	void *audio_in_private;
+	void *audio_out_private;
 
 	struct rdp_clipboard_data_source *clipboard_client_data_source;
 	struct rdp_clipboard_data_source *clipboard_inflight_client_data_source;

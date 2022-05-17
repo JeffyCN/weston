@@ -668,9 +668,13 @@ out_error_stream:
 static void
 rdp_peer_context_free(freerdp_peer* client, RdpPeerContext* context)
 {
+	struct rdp_backend *b;
 	unsigned i;
+
 	if (!context)
 		return;
+
+	b = context->rdpBackend;
 
 	wl_list_remove(&context->item.link);
 
@@ -678,6 +682,12 @@ rdp_peer_context_free(freerdp_peer* client, RdpPeerContext* context)
 		if (context->events[i])
 			wl_event_source_remove(context->events[i]);
 	}
+
+	if (context->audio_in_private)
+		b->audio_in_teardown(context->audio_in_private);
+
+	if (context->audio_out_private)
+		b->audio_out_teardown(context->audio_out_private);
 
 	rdp_clipboard_destroy(context);
 
@@ -936,11 +946,22 @@ xf_peer_activate(freerdp_peer* client)
 		settings->CompressionEnabled = FALSE;
 	}
 
-	if (settings->RedirectClipboard) {
+	settings->AudioPlayback = b->audio_out_setup && b->audio_out_teardown;
+	settings->AudioCapture = b->audio_in_setup && b->audio_in_teardown;
+
+	if (settings->RedirectClipboard ||
+	    settings->AudioPlayback ||
+	    settings->AudioCapture) {
 		if (!peerCtx->vcm) {
-			weston_log("Virtual channel is required for clipboard\n");
+			weston_log("Virtual channel is required for clipboard, audio playback/capture\n");
 			goto error_exit;
 		}
+		/* Audio setup will return NULL on failure, and we'll proceed without audio */
+		if (settings->AudioPlayback)
+			peerCtx->audio_out_private = b->audio_out_setup(b->compositor, peerCtx->vcm);
+
+		if (settings->AudioCapture)
+			peerCtx->audio_in_private = b->audio_in_setup(b->compositor, peerCtx->vcm);
 	}
 
 	if (output->base.width != (int)settings->DesktopWidth ||
@@ -1042,6 +1063,12 @@ xf_peer_activate(freerdp_peer* client)
 error_exit:
 
 	rdp_clipboard_destroy(peerCtx);
+
+	if (settings->AudioPlayback && peerCtx->audio_out_private)
+		b->audio_out_teardown(peerCtx->audio_out_private);
+
+	if (settings->AudioCapture && peerCtx->audio_in_private)
+		b->audio_in_teardown(peerCtx->audio_in_private);
 
 	return FALSE;
 }
@@ -1585,6 +1612,10 @@ rdp_backend_create(struct weston_compositor *compositor,
 	b->no_clients_resize = config->no_clients_resize;
 	b->force_no_compression = config->force_no_compression;
 	b->remotefx_codec = config->remotefx_codec;
+	b->audio_in_setup = config->audio_in_setup;
+	b->audio_in_teardown = config->audio_in_teardown;
+	b->audio_out_setup = config->audio_out_setup;
+	b->audio_out_teardown = config->audio_out_teardown;
 
 	b->debug = weston_compositor_add_log_scope(compositor,
 						   "rdp-backend",
@@ -1729,6 +1760,10 @@ config_init_to_defaults(struct weston_rdp_backend_config *config)
 	config->remotefx_codec = true;
 	config->external_listener_fd = -1;
 	config->refresh_rate = RDP_DEFAULT_FREQ;
+	config->audio_in_setup = NULL;
+	config->audio_in_teardown = NULL;
+	config->audio_out_setup = NULL;
+	config->audio_out_teardown = NULL;
 }
 
 WL_EXPORT int
