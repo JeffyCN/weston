@@ -490,8 +490,10 @@ gl_renderer_set_egl_device(struct gl_renderer *gr)
 		gr->drm_device = gr->query_device_string(gr->egl_device,
 							 EGL_DRM_DEVICE_FILE_EXT);
 
-	if (!gr->drm_device)
-		weston_log("failed to query DRM device from EGL\n");
+	if (gr->drm_device)
+		weston_log("Using rendering device: %s\n", gr->drm_device);
+	else
+		weston_log("warning: failed to query rendering device from EGL\n");
 }
 
 int
