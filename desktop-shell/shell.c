@@ -262,6 +262,9 @@ desktop_shell_destroy_surface(struct shell_surface *shsurf)
 {
 	struct shell_surface *shsurf_child, *tmp;
 
+	if (shsurf->fullscreen.black_view)
+		weston_curtain_destroy(shsurf->fullscreen.black_view);
+
 	wl_list_for_each_safe(shsurf_child, tmp, &shsurf->children_list, children_link) {
 		wl_list_remove(&shsurf_child->children_link);
 		wl_list_init(&shsurf_child->children_link);
@@ -2340,8 +2343,10 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 			shseat->focused_surface = NULL;
 	}
 
-	if (shsurf->fullscreen.black_view)
+	if (shsurf->fullscreen.black_view) {
 		weston_curtain_destroy(shsurf->fullscreen.black_view);
+		shsurf->fullscreen.black_view = NULL;
+	}
 
 	weston_surface_set_label_func(surface, NULL);
 	weston_desktop_surface_set_user_data(shsurf->desktop_surface, NULL);
@@ -4866,11 +4871,11 @@ setup_output_destroy_handler(struct weston_compositor *ec,
 static void
 desktop_shell_destroy_layer(struct weston_layer *layer)
 {
-	struct weston_view *view, *view_next;
+	struct weston_view *view;
+	bool removed;
 
-	wl_list_for_each_safe(view, view_next, &layer->view_list.link, layer_link.link) {
-		struct shell_surface *shsurf =
-			get_shell_surface(view->surface);
+	do {
+		removed = false;
 
 		/* fullscreen_layer is special as it would have a view with an
 		 * additional black_view created and added to its layer_link
@@ -4886,12 +4891,22 @@ desktop_shell_destroy_layer(struct weston_layer *layer)
 		 * could create additional views, which are managed implicitly,
 		 * but which are still being added to the layer list.
 		 *
+		 * We avoid using wl_list_for_each_safe() as it can't handle
+		 * removal of the next item in the list, so with this approach
+		 * we restart the loop as long as we keep removing views from
+		 * the list.
 		 */
-		if (shsurf)
-			desktop_shell_destroy_surface(shsurf);
-		else if (is_black_surface_view(view, NULL))
-			weston_surface_unref(view->surface);
-	}
+		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+			struct shell_surface *shsurf =
+				get_shell_surface(view->surface);
+			if (shsurf) {
+				desktop_shell_destroy_surface(shsurf);
+				removed = true;
+				break;
+			}
+		}
+
+	} while (removed);
 
 	weston_layer_fini(layer);
 }
