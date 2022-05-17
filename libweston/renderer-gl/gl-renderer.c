@@ -3241,7 +3241,8 @@ gl_renderer_create_surface(struct weston_surface *surface)
 }
 
 void
-gl_renderer_log_extensions(const char *name, const char *extensions)
+gl_renderer_log_extensions(struct gl_renderer *gr,
+			   const char *name, const char *extensions)
 {
 	const char *p, *end;
 	int l;
@@ -3264,7 +3265,7 @@ gl_renderer_log_extensions(const char *name, const char *extensions)
 }
 
 static void
-log_egl_info(EGLDisplay egldpy)
+log_egl_info(struct gl_renderer *gr, EGLDisplay egldpy)
 {
 	const char *str;
 
@@ -3278,11 +3279,11 @@ log_egl_info(EGLDisplay egldpy)
 	weston_log("EGL client APIs: %s\n", str ? str : "(null)");
 
 	str = eglQueryString(egldpy, EGL_EXTENSIONS);
-	gl_renderer_log_extensions("EGL extensions", str ? str : "(null)");
+	gl_renderer_log_extensions(gr, "EGL extensions", str ? str : "(null)");
 }
 
 static void
-log_gl_info(void)
+log_gl_info(struct gl_renderer *gr)
 {
 	const char *str;
 
@@ -3299,7 +3300,7 @@ log_gl_info(void)
 	weston_log("GL renderer: %s\n", str ? str : "(null)");
 
 	str = (char *)glGetString(GL_EXTENSIONS);
-	gl_renderer_log_extensions("GL extensions", str ? str : "(null)");
+	gl_renderer_log_extensions(gr, "GL extensions", str ? str : "(null)");
 }
 
 static void
@@ -3686,7 +3687,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	weston_drm_format_array_init(&gr->supported_formats);
 
-	log_egl_info(gr->egl_display);
+	log_egl_info(gr, gr->egl_display);
 
 	ec->renderer = &gr->base;
 
@@ -3919,7 +3920,7 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	}
 
 	gr->gl_version = get_gl_version();
-	log_gl_info();
+	log_gl_info(gr);
 
 	gr->image_target_texture_2d =
 		(void *) eglGetProcAddress("glEGLImageTargetTexture2DOES");

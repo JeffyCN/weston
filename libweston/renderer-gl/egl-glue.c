@@ -477,7 +477,7 @@ gl_renderer_set_egl_device(struct gl_renderer *gr)
 		return;
 	}
 
-	gl_renderer_log_extensions("EGL device extensions", extensions);
+	gl_renderer_log_extensions(gr, "EGL device extensions", extensions);
 
 	/* Try to query the render node using EGL_DRM_RENDER_NODE_FILE_EXT */
 	if (weston_check_egl_extension(extensions, "EGL_EXT_device_drm_render_node"))
@@ -573,8 +573,7 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 		return 0;
 	}
 
-	gl_renderer_log_extensions("EGL client extensions",
-				   extensions);
+	gl_renderer_log_extensions(gr, "EGL client extensions", extensions);
 
 	if (weston_check_egl_extension(extensions, "EGL_EXT_device_query")) {
 		gr->query_display_attrib =

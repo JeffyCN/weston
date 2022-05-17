@@ -213,7 +213,8 @@ void
 gl_renderer_print_egl_error_state(void);
 
 void
-gl_renderer_log_extensions(const char *name, const char *extensions);
+gl_renderer_log_extensions(struct gl_renderer *gr,
+			   const char *name, const char *extensions);
 
 void
 log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig);
