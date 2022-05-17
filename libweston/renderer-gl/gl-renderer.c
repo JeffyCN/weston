@@ -57,6 +57,7 @@
 #include "shared/fd-util.h"
 #include "shared/helpers.h"
 #include "shared/platform.h"
+#include "shared/string-helpers.h"
 #include "shared/timespec-util.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
@@ -4000,10 +4001,20 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	weston_log("GL ES %d.%d - renderer features:\n",
 		   gr_gl_version_major(gr->gl_version),
 		   gr_gl_version_minor(gr->gl_version));
-	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
-		ec->read_format == PIXMAN_a8r8g8b8 ? "BGRA" : "RGBA");
 	weston_log_continue(STAMP_SPACE "EGL Wayland extension: %s\n",
 			    gr->has_bind_display ? "yes" : "no");
+	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
+			    ec->read_format == PIXMAN_a8r8g8b8 ? "BGRA" : "RGBA");
+	weston_log_continue(STAMP_SPACE "wl_shm 10 bpc formats: %s\n",
+			    yesno(gr->has_texture_type_2_10_10_10_rev));
+	weston_log_continue(STAMP_SPACE "wl_shm 16 bpc formats: %s\n",
+			    yesno(gr->has_texture_norm16));
+	weston_log_continue(STAMP_SPACE "wl_shm half-float formats: %s\n",
+			    yesno(gr->gl_supports_color_transforms));
+	weston_log_continue(STAMP_SPACE "internal R and RG formats: %s\n",
+			    yesno(gr->has_gl_texture_rg));
+	weston_log_continue(STAMP_SPACE "OES_EGL_image_external: %s\n",
+			    yesno(gr->has_egl_image_external));
 
 	return 0;
 }

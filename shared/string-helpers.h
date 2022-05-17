@@ -95,4 +95,10 @@ str_printf(char **str_out, const char *fmt, ...)
 		*str_out = NULL;
 }
 
+static inline const char *
+yesno(bool cond)
+{
+	return cond ? "yes" : "no";
+}
+
 #endif /* WESTON_STRING_HELPERS_H */
