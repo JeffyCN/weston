@@ -593,8 +593,10 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 		weston_log("warning: EGL_EXT_platform_base not supported.\n");
 
 		/* Surfaceless is unusable without platform_base extension */
-		if (gr->platform == EGL_PLATFORM_SURFACELESS_MESA)
+		if (gr->platform == EGL_PLATFORM_SURFACELESS_MESA) {
+			weston_log("Error: EGL surfaceless platform cannot be used.\n");
 			return -1;
+		}
 
 		return 0;
 	}
@@ -614,6 +616,7 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 	/* at this point we definitely have some platform extensions but
 	 * haven't found the supplied platform, so chances are it's
 	 * not supported. */
+	weston_log("Error: EGL does not support %s platform.\n", extension_suffix);
 
 	return -1;
 }
