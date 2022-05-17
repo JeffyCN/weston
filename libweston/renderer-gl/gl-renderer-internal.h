@@ -115,6 +115,7 @@ struct gl_shader_config {
 struct gl_renderer {
 	struct weston_renderer base;
 	struct weston_compositor *compositor;
+	struct weston_log_scope *renderer_scope;
 
 	bool fragment_shader_debug;
 	bool fan_debug;
