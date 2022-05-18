@@ -118,6 +118,16 @@ struct dmabuf_format {
 	int num_modifiers;
 };
 
+/*
+ * yuv_format_descriptor and yuv_plane_descriptor describe the translation
+ * between YUV and RGB formats. When native YUV sampling is not available, we
+ * bind each YUV plane as one or more RGB plane and convert in the shader.
+ * This structure describes the mapping: output_planes is the number of
+ * RGB images we need to bind, each of which has a yuv_plane_descriptor
+ * describing the GL format and the input (YUV) plane index to bind.
+ *
+ * The specified shader_variant is then used to sample.
+ */
 struct yuv_plane_descriptor {
 	uint32_t format;
 	int plane_index;
