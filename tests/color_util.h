@@ -112,3 +112,35 @@ transfer_fn_invert(enum transfer_fn fn);
 
 void
 lcmsMAT3_invert(struct lcmsMAT3 *result, const struct lcmsMAT3 *mat);
+
+struct scalar_stat {
+	double min;
+	struct color_float min_pos;
+
+	double max;
+	struct color_float max_pos;
+
+	double sum;
+	unsigned count;
+};
+
+struct rgb_diff_stat {
+	struct scalar_stat rgb[COLOR_CHAN_NUM];
+	struct scalar_stat two_norm;
+};
+
+void
+scalar_stat_update(struct scalar_stat *stat, double val, struct color_float *pos);
+
+float
+scalar_stat_avg(const struct scalar_stat *stat);
+
+void
+scalar_stat_print_rgb8bit(const struct scalar_stat *stat);
+
+void
+scalar_stat_print_float(const struct scalar_stat *stat);
+
+void
+rgb_diff_stat_update(struct rgb_diff_stat *stat,
+		     struct color_float *ref, struct color_float *val);

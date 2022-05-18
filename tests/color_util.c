@@ -34,6 +34,7 @@
 
 #include <libweston/matrix.h>
 #include "color_util.h"
+#include "weston-test-runner.h"
 #include "shared/helpers.h"
 
 static_assert(sizeof(struct color_float) == 4 * sizeof(float),
@@ -329,4 +330,63 @@ lcmsMAT3_invert(struct lcmsMAT3 *result, const struct lcmsMAT3 *mat)
 	ret = weston_matrix_invert(&inv, &w);
 	assert(ret == 0);
 	lcmsMAT3_from_weston_matrix(result, &inv);
+}
+
+void
+scalar_stat_update(struct scalar_stat *stat, double val, struct color_float *pos)
+{
+	if (stat->count == 0 || stat->min > val) {
+		stat->min = val;
+		stat->min_pos = *pos;
+	}
+
+	if (stat->count == 0 || stat->max < val) {
+		stat->max = val;
+		stat->max_pos = *pos;
+	}
+
+	stat->sum += val;
+	stat->count++;
+}
+
+float
+scalar_stat_avg(const struct scalar_stat *stat)
+{
+	return stat->sum / stat->count;
+}
+
+#define RGB888_FMT "(%3u, %3u, %3u)"
+#define RGB888_VAL(cf) (unsigned)round((cf).r * 255.0), (unsigned)round((cf).g * 255.0), (unsigned)round((cf).b * 255.0)
+
+void
+scalar_stat_print_rgb8bit(const struct scalar_stat *stat)
+{
+	testlog("    min %8.5f at " RGB888_FMT "\n", stat->min, RGB888_VAL(stat->min_pos));
+	testlog("    max %8.5f at " RGB888_FMT "\n", stat->max, RGB888_VAL(stat->max_pos));
+	testlog("    avg %8.5f\n", scalar_stat_avg(stat));
+}
+
+void
+scalar_stat_print_float(const struct scalar_stat *stat)
+{
+	testlog("    min %11.5g at %.5f\n", stat->min, stat->min_pos.r);
+	testlog("    max %11.5g at %.5f\n", stat->max, stat->max_pos.r);
+	testlog("    avg %11.5g\n", scalar_stat_avg(stat));
+}
+
+void
+rgb_diff_stat_update(struct rgb_diff_stat *stat,
+		     struct color_float *ref, struct color_float *val)
+{
+	unsigned i;
+	double ssd = 0.0;
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++) {
+		double diff = val->rgb[i] - ref->rgb[i];
+
+		scalar_stat_update(&stat->rgb[i], diff, ref);
+		ssd += diff * diff;
+	}
+
+	scalar_stat_update(&stat->two_norm, sqrt(ssd), ref);
 }
