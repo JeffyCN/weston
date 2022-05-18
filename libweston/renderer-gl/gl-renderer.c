@@ -3750,12 +3750,8 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	wl_list_init(&gr->dmabuf_formats);
 
 	if (gr->has_surfaceless_context) {
-		weston_log("EGL_KHR_surfaceless_context available\n");
 		gr->dummy_surface = EGL_NO_SURFACE;
 	} else {
-		weston_log("EGL_KHR_surfaceless_context unavailable. "
-			   "Trying PbufferSurface\n");
-
 		if (gl_renderer_create_pbuffer_surface(gr) < 0)
 			goto fail_with_error;
 	}
@@ -4001,8 +3997,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	weston_log("GL ES %d.%d - renderer features:\n",
 		   gr_gl_version_major(gr->gl_version),
 		   gr_gl_version_minor(gr->gl_version));
-	weston_log_continue(STAMP_SPACE "EGL Wayland extension: %s\n",
-			    gr->has_bind_display ? "yes" : "no");
 	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
 			    ec->read_format == PIXMAN_a8r8g8b8 ? "BGRA" : "RGBA");
 	weston_log_continue(STAMP_SPACE "wl_shm 10 bpc formats: %s\n",

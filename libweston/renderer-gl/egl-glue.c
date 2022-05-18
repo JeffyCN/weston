@@ -31,6 +31,7 @@
 
 #include "shared/helpers.h"
 #include "shared/platform.h"
+#include "shared/string-helpers.h"
 
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
@@ -742,6 +743,26 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 		weston_log("warning: Disabling explicit synchronization due"
 			   "to missing EGL_KHR_wait_sync extension\n");
 	}
+
+	weston_log("EGL features:\n");
+	weston_log_continue(STAMP_SPACE "EGL Wayland extension: %s\n",
+			    yesno(gr->has_bind_display));
+	weston_log_continue(STAMP_SPACE "context priority: %s\n",
+			    yesno(gr->has_context_priority));
+	weston_log_continue(STAMP_SPACE "buffer age: %s\n",
+			    yesno(gr->has_egl_buffer_age));
+	weston_log_continue(STAMP_SPACE "partial update: %s\n",
+			    yesno(gr->has_egl_partial_update));
+	weston_log_continue(STAMP_SPACE "swap buffers with damage: %s\n",
+			    yesno(gr->swap_buffers_with_damage));
+	weston_log_continue(STAMP_SPACE "configless context: %s\n",
+			    yesno(gr->has_configless_context));
+	weston_log_continue(STAMP_SPACE "surfaceless context: %s\n",
+			    yesno(gr->has_surfaceless_context));
+	weston_log_continue(STAMP_SPACE "dmabuf support: %s\n",
+			    gr->has_dmabuf_import ?
+			    (gr->has_dmabuf_import_modifiers ? "modifiers" : "legacy") :
+			    "no");
 
 	return 0;
 }
