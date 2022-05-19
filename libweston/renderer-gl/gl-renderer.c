@@ -137,7 +137,7 @@ struct yuv_format_descriptor {
 	uint32_t format;
 	int output_planes;
 	enum gl_shader_texture_variant shader_variant;
-	struct yuv_plane_descriptor plane[4];
+	struct yuv_plane_descriptor plane[3];
 };
 
 struct gl_buffer_state {
