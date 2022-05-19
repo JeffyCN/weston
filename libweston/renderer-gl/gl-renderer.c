@@ -2180,7 +2180,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 		break;
 	case EGL_TEXTURE_Y_U_V_WL:
 		fourcc = DRM_FORMAT_YUV420;
-		gb->num_images = 2;
+		gb->num_images = 3;
 		gb->shader_variant = SHADER_VARIANT_Y_U_V;
 		break;
 	default:
