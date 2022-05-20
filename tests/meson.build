@@ -60,6 +60,21 @@ dep_test_client = declare_dependency(
 	]
 )
 
+lib_lcms_util = static_library(
+	'lib_lcms_util',
+	[ 'lcms_util.c' ],
+	include_directories: common_inc,
+	dependencies: [
+		dep_lcms2, dep_libm
+	],
+	build_by_default: false,
+	install: false,
+)
+dep_lcms_util = declare_dependency(
+	link_with: lib_lcms_util,
+	dependencies: [ dep_lcms2 ]
+)
+
 exe_plugin_test = shared_library(
 	'test-plugin',
 	'weston-test.c',
@@ -243,11 +258,15 @@ if get_option('color-management-lcms')
 		error('color-management-lcms tests require lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
 	endif
 	tests += [
+		{	'name': 'color-metadata-parsing' },
 		{
 			'name': 'color-shaper-matrix',
 			'dep_objs': [ dep_libm, dep_lcms2 ]
 		},
-		{	'name': 'color-metadata-parsing' },
+		{
+			'name': 'lcms-util',
+			'dep_objs': [ dep_lcms_util ]
+		},
 	]
 endif
 

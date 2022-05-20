@@ -212,7 +212,7 @@ Power2_4_EOTF_inv(float o)
 	return pow(o, 1./2.4);
 }
 
-static float
+float
 apply_tone_curve(enum transfer_fn fn, float r)
 {
 	float ret = 0;

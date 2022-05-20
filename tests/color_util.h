@@ -97,6 +97,9 @@ a8r8g8b8_to_float(uint32_t v);
 bool
 find_tone_curve_type(enum transfer_fn fn, int *type, double params[5]);
 
+float
+apply_tone_curve(enum transfer_fn fn, float r);
+
 void
 process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     const struct lcmsMAT3 *mat,
