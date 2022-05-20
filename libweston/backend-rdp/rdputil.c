@@ -76,7 +76,6 @@ end:
 	va_end(ap);
 }
 
-#ifdef ENABLE_RDP_THREAD_CHECK
 void
 assert_compositor_thread(struct rdp_backend *b)
 {
@@ -88,7 +87,6 @@ assert_not_compositor_thread(struct rdp_backend *b)
 {
 	assert(b->compositor_tid != gettid());
 }
-#endif /* ENABLE_RDP_THREAD_CHECK */
 
 bool
 rdp_event_loop_add_fd(struct wl_event_loop *loop,
@@ -113,7 +111,7 @@ rdp_dispatch_task_to_display_loop(RdpPeerContext *peerCtx,
 {
 	/* this function is ONLY used to queue the task from FreeRDP thread,
 	 * and the task to be processed at wayland display loop thread. */
-	ASSERT_NOT_COMPOSITOR_THREAD(peerCtx->rdpBackend);
+	assert_not_compositor_thread(peerCtx->rdpBackend);
 
 	task->peerCtx = peerCtx;
 	task->func = func;
@@ -134,7 +132,7 @@ rdp_dispatch_task(int fd, uint32_t mask, void *arg)
 	eventfd_t dummy;
 
 	/* this must be called back at wayland display loop thread */
-	ASSERT_COMPOSITOR_THREAD(peerCtx->rdpBackend);
+	assert_compositor_thread(peerCtx->rdpBackend);
 
 	eventfd_read(peerCtx->loop_task_event_source_fd, &dummy);
 

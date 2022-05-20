@@ -165,14 +165,6 @@ struct rdp_loop_task {
 	rdp_loop_task_func_t func;
 };
 
-#ifdef ENABLE_RDP_THREAD_CHECK
-#define ASSERT_COMPOSITOR_THREAD(b)     assert_compositor_thread(b)
-#define ASSERT_NOT_COMPOSITOR_THREAD(b) assert_not_compositor_thread(b)
-#else
-#define ASSERT_COMPOSITOR_THREAD(b) (void)b
-#define ASSERT_NOT_COMPOSITOR_THREAD(b) (void)b
-#endif /* ENABLE_RDP_THREAD_CHECK */
-
 #define rdp_debug_verbose(b, ...) \
 	rdp_debug_print(b->verbose, false, __VA_ARGS__)
 #define rdp_debug_verbose_continue(b, ...) \
@@ -201,13 +193,11 @@ rdp_wl_array_read_fd(struct wl_array *array, int fd);
 void
 convert_rdp_keyboard_to_xkb_rule_names(UINT32 KeyboardType, UINT32 KeyboardSubType, UINT32 KeyboardLayout, struct xkb_rule_names *xkbRuleNames);
 
-#ifdef ENABLE_RDP_THREAD_CHECK
 void
 assert_compositor_thread(struct rdp_backend *b);
 
 void
 assert_not_compositor_thread(struct rdp_backend *b);
-#endif /* ENABLE_RDP_THREAD_CHECK */
 
 bool
 rdp_event_loop_add_fd(struct wl_event_loop *loop,
