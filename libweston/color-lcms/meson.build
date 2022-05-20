@@ -2,7 +2,6 @@ if not get_option('color-management-lcms')
 	subdir_done()
 endif
 
-dep_lcms2 = dependency('lcms2', version: '>= 2.9', required: false)
 if not dep_lcms2.found()
 	error('color-lcms plugin requires lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
 endif

@@ -239,7 +239,6 @@ if get_option('renderer-gl')
 endif
 
 if get_option('color-management-lcms')
-	dep_lcms2 = dependency('lcms2', version: '>= 2.9', required: false)
 	if not dep_lcms2.found()
 		error('color-management-lcms tests require lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
 	endif

@@ -97,17 +97,16 @@ if get_option('screenshare')
 endif
 
 if get_option('color-management-lcms')
-	config_h.set('HAVE_LCMS', '1')
-
 	srcs_lcms = [
 		'cms-static.c',
 		'cms-helper.c',
 	]
 
-	dep_lcms2 = dependency('lcms2', required: false)
 	if not dep_lcms2.found()
 		error('cms-static requires lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
 	endif
+
+	config_h.set('HAVE_LCMS', '1')
 
 	plugin_lcms = shared_library(
 		'cms-static',

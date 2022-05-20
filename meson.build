@@ -158,6 +158,8 @@ if dep_libdrm_version.version_compare('>=2.4.107')
   config_h.set('HAVE_HUMAN_FORMAT_MODIFIER', '1')
 endif
 
+dep_lcms2 = dependency('lcms2', version: '>= 2.9', required: false)
+
 prog_python = import('python').find_installation('python3')
 files_xxd_py = files('tools/xxd.py')
 cmd_xxd = [ prog_python, files_xxd_py, '@INPUT@', '@OUTPUT@' ]
