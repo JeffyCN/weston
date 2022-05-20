@@ -121,6 +121,29 @@ transfer_fn_invert(enum transfer_fn fn)
 	return 0;
 }
 
+const char *
+transfer_fn_name(enum transfer_fn fn)
+{
+	switch (fn) {
+	case TRANSFER_FN_ADOBE_RGB_EOTF:
+		return "AdobeRGB EOTF";
+	case TRANSFER_FN_ADOBE_RGB_EOTF_INVERSE:
+		return "inverse AdobeRGB EOTF";
+	case TRANSFER_FN_IDENTITY:
+		return "identity";
+	case TRANSFER_FN_POWER2_4_EOTF:
+		return "power 2.4";
+	case TRANSFER_FN_POWER2_4_EOTF_INVERSE:
+		return "inverse power 2.4";
+	case TRANSFER_FN_SRGB_EOTF:
+		return "sRGB EOTF";
+	case TRANSFER_FN_SRGB_EOTF_INVERSE:
+		return "inverse sRGB EOTF";
+	}
+	assert(0 && "bad transfer_fn");
+	return 0;
+}
+
 /**
  * NaN comes out as is
  *This function is not intended for hiding NaN.
