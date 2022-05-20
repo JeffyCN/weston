@@ -34,3 +34,6 @@ build_MPE_curve(cmsContext ctx, enum transfer_fn fn);
 
 cmsStage *
 build_MPE_curve_stage(cmsContext context_id, enum transfer_fn fn);
+
+cmsBool
+SetTextTags(cmsHPROFILE hProfile, const wchar_t* Description);
