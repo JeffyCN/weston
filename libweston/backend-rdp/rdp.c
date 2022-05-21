@@ -272,7 +272,7 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 {
 	struct rdp_output *output = container_of(output_base, struct rdp_output, base);
 	struct weston_compositor *ec = output->base.compositor;
-	struct rdp_backend *b = to_rdp_backend(ec);
+	struct rdp_backend *b = output->backend;
 	struct rdp_peers_item *peer;
 	struct timespec now, target;
 	int refresh_nsec = millihz_to_nsec(output_base->current_mode->refresh);
@@ -351,7 +351,8 @@ rdp_insert_new_mode(struct weston_output *output, int width, int height, int rat
 static struct weston_mode *
 ensure_single_mode(struct weston_output *output, struct weston_mode *target)
 {
-	struct rdp_backend *b = to_rdp_backend(output->compositor);
+	struct rdp_output *rdpOutput = to_rdp_output(output);
+	struct rdp_backend *b = rdpOutput->backend;
 	struct weston_mode *iter, *local = NULL, *new_mode;
 
 	wl_list_for_each(iter, &output->mode_list, link) {
@@ -385,7 +386,7 @@ static void
 rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 {
 	struct rdp_output *rdpOutput = container_of(base, struct rdp_output, base);
-	struct rdp_backend *b = to_rdp_backend(base->compositor);
+	struct rdp_backend *b = rdpOutput->backend;
 	struct weston_mode *cur;
 	struct weston_output *output = base;
 	struct rdp_peers_item *rdpPeer;
@@ -468,7 +469,7 @@ rdp_output_enable(struct weston_output *base)
 
 	assert(output);
 
-	b = to_rdp_backend(base->compositor);
+	b = output->backend;
 
 	output->shadow_surface = pixman_image_create_bits(PIXMAN_x8r8g8b8,
 							  output->base.current_mode->width,
@@ -540,6 +541,8 @@ rdp_output_create(struct weston_backend *backend, const char *name)
 	output->base.start_repaint_loop = rdp_output_start_repaint_loop;
 	output->base.repaint = rdp_output_repaint;
 	output->base.switch_mode = rdp_output_switch_mode;
+
+	output->backend = b;
 
 	weston_compositor_add_pending_output(&output->base, compositor);
 
