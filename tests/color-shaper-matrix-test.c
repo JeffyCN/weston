@@ -120,6 +120,7 @@ const struct lcms_pipeline pipeline_BT2020 = {
 
 struct setup_args {
 	struct fixture_metadata meta;
+	int ref_image_index;
 	const struct lcms_pipeline *pipeline;
 	/**
 	 * 2/255 or 3/255 maximum possible error, where 255 is 8 bit max value
@@ -141,10 +142,10 @@ struct setup_args {
 };
 
 static const struct setup_args my_setup_args[] = {
-	/* name,                pipeline,   tolerance, dim, profile type */
-	{ { "sRGB->sRGB" },     &pipeline_sRGB,     0,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->adobeRGB" }, &pipeline_adobeRGB, 1,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->BT2020" },   &pipeline_BT2020,   5,  0, PTYPE_MATRIX_SHAPER },
+	/* name,          ref img, pipeline,   tolerance, dim, profile type */
+	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->BT2020" },   2, &pipeline_BT2020,   5,  0, PTYPE_MATRIX_SHAPER },
 };
 
 struct image_header {
@@ -457,6 +458,8 @@ check_process_pattern_ex(struct buffer *src, struct buffer *shot,
  */
 TEST(shaper_matrix)
 {
+	int seq_no = get_test_fixture_index();
+	const struct setup_args *arg = &my_setup_args[seq_no];
 	const int width = WINDOW_WIDTH;
 	const int height = WINDOW_HEIGHT;
 	const int bitwidth = 8;
@@ -468,7 +471,6 @@ TEST(shaper_matrix)
 	struct wl_surface *surface;
 	struct image_header image;
 	bool match;
-	int seq_no = get_test_fixture_index();
 
 	client = create_client_and_test_surface(0, 0, width, height);
 	assert(client);
@@ -485,8 +487,9 @@ TEST(shaper_matrix)
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
 
-	match = verify_image(shot, "shaper_matrix", seq_no, NULL, seq_no);
-	assert(check_process_pattern_ex(buf, shot, &my_setup_args[seq_no]));
+	match = verify_image(shot, "shaper_matrix", arg->ref_image_index,
+			     NULL, seq_no);
+	assert(check_process_pattern_ex(buf, shot, arg));
 	assert(match);
 	buffer_destroy(shot);
 	buffer_destroy(buf);
