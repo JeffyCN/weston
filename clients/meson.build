@@ -131,7 +131,12 @@ simple_clients = [
 			ivi_application_client_protocol_h,
 			ivi_application_protocol_c,
 		],
-		'dep_objs': [ dep_wayland_client, dep_libshared, dep_libm ],
+		'dep_objs': [
+			dep_libm,
+			dep_libshared,
+			dep_matrix_c,
+			dep_wayland_client,
+		],
 		'deps': [ 'egl', 'wayland-egl', 'glesv2', 'wayland-cursor' ],
 		'options': [ 'renderer-gl' ]
 	},
