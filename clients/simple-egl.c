@@ -95,7 +95,7 @@ struct window {
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 	EGLSurface egl_surface;
-	int fullscreen, maximized, opaque, buffer_size, frame_sync, delay;
+	int fullscreen, maximized, opaque, buffer_bpp, frame_sync, delay;
 	bool wait_for_configure;
 };
 
@@ -154,7 +154,7 @@ init_egl(struct display *display, struct window *window)
 	EGLConfig *configs;
 	EGLBoolean ret;
 
-	if (window->opaque || window->buffer_size == 16)
+	if (window->opaque || window->buffer_bpp == 16)
 		config_attribs[9] = 0;
 
 	display->egl.dpy =
@@ -178,13 +178,13 @@ init_egl(struct display *display, struct window *window)
 	assert(ret && n >= 1);
 
 	for (i = 0; i < n; i++) {
-		EGLint buffer_size, red_size;
+		EGLint buffer_bpp, red_size;
 		eglGetConfigAttrib(display->egl.dpy,
-				   configs[i], EGL_BUFFER_SIZE, &buffer_size);
+				   configs[i], EGL_BUFFER_SIZE, &buffer_bpp);
 		eglGetConfigAttrib(display->egl.dpy,
 				   configs[i], EGL_RED_SIZE, &red_size);
-		if ((window->buffer_size == 0 ||
-		     window->buffer_size == buffer_size) && red_size < 10) {
+		if ((window->buffer_bpp == 0 ||
+		     window->buffer_bpp == buffer_bpp) && red_size < 10) {
 			display->egl.conf = configs[i];
 			break;
 		}
@@ -192,7 +192,7 @@ init_egl(struct display *display, struct window *window)
 	free(configs);
 	if (display->egl.conf == NULL) {
 		fprintf(stderr, "did not find config with buffer size %d\n",
-			window->buffer_size);
+			window->buffer_bpp);
 		exit(EXIT_FAILURE);
 	}
 
@@ -813,7 +813,7 @@ main(int argc, char **argv)
 	window.geometry.width  = 250;
 	window.geometry.height = 250;
 	window.window_size = window.geometry;
-	window.buffer_size = 0;
+	window.buffer_bpp = 0;
 	window.frame_sync = 1;
 	window.delay = 0;
 
@@ -827,7 +827,7 @@ main(int argc, char **argv)
 		else if (strcmp("-o", argv[i]) == 0)
 			window.opaque = 1;
 		else if (strcmp("-s", argv[i]) == 0)
-			window.buffer_size = 16;
+			window.buffer_bpp = 16;
 		else if (strcmp("-b", argv[i]) == 0)
 			window.frame_sync = 0;
 		else if (strcmp("-h", argv[i]) == 0)
