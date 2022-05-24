@@ -82,7 +82,7 @@ struct geometry {
 
 struct window {
 	struct display *display;
-	struct geometry geometry, window_size;
+	struct geometry buffer_size, window_size;
 	struct {
 		GLuint rotation_uniform;
 		GLuint pos;
@@ -264,8 +264,8 @@ init_gl(struct window *window)
 	EGLBoolean ret;
 
 	window->native = wl_egl_window_create(window->surface,
-					      window->geometry.width,
-					      window->geometry.height);
+					      window->buffer_size.width,
+					      window->buffer_size.height);
 	window->egl_surface =
 		weston_platform_create_egl_surface(window->display->egl.dpy,
 						   window->display->egl.conf,
@@ -347,16 +347,16 @@ handle_toplevel_configure(void *data, struct xdg_toplevel *toplevel,
 			window->window_size.width = width;
 			window->window_size.height = height;
 		}
-		window->geometry.width = width;
-		window->geometry.height = height;
+		window->buffer_size.width = width;
+		window->buffer_size.height = height;
 	} else if (!window->fullscreen && !window->maximized) {
-		window->geometry = window->window_size;
+		window->buffer_size = window->window_size;
 	}
 
 	if (window->native)
 		wl_egl_window_resize(window->native,
-				     window->geometry.width,
-				     window->geometry.height, 0, 0);
+				     window->buffer_size.width,
+				     window->buffer_size.height, 0, 0);
 }
 
 static void
@@ -472,7 +472,7 @@ redraw(struct window *window)
 		eglQuerySurface(display->egl.dpy, window->egl_surface,
 				EGL_BUFFER_AGE_EXT, &buffer_age);
 
-	glViewport(0, 0, window->geometry.width, window->geometry.height);
+	glViewport(0, 0, window->buffer_size.width, window->buffer_size.height);
 
 	glUniformMatrix4fv(window->gl.rotation_uniform, 1, GL_FALSE,
 			   (GLfloat *) rotation);
@@ -505,10 +505,10 @@ redraw(struct window *window)
 	}
 
 	if (display->swap_buffers_with_damage && buffer_age > 0) {
-		rect[0] = window->geometry.width / 4 - 1;
-		rect[1] = window->geometry.height / 4 - 1;
-		rect[2] = window->geometry.width / 2 + 2;
-		rect[3] = window->geometry.height / 2 + 2;
+		rect[0] = window->buffer_size.width / 4 - 1;
+		rect[1] = window->buffer_size.height / 4 - 1;
+		rect[2] = window->buffer_size.width / 2 + 2;
+		rect[3] = window->buffer_size.height / 2 + 2;
 		display->swap_buffers_with_damage(display->egl.dpy,
 						  window->egl_surface,
 						  rect, 1);
@@ -810,9 +810,9 @@ main(int argc, char **argv)
 
 	window.display = &display;
 	display.window = &window;
-	window.geometry.width  = 250;
-	window.geometry.height = 250;
-	window.window_size = window.geometry;
+	window.buffer_size.width  = 250;
+	window.buffer_size.height = 250;
+	window.window_size = window.buffer_size;
 	window.buffer_bpp = 0;
 	window.frame_sync = 1;
 	window.delay = 0;
