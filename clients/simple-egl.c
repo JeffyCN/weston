@@ -497,9 +497,7 @@ redraw(struct window *window)
 
 	if (window->opaque || window->fullscreen) {
 		region = wl_compositor_create_region(window->display->compositor);
-		wl_region_add(region, 0, 0,
-			      window->geometry.width,
-			      window->geometry.height);
+		wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
 		wl_surface_set_opaque_region(window->surface, region);
 		wl_region_destroy(region);
 	} else {
