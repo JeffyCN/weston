@@ -315,8 +315,11 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		union gbm_bo_handle handle;
 
 	        handle = gbm_bo_get_handle_for_plane(fb->bo, i);
-		if (handle.s32 == -1)
+		if (handle.s32 == -1) {
+			*try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_GBM_BO_GET_HANDLE_FAILED;
 			goto err_free;
+		}
 		fb->handles[i] = handle.u32;
 	}
 
