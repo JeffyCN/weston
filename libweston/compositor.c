@@ -4138,11 +4138,18 @@ output_repaint_timer_handler(void *data)
 			backend->repaint_begin(backend);
 
 		wl_list_for_each(output, &compositor->output_list, link) {
+			struct weston_animation *animation, *next;
+
 			if (output->backend != backend)
 				continue;
 
 			if (!output->will_repaint)
 				continue;
+
+			/* update animation status */
+			wl_list_for_each_safe(animation, next,
+					      &output->animation_list, link)
+				animation->frame(animation, output, &now);
 
 			ret = weston_output_repaint(output, &now);
 			if (ret)
