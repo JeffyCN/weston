@@ -3750,6 +3750,13 @@ output_repaint_timer_handler(void *data)
 	}
 
 	wl_list_for_each(output, &compositor->output_list, link) {
+		struct weston_animation *animation, *next;
+
+		/* update animation status */
+		wl_list_for_each_safe(animation, next,
+				      &output->animation_list, link)
+			animation->frame(animation, output, &now);
+
 		ret = weston_output_maybe_repaint(output, &now);
 		if (ret)
 			break;
