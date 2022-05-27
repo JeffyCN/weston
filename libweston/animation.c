@@ -59,6 +59,7 @@ weston_spring_update(struct weston_spring *spring, const struct timespec *time)
 {
 	double force, v, current, step;
 
+#if 0
 	/* Limit the number of executions of the loop below by ensuring that
 	 * the timestamp for last update of the spring is no more than 1s ago.
 	 * This handles the case where time moves backwards or forwards in
@@ -71,6 +72,7 @@ weston_spring_update(struct weston_spring *spring, const struct timespec *time)
 			   timespec_to_msec(time));
 		timespec_add_msec(&spring->timestamp, time, -1000);
 	}
+#endif
 
 	step = 0.01;
 	while (4 < timespec_sub_to_msec(time, &spring->timestamp)) {
@@ -178,9 +180,6 @@ weston_view_animation_frame(struct weston_animation *base,
 	struct weston_compositor *compositor =
 		animation->view->surface->compositor;
 
-	if (base->frame_counter <= 1)
-		animation->spring.timestamp = *time;
-
 	weston_spring_update(&animation->spring, time);
 
 	if (weston_spring_done(&animation->spring)) {
@@ -266,10 +265,14 @@ weston_view_animation_create(struct weston_view *view,
 static void
 weston_view_animation_run(struct weston_view_animation *animation)
 {
-	struct timespec zero_time = { 0 };
+	struct weston_compositor *compositor =
+		animation->view->surface->compositor;
+	struct timespec now;
 
+	weston_compositor_read_presentation_clock(compositor, &now);
 	animation->animation.frame_counter = 0;
-	weston_view_animation_frame(&animation->animation, NULL, &zero_time);
+	animation->spring.timestamp = now;
+	weston_view_animation_frame(&animation->animation, NULL, &now);
 }
 
 static void
