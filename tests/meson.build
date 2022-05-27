@@ -341,7 +341,6 @@ foreach t : tests
 		t_name,
 		t_sources,
 		c_args: [
-			'-DUNIT_TEST',
 			'-DTHIS_TEST_NAME="' + t_name + '"',
 		],
 		build_by_default: true,
@@ -385,7 +384,6 @@ foreach t : tests_standalone
 	exe_t = executable(
 		'test-@0@'.format(t.get(0)),
 		srcs_t,
-		c_args: [ '-DUNIT_TEST' ],
 		build_by_default: true,
 		include_directories: common_inc,
 		dependencies: deps_t,

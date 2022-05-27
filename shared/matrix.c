@@ -31,12 +31,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#ifdef UNIT_TEST
-#define WL_EXPORT
-#else
 #include <wayland-server.h>
-#endif
-
 #include <libweston/matrix.h>
 
 
@@ -169,7 +164,7 @@ find_pivot(double *column, unsigned k)
  * LU decomposition, forward and back substitution: Chapter 3.
  */
 
-MATRIX_TEST_EXPORT inline int
+static int
 matrix_invert(double *A, unsigned *p, const struct weston_matrix *matrix)
 {
 	unsigned i, j, k;
@@ -204,7 +199,7 @@ matrix_invert(double *A, unsigned *p, const struct weston_matrix *matrix)
 	return 0;
 }
 
-MATRIX_TEST_EXPORT inline void
+static void
 inverse_transform(const double *LU, const unsigned *p, float *v)
 {
 	/* Solve A * x = v, when we have P * A = L * U.

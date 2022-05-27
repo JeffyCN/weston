@@ -65,19 +65,6 @@ int
 weston_matrix_invert(struct weston_matrix *inverse,
 		     const struct weston_matrix *matrix);
 
-#ifdef UNIT_TEST
-#  define MATRIX_TEST_EXPORT WL_EXPORT
-
-int
-matrix_invert(double *A, unsigned *p, const struct weston_matrix *matrix);
-
-void
-inverse_transform(const double *LU, const unsigned *p, float *v);
-
-#else
-#  define MATRIX_TEST_EXPORT static
-#endif
-
 #ifdef  __cplusplus
 }
 #endif
