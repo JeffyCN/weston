@@ -4529,11 +4529,21 @@ output_repaint_timer_handler(int fd, uint32_t mask, void *data)
 			backend->repaint_begin(backend);
 
 		wl_list_for_each(output, &compositor->output_list, link) {
+			struct weston_animation *animation, *next;
+
 			if (output->backend != backend)
 				continue;
 
 			if (!output->will_repaint)
 				continue;
+
+			/* Update animations before repainting to ensure correct
+			 * animation state after system suspend/resume cycles.
+			 * This prevents visual jumps in animations when
+			 * repainting resumes after a long pause. */
+			wl_list_for_each_safe(animation, next,
+					      &output->animation_list, link)
+				animation->frame(animation, output, &now);
 
 			ret = weston_output_repaint(output);
 			if (ret)
