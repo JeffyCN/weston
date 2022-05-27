@@ -251,7 +251,6 @@ endif
 
 tests_standalone = [
 	['config-parser', [], [ dep_zucmain ]],
-	['matrix', [], [ dep_libm, dep_matrix_c ]],
 	['timespec', [], [ dep_zucmain ]],
 	['zuc',
 		[
