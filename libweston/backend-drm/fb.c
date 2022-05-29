@@ -454,14 +454,15 @@ drm_can_scanout_dmabuf(struct weston_compositor *ec,
 	struct drm_fb *fb;
 	struct drm_backend *b = to_drm_backend(ec);
 	bool ret = false;
+	uint32_t try_reason = 0x0;
 
-	fb = drm_fb_get_from_dmabuf(dmabuf, b, true, NULL);
+	fb = drm_fb_get_from_dmabuf(dmabuf, b, true, &try_reason);
 	if (fb)
 		ret = true;
 
 	drm_fb_unref(fb);
-	drm_debug(b, "[dmabuf] dmabuf %p, import test %s\n", dmabuf,
-		      ret ? "succeeded" : "failed");
+	drm_debug(b, "[dmabuf] dmabuf %p, import test %s, with reason 0x%x\n", dmabuf,
+		      ret ? "succeeded" : "failed", try_reason);
 	return ret;
 }
 
