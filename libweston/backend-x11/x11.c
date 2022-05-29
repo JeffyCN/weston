@@ -127,6 +127,7 @@ struct x11_head {
 
 struct x11_output {
 	struct weston_output	base;
+	struct x11_backend	*backend;
 
 	xcb_window_t		window;
 	struct weston_mode	mode;
@@ -449,7 +450,6 @@ static void
 set_clip_for_output(struct weston_output *output_base, pixman_region32_t *region)
 {
 	struct x11_output *output = to_x11_output(output_base);
-	struct weston_compositor *ec;
 	struct x11_backend *b;
 	pixman_region32_t transformed_region;
 	pixman_box32_t *rects;
@@ -461,8 +461,7 @@ set_clip_for_output(struct weston_output *output_base, pixman_region32_t *region
 	if (!output)
 		return;
 
-	ec = output->base.compositor;
-	b = to_x11_backend(ec);
+	b = output->backend;
 
 	pixman_region32_init(&transformed_region);
 	weston_region_global_to_output(&transformed_region,
@@ -512,7 +511,7 @@ x11_output_repaint_shm(struct weston_output *output_base,
 	assert(output);
 
 	ec = output->base.compositor;
-	b = to_x11_backend(ec);
+	b = output->backend;
 
 	pixman_renderer_output_set_buffer(output_base, output->hw_surface);
 	ec->renderer->repaint_output(output_base, damage);
@@ -828,7 +827,7 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 
 	assert(output);
 
-	b = to_x11_backend(base->compositor);
+	b = output->backend;
 
 	if (mode->width == output->mode.width &&
 	    mode->height == output->mode.height)
@@ -880,7 +879,7 @@ x11_output_disable(struct weston_output *base)
 
 	assert(output);
 
-	backend = to_x11_backend(base->compositor);
+	backend = output->backend;
 
 	if (!output->base.enabled)
 		return 0;
@@ -922,7 +921,7 @@ x11_output_enable(struct weston_output *base)
 
 	assert(output);
 
-	b = to_x11_backend(base->compositor);
+	b = output->backend;
 
 	static const char name[] = "Weston Compositor";
 	static const char class[] = "weston-1\0Weston Compositor";
@@ -1100,7 +1099,7 @@ x11_output_set_size(struct weston_output *base, int width, int height)
 	if (!output)
 		return -1;
 
-	b = to_x11_backend(base->compositor);
+	b = output->backend;
 	scrn = b->screen;
 
 	/* We can only be called once. */
@@ -1168,6 +1167,8 @@ x11_output_create(struct weston_backend *backend, const char *name)
 	output->base.disable = x11_output_disable;
 	output->base.enable = x11_output_enable;
 	output->base.attach_head = NULL;
+
+	output->backend = b;
 
 	weston_compositor_add_pending_output(&output->base, compositor);
 
