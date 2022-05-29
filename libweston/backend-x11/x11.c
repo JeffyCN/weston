@@ -1239,10 +1239,12 @@ x11_head_destroy(struct weston_head *base)
 static struct x11_output *
 x11_backend_find_output(struct x11_backend *b, xcb_window_t window)
 {
-	struct x11_output *output;
+	struct weston_output *base;
 
-	wl_list_for_each(output, &b->compositor->output_list, base.link) {
-		if (output->window == window)
+	wl_list_for_each(base, &b->compositor->output_list, link) {
+		struct x11_output *output = to_x11_output(base);
+
+		if (output && output->window == window)
 			return output;
 	}
 
@@ -1838,6 +1840,8 @@ x11_shutdown(struct weston_backend *base)
 {
 	struct x11_backend *backend = to_x11_backend(base);
 
+	wl_list_remove(&backend->base.link);
+
 	wl_event_source_remove(backend->xcb_source);
 	x11_input_destroy(backend);
 }
@@ -1880,7 +1884,7 @@ x11_backend_create(struct weston_compositor *compositor,
 	b->fullscreen = config->fullscreen;
 	b->no_input = config->no_input;
 
-	compositor->backend = &b->base;
+	wl_list_insert(&compositor->backend_list, &b->base.link);
 
 	b->base.supported_presentation_clocks =
 			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
@@ -2006,6 +2010,11 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_version != WESTON_X11_BACKEND_CONFIG_VERSION ||
 	    config_base->struct_size > sizeof(struct weston_x11_backend_config)) {
 		weston_log("X11 backend config structure is invalid\n");
+		return -1;
+	}
+
+	if (compositor->renderer) {
+		weston_log("X11 backend must be the primary backend\n");
 		return -1;
 	}
 
