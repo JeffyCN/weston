@@ -3138,11 +3138,17 @@ load_rdp_backend(struct weston_compositor *c,
 static int
 vnc_backend_output_configure(struct weston_output *output)
 {
+	struct wet_output_config defaults = {
+		.width = 640,
+		.height = 480,
+	};
 	struct wet_compositor *compositor = to_wet_compositor(output->compositor);
 	struct wet_output_config *parsed_options = compositor->parsed_options;
 	const struct weston_vnc_output_api *api = weston_vnc_output_get_api(output->compositor);
-	int width = 640;
-	int height = 480;
+	struct weston_config *wc = wet_get_config(output->compositor);
+	struct weston_config_section *section;
+	int width;
+	int height;
 
 	assert(parsed_options);
 
@@ -3151,11 +3157,10 @@ vnc_backend_output_configure(struct weston_output *output)
 		return -1;
 	}
 
-	if (parsed_options->width)
-		width = parsed_options->width;
+	section = weston_config_get_section(wc, "output", "name", output->name);
 
-	if (parsed_options->height)
-		height = parsed_options->height;
+	parse_simple_mode(output, section, &width, &height, &defaults,
+			  compositor->parsed_options);
 
 	weston_output_set_scale(output, 1);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
