@@ -67,6 +67,7 @@ struct headless_head {
 
 struct headless_output {
 	struct weston_output base;
+	struct headless_backend *backend;
 
 	struct weston_mode mode;
 	struct wl_event_source *finish_frame_timer;
@@ -137,7 +138,7 @@ finish_frame_handler(void *data)
 static void
 headless_output_update_gl_border(struct headless_output *output)
 {
-	struct headless_backend *backend = to_headless_backend(output->base.compositor);
+	struct headless_backend *backend = output->backend;
 
 	if (!output->frame)
 		return;
@@ -174,8 +175,7 @@ headless_output_repaint(struct weston_output *output_base,
 static void
 headless_output_disable_gl(struct headless_output *output)
 {
-	struct weston_compositor *compositor = output->base.compositor;
-	struct headless_backend *b = to_headless_backend(compositor);
+	struct headless_backend *b = output->backend;
 
 	weston_gl_borders_fini(&output->gl.borders, &output->base, b->glri);
 
@@ -205,7 +205,7 @@ headless_output_disable(struct weston_output *base)
 	if (!output->base.enabled)
 		return 0;
 
-	b = to_headless_backend(base->compositor);
+	b = output->backend;
 
 	wl_event_source_remove(output->finish_frame_timer);
 
@@ -242,8 +242,7 @@ headless_output_destroy(struct weston_output *base)
 static int
 headless_output_enable_gl(struct headless_output *output)
 {
-	struct weston_compositor *compositor = output->base.compositor;
-	struct headless_backend *b = to_headless_backend(compositor);
+	struct headless_backend *b = output->backend;
 	const struct weston_mode *mode = output->base.current_mode;
 	struct gl_renderer_pbuffer_options options = {
 		.drm_formats = headless_formats,
@@ -333,7 +332,7 @@ headless_output_enable(struct weston_output *base)
 
 	assert(output);
 
-	b = to_headless_backend(base->compositor);
+	b = output->backend;
 
 	loop = wl_display_get_event_loop(b->compositor->wl_display);
 	output->finish_frame_timer =
@@ -432,6 +431,8 @@ headless_output_create(struct weston_backend *backend, const char *name)
 	output->base.disable = headless_output_disable;
 	output->base.enable = headless_output_enable;
 	output->base.attach_head = NULL;
+
+	output->backend = b;
 
 	weston_compositor_add_pending_output(&output->base, compositor);
 
