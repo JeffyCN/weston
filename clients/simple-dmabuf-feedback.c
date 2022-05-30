@@ -1494,43 +1494,31 @@ create_display()
 }
 
 /* Simple client to test the dma-buf feedback implementation. This does not
- * replace the need to implement a dma-buf feedback test that can be run in
- * the CI. But as we still don't know exactly how to do this, this client
- * can be helpful to run tests manually.
+ * replace the need to implement a dma-buf feedback test that can be run in the
+ * CI. But as we still don't know exactly how to do this, this client can be
+ * helpful to run tests manually. It can also be helpful to test other
+ * compositors.
  *
- * In order to use this, we have to hack the DRM-backend to pretend that
- * INITIAL_BUFFER_FORMAT is not supported by the planes of the underlying
- * hardware. In Weston, we have to do this in
- * drm_output_prepare_plane_view(), more specifically in the part where
- * we call drm_output_plane_view_has_valid_format(). So we'd have something
- * like this:
+ * In order to use this client, we have to hack the DRM-backend of the
+ * compositor to pretend that INITIAL_BUFFER_FORMAT is not supported by the
+ * planes of the underlying hardware.
  *
- *     // in this example, INITIAL_BUFFER_FORMAT == DRM_FORMAT_XRGB8888
+ * How this client works:
  *
- *     bool fake_unsupported_format = false;
- *     if (fb && fb->format->format == DRM_FORMAT_XRGB8888)
- *             fake_unsupported_format = true;
+ * This client creates a surface and buffers for it with the same resolution of
+ * the output mode in use. Also, it sets the surface to fullscreen. So we have
+ * everything set to allow the surface to be placed in an overlay plane. But as
+ * these buffers are created with INITIAL_BUFFER_FORMAT, they are not eligible
+ * for direct scanout.
  *
- *     if (!drm_output_plane_view_has_valid_format(plane, state, ev, fb) ||
- *         fake_unsupported_format)
- *         ...
- *
- * It creates a surface and buffers for it with the same resolution of the
- * output mode in use. Also, it sets the surface to fullscreen. So we have
- * everything set to allow the surface to be placed in a plane. But as
- * these buffers are created with INITIAL_BUFFER_FORMAT, they are placed in
- * the renderer.
- *
- * When the compositor creates the client surface, it adds only the
- * renderer tranche to its dma-buf feedback object and send the feedback to
- * the client. But as the repaint cycles start and Weston detects that the
- * only reason why the surface has not been placed in a plane was the
- * incompatibility between the framebuffer format and the ones supported by
- * the planes of the underlying hardware, Weston adds a scanout tranche to
- * the surface dma-buf feedback and resend them. In this tranche the client
- * can find pairs of formats and modifiers supported by the planes, and so
- * it can recreate its buffers using one of these pairs in order to
- * increase the chances of its surface end up in a plane. */
+ * When Weston creates a client's surface, it adds only the renderer tranche to
+ * its dma-buf feedback object and send the feedback to the client. But as the
+ * repaint cycles start and Weston detects that the view of the client is not
+ * eligible for direct scanout because of the incompatibility of the
+ * framebuffer's format/modifier pair and the KMS device, it adds a scanout
+ * tranche to the feedback and resend it. In this scanout tranche the client can
+ * find parameters to re-allocate its buffers and increase its chances of
+ * hitting direct scanout. */
 int
 main(int argc, char **argv)
 {
