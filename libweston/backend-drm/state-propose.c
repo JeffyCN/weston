@@ -335,7 +335,7 @@ drm_output_check_zpos_plane_states(struct drm_output_state *state)
 	}
 }
 
-static bool
+static void
 dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 			     uint32_t try_view_on_plane_failure_reasons)
 {
@@ -384,7 +384,7 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 	    (action_needed == ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE &&
 	     !scanout_tranche->active)) {
 		dmabuf_feedback->action_needed = ACTION_NEEDED_NONE;
-		return false;
+		return;
 	}
 
 	/* We hit this if:
@@ -399,7 +399,7 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 	    dmabuf_feedback->action_needed != action_needed) {
 		clock_gettime(CLOCK_MONOTONIC, &dmabuf_feedback->timer);
 		dmabuf_feedback->action_needed = action_needed;
-		return false;
+		return;
 	/* Timer is already on and the action needed when it was set to on does
 	 * not conflict with the most recent needed action we've detected. If
 	 * more than MAX_TIME_SECONDS has passed, we need to resend the dma-buf
@@ -409,7 +409,7 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 		delta_time.tv_sec = current_time.tv_sec -
 				    dmabuf_feedback->timer.tv_sec;
 		if (delta_time.tv_sec < MAX_TIME_SECONDS)
-			return false;
+			return;
 	}
 
 	/* If we got here it means that the timer has triggered, so we have
@@ -429,8 +429,6 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 
 	/* Set the timer to off */
 	dmabuf_feedback->action_needed = ACTION_NEEDED_NONE;
-
-	return true;
 }
 
 static struct drm_plane_state *
