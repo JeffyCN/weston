@@ -349,7 +349,9 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 	const time_t MAX_TIME_SECONDS = 2;
 
 	/* Find out what we need to do with the dma-buf feedback */
-	if (try_view_on_plane_failure_reasons & FAILURE_REASONS_FORCE_RENDERER)
+	if (try_view_on_plane_failure_reasons &
+		(FAILURE_REASONS_FORCE_RENDERER |
+		 FAILURE_REASONS_NO_PLANES_AVAILABLE))
 		action_needed |= ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE;
 	if (try_view_on_plane_failure_reasons &
 		(FAILURE_REASONS_ADD_FB_FAILED |
