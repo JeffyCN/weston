@@ -344,25 +344,27 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 	struct drm_backend *b = device->backend;
 	dev_t scanout_dev = device->drm.devnum;
 	uint32_t scanout_flags = ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT;
-	uint32_t action_needed = ACTION_NEEDED_NONE;
+	enum actions_needed_dmabuf_feedback action_needed = ACTION_NEEDED_NONE;
 	struct timespec current_time, delta_time;
 	const time_t MAX_TIME_SECONDS = 2;
 
-	/* Find out what we need to do with the dma-buf feedback */
-	if (try_view_on_plane_failure_reasons &
-		(FAILURE_REASONS_FORCE_RENDERER |
-		 FAILURE_REASONS_NO_PLANES_AVAILABLE))
-		action_needed |= ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE;
-	if (try_view_on_plane_failure_reasons &
-		(FAILURE_REASONS_ADD_FB_FAILED |
-		 FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE |
-		 FAILURE_REASONS_DMABUF_MODIFIER_INVALID |
-		 FAILURE_REASONS_GBM_BO_IMPORT_FAILED |
-		 FAILURE_REASONS_GBM_BO_GET_HANDLE_FAILED))
-		action_needed |= ACTION_NEEDED_ADD_SCANOUT_TRANCHE;
-
-	assert(action_needed != (ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE |
-				 ACTION_NEEDED_ADD_SCANOUT_TRANCHE));
+	/* Direct scanout won't happen even if client re-allocates using
+	 * params from the scanout tranche, so keep only the renderer tranche. */
+	if (try_view_on_plane_failure_reasons & (FAILURE_REASONS_FORCE_RENDERER |
+						 FAILURE_REASONS_NO_PLANES_AVAILABLE)) {
+		action_needed = ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE;
+	/* Direct scanout may be possible if client re-allocates using the
+	 * params from the scanout tranche. */
+	} else if (try_view_on_plane_failure_reasons & (FAILURE_REASONS_ADD_FB_FAILED |
+							FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE |
+							FAILURE_REASONS_DMABUF_MODIFIER_INVALID |
+							FAILURE_REASONS_GBM_BO_IMPORT_FAILED |
+							FAILURE_REASONS_GBM_BO_GET_HANDLE_FAILED)) {
+		action_needed = ACTION_NEEDED_ADD_SCANOUT_TRANCHE;
+	/* Direct scanout is already possible, so include the scanout tranche. */
+	} else if (try_view_on_plane_failure_reasons == FAILURE_REASONS_NONE) {
+		action_needed = ACTION_NEEDED_ADD_SCANOUT_TRANCHE;
+	}
 
 	/* Look for scanout tranche. If not found, add it but in disabled mode
 	 * (we still don't know if we'll have to send it to clients). This
