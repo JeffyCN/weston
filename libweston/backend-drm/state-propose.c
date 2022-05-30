@@ -348,6 +348,20 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 	struct timespec current_time, delta_time;
 	const time_t MAX_TIME_SECONDS = 2;
 
+	/* Look for scanout tranche. If not found, add it but in disabled mode
+	 * (we still don't know if we'll have to send it to clients). This
+	 * simplifies the code. */
+	scanout_tranche =
+		weston_dmabuf_feedback_find_tranche(dmabuf_feedback, scanout_dev,
+						    scanout_flags, SCANOUT_PREF);
+	if (!scanout_tranche) {
+		scanout_tranche =
+			weston_dmabuf_feedback_tranche_create(dmabuf_feedback,
+					b->compositor->dmabuf_feedback_format_table,
+					scanout_dev, scanout_flags, SCANOUT_PREF);
+		scanout_tranche->active = false;
+	}
+
 	/* Direct scanout won't happen even if client re-allocates using
 	 * params from the scanout tranche, so keep only the renderer tranche. */
 	if (try_view_on_plane_failure_reasons & (FAILURE_REASONS_FORCE_RENDERER |
@@ -366,27 +380,10 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 		action_needed = ACTION_NEEDED_ADD_SCANOUT_TRANCHE;
 	}
 
-	/* Look for scanout tranche. If not found, add it but in disabled mode
-	 * (we still don't know if we'll have to send it to clients). This
-	 * simplifies the code. */
-	scanout_tranche =
-		weston_dmabuf_feedback_find_tranche(dmabuf_feedback, scanout_dev,
-						    scanout_flags, SCANOUT_PREF);
-	if (!scanout_tranche) {
-		scanout_tranche =
-			weston_dmabuf_feedback_tranche_create(dmabuf_feedback,
-					b->compositor->dmabuf_feedback_format_table,
-					scanout_dev, scanout_flags,
-					SCANOUT_PREF);
-		scanout_tranche->active = false;
-	}
-
 	/* No actions needed, so disarm timer and return */
 	if (action_needed == ACTION_NEEDED_NONE ||
-	    (action_needed == ACTION_NEEDED_ADD_SCANOUT_TRANCHE &&
-	     scanout_tranche->active) ||
-	    (action_needed == ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE &&
-	     !scanout_tranche->active)) {
+	    (action_needed == ACTION_NEEDED_ADD_SCANOUT_TRANCHE && scanout_tranche->active) ||
+	    (action_needed == ACTION_NEEDED_REMOVE_SCANOUT_TRANCHE && !scanout_tranche->active)) {
 		dmabuf_feedback->action_needed = ACTION_NEEDED_NONE;
 		return;
 	}
