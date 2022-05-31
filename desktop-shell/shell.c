@@ -3380,7 +3380,8 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 
 	main_surface = weston_surface_get_main_surface(es);
 	shsurf = get_shell_surface(main_surface);
-	assert(shsurf);
+	if (!shsurf)
+		return;
 
 	shsurf_child = get_last_child(shsurf);
 	if (shsurf_child) {
