@@ -2548,7 +2548,7 @@ import_dmabuf(struct gl_renderer *gr,
 	      struct linux_dmabuf_buffer *dmabuf)
 {
 	EGLImageKHR egl_image;
-	struct gl_buffer_state *gb = zalloc(sizeof(*gb));
+	struct gl_buffer_state *gb;
 
 	if (!pixel_format_get_info(dmabuf->attributes.format))
 		return NULL;
