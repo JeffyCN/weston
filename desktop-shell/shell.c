@@ -3854,6 +3854,10 @@ static void
 shell_fade_done(struct weston_view_animation *animation, void *data)
 {
 	struct desktop_shell *shell = data;
+	struct weston_compositor *compositor = shell->compositor;
+
+	if (shell->fade.type == FADE_OUT)
+		compositor->pending_fade_out --;
 
 	if (!shell->fade.curtain)
 		return;
@@ -3865,7 +3869,8 @@ shell_fade_done(struct weston_view_animation *animation, void *data)
 		shell->fade.curtain = NULL;
 		break;
 	case FADE_OUT:
-		lock(shell);
+		if (!compositor->pending_fade_out)
+			lock(shell);
 		break;
 	default:
 		break;
@@ -3955,6 +3960,9 @@ shell_fade(struct desktop_shell *shell, enum fade_type type)
 	if (shell->fade.animation) {
 		weston_fade_update(shell->fade.animation, tint);
 	} else {
+		if (type == FADE_OUT)
+			shell->compositor->pending_fade_out ++;
+
 		shell->fade.animation =
 			weston_fade_run(shell->fade.curtain->view,
 					1.0 - tint, tint, 300.0,
@@ -4854,6 +4862,9 @@ shell_destroy(struct wl_listener *listener, void *data)
 	if (shell->fade.animation) {
 		weston_view_animation_destroy(shell->fade.animation);
 		shell->fade.animation = NULL;
+
+		if (shell->fade.type == FADE_OUT)
+			shell->compositor->pending_fade_out --;
 	}
 
 	if (shell->fade.curtain) {
