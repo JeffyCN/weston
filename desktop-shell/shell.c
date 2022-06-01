@@ -4013,18 +4013,24 @@ shell_fade_done_for_output(struct weston_view_animation *animation, void *data)
 {
 	struct shell_output *shell_output = data;
 	struct desktop_shell *shell = shell_output->shell;
+	struct weston_compositor *compositor = shell->compositor;
+
+	if (shell_output->fade.type == FADE_OUT)
+		shell->compositor->pending_fade_out --;
 
 	if (!shell_output->fade.view)
 		return;
 
 	shell_output->fade.animation = NULL;
+
 	switch (shell_output->fade.type) {
 	case FADE_IN:
 		weston_surface_destroy(shell_output->fade.view->surface);
 		shell_output->fade.view = NULL;
 		break;
 	case FADE_OUT:
-		lock(shell);
+		if (!compositor->pending_fade_out)
+			lock(shell);
 		break;
 	default:
 		break;
@@ -4126,6 +4132,9 @@ shell_fade(struct desktop_shell *shell, enum fade_type type)
 		} else if (shell_output->fade.animation) {
 			weston_fade_update(shell_output->fade.animation, tint);
 		} else {
+			if (type == FADE_OUT)
+				shell->compositor->pending_fade_out ++;
+
 			shell_output->fade.animation =
 				weston_fade_run(shell_output->fade.view,
 						1.0 - tint, tint, 300.0,
@@ -4873,6 +4882,9 @@ shell_output_destroy(struct shell_output *shell_output)
 	if (shell_output->fade.animation) {
 		weston_view_animation_destroy(shell_output->fade.animation);
 		shell_output->fade.animation = NULL;
+
+		if (shell_output->fade.type == FADE_OUT)
+			shell->compositor->pending_fade_out --;
 	}
 
 	if (shell_output->fade.view) {
