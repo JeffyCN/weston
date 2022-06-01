@@ -2454,6 +2454,8 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf,
 		weston_view_set_output(shsurf->view, shsurf->output);
 	}
 
+	weston_surface_map(surface);
+
 	if (!shell->locked) {
 		wl_list_for_each(seat, &compositor->seat_list, link)
 			activate(shell, shsurf->view, seat,
@@ -2501,7 +2503,6 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	if (!weston_surface_is_mapped(surface)) {
 		map(shell, shsurf, sx, sy);
-		weston_surface_map(surface);
 		/* as we need to survive the weston_surface destruction we'll
 		 * need to take another reference */
 		if (shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
