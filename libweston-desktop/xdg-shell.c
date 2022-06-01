@@ -962,6 +962,14 @@ weston_desktop_xdg_popup_committed(struct weston_desktop_xdg_popup *popup)
 	popup->committed = true;
 	weston_desktop_xdg_popup_update_position(popup->base.desktop_surface,
 						 popup);
+
+	if (!weston_surface_is_mapped(wsurface) &&
+	    weston_surface_has_content(wsurface)) {
+		weston_surface_map(wsurface);
+	} else if (weston_surface_is_mapped(wsurface) &&
+		   !weston_surface_has_content(wsurface)) {
+		weston_surface_unmap(wsurface);
+	}
 }
 
 static void
