@@ -512,6 +512,8 @@ drm_fb_handle_buffer_destroy(struct wl_listener *listener, void *data)
 	struct drm_buffer_fb *buf_fb =
 		container_of(listener, struct drm_buffer_fb, buffer_destroy_listener);
 
+	wl_list_remove(&buf_fb->buffer_destroy_listener.link);
+
 	if (buf_fb->fb) {
 		assert(buf_fb->fb->type == BUFFER_CLIENT ||
 		       buf_fb->fb->type == BUFFER_DMABUF);
