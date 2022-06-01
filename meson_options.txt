@@ -27,12 +27,6 @@ option(
 	description: 'Weston backend: RDP remote screensharing'
 )
 option(
-	'rdp-thread-check',
-	type: 'boolean',
-	value: false,
-	description: 'Aggressive thread sanity checks for the RDP backend'
-)
-option(
 	'screenshare',
 	type: 'boolean',
 	value: true,
