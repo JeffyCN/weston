@@ -1214,6 +1214,8 @@ struct weston_compositor {
 	bool warm_up;
 
 	bool hide_cursor;
+
+	uint32_t pending_fade_out;
 };
 
 struct weston_buffer {
