@@ -2991,6 +2991,26 @@ view_list_add(struct weston_compositor *compositor,
 	struct weston_subsurface *sub;
 
 	weston_view_update_transform(view);
+
+	/* It is possible for a view to appear in the layer list even though
+	 * the view or the surface is unmapped. This is erroneous but difficult
+	 * to fix. */
+	if (!weston_surface_is_mapped(view->surface) ||
+	    !weston_view_is_mapped(view) ||
+	    !weston_surface_has_content(view->surface)) {
+		if (!compositor->warned_about_unmapped_surface_or_view) {
+			weston_log("Detected an unmapped surface or view in "
+				   "the layer list, which should not occur.\n");
+			compositor->warned_about_unmapped_surface_or_view = true;
+		}
+
+		pnode = weston_view_find_paint_node(view, output);
+		if (pnode)
+			weston_paint_node_destroy(pnode);
+
+		return;
+	}
+
 	pnode = view_ensure_paint_node(view, output);
 
 	if (wl_list_empty(&view->surface->subsurface_list)) {

@@ -1311,6 +1311,10 @@ struct weston_compositor {
 	struct weston_log_scope *libseat_debug;
 
 	struct content_protection *content_protection;
+
+	/* One-time warning about a view appearing in the layer list when it
+	 * or its surface are not mapped. */
+	bool warned_about_unmapped_surface_or_view;
 };
 
 struct weston_buffer {
