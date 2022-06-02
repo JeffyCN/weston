@@ -130,6 +130,17 @@ ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf mesa
 
+# Build and install our own version of libdrm. Debian 11 (bullseye) provides
+# libdrm 2.4.104 which doesn't have the IN_FORMATS iterator api. We can stop
+# building and installing libdrm as soon as we move to Debian 12.
+git clone --branch libdrm-2.4.108 --depth=1 https://gitlab.freedesktop.org/mesa/drm.git
+cd drm
+meson build -Dauto_features=disabled \
+	-Dvc4=false -Dfreedreno=false -Detnaviv=false
+ninja ${NINJAFLAGS} -C build install
+cd ..
+rm -rf drm
+
 # PipeWire is used for remoting support. Unlike our other dependencies its
 # behaviour will be stable, however as a pre-1.0 project its API is not yet
 # stable, so again we lock it to a fixed version.

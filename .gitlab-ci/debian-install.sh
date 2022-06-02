@@ -68,6 +68,7 @@ apt-get -y --no-install-recommends install \
 	libmtdev-dev \
 	libpam0g-dev \
 	libpango1.0-dev \
+	libpciaccess-dev \
 	libpixman-1-dev \
 	libpng-dev \
 	libpulse-dev \
