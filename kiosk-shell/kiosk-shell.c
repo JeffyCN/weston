@@ -523,7 +523,6 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 				  &shoutput->curtain->view->layer_link);
 
 	shoutput->curtain->view->is_mapped = true;
-	weston_surface_map(shoutput->curtain->view->surface);
 	shoutput->curtain->view->surface->output = output;
 	weston_view_set_output(shoutput->curtain->view, output);
 }

@@ -185,6 +185,8 @@ weston_curtain_create(struct weston_compositor *compositor,
 		pixman_region32_init(&surface->input);
 	}
 
+	weston_surface_map(surface);
+
 	weston_view_set_position(view, params->x, params->y);
 
 	return curtain;
