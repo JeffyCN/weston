@@ -225,6 +225,7 @@ wet_shell_init(struct weston_compositor *ec,
 	weston_layer_entry_insert(&dts->background_layer.view_list,
 				  &dts->background->view->layer_link);
 	weston_view_update_transform(dts->background->view);
+	dts->background->view->is_mapped = true;
 
 	dts->desktop = weston_desktop_create(ec, &shell_desktop_api, dts);
 	if (dts->desktop == NULL)
