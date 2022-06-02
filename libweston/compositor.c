@@ -1073,6 +1073,22 @@ weston_view_move_to_plane(struct weston_view *view,
 	weston_surface_damage(view->surface);
 }
 
+static void
+weston_add_damage(struct weston_compositor *compositor,
+		  struct weston_plane *plane, pixman_region32_t *damage)
+{
+	struct weston_output *output;
+
+	if (plane)
+		pixman_region32_union(&plane->damage, &plane->damage, damage);
+
+	if (plane != &compositor->primary_plane)
+		return;
+
+	wl_list_for_each(output, &compositor->output_list, link)
+		pixman_region32_union(&output->damage, &output->damage, damage);
+}
+
 /** Inflict damage on the plane where the view is visible.
  *
  * \param view The view that causes the damage.
@@ -1097,9 +1113,7 @@ weston_view_damage_below(struct weston_view *view)
 	pixman_region32_init(&damage);
 	pixman_region32_subtract(&damage, &view->transform.boundingbox,
 				 &view->clip);
-	if (view->plane)
-		pixman_region32_union(&view->plane->damage,
-				      &view->plane->damage, &damage);
+	weston_add_damage(view->surface->compositor, view->plane, &damage);
 	pixman_region32_fini(&damage);
 	weston_view_schedule_repaint(view);
 }
@@ -2547,6 +2561,7 @@ weston_output_damage(struct weston_output *output)
 	pixman_region32_union(&compositor->primary_plane.damage,
 			      &compositor->primary_plane.damage,
 			      &output->region);
+	pixman_region32_copy(&output->damage, &output->region);
 	weston_output_schedule_repaint(output);
 }
 
@@ -2585,8 +2600,7 @@ view_accumulate_damage(struct weston_view *view,
 	pixman_region32_intersect(&damage, &damage,
 				  &view->transform.boundingbox);
 	pixman_region32_subtract(&damage, &damage, opaque);
-	pixman_region32_union(&view->plane->damage,
-			      &view->plane->damage, &damage);
+	weston_add_damage(view->surface->compositor, view->plane, &damage);
 	pixman_region32_fini(&damage);
 	pixman_region32_copy(&view->clip, opaque);
 	pixman_region32_union(opaque, opaque, &view->transform.opaque);
@@ -2933,7 +2947,7 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 
 	pixman_region32_init(&output_damage);
 	pixman_region32_intersect(&output_damage,
-				  &ec->primary_plane.damage, &output->region);
+				  &output->damage, &output->region);
 	pixman_region32_subtract(&output_damage,
 				 &output_damage, &ec->primary_plane.clip);
 
@@ -2941,6 +2955,10 @@ weston_output_repaint(struct weston_output *output, void *repaint_data)
 		weston_output_update_matrix(output);
 
 	r = output->repaint(output, &output_damage, repaint_data);
+
+	/* Clear painted primary damage */
+	pixman_region32_intersect(&output->damage,
+				  &output->damage, &ec->primary_plane.damage);
 
 	pixman_region32_fini(&output_damage);
 
@@ -6595,6 +6613,7 @@ weston_output_init(struct weston_output *output,
 	/* Can't use -1 on uint32_t and 0 is valid enum value */
 	output->transform = UINT32_MAX;
 
+	pixman_region32_init(&output->damage);
 	pixman_region32_init(&output->region);
 	wl_list_init(&output->mode_list);
 }
@@ -6915,6 +6934,7 @@ weston_output_release(struct weston_output *output)
 
 	weston_color_profile_unref(output->color_profile);
 
+	pixman_region32_fini(&output->damage);
 	pixman_region32_fini(&output->region);
 	wl_list_remove(&output->link);
 
