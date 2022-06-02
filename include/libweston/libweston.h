@@ -501,6 +501,8 @@ struct weston_output {
 	/** For cancelling the idle_repaint callback on output destruction. */
 	struct wl_event_source *idle_repaint_source;
 
+	pixman_region32_t damage;
+
 	struct wl_signal frame_signal;
 	struct wl_signal destroy_signal;	/**< sent when disabled */
 	int move_x, move_y;
