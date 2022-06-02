@@ -2726,6 +2726,49 @@ gl_renderer_import_dmabuf(struct weston_compositor *ec,
 	return true;
 }
 
+static struct gl_buffer_state *
+ensure_renderer_gl_buffer_state(struct weston_surface *surface,
+				struct weston_buffer *buffer)
+{
+	struct gl_renderer *gr = get_renderer(surface->compositor);
+	struct gl_surface_state *gs = get_surface_state(surface);
+	struct gl_buffer_state *gb = buffer->renderer_private;
+
+	if (gb) {
+		gs->buffer = gb;
+		return gb;
+	}
+
+	gb = zalloc(sizeof(*gb));
+	gb->gr = gr;
+	pixman_region32_init(&gb->texture_damage);
+	buffer->renderer_private = gb;
+	gb->destroy_listener.notify = handle_buffer_destroy;
+	wl_signal_add(&buffer->destroy_signal, &gb->destroy_listener);
+
+	gs->buffer = gb;
+
+	return gb;
+}
+
+static void
+attach_direct_display_censor_placeholder(struct weston_surface *surface,
+					 struct weston_buffer *buffer)
+{
+	struct gl_buffer_state *gb;
+
+	gb = ensure_renderer_gl_buffer_state(surface, buffer);
+
+	/* uses the same color as the content-protection placeholder */
+	gb->color[0] = 0.40f;
+	gb->color[1] = 0.0f;
+	gb->color[2] = 0.0f;
+	gb->color[3] = 1.0f;
+
+	gb->shader_variant = SHADER_VARIANT_SOLID;
+}
+
+
 static bool
 gl_renderer_attach_dmabuf(struct weston_surface *surface,
 			  struct weston_buffer *buffer)
@@ -2737,8 +2780,10 @@ gl_renderer_attach_dmabuf(struct weston_surface *surface,
 	GLenum target;
 	int i;
 
-	if (buffer->direct_display)
+	if (buffer->direct_display) {
+		attach_direct_display_censor_placeholder(surface, buffer);
 		return true;
+	}
 
 	/* Thanks to linux-dmabuf being totally independent of libweston,
 	 * the first time a dmabuf is attached, the gl_buffer_state will
@@ -2841,21 +2886,9 @@ static bool
 gl_renderer_attach_solid(struct weston_surface *surface,
 			 struct weston_buffer *buffer)
 {
-	struct gl_renderer *gr = get_renderer(surface->compositor);
-	struct gl_surface_state *gs = get_surface_state(surface);
-	struct gl_buffer_state *gb = buffer->renderer_private;
+	struct gl_buffer_state *gb;
 
-	if (gb) {
-		gs->buffer = gb;
-		return true;
-	}
-
-	gb = zalloc(sizeof(*gb));
-	gb->gr = gr;
-	pixman_region32_init(&gb->texture_damage);
-	buffer->renderer_private = gb;
-	gb->destroy_listener.notify = handle_buffer_destroy;
-	wl_signal_add(&buffer->destroy_signal, &gb->destroy_listener);
+	gb = ensure_renderer_gl_buffer_state(surface, buffer);
 
 	gb->color[0] = buffer->solid.r;
 	gb->color[1] = buffer->solid.g;
@@ -2863,8 +2896,6 @@ gl_renderer_attach_solid(struct weston_surface *surface,
 	gb->color[3] = buffer->solid.a;
 
 	gb->shader_variant = SHADER_VARIANT_SOLID;
-
-	gs->buffer = gb;
 
 	return true;
 }
