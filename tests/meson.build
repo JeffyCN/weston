@@ -145,6 +145,7 @@ tests = [
 		'name': 'alpha-blending',
 		'dep_objs': dep_libm,
 	},
+	{	'name': 'assert', },
 	{	'name': 'bad-buffer', },
 	{	'name': 'buffer-transforms', },
 	{
