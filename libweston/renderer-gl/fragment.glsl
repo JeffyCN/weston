@@ -271,24 +271,14 @@ main()
 	/* Electrical (non-linear) RGBA values, may be premult or not */
 	color = sample_input_texture();
 
-	if (c_need_color_pipeline) {
+	if (c_need_color_pipeline)
 		color = color_pipeline(color); /* Produces straight alpha */
 
-		color.a *= view_alpha;
-
-		/* pre-multiply for blending */
+	/* Ensure pre-multiplied for blending */
+	if (!c_input_is_premult || c_need_color_pipeline)
 		color.rgb *= color.a;
-	} else {
-		/* Fast path for disabled color management */
 
-		if (c_input_is_premult) {
-			color *= view_alpha;
-		} else {
-			color.a *= view_alpha;
-			/* pre-multiply for blending */
-			color.rgb *= color.a;
-		}
-	}
+	color *= view_alpha;
 
 	if (c_green_tint)
 		color = vec4(0.0, 0.3, 0.0, 0.2) + color * 0.8;
