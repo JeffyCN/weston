@@ -249,6 +249,14 @@ color_mapping(vec3 color)
 vec4
 color_pipeline(vec4 color)
 {
+	/* Ensure straight alpha */
+	if (c_input_is_premult) {
+		if (color.a == 0.0)
+			color.rgb = vec3(0, 0, 0);
+		else
+			color.rgb *= 1.0 / color.a;
+	}
+
 	color.rgb = color_pre_curve(color.rgb);
 	color.rgb = color_mapping(color.rgb);
 
@@ -264,15 +272,7 @@ main()
 	color = sample_input_texture();
 
 	if (c_need_color_pipeline) {
-		/* Ensure straight alpha */
-		if (c_input_is_premult) {
-			if (color.a == 0.0)
-				color.rgb = vec3(0, 0, 0);
-			else
-				color.rgb *= 1.0 / color.a;
-		}
-
-		color = color_pipeline(color);
+		color = color_pipeline(color); /* Produces straight alpha */
 
 		color.a *= view_alpha;
 
