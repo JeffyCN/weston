@@ -119,7 +119,7 @@ uniform sampler2D tex;
 varying vec2 v_texcoord;
 uniform sampler2D tex1;
 uniform sampler2D tex2;
-uniform float alpha;
+uniform float view_alpha;
 uniform vec4 unicolor;
 uniform HIGHPRECISION sampler2D color_pre_curve_lut_2d;
 uniform HIGHPRECISION vec2 color_pre_curve_lut_scale_offset;
@@ -274,8 +274,7 @@ main()
 
 		color = color_pipeline(color);
 
-		/* View alpha (opacity) */
-		color.a *= alpha;
+		color.a *= view_alpha;
 
 		/* pre-multiply for blending */
 		color.rgb *= color.a;
@@ -283,11 +282,9 @@ main()
 		/* Fast path for disabled color management */
 
 		if (c_input_is_premult) {
-			/* View alpha (opacity) */
-			color *= alpha;
+			color *= view_alpha;
 		} else {
-			/* View alpha (opacity) */
-			color.a *= alpha;
+			color.a *= view_alpha;
 			/* pre-multiply for blending */
 			color.rgb *= color.a;
 		}

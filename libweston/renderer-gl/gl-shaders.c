@@ -57,7 +57,7 @@ struct gl_shader {
 	GLuint vertex_shader, fragment_shader;
 	GLint proj_uniform;
 	GLint tex_uniforms[3];
-	GLint alpha_uniform;
+	GLint view_alpha_uniform;
 	GLint color_uniform;
 	GLint color_pre_curve_lut_2d_uniform;
 	GLint color_pre_curve_lut_scale_offset_uniform;
@@ -283,7 +283,7 @@ gl_shader_create(struct gl_renderer *gr,
 	shader->tex_uniforms[0] = glGetUniformLocation(shader->program, "tex");
 	shader->tex_uniforms[1] = glGetUniformLocation(shader->program, "tex1");
 	shader->tex_uniforms[2] = glGetUniformLocation(shader->program, "tex2");
-	shader->alpha_uniform = glGetUniformLocation(shader->program, "alpha");
+	shader->view_alpha_uniform = glGetUniformLocation(shader->program, "view_alpha");
 	shader->color_uniform = glGetUniformLocation(shader->program,
 						     "unicolor");
 	shader->color_pre_curve_lut_2d_uniform =
@@ -515,7 +515,7 @@ gl_shader_load_config(struct gl_shader *shader,
 	glUniformMatrix4fv(shader->proj_uniform,
 			   1, GL_FALSE, sconf->projection.d);
 	glUniform4fv(shader->color_uniform, 1, sconf->unicolor);
-	glUniform1f(shader->alpha_uniform, sconf->view_alpha);
+	glUniform1f(shader->view_alpha_uniform, sconf->view_alpha);
 
 	in_tgt = gl_shader_texture_variant_get_target(sconf->req.variant);
 	for (i = 0; i < GL_SHADER_INPUT_TEX_MAX; i++) {
@@ -592,7 +592,7 @@ gl_renderer_use_program(struct gl_renderer *gr,
 		shader = gr->fallback_shader;
 		glUseProgram(shader->program);
 		glUniform4fv(shader->color_uniform, 1, fallback_shader_color);
-		glUniform1f(shader->alpha_uniform, 1.0f);
+		glUniform1f(shader->view_alpha_uniform, 1.0f);
 		return false;
 	}
 
