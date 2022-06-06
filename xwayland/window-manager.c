@@ -980,6 +980,9 @@ weston_wm_window_activate(struct wl_listener *listener, void *data)
 		window = get_wm_window(surface);
 	}
 
+	if (wm->focus_window == window)
+		return;
+
 	if (window) {
 		weston_wm_set_net_active_window(wm, window->id);
 	} else {
