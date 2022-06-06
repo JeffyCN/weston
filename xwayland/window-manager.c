@@ -2176,6 +2176,7 @@ weston_wm_handle_button(struct weston_wm *wm, xcb_generic_event_t *event)
 	if (frame_status(window->frame) & FRAME_STATUS_MAXIMIZE) {
 		window->maximized_horz = !window->maximized_horz;
 		window->maximized_vert = !window->maximized_vert;
+		weston_wm_window_set_net_wm_state(window);
 		if (weston_wm_window_is_maximized(window)) {
 			window->saved_width = window->width;
 			window->saved_height = window->height;
