@@ -275,7 +275,6 @@ tile_source(cairo_t *cr, cairo_surface_t *surface,
 	pattern = cairo_pattern_create_for_surface (surface);
 	cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
 	cairo_set_source(cr, pattern);
-	cairo_pattern_destroy(pattern);
 
 	for (i = 0; i < 4; i++) {
 		fx = i & 1;
@@ -328,6 +327,9 @@ tile_source(cairo_t *cr, cairo_surface_t *surface,
 	cairo_rectangle(cr, x + width - margin, y + top_margin,
 			margin, height - margin - top_margin);
 	cairo_fill(cr);
+
+	cairo_pattern_destroy(pattern);
+	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 }
 
 void
