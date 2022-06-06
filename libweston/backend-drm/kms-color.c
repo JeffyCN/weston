@@ -32,7 +32,6 @@
 #include <math.h>
 
 #include "drm-internal.h"
-#include "libdrm-updates.h"
 
 static inline uint16_t
 color_xy_to_u16(float v)
