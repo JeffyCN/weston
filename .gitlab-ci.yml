@@ -294,7 +294,9 @@ x86_64-debian-full-build:
     - .build-options-full
   artifacts:
     reports:
-      cobertura: $BUILDDIR/meson-logs/coverage.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: $BUILDDIR/meson-logs/coverage.xml
 
 aarch64-debian-full-build:
   extends:
