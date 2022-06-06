@@ -1509,6 +1509,12 @@ weston_wm_window_create(struct weston_wm *wm,
 	window->override_redirect = override;
 	window->width = width;
 	window->height = height;
+	/* Completely arbitrary defaults in case something starts
+	 * maximized and we unmaximize it later - at which point 0 x 0
+	 * would not be the most useful size.
+	 */
+	window->saved_width = 512;
+	window->saved_height = 512;
 	window->x = x;
 	window->y = y;
 	window->pos_dirty = false;
