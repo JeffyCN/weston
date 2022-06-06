@@ -1760,10 +1760,12 @@ weston_wm_window_set_toplevel(struct weston_wm_window *window)
 	xwayland_interface->set_toplevel(window->shsurf);
 	window->width = window->saved_width;
 	window->height = window->saved_height;
-	if (window->frame)
+	if (window->frame) {
+		frame_unset_flag(window->frame, FRAME_FLAG_MAXIMIZED);
 		frame_resize_inside(window->frame,
 					window->width,
 					window->height);
+	}
 	weston_wm_window_configure(window);
 }
 
@@ -2780,6 +2782,9 @@ send_configure(struct weston_surface *surface, int32_t width, int32_t height)
 		window->height = new_height;
 
 		if (window->frame) {
+			if (weston_wm_window_is_maximized(window))
+				frame_set_flag(window->frame, FRAME_FLAG_MAXIMIZED);
+
 			frame_resize_inside(window->frame,
 					    window->width, window->height);
 		}
