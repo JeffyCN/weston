@@ -60,7 +60,7 @@ rdp_peer_refresh_rfx(pixman_region32_t *damage, pixman_image_t *image, freerdp_p
 	pixman_box32_t *region, *rects;
 	uint32_t *ptr;
 	RFX_RECT *rfxRect;
-	rdpUpdate *update = peer->update;
+	rdpUpdate *update = peer->context->update;
 	SURFACE_BITS_COMMAND cmd = { 0 };
 	RdpPeerContext *context = (RdpPeerContext *)peer->context;
 
@@ -77,7 +77,7 @@ rdp_peer_refresh_rfx(pixman_region32_t *damage, pixman_image_t *image, freerdp_p
 	cmd.destRight = damage->extents.x2;
 	cmd.destBottom = damage->extents.y2;
 	cmd.bmp.bpp = 32;
-	cmd.bmp.codecID = peer->settings->RemoteFxCodecId;
+	cmd.bmp.codecID = peer->context->settings->RemoteFxCodecId;
 	cmd.bmp.width = width;
 	cmd.bmp.height = height;
 
@@ -114,7 +114,7 @@ rdp_peer_refresh_nsc(pixman_region32_t *damage, pixman_image_t *image, freerdp_p
 {
 	int width, height;
 	uint32_t *ptr;
-	rdpUpdate *update = peer->update;
+	rdpUpdate *update = peer->context->update;
 	SURFACE_BITS_COMMAND cmd = { 0 };
 	RdpPeerContext *context = (RdpPeerContext *)peer->context;
 
@@ -131,7 +131,7 @@ rdp_peer_refresh_nsc(pixman_region32_t *damage, pixman_image_t *image, freerdp_p
 	cmd.destRight = damage->extents.x2;
 	cmd.destBottom = damage->extents.y2;
 	cmd.bmp.bpp = 32;
-	cmd.bmp.codecID = peer->settings->NSCodecId;
+	cmd.bmp.codecID = peer->context->settings->NSCodecId;
 	cmd.bmp.width = width;
 	cmd.bmp.height = height;
 
@@ -165,7 +165,7 @@ pixman_image_flipped_subrect(const pixman_box32_t *rect, pixman_image_t *img, BY
 static void
 rdp_peer_refresh_raw(pixman_region32_t *region, pixman_image_t *image, freerdp_peer *peer)
 {
-	rdpUpdate *update = peer->update;
+	rdpUpdate *update = peer->context->update;
 	SURFACE_BITS_COMMAND cmd = { 0 };
 	SURFACE_FRAME_MARKER marker;
 	pixman_box32_t *rect, subrect;
@@ -190,7 +190,7 @@ rdp_peer_refresh_raw(pixman_region32_t *region, pixman_image_t *image, freerdp_p
 		cmd.destRight = rect->x2;
 		cmd.bmp.width = (rect->x2 - rect->x1);
 
-		heightIncrement = peer->settings->MultifragMaxRequestSize / (16 + cmd.bmp.width * 4);
+		heightIncrement = peer->context->settings->MultifragMaxRequestSize / (16 + cmd.bmp.width * 4);
 		remainingHeight = rect->y2 - rect->y1;
 		top = rect->y1;
 
@@ -227,7 +227,7 @@ rdp_peer_refresh_region(pixman_region32_t *region, freerdp_peer *peer)
 {
 	RdpPeerContext *context = (RdpPeerContext *)peer->context;
 	struct rdp_output *output = context->rdpBackend->output;
-	rdpSettings *settings = peer->settings;
+	rdpSettings *settings = peer->context->settings;
 
 	if (settings->RemoteFxCodec)
 		rdp_peer_refresh_rfx(region, output->shadow_surface, peer);
@@ -369,7 +369,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	rdpOutput->shadow_surface = new_shadow_buffer;
 
 	wl_list_for_each(rdpPeer, &rdpOutput->peers, link) {
-		settings = rdpPeer->peer->settings;
+		settings = rdpPeer->peer->context->settings;
 		if (settings->DesktopWidth == (UINT32)target_mode->width &&
 				settings->DesktopHeight == (UINT32)target_mode->height)
 			continue;
@@ -380,7 +380,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 		} else {
 			settings->DesktopWidth = target_mode->width;
 			settings->DesktopHeight = target_mode->height;
-			rdpPeer->peer->update->DesktopResize(rdpPeer->peer->context);
+			rdpPeer->peer->context->update->DesktopResize(rdpPeer->peer->context);
 		}
 	}
 	return 0;
@@ -643,8 +643,8 @@ rdp_peer_context_new(freerdp_peer* client, RdpPeerContext* context)
 		return FALSE;
 
 	context->rfx_context->mode = RLGR3;
-	context->rfx_context->width = client->settings->DesktopWidth;
-	context->rfx_context->height = client->settings->DesktopHeight;
+	context->rfx_context->width = client->context->settings->DesktopWidth;
+	context->rfx_context->height = client->context->settings->DesktopHeight;
 	rfx_context_set_pixel_format(context->rfx_context, DEFAULT_PIXEL_FORMAT);
 
 	context->nsc_context = nsc_context_new();
@@ -934,7 +934,7 @@ xf_peer_activate(freerdp_peer* client)
 	b = peerCtx->rdpBackend;
 	peersItem = &peerCtx->item;
 	output = b->output;
-	settings = client->settings;
+	settings = client->context->settings;
 
 	if (!settings->SurfaceCommandsEnabled) {
 		weston_log("client doesn't support required SurfaceCommands\n");
@@ -976,7 +976,7 @@ xf_peer_activate(freerdp_peer* client)
 			} else {
 				settings->DesktopWidth = output->base.width;
 				settings->DesktopHeight = output->base.height;
-				client->update->DesktopResize(client->context);
+				client->context->update->DesktopResize(client->context);
 			}
 		} else {
 			/* ask weston to adjust size */
@@ -1043,7 +1043,7 @@ xf_peer_activate(freerdp_peer* client)
 	peersItem->flags |= RDP_PEER_ACTIVATED;
 
 	/* disable pointer on the client side */
-	pointer = client->update->pointer;
+	pointer = client->context->update->pointer;
 	pointer_system.type = SYSPTR_NULL;
 	pointer->PointerSystem(client->context, &pointer_system);
 
@@ -1396,8 +1396,8 @@ xf_input_keyboard_event(rdpInput *input, UINT16 flags, UINT16 code)
 		/* Korean keyboard support:
 		 * WinPR's GetVirtualKeyCodeFromVirtualScanCode() can't handle hangul/hanja keys
 		 * hanja and hangeul keys are only present on Korean 103 keyboard (Type 8:SubType 6) */
-		if (client->settings->KeyboardType == 8 &&
-		    client->settings->KeyboardSubType == 6 &&
+		if (client->context->settings->KeyboardType == 8 &&
+		    client->context->settings->KeyboardSubType == 6 &&
 		    ((full_code == (KBD_FLAGS_EXTENDED | ATKBD_RET_HANJA)) ||
 		     (full_code == (KBD_FLAGS_EXTENDED | ATKBD_RET_HANGEUL)))) {
 			if (full_code == (KBD_FLAGS_EXTENDED | ATKBD_RET_HANJA))
@@ -1417,7 +1417,7 @@ xf_input_keyboard_event(rdpInput *input, UINT16 flags, UINT16 code)
 			}
 			send_release_key = true;
 		} else {
-			vk_code = GetVirtualKeyCodeFromVirtualScanCode(full_code, client->settings->KeyboardType);
+			vk_code = GetVirtualKeyCodeFromVirtualScanCode(full_code, client->context->settings->KeyboardType);
 		}
 		/* Korean keyboard support */
 		/* WinPR's GetKeycodeFromVirtualKeyCode() expects no extended bit for VK_HANGUL and VK_HANJA */
@@ -1488,7 +1488,7 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	peerCtx = (RdpPeerContext *) client->context;
 	peerCtx->rdpBackend = b;
 
-	settings = client->settings;
+	settings = client->context->settings;
 	/* configure security settings */
 	if (b->rdp_key)
 		settings->RdpKeyFile = strdup(b->rdp_key);
@@ -1521,9 +1521,9 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	client->PostConnect = xf_peer_post_connect;
 	client->Activate = xf_peer_activate;
 
-	client->update->SuppressOutput = (pSuppressOutput)xf_suppress_output;
+	client->context->update->SuppressOutput = (pSuppressOutput)xf_suppress_output;
 
-	input = client->input;
+	input = client->context->input;
 	input->SynchronizeEvent = xf_input_synchronize_event;
 	input->MouseEvent = xf_mouseEvent;
 	input->ExtendedMouseEvent = xf_extendedMouseEvent;
