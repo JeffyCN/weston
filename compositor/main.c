@@ -2000,6 +2000,7 @@ drm_backend_output_configure(struct weston_output *output,
 	enum weston_drm_backend_output_mode mode =
 		WESTON_DRM_BACKEND_OUTPUT_PREFERRED;
 	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
+	uint32_t max_bpc;
 	char *s;
 	char *modeline = NULL;
 	char *gbm_format = NULL;
@@ -2010,6 +2011,9 @@ drm_backend_output_configure(struct weston_output *output,
 		weston_log("Cannot use weston_drm_output_api.\n");
 		return -1;
 	}
+
+	weston_config_section_get_uint(section, "max-bpc", &max_bpc, 16);
+	api->set_max_bpc(output, max_bpc);
 
 	weston_config_section_get_string(section, "mode", &s, "preferred");
 
