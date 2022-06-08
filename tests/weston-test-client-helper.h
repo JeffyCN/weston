@@ -233,9 +233,6 @@ frame_callback_wait_nofail(struct client *client, int *done);
 #define frame_callback_wait(c, d) assert(frame_callback_wait_nofail((c), (d)))
 
 void
-skip(const char *fmt, ...);
-
-void
 expect_protocol_error(struct client *client,
 		      const struct wl_interface *intf, uint32_t code);
 

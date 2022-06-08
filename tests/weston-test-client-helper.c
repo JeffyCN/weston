@@ -871,22 +871,6 @@ static const struct wl_registry_listener registry_listener = {
 };
 
 void
-skip(const char *fmt, ...)
-{
-	va_list argp;
-
-	va_start(argp, fmt);
-	vfprintf(stderr, fmt, argp);
-	va_end(argp);
-
-	/* automake tests uses exit code 77. weston-test-runner will see
-	 * this and use it, and then weston-test's sigchld handler (in the
-	 * weston process) will use that as an exit status, which is what
-	 * ninja will see in the end. */
-	exit(77);
-}
-
-void
 expect_protocol_error(struct client *client,
 		      const struct wl_interface *intf,
 		      uint32_t code)
