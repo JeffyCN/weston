@@ -172,6 +172,8 @@ struct buffer {
 };
 
 struct surface {
+	struct client *client; /* not owned */
+
 	struct wl_surface *wl_surface;
 	struct output *output; /* not owned */
 	int x;
@@ -204,6 +206,9 @@ create_test_surface(struct client *client);
 
 void
 surface_destroy(struct surface *surface);
+
+void
+surface_set_opaque_rect(struct surface *surface, const struct rectangle *rect);
 
 struct client *
 create_client_and_test_surface(int x, int y, int width, int height);

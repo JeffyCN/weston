@@ -976,6 +976,7 @@ create_test_surface(struct client *client)
 
 	surface = xzalloc(sizeof *surface);
 
+	surface->client = client;
 	surface->wl_surface =
 		wl_compositor_create_surface(client->wl_compositor);
 	assert(surface->wl_surface);
@@ -996,6 +997,17 @@ surface_destroy(struct surface *surface)
 	if (surface->buffer)
 		buffer_destroy(surface->buffer);
 	free(surface);
+}
+
+void
+surface_set_opaque_rect(struct surface *surface, const struct rectangle *rect)
+{
+	struct wl_region *region;
+
+	region = wl_compositor_create_region(surface->client->wl_compositor);
+	wl_region_add(region, rect->x, rect->y, rect->width, rect->height);
+	wl_surface_set_opaque_region(surface->wl_surface, region);
+	wl_region_destroy(region);
 }
 
 struct client *

@@ -80,19 +80,6 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 }
 DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args, meta);
 
-static void
-set_opaque_rect(struct client *client,
-		struct surface *surface,
-		const struct rectangle *rect)
-{
-	struct wl_region *region;
-
-	region = wl_compositor_create_region(client->wl_compositor);
-	wl_region_add(region, rect->x, rect->y, rect->width, rect->height);
-	wl_surface_set_opaque_region(surface->wl_surface, region);
-	wl_region_destroy(region);
-}
-
 static uint32_t
 premult_color(uint32_t a, uint32_t r, uint32_t g, uint32_t b)
 {
@@ -400,8 +387,8 @@ TEST(alpha_blend)
 	client->surface->width = width;
 	client->surface->height = height;
 	client->surface->buffer = bg; /* pass ownership */
-	set_opaque_rect(client, client->surface,
-			&(struct rectangle){ 0, 0, width, height });
+	surface_set_opaque_rect(client->surface,
+				&(struct rectangle){ 0, 0, width, height });
 
 	/* foreground blended content */
 	fg = create_shm_buffer_a8r8g8b8(client, width, height);
