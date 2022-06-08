@@ -660,9 +660,14 @@ check_process_pattern_ex(struct buffer *src, struct buffer *shot,
 }
 
 /*
- * Test that matrix-shaper profile does CM correctly, it is used color ramp pattern
+ * Test that opaque client pixels produce the expected output when converted
+ * from the implicit sRGB input to ICC profile described output.
+ *
+ * The groundtruth conversion comes from the struct lcms_pipeline definitions.
+ * The first error source is converting those to ICC files. The second error
+ * source is Weston.
  */
-TEST(shaper_matrix_and_cLUT)
+TEST(opaque_pixel_conversion)
 {
 	int seq_no = get_test_fixture_index();
 	const struct setup_args *arg = &my_setup_args[seq_no];
