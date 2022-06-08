@@ -187,61 +187,6 @@ get_image_prop(struct buffer *buf, struct image_header *header)
 }
 
 static void
-gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
-{
-	static const int hue[][COLOR_CHAN_NUM] = {
-		{ 1, 1, 1 },	/* White	*/
-		{ 1, 1, 0 },	/* Yellow 	*/
-		{ 0, 1, 1 },	/* Cyan 	*/
-		{ 0, 1, 0 },	/* Green 	*/
-		{ 1, 0, 1 },	/* Magenta 	*/
-		{ 1, 0, 0 },	/* Red 		*/
-		{ 0, 0, 1 },	/* Blue 	*/
-	};
-	const int num_hues = ARRAY_LENGTH(hue);
-
-	float val_max;
-	int x, y;
-	int hue_index;
-	int chan;
-	float value;
-	unsigned char r, g, b;
-	uint32_t *pixel;
-
-	float n_steps = width_bar - 1;
-
-	val_max = (1 << bitwidth) - 1;
-
-	for (y = 0; y < header->height; y++) {
-		hue_index = (y * num_hues) / (header->height - 1);
-		hue_index = MIN(hue_index, num_hues - 1);
-
-		for (x = 0; x < header->width; x++) {
-			struct color_float rgb = { .rgb = { 0, 0, 0 } };
-
-			value = (float)x / (float)(header->width - 1);
-
-			if (width_bar > 1)
-				value = floor(value * n_steps) / n_steps;
-
-			for (chan = 0; chan < COLOR_CHAN_NUM; chan++) {
-				if (hue[hue_index][chan])
-					rgb.rgb[chan] = value;
-			}
-
-			sRGB_delinearize(&rgb);
-
-			r = round(rgb.r * val_max);
-			g = round(rgb.g * val_max);
-			b = round(rgb.b * val_max);
-
-			pixel = header->data + (y * header->stride / 4) + x;
-			*pixel = (255U << 24) | (r << 16) | (g << 8) | b;
-		}
-	}
-}
-
-static void
 test_roundtrip(uint8_t r, uint8_t g, uint8_t b, cmsPipeline *pip,
 	       struct rgb_diff_stat *stat)
 {
@@ -539,6 +484,61 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
 DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args, meta);
+
+static void
+gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
+{
+	static const int hue[][COLOR_CHAN_NUM] = {
+		{ 1, 1, 1 },	/* White	*/
+		{ 1, 1, 0 },	/* Yellow 	*/
+		{ 0, 1, 1 },	/* Cyan 	*/
+		{ 0, 1, 0 },	/* Green 	*/
+		{ 1, 0, 1 },	/* Magenta 	*/
+		{ 1, 0, 0 },	/* Red 		*/
+		{ 0, 0, 1 },	/* Blue 	*/
+	};
+	const int num_hues = ARRAY_LENGTH(hue);
+
+	float val_max;
+	int x, y;
+	int hue_index;
+	int chan;
+	float value;
+	unsigned char r, g, b;
+	uint32_t *pixel;
+
+	float n_steps = width_bar - 1;
+
+	val_max = (1 << bitwidth) - 1;
+
+	for (y = 0; y < header->height; y++) {
+		hue_index = (y * num_hues) / (header->height - 1);
+		hue_index = MIN(hue_index, num_hues - 1);
+
+		for (x = 0; x < header->width; x++) {
+			struct color_float rgb = { .rgb = { 0, 0, 0 } };
+
+			value = (float)x / (float)(header->width - 1);
+
+			if (width_bar > 1)
+				value = floor(value * n_steps) / n_steps;
+
+			for (chan = 0; chan < COLOR_CHAN_NUM; chan++) {
+				if (hue[hue_index][chan])
+					rgb.rgb[chan] = value;
+			}
+
+			sRGB_delinearize(&rgb);
+
+			r = round(rgb.r * val_max);
+			g = round(rgb.g * val_max);
+			b = round(rgb.b * val_max);
+
+			pixel = header->data + (y * header->stride / 4) + x;
+			*pixel = (255U << 24) | (r << 16) | (g << 8) | b;
+		}
+	}
+}
 
 static bool
 compare_float(float ref, float dst, int x, const char *chan,
