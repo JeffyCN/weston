@@ -41,6 +41,7 @@
 #include "shared/xalloc.h"
 #include <libweston/zalloc.h>
 #include "weston-test-client-helper.h"
+#include "image-iter.h"
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #define min(a, b) (((a) > (b)) ? (b) : (a))
@@ -1254,29 +1255,6 @@ image_check_get_roi(pixman_image_t *img_a, pixman_image_t *img_b,
 	return box;
 }
 
-struct image_iterator {
-	char *data;
-	int stride; /* bytes */
-};
-
-static void
-image_iter_init(struct image_iterator *it, pixman_image_t *image)
-{
-	pixman_format_code_t fmt;
-
-	it->stride = pixman_image_get_stride(image);
-	it->data = (void *)pixman_image_get_data(image);
-
-	fmt = pixman_image_get_format(image);
-	assert(PIXMAN_FORMAT_BPP(fmt) == 32);
-}
-
-static uint32_t *
-image_iter_get_row(struct image_iterator *it, int y)
-{
-	return (uint32_t *)(it->data + y * it->stride);
-}
-
 struct pixel_diff_stat {
 	struct pixel_diff_stat_channel {
 		int min_diff;
@@ -1347,8 +1325,8 @@ check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 {
 	struct range fuzz = range_get(prec);
 	struct pixel_diff_stat diffstat = {};
-	struct image_iterator it_a;
-	struct image_iterator it_b;
+	struct image_header ih_a = image_header_from(img_a);
+	struct image_header ih_b = image_header_from(img_b);
 	pixman_box32_t box;
 	int x, y;
 	uint32_t *pix_a;
@@ -1356,12 +1334,9 @@ check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 
 	box = image_check_get_roi(img_a, img_b, clip_rect);
 
-	image_iter_init(&it_a, img_a);
-	image_iter_init(&it_b, img_b);
-
 	for (y = box.y1; y < box.y2; y++) {
-		pix_a = image_iter_get_row(&it_a, y) + box.x1;
-		pix_b = image_iter_get_row(&it_b, y) + box.x1;
+		pix_a = image_header_get_row_u32(&ih_a, y) + box.x1;
+		pix_b = image_header_get_row_u32(&ih_b, y) + box.x1;
 
 		for (x = box.x1; x < box.x2; x++) {
 			if (!fuzzy_match_pixels(*pix_a, *pix_b,
@@ -1431,11 +1406,9 @@ visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
 	struct pixel_diff_stat diffstat = {};
 	pixman_image_t *diffimg;
 	pixman_image_t *shade;
-	struct image_iterator it_a;
-	struct image_iterator it_b;
-	struct image_iterator it_d;
-	int width;
-	int height;
+	struct image_header ih_a = image_header_from(img_a);
+	struct image_header ih_b = image_header_from(img_b);
+	struct image_header ih_d;
 	pixman_box32_t box;
 	int x, y;
 	uint32_t *pix_a;
@@ -1443,32 +1416,28 @@ visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
 	uint32_t *pix_d;
 	pixman_color_t shade_color = { 0, 0, 0, 32768 };
 
-	width = pixman_image_get_width(img_a);
-	height = pixman_image_get_height(img_a);
 	box = image_check_get_roi(img_a, img_b, clip_rect);
 
 	diffimg = pixman_image_create_bits_no_clear(PIXMAN_x8r8g8b8,
-						    width, height, NULL, 0);
+						    ih_a.width, ih_a.height,
+						    NULL, 0);
+	ih_d = image_header_from(diffimg);
 
 	/* Fill diffimg with a black-shaded copy of img_a, and then fill
 	 * the clip_rect area with original img_a.
 	 */
 	shade = pixman_image_create_solid_fill(&shade_color);
 	pixman_image_composite32(PIXMAN_OP_SRC, img_a, shade, diffimg,
-				 0, 0, 0, 0, 0, 0, width, height);
+				 0, 0, 0, 0, 0, 0, ih_a.width, ih_a.height);
 	pixman_image_unref(shade);
 	pixman_image_composite32(PIXMAN_OP_SRC, img_a, NULL, diffimg,
 				 box.x1, box.y1, 0, 0, box.x1, box.y1,
 				 box.x2 - box.x1, box.y2 - box.y1);
 
-	image_iter_init(&it_a, img_a);
-	image_iter_init(&it_b, img_b);
-	image_iter_init(&it_d, diffimg);
-
 	for (y = box.y1; y < box.y2; y++) {
-		pix_a = image_iter_get_row(&it_a, y) + box.x1;
-		pix_b = image_iter_get_row(&it_b, y) + box.x1;
-		pix_d = image_iter_get_row(&it_d, y) + box.x1;
+		pix_a = image_header_get_row_u32(&ih_a, y) + box.x1;
+		pix_b = image_header_get_row_u32(&ih_b, y) + box.x1;
+		pix_d = image_header_get_row_u32(&ih_d, y) + box.x1;
 
 		for (x = box.x1; x < box.x2; x++) {
 			if (fuzzy_match_pixels(*pix_a, *pix_b,
