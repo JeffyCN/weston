@@ -1201,8 +1201,8 @@ range_get(const struct range *r)
 /**
  * Compute the ROI for image comparisons
  *
- * \param img_a An image.
- * \param img_b Another image.
+ * \param ih_a A header for an image.
+ * \param ih_b A header for another image.
  * \param clip_rect Explicit ROI, or NULL for using the whole
  * image area.
  *
@@ -1216,20 +1216,11 @@ range_get(const struct range *r)
  * The ROI is given as pixman_box32_t, where x2,y2 are non-inclusive.
  */
 static pixman_box32_t
-image_check_get_roi(pixman_image_t *img_a, pixman_image_t *img_b,
-		   const struct rectangle *clip_rect)
+image_check_get_roi(const struct image_header *ih_a,
+		    const struct image_header *ih_b,
+		    const struct rectangle *clip_rect)
 {
-	int width_a;
-	int width_b;
-	int height_a;
-	int height_b;
 	pixman_box32_t box;
-
-	width_a = pixman_image_get_width(img_a);
-	height_a = pixman_image_get_height(img_a);
-
-	width_b = pixman_image_get_width(img_b);
-	height_b = pixman_image_get_height(img_b);
 
 	if (clip_rect) {
 		box.x1 = clip_rect->x;
@@ -1239,18 +1230,18 @@ image_check_get_roi(pixman_image_t *img_a, pixman_image_t *img_b,
 	} else {
 		box.x1 = 0;
 		box.y1 = 0;
-		box.x2 = max(width_a, width_b);
-		box.y2 = max(height_a, height_b);
+		box.x2 = max(ih_a->width, ih_b->width);
+		box.y2 = max(ih_a->height, ih_b->height);
 	}
 
 	assert(box.x1 >= 0);
 	assert(box.y1 >= 0);
 	assert(box.x2 > box.x1);
 	assert(box.y2 > box.y1);
-	assert(box.x2 <= width_a);
-	assert(box.x2 <= width_b);
-	assert(box.y2 <= height_a);
-	assert(box.y2 <= height_b);
+	assert(box.x2 <= ih_a->width);
+	assert(box.x2 <= ih_b->width);
+	assert(box.y2 <= ih_a->height);
+	assert(box.y2 <= ih_b->height);
 
 	return box;
 }
@@ -1332,7 +1323,7 @@ check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 	uint32_t *pix_a;
 	uint32_t *pix_b;
 
-	box = image_check_get_roi(img_a, img_b, clip_rect);
+	box = image_check_get_roi(&ih_a, &ih_b, clip_rect);
 
 	for (y = box.y1; y < box.y2; y++) {
 		pix_a = image_header_get_row_u32(&ih_a, y) + box.x1;
@@ -1416,7 +1407,7 @@ visualize_image_difference(pixman_image_t *img_a, pixman_image_t *img_b,
 	uint32_t *pix_d;
 	pixman_color_t shade_color = { 0, 0, 0, 32768 };
 
-	box = image_check_get_roi(img_a, img_b, clip_rect);
+	box = image_check_get_roi(&ih_a, &ih_b, clip_rect);
 
 	diffimg = pixman_image_create_bits_no_clear(PIXMAN_x8r8g8b8,
 						    ih_a.width, ih_a.height,
