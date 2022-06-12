@@ -327,7 +327,7 @@ fs_output_create(struct fullscreen_shell *shell, struct weston_output *output)
 	fsout->curtain = create_curtain(shell->compositor, fsout,
 					output->x, output->y,
 					output->width, output->height);
-	fsout->curtain->view->surface->is_mapped = true;
+	weston_surface_map(fsout->curtain->view->surface);
 	fsout->curtain->view->is_mapped = true;
 	weston_layer_entry_insert(&shell->layer.view_list,
 			          &fsout->curtain->view->layer_link);

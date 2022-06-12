@@ -92,7 +92,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	if (weston_surface_is_mapped(surface))
 		return;
 
-	surface->is_mapped = true;
+	weston_surface_map(surface);
 	weston_layer_entry_insert(&dts->layer.view_list, &dts->view->layer_link);
 	weston_view_set_position(dts->view, 0 - geometry.x, 0 - geometry.y);
 	weston_view_update_transform(dts->view);

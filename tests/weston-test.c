@@ -164,7 +164,7 @@ test_surface_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
 
 	weston_view_update_transform(test_surface->view);
 
-	test_surface->surface->is_mapped = true;
+	weston_surface_map(test_surface->surface);
 	test_surface->view->is_mapped = true;
 }
 

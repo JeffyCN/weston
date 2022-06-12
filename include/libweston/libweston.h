@@ -1972,6 +1972,9 @@ void
 weston_view_unmap(struct weston_view *view);
 
 void
+weston_surface_map(struct weston_surface *surface);
+
+void
 weston_surface_unmap(struct weston_surface *surface);
 
 struct weston_surface *

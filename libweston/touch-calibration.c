@@ -206,7 +206,7 @@ map_calibrator(struct weston_touch_calibrator *calibrator)
 	calibrator->view->is_mapped = true;
 
 	calibrator->surface->output = calibrator->output;
-	calibrator->surface->is_mapped = true;
+	weston_surface_map(calibrator->surface);
 
 	weston_output_schedule_repaint(calibrator->output);
 

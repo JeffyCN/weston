@@ -523,7 +523,7 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 				  &shoutput->curtain->view->layer_link);
 
 	shoutput->curtain->view->is_mapped = true;
-	shoutput->curtain->view->surface->is_mapped = true;
+	weston_surface_map(shoutput->curtain->view->surface);
 	shoutput->curtain->view->surface->output = output;
 	weston_view_set_output(shoutput->curtain->view, output);
 }
@@ -799,7 +799,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		struct kiosk_shell_seat *kiosk_seat;
 
 		shsurf->view->is_mapped = true;
-		surface->is_mapped = true;
+		weston_surface_map(surface);
 
 		kiosk_seat = get_kiosk_shell_seat(seat);
 		if (seat && kiosk_seat)

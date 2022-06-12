@@ -2697,7 +2697,7 @@ pointer_cursor_surface_committed(struct weston_surface *es,
 		weston_layer_entry_insert(&es->compositor->cursor_layer.view_list,
 					  &pointer->sprite->layer_link);
 		weston_view_update_transform(pointer->sprite);
-		es->is_mapped = true;
+		weston_surface_map(es);
 		pointer->sprite->is_mapped = true;
 	}
 }

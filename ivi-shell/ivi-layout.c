@@ -835,7 +835,7 @@ build_view_list(struct ivi_layout *layout)
 				weston_layer_entry_insert(&layout->layout_layer.view_list,
 							  &ivi_view->view->layer_link);
 
-				ivi_view->ivisurf->surface->is_mapped = true;
+				weston_surface_map(ivi_view->ivisurf->surface);
 				ivi_view->view->is_mapped = true;
 			}
 		}

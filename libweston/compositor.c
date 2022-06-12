@@ -2262,6 +2262,12 @@ weston_view_unmap(struct weston_view *view)
 }
 
 WL_EXPORT void
+weston_surface_map(struct weston_surface *surface)
+{
+	surface->is_mapped = true;
+}
+
+WL_EXPORT void
 weston_surface_unmap(struct weston_surface *surface)
 {
 	struct weston_view *view;
@@ -4529,22 +4535,21 @@ subsurface_committed(struct weston_surface *surface, int32_t dx, int32_t dy)
 	 * mapped, parent is not in a visible layer, so this sub-surface
 	 * will not be drawn either.
 	 */
-
-	if (!weston_surface_is_mapped(surface)) {
-		surface->is_mapped = weston_surface_has_content(surface);
-
-		/* Cannot call weston_view_update_transform(),
-		 * because that would call it also for the parent surface,
-		 * which might not be mapped yet. That would lead to
-		 * inconsistent state, where the window could never be
-		 * mapped.
-		 *
-		 * Instead just force the is_mapped flag on, to make
-		 * weston_surface_is_mapped() return true, so that when the
-		 * parent surface does get mapped, this one will get
-		 * included, too. See view_list_add().
-		 */
+	if (!weston_surface_is_mapped(surface) &&
+	    weston_surface_has_content(surface)) {
+		weston_surface_map(surface);
 	}
+
+	/* Cannot call weston_view_update_transform() here, because that would
+	 * call it also for the parent surface, which might not be mapped yet.
+	 * That would lead to inconsistent state, where the window could never
+	 * be mapped.
+	 *
+	 * Instead just force the child surface to appear mapped, to make
+	 * weston_surface_is_mapped() return true, so that when the parent
+	 * surface does get mapped, this one will get included, too. See
+	 * view_list_add().
+	 */
 }
 
 static struct weston_subsurface *

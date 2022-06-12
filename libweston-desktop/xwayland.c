@@ -122,7 +122,7 @@ weston_desktop_xwayland_surface_change_state(struct weston_desktop_xwayland_surf
 			weston_layer_entry_insert(&surface->xwayland->layer.view_list,
 						  &surface->view->layer_link);
 			surface->view->is_mapped = true;
-			wsurface->is_mapped = true;
+			weston_surface_map(wsurface);
 		}
 
 		surface->state = state;

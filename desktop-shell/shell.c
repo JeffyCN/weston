@@ -2501,7 +2501,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	if (!weston_surface_is_mapped(surface)) {
 		map(shell, shsurf, sx, sy);
-		surface->is_mapped = true;
+		weston_surface_map(surface);
 		/* as we need to survive the weston_surface destruction we'll
 		 * need to take another reference */
 		if (shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
@@ -2914,7 +2914,7 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer, int x,
 	}
 
 	weston_view_set_position(ev, ev->output->x + x, ev->output->y + y);
-	ev->surface->is_mapped = true;
+	weston_surface_map(ev->surface);
 	ev->is_mapped = true;
 
 	if (wl_list_empty(&ev->layer_link.link)) {
@@ -3136,7 +3136,7 @@ lock_surface_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
 		weston_layer_entry_insert(&shell->lock_layer.view_list,
 					  &view->layer_link);
 		weston_view_update_transform(view);
-		surface->is_mapped = true;
+		weston_surface_map(surface);
 		view->is_mapped = true;
 		shell_fade(shell, FADE_IN);
 	}
