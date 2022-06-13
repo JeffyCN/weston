@@ -280,6 +280,24 @@ sRGB_delinearize(struct color_float *cf)
 	*cf = color_float_apply_curve(TRANSFER_FN_SRGB_EOTF_INVERSE, *cf);
 }
 
+struct color_float
+color_float_unpremult(struct color_float in)
+{
+	static const struct color_float transparent = {
+		.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 0.0f,
+	};
+	struct color_float out;
+	int i;
+
+	if (in.a == 0.0f)
+		return transparent;
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		out.rgb[i] = in.rgb[i] / in.a;
+	out.a = in.a;
+	return out;
+}
+
 /*
  * Returns the result of the matrix-vector multiplication mat * c.
  */

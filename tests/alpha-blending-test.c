@@ -95,20 +95,6 @@ premult_color(uint32_t a, uint32_t r, uint32_t g, uint32_t b)
 }
 
 static void
-unpremult_float(struct color_float *cf)
-{
-	int i;
-
-	if (cf->a == 0.0f) {
-		for (i = 0; i < COLOR_CHAN_NUM; i++)
-			cf->rgb[i] = 0.0f;
-	} else {
-		for (i = 0; i < COLOR_CHAN_NUM; i++)
-			cf->rgb[i] /= cf->a;
-	}
-}
-
-static void
 fill_alpha_pattern(struct buffer *buf)
 {
 	struct image_header ih = image_header_from(buf->image);
@@ -205,9 +191,9 @@ verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
 	bool ok = true;
 	int i;
 
-	unpremult_float(&bg);
-	unpremult_float(&fg);
-	unpremult_float(&dst);
+	bg = color_float_unpremult(bg);
+	fg = color_float_unpremult(fg);
+	dst = color_float_unpremult(dst);
 
 	if (space == BLEND_LINEAR) {
 		sRGB_linearize(&bg);
