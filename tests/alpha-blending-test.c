@@ -30,6 +30,7 @@
 
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
+#include "image-iter.h"
 #include "color_util.h"
 
 struct setup_args {
@@ -110,22 +111,14 @@ unpremult_float(struct color_float *cf)
 static void
 fill_alpha_pattern(struct buffer *buf)
 {
-	void *pixels;
-	int stride_bytes;
-	int w, h;
+	struct image_header ih = image_header_from(buf->image);
 	int y;
 
-	assert(pixman_image_get_format(buf->image) == PIXMAN_a8r8g8b8);
+	assert(ih.pixman_format == PIXMAN_a8r8g8b8);
+	assert(ih.width == BLOCK_WIDTH * ALPHA_STEPS);
 
-	pixels = pixman_image_get_data(buf->image);
-	stride_bytes = pixman_image_get_stride(buf->image);
-	w = pixman_image_get_width(buf->image);
-	h = pixman_image_get_height(buf->image);
-
-	assert(w == BLOCK_WIDTH * ALPHA_STEPS);
-
-	for (y = 0; y < h; y++) {
-		uint32_t *row = pixels + y * stride_bytes;
+	for (y = 0; y < ih.height; y++) {
+		uint32_t *row = image_header_get_row_u32(&ih, y);
 		uint32_t step;
 
 		for (step = 0; step < (uint32_t)ALPHA_STEPS; step++) {
@@ -139,7 +132,6 @@ fill_alpha_pattern(struct buffer *buf)
 		}
 	}
 }
-
 
 static bool
 compare_float(float ref, float dst, int x, const char *chan, float *max_diff)
@@ -269,16 +261,12 @@ pixels_monotonic(const uint32_t *row, int x)
 static void *
 get_middle_row(struct buffer *buf)
 {
-	const int y = (BLOCK_WIDTH - 1) / 2; /* middle row */
-	void *pixels;
-	int stride_bytes;
+	struct image_header ih = image_header_from(buf->image);
 
-	assert(pixman_image_get_width(buf->image) >= BLOCK_WIDTH * ALPHA_STEPS);
-	assert(pixman_image_get_height(buf->image) >= BLOCK_WIDTH);
+	assert(ih.width >= BLOCK_WIDTH * ALPHA_STEPS);
+	assert(ih.height >= BLOCK_WIDTH);
 
-	pixels = pixman_image_get_data(buf->image);
-	stride_bytes = pixman_image_get_stride(buf->image);
-	return pixels + y * stride_bytes;
+	return image_header_get_row_u32(&ih, (BLOCK_WIDTH - 1) / 2);
 }
 
 static bool
