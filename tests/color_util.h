@@ -145,11 +145,12 @@ float
 scalar_stat_avg(const struct scalar_stat *stat);
 
 void
-scalar_stat_print_rgb8bit(const struct scalar_stat *stat);
-
-void
 scalar_stat_print_float(const struct scalar_stat *stat);
 
 void
 rgb_diff_stat_update(struct rgb_diff_stat *stat,
 		     struct color_float *ref, struct color_float *val);
+
+void
+rgb_diff_stat_print(const struct rgb_diff_stat *stat,
+		    const char *title, unsigned scaling_bits);

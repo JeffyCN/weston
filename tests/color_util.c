@@ -396,23 +396,47 @@ scalar_stat_avg(const struct scalar_stat *stat)
 	return stat->sum / stat->count;
 }
 
-#define RGB888_FMT "(%3u, %3u, %3u)"
-#define RGB888_VAL(cf) (unsigned)round((cf).r * 255.0), (unsigned)round((cf).g * 255.0), (unsigned)round((cf).b * 255.0)
-
-void
-scalar_stat_print_rgb8bit(const struct scalar_stat *stat)
-{
-	testlog("    min %8.5f at " RGB888_FMT "\n", stat->min, RGB888_VAL(stat->min_pos));
-	testlog("    max %8.5f at " RGB888_FMT "\n", stat->max, RGB888_VAL(stat->max_pos));
-	testlog("    avg %8.5f\n", scalar_stat_avg(stat));
-}
-
 void
 scalar_stat_print_float(const struct scalar_stat *stat)
 {
 	testlog("    min %11.5g at %.5f\n", stat->min, stat->min_pos.r);
 	testlog("    max %11.5g at %.5f\n", stat->max, stat->max_pos.r);
 	testlog("    avg %11.5g\n", scalar_stat_avg(stat));
+}
+
+static void
+print_stat_at_pos(const char *lim, double val, struct color_float pos, double scale)
+{
+	testlog("    %s %8.5f at rgb(%7.2f, %7.2f, %7.2f)\n",
+		lim, val * scale, pos.r * scale, pos.g * scale, pos.b * scale);
+}
+
+static void
+print_rgb_at_pos(const struct scalar_stat *stat, double scale)
+{
+	print_stat_at_pos("min", stat->min, stat->min_pos, scale);
+	print_stat_at_pos("max", stat->max, stat->max_pos, scale);
+	testlog("    avg %8.5f\n", scalar_stat_avg(stat) * scale);
+}
+
+void
+rgb_diff_stat_print(const struct rgb_diff_stat *stat,
+		    const char *title, unsigned scaling_bits)
+{
+	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
+	float scale = exp2f(scaling_bits) - 1.0f;
+	unsigned i;
+
+	assert(scaling_bits > 0);
+
+	testlog("%s error statistics, %u samples, value range 0.0 - %.1f:\n",
+		title, stat->two_norm.count, scale);
+	for (i = 0; i < COLOR_CHAN_NUM; i++) {
+		testlog("  ch %s (signed):\n", chan_name[i]);
+		print_rgb_at_pos(&stat->rgb[i], scale);
+	}
+	testlog("  rgb two-norm:\n");
+	print_rgb_at_pos(&stat->two_norm, scale);
 }
 
 void

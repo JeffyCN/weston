@@ -189,8 +189,6 @@ test_roundtrip(uint8_t r, uint8_t g, uint8_t b, cmsPipeline *pip,
 static void
 roundtrip_verification(cmsPipeline *DToB, cmsPipeline *BToD, float tolerance)
 {
-	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
-	unsigned i;
 	unsigned r, g, b;
 	struct rgb_diff_stat stat = {};
 	cmsPipeline *pip;
@@ -211,15 +209,7 @@ roundtrip_verification(cmsPipeline *DToB, cmsPipeline *BToD, float tolerance)
 
 	cmsPipelineFree(pip);
 
-	testlog("DToB->BToD roundtrip error statistics (%u samples):\n",
-		stat.two_norm.count);
-	for (i = 0; i < COLOR_CHAN_NUM; i++) {
-		testlog("  ch %s error:\n", chan_name[i]);
-		scalar_stat_print_rgb8bit(&stat.rgb[i]);
-	}
-	testlog("  Two-norm error:\n");
-	scalar_stat_print_rgb8bit(&stat.two_norm);
-
+	rgb_diff_stat_print(&stat, "DToB->BToD roundtrip", 8);
 	assert(stat.two_norm.max < tolerance);
 }
 
