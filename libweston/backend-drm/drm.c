@@ -855,7 +855,7 @@ drm_output_find_special_plane(struct drm_device *device,
 	struct drm_plane *plane;
 
 	wl_list_for_each(plane, &device->plane_list, link) {
-		struct drm_output *tmp;
+		struct weston_output *base;
 		bool found_elsewhere = false;
 
 		if (plane->type != type)
@@ -866,7 +866,11 @@ drm_output_find_special_plane(struct drm_device *device,
 		/* On some platforms, primary/cursor planes can roam
 		 * between different CRTCs, so make sure we don't claim the
 		 * same plane for two outputs. */
-		wl_list_for_each(tmp, &b->compositor->output_list, base.link) {
+		wl_list_for_each(base, &b->compositor->output_list, link) {
+			struct drm_output *tmp = to_drm_output(base);
+			if (!tmp)
+				continue;
+
 			if (tmp->cursor_plane == plane ||
 			    tmp->scanout_plane == plane) {
 				found_elsewhere = true;
@@ -2686,7 +2690,7 @@ session_notify(struct wl_listener *listener, void *data)
 	struct weston_compositor *compositor = data;
 	struct drm_backend *b = to_drm_backend(compositor);
 	struct drm_device *device = b->drm;
-	struct drm_output *output;
+	struct weston_output *output;
 
 	if (compositor->session_active) {
 		weston_log("activating session\n");
@@ -2708,8 +2712,9 @@ session_notify(struct wl_listener *listener, void *data)
 		 * back, we schedule a repaint, which will process
 		 * pending frame callbacks. */
 
-		wl_list_for_each(output, &compositor->output_list, base.link)
-			output->base.repaint_needed = false;
+		wl_list_for_each(output, &compositor->output_list, link)
+			if (to_drm_output(output))
+				output->repaint_needed = false;
 	}
 }
 
@@ -2999,11 +3004,15 @@ recorder_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 		 uint32_t key, void *data)
 {
 	struct drm_backend *b = data;
+	struct weston_output *base_output;
 	struct drm_output *output;
 	int width, height;
 
-	output = container_of(b->compositor->output_list.next,
-			      struct drm_output, base.link);
+	wl_list_for_each(base_output, &b->compositor->output_list, link) {
+		output = to_drm_output(base_output);
+		if (output)
+			break;
+	}
 
 	if (!output->recorder) {
 		if (output->gbm_format != DRM_FORMAT_XRGB8888) {
