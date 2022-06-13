@@ -6253,6 +6253,9 @@ weston_head_get_destroy_listener(struct weston_head *head,
 	return wl_signal_get(&head->destroy_signal, notify);
 }
 
+static void
+weston_output_set_position(struct weston_output *output, int x, int y);
+
 /* Move other outputs when one is resized so the space remains contiguous. */
 static void
 weston_compositor_reflow_outputs(struct weston_compositor *compositor,
@@ -6260,6 +6263,9 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
 {
 	struct weston_output *output;
 	bool start_resizing = false;
+
+	if (compositor->output_flow_dirty)
+		return;
 
 	if (!delta_width)
 		return;
@@ -6271,7 +6277,7 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
 		}
 
 		if (start_resizing) {
-			weston_output_move(output, output->x + delta_width, output->y);
+			weston_output_set_position(output, output->x + delta_width, output->y);
 			output->dirty = 1;
 		}
 	}
@@ -6377,8 +6383,8 @@ weston_output_init_geometry(struct weston_output *output, int x, int y)
 /**
  * \ingroup output
  */
-WL_EXPORT void
-weston_output_move(struct weston_output *output, int x, int y)
+static void
+weston_output_set_position(struct weston_output *output, int x, int y)
 {
 	struct weston_head *head;
 	struct wl_resource *resource;
@@ -6422,6 +6428,16 @@ weston_output_move(struct weston_output *output, int x, int y)
 			zxdg_output_v1_send_done(resource);
 		}
 	}
+}
+
+/**
+ * \ingroup output
+ */
+WL_EXPORT void
+weston_output_move(struct weston_output *output, int x, int y)
+{
+	output->compositor->output_flow_dirty = true;
+	weston_output_set_position(output, x, y);
 }
 
 /** Signal that a pending output is taken into use.

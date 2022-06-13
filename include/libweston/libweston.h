@@ -1263,6 +1263,7 @@ struct weston_compositor {
 	struct wl_list plugin_api_list; /* struct weston_plugin_api::link */
 
 	uint32_t output_id_pool;
+	bool output_flow_dirty;
 
 	struct xkb_rule_names xkb_names;
 	struct xkb_context *xkb_context;
