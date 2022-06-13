@@ -30,6 +30,7 @@
 
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
+#include "image-iter.h"
 #include "test-config.h"
 
 static enum test_result_code
@@ -55,30 +56,20 @@ DECLARE_FIXTURE_SETUP(fixture_setup);
 static void
 draw_stuff(pixman_image_t *image)
 {
-	int w, h;
-	int stride; /* bytes */
+	struct image_header ih = image_header_from(image);
 	int x, y;
 	uint32_t r, g, b;
-	uint32_t *pixels;
-	uint32_t *pixel;
-	pixman_format_code_t fmt;
 
-	fmt = pixman_image_get_format(image);
-	w = pixman_image_get_width(image);
-	h = pixman_image_get_height(image);
-	stride = pixman_image_get_stride(image);
-	pixels = pixman_image_get_data(image);
+	for (y = 0; y < ih.height; y++) {
+		uint32_t *pixel = image_header_get_row_u32(&ih, y);
 
-	assert(PIXMAN_FORMAT_BPP(fmt) == 32);
-
-	for (x = 0; x < w; x++)
-		for (y = 0; y < h; y++) {
+		for (x = 0; x < ih.width; x++, pixel++) {
 			b = x;
 			g = x + y;
 			r = y;
-			pixel = pixels + (y * stride / 4) + x;
 			*pixel = (255U << 24) | (r << 16) | (g << 8) | b;
 		}
+	}
 }
 
 TEST(internal_screenshot)
