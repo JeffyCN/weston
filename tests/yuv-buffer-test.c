@@ -33,6 +33,7 @@
 
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
+#include "image-iter.h"
 #include "shared/os-compatibility.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/xalloc.h"
@@ -158,13 +159,10 @@ y_u_v_create_buffer(struct client *client,
 		    uint32_t drm_format,
 		    pixman_image_t *rgb_image)
 {
+	struct image_header rgb = image_header_from(rgb_image);
 	struct yuv_buffer *buf;
 	size_t bytes;
-	int width;
-	int height;
 	int x, y;
-	void *rgb_pixels;
-	int rgb_stride_bytes;
 	uint32_t *rgb_row;
 	uint8_t *y_base;
 	uint8_t *u_base;
@@ -178,26 +176,23 @@ y_u_v_create_buffer(struct client *client,
 	assert(drm_format == DRM_FORMAT_YUV420 ||
 	       drm_format == DRM_FORMAT_YUV444);
 
-	width = pixman_image_get_width(rgb_image);
-	height = pixman_image_get_height(rgb_image);
-	rgb_pixels = pixman_image_get_data(rgb_image);
-	rgb_stride_bytes = pixman_image_get_stride(rgb_image);
-
 	/* Full size Y plus quarter U and V */
-	bytes = width * height + (width / sub) * (height / sub) * 2;
-	buf = yuv_buffer_create(client, bytes, width, height, width, drm_format);
+	bytes = rgb.width * rgb.height +
+		(rgb.width / sub) * (rgb.height / sub) * 2;
+	buf = yuv_buffer_create(client, bytes, rgb.width, rgb.height,
+				rgb.width, drm_format);
 
 	y_base = buf->data;
-	u_base = y_base + width * height;
-	v_base = u_base + (width / sub) * (height / sub);
+	u_base = y_base + rgb.width * rgb.height;
+	v_base = u_base + (rgb.width / sub) * (rgb.height / sub);
 
-	for (y = 0; y < height; y++) {
-		rgb_row = rgb_pixels + (y / 2 * 2) * rgb_stride_bytes;
-		y_row = y_base + y * width;
-		u_row = u_base + (y / sub) * (width / sub);
-		v_row = v_base + (y / sub) * (width / sub);
+	for (y = 0; y < rgb.height; y++) {
+		rgb_row = image_header_get_row_u32(&rgb, y / 2 * 2);
+		y_row = y_base + y * rgb.width;
+		u_row = u_base + (y / sub) * (rgb.width / sub);
+		v_row = v_base + (y / sub) * (rgb.width / sub);
 
-		for (x = 0; x < width; x++) {
+		for (x = 0; x < rgb.width; x++) {
 			/*
 			 * Sub-sample the source image instead, so that U and V
 			 * sub-sampling does not require proper
@@ -235,13 +230,10 @@ nv12_create_buffer(struct client *client,
 		   uint32_t drm_format,
 		   pixman_image_t *rgb_image)
 {
+	struct image_header rgb = image_header_from(rgb_image);
 	struct yuv_buffer *buf;
 	size_t bytes;
-	int width;
-	int height;
 	int x, y;
-	void *rgb_pixels;
-	int rgb_stride_bytes;
 	uint32_t *rgb_row;
 	uint8_t *y_base;
 	uint16_t *uv_base;
@@ -253,24 +245,21 @@ nv12_create_buffer(struct client *client,
 
 	assert(drm_format == DRM_FORMAT_NV12);
 
-	width = pixman_image_get_width(rgb_image);
-	height = pixman_image_get_height(rgb_image);
-	rgb_pixels = pixman_image_get_data(rgb_image);
-	rgb_stride_bytes = pixman_image_get_stride(rgb_image);
-
 	/* Full size Y, quarter UV */
-	bytes = width * height + (width / 2) * (height / 2) * sizeof(uint16_t);
-	buf = yuv_buffer_create(client, bytes, width, height, width, drm_format);
+	bytes = rgb.width * rgb.height +
+		(rgb.width / 2) * (rgb.height / 2) * sizeof(uint16_t);
+	buf = yuv_buffer_create(client, bytes, rgb.width, rgb.height,
+				rgb.width, drm_format);
 
 	y_base = buf->data;
-	uv_base = (uint16_t *)(y_base + width * height);
+	uv_base = (uint16_t *)(y_base + rgb.width * rgb.height);
 
-	for (y = 0; y < height; y++) {
-		rgb_row = rgb_pixels + (y / 2 * 2) * rgb_stride_bytes;
-		y_row = y_base + y * width;
-		uv_row = uv_base + (y / 2) * (width / 2);
+	for (y = 0; y < rgb.height; y++) {
+		rgb_row = image_header_get_row_u32(&rgb, y / 2 * 2);
+		y_row = y_base + y * rgb.width;
+		uv_row = uv_base + (y / 2) * (rgb.width / 2);
 
-		for (x = 0; x < width; x++) {
+		for (x = 0; x < rgb.width; x++) {
 			/*
 			 * Sub-sample the source image instead, so that U and V
 			 * sub-sampling does not require proper
@@ -307,13 +296,10 @@ yuyv_create_buffer(struct client *client,
 		   uint32_t drm_format,
 		   pixman_image_t *rgb_image)
 {
+	struct image_header rgb = image_header_from(rgb_image);
 	struct yuv_buffer *buf;
 	size_t bytes;
-	int width;
-	int height;
 	int x, y;
-	void *rgb_pixels;
-	int rgb_stride_bytes;
 	uint32_t *rgb_row;
 	uint32_t *yuv_base;
 	uint32_t *yuv_row;
@@ -323,22 +309,18 @@ yuyv_create_buffer(struct client *client,
 
 	assert(drm_format == DRM_FORMAT_YUYV);
 
-	width = pixman_image_get_width(rgb_image);
-	height = pixman_image_get_height(rgb_image);
-	rgb_pixels = pixman_image_get_data(rgb_image);
-	rgb_stride_bytes = pixman_image_get_stride(rgb_image);
-
 	/* Full size Y, horizontally subsampled UV, 2 pixels in 32 bits */
-	bytes = width / 2 * height * sizeof(uint32_t);
-	buf = yuv_buffer_create(client, bytes, width, height, width / 2 * sizeof(uint32_t), drm_format);
+	bytes = rgb.width / 2 * rgb.height * sizeof(uint32_t);
+	buf = yuv_buffer_create(client, bytes, rgb.width, rgb.height,
+				rgb.width / 2 * sizeof(uint32_t), drm_format);
 
 	yuv_base = buf->data;
 
-	for (y = 0; y < height; y++) {
-		rgb_row = rgb_pixels + (y / 2 * 2) * rgb_stride_bytes;
-		yuv_row = yuv_base + y * (width / 2);
+	for (y = 0; y < rgb.height; y++) {
+		rgb_row = image_header_get_row_u32(&rgb, y / 2 * 2);
+		yuv_row = yuv_base + y * (rgb.width / 2);
 
-		for (x = 0; x < width; x += 2) {
+		for (x = 0; x < rgb.width; x += 2) {
 			/*
 			 * Sub-sample the source image instead, so that U and V
 			 * sub-sampling does not require proper
@@ -367,13 +349,10 @@ xyuv8888_create_buffer(struct client *client,
 		       uint32_t drm_format,
 		       pixman_image_t *rgb_image)
 {
+	struct image_header rgb = image_header_from(rgb_image);
 	struct yuv_buffer *buf;
 	size_t bytes;
-	int width;
-	int height;
 	int x, y;
-	void *rgb_pixels;
-	int rgb_stride_bytes;
 	uint32_t *rgb_row;
 	uint32_t *yuv_base;
 	uint32_t *yuv_row;
@@ -383,22 +362,18 @@ xyuv8888_create_buffer(struct client *client,
 
 	assert(drm_format == DRM_FORMAT_XYUV8888);
 
-	width = pixman_image_get_width(rgb_image);
-	height = pixman_image_get_height(rgb_image);
-	rgb_pixels = pixman_image_get_data(rgb_image);
-	rgb_stride_bytes = pixman_image_get_stride(rgb_image);
-
 	/* Full size, 32 bits per pixel */
-	bytes = width * height * sizeof(uint32_t);
-	buf = yuv_buffer_create(client, bytes, width, height, width * sizeof(uint32_t), drm_format);
+	bytes = rgb.width * rgb.height * sizeof(uint32_t);
+	buf = yuv_buffer_create(client, bytes, rgb.width, rgb.height,
+				rgb.width * sizeof(uint32_t), drm_format);
 
 	yuv_base = buf->data;
 
-	for (y = 0; y < height; y++) {
-		rgb_row = rgb_pixels + (y / 2 * 2) * rgb_stride_bytes;
-		yuv_row = yuv_base + y * width;
+	for (y = 0; y < rgb.height; y++) {
+		rgb_row = image_header_get_row_u32(&rgb, y / 2 * 2);
+		yuv_row = yuv_base + y * rgb.width;
 
-		for (x = 0; x < width; x++) {
+		for (x = 0; x < rgb.width; x++) {
 			/*
 			 * 2x2 sub-sample the source image to get the same
 			 * result as the other YUV variants, so we can use the
