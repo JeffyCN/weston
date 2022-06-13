@@ -34,6 +34,7 @@
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 #include "color_util.h"
+#include "image-iter.h"
 #include "lcms_util.h"
 
 struct lcms_pipeline {
@@ -165,26 +166,6 @@ static const struct setup_args my_setup_args[] = {
 	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0, 17, PTYPE_CLUT,         0.0005 },
 	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1, 17, PTYPE_CLUT,         0.0065 },
 };
-
-struct image_header {
-	int width;
-	int height;
-	int stride;
-	int depth;
-	pixman_format_code_t pix_format;
-	uint32_t *data;
-};
-
-static void
-get_image_prop(struct buffer *buf, struct image_header *header)
-{
-	header->width  = pixman_image_get_width(buf->image);
-	header->height = pixman_image_get_height(buf->image);
-	header->stride = pixman_image_get_stride(buf->image);
-	header->depth = pixman_image_get_depth(buf->image);
-	header->pix_format = pixman_image_get_format (buf->image);
-	header->data = pixman_image_get_data(buf->image);
-}
 
 static void
 test_roundtrip(uint8_t r, uint8_t g, uint8_t b, cmsPipeline *pip,
@@ -486,7 +467,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 DECLARE_FIXTURE_SETUP_WITH_ARG(fixture_setup, my_setup_args, meta);
 
 static void
-gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
+gen_ramp_rgb(pixman_image_t *image, int bitwidth, int width_bar)
 {
 	static const int hue[][COLOR_CHAN_NUM] = {
 		{ 1, 1, 1 },	/* White	*/
@@ -499,6 +480,7 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 	};
 	const int num_hues = ARRAY_LENGTH(hue);
 
+	struct image_header ih = image_header_from(image);
 	float val_max;
 	int x, y;
 	int hue_index;
@@ -511,14 +493,15 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 
 	val_max = (1 << bitwidth) - 1;
 
-	for (y = 0; y < header->height; y++) {
-		hue_index = (y * num_hues) / (header->height - 1);
+	for (y = 0; y < ih.height; y++) {
+		hue_index = (y * num_hues) / (ih.height - 1);
 		hue_index = MIN(hue_index, num_hues - 1);
 
-		for (x = 0; x < header->width; x++) {
+		pixel = image_header_get_row_u32(&ih, y);
+		for (x = 0; x < ih.width; x++, pixel++) {
 			struct color_float rgb = { .rgb = { 0, 0, 0 } };
 
-			value = (float)x / (float)(header->width - 1);
+			value = (float)x / (float)(ih.width - 1);
 
 			if (width_bar > 1)
 				value = floor(value * n_steps) / n_steps;
@@ -534,7 +517,6 @@ gen_ramp_rgb(const struct image_header *header, int bitwidth, int width_bar)
 			g = round(rgb.g * val_max);
 			b = round(rgb.b * val_max);
 
-			pixel = header->data + (y * header->stride / 4) + x;
 			*pixel = (255U << 24) | (r << 16) | (g << 8) | b;
 		}
 	}
@@ -585,8 +567,8 @@ compare_float(float ref, float dst, int x, const char *chan,
 }
 
 static bool
-process_pipeline_comparison(const struct image_header *src,
-			    const struct image_header *shot,
+process_pipeline_comparison(const struct buffer *src_buf,
+			    const struct buffer *shot_buf,
 			    const struct setup_args * arg)
 {
 	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
@@ -595,18 +577,23 @@ process_pipeline_comparison(const struct image_header *src,
 	float max_allow_diff = arg->tolerance / max_pixel_value;
 	float max_err = 0.0f;
 	bool ok = true;
-	uint32_t *row_ptr, *row_ptr_shot;
+	struct image_header ih_src = image_header_from(src_buf->image);
+	struct image_header ih_shot = image_header_from(shot_buf->image);
 	int y, x;
 	int chan;
 	struct color_float pix_src;
 	struct color_float pix_src_pipeline;
 	struct color_float pix_shot;
 
-	for (y = 0; y < src->height; y++) {
-		row_ptr = (uint32_t*)((uint8_t*)src->data + (src->stride * y));
-		row_ptr_shot  = (uint32_t*)((uint8_t*)shot->data + (shot->stride * y));
+	/* no point to compare different images */
+	assert(ih_src.width == ih_shot.width);
+	assert(ih_src.height == ih_shot.height);
 
-		for (x = 0; x < src->width; x++) {
+	for (y = 0; y < ih_src.height; y++) {
+		uint32_t *row_ptr = image_header_get_row_u32(&ih_src, y);
+		uint32_t *row_ptr_shot = image_header_get_row_u32(&ih_shot, y);
+
+		for (x = 0; x < ih_src.width; x++) {
 			pix_src = a8r8g8b8_to_float(row_ptr[x]);
 			pix_shot = a8r8g8b8_to_float(row_ptr_shot[x]);
 			/* do pipeline processing */
@@ -639,26 +626,6 @@ process_pipeline_comparison(const struct image_header *src,
 	return ok;
 }
 
-static bool
-check_process_pattern_ex(struct buffer *src, struct buffer *shot,
-		const struct setup_args * arg)
-{
-	struct image_header header_src;
-	struct image_header header_shot;
-	bool ok;
-
-	get_image_prop(src, &header_src);
-	get_image_prop(shot, &header_shot);
-
-	/* no point to compare different images */
-	assert(header_src.width == header_shot.width);
-	assert(header_src.height == header_shot.height);
-
-	ok = process_pipeline_comparison(&header_src, &header_shot, arg);
-
-	return ok;
-}
-
 /*
  * Test that opaque client pixels produce the expected output when converted
  * from the implicit sRGB input to ICC profile described output.
@@ -680,7 +647,6 @@ TEST(opaque_pixel_conversion)
 	struct buffer *buf;
 	struct buffer *shot;
 	struct wl_surface *surface;
-	struct image_header image;
 	bool match;
 
 	client = create_client_and_test_surface(0, 0, width, height);
@@ -688,8 +654,7 @@ TEST(opaque_pixel_conversion)
 	surface = client->surface->wl_surface;
 
 	buf = create_shm_buffer_a8r8g8b8(client, width, height);
-	get_image_prop(buf, &image);
-	gen_ramp_rgb(&image, bitwidth, width_bar);
+	gen_ramp_rgb(buf->image, bitwidth, width_bar);
 
 	wl_surface_attach(surface, buf->proxy, 0, 0);
 	wl_surface_damage(surface, 0, 0, width, height);
@@ -700,7 +665,7 @@ TEST(opaque_pixel_conversion)
 
 	match = verify_image(shot, "shaper_matrix", arg->ref_image_index,
 			     NULL, seq_no);
-	assert(check_process_pattern_ex(buf, shot, arg));
+	assert(process_pipeline_comparison(buf, shot, arg));
 	assert(match);
 	buffer_destroy(shot);
 	buffer_destroy(buf);
