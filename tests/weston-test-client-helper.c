@@ -1464,16 +1464,12 @@ write_image_as_png(pixman_image_t *image, const char *fname)
 {
 	cairo_surface_t *cairo_surface;
 	cairo_status_t status;
-	cairo_format_t fmt;
+	struct image_header ih = image_header_from(image);
+	cairo_format_t fmt = format_pixman2cairo(ih.pixman_format);
 
-	fmt = format_pixman2cairo(pixman_image_get_format(image));
-
-	cairo_surface = cairo_image_surface_create_for_data(
-			(void *)pixman_image_get_data(image),
-			fmt,
-			pixman_image_get_width(image),
-			pixman_image_get_height(image),
-			pixman_image_get_stride(image));
+	cairo_surface = cairo_image_surface_create_for_data(ih.data, fmt,
+							    ih.width, ih.height,
+							    ih.stride_bytes);
 
 	status = cairo_surface_write_to_png(cairo_surface, fname);
 	if (status != CAIRO_STATUS_SUCCESS) {
@@ -1492,21 +1488,17 @@ static pixman_image_t *
 image_convert_to_a8r8g8b8(pixman_image_t *image)
 {
 	pixman_image_t *ret;
-	int width;
-	int height;
+	struct image_header ih = image_header_from(image);
 
-	if (pixman_image_get_format(image) == PIXMAN_a8r8g8b8)
+	if (ih.pixman_format == PIXMAN_a8r8g8b8)
 		return pixman_image_ref(image);
 
-	width = pixman_image_get_width(image);
-	height = pixman_image_get_height(image);
-
-	ret = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8, width, height,
-						NULL, 0);
+	ret = pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8,
+						ih.width, ih.height, NULL, 0);
 	assert(ret);
 
 	pixman_image_composite32(PIXMAN_OP_SRC, image, NULL, ret,
-				 0, 0, 0, 0, 0, 0, width, height);
+				 0, 0, 0, 0, 0, 0, ih.width, ih.height);
 
 	return ret;
 }
