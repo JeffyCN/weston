@@ -1,5 +1,6 @@
 /*
  * Copyright 2021 Advanced Micro Devices, Inc.
+ * Copyright 2020, 2022 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -623,4 +624,224 @@ TEST(opaque_pixel_conversion)
 	buffer_destroy(shot);
 	buffer_destroy(buf);
 	client_destroy(client);
+}
+
+static struct color_float
+convert_to_blending_space(const struct lcms_pipeline *pip,
+			  struct color_float cf)
+{
+	/* Blending space is the linearized output space,
+	 * or simply output space without the non-linear encoding
+	 */
+	cf = color_float_apply_curve(pip->pre_fn, cf);
+	return color_float_apply_matrix(&pip->mat, cf);
+}
+
+static void
+compare_blend(const struct lcms_pipeline *pip,
+	      struct color_float bg,
+	      struct color_float fg,
+	      const struct color_float *shot,
+	      struct rgb_diff_stat *diffstat)
+{
+	struct color_float ref;
+	unsigned i;
+
+	/* convert sources to straight alpha */
+	assert(bg.a == 1.0f);
+	fg = color_float_unpremult(fg);
+
+	bg = convert_to_blending_space(pip, bg);
+	fg = convert_to_blending_space(pip, fg);
+
+	/* blend */
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		ref.rgb[i] = (1.0f - fg.a) * bg.rgb[i] + fg.a * fg.rgb[i];
+
+	/* non-linear encoding for output */
+	ref = color_float_apply_curve(pip->post_fn, ref);
+
+	rgb_diff_stat_update(diffstat, &ref, shot, &fg);
+}
+
+/* Alpha blending test pattern parameters */
+static const int ALPHA_STEPS = 256;
+static const int BLOCK_WIDTH = 1;
+
+static void *
+get_middle_row(struct buffer *buf)
+{
+	struct image_header ih = image_header_from(buf->image);
+
+	assert(ih.width >= BLOCK_WIDTH * ALPHA_STEPS);
+	assert(ih.height >= BLOCK_WIDTH);
+
+	return image_header_get_row_u32(&ih, (BLOCK_WIDTH - 1) / 2);
+}
+
+static bool
+check_blend_pattern(struct buffer *bg_buf,
+		    struct buffer *fg_buf,
+		    struct buffer *shot_buf,
+		    const struct setup_args *arg)
+{
+	FILE *dump = NULL;
+#if 0
+	/*
+	 * This file can be loaded in Octave for visualization. Find the script
+	 * in tests/visualization/weston_plot_rgb_diff_stat.m and call it with
+	 *
+	 * weston_plot_rgb_diff_stat('output_icc_alpha_blend-f01-dump.txt', 255, 8)
+	 */
+	dump = fopen_dump_file("dump");
+#endif
+
+	uint32_t *bg_row = get_middle_row(bg_buf);
+	uint32_t *fg_row = get_middle_row(fg_buf);
+	uint32_t *shot_row = get_middle_row(shot_buf);
+	struct rgb_diff_stat diffstat = { .dump = dump };
+	int x;
+
+	for (x = 0; x < BLOCK_WIDTH * ALPHA_STEPS; x++) {
+		struct color_float bg = a8r8g8b8_to_float(bg_row[x]);
+		struct color_float fg = a8r8g8b8_to_float(fg_row[x]);
+		struct color_float shot = a8r8g8b8_to_float(shot_row[x]);
+
+		compare_blend(arg->pipeline, bg, fg, &shot, &diffstat);
+	}
+
+	rgb_diff_stat_print(&diffstat, "Blending", 8);
+
+	if (dump)
+		fclose(dump);
+
+	/* Test success condition: */
+	return diffstat.two_norm.max < 1.5f / 255.0f;
+}
+
+static uint32_t
+premult_color(uint32_t a, uint32_t r, uint32_t g, uint32_t b)
+{
+	uint32_t c = 0;
+
+	c |= a << 24;
+	c |= (a * r / 255) << 16;
+	c |= (a * g / 255) << 8;
+	c |= a * b / 255;
+
+	return c;
+}
+
+static void
+fill_alpha_pattern(struct buffer *buf)
+{
+	struct image_header ih = image_header_from(buf->image);
+	int y;
+
+	assert(ih.pixman_format == PIXMAN_a8r8g8b8);
+	assert(ih.width == BLOCK_WIDTH * ALPHA_STEPS);
+
+	for (y = 0; y < ih.height; y++) {
+		uint32_t *row = image_header_get_row_u32(&ih, y);
+		uint32_t step;
+
+		for (step = 0; step < (uint32_t)ALPHA_STEPS; step++) {
+			uint32_t alpha = step * 255 / (ALPHA_STEPS - 1);
+			uint32_t color;
+			int i;
+
+			color = premult_color(alpha, 0, 255 - alpha, 255);
+			for (i = 0; i < BLOCK_WIDTH; i++)
+				*row++ = color;
+		}
+	}
+}
+
+/*
+ * Test that alpha blending is correct when an output ICC profile is installed.
+ *
+ * The background is a constant color. On top of that, there is an
+ * alpha-blended gradient with ramps in both alpha and color. Sub-surface
+ * ensures the correct positioning and stacking.
+ *
+ * The gradient consists of ALPHA_STEPS number of blocks. Block size is
+ * BLOCK_WIDTH x BLOCK_WIDTH and a block has a uniform color.
+ *
+ * In the blending result over x axis:
+ * - red goes from 1.0 to 0.0, monotonic
+ * - green is not monotonic
+ * - blue goes from 0.0 to 1.0, monotonic
+ *
+ * The test has sRGB encoded input pixels (non-linear). These are converted to
+ * linear light (optical) values in output color space, blended, and converted
+ * to non-linear (electrical) values according to the output ICC profile.
+ *
+ * Specifically, this test exercises the linearization of output ICC profiles,
+ * retrieve_eotf_and_output_inv_eotf().
+ */
+TEST(output_icc_alpha_blend)
+{
+	const int width = BLOCK_WIDTH * ALPHA_STEPS;
+	const int height = BLOCK_WIDTH;
+	const pixman_color_t background_color = {
+		.red   = 0xffff,
+		.green = 0x8080,
+		.blue  = 0x0000,
+		.alpha = 0xffff
+	};
+	int seq_no = get_test_fixture_index();
+	const struct setup_args *arg = &my_setup_args[seq_no];
+	struct client *client;
+	struct buffer *bg;
+	struct buffer *fg;
+	struct wl_subcompositor *subco;
+	struct wl_surface *surf;
+	struct wl_subsurface *sub;
+	struct buffer *shot;
+	bool match;
+
+	client = create_client();
+	subco = bind_to_singleton_global(client, &wl_subcompositor_interface, 1);
+
+	/* background window content */
+	bg = create_shm_buffer_a8r8g8b8(client, width, height);
+	fill_image_with_color(bg->image, &background_color);
+
+	/* background window, main surface */
+	client->surface = create_test_surface(client);
+	client->surface->width = width;
+	client->surface->height = height;
+	client->surface->buffer = bg; /* pass ownership */
+	surface_set_opaque_rect(client->surface,
+				&(struct rectangle){ 0, 0, width, height });
+
+	/* foreground blended content */
+	fg = create_shm_buffer_a8r8g8b8(client, width, height);
+	fill_alpha_pattern(fg);
+
+	/* foreground window, sub-surface */
+	surf = wl_compositor_create_surface(client->wl_compositor);
+	sub = wl_subcompositor_get_subsurface(subco, surf, client->surface->wl_surface);
+	/* sub-surface defaults to position 0, 0, top-most, synchronized */
+	wl_surface_attach(surf, fg->proxy, 0, 0);
+	wl_surface_damage(surf, 0, 0, width, height);
+	wl_surface_commit(surf);
+
+	/* attach, damage, commit background window */
+	move_client(client, 0, 0);
+
+	shot = capture_screenshot_of_output(client);
+	assert(shot);
+	match = verify_image(shot, "output_icc_alpha_blend", arg->ref_image_index,
+			     NULL, seq_no);
+	assert(check_blend_pattern(bg, fg, shot, arg));
+	assert(match);
+
+	buffer_destroy(shot);
+
+	wl_subsurface_destroy(sub);
+	wl_surface_destroy(surf);
+	buffer_destroy(fg);
+	wl_subcompositor_destroy(subco);
+	client_destroy(client); /* destroys bg */
 }
