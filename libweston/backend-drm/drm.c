@@ -2686,9 +2686,7 @@ session_notify(struct wl_listener *listener, void *data)
 	struct weston_compositor *compositor = data;
 	struct drm_backend *b = to_drm_backend(compositor);
 	struct drm_device *device = b->drm;
-	struct drm_plane *plane;
 	struct drm_output *output;
-	struct drm_crtc *crtc;
 
 	if (compositor->session_active) {
 		weston_log("activating session\n");
@@ -2710,24 +2708,8 @@ session_notify(struct wl_listener *listener, void *data)
 		 * back, we schedule a repaint, which will process
 		 * pending frame callbacks. */
 
-		wl_list_for_each(output, &compositor->output_list, base.link) {
-			crtc = output->crtc;
+		wl_list_for_each(output, &compositor->output_list, base.link)
 			output->base.repaint_needed = false;
-			if (output->cursor_plane)
-				drmModeSetCursor(device->drm.fd, crtc->crtc_id,
-						 0, 0, 0);
-		}
-
-		output = container_of(compositor->output_list.next,
-				      struct drm_output, base.link);
-		crtc = output->crtc;
-
-		wl_list_for_each(plane, &device->plane_list, link) {
-			if (plane->type != WDRM_PLANE_TYPE_OVERLAY)
-				continue;
-			drmModeSetPlane(device->drm.fd, plane->plane_id, crtc->crtc_id,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-		}
 	}
 }
 
