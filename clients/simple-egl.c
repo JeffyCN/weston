@@ -99,7 +99,9 @@ struct window {
 		GLuint col;
 	} gl;
 
-	uint32_t benchmark_time, frames;
+	uint32_t frames;
+	uint32_t initial_frame_time;
+	uint32_t benchmark_time;
 	struct wl_egl_window *native;
 	struct wl_surface *surface;
 	struct xdg_surface *xdg_surface;
@@ -624,8 +626,10 @@ redraw(struct window *window)
 
 	gettimeofday(&tv, NULL);
 	uint32_t time = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-	if (window->frames == 0)
+	if (window->frames == 0) {
+		window->initial_frame_time = time;
 		window->benchmark_time = time;
+	}
 	if (time - window->benchmark_time > (benchmark_interval * 1000)) {
 		printf("%d frames in %d seconds: %f fps\n",
 		       window->frames,
@@ -636,7 +640,7 @@ redraw(struct window *window)
 	}
 
 	weston_matrix_init(&rotation);
-	angle = ((time - window->benchmark_time) / speed_div) % 360 * M_PI / 180.0;
+	angle = ((time - window->initial_frame_time) / speed_div) % 360 * M_PI / 180.0;
 	rotation.d[0] =   cos(angle);
 	rotation.d[2] =   sin(angle);
 	rotation.d[8] =  -sin(angle);
