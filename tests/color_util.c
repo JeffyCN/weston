@@ -257,7 +257,7 @@ a8r8g8b8_to_float(uint32_t v)
 	return cf;
 }
 
-static struct color_float
+struct color_float
 color_float_apply_curve(enum transfer_fn fn, struct color_float c)
 {
 	unsigned i;

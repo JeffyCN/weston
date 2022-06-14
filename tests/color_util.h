@@ -112,6 +112,9 @@ struct color_float
 color_float_unpremult(struct color_float in);
 
 struct color_float
+color_float_apply_curve(enum transfer_fn fn, struct color_float c);
+
+struct color_float
 color_float_apply_matrix(const struct lcmsMAT3 *mat, struct color_float c);
 
 enum transfer_fn
