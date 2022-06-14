@@ -374,7 +374,9 @@ lcmsMAT3_invert(struct lcmsMAT3 *result, const struct lcmsMAT3 *mat)
 }
 
 void
-scalar_stat_update(struct scalar_stat *stat, double val, struct color_float *pos)
+scalar_stat_update(struct scalar_stat *stat,
+		   double val,
+		   const struct color_float *pos)
 {
 	if (stat->count == 0 || stat->min > val) {
 		stat->min = val;
@@ -441,7 +443,8 @@ rgb_diff_stat_print(const struct rgb_diff_stat *stat,
 
 void
 rgb_diff_stat_update(struct rgb_diff_stat *stat,
-		     struct color_float *ref, struct color_float *val)
+		     const struct color_float *ref,
+		     const struct color_float *val)
 {
 	unsigned i;
 	double ssd = 0.0;

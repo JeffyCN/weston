@@ -139,7 +139,9 @@ struct rgb_diff_stat {
 };
 
 void
-scalar_stat_update(struct scalar_stat *stat, double val, struct color_float *pos);
+scalar_stat_update(struct scalar_stat *stat,
+		   double val,
+		   const struct color_float *pos);
 
 float
 scalar_stat_avg(const struct scalar_stat *stat);
@@ -149,7 +151,8 @@ scalar_stat_print_float(const struct scalar_stat *stat);
 
 void
 rgb_diff_stat_update(struct rgb_diff_stat *stat,
-		     struct color_float *ref, struct color_float *val);
+		     const struct color_float *ref,
+		     const struct color_float *val);
 
 void
 rgb_diff_stat_print(const struct rgb_diff_stat *stat,
