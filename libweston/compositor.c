@@ -3609,6 +3609,16 @@ weston_compositor_schedule_repaint(struct weston_compositor *compositor)
 		weston_output_schedule_repaint(output);
 }
 
+/**
+ * Returns true if a surface has a buffer attached to it and thus valid
+ * content available.
+ */
+WL_EXPORT bool
+weston_surface_has_content(struct weston_surface *surface)
+{
+	return !!surface->buffer_ref.buffer;
+}
+
 static void
 surface_destroy(struct wl_client *client, struct wl_resource *resource)
 {

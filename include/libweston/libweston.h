@@ -1928,6 +1928,9 @@ weston_surface_attach_solid(struct weston_surface *surface,
 void
 weston_buffer_destroy_solid(struct weston_buffer_reference *buffer_ref);
 
+bool
+weston_surface_has_content(struct weston_surface *surface);
+
 void
 weston_view_destroy(struct weston_view *view);
 
