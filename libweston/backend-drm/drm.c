@@ -70,9 +70,9 @@
 static const char default_seat[] = "seat0";
 
 static void
-drm_backend_create_faked_zpos(struct drm_backend *b)
+drm_backend_create_faked_zpos(struct drm_device *device)
 {
-	struct drm_device *device = b->drm;
+	struct drm_backend *b = device->backend;
 	struct drm_plane *plane;
 	uint64_t zpos = 0ULL;
 	uint64_t zpos_min_primary;
@@ -3283,7 +3283,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	drmModeFreeResources(res);
 
 	/* 'compute' faked zpos values in case HW doesn't expose any */
-	drm_backend_create_faked_zpos(b);
+	drm_backend_create_faked_zpos(b->drm);
 
 	/* A this point we have some idea of whether or not we have a working
 	 * cursor plane. */
