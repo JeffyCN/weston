@@ -424,13 +424,18 @@ weston_config_parse_internal(struct weston_config *config, FILE *fp,
 			     const char *file_name)
 {
 	struct weston_config_section *section = NULL;
-	char line[512], *p;
+	char buf[512], *line, *p;
 	int i;
 
-	while (fgets(line, sizeof line, fp)) {
+	while (fgets(buf, sizeof buf, fp)) {
+		line = buf;
+		while (isspace(*line))
+			line++;
+
 		switch (line[0]) {
 		case '#':
 		case '\n':
+		case '\0':
 			continue;
 		case '[':
 			p = strchr(&line[1], ']');
