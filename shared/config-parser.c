@@ -432,7 +432,7 @@ weston_config_parse_internal(struct weston_config *config, int fd,
 			     const char *file_name)
 {
 	FILE *fp;
-	char line[512], *p;
+	char buf[512], *line, *p;
 	struct stat filestat;
 	struct weston_config_section *section = NULL;
 	int i;
@@ -450,10 +450,15 @@ weston_config_parse_internal(struct weston_config *config, int fd,
 	if (fp == NULL)
 		return false;
 
-	while (fgets(line, sizeof line, fp)) {
+	while (fgets(buf, sizeof buf, fp)) {
+		line = buf;
+		while (isspace(*line))
+			line++;
+
 		switch (line[0]) {
 		case '#':
 		case '\n':
+		case '\0':
 			continue;
 		case '[':
 			p = strchr(&line[1], ']');
