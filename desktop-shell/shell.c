@@ -2124,7 +2124,7 @@ shell_configure_fullscreen(struct shell_surface *shsurf)
 	surface_subsurfaces_boundingbox(surface, &surf_x, &surf_y,
 	                                &surf_width, &surf_height);
 
-	if (surface->buffer_ref.buffer)
+	if (weston_surface_has_content(surface))
 		center_on_output(shsurf->view, shsurf->fullscreen_output);
 }
 
