@@ -2121,7 +2121,7 @@ weston_surface_calculate_size_from_buffer(struct weston_surface *surface)
 {
 	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
 
-	if (!surface->buffer_ref.buffer) {
+	if (!weston_surface_has_content(surface)) {
 		surface->width_from_buffer = 0;
 		surface->height_from_buffer = 0;
 		return;
@@ -4531,7 +4531,7 @@ subsurface_committed(struct weston_surface *surface, int32_t dx, int32_t dy)
 	 */
 
 	if (!weston_surface_is_mapped(surface)) {
-		surface->is_mapped = surface->buffer_ref.buffer != NULL;
+		surface->is_mapped = weston_surface_has_content(surface);
 
 		/* Cannot call weston_view_update_transform(),
 		 * because that would call it also for the parent surface,
