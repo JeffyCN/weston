@@ -38,6 +38,7 @@
 
 #include "test-config.h"
 #include "shared/os-compatibility.h"
+#include "shared/string-helpers.h"
 #include "shared/xalloc.h"
 #include <libweston/zalloc.h>
 #include "weston-test-client-helper.h"
@@ -1142,6 +1143,36 @@ image_filename(const char *basename)
 	if (asprintf(&filename, "%s/%s.png", reference_path(), basename) < 0)
 		assert(0);
 	return filename;
+}
+
+/** Open a writable file
+ *
+ * \param suffix Custom file name suffix.
+ * \return FILE pointer, or NULL on failure.
+ *
+ * The file name consists of output path, test name, and the given suffix.
+ * If environment variable WESTON_TEST_OUTPUT_PATH is set, it is used as the
+ * directory path, otherwise the current directory is used.
+ *
+ * The file will be writable. If it exists, it is truncated, otherwise it is
+ * created. Failures are logged.
+ */
+FILE *
+fopen_dump_file(const char *suffix)
+{
+	char *fname;
+	FILE *fp;
+
+	str_printf(&fname, "%s/%s-%s.txt", output_path(),
+		   get_test_name(), suffix);
+	fp = fopen(fname, "w");
+	if (!fp) {
+		testlog("Error: failed to open file '%s' for writing: %s\n",
+			fname, strerror(errno));
+	}
+	free(fname);
+
+	return fp;
 }
 
 struct format_map_entry {

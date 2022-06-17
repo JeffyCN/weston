@@ -390,6 +390,11 @@ scalar_stat_update(struct scalar_stat *stat,
 
 	stat->sum += val;
 	stat->count++;
+
+	if (stat->dump) {
+		fprintf(stat->dump, "%.8g %.5g %.5g %.5g %.5g\n",
+			val, pos->r, pos->g, pos->b, pos->a);
+	}
 }
 
 float

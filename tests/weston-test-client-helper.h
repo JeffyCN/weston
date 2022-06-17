@@ -250,6 +250,9 @@ screenshot_reference_filename(const char *basename, uint32_t seq);
 char *
 image_filename(const char *basename);
 
+FILE *
+fopen_dump_file(const char *suffix);
+
 bool
 check_images_match(pixman_image_t *img_a, pixman_image_t *img_b,
 		   const struct rectangle *clip,

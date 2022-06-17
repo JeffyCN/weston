@@ -28,6 +28,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 enum color_chan_index {
 	COLOR_CHAN_R = 0,
@@ -131,6 +132,17 @@ struct scalar_stat {
 
 	double sum;
 	unsigned count;
+
+	/** Debug dump into file
+	 *
+	 * Initialize this to a writable file to get a record of all values
+	 * ever fed through this statistics accumulator. The file shall be
+	 * text with one value and its position per line:
+	 *   val pos.r pos.g pos.b pos.a
+	 *
+	 * Set to NULL to not record.
+	 */
+	FILE *dump;
 };
 
 struct rgb_diff_stat {
