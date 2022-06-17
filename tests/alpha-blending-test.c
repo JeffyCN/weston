@@ -27,6 +27,7 @@
 #include "config.h"
 
 #include <math.h>
+#include <stdio.h>
 
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
@@ -119,76 +120,20 @@ fill_alpha_pattern(struct buffer *buf)
 	}
 }
 
-static bool
-compare_float(float ref, float dst, int x, const char *chan, float *max_diff)
-{
-#if 0
-	/*
-	 * This file can be loaded in Octave for visualization.
-	 *
-	 * S = load('compare_float_dump.txt');
-	 *
-	 * rvec = S(S(:,1)==114, 2:3);
-	 * gvec = S(S(:,1)==103, 2:3);
-	 * bvec = S(S(:,1)==98, 2:3);
-	 *
-	 * figure
-	 * subplot(3, 1, 1);
-	 * plot(rvec(:,1), rvec(:,2) .* 255, 'r');
-	 * subplot(3, 1, 2);
-	 * plot(gvec(:,1), gvec(:,2) .* 255, 'g');
-	 * subplot(3, 1, 3);
-	 * plot(bvec(:,1), bvec(:,2) .* 255, 'b');
-	 */
-	static FILE *fp = NULL;
-
-	if (!fp)
-		fp = fopen("compare_float_dump.txt", "w");
-	fprintf(fp, "%d %d %f\n", chan[0], x, dst - ref);
-	fflush(fp);
-#endif
-
-	float diff = fabsf(ref - dst);
-
-	if (diff > *max_diff)
-		*max_diff = diff;
-
-	/*
-	 * Allow for +/- 1.5 code points of error in non-linear 8-bit channel
-	 * value. This is necessary for the BLEND_LINEAR case.
-	 *
-	 * With llvmpipe, we could go as low as +/- 0.65 code points of error
-	 * and still pass.
-	 *
-	 * AMD Polaris 11 would be ok with +/- 1.0 code points error threshold
-	 * if not for one particular case of blending (a=254, r=0) into r=255,
-	 * which results in error of 1.29 code points.
-	 */
-	if (diff < 1.5f / 255.f)
-		return true;
-
-	testlog("x=%d %s: ref %f != dst %f, delta %f\n",
-		x, chan, ref, dst, dst - ref);
-
-	return false;
-}
-
 enum blend_space {
 	BLEND_NONLINEAR,
 	BLEND_LINEAR,
 };
 
-static bool
-verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
-			   int x, struct color_float *max_diff,
-			   enum blend_space space)
+static void
+compare_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
+			    struct rgb_diff_stat *diffstat,
+			    enum blend_space space)
 {
-	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
 	struct color_float bg = a8r8g8b8_to_float(bg32);
 	struct color_float fg = a8r8g8b8_to_float(fg32);
 	struct color_float dst = a8r8g8b8_to_float(dst32);
 	struct color_float ref;
-	bool ok = true;
 	int i;
 
 	bg = color_float_unpremult(bg);
@@ -206,12 +151,7 @@ verify_sRGB_blend_a8r8g8b8(uint32_t bg32, uint32_t fg32, uint32_t dst32,
 	if (space == BLEND_LINEAR)
 		sRGB_delinearize(&ref);
 
-	for (i = 0; i < COLOR_CHAN_NUM; i++) {
-		ok = compare_float(ref.rgb[i], dst.rgb[i], x,
-				   chan_name[i], &max_diff->rgb[i]) && ok;
-	}
-
-	return ok;
+	rgb_diff_stat_update(diffstat, &ref, &dst, &fg);
 }
 
 static uint8_t
@@ -259,25 +199,56 @@ static bool
 check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot,
 		    enum blend_space space)
 {
+	FILE *dump = NULL;
+#if 0
+	/*
+	 * This file can be loaded in Octave for visualization. Find the script
+	 * in tests/visualization/weston_plot_rgb_diff_stat.m and call it with
+	 *
+	 * weston_plot_rgb_diff_stat('alpha_blend-f01-dump.txt', 255, 8)
+	 */
+	dump = fopen_dump_file("dump");
+#endif
+
+	/*
+	 * Allow for +/- 1.5 code points of error in non-linear 8-bit channel
+	 * value. This is necessary for the BLEND_LINEAR case.
+	 *
+	 * With llvmpipe, we could go as low as +/- 0.65 code points of error
+	 * and still pass.
+	 *
+	 * AMD Polaris 11 would be ok with +/- 1.0 code points error threshold
+	 * if not for one particular case of blending (a=254, r=0) into r=255,
+	 * which results in error of 1.29 code points.
+	 */
+	const float tolerance = 1.5f / 255.f;
+
 	uint32_t *bg_row = get_middle_row(bg);
 	uint32_t *fg_row = get_middle_row(fg);
 	uint32_t *shot_row = get_middle_row(shot);
-	struct color_float max_diff = { .rgb = { 0.0f, 0.0f, 0.0f } };
+	struct rgb_diff_stat diffstat = { .dump = dump, };
 	bool ret = true;
 	int x;
+	unsigned i;
 
 	for (x = 0; x < BLOCK_WIDTH * ALPHA_STEPS - 1; x++) {
 		if (!pixels_monotonic(shot_row, x))
 			ret = false;
 
-		if (!verify_sRGB_blend_a8r8g8b8(bg_row[x], fg_row[x],
-						shot_row[x], x, &max_diff,
-						space))
+		compare_sRGB_blend_a8r8g8b8(bg_row[x], fg_row[x], shot_row[x],
+					    &diffstat, space);
+	}
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++) {
+		if (diffstat.rgb[i].min <= -tolerance ||
+		    diffstat.rgb[i].max >= tolerance)
 			ret = false;
 	}
 
-	testlog("%s max diff: r=%f, g=%f, b=%f\n",
-		__func__, max_diff.r, max_diff.g, max_diff.b);
+	rgb_diff_stat_print(&diffstat, __func__, 8);
+
+	if (dump)
+		fclose(dump);
 
 	return ret;
 }
