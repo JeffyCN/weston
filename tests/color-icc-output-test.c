@@ -27,6 +27,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdio.h>
 #include <linux/limits.h>
 
 #include <lcms2.h>
@@ -513,67 +514,32 @@ gen_ramp_rgb(pixman_image_t *image, int bitwidth, int width_bar)
 }
 
 static bool
-compare_float(float ref, float dst, int x, const char *chan,
-	      float *max_diff, float max_allow_diff)
-{
-#if 0
-	/*
-	 * This file can be loaded in Octave for visualization.
-	 *
-	 * S = load('compare_float_dump.txt');
-	 *
-	 * rvec = S(S(:,1)==114, 2:3);
-	 * gvec = S(S(:,1)==103, 2:3);
-	 * bvec = S(S(:,1)==98, 2:3);
-	 *
-	 * figure
-	 * subplot(3, 1, 1);
-	 * plot(rvec(:,1), rvec(:,2) .* 255, 'r');
-	 * subplot(3, 1, 2);
-	 * plot(gvec(:,1), gvec(:,2) .* 255, 'g');
-	 * subplot(3, 1, 3);
-	 * plot(bvec(:,1), bvec(:,2) .* 255, 'b');
-	 */
-	static FILE *fp = NULL;
-
-	if (!fp)
-		fp = fopen("compare_float_dump.txt", "w");
-	fprintf(fp, "%d %d %f\n", chan[0], x, dst - ref);
-	fflush(fp);
-#endif
-
-	float diff  = fabsf(ref - dst);
-
-	if (diff > *max_diff)
-		*max_diff = diff;
-
-	if (diff <= max_allow_diff)
-		return true;
-
-	testlog("x=%d %s: ref %f != dst %f, delta %f\n",
-			x, chan, ref, dst, dst - ref);
-
-	return false;
-}
-
-static bool
 process_pipeline_comparison(const struct buffer *src_buf,
 			    const struct buffer *shot_buf,
 			    const struct setup_args * arg)
 {
-	const char *const chan_name[COLOR_CHAN_NUM] = { "r", "g", "b" };
+	FILE *dump = NULL;
+#if 0
+	/*
+	 * This file can be loaded in Octave for visualization. Find the script
+	 * in tests/visualization/weston_plot_rgb_diff_stat.m and call it with
+	 *
+	 * weston_plot_rgb_diff_stat('opaque_pixel_conversion-f05-dump.txt')
+	 */
+	dump = fopen_dump_file("dump");
+#endif
+
 	const float max_pixel_value = 255.0;
-	struct color_float max_diff_pipeline = { .rgb = { 0.0f, 0.0f, 0.0f } };
 	float max_allow_diff = arg->tolerance / max_pixel_value;
-	float max_err = 0.0f;
 	bool ok = true;
 	struct image_header ih_src = image_header_from(src_buf->image);
 	struct image_header ih_shot = image_header_from(shot_buf->image);
 	int y, x;
-	int chan;
+	unsigned i;
 	struct color_float pix_src;
 	struct color_float pix_src_pipeline;
 	struct color_float pix_shot;
+	struct rgb_diff_stat diffstat = { .dump = dump };
 
 	/* no point to compare different images */
 	assert(ih_src.width == ih_shot.width);
@@ -586,32 +552,33 @@ process_pipeline_comparison(const struct buffer *src_buf,
 		for (x = 0; x < ih_src.width; x++) {
 			pix_src = a8r8g8b8_to_float(row_ptr[x]);
 			pix_shot = a8r8g8b8_to_float(row_ptr_shot[x]);
-			/* do pipeline processing */
+
 			process_pixel_using_pipeline(arg->pipeline->pre_fn,
 						     &arg->pipeline->mat,
 						     arg->pipeline->post_fn,
 						     &pix_src, &pix_src_pipeline);
 
-			/* check if pipeline matches to shader variant */
-			for (chan = 0; chan < COLOR_CHAN_NUM; chan++) {
-				ok &= compare_float(pix_src_pipeline.rgb[chan],
-						    pix_shot.rgb[chan],
-						    x, chan_name[chan],
-						    &max_diff_pipeline.rgb[chan],
-						    max_allow_diff);
-			}
+			rgb_diff_stat_update(&diffstat,
+					     &pix_src_pipeline, &pix_shot,
+					     &pix_src);
 		}
 	}
 
-	for (chan = 0; chan < COLOR_CHAN_NUM; chan++)
-		max_err = MAX(max_err, max_diff_pipeline.rgb[chan]);
+	for (i = 0; i < COLOR_CHAN_NUM; i++) {
+		if (diffstat.rgb[i].min < -max_allow_diff ||
+		    diffstat.rgb[i].max > max_allow_diff)
+			ok = false;
+	}
 
-	testlog("%s %s %s tol_req %d, tol_cal %f, max diff: r=%f, g=%f, b=%f %s\n",
-		__func__, ok == true? "SUCCESS":"FAILURE",
+	testlog("%s %s %s tol_req %d %s\n", __func__,
+		ok ? "SUCCESS" : "FAILURE",
 		arg->meta.name, arg->tolerance,
-		max_err * max_pixel_value,
-		max_diff_pipeline.r, max_diff_pipeline.g, max_diff_pipeline.b,
 		arg->type == PTYPE_MATRIX_SHAPER ? "matrix-shaper" : "cLUT");
+
+	rgb_diff_stat_print(&diffstat, __func__, 8);
+
+	if (dump)
+		fclose(dump);
 
 	return ok;
 }
