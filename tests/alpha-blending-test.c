@@ -229,7 +229,6 @@ check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot,
 	struct rgb_diff_stat diffstat = { .dump = dump, };
 	bool ret = true;
 	int x;
-	unsigned i;
 
 	for (x = 0; x < BLOCK_WIDTH * ALPHA_STEPS - 1; x++) {
 		if (!pixels_monotonic(shot_row, x))
@@ -239,11 +238,8 @@ check_blend_pattern(struct buffer *bg, struct buffer *fg, struct buffer *shot,
 					    &diffstat, space);
 	}
 
-	for (i = 0; i < COLOR_CHAN_NUM; i++) {
-		if (diffstat.rgb[i].min <= -tolerance ||
-		    diffstat.rgb[i].max >= tolerance)
-			ret = false;
-	}
+	if (diffstat.two_norm.max > tolerance)
+		ret = false;
 
 	rgb_diff_stat_print(&diffstat, __func__, 8);
 
