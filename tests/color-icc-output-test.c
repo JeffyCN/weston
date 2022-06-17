@@ -137,8 +137,10 @@ struct setup_args {
 	struct fixture_metadata meta;
 	int ref_image_index;
 	const struct lcms_pipeline *pipeline;
+
 	/**
-	 * 2/255 or 3/255 maximum possible error, where 255 is 8 bit max value
+	 * Two-norm color error tolerance in units of 1.0/255, computed in
+	 * output electrical space.
 	 *
 	 * Tolerance depends more on the 1D LUT used for the
 	 * inv EOTF than the tested 3D LUT size:
@@ -148,7 +150,8 @@ struct setup_args {
 	 * in GL-renderer, then we should fix the tolerance
 	 * as the error should reduce a lot.
 	 */
-	int tolerance;
+	float tolerance;
+
 	/**
 	 * 3DLUT dimension size
 	 */
@@ -160,12 +163,12 @@ struct setup_args {
 };
 
 static const struct setup_args my_setup_args[] = {
-	/* name,          ref img, pipeline,   tolerance, dim, profile type, clut tolerance */
-	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->BT2020" },   2, &pipeline_BT2020,   5,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0, 17, PTYPE_CLUT,         0.0005 },
-	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1, 17, PTYPE_CLUT,         0.0065 },
+	/* name,          ref img, pipeline,     tolerance, dim, profile type, clut tolerance */
+	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0.0,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1.4,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->BT2020" },   2, &pipeline_BT2020,   4.5,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0.0, 17, PTYPE_CLUT,         0.0005 },
+	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1.8, 17, PTYPE_CLUT,         0.0065 },
 };
 
 static void
@@ -529,17 +532,14 @@ process_pipeline_comparison(const struct buffer *src_buf,
 	dump = fopen_dump_file("dump");
 #endif
 
-	const float max_pixel_value = 255.0;
-	float max_allow_diff = arg->tolerance / max_pixel_value;
-	bool ok = true;
 	struct image_header ih_src = image_header_from(src_buf->image);
 	struct image_header ih_shot = image_header_from(shot_buf->image);
 	int y, x;
-	unsigned i;
 	struct color_float pix_src;
 	struct color_float pix_src_pipeline;
 	struct color_float pix_shot;
 	struct rgb_diff_stat diffstat = { .dump = dump };
+	bool ok;
 
 	/* no point to compare different images */
 	assert(ih_src.width == ih_shot.width);
@@ -564,13 +564,9 @@ process_pipeline_comparison(const struct buffer *src_buf,
 		}
 	}
 
-	for (i = 0; i < COLOR_CHAN_NUM; i++) {
-		if (diffstat.rgb[i].min < -max_allow_diff ||
-		    diffstat.rgb[i].max > max_allow_diff)
-			ok = false;
-	}
+	ok = diffstat.two_norm.max <= arg->tolerance / 255.0f;
 
-	testlog("%s %s %s tol_req %d %s\n", __func__,
+	testlog("%s %s %s tolerance %f %s\n", __func__,
 		ok ? "SUCCESS" : "FAILURE",
 		arg->meta.name, arg->tolerance,
 		arg->type == PTYPE_MATRIX_SHAPER ? "matrix-shaper" : "cLUT");
