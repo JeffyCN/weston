@@ -373,6 +373,25 @@ lcmsMAT3_invert(struct lcmsMAT3 *result, const struct lcmsMAT3 *mat)
 	lcmsMAT3_from_weston_matrix(result, &inv);
 }
 
+/** Update scalar statistics
+ *
+ * \param stat The statistics structure to update.
+ * \param val A sample of the variable whose statistics you are collecting.
+ * \param pos The "position" that generated the current value.
+ *
+ * Accumulates min, max, sum and count statistics with the given value.
+ * Stores the position related to the current max and min each.
+ *
+ * To use this, declare a variable of type struct scalar_stat and
+ * zero-initialize it. Repeatedly call scalar_stat_update() to accumulate
+ * statistics. Then either directly read out what you are interested in from
+ * the structure, or use the related accessor or printing functions.
+ *
+ * If you also want to collect a debug log of all calls to this function,
+ * initialize the .dump member to a writable file handle. This is easiest
+ * with fopen_dump_file(). Remember to fclose() the handle after you have
+ * no more samples to add.
+ */
 void
 scalar_stat_update(struct scalar_stat *stat,
 		   double val,
@@ -397,12 +416,14 @@ scalar_stat_update(struct scalar_stat *stat,
 	}
 }
 
+/** Return the average of the previously seen values. */
 float
 scalar_stat_avg(const struct scalar_stat *stat)
 {
 	return stat->sum / stat->count;
 }
 
+/** Print scalar statistics with pos.r only */
 void
 scalar_stat_print_float(const struct scalar_stat *stat)
 {
@@ -426,6 +447,20 @@ print_rgb_at_pos(const struct scalar_stat *stat, double scale)
 	testlog("    avg %8.5f\n", scalar_stat_avg(stat) * scale);
 }
 
+/** Print min/max/avg for each R/G/B/two-norm statistics
+ *
+ * \param stat The statistics to print.
+ * \param title A custom title to include in the heading which shall be printed
+ * like "%s error statistics:".
+ * \param scaling_bits Determines a scaling factor for the printed numbers as
+ * 2^scaling_bits - 1.
+ *
+ * Usually RGB values are stored in unsigned integer representation. 8-bit
+ * integer range is [0, 255] for example. Passing scaling_bits=8 will multiply
+ * all values (differences, two-norm errors, and position values) by
+ * 2^8 - 1 = 255. This makes interpreting the recorded errors more intuitive
+ * through the integer encoding precision perspective.
+ */
 void
 rgb_diff_stat_print(const struct rgb_diff_stat *stat,
 		    const char *title, unsigned scaling_bits)
@@ -446,6 +481,33 @@ rgb_diff_stat_print(const struct rgb_diff_stat *stat,
 	print_rgb_at_pos(&stat->two_norm, scale);
 }
 
+/** Update RGB difference statistics
+ *
+ * \param stat The statistics structure to update.
+ * \param ref The reference color to compare to.
+ * \param val The color produced by the algorithm under test; a sample.
+ * \param pos The position to be recorded with extremes.
+ *
+ * Computes the RGB difference by subtracting the reference color from the
+ * sample. This signed difference is tracked separately for each color channel
+ * in a scalar_stat to find the min, max, and average signed difference. The
+ * two-norm (Euclidean length) of the RGB difference vector is tracked in
+ * another scalar_stat.
+ *
+ * The position is stored separately for each of the eight min/max
+ * R/G/B/two-norm values recorded. A good way to use position is to record
+ * the algorithm input color.
+ *
+ * To use this, declare a variable of type struct rgb_diff_stat and
+ * zero-initalize it. Repeatedly call rgb_diff_stat_update() to accumulate
+ * statistics. Then either directly read out what you are interested in from
+ * the structure or use rgb_diff_stat_print().
+ *
+ * If you also want to collect a debug log of all calls to this function,
+ * initialize the .dump member to a writable file handle. This is easiest
+ * with fopen_dump_file(). Remember to fclose() the handle after you have
+ * no more samples to add.
+ */
 void
 rgb_diff_stat_update(struct rgb_diff_stat *stat,
 		     const struct color_float *ref,

@@ -123,6 +123,10 @@ transfer_fn_name(enum transfer_fn fn);
 void
 lcmsMAT3_invert(struct lcmsMAT3 *result, const struct lcmsMAT3 *mat);
 
+/** Scalar statistics
+ *
+ * See scalar_stat_update().
+ */
 struct scalar_stat {
 	double min;
 	struct color_float min_pos;
@@ -145,6 +149,10 @@ struct scalar_stat {
 	FILE *dump;
 };
 
+/** RGB difference statistics
+ *
+ * See rgb_diff_stat_update().
+ */
 struct rgb_diff_stat {
 	struct scalar_stat rgb[COLOR_CHAN_NUM];
 	struct scalar_stat two_norm;
