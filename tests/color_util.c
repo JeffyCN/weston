@@ -449,7 +449,8 @@ rgb_diff_stat_print(const struct rgb_diff_stat *stat,
 void
 rgb_diff_stat_update(struct rgb_diff_stat *stat,
 		     const struct color_float *ref,
-		     const struct color_float *val)
+		     const struct color_float *val,
+		     const struct color_float *pos)
 {
 	unsigned i;
 	double ssd = 0.0;
@@ -457,9 +458,9 @@ rgb_diff_stat_update(struct rgb_diff_stat *stat,
 	for (i = 0; i < COLOR_CHAN_NUM; i++) {
 		double diff = val->rgb[i] - ref->rgb[i];
 
-		scalar_stat_update(&stat->rgb[i], diff, ref);
+		scalar_stat_update(&stat->rgb[i], diff, pos);
 		ssd += diff * diff;
 	}
 
-	scalar_stat_update(&stat->two_norm, sqrt(ssd), ref);
+	scalar_stat_update(&stat->two_norm, sqrt(ssd), pos);
 }

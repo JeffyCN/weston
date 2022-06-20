@@ -175,7 +175,7 @@ test_roundtrip(uint8_t r, uint8_t g, uint8_t b, cmsPipeline *pip,
 	struct color_float out = {};
 
 	cmsPipelineEvalFloat(in.rgb, out.rgb, pip);
-	rgb_diff_stat_update(stat, &in, &out);
+	rgb_diff_stat_update(stat, &in, &out, &in);
 }
 
 /*
