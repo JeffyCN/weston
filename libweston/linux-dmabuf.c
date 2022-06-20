@@ -35,6 +35,7 @@
 
 #include <libweston/libweston.h>
 #include "linux-dmabuf.h"
+#include "linux-dmabuf-unstable-v1-server-protocol.h"
 #include "shared/os-compatibility.h"
 #include "libweston-internal.h"
 #include "shared/weston-drm-fourcc.h"

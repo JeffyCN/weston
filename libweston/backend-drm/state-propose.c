@@ -41,6 +41,7 @@
 #include "color.h"
 #include "linux-dmabuf.h"
 #include "presentation-time-server-protocol.h"
+#include "linux-dmabuf-unstable-v1-server-protocol.h"
 
 enum drm_output_propose_state_mode {
 	DRM_OUTPUT_PROPOSE_STATE_MIXED, /**< mix renderer & planes */
