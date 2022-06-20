@@ -240,6 +240,7 @@ struct window {
 	int redraw_needed;
 	int redraw_task_scheduled;
 	struct task redraw_task;
+	struct task close_task;
 	int resize_needed;
 	int custom;
 	int focused;
@@ -1429,13 +1430,23 @@ window_has_focus(struct window *window)
 	return window->focused;
 }
 
+
+static void
+close_task_run(struct task *task, uint32_t events)
+{
+	struct window *window = container_of(task, struct window, close_task);
+	window->close_handler(window->user_data);
+}
+
 static void
 window_close(struct window *window)
 {
-	if (window->close_handler)
-		window->close_handler(window->user_data);
-	else
+	if (window->close_handler && !window->close_task.run) {
+		window->close_task.run = close_task_run;
+		display_defer(window->display, &window->close_task);
+	} else {
 		display_exit(window->display);
+	}
 }
 
 struct display *
