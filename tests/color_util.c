@@ -454,13 +454,23 @@ rgb_diff_stat_update(struct rgb_diff_stat *stat,
 {
 	unsigned i;
 	double ssd = 0.0;
+	double diff[COLOR_CHAN_NUM];
+	double two_norm;
 
 	for (i = 0; i < COLOR_CHAN_NUM; i++) {
-		double diff = val->rgb[i] - ref->rgb[i];
+		diff[i] = val->rgb[i] - ref->rgb[i];
 
-		scalar_stat_update(&stat->rgb[i], diff, pos);
-		ssd += diff * diff;
+		scalar_stat_update(&stat->rgb[i], diff[i], pos);
+		ssd += diff[i] * diff[i];
 	}
+	two_norm = sqrt(ssd);
 
-	scalar_stat_update(&stat->two_norm, sqrt(ssd), pos);
+	scalar_stat_update(&stat->two_norm, two_norm, pos);
+
+	if (stat->dump) {
+		fprintf(stat->dump, "%.8g %.8g %.8g %.8g %.5g %.5g %.5g %.5g\n",
+			two_norm,
+			diff[COLOR_CHAN_R], diff[COLOR_CHAN_G], diff[COLOR_CHAN_B],
+			pos->r, pos->g, pos->b, pos->a);
+	}
 }

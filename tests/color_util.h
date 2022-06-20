@@ -148,6 +148,18 @@ struct scalar_stat {
 struct rgb_diff_stat {
 	struct scalar_stat rgb[COLOR_CHAN_NUM];
 	struct scalar_stat two_norm;
+
+	/** Debug dump into file
+	 *
+	 * Initialize this to a writable file to get a record of all values
+	 * ever fed through this statistics accumulator. The file shall be
+	 * text with the two-norm error, the rgb difference, and their position
+	 * per line:
+	 *   norm diff.r diff.g diff.b pos.r pos.g pos.b pos.a
+	 *
+	 * Set to NULL to not record.
+	 */
+	FILE *dump;
 };
 
 void
