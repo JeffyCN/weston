@@ -1883,6 +1883,13 @@ struct weston_surface {
 	void *committed_private;
 	int (*get_label)(struct weston_surface *surface, char *buf, size_t len);
 
+	/*
+	 * Sent when the surface has been mapped and unmapped, respectively.
+	 * The data argument is the weston_surface.
+	 */
+	struct wl_signal map_signal;
+	struct wl_signal unmap_signal;
+
 	/* Parent's list of its sub-surfaces, weston_subsurface:parent_link.
 	 * Contains also the parent itself as a dummy weston_subsurface,
 	 * if the list is not empty.

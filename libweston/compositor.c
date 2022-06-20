@@ -676,6 +676,8 @@ weston_surface_create(struct weston_compositor *compositor)
 
 	wl_signal_init(&surface->destroy_signal);
 	wl_signal_init(&surface->commit_signal);
+	wl_signal_init(&surface->map_signal);
+	wl_signal_init(&surface->unmap_signal);
 
 	surface->compositor = compositor;
 	surface->ref_count = 1;
@@ -2122,6 +2124,7 @@ WL_EXPORT void
 weston_surface_map(struct weston_surface *surface)
 {
 	surface->is_mapped = true;
+	weston_signal_emit_mutable(&surface->map_signal, surface);
 }
 
 WL_EXPORT void
@@ -2133,6 +2136,7 @@ weston_surface_unmap(struct weston_surface *surface)
 	wl_list_for_each(view, &surface->views, surface_link)
 		weston_view_unmap(view);
 	surface->output = NULL;
+	weston_signal_emit_mutable(&surface->unmap_signal, surface);
 }
 
 static void
