@@ -15,7 +15,6 @@ if get_option('shell-ivi')
 		dependencies: [
 			dep_libm,
 			dep_libexec_weston,
-			dep_lib_desktop,
 			dep_libweston_public
 		],
 		name_prefix: '',

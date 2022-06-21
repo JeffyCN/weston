@@ -13,7 +13,6 @@ if get_option('shell-desktop')
 		dep_libm,
 		dep_libexec_weston,
 		dep_libshared,
-		dep_lib_desktop,
 		dep_libweston_public,
 		dep_shell_utils,
 	]
