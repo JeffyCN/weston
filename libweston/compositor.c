@@ -7928,7 +7928,7 @@ debug_scene_view_print(FILE *fp, struct weston_view *view, int view_idx)
 	if (view->surface->resource) {
 		struct wl_resource *resource = view->surface->resource;
 		wl_client_get_credentials(wl_resource_get_client(resource),
-				  	  &pid, NULL, NULL);
+					  &pid, NULL, NULL);
 		surface_id = wl_resource_get_id(view->surface->resource);
 	}
 
@@ -7939,6 +7939,11 @@ debug_scene_view_print(FILE *fp, struct weston_view *view, int view_idx)
 	fprintf(fp, "\tView %d (role %s, PID %d, surface ID %u, %s, %p):\n",
 		view_idx, view->surface->role_name, pid, surface_id,
 		desc, view);
+
+	if (!weston_view_is_mapped(view))
+		fprintf(fp, "\t[view is not mapped!]\n");
+	if (!weston_surface_is_mapped(view->surface))
+		fprintf(fp, "\t[surface is not mapped!]\n");
 
 	box = pixman_region32_extents(&view->transform.boundingbox);
 	fprintf(fp, "\t\tposition: (%d, %d) -> (%d, %d)\n",
