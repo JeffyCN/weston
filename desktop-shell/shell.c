@@ -1721,8 +1721,12 @@ shell_surface_update_layer(struct shell_surface *shsurf)
 	if (new_layer_link == &shsurf->view->layer_link)
 		return;
 
+	/* Dirty the view's old region, and remove it from the layer. */
+	weston_view_damage_below(shsurf->view);
 	weston_view_geometry_dirty(shsurf->view);
 	weston_layer_entry_remove(&shsurf->view->layer_link);
+
+	/* Add the surface to the new layer and dirty its new region. */
 	weston_layer_entry_insert(new_layer_link, &shsurf->view->layer_link);
 	weston_view_geometry_dirty(shsurf->view);
 	weston_surface_damage(surface);
