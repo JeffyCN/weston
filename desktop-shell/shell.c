@@ -1947,10 +1947,9 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 	view = shsurf->fullscreen.black_view->view;
 
 	weston_view_set_output(view, output);
-	view->is_mapped = true;
-
 	weston_layer_entry_remove(&view->layer_link);
 	weston_layer_entry_insert(&shsurf->view->layer_link, &view->layer_link);
+	view->is_mapped = true;
 	weston_view_geometry_dirty(view);
 	weston_surface_damage(surface);
 
@@ -2888,10 +2887,11 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer, int x,
 	pos.c.y += y;
 	weston_view_set_position(ev, pos);
 	weston_surface_map(ev->surface);
-	ev->is_mapped = true;
 
 	if (wl_list_empty(&ev->layer_link.link)) {
 		weston_layer_entry_insert(&layer->view_list, &ev->layer_link);
+		ev->is_mapped = true;
+		/* XXX: missing damage */
 		weston_view_geometry_dirty(ev);
 		weston_compositor_schedule_repaint(ev->surface->compositor);
 	}
@@ -3116,11 +3116,12 @@ lock_surface_committed(struct weston_surface *surface,
 		weston_shell_utils_get_default_output(shell->compositor));
 
 	if (!weston_surface_is_mapped(surface)) {
+		/* XXX: don't map without a buffer */
+		weston_surface_map(surface);
 		weston_layer_entry_insert(&shell->lock_layer.view_list,
 					  &view->layer_link);
-		weston_view_update_transform(view);
-		weston_surface_map(surface);
 		view->is_mapped = true;
+		weston_view_update_transform(view); /* XXX: geometry_dirty */
 		shell_fade(shell, FADE_IN);
 	}
 }
@@ -4009,10 +4010,9 @@ shell_fade_create_view_for_output(struct desktop_shell *shell,
 	assert(curtain);
 
 	weston_view_set_output(curtain->view, output);
-	curtain->view->is_mapped = true;
-
 	weston_layer_entry_insert(&compositor->fade_layer.view_list,
 				  &curtain->view->layer_link);
+	curtain->view->is_mapped = true;
 	weston_view_geometry_dirty(curtain->view);
 	weston_surface_damage(curtain->view->surface);
 
@@ -4037,6 +4037,7 @@ shell_fade_create_fade_out_view(struct shell_surface *shsurf,
 	weston_view_set_output(view, woutput);
 	pos = weston_view_get_pos_offset_global(shsurf->view);
 	weston_view_set_position(view, pos);
+	/* XXX: can't map without a layer! */
 	view->is_mapped = true;
 
 	return view;
