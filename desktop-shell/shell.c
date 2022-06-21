@@ -1716,9 +1716,8 @@ shell_surface_update_layer(struct shell_surface *shsurf)
 	struct weston_layer_entry *new_layer_link;
 
 	new_layer_link = shell_surface_calculate_layer_link(shsurf);
+	assert(new_layer_link);
 
-	if (new_layer_link == NULL)
-		return;
 	if (new_layer_link == &shsurf->view->layer_link)
 		return;
 
