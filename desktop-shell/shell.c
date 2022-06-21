@@ -598,6 +598,7 @@ create_focus_surface(struct weston_compositor *ec,
 
 	fsurf->curtain = weston_shell_utils_curtain_create(ec, &curtain_params);
 	weston_view_set_output(fsurf->curtain->view, output);
+	/* XXX: can't map view without a layer! */
 	fsurf->curtain->view->is_mapped = true;
 
 	return fsurf;
@@ -1731,7 +1732,9 @@ shell_surface_update_layer(struct shell_surface *shsurf)
 
 	/* Add the surface to the new layer and dirty its new region. */
 	weston_layer_entry_insert(new_layer_link, &shsurf->view->layer_link);
+	shsurf->view->is_mapped = true;
 	weston_view_geometry_dirty(shsurf->view);
+	weston_view_update_transform(shsurf->view); /* XXX: unnecessary? */
 	weston_surface_damage(surface);
 
 	shell_surface_update_child_surface_layers(shsurf);
@@ -2357,17 +2360,16 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 		weston_view_set_initial_position(shsurf->view, shell);
 	}
 
+	/* XXX: don't map without a buffer! */
+	weston_surface_map(surface);
+
 	/* Surface stacking order, see also activate(). */
 	shell_surface_update_layer(shsurf);
 
-	weston_view_update_transform(shsurf->view);
-	shsurf->view->is_mapped = true;
 	if (shsurf->state.maximized) {
 		surface->output = shsurf->output;
 		weston_view_set_output(shsurf->view, shsurf->output);
 	}
-
-	weston_surface_map(surface);
 
 	if (!shell->locked) {
 		wl_list_for_each(seat, &compositor->seat_list, link)
