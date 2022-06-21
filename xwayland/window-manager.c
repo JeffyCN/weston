@@ -675,15 +675,22 @@ weston_wm_window_send_configure_notify(struct weston_wm_window *window)
 	xcb_configure_notify_event_t configure_notify;
 	struct weston_wm *wm = window->wm;
 	int x, y;
+	int32_t dx = 0, dy = 0;
+	const struct weston_desktop_xwayland_interface *xwayland_api =
+		wm->server->compositor->xwayland_interface;
 
 	weston_wm_window_get_child_position(window, &x, &y);
+	/* Synthetic ConfigureNotify events must be relative to the root
+	 * window, so get our offset if we're mapped. */
+	if (window->shsurf)
+		xwayland_api->get_position(window->shsurf, &dx, &dy);
 	configure_notify.response_type = XCB_CONFIGURE_NOTIFY;
 	configure_notify.pad0 = 0;
 	configure_notify.event = window->id;
 	configure_notify.window = window->id;
 	configure_notify.above_sibling = XCB_WINDOW_NONE;
-	configure_notify.x = x;
-	configure_notify.y = y;
+	configure_notify.x = x + dx;
+	configure_notify.y = y + dy;
 	configure_notify.width = window->width;
 	configure_notify.height = window->height;
 	configure_notify.border_width = 0;
