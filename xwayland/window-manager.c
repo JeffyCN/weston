@@ -814,6 +814,7 @@ weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *ev
 
 	weston_wm_configure_window(wm, window->id, mask, values);
 	weston_wm_window_configure_frame(window);
+	weston_wm_window_send_configure_notify(window);
 	weston_wm_window_schedule_repaint(window);
 }
 
@@ -1156,6 +1157,7 @@ weston_wm_window_create_frame(struct weston_wm_window *window)
 							     width, height);
 
 	hash_table_insert(wm->window_hash, window->frame_id, window);
+	weston_wm_window_send_configure_notify(window);
 }
 
 /*
@@ -2713,6 +2715,7 @@ weston_wm_window_configure(void *data)
 				   values);
 
 	weston_wm_window_configure_frame(window);
+	weston_wm_window_send_configure_notify(window);
 	weston_wm_window_schedule_repaint(window);
 }
 
@@ -2802,6 +2805,7 @@ send_position(struct weston_surface *surface, int32_t x, int32_t y)
 		mask = XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y;
 
 		weston_wm_configure_window(wm, window->frame_id, mask, values);
+		weston_wm_window_send_configure_notify(window);
 		xcb_flush(wm->conn);
 	}
 }
