@@ -3405,6 +3405,20 @@ output_repaint_timer_arm(struct weston_compositor *compositor)
 	wl_event_source_timer_update(compositor->repaint_timer, msec_to_next);
 }
 
+static void
+weston_output_schedule_repaint_restart(struct weston_output *output)
+{
+	assert(output->repaint_status == REPAINT_AWAITING_COMPLETION);
+	/* The device was busy so try again one frame later */
+	timespec_add_nsec(&output->next_repaint, &output->next_repaint,
+			  millihz_to_nsec(output->current_mode->refresh));
+	output->repaint_status = REPAINT_SCHEDULED;
+	TL_POINT(output->compositor, "core_repaint_restart",
+		 TLP_OUTPUT(output), TLP_END);
+	output_repaint_timer_arm(output->compositor);
+	weston_output_damage(output);
+}
+
 static int
 output_repaint_timer_handler(void *data)
 {
@@ -3435,8 +3449,12 @@ output_repaint_timer_handler(void *data)
 
 	if (ret != 0) {
 		wl_list_for_each(output, &compositor->output_list, link) {
-			if (output->repainted)
-				weston_output_schedule_repaint_reset(output);
+			if (output->repainted) {
+				if (ret == -EBUSY)
+					weston_output_schedule_repaint_restart(output);
+				else
+					weston_output_schedule_repaint_reset(output);
+			}
 		}
 	}
 
@@ -3583,7 +3601,9 @@ idle_repaint(void *data)
 	output->repaint_status = REPAINT_AWAITING_COMPLETION;
 	output->idle_repaint_source = NULL;
 	ret = output->start_repaint_loop(output);
-	if (ret != 0)
+	if (ret == -EBUSY)
+		weston_output_schedule_repaint_restart(output);
+	else if (ret != 0)
 		weston_output_schedule_repaint_reset(output);
 }
 

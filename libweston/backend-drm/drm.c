@@ -593,8 +593,8 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 	if (ret != 0) {
 		weston_log("applying repaint-start state failed: %s\n",
 			   strerror(errno));
-		if (ret == -EACCES)
-			return -1;
+		if (ret == -EACCES || ret == -EBUSY)
+			return ret;
 		goto finish_frame;
 	}
 
@@ -657,7 +657,7 @@ drm_repaint_flush(struct weston_compositor *compositor)
 	drm_debug(b, "[repaint] flushed pending_state %p\n", pending_state);
 	device->repaint_data = NULL;
 
-	return (ret == -EACCES) ? -1 : 0;
+	return (ret == -EACCES || ret == -EBUSY) ? ret : 0;
 }
 
 /**
