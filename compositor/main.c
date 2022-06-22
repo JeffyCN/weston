@@ -3763,8 +3763,6 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	ret = wet.compositor->exit_code;
 
 out:
-	wet_compositor_destroy_layout(&wet);
-
 	/* free(NULL) is valid, and it won't be NULL if it's used */
 	free(wet.parsed_options);
 
@@ -3772,6 +3770,7 @@ out:
 		wl_protocol_logger_destroy(protologger);
 
 	weston_compositor_destroy(wet.compositor);
+	wet_compositor_destroy_layout(&wet);
 	weston_log_scope_destroy(protocol_scope);
 	protocol_scope = NULL;
 
