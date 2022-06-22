@@ -78,6 +78,7 @@ x11_get_atoms(xcb_connection_t *connection, struct atom_x11 *atom)
 		{ "WM_S0",				F(wm_s0) },
 		{ "WM_CLIENT_MACHINE",			F(wm_client_machine) },
 		{ "WM_CHANGE_STATE",			F(wm_change_state) },
+		{ "_NET_FRAME_EXTENTS",			F(net_frame_extents) },
 		{ "_NET_WM_CM_S0",			F(net_wm_cm_s0) },
 		{ "_NET_WM_NAME",			F(net_wm_name) },
 		{ "_NET_WM_PID",			F(net_wm_pid) },
