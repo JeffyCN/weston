@@ -1811,14 +1811,10 @@ drm_output_attach_crtc(struct drm_output *output)
 static void
 drm_output_detach_crtc(struct drm_output *output)
 {
-	struct drm_device *device = output->device;
 	struct drm_crtc *crtc = output->crtc;
 
 	crtc->output = NULL;
 	output->crtc = NULL;
-
-	/* Force resetting unused CRTCs */
-	device->state_invalid = true;
 }
 
 static int
@@ -1891,6 +1887,13 @@ drm_output_deinit(struct weston_output *base)
 	struct drm_output *output = to_drm_output(base);
 	struct drm_backend *b = to_drm_backend(base->compositor);
 	struct drm_device *device = b->drm;
+	struct drm_pending_state *pending;
+
+	if (!b->shutting_down) {
+		pending = drm_pending_state_alloc(device);
+		drm_output_get_disable_state(pending, output);
+		drm_pending_state_apply_sync(pending);
+	}
 
 	if (b->use_pixman)
 		drm_output_fini_pixman(output);
