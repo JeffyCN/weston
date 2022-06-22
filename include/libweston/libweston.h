@@ -2019,6 +2019,10 @@ void
 notify_modifiers(struct weston_seat *seat, uint32_t serial);
 
 void
+weston_view_move_to_layer(struct weston_view *view,
+			  struct weston_layer_entry *layer);
+
+void
 weston_layer_entry_insert(struct weston_layer_entry *list,
 			  struct weston_layer_entry *entry);
 void

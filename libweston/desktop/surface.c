@@ -442,24 +442,15 @@ static void
 weston_desktop_view_propagate_layer(struct weston_desktop_view *view)
 {
 	struct weston_desktop_view *child;
-	struct wl_list *link = &view->view->layer_link.link;
+	struct wl_list *parent_pos = &view->view->layer_link.link;
 
+	/* Move each child to the same layer, immediately in front of its
+	 * parent. */
 	wl_list_for_each_reverse(child, &view->children_list, children_link) {
-		struct weston_layer_entry *prev =
-			wl_container_of(link->prev, prev, link);
+		struct weston_layer_entry *child_pos =
+			wl_container_of(parent_pos->prev, child_pos, link);
 
-		if (prev == &child->view->layer_link)
-			continue;
-
-		child->view->is_mapped = true;
-		weston_view_damage_below(child->view);
-		weston_view_geometry_dirty(child->view);
-		weston_layer_entry_remove(&child->view->layer_link);
-		weston_layer_entry_insert(prev, &child->view->layer_link);
-		weston_view_geometry_dirty(child->view);
-		weston_surface_damage(child->view->surface);
-		weston_view_update_transform(child->view);
-
+		weston_view_move_to_layer(child->view, child_pos);
 		weston_desktop_view_propagate_layer(child);
 	}
 }

@@ -1712,31 +1712,12 @@ shell_surface_update_child_surface_layers (struct shell_surface *shsurf)
 static void
 shell_surface_update_layer(struct shell_surface *shsurf)
 {
-	struct weston_surface *surface =
-		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 	struct weston_layer_entry *new_layer_link;
 
 	new_layer_link = shell_surface_calculate_layer_link(shsurf);
 	assert(new_layer_link);
 
-	if (new_layer_link == &shsurf->view->layer_link)
-		return;
-
-	/* Dirty the view's old region, and remove it from the layer. */
-	if (weston_view_is_mapped(shsurf->view)) {
-		weston_view_damage_below(shsurf->view);
-		weston_view_geometry_dirty(shsurf->view);
-	}
-
-	weston_layer_entry_remove(&shsurf->view->layer_link);
-
-	/* Add the surface to the new layer and dirty its new region. */
-	weston_layer_entry_insert(new_layer_link, &shsurf->view->layer_link);
-	shsurf->view->is_mapped = true;
-	weston_view_geometry_dirty(shsurf->view);
-	weston_view_update_transform(shsurf->view); /* XXX: unnecessary? */
-	weston_surface_damage(surface);
-
+	weston_view_move_to_layer(shsurf->view, new_layer_link);
 	shell_surface_update_child_surface_layers(shsurf);
 }
 

@@ -3516,6 +3516,42 @@ weston_layer_entry_insert(struct weston_layer_entry *list,
 	entry->layer = list->layer;
 }
 
+/** Move a weston_view to a layer
+ *
+ * This moves a view to a given point within a layer, identified by a
+ * weston_layer_entry.
+ *
+ * \param view View to move
+ * \param layer The target layer entry, or NULL to remove from the scene graph
+ */
+WL_EXPORT void
+weston_view_move_to_layer(struct weston_view *view,
+			  struct weston_layer_entry *layer)
+{
+	if (layer == &view->layer_link)
+		return;
+
+	/* Damage the view's old region, and remove it from the layer. */
+	if (weston_view_is_mapped(view)) {
+		weston_view_damage_below(view);
+		weston_view_geometry_dirty(view);
+	}
+
+	weston_layer_entry_remove(&view->layer_link);
+
+	if (!layer) {
+		weston_view_unmap(view);
+		return;
+	}
+
+	/* Add the view to the new layer and damage its new region. */
+	weston_layer_entry_insert(layer, &view->layer_link);
+	view->is_mapped = true;
+	weston_view_geometry_dirty(view);
+	weston_view_update_transform(view);
+	weston_surface_damage(view->surface);
+}
+
 WL_EXPORT void
 weston_layer_entry_remove(struct weston_layer_entry *entry)
 {
