@@ -43,21 +43,6 @@ Zoom desktop in (or out)
 Switch active window
 .P
 .RE
-.B mod + Up, mod + Down
-.RS 4
-Increment/decrement active workspace number, if there are multiple
-.P
-.RE
-.B mod + Shift + Up, mod + Shift + Down
-.RS 4
-Move active window to the succeeding/preceding workspace, if possible
-.P
-.RE
-.B mod + F1/F2/F3/F4/F5/F6
-.RS 4
-Jump to the numbered workspace, if it exists
-.P
-.RE
 .B Ctrl + Alt + Backspace
 .RS 4
 If supported, terminate Weston. (Note this combination often is used to hard restart Xorg.)

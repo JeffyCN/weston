@@ -426,11 +426,6 @@ for windows, controlling the backlight and zooming the desktop. See
 .BR weston-bindings (7).
 Possible values: none, ctrl, alt, super (default)
 .TP 7
-.BI "num-workspaces=" 6
-defines the number of workspaces (unsigned integer). The user can switch
-workspaces by using the
-binding+F1, F2 keys. If this key is not set, fall back to one workspace.
-.TP 7
 .BI "cursor-theme=" theme
 sets the cursor theme (string).
 .TP 7

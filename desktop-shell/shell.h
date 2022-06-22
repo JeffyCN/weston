@@ -47,7 +47,6 @@ enum fade_type {
 
 struct focus_surface {
 	struct weston_curtain *curtain;
-	struct weston_transform workspace_transform;
 };
 
 struct workspace {
@@ -128,21 +127,7 @@ struct desktop_shell {
 	struct weston_surface *lock_surface;
 	struct wl_listener lock_surface_listener;
 
-	struct {
-		struct wl_array array;
-		unsigned int current;
-		unsigned int num;
-
-		struct wl_list client_list;
-
-		struct weston_animation animation;
-		struct wl_list anim_sticky_list;
-		int anim_dir;
-		struct timespec anim_timestamp;
-		double anim_current;
-		struct workspace *anim_from;
-		struct workspace *anim_to;
-	} workspaces;
+	struct workspace workspace;
 
 	struct {
 		struct wl_resource *binding;
