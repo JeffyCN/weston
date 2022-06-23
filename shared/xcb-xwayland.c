@@ -109,6 +109,7 @@ x11_get_atoms(xcb_connection_t *connection, struct atom_x11 *atom)
 
 		{ "_NET_WM_MOVERESIZE", 		F(net_wm_moveresize) },
 		{ "_NET_SUPPORTING_WM_CHECK", 		F(net_supporting_wm_check) },
+
 		{ "_NET_SUPPORTED",     		F(net_supported) },
 		{ "_NET_ACTIVE_WINDOW",     		F(net_active_window) },
 		{ "_MOTIF_WM_HINTS",			F(motif_wm_hints) },
@@ -125,6 +126,18 @@ x11_get_atoms(xcb_connection_t *connection, struct atom_x11 *atom)
 		{ "TEXT",				F(text) },
 		{ "STRING",				F(string) },
 		{ "WINDOW",				F(window) },
+                { "text/plain;charset=utf-8",   	F(text_plain_utf8) },
+                { "text/plain",         		F(text_plain) },
+                { "XdndSelection",      		F(xdnd_selection) },
+                { "XdndAware",          		F(xdnd_aware) },
+                { "XdndEnter",          		F(xdnd_enter) },
+                { "XdndLeave",          		F(xdnd_leave) },
+                { "XdndDrop",           		F(xdnd_drop) },
+                { "XdndStatus",         		F(xdnd_status) },
+                { "XdndFinished",       		F(xdnd_finished) },
+                { "XdndTypeList",       		F(xdnd_type_list) },
+                { "XdndActionCopy",     		F(xdnd_action_copy) },
+                { "_XWAYLAND_ALLOW_COMMITS",    	F(allow_commits) },
 		{ "WL_SURFACE_ID",			F(wl_surface_id) },
 	};
 
