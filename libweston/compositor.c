@@ -6667,6 +6667,11 @@ weston_compositor_remove_output(struct weston_output *output)
 	assert(output->destroying);
 	assert(output->enabled);
 
+	if (output->idle_repaint_source) {
+		wl_event_source_remove(output->idle_repaint_source);
+		output->idle_repaint_source = NULL;
+	}
+
 	wl_list_for_each_safe(pnode, pntmp,
 			      &output->paint_node_list, output_link) {
 		weston_paint_node_destroy(pnode);
@@ -7314,9 +7319,6 @@ weston_output_release(struct weston_output *output)
 	output->destroying = 1;
 
 	weston_signal_emit_mutable(&output->user_destroy_signal, output);
-
-	if (output->idle_repaint_source)
-		wl_event_source_remove(output->idle_repaint_source);
 
 	if (output->enabled)
 		weston_compositor_remove_output(output);
