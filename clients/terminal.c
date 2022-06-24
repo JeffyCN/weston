@@ -3054,10 +3054,12 @@ io_handler(struct task *task, uint32_t events)
 	}
 
 	len = read(terminal->master, buffer, sizeof buffer);
-	if (len < 0)
+	if (len < 0) {
 		terminal_destroy(terminal);
-	else
-		terminal_data(terminal, buffer, len);
+		return;
+	}
+
+	terminal_data(terminal, buffer, len);
 }
 
 static int
