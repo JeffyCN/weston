@@ -45,6 +45,7 @@
 
 struct wet_xwayland {
 	struct weston_compositor *compositor;
+	struct wl_listener compositor_destroy_listener;
 	const struct weston_xwayland_api *api;
 	struct weston_xwayland *xwayland;
 	struct wl_event_source *display_fd_source;
@@ -216,6 +217,21 @@ xserver_cleanup(struct weston_process *process, int status)
 	wxw->client = NULL;
 }
 
+static void
+wxw_compositor_destroy(struct wl_listener *listener, void *data)
+{
+	struct wet_xwayland *wxw =
+		wl_container_of(listener, wxw, compositor_destroy_listener);
+
+	/* Don't call xserver_exited because Xwayland's own destroy handler
+	 * already does this for us ... */
+	if (wxw->client)
+		kill(wxw->process.pid, SIGTERM);
+
+	wl_list_remove(&wxw->process.link);
+	free(wxw);
+}
+
 int
 wet_load_xwayland(struct weston_compositor *comp)
 {
@@ -245,9 +261,13 @@ wet_load_xwayland(struct weston_compositor *comp)
 	wxw->compositor = comp;
 	wxw->api = api;
 	wxw->xwayland = xwayland;
+	wl_list_init(&wxw->process.link);
 	wxw->process.cleanup = xserver_cleanup;
+	wxw->compositor_destroy_listener.notify = wxw_compositor_destroy;
 	if (api->listen(xwayland, wxw, spawn_xserver) < 0)
 		return -1;
+
+	wl_signal_add(&comp->destroy_signal, &wxw->compositor_destroy_listener);
 
 	return 0;
 }
