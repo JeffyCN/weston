@@ -3023,13 +3023,19 @@ static void
 terminal_destroy(struct terminal *terminal)
 {
 	display_unwatch_fd(terminal->display, terminal->master);
-	window_destroy(terminal->window);
 	close(terminal->master);
+
+	widget_destroy(terminal->widget);
+	window_destroy(terminal->window);
+
 	wl_list_remove(&terminal->link);
 
 	if (wl_list_empty(&terminal_list))
 		display_exit(terminal->display);
 
+	free(terminal->data);
+	free(terminal->data_attr);
+	free(terminal->tab_ruler);
 	free(terminal->title);
 	free(terminal);
 }
@@ -3128,7 +3134,7 @@ static const struct weston_option terminal_options[] = {
 int main(int argc, char *argv[])
 {
 	struct display *d;
-	struct terminal *terminal;
+	struct terminal *terminal, *tmp;
 	const char *config_file;
 	struct sigaction sigpipe;
 	struct weston_config *config;
@@ -3182,6 +3188,10 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 
 	display_run(d);
+
+	wl_list_for_each_safe(terminal, tmp, &terminal_list, link)
+		terminal_destroy(terminal);
+	display_destroy(d);
 
 	return 0;
 }
