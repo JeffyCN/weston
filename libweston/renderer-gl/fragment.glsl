@@ -76,10 +76,12 @@ compile_const bool c_input_is_premult = DEF_INPUT_IS_PREMULT;
 compile_const bool c_green_tint = DEF_GREEN_TINT;
 compile_const int c_color_pre_curve = DEF_COLOR_PRE_CURVE;
 compile_const int c_color_mapping = DEF_COLOR_MAPPING;
+compile_const int c_color_post_curve = DEF_COLOR_POST_CURVE;
 
 compile_const bool c_need_color_pipeline =
 	c_color_pre_curve != SHADER_COLOR_CURVE_IDENTITY ||
-	c_color_mapping != SHADER_COLOR_MAPPING_IDENTITY;
+	c_color_mapping != SHADER_COLOR_MAPPING_IDENTITY ||
+	c_color_post_curve != SHADER_COLOR_CURVE_IDENTITY;
 
 vec4
 yuva2rgba(vec4 yuva)
@@ -123,6 +125,8 @@ uniform float view_alpha;
 uniform vec4 unicolor;
 uniform HIGHPRECISION sampler2D color_pre_curve_lut_2d;
 uniform HIGHPRECISION vec2 color_pre_curve_lut_scale_offset;
+uniform HIGHPRECISION sampler2D color_post_curve_lut_2d;
+uniform HIGHPRECISION vec2 color_post_curve_lut_scale_offset;
 
 #if DEF_COLOR_MAPPING == SHADER_COLOR_MAPPING_3DLUT
 uniform HIGHPRECISION sampler3D color_mapping_lut_3d;
@@ -246,6 +250,33 @@ color_mapping(vec3 color)
 		return vec3(1.0, 0.3, 1.0);
 }
 
+float
+sample_color_post_curve_lut_2d(float x, compile_const int row)
+{
+	float tx = lut_texcoord(x, color_post_curve_lut_scale_offset);
+
+	return texture2D(color_post_curve_lut_2d,
+			 vec2(tx, (float(row) + 0.5) / 4.0)).x;
+}
+
+vec3
+color_post_curve(vec3 color)
+{
+	vec3 ret;
+
+	if (c_color_post_curve == SHADER_COLOR_CURVE_IDENTITY) {
+		return color;
+	} else if (c_color_post_curve == SHADER_COLOR_CURVE_LUT_3x1D) {
+		ret.r = sample_color_post_curve_lut_2d(color.r, 0);
+		ret.g = sample_color_post_curve_lut_2d(color.g, 1);
+		ret.b = sample_color_post_curve_lut_2d(color.b, 2);
+		return ret;
+	} else {
+		/* Never reached, bad c_color_post_curve. */
+		return vec3(1.0, 0.3, 1.0);
+	}
+}
+
 vec4
 color_pipeline(vec4 color)
 {
@@ -259,6 +290,7 @@ color_pipeline(vec4 color)
 
 	color.rgb = color_pre_curve(color.rgb);
 	color.rgb = color_mapping(color.rgb);
+	color.rgb = color_post_curve(color.rgb);
 
 	return color;
 }

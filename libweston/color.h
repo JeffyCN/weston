@@ -201,7 +201,7 @@ struct weston_color_transform {
 	struct weston_color_mapping mapping;
 
 	/** Step 4: color curve after color mapping */
-	/* struct weston_color_curve post_curve; */
+	struct weston_color_curve post_curve;
 };
 
 /**

@@ -80,11 +80,12 @@ struct gl_shader_requirements
 
 	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
 	unsigned color_mapping:1; /* enum gl_shader_color_mapping */
+	unsigned color_post_curve:1; /* enum gl_shader_color_curve */
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:24;
+	unsigned pad_bits_:23;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
@@ -110,6 +111,8 @@ struct gl_shader_config {
 			GLfloat scale_offset[2];
 		} lut3d;
 	} color_mapping;
+	GLuint color_post_curve_lut_tex;
+	GLfloat color_post_curve_lut_scale_offset[2];
 };
 
 struct gl_renderer {

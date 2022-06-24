@@ -61,6 +61,7 @@ struct gl_renderer_color_transform {
 	struct wl_listener destroy_listener;
 	struct gl_renderer_color_curve pre_curve;
 	struct gl_renderer_color_mapping mapping;
+	struct gl_renderer_color_curve post_curve;
 };
 
 static void
@@ -82,6 +83,7 @@ static void
 gl_renderer_color_transform_destroy(struct gl_renderer_color_transform *gl_xform)
 {
 	gl_renderer_color_curve_fini(&gl_xform->pre_curve);
+	gl_renderer_color_curve_fini(&gl_xform->post_curve);
 	gl_renderer_color_mapping_fini(&gl_xform->mapping);
 	wl_list_remove(&gl_xform->destroy_listener.link);
 	free(gl_xform);
@@ -141,6 +143,8 @@ gl_color_curve_lut_3x1d(struct gl_renderer_color_curve *gl_curve,
 	/*
 	 * Four rows, see fragment.glsl sample_color_pre_curve_lut_2d().
 	 * The fourth row is unused in fragment.glsl color_pre_curve().
+	 * Four rows, see fragment.glsl sample_color_post_curve_lut_2d().
+	 * The fourth row is unused in fragment.glsl color_post_curve().
 	 */
 	lut = calloc(lut_len * nr_rows, sizeof *lut);
 	if (!lut)
@@ -223,6 +227,10 @@ gl_renderer_color_transform_from(struct weston_color_transform *xform)
 		.pre_curve.scale = 0.0f,
 		.pre_curve.offset = 0.0f,
 		.mapping.type = SHADER_COLOR_MAPPING_IDENTITY,
+		.post_curve.type = SHADER_COLOR_CURVE_IDENTITY,
+		.post_curve.tex = 0,
+		.post_curve.scale = 0.0f,
+		.post_curve.offset = 0.0f,
 	};
 	struct gl_renderer_color_transform *gl_xform;
 	bool ok = false;
@@ -270,6 +278,20 @@ gl_renderer_color_transform_from(struct weston_color_transform *xform)
 		gl_renderer_color_transform_destroy(gl_xform);
 		return NULL;
 	}
+	switch (xform->post_curve.type) {
+	case WESTON_COLOR_CURVE_TYPE_IDENTITY:
+		gl_xform->post_curve = no_op_gl_xform.post_curve;
+		ok = true;
+		break;
+	case WESTON_COLOR_CURVE_TYPE_LUT_3x1D:
+		ok = gl_color_curve_lut_3x1d(&gl_xform->post_curve,
+					     &xform->post_curve, xform);
+		break;
+	}
+	if (!ok) {
+		gl_renderer_color_transform_destroy(gl_xform);
+		return NULL;
+	}
 
 	return gl_xform;
 }
@@ -289,6 +311,11 @@ gl_shader_config_set_color_transform(struct gl_shader_config *sconf,
 	sconf->color_pre_curve_lut_tex = gl_xform->pre_curve.tex;
 	sconf->color_pre_curve_lut_scale_offset[0] = gl_xform->pre_curve.scale;
 	sconf->color_pre_curve_lut_scale_offset[1] = gl_xform->pre_curve.offset;
+
+	sconf->req.color_post_curve = gl_xform->post_curve.type;
+	sconf->color_post_curve_lut_tex = gl_xform->post_curve.tex;
+	sconf->color_post_curve_lut_scale_offset[0] = gl_xform->post_curve.scale;
+	sconf->color_post_curve_lut_scale_offset[1] = gl_xform->post_curve.offset;
 
 	sconf->req.color_mapping = gl_xform->mapping.type;
 	switch (gl_xform->mapping.type) {
