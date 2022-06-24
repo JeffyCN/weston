@@ -646,7 +646,7 @@ exposay_transition_active(struct desktop_shell *shell)
 	shell->exposay.clicked = NULL;
 	wl_list_init(&shell->exposay.surface_list);
 
-	lower_fullscreen_layer(shell, NULL);
+	lower_fullscreen_layer(shell, NULL, NULL);
 	shell->exposay.grab_kbd.interface = &exposay_kbd_grab;
 	weston_keyboard_start_grab(keyboard,
 	                           &shell->exposay.grab_kbd);
