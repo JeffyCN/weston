@@ -2716,6 +2716,7 @@ wayland_destroy(struct weston_compositor *ec)
 {
 	struct wayland_backend *b = to_wayland_backend(ec);
 	struct weston_head *base, *next;
+	struct wayland_parent_output *output, *next_output;
 	struct wayland_input *input, *next_input;
 
 	wl_event_source_remove(b->parent.wl_source);
@@ -2726,6 +2727,9 @@ wayland_destroy(struct weston_compositor *ec)
 		if (to_wayland_head(base))
 			wayland_head_destroy(base);
 	}
+
+	wl_list_for_each_safe(output, next_output, &b->parent.output_list, link)
+		wayland_parent_output_destroy(output);
 
 	wl_list_for_each_safe(input, next_input, &b->input_list, link)
 		wayland_input_destroy(input);
