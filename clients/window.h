@@ -71,9 +71,6 @@ display_get_display(struct display *display);
 int
 display_has_subcompositor(struct display *display);
 
-cairo_device_t *
-display_get_cairo_device(struct display *display);
-
 struct wl_compositor *
 display_get_compositor(struct display *display);
 
@@ -113,22 +110,6 @@ display_set_output_configure_handler(struct display *display,
 
 struct wl_data_source *
 display_create_data_source(struct display *display);
-
-#ifdef EGL_NO_DISPLAY
-EGLDisplay
-display_get_egl_display(struct display *d);
-
-EGLConfig
-display_get_argb_egl_config(struct display *d);
-
-int
-display_acquire_window_surface(struct display *display,
-			       struct window *window,
-			       EGLContext ctx);
-void
-display_release_window_surface(struct display *display,
-			       struct window *window);
-#endif
 
 #define SURFACE_OPAQUE 0x01
 #define SURFACE_SHM    0x02
@@ -416,7 +397,6 @@ struct wl_subsurface *
 widget_get_wl_subsurface(struct widget *widget);
 
 enum window_buffer_type {
-	WINDOW_BUFFER_TYPE_EGL_WINDOW,
 	WINDOW_BUFFER_TYPE_SHM,
 };
 
