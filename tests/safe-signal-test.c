@@ -88,4 +88,5 @@ TEST(real_usecase_standalone)
 	add_destroy_listener(st_new);
 
 	destroy_test_surface(st);
+	destroy_test_surface(st_new);
 }
