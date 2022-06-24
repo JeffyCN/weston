@@ -93,6 +93,11 @@ prog_args_fini(struct prog_args *p)
 {
 	int i;
 
+	/* If our args have never been saved, then we haven't called the
+	 * compositor, but we still need to free the args, not leak them. */
+	if (!p->saved)
+		prog_args_save(p);
+
 	if (p->saved) {
 		for (i = 0; i < p->argc; i++)
 			free(p->saved[i]);
