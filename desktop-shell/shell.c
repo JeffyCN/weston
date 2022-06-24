@@ -3597,7 +3597,8 @@ rotate_binding(struct weston_pointer *pointer, const struct timespec *time,
  * the alt-tab switcher, which need to de-promote fullscreen layers. */
 void
 lower_fullscreen_layer(struct desktop_shell *shell,
-		       struct weston_output *lowering_output)
+		       struct weston_output *lowering_output,
+		       struct shell_surface *orig_shsurf)
 {
 	struct weston_view *view, *prev;
 
@@ -3606,7 +3607,7 @@ lower_fullscreen_layer(struct desktop_shell *shell,
 				      layer_link.link) {
 		struct shell_surface *shsurf = get_shell_surface(view->surface);
 
-		if (!shsurf)
+		if (!shsurf || shsurf == orig_shsurf)
 			continue;
 
 		/* Only lower surfaces which have lowering_output as their fullscreen
@@ -3663,7 +3664,7 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 	/* Only demote fullscreen surfaces on the output of activated shsurf.
 	 * Leave fullscreen surfaces on unrelated outputs alone. */
 	if (shsurf->output)
-		lower_fullscreen_layer(shell, shsurf->output);
+		lower_fullscreen_layer(shell, shsurf->output, shsurf);
 
 	if (view->surface->flags & SURFACE_NO_FOCUS)
 		goto no_focus;
@@ -4465,7 +4466,7 @@ switcher_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 	wl_list_init(&switcher->listener.link);
 	wl_array_init(&switcher->minimized_array);
 
-	lower_fullscreen_layer(switcher->shell, NULL);
+	lower_fullscreen_layer(switcher->shell, NULL, NULL);
 	switcher->grab.interface = &switcher_grab;
 	weston_keyboard_start_grab(keyboard, &switcher->grab);
 	weston_keyboard_set_focus(keyboard, NULL);
