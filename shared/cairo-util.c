@@ -490,16 +490,26 @@ theme_destroy(struct theme *t)
 static PangoLayout *
 create_layout(cairo_t *cr, const char *title)
 {
+	PangoFontMap *fontmap;
+	PangoContext *context;
 	PangoLayout *layout;
 	PangoFontDescription *desc;
 
-	layout = pango_cairo_create_layout(cr);
+	fontmap = pango_cairo_font_map_new();
+	context = pango_font_map_create_context(fontmap);
+	g_object_unref(fontmap);
+	pango_cairo_font_map_set_default(NULL);
+	pango_cairo_update_context(cr, context);
+	layout = pango_layout_new(context);
+	g_object_unref(context);
+
 	if (title) {
 		pango_layout_set_text(layout, title, -1);
 		desc = pango_font_description_from_string("sans-serif Bold 10");
 		pango_layout_set_font_description(layout, desc);
 		pango_font_description_free(desc);
 	}
+
 	pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
 	pango_layout_set_alignment(layout, PANGO_ALIGN_LEFT);
 	pango_layout_set_auto_dir (layout, FALSE);
@@ -567,6 +577,8 @@ theme_render_frame(struct theme *t,
 		PangoLayout *title_layout;
 		PangoRectangle logical;
 
+		cairo_save(cr);
+
 		title_layout = create_layout(cr, title);
 
 		pango_layout_get_pixel_extents (title_layout, NULL, &logical);
@@ -608,6 +620,11 @@ theme_render_frame(struct theme *t,
 			cairo_set_source_rgb(cr, 0.4, 0.4, 0.4);
 			SHOW_TEXT(cr);
 		}
+
+#ifdef HAVE_PANGO
+		cairo_restore(cr);
+		g_object_unref(title_layout);
+#endif
 	}
 }
 
