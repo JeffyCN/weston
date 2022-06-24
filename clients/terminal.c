@@ -3025,6 +3025,9 @@ terminal_destroy(struct terminal *terminal)
 	display_unwatch_fd(terminal->display, terminal->master);
 	close(terminal->master);
 
+	cairo_scaled_font_destroy(terminal->font_bold);
+	cairo_scaled_font_destroy(terminal->font_normal);
+
 	widget_destroy(terminal->widget);
 	window_destroy(terminal->window);
 
