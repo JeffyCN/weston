@@ -576,9 +576,13 @@ weston_wm_window_read_properties(struct weston_wm_window *window)
 				}
 			break;
 		case TYPE_WM_NORMAL_HINTS:
+			/* WM_NORMAL_HINTS can be either 15 or 18 CARD32s */
+			memset(&window->size_hints, 0,
+			       sizeof(window->size_hints));
 			memcpy(&window->size_hints,
 			       xcb_get_property_value(reply),
-			       sizeof window->size_hints);
+			       MIN(sizeof(window->size_hints),
+			           reply->value_len * 4));
 			break;
 		case TYPE_NET_WM_STATE:
 			window->fullscreen = 0;
