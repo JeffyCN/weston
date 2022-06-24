@@ -182,7 +182,8 @@ get_output_work_area(struct desktop_shell *shell,
 
 void
 lower_fullscreen_layer(struct desktop_shell *shell,
-		       struct weston_output *lowering_output);
+		       struct weston_output *lowering_output,
+		       struct shell_surface *orig_shsurf);
 
 void
 activate(struct desktop_shell *shell, struct weston_view *view,
