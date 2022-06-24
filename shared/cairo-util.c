@@ -40,6 +40,7 @@
 #include <libweston/config-parser.h>
 
 #ifdef HAVE_PANGO
+#include <fontconfig/fontconfig.h>
 #include <pango/pangocairo.h>
 #endif
 
@@ -680,4 +681,18 @@ theme_get_location(struct theme *t, int x, int y,
 		location = THEME_LOCATION_CLIENT_AREA;
 
 	return location;
+}
+
+/** Cleanup static Cairo/Pango data
+ *
+ * Using Cairo, Pango, PangoCairo, and fontconfig, ends up leaving a trail of
+ * thread-cached data behind us. Clean up what we can.
+ */
+void
+cleanup_after_cairo(void)
+{
+	cairo_debug_reset_static_data();
+#ifdef HAVE_PANGO
+	FcFini();
+#endif
 }

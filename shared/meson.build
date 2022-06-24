@@ -57,10 +57,11 @@ deps_cairo_shared = [
 
 dep_pango = dependency('pango', required: false)
 dep_pangocairo = dependency('pangocairo', required: false)
+dep_fontconfig = dependency('fontconfig', required: false)
 dep_glib = dependency('glib-2.0', version: '>= 2.36', required: false)
 
-if dep_pango.found() and dep_pangocairo.found() and dep_glib.found()
-	deps_cairo_shared += [ dep_pango, dep_pangocairo, dep_glib ]
+if dep_pango.found() and dep_pangocairo.found() and dep_fontconfig.found() and dep_glib.found()
+	deps_cairo_shared += [ dep_pango, dep_pangocairo, dep_fontconfig, dep_glib ]
 	config_h.set('HAVE_PANGO', '1')
 endif
 

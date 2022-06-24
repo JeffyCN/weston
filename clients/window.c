@@ -6063,6 +6063,7 @@ display_destroy(struct display *display)
 		theme_destroy(display->theme);
 	destroy_cursors(display);
 
+	cleanup_after_cairo();
 
 	if (display->relative_pointer_manager)
 		zwp_relative_pointer_manager_v1_destroy(display->relative_pointer_manager);

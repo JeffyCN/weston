@@ -234,4 +234,7 @@ frame_double_touch_up(struct frame *frame, void *data, int32_t id);
 void
 frame_repaint(struct frame *frame, cairo_t *cr);
 
+void
+cleanup_after_cairo(void);
+
 #endif
