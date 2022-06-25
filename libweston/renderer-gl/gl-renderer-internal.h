@@ -61,6 +61,7 @@ enum gl_shader_color_curve {
 enum gl_shader_color_mapping {
 	SHADER_COLOR_MAPPING_IDENTITY = 0,
 	SHADER_COLOR_MAPPING_3DLUT,
+	SHADER_COLOR_MAPPING_MATRIX,
 };
 
 /** GL shader requirements key
@@ -79,13 +80,13 @@ struct gl_shader_requirements
 	bool green_tint:1;
 
 	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
-	unsigned color_mapping:1; /* enum gl_shader_color_mapping */
+	unsigned color_mapping:2; /* enum gl_shader_color_mapping */
 	unsigned color_post_curve:1; /* enum gl_shader_color_curve */
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:23;
+	unsigned pad_bits_:22;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
@@ -110,6 +111,7 @@ struct gl_shader_config {
 			GLuint  tex;
 			GLfloat scale_offset[2];
 		} lut3d;
+		GLfloat matrix[9];
 	} color_mapping;
 	GLuint color_post_curve_lut_tex;
 	GLfloat color_post_curve_lut_scale_offset[2];

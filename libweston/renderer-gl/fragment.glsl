@@ -50,6 +50,7 @@
 /* enum gl_shader_color_mapping */
 #define SHADER_COLOR_MAPPING_IDENTITY 0
 #define SHADER_COLOR_MAPPING_3DLUT 1
+#define SHADER_COLOR_MAPPING_MATRIX 2
 
 #if DEF_VARIANT == SHADER_VARIANT_EXTERNAL
 #extension GL_OES_EGL_image_external : require
@@ -132,6 +133,7 @@ uniform HIGHPRECISION vec2 color_post_curve_lut_scale_offset;
 uniform HIGHPRECISION sampler3D color_mapping_lut_3d;
 uniform HIGHPRECISION vec2 color_mapping_lut_scale_offset;
 #endif
+uniform HIGHPRECISION mat3 color_mapping_matrix;
 
 vec4
 sample_input_texture()
@@ -246,6 +248,8 @@ color_mapping(vec3 color)
 		return color;
 	else if (c_color_mapping == SHADER_COLOR_MAPPING_3DLUT)
 		return sample_color_mapping_lut_3d(color);
+	else if (c_color_mapping == SHADER_COLOR_MAPPING_MATRIX)
+		return color_mapping_matrix * color.rgb;
 	else /* Never reached, bad c_color_mapping. */
 		return vec3(1.0, 0.3, 1.0);
 }

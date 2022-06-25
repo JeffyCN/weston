@@ -106,6 +106,9 @@ enum weston_color_mapping_type {
 
 	/** 3D-dimensional look-up table */
 	WESTON_COLOR_MAPPING_TYPE_3D_LUT,
+
+	/** matrix */
+	WESTON_COLOR_MAPPING_TYPE_MATRIX,
 };
 
 /**
@@ -156,6 +159,13 @@ struct weston_color_mapping_3dlut {
 };
 
 /**
+ * A 3x3 matrix and data is arranged as column major
+ */
+struct weston_color_mapping_matrix {
+	float matrix[9];
+};
+
+/**
  * Color mapping function
  *
  * This object can represent a 3D LUT to do a color space conversion
@@ -169,6 +179,7 @@ struct weston_color_mapping {
 	union {
 		/* identity: no parameters */
 		struct weston_color_mapping_3dlut lut3d;
+		struct weston_color_mapping_matrix mat;
 	} u;
 };
 

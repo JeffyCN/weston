@@ -66,6 +66,7 @@ struct gl_shader {
 			GLint tex_uniform;
 			GLint scale_offset_uniform;
 		} lut3d;
+		GLint matrix_uniform;
 	} color_mapping;
 	GLint color_post_curve_lut_2d_uniform;
 	GLint color_post_curve_lut_scale_offset_uniform;
@@ -113,6 +114,7 @@ gl_shader_color_mapping_to_string(enum gl_shader_color_mapping kind)
 #define CASERET(x) case x: return #x;
 	CASERET(SHADER_COLOR_MAPPING_IDENTITY)
 	CASERET(SHADER_COLOR_MAPPING_3DLUT)
+	CASERET(SHADER_COLOR_MAPPING_MATRIX)
 #undef CASERET
 	}
 
@@ -304,9 +306,16 @@ gl_shader_create(struct gl_renderer *gr,
 	switch(requirements->color_mapping) {
 	case SHADER_COLOR_MAPPING_3DLUT:
 		shader->color_mapping.lut3d.tex_uniform =
-		glGetUniformLocation(shader->program, "color_mapping_lut_3d");
+			glGetUniformLocation(shader->program,
+					     "color_mapping_lut_3d");
 		shader->color_mapping.lut3d.scale_offset_uniform =
-		glGetUniformLocation(shader->program,"color_mapping_lut_scale_offset");
+			glGetUniformLocation(shader->program,
+					     "color_mapping_lut_scale_offset");
+		break;
+	case SHADER_COLOR_MAPPING_MATRIX:
+		shader->color_mapping.matrix_uniform =
+			glGetUniformLocation(shader->program,
+					     "color_mapping_matrix");
 		break;
 	case SHADER_COLOR_MAPPING_IDENTITY:
 		break;
@@ -575,8 +584,11 @@ gl_shader_load_config(struct gl_shader *shader,
 		glUniform2fv(shader->color_mapping.lut3d.scale_offset_uniform,
 			     1, sconf->color_mapping.lut3d.scale_offset);
 		break;
-	default:
-		assert(false);
+	case SHADER_COLOR_MAPPING_MATRIX:
+		assert(shader->color_mapping.matrix_uniform != -1);
+		glUniformMatrix3fv(shader->color_mapping.matrix_uniform,
+				   1, GL_FALSE,
+				   sconf->color_mapping.matrix);
 		break;
 	}
 

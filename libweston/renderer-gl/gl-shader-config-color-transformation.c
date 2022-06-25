@@ -30,6 +30,7 @@
 #include <GLES2/gl2ext.h>
 
 #include <assert.h>
+#include <string.h>
 
 #include <libweston/libweston.h>
 #include "color.h"
@@ -53,6 +54,7 @@ struct gl_renderer_color_mapping {
 			float scale;
 			float offset;
 		} lut3d;
+		struct weston_color_mapping_matrix mat;
 	};
 } ;
 
@@ -273,6 +275,11 @@ gl_renderer_color_transform_from(struct weston_color_transform *xform)
 	case WESTON_COLOR_MAPPING_TYPE_3D_LUT:
 		ok = gl_3d_lut(gl_xform, xform);
 		break;
+	case WESTON_COLOR_MAPPING_TYPE_MATRIX:
+		gl_xform->mapping.type = SHADER_COLOR_MAPPING_MATRIX;
+		gl_xform->mapping.mat = xform->mapping.u.mat;
+		ok = true;
+		break;
 	}
 	if (!ok) {
 		gl_renderer_color_transform_destroy(gl_xform);
@@ -327,6 +334,11 @@ gl_shader_config_set_color_transform(struct gl_shader_config *sconf,
 				gl_xform->mapping.lut3d.offset;
 		assert(sconf->color_mapping.lut3d.scale_offset[0] > 0.0);
 		assert(sconf->color_mapping.lut3d.scale_offset[1] > 0.0);
+		ret = true;
+		break;
+	case SHADER_COLOR_MAPPING_MATRIX:
+		assert(sconf->req.color_mapping == SHADER_COLOR_MAPPING_MATRIX);
+		ARRAY_COPY(sconf->color_mapping.matrix, gl_xform->mapping.mat.matrix);
 		ret = true;
 		break;
 	case SHADER_COLOR_MAPPING_IDENTITY:
