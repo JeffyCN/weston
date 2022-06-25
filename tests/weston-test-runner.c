@@ -34,11 +34,17 @@
 #include <errno.h>
 #include <signal.h>
 #include <getopt.h>
+#include <dlfcn.h>
 
 #include "test-config.h"
 #include "weston-test-runner.h"
 #include "weston-testsuite-data.h"
 #include "shared/string-helpers.h"
+
+/* This is a glibc extension; if we can't use it then make it harmless. */
+#ifndef RTLD_NODELETE
+#define RTLD_NODELETE 0
+#endif
 
 /**
  * \defgroup testharness Test harness
@@ -627,8 +633,22 @@ main(int argc, char *argv[])
 	enum test_result_code ret;
 	enum test_result_code result = RESULT_OK;
 	const struct fixture_setup_array *fsa;
+	const char *leak_dl_handle;
 	int fi;
 	int fi_end;
+
+	/* This is horrific, but it gives us working leak checking. If we
+	 * actually unload llvmpipe, then we also unload LLVM, and some global
+	 * setup it's done - which llvmpipe can't tear down because the actual
+	 * client might be using LLVM instead.
+	 *
+	 * Turns out if llvmpipe is always live, then the pointers are always
+	 * reachable, so LeakSanitizer just tells us about our own code rather
+	 * than LLVM's, so ...
+	 */
+	leak_dl_handle = getenv("WESTON_CI_LEAK_DL_HANDLE");
+	if (leak_dl_handle)
+		(void) dlopen(leak_dl_handle, RTLD_LAZY | RTLD_GLOBAL | RTLD_NODELETE);
 
 	harness = weston_test_harness_create(argc, argv);
 

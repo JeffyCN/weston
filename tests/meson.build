@@ -14,6 +14,7 @@ lib_test_runner = static_library(
 	dependencies: [
 		dep_libweston_private_h_deps,
 		dep_wayland_client,
+                dep_libdl,
 	],
 	include_directories: common_inc,
 	install: false,

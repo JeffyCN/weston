@@ -28,6 +28,10 @@ export PATH=/usr/local/bin:$PATH
 
 export SEATD_LOGLEVEL=debug
 
+# Terrible hack, per comment in weston-test-runner.c's main(): find Mesa's
+# llvmpipe driver module location
+export WESTON_CI_LEAK_DL_HANDLE=$(find /usr/local -name swrast_dri.so -print 2>/dev/null || true)
+
 # run the tests and save the exit status
 # we give ourselves a very generous timeout multiplier due to ASan overhead
 echo 0x1f > /sys/module/drm/parameters/debug
