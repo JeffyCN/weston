@@ -48,23 +48,25 @@ static struct weston_config *
 load_config(const char *text)
 {
 	struct weston_config *config = NULL;
-	int len = 0;
-	int fd = -1;
-	char file[] = "/tmp/weston-config-parser-test-XXXXXX";
+	char *content = NULL;
+	size_t file_len = 0;
+	int write_len;
+	FILE *file;
 
-	ZUC_ASSERTG_NOT_NULL(text, out);
+	file = open_memstream(&content, &file_len);
+	ZUC_ASSERTG_NOT_NULL(file, out);
 
-	fd = mkstemp(file);
-	ZUC_ASSERTG_NE(-1, fd, out);
+	write_len = fwrite(text, 1, strlen(text), file);
+	ZUC_ASSERTG_EQ((int)strlen(text), write_len, out_close);
 
-	len = write(fd, text, strlen(text));
-	ZUC_ASSERTG_EQ((int)strlen(text), len, out_close);
+	ZUC_ASSERTG_EQ(fflush(file), 0, out_close);
+	fseek(file, 0L, SEEK_SET);
 
-	config = weston_config_parse(file);
+	config = weston_config_parse_fp(file);
 
 out_close:
-	close(fd);
-	unlink(file);
+	fclose(file);
+	free(content);
 out:
 	return config;
 }

@@ -381,40 +381,14 @@ section_add_entry(struct weston_config_section *section,
 	return entry;
 }
 
-WL_EXPORT struct weston_config *
-weston_config_parse(const char *name)
+static bool
+weston_config_parse_internal(struct weston_config *config, FILE *fp)
 {
-	FILE *fp;
-	char line[512], *p;
-	struct stat filestat;
-	struct weston_config *config;
 	struct weston_config_section *section = NULL;
-	int i, fd;
-
-	config = zalloc(sizeof *config);
-	if (config == NULL)
-		return NULL;
+	char line[512], *p;
+	int i;
 
 	wl_list_init(&config->section_list);
-
-	fd = open_config_file(config, name);
-	if (fd == -1) {
-		free(config);
-		return NULL;
-	}
-
-	if (fstat(fd, &filestat) < 0 ||
-	    !S_ISREG(filestat.st_mode)) {
-		close(fd);
-		free(config);
-		return NULL;
-	}
-
-	fp = fdopen(fd, "r");
-	if (fp == NULL) {
-		free(config);
-		return NULL;
-	}
 
 	while (fgets(line, sizeof line, fp)) {
 		switch (line[0]) {
@@ -426,9 +400,7 @@ weston_config_parse(const char *name)
 			if (!p || p[1] != '\n') {
 				fprintf(stderr, "malformed "
 					"section header: %s\n", line);
-				fclose(fp);
-				weston_config_destroy(config);
-				return NULL;
+				return false;
 			}
 			p[0] = '\0';
 			section = config_add_section(config, &line[1]);
@@ -438,9 +410,7 @@ weston_config_parse(const char *name)
 			if (!p || p == line || !section) {
 				fprintf(stderr, "malformed "
 					"config line: %s\n", line);
-				fclose(fp);
-				weston_config_destroy(config);
-				return NULL;
+				return false;
 			}
 
 			p[0] = '\0';
@@ -457,7 +427,66 @@ weston_config_parse(const char *name)
 		}
 	}
 
+	return true;
+}
+
+WESTON_EXPORT_FOR_TESTS struct weston_config *
+weston_config_parse_fp(FILE *file)
+{
+	struct weston_config *config = zalloc(sizeof(*config));
+
+	if (config == NULL)
+		return NULL;
+
+	if (!weston_config_parse_internal(config, file)) {
+		weston_config_destroy(config);
+		return NULL;
+	}
+
+	return config;
+}
+
+WL_EXPORT struct weston_config *
+weston_config_parse(const char *name)
+{
+	FILE *fp;
+	struct stat filestat;
+	struct weston_config *config;
+	int fd;
+	bool ret;
+
+	config = zalloc(sizeof *config);
+	if (config == NULL)
+		return NULL;
+
+	fd = open_config_file(config, name);
+	if (fd == -1) {
+		free(config);
+		return NULL;
+	}
+
+	if (fstat(fd, &filestat) < 0 ||
+	    !S_ISREG(filestat.st_mode)) {
+		close(fd);
+		free(config);
+		return NULL;
+	}
+
+	fp = fdopen(fd, "r");
+	if (fp == NULL) {
+		close(fd);
+		free(config);
+		return NULL;
+	}
+
+	ret = weston_config_parse_internal(config, fp);
+
 	fclose(fp);
+
+	if (!ret) {
+		weston_config_destroy(config);
+		return NULL;
+	}
 
 	return config;
 }

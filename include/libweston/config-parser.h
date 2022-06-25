@@ -89,6 +89,9 @@ const char *
 weston_config_get_name_from_env(void);
 
 struct weston_config *
+weston_config_parse_fp(FILE *file);
+
+struct weston_config *
 weston_config_parse(const char *name);
 
 const char *
