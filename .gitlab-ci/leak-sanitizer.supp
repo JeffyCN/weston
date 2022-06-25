@@ -6,3 +6,6 @@ leak:cairo_text_extents
 
 # Pango thread-global state (not destroyable?)
 leak:pango_language_get_default
+
+# This leaks in Debian's fontconfig/Xwayland setup?
+leak:FcConfigSubstituteWithPat
