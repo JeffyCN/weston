@@ -2681,6 +2681,7 @@ drm_destroy(struct weston_compositor *ec)
 	weston_launcher_destroy(ec->launcher);
 
 	free(device->drm.filename);
+	free(device);
 	free(b);
 }
 
