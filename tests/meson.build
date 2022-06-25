@@ -107,8 +107,6 @@ lib_zuc = static_library(
 	'../tools/zunitc/inc/zunitc/zunitc_impl.h',
 	'../tools/zunitc/src/zuc_base_logger.c',
 	'../tools/zunitc/src/zuc_base_logger.h',
-	'../tools/zunitc/src/zuc_collector.c',
-	'../tools/zunitc/src/zuc_collector.h',
 	'../tools/zunitc/src/zuc_context.h',
 	'../tools/zunitc/src/zuc_event.h',
 	'../tools/zunitc/src/zuc_event_listener.h',
