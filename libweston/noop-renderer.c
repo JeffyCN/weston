@@ -57,7 +57,7 @@ noop_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 {
 	struct wl_shm_buffer *shm_buffer;
 	uint8_t *data;
-	uint32_t size, i, width, height, stride;
+	uint32_t size, i, height, stride;
 	__attribute__((unused)) int unused = 0;
 
 	if (!buffer)
@@ -78,8 +78,7 @@ noop_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	shm_buffer = buffer->shm_buffer;
 	data = wl_shm_buffer_get_data(shm_buffer);
 	stride = wl_shm_buffer_get_stride(shm_buffer);
-	width = wl_shm_buffer_get_width(shm_buffer);
-	height = wl_shm_buffer_get_height(shm_buffer);
+	height = buffer->height;
 	size = stride * height;
 
 	/* Access the buffer data to make sure the buffer's client gets killed
@@ -91,9 +90,6 @@ noop_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 		unused ^= data[i];
 	wl_shm_buffer_end_access(shm_buffer);
 
-	buffer->shm_buffer = shm_buffer;
-	buffer->width = width;
-	buffer->height = height;
 }
 
 static void
