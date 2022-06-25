@@ -202,7 +202,7 @@ aarch64-debian-container_prep:
     - $BUILDDIR/weston-virtme
     - $PREFIX
     reports:
-      junit: $BUILDDIR/meson-logs/testlog.junit.xml
+      junit: $BUILDDIR/meson-logs/testlog-per-test-asan.sh.junit.xml
 
 # Same as above, but without running any tests.
 .build-no-test:
