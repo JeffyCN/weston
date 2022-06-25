@@ -291,48 +291,8 @@ execute_compositor(const struct compositor_setup *setup,
 	struct prog_args args;
 	char *tmp;
 	const char *ctmp, *drm_device;
-	int ret, lock_fd = -1;
-
-	if (setenv("WESTON_MODULE_MAP", WESTON_MODULE_MAP, 0) < 0 ||
-	    setenv("WESTON_DATA_DIR", WESTON_DATA_DIR, 0) < 0) {
-		fprintf(stderr, "Error: environment setup failed.\n");
-		return RESULT_HARD_ERROR;
-	}
-
-#ifndef BUILD_DRM_COMPOSITOR
-	if (setup->backend == WESTON_BACKEND_DRM) {
-		fprintf(stderr, "DRM-backend required but not built, skipping.\n");
-		return RESULT_SKIP;
-	}
-#endif
-
-#ifndef BUILD_RDP_COMPOSITOR
-	if (setup->backend == WESTON_BACKEND_RDP) {
-		fprintf(stderr, "RDP-backend required but not built, skipping.\n");
-		return RESULT_SKIP;
-	}
-#endif
-
-#ifndef BUILD_WAYLAND_COMPOSITOR
-	if (setup->backend == WESTON_BACKEND_WAYLAND) {
-		fprintf(stderr, "wayland-backend required but not built, skipping.\n");
-		return RESULT_SKIP;
-	}
-#endif
-
-#ifndef BUILD_X11_COMPOSITOR
-	if (setup->backend == WESTON_BACKEND_X11) {
-		fprintf(stderr, "X11-backend required but not built, skipping.\n");
-		return RESULT_SKIP;
-	}
-#endif
-
-#ifndef ENABLE_EGL
-	if (setup->renderer == RENDERER_GL) {
-		fprintf(stderr, "GL-renderer required but not built, skipping.\n");
-		return RESULT_SKIP;
-	}
-#endif
+	int lock_fd = -1;
+	int ret = RESULT_OK;
 
 	prog_args_init(&args);
 
@@ -424,7 +384,50 @@ execute_compositor(const struct compositor_setup *setup,
 	test_data.test_quirks = setup->test_quirks;
 	test_data.test_private_data = data;
 	prog_args_save(&args);
-	ret = wet_main(args.argc, args.argv, &test_data);
+
+	if (setenv("WESTON_MODULE_MAP", WESTON_MODULE_MAP, 0) < 0 ||
+	    setenv("WESTON_DATA_DIR", WESTON_DATA_DIR, 0) < 0) {
+		fprintf(stderr, "Error: environment setup failed.\n");
+		ret = RESULT_HARD_ERROR;
+	}
+
+#ifndef BUILD_DRM_COMPOSITOR
+	if (setup->backend == WESTON_BACKEND_DRM) {
+		fprintf(stderr, "DRM-backend required but not built, skipping.\n");
+		ret = RESULT_SKIP;
+	}
+#endif
+
+#ifndef BUILD_RDP_COMPOSITOR
+	if (setup->backend == WESTON_BACKEND_RDP) {
+		fprintf(stderr, "RDP-backend required but not built, skipping.\n");
+		ret = RESULT_SKIP;
+	}
+#endif
+
+#ifndef BUILD_WAYLAND_COMPOSITOR
+	if (setup->backend == WESTON_BACKEND_WAYLAND) {
+		fprintf(stderr, "wayland-backend required but not built, skipping.\n");
+		ret = RESULT_SKIP;
+	}
+#endif
+
+#ifndef BUILD_X11_COMPOSITOR
+	if (setup->backend == WESTON_BACKEND_X11) {
+		fprintf(stderr, "X11-backend required but not built, skipping.\n");
+		ret = RESULT_SKIP;
+	}
+#endif
+
+#ifndef ENABLE_EGL
+	if (setup->renderer == RENDERER_GL) {
+		fprintf(stderr, "GL-renderer required but not built, skipping.\n");
+		ret = RESULT_SKIP;
+	}
+#endif
+
+	if (ret == RESULT_OK)
+		ret = wet_main(args.argc, args.argv, &test_data);
 
 out:
 	prog_args_fini(&args);
