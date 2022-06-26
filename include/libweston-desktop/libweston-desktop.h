@@ -198,6 +198,19 @@ weston_desktop_surface_get_max_size(struct weston_desktop_surface *surface);
 struct weston_size
 weston_desktop_surface_get_min_size(struct weston_desktop_surface *surface);
 
+bool
+weston_desktop_window_menu_supported(struct weston_desktop *desktop);
+bool
+weston_desktop_move_supported(struct weston_desktop *desktop);
+bool
+weston_desktop_resize_supported(struct weston_desktop *desktop);
+bool
+weston_desktop_fullscreen_supported(struct weston_desktop *desktop);
+bool
+weston_desktop_minimize_supported(struct weston_desktop *desktop);
+bool
+weston_desktop_maximize_supported(struct weston_desktop *desktop);
+
 #ifdef __cplusplus
 }
 #endif

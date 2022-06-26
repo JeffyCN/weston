@@ -170,6 +170,12 @@ weston_desktop_api_show_window_menu(struct weston_desktop *desktop,
 					      desktop->user_data);
 }
 
+bool
+weston_desktop_window_menu_supported(struct weston_desktop *desktop)
+{
+	return desktop->api.show_window_menu != NULL;
+}
+
 void
 weston_desktop_api_set_parent(struct weston_desktop *desktop,
 			      struct weston_desktop_surface *surface,
@@ -188,6 +194,12 @@ weston_desktop_api_move(struct weston_desktop *desktop,
 		desktop->api.move(surface, seat, serial, desktop->user_data);
 }
 
+bool
+weston_desktop_move_supported(struct weston_desktop *desktop)
+{
+	return desktop->api.move != NULL;
+}
+
 void
 weston_desktop_api_resize(struct weston_desktop *desktop,
 			  struct weston_desktop_surface *surface,
@@ -197,6 +209,12 @@ weston_desktop_api_resize(struct weston_desktop *desktop,
 	if (desktop->api.resize != NULL)
 		desktop->api.resize(surface, seat, serial, edges,
 				    desktop->user_data);
+}
+
+bool
+weston_desktop_resize_supported(struct weston_desktop *desktop)
+{
+	return desktop->api.resize != NULL;
 }
 
 void
@@ -210,6 +228,12 @@ weston_desktop_api_fullscreen_requested(struct weston_desktop *desktop,
 						  desktop->user_data);
 }
 
+bool
+weston_desktop_fullscreen_supported(struct weston_desktop *desktop)
+{
+	return desktop->api.fullscreen_requested != NULL;
+}
+
 void
 weston_desktop_api_maximized_requested(struct weston_desktop *desktop,
 				       struct weston_desktop_surface *surface,
@@ -220,12 +244,24 @@ weston_desktop_api_maximized_requested(struct weston_desktop *desktop,
 						 desktop->user_data);
 }
 
+bool
+weston_desktop_maximize_supported(struct weston_desktop *desktop)
+{
+	return desktop->api.maximized_requested != NULL;
+}
+
 void
 weston_desktop_api_minimized_requested(struct weston_desktop *desktop,
 				       struct weston_desktop_surface *surface)
 {
 	if (desktop->api.minimized_requested != NULL)
 		desktop->api.minimized_requested(surface, desktop->user_data);
+}
+
+bool
+weston_desktop_minimize_supported(struct weston_desktop *desktop)
+{
+	return desktop->api.minimized_requested != NULL;
 }
 
 void
