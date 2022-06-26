@@ -45,7 +45,7 @@
  * implements the older unstable xdg shell v6 protocol.
  ************************************************************************************/
 
-#define WD_XDG_SHELL_PROTOCOL_VERSION 3
+#define WD_XDG_SHELL_PROTOCOL_VERSION 5
 
 static const char *weston_desktop_xdg_toplevel_role = "xdg_toplevel";
 static const char *weston_desktop_xdg_popup_role = "xdg_popup";
@@ -1162,6 +1162,7 @@ weston_desktop_xdg_surface_protocol_get_toplevel(struct wl_client *wl_client,
 		weston_desktop_surface_get_surface(dsurface);
 	struct weston_desktop_xdg_toplevel *toplevel =
 		weston_desktop_surface_get_implementation_data(dsurface);
+	struct weston_desktop *desktop = toplevel->base.desktop;
 
 	if (weston_surface_set_role(wsurface, weston_desktop_xdg_toplevel_role,
 				    resource, XDG_WM_BASE_ERROR_ROLE) < 0)
@@ -1176,6 +1177,35 @@ weston_desktop_xdg_surface_protocol_get_toplevel(struct wl_client *wl_client,
 		return;
 
 	toplevel->base.role = WESTON_DESKTOP_XDG_SURFACE_ROLE_TOPLEVEL;
+
+	if (wl_resource_get_version(toplevel->resource) >=
+	    XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION) {
+		struct wl_array caps;
+		uint32_t *cap;
+
+		wl_array_init(&caps);
+
+		if (weston_desktop_window_menu_supported(desktop)) {
+			cap = wl_array_add(&caps, sizeof(*cap));
+			*cap = XDG_TOPLEVEL_WM_CAPABILITIES_WINDOW_MENU;
+		}
+		if (weston_desktop_maximize_supported(desktop)) {
+			cap = wl_array_add(&caps, sizeof(*cap));
+			*cap = XDG_TOPLEVEL_WM_CAPABILITIES_MAXIMIZE;
+		}
+		if (weston_desktop_fullscreen_supported(desktop)) {
+			cap = wl_array_add(&caps, sizeof(*cap));
+			*cap = XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN;
+		}
+		if (weston_desktop_minimize_supported(desktop)) {
+			cap = wl_array_add(&caps, sizeof(*cap));
+			*cap = XDG_TOPLEVEL_WM_CAPABILITIES_MINIMIZE;
+		}
+
+		xdg_toplevel_send_wm_capabilities(toplevel->resource, &caps);
+
+		wl_array_release(&caps);
+	}
 }
 
 static void
