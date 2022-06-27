@@ -30,14 +30,30 @@
 extern "C" {
 #endif
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <libweston/zalloc.h>
 
-void *
-fail_on_null(void *p, size_t size, char *file, int32_t line);
+
+static inline void *
+fail_on_null(void *p, size_t size, char *file, int32_t line)
+{
+	if (p == NULL) {
+		fprintf(stderr, "[%s] ", program_invocation_short_name);
+		if (file)
+			fprintf(stderr, "%s:%d: ", file, line);
+		fprintf(stderr, "out of memory");
+		if (size)
+			fprintf(stderr, " (%zd)", size);
+		fprintf(stderr, "\n");
+		exit(EXIT_FAILURE);
+	}
+
+	return p;
+}
 
 #define xmalloc(s) (fail_on_null(malloc(s), (s), __FILE__, __LINE__))
 #define xzalloc(s) (fail_on_null(zalloc(s), (s), __FILE__, __LINE__))
