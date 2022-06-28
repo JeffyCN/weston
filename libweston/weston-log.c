@@ -238,8 +238,6 @@ weston_log_subscription_get_data(struct weston_log_subscription *sub)
  * subscription
  * @param scope the scope in order to add the subscription to the scope's
  * subscription list
- * @returns a weston_log_subscription object in case of success, or NULL
- * otherwise
  *
  * @sa weston_log_subscription_destroy, weston_log_subscription_remove,
  * weston_log_subscription_add
