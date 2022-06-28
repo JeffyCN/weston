@@ -948,7 +948,7 @@ weston_wm_send_focus_window(struct weston_wm *wm,
 			client_message.data.data32[1] = XCB_TIME_CURRENT_TIME;
 
 			xcb_send_event(wm->conn, 0, window->id,
-				       XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+				       XCB_EVENT_MASK_NO_EVENT,
 				       (char *) &client_message);
 		}
 
