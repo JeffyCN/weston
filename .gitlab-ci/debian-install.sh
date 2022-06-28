@@ -39,6 +39,7 @@ apt-get -y --no-install-recommends install \
 	clang-11 \
 	curl \
 	doxygen \
+	graphviz \
 	freerdp2-dev \
 	gcovr \
 	git \

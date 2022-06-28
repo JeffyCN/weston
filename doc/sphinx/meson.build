@@ -1,5 +1,6 @@
 sphinx = find_program('sphinx-build', required: true)
 doxygen = find_program('doxygen', required: true)
+dot = find_program('dot', required: true)
 breathe = find_program('breathe-apidoc', required: true)
 
 sphinx_c = run_command(sphinx, '--version')
