@@ -695,6 +695,14 @@ dmabuf_feedback_maybe_update(struct drm_backend *b, struct weston_view *ev,
 	return true;
 }
 
+static struct weston_layer *
+get_view_layer(struct weston_view *view)
+{
+	if (view->parent_view)
+		return get_view_layer(view->parent_view);
+	return view->layer_link.layer;
+}
+
 static struct drm_plane_state *
 drm_output_prepare_plane_view(struct drm_output_state *state,
 			      struct weston_view *ev,
@@ -711,6 +719,7 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	struct drm_plane_zpos *p_zpos, *p_zpos_next;
 	struct wl_list zpos_candidate_list;
 
+	struct weston_layer *layer;
 	struct weston_buffer *buffer;
 	struct wl_shm_buffer *shmbuf;
 	struct drm_fb *fb;
@@ -720,6 +729,12 @@ drm_output_prepare_plane_view(struct drm_output_state *state,
 	/* check view for valid buffer, doesn't make sense to even try */
 	if (!weston_view_has_valid_buffer(ev))
 		return ps;
+
+	/* only allow cursor in renderer-only mode */
+	layer = get_view_layer(ev);
+	if (mode == DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY &&
+	    layer->position != WESTON_LAYER_POSITION_CURSOR)
+		return NULL;
 
 	buffer = ev->surface->buffer_ref.buffer;
 	shmbuf = wl_shm_buffer_get(buffer->resource);
