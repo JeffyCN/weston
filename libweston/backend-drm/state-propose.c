@@ -438,6 +438,14 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 	return true;
 }
 
+static struct weston_layer *
+get_view_layer(struct weston_view *view)
+{
+	if (view->parent_view)
+		return get_view_layer(view->parent_view);
+	return view->layer_link.layer;
+}
+
 static struct drm_plane_state *
 drm_output_find_plane_for_view(struct drm_output_state *state,
 			       struct weston_paint_node *pnode,
@@ -453,6 +461,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 	struct drm_plane *plane;
 
 	struct weston_view *ev = pnode->view;
+	struct weston_layer *layer;
 	struct weston_buffer *buffer;
 	struct drm_fb *fb = NULL;
 
@@ -467,6 +476,12 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			FAILURE_REASONS_FB_FORMAT_INCOMPATIBLE;
 		return NULL;
 	}
+
+	/* only allow cursor in renderer-only mode */
+	layer = get_view_layer(ev);
+	if (mode == DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY &&
+	    layer->position != WESTON_LAYER_POSITION_CURSOR)
+		return NULL;
 
 	buffer = ev->surface->buffer_ref.buffer;
 	if (buffer->type == WESTON_BUFFER_SOLID) {
