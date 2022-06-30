@@ -765,7 +765,7 @@ registry_handle_global(void *data, struct wl_registry *registry,
 	} else if (strcmp(interface, "xdg_wm_base") == 0) {
 		d->wm_base =
 			wl_registry_bind(registry, name,
-					 &xdg_wm_base_interface, version);
+					 &xdg_wm_base_interface, 1);
 	} else if (strcmp(interface, "wl_shm") == 0) {
 		d->shm = wl_registry_bind(registry,
 					  name, &wl_shm_interface, 1);
