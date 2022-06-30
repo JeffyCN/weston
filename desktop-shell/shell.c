@@ -43,7 +43,7 @@
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
 #include "shell-utils.h"
-#include <libweston-desktop/libweston-desktop.h>
+#include <libweston/desktop.h>
 
 #define DEFAULT_NUM_WORKSPACES 1
 #define DEFAULT_WORKSPACE_CHANGE_ANIMATION_LENGTH 200

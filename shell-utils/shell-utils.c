@@ -26,7 +26,7 @@
 
 #include "config.h"
 #include "shell-utils.h"
-#include <libweston-desktop/libweston-desktop.h>
+#include <libweston/desktop.h>
 
 struct weston_output *
 get_default_output(struct weston_compositor *compositor)

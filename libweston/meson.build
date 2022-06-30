@@ -134,20 +134,6 @@ pkgconfig.generate(
 	subdirs: dir_include_libweston
 )
 
-if version_weston.version_compare('>= 11.0.90')
-	error('Remove libweston-desktop.pc for Weston 12.x')
-endif
-
-pkgconfig.generate(
-	lib_weston,
-	filebase: 'libweston-desktop-@0@'.format(libweston_major),
-	name: 'libweston-desktop',
-	version: version_weston,
-	description: 'Desktop shell abstraction library for libweston compositors',
-	requires_private: deps_for_libweston_users,
-	subdirs: dir_include_libweston
-)
-
 pkgconfig.generate(
 	filebase: 'libweston-@0@-protocols'.format(libweston_major),
 	name: 'libWeston Protocols',

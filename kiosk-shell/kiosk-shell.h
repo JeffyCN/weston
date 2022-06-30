@@ -24,7 +24,7 @@
 #ifndef WESTON_KIOSK_SHELL_H
 #define WESTON_KIOSK_SHELL_H
 
-#include <libweston-desktop/libweston-desktop.h>
+#include <libweston/desktop.h>
 #include <libweston/libweston.h>
 #include <libweston/config-parser.h>
 

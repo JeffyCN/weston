@@ -1,6 +1,7 @@
 install_headers(
 	'config-parser.h',
 	'libweston.h',
+	'desktop.h',
 	'matrix.h',
 	'plugin-registry.h',
 	'windowed-output-api.h',
