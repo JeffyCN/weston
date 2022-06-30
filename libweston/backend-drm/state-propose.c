@@ -404,6 +404,11 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 		return NULL;
 	}
 
+	/* filter out non-cursor views in renderer-only mode */
+	if (mode == DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY &&
+	    ev->layer_link.layer != &b->compositor->cursor_layer)
+			return NULL;
+
 	buffer = ev->surface->buffer_ref.buffer;
 	if (buffer->type == WESTON_BUFFER_SOLID) {
 		pnode->try_view_on_plane_failure_reasons |=
