@@ -170,6 +170,7 @@ const struct drm_property_info crtc_props[] = {
 	[WDRM_CRTC_DEGAMMA_LUT_SIZE] = { .name = "DEGAMMA_LUT_SIZE", },
 	[WDRM_CRTC_GAMMA_LUT] = { .name = "GAMMA_LUT", },
 	[WDRM_CRTC_GAMMA_LUT_SIZE] = { .name = "GAMMA_LUT_SIZE", },
+	[WDRM_CRTC_VRR_ENABLED] = { .name = "VRR_ENABLED", },
 };
 
 
@@ -1086,6 +1087,7 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 						     WDRM_CRTC_DEGAMMA_LUT, 0);
 		}
 		ret |= crtc_add_prop_zero_ok(req, crtc, WDRM_CRTC_CTM, 0);
+		ret |= crtc_add_prop_zero_ok(req, crtc, WDRM_CRTC_VRR_ENABLED, 0);
 
 		/* No need for the DPMS property, since it is implicit in
 		 * routing and CRTC activity. */
