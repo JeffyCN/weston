@@ -236,6 +236,8 @@ enum wdrm_content_type {
 enum wdrm_crtc_property {
 	WDRM_CRTC_MODE_ID = 0,
 	WDRM_CRTC_ACTIVE,
+	WDRM_CRTC_GAMMA_LUT,
+	WDRM_CRTC_GAMMA_LUT_SIZE,
 	WDRM_CRTC__COUNT
 };
 
@@ -572,6 +574,8 @@ struct drm_output {
 	uint64_t ackd_color_outcome_serial;
 
 	unsigned max_bpc;
+
+	bool deprecated_gamma_is_set;
 
 	/* Plane being displayed directly on the CRTC */
 	struct drm_plane *scanout_plane;

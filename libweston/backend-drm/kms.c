@@ -165,6 +165,8 @@ const struct drm_property_info connector_props[] = {
 const struct drm_property_info crtc_props[] = {
 	[WDRM_CRTC_MODE_ID] = { .name = "MODE_ID", },
 	[WDRM_CRTC_ACTIVE] = { .name = "ACTIVE", },
+	[WDRM_CRTC_GAMMA_LUT] = { .name = "GAMMA_LUT", },
+	[WDRM_CRTC_GAMMA_LUT_SIZE] = { .name = "GAMMA_LUT_SIZE", },
 };
 
 
@@ -507,6 +509,7 @@ drm_output_set_gamma(struct weston_output *output_base,
 	if (output_base->gamma_size != size)
 		return;
 
+	output->deprecated_gamma_is_set = true;
 	rc = drmModeCrtcSetGamma(device->drm.fd,
 				 output->crtc->crtc_id,
 				 size, r, g, b);
@@ -796,6 +799,36 @@ crtc_add_prop(drmModeAtomicReq *req, struct drm_crtc *crtc,
 	return (ret <= 0) ? -1 : 0;
 }
 
+/** Set a CRTC property, allowing zero value for non-existing property
+ *
+ * \param req The atomic KMS request to append to.
+ * \param crtc The CRTC whose property to set.
+ * \param prop Which CRTC property to set.
+ * \param val The value, cast to u64, to set to the CRTC property.
+ * \return 0 on succcess, -1 on failure.
+ *
+ * If the property does not exist, attempting to set it to value
+ * zero is ok, because the property with value zero has the same
+ * KMS effect as the property not existing.
+ *
+ * However, trying to set a non-existing property to a non-zero value
+ * must fail, because that would not achieve the desired KMS effect.
+ *
+ * It is up to the caller to understand which KMS properties work
+ * like this and which do not.
+ */
+static int
+crtc_add_prop_zero_ok(drmModeAtomicReq *req, struct drm_crtc *crtc,
+		      enum wdrm_crtc_property prop, uint64_t val)
+{
+	struct drm_property_info *info = &crtc->props_crtc[prop];
+
+	if (info->prop_id == 0 && val == 0)
+		return 0;
+
+	return crtc_add_prop(req, crtc, prop, val);
+}
+
 static int
 connector_add_prop(drmModeAtomicReq *req, struct drm_connector *connector,
 		   enum wdrm_connector_property prop, uint64_t val)
@@ -1004,6 +1037,11 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		ret |= crtc_add_prop(req, crtc, WDRM_CRTC_MODE_ID,
 				     current_mode->blob_id);
 		ret |= crtc_add_prop(req, crtc, WDRM_CRTC_ACTIVE, 1);
+
+		if (!output->deprecated_gamma_is_set) {
+			ret |= crtc_add_prop_zero_ok(req, crtc,
+						     WDRM_CRTC_GAMMA_LUT, 0);
+		}
 
 		/* No need for the DPMS property, since it is implicit in
 		 * routing and CRTC activity. */
