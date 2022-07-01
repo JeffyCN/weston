@@ -783,15 +783,16 @@ crtc_add_prop(drmModeAtomicReq *req, struct drm_crtc *crtc,
 	struct drm_property_info *info = &crtc->props_crtc[prop];
 	int ret;
 
+	drm_debug(b, "\t\t\t[CRTC:%lu] %lu (%s) -> %llu (0x%llx)\n",
+		  (unsigned long) crtc->crtc_id,
+		  (unsigned long) info->prop_id, info->name,
+		  (unsigned long long) val, (unsigned long long) val);
+
 	if (info->prop_id == 0)
 		return -1;
 
 	ret = drmModeAtomicAddProperty(req, crtc->crtc_id, info->prop_id,
 				       val);
-	drm_debug(b, "\t\t\t[CRTC:%lu] %lu (%s) -> %llu (0x%llx)\n",
-		  (unsigned long) crtc->crtc_id,
-		  (unsigned long) info->prop_id, info->name,
-		  (unsigned long long) val, (unsigned long long) val);
 	return (ret <= 0) ? -1 : 0;
 }
 
@@ -805,14 +806,15 @@ connector_add_prop(drmModeAtomicReq *req, struct drm_connector *connector,
 	uint32_t connector_id = connector->connector_id;
 	int ret;
 
-	if (info->prop_id == 0)
-		return -1;
-
-	ret = drmModeAtomicAddProperty(req, connector_id, info->prop_id, val);
 	drm_debug(b, "\t\t\t[CONN:%lu] %lu (%s) -> %llu (0x%llx)\n",
 		  (unsigned long) connector_id,
 		  (unsigned long) info->prop_id, info->name,
 		  (unsigned long long) val, (unsigned long long) val);
+
+	if (info->prop_id == 0)
+		return -1;
+
+	ret = drmModeAtomicAddProperty(req, connector_id, info->prop_id, val);
 	return (ret <= 0) ? -1 : 0;
 }
 
@@ -825,15 +827,16 @@ plane_add_prop(drmModeAtomicReq *req, struct drm_plane *plane,
 	struct drm_property_info *info = &plane->props[prop];
 	int ret;
 
+	drm_debug(b, "\t\t\t[PLANE:%lu] %lu (%s) -> %llu (0x%llx)\n",
+		  (unsigned long) plane->plane_id,
+		  (unsigned long) info->prop_id, info->name,
+		  (unsigned long long) val, (unsigned long long) val);
+
 	if (info->prop_id == 0)
 		return -1;
 
 	ret = drmModeAtomicAddProperty(req, plane->plane_id, info->prop_id,
 				       val);
-	drm_debug(b, "\t\t\t[PLANE:%lu] %lu (%s) -> %llu (0x%llx)\n",
-		  (unsigned long) plane->plane_id,
-		  (unsigned long) info->prop_id, info->name,
-		  (unsigned long long) val, (unsigned long long) val);
 	return (ret <= 0) ? -1 : 0;
 }
 
