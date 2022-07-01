@@ -636,6 +636,41 @@ err:
 	drmModeSetCursor(device->drm.fd, crtc->crtc_id, 0, 0, 0);
 }
 
+static void
+drm_output_reset_legacy_gamma(struct drm_output *output)
+{
+	uint32_t len = output->base.gamma_size;
+	uint16_t *lut;
+	uint32_t i;
+	int ret;
+
+	if (len == 0)
+		return;
+
+	if (output->legacy_gamma_not_supported)
+		return;
+
+	lut = calloc(len, sizeof(uint16_t));
+	if (!lut)
+		return;
+
+	/* Identity curve */
+	for (i = 0; i < len; i++)
+		lut[i] = 0xffff * i / (len - 1);
+
+	ret = drmModeCrtcSetGamma(output->device->drm.fd,
+				  output->crtc->crtc_id,
+				  len, lut, lut, lut);
+	if (ret == -EOPNOTSUPP || ret == -ENOSYS)
+		output->legacy_gamma_not_supported = true;
+	else if (ret < 0) {
+		weston_log("%s failed for %s: %s\n", __func__,
+			   output->base.name, strerror(-ret));
+	}
+
+	free(lut);
+}
+
 static int
 drm_output_apply_state_legacy(struct drm_output_state *state)
 {
@@ -728,6 +763,9 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 			weston_log("set mode failed: %s\n", strerror(errno));
 			goto err;
 		}
+
+		if (!output->deprecated_gamma_is_set)
+			drm_output_reset_legacy_gamma(output);
 	}
 
 	pinfo = scanout_state->fb->format;

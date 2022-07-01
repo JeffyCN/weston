@@ -576,6 +576,7 @@ struct drm_output {
 	unsigned max_bpc;
 
 	bool deprecated_gamma_is_set;
+	bool legacy_gamma_not_supported;
 
 	/* Plane being displayed directly on the CRTC */
 	struct drm_plane *scanout_plane;
