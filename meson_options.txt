@@ -132,10 +132,16 @@ option(
 	description: 'Compositor color management: Little CMS'
 )
 option(
-	'color-management-colord',
+	'deprecated-color-management-static',
 	type: 'boolean',
-	value: true,
-	description: 'Compositor color management: colord (requires lcms)'
+	value: false,
+	description: 'DEPRECATED: color management plugin cms-static'
+)
+option(
+	'deprecated-color-management-colord',
+	type: 'boolean',
+	value: false,
+	description: 'DEPRECATED: color management plugin cms-colord (requires cms-static)'
 )
 
 option(

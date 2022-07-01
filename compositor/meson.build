@@ -96,14 +96,14 @@ if get_option('screenshare')
 	env_modmap += 'screen-share.so=@0@;'.format(plugin_screenshare.full_path())
 endif
 
-if get_option('color-management-lcms')
+if get_option('deprecated-color-management-static')
 	srcs_lcms = [
 		'cms-static.c',
 		'cms-helper.c',
 	]
 
 	if not dep_lcms2.found()
-		error('cms-static requires lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
+		error('cms-static requires lcms2 which was not found. Or, you can use \'-Ddeprecated-color-management-static=false\'.')
 	endif
 
 	config_h.set('HAVE_LCMS', '1')
@@ -119,11 +119,13 @@ if get_option('color-management-lcms')
 		install_rpath: '$ORIGIN'
 	)
 	env_modmap += 'cms-static.so=@0@;'.format(plugin_lcms.full_path())
+
+	warning('deprecated-color-management-static is enabled. This will go away, see https://gitlab.freedesktop.org/wayland/weston/-/issues/634')
 endif
 
-if get_option('color-management-colord')
-	if not get_option('color-management-lcms')
-		error('LCMS must be enabled to support colord. Or, you can use \'-Dcolor-management-colord=false\'.')
+if get_option('deprecated-color-management-colord')
+	if not get_option('deprecated-color-management-static')
+		error('deprecated-color-management-static must be enabled to support colord. Or, you can use \'-Ddeprecated-color-management-colord=false\'.')
 	endif
 
 	srcs_colord = [
@@ -133,7 +135,7 @@ if get_option('color-management-colord')
 
 	dep_colord = dependency('colord', version: '>= 0.1.27', required: false)
 	if not dep_colord.found()
-		error('cms-colord requires colord >= 0.1.27 which was not found. Or, you can use \'-Dcolor-management-colord=false\'.')
+		error('cms-colord requires colord >= 0.1.27 which was not found. Or, you can use \'-Ddeprecated-color-management-colord=false\'.')
 	endif
 
 	plugin_colord_deps = [ dep_libweston_public, dep_colord, dep_lcms2 ]
@@ -141,7 +143,7 @@ if get_option('color-management-colord')
 	foreach depname : [ 'glib-2.0', 'gobject-2.0' ]
 		dep = dependency(depname, required: false)
 		if not dep.found()
-			error('cms-colord requires \'@0@\' which was not found. If you rather not build this, set \'-Dcolor-management-colord=false\'.'.format(depname))
+			error('cms-colord requires \'@0@\' which was not found. If you rather not build this, set \'-Ddeprecated-color-management-colord=false\'.'.format(depname))
 		endif
 		plugin_colord_deps += dep
 	endforeach
@@ -156,6 +158,8 @@ if get_option('color-management-colord')
 		install_dir: dir_module_weston
 	)
 	env_modmap += 'cms-colord.so=@0@;'.format(plugin_colord.full_path())
+
+	warning('deprecated-color-management-colord is enabled. This will go away, see https://gitlab.freedesktop.org/wayland/weston/-/issues/634')
 endif
 
 if get_option('systemd')
