@@ -216,28 +216,22 @@ static struct cmlcms_color_transform *
 cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 			      const struct cmlcms_color_transform_search_param *search_param)
 {
-	struct cmlcms_color_profile *input_profile = search_param->input_profile;
-	struct cmlcms_color_profile *output_profile = search_param->output_profile;
 	struct cmlcms_color_transform *xform;
-	bool ok = false;
 
-	xform = zalloc(sizeof *xform);
-	if (!xform)
-		return NULL;
-
+	xform = xzalloc(sizeof *xform);
 	weston_color_transform_init(&xform->base, &cm->base);
 	wl_list_init(&xform->link);
 	xform->search_key = *search_param;
-	xform->search_key.input_profile = ref_cprof(input_profile);
-	xform->search_key.output_profile = ref_cprof(output_profile);
+	xform->search_key.input_profile = ref_cprof(search_param->input_profile);
+	xform->search_key.output_profile = ref_cprof(search_param->output_profile);
 
 	/* Ensure the linearization etc. have been extracted. */
-	if (!output_profile->eotf[0]) {
+	if (!search_param->output_profile->eotf[0]) {
 		if (!retrieve_eotf_and_output_inv_eotf(cm->lcms_ctx,
-						       output_profile->profile,
-						       output_profile->eotf,
-						       output_profile->output_inv_eotf_vcgt,
-						       output_profile->vcgt,
+						       search_param->output_profile->profile,
+						       search_param->output_profile->eotf,
+						       search_param->output_profile->output_inv_eotf_vcgt,
+						       search_param->output_profile->vcgt,
 						       cmlcms_reasonable_1D_points()))
 			goto error;
 	}
@@ -250,20 +244,16 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 	switch (search_param->category) {
 	case CMLCMS_CATEGORY_INPUT_TO_BLEND:
 	case CMLCMS_CATEGORY_INPUT_TO_OUTPUT:
-		ok = xform_realize_chain(xform);
+		if (!xform_realize_chain(xform))
+			goto error;
 		break;
-
 	case CMLCMS_CATEGORY_BLEND_TO_OUTPUT:
 		xform->base.pre_curve.type = WESTON_COLOR_CURVE_TYPE_LUT_3x1D;
 		xform->base.pre_curve.u.lut_3x1d.fill_in = cmlcms_fill_in_output_inv_eotf_vcgt;
 		xform->base.pre_curve.u.lut_3x1d.optimal_len =
 				cmlcms_reasonable_1D_points();
-		ok = true;
 		break;
 	}
-
-	if (!ok)
-		goto error;
 
 	wl_list_insert(&cm->color_transform_list, &xform->link);
 	return xform;
