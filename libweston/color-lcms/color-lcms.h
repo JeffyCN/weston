@@ -150,15 +150,46 @@ struct cmlcms_color_transform {
 
 	struct cmlcms_color_transform_search_param search_key;
 
+	/*
+	 * Cached data in case weston_color_transform needs them.
+	 * Pre-curve and post-curve refer to the weston_color_transform
+	 * pipeline elements and have no semantic meaning. They both are a
+	 * result of optimizing an arbitrary LittleCMS pipeline, not
+	 * e.g. EOTF or VCGT per se.
+	 */
+	cmsToneCurve *pre_curve[3];
+	cmsToneCurve *post_curve[3];
+
 	/**
-	 * 3D LUT color mapping part of the transformation, if needed.
-	 * For category CMLCMS_CATEGORY_INPUT_TO_OUTPUT it includes pre-curve and
-	 * post-curve.
-	 * For category CMLCMS_CATEGORY_INPUT_TO_BLEND it includes pre-curve.
-	 * For category CMLCMS_CATEGORY_BLEND_TO_OUTPUT and when identity it is
-	 * not used
+	 * 3D LUT color mapping part of the transformation, if needed by the
+	 * weston_color_transform. This is used as a fallback when an
+	 * arbitrary LittleCMS pipeline cannot be translated into a more
+	 * specific form.
 	 */
 	cmsHTRANSFORM cmap_3dlut;
+
+	/**
+	 * Certain categories of transformations need their own LittleCMS
+	 * contexts in order to use our LittleCMS plugin.
+	 */
+	cmsContext lcms_ctx;
+
+	/**
+	 * The result of pipeline construction, optimization, and analysis.
+	 */
+	enum {
+		/** Error producing a pipeline */
+		CMLCMS_TRANSFORM_FAILED = 0,
+
+		/**
+		 * Pipeline was optimized into weston_color_transform,
+		 * 3D LUT not used.
+		 */
+		CMLCMS_TRANSFORM_OPTIMIZED,
+
+		/** The transformation uses 3D LUT. */
+		CMLCMS_TRANSFORM_3DLUT,
+	} status;
 };
 
 static inline struct cmlcms_color_transform *
@@ -196,5 +227,9 @@ retrieve_eotf_and_output_inv_eotf(cmsContext lcms_ctx,
 
 unsigned int
 cmlcms_reasonable_1D_points(void);
+
+cmsToneCurve *
+lcmsJoinToneCurve(cmsContext context_id, const cmsToneCurve *X,
+		  const cmsToneCurve *Y, unsigned int resulting_points);
 
 #endif /* WESTON_COLOR_LCMS_H */

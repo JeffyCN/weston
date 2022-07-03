@@ -148,7 +148,7 @@ release:
  * LCMS  API cmsJoinToneCurve does y = Y^-1(X(t)),
  * but want to have y = Y^(X(t))
  */
-static cmsToneCurve *
+cmsToneCurve *
 lcmsJoinToneCurve(cmsContext context_id, const cmsToneCurve *X,
 		  const cmsToneCurve *Y, unsigned int resulting_points)
 {

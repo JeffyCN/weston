@@ -1,6 +1,6 @@
 /*
- * Copyright 2021 Collabora, Ltd.
- * Copyright 2021 Advanced Micro Devices, Inc.
+ * Copyright 2021-2022 Collabora, Ltd.
+ * Copyright 2021-2022 Advanced Micro Devices, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,11 +28,23 @@
 
 #include <assert.h>
 #include <libweston/libweston.h>
+#include <lcms2_plugin.h>
 
 #include "color.h"
 #include "color-lcms.h"
 #include "shared/helpers.h"
 #include "shared/xalloc.h"
+
+/**
+ * LCMS compares this parameter with the actual version of the LCMS and enforces
+ * the minimum version is plug-in. If the actual LCMS version is lower than the
+ * plug-in requirement the function cmsCreateContext is failed with plug-in as
+ * parameter.
+ */
+#define REQUIRED_LCMS_VERSION 2120
+
+/** Precision for detecting identity matrix */
+#define MATRIX_PRECISION_BITS 12
 
 /**
  * The method is used in linearization of an arbitrary color profile
@@ -81,6 +93,24 @@ cmlcms_fill_in_output_inv_eotf_vcgt(struct weston_color_transform *xform_base,
 
 	assert(p && "output_profile");
 	fill_in_curves(p->output_inv_eotf_vcgt, values, len);
+}
+
+static void
+cmlcms_fill_in_pre_curve(struct weston_color_transform *xform_base,
+			 float *values, unsigned len)
+{
+	struct cmlcms_color_transform *xform = get_xform(xform_base);
+
+	fill_in_curves(xform->pre_curve, values, len);
+}
+
+static void
+cmlcms_fill_in_post_curve(struct weston_color_transform *xform_base,
+			 float *values, unsigned len)
+{
+	struct cmlcms_color_transform *xform = get_xform(xform_base);
+
+	fill_in_curves(xform->post_curve, values, len);
 }
 
 /**
@@ -135,12 +165,537 @@ cmlcms_color_transform_destroy(struct cmlcms_color_transform *xform)
 {
 	wl_list_remove(&xform->link);
 
+	cmsFreeToneCurveTriple(xform->pre_curve);
+
 	if (xform->cmap_3dlut)
 		cmsDeleteTransform(xform->cmap_3dlut);
+
+	cmsFreeToneCurveTriple(xform->post_curve);
+
+	if (xform->lcms_ctx)
+		cmsDeleteContext(xform->lcms_ctx);
 
 	unref_cprof(xform->search_key.input_profile);
 	unref_cprof(xform->search_key.output_profile);
 	free(xform);
+}
+
+/**
+ * Matrix infinity norm
+ *
+ * http://www.netlib.org/lapack/lug/node75.html
+ */
+static double
+matrix_inf_norm(const cmsMAT3 *mat)
+{
+	unsigned row;
+	double infnorm = -1.0;
+
+	for (row = 0; row < 3; row++) {
+		unsigned col;
+		double sum = 0.0;
+
+		for (col = 0; col < 3; col++)
+			sum += fabs(mat->v[col].n[row]);
+
+		if (infnorm < sum)
+			infnorm = sum;
+	}
+
+	return infnorm;
+}
+
+/*
+ * The method of testing for identity matrix is from
+ * https://gitlab.freedesktop.org/pq/fourbyfour/-/blob/master/README.d/precision_testing.md#inversion-error
+ */
+static bool
+matrix_is_identity(const cmsMAT3 *mat, int bits_precision)
+{
+	cmsMAT3 tmp = *mat;
+	double err;
+	int i;
+
+	/* subtract identity matrix */
+	for (i = 0; i < 3; i++)
+		tmp.v[i].n[i] -= 1.0;
+
+	err = matrix_inf_norm(&tmp);
+
+	return -log2(err) >= bits_precision;
+}
+
+static const cmsMAT3 *
+stage_matrix_transpose(const _cmsStageMatrixData *smd)
+{
+	/* smd is row-major, cmsMAT3 is column-major */
+	return (const cmsMAT3 *)smd->Double;
+}
+
+static bool
+is_matrix_stage_with_zero_offset(const cmsStage *stage)
+{
+	const _cmsStageMatrixData *data;
+	int rows;
+	int r;
+
+	if (!stage || cmsStageType(stage) != cmsSigMatrixElemType)
+		return false;
+
+	data = cmsStageData(stage);
+	if (!data->Offset)
+		return true;
+
+	rows = cmsStageOutputChannels(stage);
+	for (r = 0; r < rows; r++)
+		if (data->Offset[r] != 0.0f)
+			return false;
+
+	return true;
+}
+
+static bool
+is_identity_matrix_stage(const cmsStage *stage)
+{
+	_cmsStageMatrixData *data;
+
+	if (!is_matrix_stage_with_zero_offset(stage))
+		return false;
+
+	data = cmsStageData(stage);
+	return matrix_is_identity(stage_matrix_transpose(data),
+				  MATRIX_PRECISION_BITS);
+}
+
+/* Returns the matrix (next * prev). */
+static cmsStage *
+multiply_matrix_stages(cmsContext context_id, cmsStage *next, cmsStage *prev)
+{
+	_cmsStageMatrixData *prev_, *next_;
+	cmsMAT3 res;
+	cmsStage *ret;
+
+	prev_ = cmsStageData(prev);
+	next_ = cmsStageData(next);
+
+	/* res = prev^T * next^T */
+	_cmsMAT3per(&res, stage_matrix_transpose(next_),
+		    stage_matrix_transpose(prev_));
+
+	/*
+	 * res is column-major while Alloc function takes row-major;
+	 * the cast effectively transposes the matrix.
+	 * We return (prev^T * next^T)^T = next * prev.
+	 */
+	ret = cmsStageAllocMatrix(context_id, 3, 3,
+				  (const cmsFloat64Number*)&res, NULL);
+	abort_oom_if_null(ret);
+	return ret;
+}
+
+/** Merge consecutive matrices into a single matrix, and drop identity matrices
+ *
+ * If we have a pipeline { M1, M2, M3 } of matrices only, then the total
+ * operation is the matrix M = M3 * M2 * M1 because the pipeline first applies
+ * M1, then M2, and finally M3.
+ */
+static bool
+merge_matrices(cmsPipeline **lut, cmsContext context_id)
+{
+	cmsPipeline *pipe;
+	cmsStage *elem;
+	cmsStage *prev = NULL;
+	cmsStage *freeme = NULL;
+	bool modified = false;
+
+	pipe = cmsPipelineAlloc(context_id, 3, 3);
+	abort_oom_if_null(pipe);
+
+	elem = cmsPipelineGetPtrToFirstStage(*lut);
+	do {
+		if (is_matrix_stage_with_zero_offset(prev) &&
+		    is_matrix_stage_with_zero_offset(elem)) {
+			/* replace the two matrices with a merged one */
+			prev = multiply_matrix_stages(context_id, elem, prev);
+			if (freeme)
+				cmsStageFree(freeme);
+			freeme = prev;
+			modified = true;
+		} else {
+			if (prev) {
+				if (is_identity_matrix_stage(prev)) {
+					/* skip inserting it */
+					modified = true;
+				} else {
+					cmsPipelineInsertStage(pipe, cmsAT_END,
+							       cmsStageDup(prev));
+				}
+			}
+			prev = elem;
+		}
+
+		if (elem)
+			elem = cmsStageNext(elem);
+	} while (prev);
+
+	if (freeme)
+		cmsStageFree(freeme);
+
+	cmsPipelineFree(*lut);
+	*lut = pipe;
+
+	return modified;
+}
+
+/*
+ * XXX: Joining curve sets pair by pair might cause precision problems,
+ * especially as we convert even analytical curve types into tabulated.
+ * It might be preferable to convert a whole chain of curve sets at once
+ * instead.
+ */
+static cmsStage *
+join_curvesets(cmsContext context_id, const cmsStage *prev,
+	       const cmsStage *next, unsigned int num_samples)
+{
+	_cmsStageToneCurvesData *prev_, *next_;
+	cmsToneCurve *arr[3];
+	cmsUInt32Number i;
+	cmsStage *ret = NULL;
+
+	prev_ = cmsStageData(prev);
+	next_ = cmsStageData(next);
+
+	assert(prev_->nCurves == ARRAY_LENGTH(arr));
+	assert(next_->nCurves == ARRAY_LENGTH(arr));
+
+	for (i = 0; i < ARRAY_LENGTH(arr); i++) {
+		arr[i] = lcmsJoinToneCurve(context_id, prev_->TheCurves[i],
+					   next_->TheCurves[i], num_samples);
+		abort_oom_if_null(arr[i]);
+	}
+
+	ret = cmsStageAllocToneCurves(context_id, ARRAY_LENGTH(arr), arr);
+	abort_oom_if_null(ret);
+
+	return ret;
+}
+
+static bool
+is_identity_curve_stage(const cmsStage *stage)
+{
+	const _cmsStageToneCurvesData *data;
+	unsigned int i;
+	bool is_identity = true;
+
+	assert(stage);
+
+	if (cmsStageType(stage) != cmsSigCurveSetElemType)
+		return false;
+
+	data = cmsStageData(stage);
+	for (i = 0; i < data->nCurves; i++)
+		is_identity &= cmsIsToneCurveLinear(data->TheCurves[i]);
+
+	return is_identity;
+}
+
+static bool
+merge_curvesets(cmsPipeline **lut, cmsContext context_id)
+{
+	cmsPipeline *pipe;
+	cmsStage *elem;
+	cmsStage *prev = NULL;
+	cmsStage *freeme = NULL;
+	bool modified = false;
+
+	pipe = cmsPipelineAlloc(context_id, 3, 3);
+	abort_oom_if_null(pipe);
+
+	elem = cmsPipelineGetPtrToFirstStage(*lut);
+	do {
+		if (prev && cmsStageType(prev) == cmsSigCurveSetElemType &&
+		    elem && cmsStageType(elem) == cmsSigCurveSetElemType) {
+			/* Replace two curve set elements with a merged one. */
+			prev = join_curvesets(context_id, prev, elem,
+					      cmlcms_reasonable_1D_points());
+			if (freeme)
+				cmsStageFree(freeme);
+			freeme = prev;
+			modified = true;
+		} else {
+			if (prev) {
+				if (is_identity_curve_stage(prev)) {
+					/* skip inserting it */
+					modified = true;
+				} else {
+					cmsPipelineInsertStage(pipe, cmsAT_END,
+							cmsStageDup(prev));
+				}
+			}
+			prev = elem;
+		}
+
+		if (elem)
+			elem = cmsStageNext(elem);
+	} while (prev);
+
+	if (freeme)
+		cmsStageFree(freeme);
+
+	cmsPipelineFree(*lut);
+	*lut = pipe;
+
+	return modified;
+}
+
+static bool
+translate_curve_element(struct weston_color_curve *curve,
+			cmsToneCurve *stash[3],
+			void (*func)(struct weston_color_transform *xform,
+				     float *values, unsigned len),
+			cmsStage *elem)
+{
+	_cmsStageToneCurvesData *trc_data;
+	unsigned i;
+
+	assert(cmsStageType(elem) == cmsSigCurveSetElemType);
+
+	trc_data = cmsStageData(elem);
+	if (trc_data->nCurves != 3)
+		return false;
+
+	curve->type = WESTON_COLOR_CURVE_TYPE_LUT_3x1D;
+	curve->u.lut_3x1d.fill_in = func;
+	curve->u.lut_3x1d.optimal_len = cmlcms_reasonable_1D_points();
+
+	for (i = 0; i < 3; i++) {
+		stash[i] = cmsDupToneCurve(trc_data->TheCurves[i]);
+		abort_oom_if_null(stash[i]);
+	}
+
+	return true;
+}
+
+static bool
+translate_matrix_element(struct weston_color_mapping *map, cmsStage *elem)
+{
+	_cmsStageMatrixData *data = cmsStageData(elem);
+	int c, r;
+
+	if (!is_matrix_stage_with_zero_offset(elem))
+		return false;
+
+	if (cmsStageInputChannels(elem) != 3 ||
+	    cmsStageOutputChannels(elem) != 3)
+		return false;
+
+	map->type = WESTON_COLOR_MAPPING_TYPE_MATRIX;
+
+	/*
+	 * map->u.mat.matrix is column-major, while
+	 * data->Double is row-major.
+	 */
+	for (c = 0; c < 3; c++)
+		for (r = 0; r < 3; r++)
+			map->u.mat.matrix[c * 3 + r] = data->Double[r * 3 + c];
+
+	return true;
+}
+
+static bool
+translate_pipeline(struct cmlcms_color_transform *xform, const cmsPipeline *lut)
+{
+	cmsStage *elem;
+
+	xform->base.pre_curve.type = WESTON_COLOR_CURVE_TYPE_IDENTITY;
+	xform->base.mapping.type = WESTON_COLOR_MAPPING_TYPE_IDENTITY;
+	xform->base.post_curve.type = WESTON_COLOR_CURVE_TYPE_IDENTITY;
+
+	elem = cmsPipelineGetPtrToFirstStage(lut);
+
+	if (!elem)
+		return true;
+
+	if (cmsStageType(elem) == cmsSigCurveSetElemType) {
+		if (!translate_curve_element(&xform->base.pre_curve,
+					     xform->pre_curve,
+					     cmlcms_fill_in_pre_curve, elem))
+			return false;
+
+		elem = cmsStageNext(elem);
+	}
+
+	if (!elem)
+		return true;
+
+	if (cmsStageType(elem) == cmsSigMatrixElemType) {
+		if (!translate_matrix_element(&xform->base.mapping, elem))
+			return false;
+
+		elem = cmsStageNext(elem);
+	}
+
+	if (!elem)
+		return true;
+
+	if (cmsStageType(elem) == cmsSigCurveSetElemType) {
+		if (!translate_curve_element(&xform->base.post_curve,
+					     xform->post_curve,
+					     cmlcms_fill_in_post_curve, elem))
+			return false;
+
+		elem = cmsStageNext(elem);
+	}
+
+	if (!elem)
+		return true;
+
+	return false;
+}
+
+static cmsBool
+optimize_float_pipeline(cmsPipeline **lut, cmsContext context_id,
+			struct cmlcms_color_transform *xform)
+{
+	bool cont_opt;
+
+	/**
+	 * This optimization loop will delete identity stages. Deleting
+	 * identity matrix stages is harmless, but deleting identity
+	 * curve set stages also removes the implicit clamping they do
+	 * on their input values.
+	 */
+	do {
+		cont_opt = merge_matrices(lut, context_id);
+		cont_opt |= merge_curvesets(lut, context_id);
+	} while (cont_opt);
+
+	if (translate_pipeline(xform, *lut)) {
+		xform->status = CMLCMS_TRANSFORM_OPTIMIZED;
+		return TRUE;
+	}
+
+	xform->base.pre_curve.type = WESTON_COLOR_CURVE_TYPE_IDENTITY;
+	xform->base.mapping.type = WESTON_COLOR_MAPPING_TYPE_3D_LUT;
+	xform->base.mapping.u.lut3d.fill_in = cmlcms_fill_in_3dlut;
+	xform->base.mapping.u.lut3d.optimal_len = cmlcms_reasonable_3D_points();
+	xform->base.post_curve.type = WESTON_COLOR_CURVE_TYPE_IDENTITY;
+
+	xform->status = CMLCMS_TRANSFORM_3DLUT;
+
+	/*
+	 * We use cmsDoTransform() to realize the 3D LUT. Return false so
+	 * that LittleCMS installs its usual float transform machinery,
+	 * running on the pipeline we optimized here.
+	 */
+	return FALSE;
+}
+
+/** LittleCMS transform plugin entry point
+ *
+ * This function is called by LittleCMS when it is creating a new
+ * cmsHTRANSFORM. We have the opportunity to inspect and override everything.
+ * The initial cmsPipeline resulting from e.g.
+ * cmsCreateMultiprofileTransformTHR() is handed to us for inspection before
+ * the said function call returns.
+ *
+ * \param xform_fn If we handle the given transformation, we should assign
+ * our own transformation function here. We do not do that, because:
+ * a) Even when we optimize the pipeline, but do not handle the transformation,
+ *    we rely on LittleCMS' own float transformation machinery.
+ * b) When we do handle the transformation, we will not be calling
+ *    cmsDoTransform() anymore.
+ *
+ * \param user_data We could store a void pointer to custom user data
+ * through this pointer to be carried with the cmsHTRANSFORM.
+ * Here none is needed.
+ *
+ * \param free_private_data_fn We could store a function pointer for freeing
+ * our user data when the cmsHTRANSFORM is destroyed. None needed.
+ *
+ * \param lut The LittleCMS pipeline that describes this transformation.
+ * We can create our own and replace the original completely in
+ * optimize_float_pipeline().
+ *
+ * \param input_format Pointer to the format used as input for this
+ * transformation. I suppose we could override it if we wanted to, but
+ * no need.
+ *
+ * \param output_format Similar to input format.
+ *
+ * \param flags Some flags we could also override? See cmsFLAGS_* defines.
+ *
+ * \return If this returns TRUE, it implies we handle the transformation. No
+ * other plugin will be tried anymore and the transformation object is
+ * complete. If this returns FALSE, the search for a plugin to handle this
+ * transformation continues and falls back to the usual handling inside
+ * LittleCMS.
+ */
+static cmsBool
+transform_factory(_cmsTransform2Fn *xform_fn,
+		  void **user_data,
+		  _cmsFreeUserDataFn *free_private_data_fn,
+		  cmsPipeline **lut,
+		  cmsUInt32Number *input_format,
+		  cmsUInt32Number *output_format,
+		  cmsUInt32Number *flags)
+{
+	struct cmlcms_color_transform *xform;
+	cmsContext context_id;
+
+	if (T_CHANNELS(*input_format) != 3) {
+		weston_log("color-lcms debug: input format is not 3-channel.");
+		return FALSE;
+	}
+	if (T_CHANNELS(*output_format) != 3) {
+		weston_log("color-lcms debug: output format is not 3-channel.");
+		return FALSE;
+	}
+	if (!T_FLOAT(*input_format)) {
+		weston_log("color-lcms debug: input format is not float.");
+		return FALSE;
+	}
+	if (!T_FLOAT(*output_format)) {
+		weston_log("color-lcms debug: output format is not float.");
+		return FALSE;
+	}
+	context_id = cmsGetPipelineContextID(*lut);
+	assert(context_id);
+	xform = cmsGetContextUserData(context_id);
+	assert(xform);
+
+	return optimize_float_pipeline(lut, context_id, xform);
+}
+
+static cmsPluginTransform transform_plugin = {
+	.base = {
+		.Magic = cmsPluginMagicNumber,
+		.ExpectedVersion = REQUIRED_LCMS_VERSION,
+		.Type = cmsPluginTransformSig,
+		.Next = NULL
+	},
+	.factories.xform = transform_factory,
+};
+
+static void
+lcms_xform_error_logger(cmsContext context_id,
+			cmsUInt32Number error_code,
+			const char *text)
+{
+	struct cmlcms_color_transform *xform;
+	struct cmlcms_color_profile *in;
+	struct cmlcms_color_profile *out;
+
+	xform = cmsGetContextUserData(context_id);
+	in = xform->search_key.input_profile;
+	out = xform->search_key.output_profile;
+
+	weston_log("LittleCMS error with color transformation from "
+		   "'%s' to '%s', %s: %s\n",
+		   in ? in->base.description : "(none)",
+		   out ? out->base.description : "(none)",
+		   cmlcms_category_name(xform->search_key.category),
+		   text);
 }
 
 static cmsHPROFILE
@@ -191,25 +746,49 @@ xform_realize_chain(struct cmlcms_color_transform *xform)
 
 	assert(chain_len <= ARRAY_LENGTH(chain));
 
-	xform->cmap_3dlut = cmsCreateMultiprofileTransformTHR(cm->lcms_ctx,
+	/**
+	 * Binding to our LittleCMS plug-in occurs here.
+	 * If you want to disable the plug-in while debugging,
+	 * replace &transform_plugin with NULL.
+	 */
+	xform->lcms_ctx = cmsCreateContext(&transform_plugin, xform);
+	abort_oom_if_null(xform->lcms_ctx);
+	cmsSetLogErrorHandlerTHR(xform->lcms_ctx, lcms_xform_error_logger);
+
+	assert(xform->status == CMLCMS_TRANSFORM_FAILED);
+	/* transform_factory() is invoked by this call. */
+	xform->cmap_3dlut = cmsCreateMultiprofileTransformTHR(xform->lcms_ctx,
 							      chain,
 							      chain_len,
 							      TYPE_RGB_FLT,
 							      TYPE_RGB_FLT,
 							      xform->search_key.intent_output,
 							      0);
-	if (!xform->cmap_3dlut) {
-		cmsCloseProfile(extra);
-		weston_log("color-lcms error: fail cmsCreateMultiprofileTransformTHR.\n");
-		return false;
-	}
-	xform->base.mapping.type = WESTON_COLOR_MAPPING_TYPE_3D_LUT;
-	xform->base.mapping.u.lut3d.fill_in = cmlcms_fill_in_3dlut;
-	xform->base.mapping.u.lut3d.optimal_len =
-				cmlcms_reasonable_3D_points();
 	cmsCloseProfile(extra);
 
+	if (!xform->cmap_3dlut)
+		goto failed;
+
+	if (xform->status != CMLCMS_TRANSFORM_3DLUT) {
+		cmsDeleteTransform(xform->cmap_3dlut);
+		xform->cmap_3dlut = NULL;
+	}
+
+	switch (xform->status) {
+	case CMLCMS_TRANSFORM_FAILED:
+		goto failed;
+	case CMLCMS_TRANSFORM_OPTIMIZED:
+	case CMLCMS_TRANSFORM_3DLUT:
+		break;
+	}
+
 	return true;
+
+failed:
+	cmsDeleteContext(xform->lcms_ctx);
+	xform->lcms_ctx = NULL;
+
+	return false;
 }
 
 static struct cmlcms_color_transform *
@@ -252,10 +831,12 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 		xform->base.pre_curve.u.lut_3x1d.fill_in = cmlcms_fill_in_output_inv_eotf_vcgt;
 		xform->base.pre_curve.u.lut_3x1d.optimal_len =
 				cmlcms_reasonable_1D_points();
+		xform->status = CMLCMS_TRANSFORM_OPTIMIZED;
 		break;
 	}
 
 	wl_list_insert(&cm->color_transform_list, &xform->link);
+	assert(xform->status != CMLCMS_TRANSFORM_FAILED);
 	return xform;
 
 error:
