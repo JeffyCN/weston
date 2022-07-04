@@ -61,14 +61,14 @@ struct cmlcms_color_profile {
 	cmsHPROFILE profile;
 	struct cmlcms_md5_sum md5sum;
 
-	/**
-	 * If the profile does support being an output profile and it is used as an
-	 * output then this field represents a light linearizing transfer function
-	 * and it can not be null. The field is null only if the profile is not
-	 * usable as an output profile. The field is set when cmlcms_color_profile
-	 * is created.
+	/** The curves to decode an electrical signal
+	 *
+	 * For ICC profiles, if the profile type is matrix-shaper, then eotf
+	 * contains the TRC, otherwise eotf contains an approximated EOTF if the
+	 * profile is used for output.
+	 * The field may be populated on demand.
 	 */
-	cmsToneCurve *output_eotf[3];
+	cmsToneCurve *eotf[3];
 
 	/**
 	 * If the profile does support being an output profile and it is used as an

@@ -324,7 +324,7 @@ cmlcms_color_profile_destroy(struct cmlcms_color_profile *cprof)
 {
 	wl_list_remove(&cprof->link);
 	cmsFreeToneCurveTriple(cprof->vcgt);
-	cmsFreeToneCurveTriple(cprof->output_eotf);
+	cmsFreeToneCurveTriple(cprof->eotf);
 	cmsFreeToneCurveTriple(cprof->output_inv_eotf_vcgt);
 	cmsCloseProfile(cprof->profile);
 	free(cprof->base.description);
@@ -402,7 +402,7 @@ cmlcms_create_stock_profile(struct weston_color_manager_lcms *cm)
 
 	if (!retrieve_eotf_and_output_inv_eotf(cm->lcms_ctx,
 					       cm->sRGB_profile->profile,
-					       cm->sRGB_profile->output_eotf,
+					       cm->sRGB_profile->eotf,
 					       cm->sRGB_profile->output_inv_eotf_vcgt,
 					       cm->sRGB_profile->vcgt,
 					       cmlcms_reasonable_1D_points()))

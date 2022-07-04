@@ -203,10 +203,10 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 	xform->search_key.output_profile = ref_cprof(output_profile);
 
 	/* Ensure the linearization etc. have been extracted. */
-	if (!output_profile->output_eotf[0]) {
+	if (!output_profile->eotf[0]) {
 		if (!retrieve_eotf_and_output_inv_eotf(cm->lcms_ctx,
 						       output_profile->profile,
-						       output_profile->output_eotf,
+						       output_profile->eotf,
 						       output_profile->output_inv_eotf_vcgt,
 						       output_profile->vcgt,
 						       cmlcms_reasonable_1D_points()))
@@ -218,7 +218,7 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 		/* Use EOTF to linearize the result. */
 		ok = xform_set_cmap_3dlut(xform, input_profile->profile,
 					  output_profile->profile,
-					  output_profile->output_eotf,
+					  output_profile->eotf,
 					  search_param->intent_output);
 		break;
 
