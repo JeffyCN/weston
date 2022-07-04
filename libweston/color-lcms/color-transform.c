@@ -68,8 +68,8 @@ fill_in_curves(cmsToneCurve *curves[3], float *values, unsigned len)
 }
 
 static void
-cmlcms_fill_in_pre_curve(struct weston_color_transform *xform_base,
-			 float *values, unsigned len)
+cmlcms_fill_in_output_inv_eotf_vcgt(struct weston_color_transform *xform_base,
+				    float *values, unsigned len)
 {
 	struct cmlcms_color_transform *xform = get_xform(xform_base);
 
@@ -232,7 +232,7 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 
 	case CMLCMS_CATEGORY_BLEND_TO_OUTPUT:
 		xform->base.pre_curve.type = WESTON_COLOR_CURVE_TYPE_LUT_3x1D;
-		xform->base.pre_curve.u.lut_3x1d.fill_in = cmlcms_fill_in_pre_curve;
+		xform->base.pre_curve.u.lut_3x1d.fill_in = cmlcms_fill_in_output_inv_eotf_vcgt;
 		xform->base.pre_curve.u.lut_3x1d.optimal_len =
 				cmlcms_reasonable_1D_points();
 		ok = true;
