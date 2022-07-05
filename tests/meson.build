@@ -309,14 +309,33 @@ tests_standalone = [
 ]
 
 if get_option('xwayland')
-	d = dependency('x11', required: false)
-	if not d.found()
-		error('Xwayland tests require libX11 which was not found. Or, you can use \'-Dxwayland=false\'.')
+	xcb_dep = dependency('xcb', required: false)
+	xcb_cursor_dep = dependency('xcb-cursor', required: false)
+
+	if not xcb_dep.found() or not xcb_cursor_dep.found()
+		error('xcb and xcb-cursor required for running xwayland tests')
 	endif
-	tests += {
+
+	libxwayland_test_client = static_library(
+		'test-xwayland-client',
+		[ 'xcb-client-helper.c', weston_test_client_protocol_h ],
+		include_directories: common_inc,
+		dependencies: [
+			dep_pixman, dep_xcb_xwayland,
+			xcb_dep, xcb_cursor_dep
+		],
+		install: false,
+	)
+
+	dep_libxwayland_test = declare_dependency(
+		dependencies: [ xcb_dep, xcb_cursor_dep ],
+		link_with: libxwayland_test_client,
+	)
+
+	tests += [ {
 		'name': 'xwayland',
-		'dep_objs': d,
-	}
+		'dep_objs': dep_libxwayland_test,
+	} ]
 endif
 
 # Manual test plugin, not used in the automatic suite

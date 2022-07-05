@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2023-02-21-bump-meson-to-1.0.0'
+  FDO_DISTRIBUTION_TAG: '2023-02-28-libxcb-migration'
 
 
 include:

@@ -95,6 +95,7 @@ apt-get -y --no-install-recommends install \
 	libxcb-xfixes0-dev \
 	libxcb-xkb-dev \
 	libxcursor-dev \
+	libxcb-cursor-dev \
 	libxdamage-dev \
 	libxext-dev \
 	libxfixes-dev \
