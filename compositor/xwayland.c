@@ -134,11 +134,6 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		return 1;
 	}
 
-	if (os_fd_set_cloexec(display_fd[1]) != 0) {
-		weston_log("failed setting Xwayland end of displayfd as cloexec\n");
-		return 1;
-	}
-
 	pid = fork();
 	switch (pid) {
 	case 0:
@@ -153,11 +148,15 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		ret &= dup_fd_to_string(abstract_fd_str, abstract_fd);
 		ret &= dup_fd_to_string(unix_fd_str, unix_fd);
 		ret &= dup_fd_to_string(wm_fd_str, wm[1]);
-		ret &= dup_fd_to_string(display_fd_str, display_fd[1]);
 		if (!ret)
 			_exit(EXIT_FAILURE);
 
 		setenv("WAYLAND_SOCKET", wayland_socket_str, 1);
+
+		if (snprintf(display_fd_str, sizeof(display_fd_str), "%d",
+			     display_fd[1]) <= 0) {
+			_exit(EXIT_FAILURE);
+		}
 
 		if (execl(xserver,
 			  xserver,
