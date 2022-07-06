@@ -438,8 +438,6 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
 							     surface_y,
 							     surface_width,
 							     surface_height);
-
-		hmi_ctrl->interface->layer_add_surface(layers[layer_idx]->ivilayer, ivisurf);
 	}
 
 	free(layers);
