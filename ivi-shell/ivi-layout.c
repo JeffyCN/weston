@@ -185,6 +185,8 @@ ivi_view_create(struct ivi_layout_layer *ivilayer,
 		return NULL;
 	}
 
+	ivisurf->ivi_view = ivi_view;
+
 	weston_matrix_init(&ivi_view->transform.matrix);
 	wl_list_init(&ivi_view->transform.link);
 

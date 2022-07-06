@@ -55,6 +55,8 @@ struct ivi_layout_surface {
 	struct weston_surface *surface;
 	struct weston_desktop_surface *weston_desktop_surface;
 
+	struct ivi_layout_view *ivi_view;
+
 	struct ivi_layout_surface_properties prop;
 
 	struct {

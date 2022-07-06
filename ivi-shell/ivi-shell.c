@@ -64,6 +64,9 @@ struct ivi_shell_surface
 	int32_t width;
 	int32_t height;
 
+	struct wl_list children_list;
+	struct wl_list children_link;
+
 	struct wl_list link;
 };
 
@@ -77,16 +80,12 @@ ivi_shell_surface_committed(struct weston_surface *, int32_t, int32_t);
 static struct ivi_shell_surface *
 get_ivi_shell_surface(struct weston_surface *surface)
 {
-	struct ivi_shell_surface *shsurf;
+	struct weston_desktop_surface *desktop_surface
+		= weston_surface_get_desktop_surface(surface);
+	if (desktop_surface)
+		return weston_desktop_surface_get_user_data(desktop_surface);
 
-	if (surface->committed != ivi_shell_surface_committed)
-		return NULL;
-
-	shsurf = surface->committed_private;
-	assert(shsurf);
-	assert(shsurf->surface == surface);
-
-	return shsurf;
+	return surface->committed_private;
 }
 
 struct ivi_layout_surface *
@@ -285,6 +284,13 @@ application_surface_create(struct wl_client *client,
 	ivisurf->layout_surface = layout_surface;
 
 	/*
+	 * initialize list as well as link. The latter allows to use
+	 * wl_list_remove() event when this surface is not in another list.
+	 */
+	wl_list_init(&ivisurf->children_list);
+	wl_list_init(&ivisurf->children_link);
+
+	/*
 	 * The following code relies on wl_surface destruction triggering
 	 * immediateweston_surface destruction
 	 */
@@ -406,18 +412,41 @@ init_ivi_shell(struct weston_compositor *compositor, struct ivi_shell *shell)
 	}
 }
 
+static struct ivi_shell_surface *
+get_last_child(struct ivi_shell_surface *ivisurf)
+{
+	struct ivi_shell_surface *ivisurf_child;
+
+	wl_list_for_each_reverse(ivisurf_child, &ivisurf->children_list,
+				 children_link) {
+		if (weston_surface_is_mapped(ivisurf_child->surface))
+			return ivisurf_child;
+	}
+	return NULL;
+}
+
 static void
 activate_binding(struct weston_seat *seat,
-		 struct weston_view *focus_view)
+		 struct weston_view *focus_view,
+		 uint32_t flags)
 {
-	struct weston_surface *focus = focus_view->surface;
-	struct weston_surface *main_surface =
-		weston_surface_get_main_surface(focus);
+	struct ivi_shell_surface *ivisurf, *ivisurf_child;
 
-	if (get_ivi_shell_surface(main_surface) == NULL)
+	ivisurf = get_ivi_shell_surface(focus_view->surface);
+	if (ivisurf == NULL)
 		return;
 
-	weston_seat_set_keyboard_focus(seat, focus);
+	ivisurf_child = get_last_child(ivisurf);
+	if (ivisurf_child) {
+		struct weston_view *view
+			= ivisurf_child->layout_surface->ivi_view->view;
+		activate_binding(seat, view, flags);
+		return;
+	}
+
+	/* FIXME: need to activate the surface like
+	   kiosk_shell_surface_activate() */
+	weston_view_activate_input(focus_view, seat, flags);
 }
 
 static void
@@ -430,7 +459,8 @@ click_to_activate_binding(struct weston_pointer *pointer,
 	if (pointer->focus == NULL)
 		return;
 
-	activate_binding(pointer->seat, pointer->focus);
+	activate_binding(pointer->seat, pointer->focus,
+			 WESTON_ACTIVATE_FLAG_CLICKED);
 }
 
 static void
@@ -443,7 +473,7 @@ touch_to_activate_binding(struct weston_touch *touch,
 	if (touch->focus == NULL)
 		return;
 
-	activate_binding(touch->seat, touch->focus);
+	activate_binding(touch->seat, touch->focus, WESTON_ACTIVATE_FLAG_NONE);
 }
 
 static void
@@ -507,6 +537,13 @@ desktop_surface_added(struct weston_desktop_surface *surface,
 	ivisurf->layout_surface = layout_surface;
 	ivisurf->surface = weston_surf;
 
+	/*
+	 * initialize list as well as link. The latter allows to use
+	 * wl_list_remove() event when this surface is not in another list.
+	 */
+	wl_list_init(&ivisurf->children_list);
+	wl_list_init(&ivisurf->children_link);
+
 	weston_desktop_surface_set_user_data(surface, ivisurf);
 }
 
@@ -516,8 +553,16 @@ desktop_surface_removed(struct weston_desktop_surface *surface,
 {
 	struct ivi_shell_surface *ivisurf = (struct ivi_shell_surface *)
 			weston_desktop_surface_get_user_data(surface);
+	struct ivi_shell_surface *ivisurf_child, *tmp;
 
 	assert(ivisurf != NULL);
+
+	wl_list_for_each_safe(ivisurf_child, tmp, &ivisurf->children_list,
+			      children_link) {
+		wl_list_remove(&ivisurf_child->children_link);
+		wl_list_init(&ivisurf_child->children_link);
+	}
+	wl_list_remove(&ivisurf->children_link);
 
 	if (ivisurf->layout_surface)
 		layout_surface_cleanup(ivisurf);
@@ -565,6 +610,23 @@ desktop_surface_resize(struct weston_desktop_surface *surface,
 }
 
 static void
+desktop_surface_set_parent(struct weston_desktop_surface *desktop_surface,
+			   struct weston_desktop_surface *parent,
+			   void *shell)
+{
+	struct ivi_shell_surface *ivisurf =
+		weston_desktop_surface_get_user_data(desktop_surface);
+	struct ivi_shell_surface *ivisurf_parent;
+
+	if (!parent)
+		return;
+
+	ivisurf_parent = weston_desktop_surface_get_user_data(parent);
+	wl_list_insert(ivisurf_parent->children_list.prev,
+		       &ivisurf->children_link);
+}
+
+static void
 desktop_surface_fullscreen_requested(struct weston_desktop_surface *surface,
 				     bool fullscreen,
 				     struct weston_output *output,
@@ -604,6 +666,7 @@ static const struct weston_desktop_api shell_desktop_api = {
 
 	.move = desktop_surface_move,
 	.resize = desktop_surface_resize,
+	.set_parent = desktop_surface_set_parent,
 	.fullscreen_requested = desktop_surface_fullscreen_requested,
 	.maximized_requested = desktop_surface_maximized_requested,
 	.minimized_requested = desktop_surface_minimized_requested,
