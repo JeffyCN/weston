@@ -3254,6 +3254,10 @@ weston_output_repaint(struct weston_output *output)
 	} else {
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
+			/* TODO: turn this into assert once z_order_list is pruned. */
+			if ((pnode->view->output_mask & (1u << output->id)) == 0)
+				continue;
+
 			weston_view_move_to_plane(pnode->view, &ec->primary_plane);
 			pnode->view->psf_flags = 0;
 		}
