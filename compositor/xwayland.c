@@ -170,6 +170,18 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	str_printf(&exec_failure_msg,
 		   "Error: executing Xwayland as '%s' failed.\n", xserver);
 
+	const char *const argv[] = {
+		xserver,
+		display,
+		"-rootless",
+		LISTEN_STR, x11_abstract_socket.str1,
+		LISTEN_STR, x11_unix_socket.str1,
+		"-displayfd", display_pipe.str1,
+		"-wm", x11_wm_socket.str1,
+		"-terminate",
+		NULL
+	};
+
 	pid = fork();
 	switch (pid) {
 	case 0:
@@ -185,21 +197,13 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 
 		setenv("WAYLAND_SOCKET", wayland_socket.str1, 1);
 
-		if (execl(xserver,
-			  xserver,
-			  display,
-			  "-rootless",
-			  LISTEN_STR, x11_abstract_socket.str1,
-			  LISTEN_STR, x11_unix_socket.str1,
-			  "-displayfd", display_pipe.str1,
-			  "-wm", x11_wm_socket.str1,
-			  "-terminate",
-			  NULL) < 0) {
+		if (execv(xserver, (char *const *)argv) < 0) {
 			if (exec_failure_msg) {
 				write(STDERR_FILENO, exec_failure_msg,
 				      strlen(exec_failure_msg));
 			}
 		}
+
 		_exit(EXIT_FAILURE);
 
 	default:
