@@ -56,6 +56,14 @@ enum gl_shader_color_curve {
 	SHADER_COLOR_CURVE_LUT_3x1D,
 };
 
+/* Keep the following in sync with fragment.glsl. */
+enum gl_shader_color_swap {
+	SHADER_COLOR_SWAP_NONE = 0,
+	SHADER_COLOR_SWAP_RGB,
+	SHADER_COLOR_SWAP_ALPHA,
+	SHADER_COLOR_SWAP_ALL,
+};
+
 /** GL shader requirements key
  *
  * This structure is used as a binary blob key for building and searching
@@ -71,12 +79,13 @@ struct gl_shader_requirements
 	bool input_is_premult:1;
 	bool green_tint:1;
 	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
+	unsigned color_swap:2; /* enum gl_shader_color_swap */
 
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:25;
+	unsigned pad_bits_:23;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
