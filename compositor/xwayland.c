@@ -36,6 +36,7 @@
 #include <libweston/xwayland-api.h>
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
+#include "shared/string-helpers.h"
 
 #ifdef HAVE_XWAYLAND_LISTENFD
 #  define LISTEN_STR "-listenfd"
@@ -113,6 +114,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	struct weston_config *config = wet_get_config(wxw->compositor);
 	struct weston_config_section *section;
 	struct wl_event_loop *loop;
+	char *exec_failure_msg;
 	bool ret;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) < 0) {
@@ -143,6 +145,8 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	section = weston_config_get_section(config, "xwayland", NULL, NULL);
 	weston_config_section_get_string(section, "path",
 					 &xserver, XSERVER_PATH);
+	str_printf(&exec_failure_msg,
+		   "Error: executing Xwayland as '%s' failed.\n", xserver);
 
 	pid = fork();
 	switch (pid) {
@@ -170,12 +174,10 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 			  "-wm", wm_fd_str,
 			  "-terminate",
 			  NULL) < 0) {
-			weston_log("exec of '%s %s -rootless "
-				   LISTEN_STR " %s " LISTEN_STR " %s "
-				   "-wm %s -terminate' failed: %s\n",
-				   xserver, display,
-				   abstract_fd_str, unix_fd_str, wm_fd_str,
-				   strerror(errno));
+			if (exec_failure_msg) {
+				write(STDERR_FILENO, exec_failure_msg,
+				      strlen(exec_failure_msg));
+			}
 		}
 		_exit(EXIT_FAILURE);
 
@@ -205,6 +207,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		break;
 	}
 
+	free(exec_failure_msg);
 	free(xserver);
 
 	return pid;
