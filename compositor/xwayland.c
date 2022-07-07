@@ -30,6 +30,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 
 #include <libweston/libweston.h>
 #include "compositor/weston.h"
@@ -154,21 +155,10 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	}
 	fdstr_update_str1(&x11_wm_socket);
 
-	if (pipe(display_pipe.fds) < 0) {
+	if (pipe2(display_pipe.fds, O_CLOEXEC) < 0) {
 		weston_log("pipe creation for displayfd failed\n");
 		return 1;
 	}
-
-	if (os_fd_set_cloexec(display_pipe.fds[0]) != 0) {
-		weston_log("failed setting compositor end of displayfd as cloexec\n");
-		return 1;
-	}
-
-	if (os_fd_set_cloexec(display_pipe.fds[1]) != 0) {
-		weston_log("failed setting Xwayland end of displayfd as cloexec\n");
-		return 1;
-	}
-
 	fdstr_update_str1(&display_pipe);
 
 	fdstr_set_fd1(&x11_abstract_socket, abstract_fd);
