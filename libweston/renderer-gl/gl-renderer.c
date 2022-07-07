@@ -157,6 +157,7 @@ struct gl_buffer_state {
 	EGLImageKHR images[3];
 	int num_images;
 	enum gl_shader_texture_variant shader_variant;
+	enum gl_shader_color_swap color_swap;
 
 	GLuint textures[3];
 	int num_textures;
@@ -965,6 +966,7 @@ gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 	int i;
 
 	sconf->req.variant = gb->shader_variant;
+	sconf->req.color_swap = gb->color_swap;
 	sconf->req.input_is_premult =
 		gl_shader_texture_variant_can_be_premult(gb->shader_variant);
 
@@ -2007,6 +2009,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	unsigned int i;
 	bool using_glesv2 = gr->gl_version < gr_gl_version(3, 0);
 	const struct yuv_format_descriptor *yuv = NULL;
+	enum gl_shader_color_swap color_swap = SHADER_COLOR_SWAP_NONE;
 
 	/* When sampling YUV input textures and converting to RGB by hand, we
 	 * have to bind to each plane separately, with a different format. For
@@ -2079,6 +2082,31 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 
 		gl_format[0] = buffer->pixel_format->gl_format;
 		gl_pixel_type = buffer->pixel_format->gl_type;
+
+		switch (buffer->pixel_format->format) {
+		case WL_SHM_FORMAT_RGBX8888:
+			color_swap = SHADER_COLOR_SWAP_ALL;
+			gl_format[0] = GL_RGBA;
+			break;
+		case WL_SHM_FORMAT_RGBA8888:
+			color_swap = SHADER_COLOR_SWAP_ALL;
+			gl_format[0] = GL_RGBA;
+			break;
+		case WL_SHM_FORMAT_BGRX8888:
+			color_swap = SHADER_COLOR_SWAP_ALPHA;
+			gl_format[0] = GL_RGBA;
+			break;
+		case WL_SHM_FORMAT_BGRA8888:
+			color_swap = SHADER_COLOR_SWAP_ALPHA;
+			gl_format[0] = GL_RGBA;
+			break;
+		case WL_SHM_FORMAT_BGR888:
+			color_swap = SHADER_COLOR_SWAP_RGB;
+			gl_format[0] = GL_RGB;
+			break;
+		default:
+			break;
+		}
 	}
 
 	for (i = 0; i < ARRAY_LENGTH(gb->gl_format); i++) {
@@ -2131,6 +2159,8 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 
 	wl_list_init(&gb->destroy_listener.link);
 	pixman_region32_init(&gb->texture_damage);
+
+	gb->color_swap = color_swap;
 
 	gb->pitch = pitch;
 	gb->shader_variant = shader_variant;
@@ -3757,6 +3787,14 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 	}
 
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XBGR8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGBX8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGBA8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGRX8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGRA8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGR888);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV444);
