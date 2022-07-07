@@ -46,6 +46,12 @@
 #define SHADER_COLOR_CURVE_IDENTITY 0
 #define SHADER_COLOR_CURVE_LUT_3x1D 1
 
+/* enum gl_shader_color_swap */
+#define SHADER_COLOR_SWAP_NONE  0
+#define SHADER_COLOR_SWAP_RGB   1
+#define SHADER_COLOR_SWAP_ALPHA 2
+#define SHADER_COLOR_SWAP_ALL   3
+
 #if DEF_VARIANT == SHADER_VARIANT_EXTERNAL
 #extension GL_OES_EGL_image_external : require
 #endif
@@ -62,6 +68,7 @@ precision HIGHPRECISION float;
  * These undeclared identifiers will be #defined by a runtime generated code
  * snippet.
  */
+compile_const int c_color_swap = DEF_COLOR_SWAP;
 compile_const int c_variant = DEF_VARIANT;
 compile_const bool c_input_is_premult = DEF_INPUT_IS_PREMULT;
 compile_const bool c_green_tint = DEF_GREEN_TINT;
@@ -124,12 +131,10 @@ sample_input_texture()
 		return unicolor;
 
 	if (c_variant == SHADER_VARIANT_RGBA ||
+	    c_variant == SHADER_VARIANT_RGBX ||
 	    c_variant == SHADER_VARIANT_EXTERNAL) {
 		return texture2D(tex, v_texcoord);
 	}
-
-	if (c_variant == SHADER_VARIANT_RGBX)
-		return vec4(texture2D(tex, v_texcoord).rgb, 1.0);
 
 	/* Requires conversion to RGBA */
 
@@ -217,6 +222,16 @@ main()
 
 	/* Electrical (non-linear) RGBA values, may be premult or not */
 	color = sample_input_texture();
+
+	if (c_color_swap == SHADER_COLOR_SWAP_RGB)
+		color.bgr = color.rgb;
+	else if (c_color_swap == SHADER_COLOR_SWAP_ALPHA)
+		color.argb = color;
+	else if (c_color_swap == SHADER_COLOR_SWAP_ALL)
+		color.abgr = color;
+
+	if (c_variant == SHADER_VARIANT_RGBX)
+		color.a = 1.0;
 
 	if (c_need_color_pipeline) {
 		/* Ensure straight alpha */

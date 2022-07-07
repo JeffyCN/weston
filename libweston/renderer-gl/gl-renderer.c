@@ -193,6 +193,7 @@ struct gl_surface_state {
 	struct egl_image* images[3];
 	int num_images;
 	enum gl_shader_texture_variant shader_variant;
+	enum gl_shader_color_swap color_swap;
 
 	struct weston_buffer_reference buffer_ref;
 	struct weston_buffer_release_reference buffer_release_ref;
@@ -1002,6 +1003,7 @@ gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 	int i;
 
 	sconf->req.variant = gs->shader_variant;
+	sconf->req.color_swap = gs->color_swap;
 	sconf->req.input_is_premult =
 		gl_shader_texture_variant_can_be_premult(gs->shader_variant);
 
@@ -2025,6 +2027,67 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		gl_format[0] = GL_BGRA_EXT;
 		gl_pixel_type = GL_UNSIGNED_BYTE;
 		es->is_opaque = false;
+		break;
+	case WL_SHM_FORMAT_XBGR8888:
+		gs->shader_variant = SHADER_VARIANT_RGBX;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = GL_RGBA;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = true;
+		break;
+	case WL_SHM_FORMAT_ABGR8888:
+		gs->shader_variant = SHADER_VARIANT_RGBA;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = GL_RGBA;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = false;
+		break;
+	case WL_SHM_FORMAT_RGBX8888:
+		gs->shader_variant = SHADER_VARIANT_RGBX;
+		gs->color_swap = SHADER_COLOR_SWAP_ALL;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = GL_RGBA;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = true;
+		break;
+	case WL_SHM_FORMAT_RGBA8888:
+		gs->shader_variant = SHADER_VARIANT_RGBA;
+		gs->color_swap = SHADER_COLOR_SWAP_ALL;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = GL_RGBA;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = false;
+		break;
+	case WL_SHM_FORMAT_BGRX8888:
+		gs->shader_variant = SHADER_VARIANT_RGBX;
+		gs->color_swap = SHADER_COLOR_SWAP_ALPHA;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = GL_RGBA;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = true;
+		break;
+	case WL_SHM_FORMAT_BGRA8888:
+		gs->shader_variant = SHADER_VARIANT_RGBA;
+		gs->color_swap = SHADER_COLOR_SWAP_ALPHA;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 4;
+		gl_format[0] = GL_RGBA;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = false;
+		break;
+	case WL_SHM_FORMAT_RGB888:
+		gs->shader_variant = SHADER_VARIANT_RGBX;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 3;
+		gl_format[0] = GL_RGB;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = true;
+		break;
+	case WL_SHM_FORMAT_BGR888:
+		gs->shader_variant = SHADER_VARIANT_RGBX;
+		gs->color_swap = SHADER_COLOR_SWAP_RGB;
+		pitch = wl_shm_buffer_get_stride(shm_buffer) / 3;
+		gl_format[0] = GL_RGB;
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		es->is_opaque = true;
 		break;
 	case WL_SHM_FORMAT_RGB565:
 		gs->shader_variant = SHADER_VARIANT_RGBX;
@@ -3853,6 +3916,14 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_with_error;
 	}
 
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XBGR8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGBX8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGBA8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGRX8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGRA8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGR888);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
