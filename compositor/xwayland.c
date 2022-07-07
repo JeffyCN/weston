@@ -89,16 +89,40 @@ out:
 	return 0;
 }
 
-/* Duplicate an FD and write it into a string, for use in environment */
-#define FD_STR_LEN 12
-static bool
-dup_fd_to_string(char s[FD_STR_LEN], int fd)
+struct fdstr {
+	char str1[12];
+	int fds[2];
+};
+
+static void
+fdstr_update_str1(struct fdstr *s)
 {
-	fd = dup(fd);
-	if (fd < 0)
-		return false;
-	snprintf(s, FD_STR_LEN, "%d", fd);
-	return true;
+	snprintf(s->str1, sizeof(s->str1), "%d", s->fds[1]);
+}
+
+static void
+fdstr_set_fd1(struct fdstr *s, int fd)
+{
+	s->fds[0] = -1;
+	s->fds[1] = fd;
+	fdstr_update_str1(s);
+}
+
+static bool
+fdstr_clear_cloexec_fd1(struct fdstr *s)
+{
+	return os_fd_clear_cloexec(s->fds[1]) >= 0;
+}
+
+static void
+fdstr_close_all(struct fdstr *s)
+{
+	unsigned i;
+
+	for (i = 0; i < ARRAY_LENGTH(s->fds); i++) {
+		close(s->fds[i]);
+		s->fds[i] = -1;
+	}
 }
 
 static pid_t
@@ -106,10 +130,11 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 {
 	struct wet_xwayland *wxw = user_data;
 	pid_t pid;
-	char wayland_socket_str[FD_STR_LEN], abstract_fd_str[FD_STR_LEN];
-	char unix_fd_str[FD_STR_LEN], wm_fd_str[FD_STR_LEN];
-	char display_fd_str[FD_STR_LEN];
-	int sv[2], wm[2], display_fd[2];
+	struct fdstr wayland_socket;
+	struct fdstr x11_abstract_socket;
+	struct fdstr x11_unix_socket;
+	struct fdstr x11_wm_socket;
+	struct fdstr display_pipe;
 	char *xserver = NULL;
 	struct weston_config *config = wet_get_config(wxw->compositor);
 	struct weston_config_section *section;
@@ -117,30 +142,37 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	char *exec_failure_msg;
 	bool ret;
 
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) < 0) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wayland_socket.fds) < 0) {
 		weston_log("wl connection socketpair failed\n");
 		return 1;
 	}
+	fdstr_update_str1(&wayland_socket);
 
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wm) < 0) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, x11_wm_socket.fds) < 0) {
 		weston_log("X wm connection socketpair failed\n");
 		return 1;
 	}
+	fdstr_update_str1(&x11_wm_socket);
 
-	if (pipe(display_fd) < 0) {
+	if (pipe(display_pipe.fds) < 0) {
 		weston_log("pipe creation for displayfd failed\n");
 		return 1;
 	}
 
-	if (os_fd_set_cloexec(display_fd[0]) != 0) {
+	if (os_fd_set_cloexec(display_pipe.fds[0]) != 0) {
 		weston_log("failed setting compositor end of displayfd as cloexec\n");
 		return 1;
 	}
 
-	if (os_fd_set_cloexec(display_fd[1]) != 0) {
+	if (os_fd_set_cloexec(display_pipe.fds[1]) != 0) {
 		weston_log("failed setting Xwayland end of displayfd as cloexec\n");
 		return 1;
 	}
+
+	fdstr_update_str1(&display_pipe);
+
+	fdstr_set_fd1(&x11_abstract_socket, abstract_fd);
+	fdstr_set_fd1(&x11_unix_socket, unix_fd);
 
 	section = weston_config_get_section(config, "xwayland", NULL, NULL);
 	weston_config_section_get_string(section, "path",
@@ -151,27 +183,26 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	pid = fork();
 	switch (pid) {
 	case 0:
-
 		/* SOCK_CLOEXEC closes both ends, so we need to unset
 		 * the flag on the client fd. */
-		ret = dup_fd_to_string(wayland_socket_str, sv[1]);
-		ret &= dup_fd_to_string(abstract_fd_str, abstract_fd);
-		ret &= dup_fd_to_string(unix_fd_str, unix_fd);
-		ret &= dup_fd_to_string(wm_fd_str, wm[1]);
-		ret &= dup_fd_to_string(display_fd_str, display_fd[1]);
+		ret = fdstr_clear_cloexec_fd1(&wayland_socket);
+		ret &= fdstr_clear_cloexec_fd1(&x11_abstract_socket);
+		ret &= fdstr_clear_cloexec_fd1(&x11_unix_socket);
+		ret &= fdstr_clear_cloexec_fd1(&x11_wm_socket);
+		ret &= fdstr_clear_cloexec_fd1(&display_pipe);
 		if (!ret)
 			_exit(EXIT_FAILURE);
 
-		setenv("WAYLAND_SOCKET", wayland_socket_str, 1);
+		setenv("WAYLAND_SOCKET", wayland_socket.str1, 1);
 
 		if (execl(xserver,
 			  xserver,
 			  display,
 			  "-rootless",
-			  LISTEN_STR, abstract_fd_str,
-			  LISTEN_STR, unix_fd_str,
-			  "-displayfd", display_fd_str,
-			  "-wm", wm_fd_str,
+			  LISTEN_STR, x11_abstract_socket.str1,
+			  LISTEN_STR, x11_unix_socket.str1,
+			  "-displayfd", display_pipe.str1,
+			  "-wm", x11_wm_socket.str1,
 			  "-terminate",
 			  NULL) < 0) {
 			if (exec_failure_msg) {
@@ -182,21 +213,23 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		_exit(EXIT_FAILURE);
 
 	default:
-		close(sv[1]);
-		wxw->client = wl_client_create(wxw->compositor->wl_display, sv[0]);
+		close(wayland_socket.fds[1]);
+		wxw->client = wl_client_create(wxw->compositor->wl_display,
+					       wayland_socket.fds[0]);
 
-		close(wm[1]);
-		wxw->wm_fd = wm[0];
+		close(x11_wm_socket.fds[1]);
+		wxw->wm_fd = x11_wm_socket.fds[0];
 
 		/* During initialization the X server will round trip
 		 * and block on the wayland compositor, so avoid making
 		 * blocking requests (like xcb_connect_to_fd) until
 		 * it's done with that. */
-		close(display_fd[1]);
+		close(display_pipe.fds[1]);
 		loop = wl_display_get_event_loop(wxw->compositor->wl_display);
 		wxw->display_fd_source =
-			wl_event_loop_add_fd(loop, display_fd[0], WL_EVENT_READABLE,
-					handle_display_fd, wxw);
+			wl_event_loop_add_fd(loop, display_pipe.fds[0],
+					     WL_EVENT_READABLE,
+					     handle_display_fd, wxw);
 
 		wxw->process.pid = pid;
 		wet_watch_process(wxw->compositor, &wxw->process);
@@ -204,6 +237,9 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 
 	case -1:
 		weston_log("Failed to fork to spawn xserver process\n");
+		fdstr_close_all(&wayland_socket);
+		fdstr_close_all(&x11_wm_socket);
+		fdstr_close_all(&display_pipe);
 		break;
 	}
 
