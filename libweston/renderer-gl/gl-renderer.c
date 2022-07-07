@@ -167,6 +167,7 @@ struct gl_buffer_state {
 	int pitch; /* plane 0 pitch in pixels */
 	GLenum gl_pixel_type;
 	GLenum gl_format[3];
+	enum gl_channel_order gl_channel_order;
 	int offset[3]; /* per-plane pitch in bytes */
 
 	EGLImageKHR images[3];
@@ -1233,6 +1234,7 @@ gl_shader_config_set_input_textures(struct gl_shader_config *sconf,
 	int i;
 
 	sconf->req.variant = gb->shader_variant;
+	sconf->req.color_channel_order = gb->gl_channel_order;
 	sconf->req.input_is_premult =
 		gl_shader_texture_variant_can_be_premult(gb->shader_variant);
 
@@ -2457,6 +2459,7 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer)
 	gb->shader_variant = shader_variant;
 	ARRAY_COPY(gb->offset, offset);
 	ARRAY_COPY(gb->gl_format, gl_format);
+	gb->gl_channel_order = buffer->pixel_format->gl_channel_order;
 	gb->gl_pixel_type = gl_pixel_type;
 	gb->needs_full_upload = true;
 
@@ -4029,6 +4032,14 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gl_renderer_setup(ec) < 0)
 		goto fail_with_error;
 
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XBGR8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGBX8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGBA8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGRX8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGRA8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_BGR888);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV444);

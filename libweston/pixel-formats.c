@@ -53,11 +53,14 @@
 #define GL_INTERNALFORMAT(fmt) .gl_internalformat = (fmt)
 #define GL_FORMAT(fmt) .gl_format = (fmt)
 #define GL_TYPE(type) .gl_type = (type)
+#define GL_CHANNEL_ORDER(order) \
+	.gl_channel_order = (SHADER_CHANNEL_ORDER_ ## order)
 #define SAMPLER_TYPE(type) .sampler_type = (type)
 #else
 #define GL_INTERNALFORMAT(fmt) .gl_internalformat = 0
 #define GL_FORMAT(fmt) .gl_format = 0
 #define GL_TYPE(type) .gl_type = 0
+#define GL_CHANNEL_ORDER(order) .gl_channel_order = 0
 #define SAMPLER_TYPE(type) .sampler_type = 0
 #endif
 
@@ -226,6 +229,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		DRM_FORMAT(RGB888),
 		BITS_RGBA_FIXED(8, 8, 8, 0),
 		.bpp = 24,
+		GL_FORMAT(GL_RGB),
+		GL_TYPE(GL_UNSIGNED_BYTE),
+		GL_CHANNEL_ORDER(BGRA),
 	},
 	{
 		DRM_FORMAT(BGR888),
@@ -292,6 +298,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		DRM_FORMAT(RGBX8888),
 		BITS_RGBA_FIXED(8, 8, 8, 0),
 		.bpp = 32,
+		GL_FORMAT(GL_RGBA),
+		GL_TYPE(GL_UNSIGNED_BYTE),
+		GL_CHANNEL_ORDER(ABGR),
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 		PIXMAN_FMT(r8g8b8x8),
 #else
@@ -303,6 +312,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		BITS_RGBA_FIXED(8, 8, 8, 8),
 		.bpp = 32,
 		.opaque_substitute = DRM_FORMAT_RGBX8888,
+		GL_FORMAT(GL_RGBA),
+		GL_TYPE(GL_UNSIGNED_BYTE),
+		GL_CHANNEL_ORDER(ABGR),
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 		PIXMAN_FMT(r8g8b8a8),
 #else
@@ -313,6 +325,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		DRM_FORMAT(BGRX8888),
 		BITS_RGBA_FIXED(8, 8, 8, 0),
 		.bpp = 32,
+		GL_FORMAT(GL_RGBA),
+		GL_TYPE(GL_UNSIGNED_BYTE),
+		GL_CHANNEL_ORDER(ARGB),
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 		PIXMAN_FMT(b8g8r8x8),
 #else
@@ -324,6 +339,9 @@ static const struct pixel_format_info pixel_format_table[] = {
 		BITS_RGBA_FIXED(8, 8, 8, 8),
 		.bpp = 32,
 		.opaque_substitute = DRM_FORMAT_BGRX8888,
+		GL_FORMAT(GL_RGBA),
+		GL_TYPE(GL_UNSIGNED_BYTE),
+		GL_CHANNEL_ORDER(ARGB),
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 		PIXMAN_FMT(b8g8r8a8),
 #else

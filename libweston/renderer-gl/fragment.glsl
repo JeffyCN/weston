@@ -52,6 +52,12 @@
 #define SHADER_COLOR_MAPPING_3DLUT 1
 #define SHADER_COLOR_MAPPING_MATRIX 2
 
+/* enum gl_channel_order */
+#define SHADER_CHANNEL_ORDER_RGBA 0
+#define SHADER_CHANNEL_ORDER_BGRA 1
+#define SHADER_CHANNEL_ORDER_ARGB 2
+#define SHADER_CHANNEL_ORDER_ABGR 3
+
 #if DEF_VARIANT == SHADER_VARIANT_EXTERNAL
 #extension GL_OES_EGL_image_external : require
 #endif
@@ -78,6 +84,7 @@ compile_const bool c_green_tint = DEF_GREEN_TINT;
 compile_const int c_color_pre_curve = DEF_COLOR_PRE_CURVE;
 compile_const int c_color_mapping = DEF_COLOR_MAPPING;
 compile_const int c_color_post_curve = DEF_COLOR_POST_CURVE;
+compile_const int c_color_channel_order = DEF_COLOR_CHANNEL_ORDER;
 
 compile_const bool c_need_color_pipeline =
 	c_color_pre_curve != SHADER_COLOR_CURVE_IDENTITY ||
@@ -145,13 +152,27 @@ sample_input_texture()
 	if (c_variant == SHADER_VARIANT_SOLID)
 		return unicolor;
 
-	if (c_variant == SHADER_VARIANT_RGBA ||
-	    c_variant == SHADER_VARIANT_EXTERNAL) {
+	if (c_variant == SHADER_VARIANT_EXTERNAL)
 		return texture2D(tex, v_texcoord);
-	}
 
-	if (c_variant == SHADER_VARIANT_RGBX)
-		return vec4(texture2D(tex, v_texcoord).rgb, 1.0);
+	if (c_variant == SHADER_VARIANT_RGBA ||
+	    c_variant == SHADER_VARIANT_RGBX) {
+		vec4 color;
+
+		if (c_color_channel_order == SHADER_CHANNEL_ORDER_BGRA)
+			color = texture2D(tex, v_texcoord).bgra;
+		else if (c_color_channel_order == SHADER_CHANNEL_ORDER_ARGB)
+			color = texture2D(tex, v_texcoord).gbar;
+		else if (c_color_channel_order == SHADER_CHANNEL_ORDER_ABGR)
+			color = texture2D(tex, v_texcoord).abgr;
+		else
+			color = texture2D(tex, v_texcoord);
+
+		if (c_variant == SHADER_VARIANT_RGBX)
+			color.a = 1.0;
+
+		return color;
+	}
 
 	/* Requires conversion to RGBA */
 

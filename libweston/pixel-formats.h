@@ -28,6 +28,14 @@
 #include <stdbool.h>
 #include <pixman.h>
 
+/* Keep the following in sync with fragment.glsl. */
+enum gl_channel_order {
+	SHADER_CHANNEL_ORDER_RGBA = 0,
+	SHADER_CHANNEL_ORDER_BGRA,
+	SHADER_CHANNEL_ORDER_ARGB,
+	SHADER_CHANNEL_ORDER_ABGR,
+};
+
 /**
  * Contains information about pixel formats, mapping format codes from
  * wl_shm and drm_fourcc.h (which are deliberately identical, but for the
@@ -77,6 +85,11 @@ struct pixel_format_info {
 
 	/** GL data type, if data can be natively/directly uploaded. */
 	int gl_type;
+
+	/** This enumeration tells the resulting order of the color channels
+	 * when the DRM formatted pixel data is read with the given gl_format
+	 * and gl_type. */
+	enum gl_channel_order gl_channel_order;
 
 	/** Pixman data type, if it agrees exactly with the wl_shm format */
 	pixman_format_code_t pixman_format;
