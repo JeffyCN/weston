@@ -126,6 +126,91 @@ fdstr_close_all(struct fdstr *s)
 	}
 }
 
+struct custom_env {
+	struct wl_array p;
+	bool finalized;
+};
+
+static void
+custom_env_init_from_environ(struct custom_env *env)
+{
+	char **it;
+	char **ep;
+
+	wl_array_init(&env->p);
+	env->finalized = false;
+
+	for (it = environ; *it; it++) {
+		ep = wl_array_add(&env->p, sizeof *ep);
+		assert(ep);
+		*ep = strdup(*it);
+		assert(*ep);
+	}
+}
+
+static void
+custom_env_fini(struct custom_env *env)
+{
+	char **ep;
+
+	wl_array_for_each(ep, &env->p)
+		free(*ep);
+
+	wl_array_release(&env->p);
+}
+
+static char **
+custom_env_find_element(struct custom_env *env, const char *name)
+{
+	char **ep;
+	size_t name_len = strlen(name);
+
+	wl_array_for_each(ep, &env->p) {
+		char *entry = *ep;
+
+		if (strncmp(entry, name, name_len) == 0 &&
+		    entry[name_len] == '=') {
+			return ep;
+		}
+	}
+
+	return NULL;
+}
+
+static void
+custom_env_set(struct custom_env *env, const char *name, const char *value)
+{
+	char **ep;
+
+	assert(strchr(name, '=') == NULL);
+	assert(!env->finalized);
+
+	ep = custom_env_find_element(env, name);
+	if (ep)
+		free(*ep);
+	else
+		ep = wl_array_add(&env->p, sizeof *ep);
+	assert(ep);
+
+	str_printf(ep, "%s=%s", name, value);
+	assert(*ep);
+}
+
+static char *const *
+custom_env_get_envp(struct custom_env *env)
+{
+	char **ep;
+
+	/* add terminating NULL */
+	ep = wl_array_add(&env->p, sizeof *ep);
+	assert(ep);
+	*ep = NULL;
+
+	env->finalized = true;
+
+	return env->p.data;
+}
+
 static pid_t
 spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd)
 {
@@ -141,6 +226,8 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	struct weston_config_section *section;
 	struct wl_event_loop *loop;
 	char *exec_failure_msg;
+	struct custom_env child_env;
+	char *const *envp;
 	bool ret;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wayland_socket.fds) < 0) {
@@ -169,6 +256,9 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 					 &xserver, XSERVER_PATH);
 	str_printf(&exec_failure_msg,
 		   "Error: executing Xwayland as '%s' failed.\n", xserver);
+	custom_env_init_from_environ(&child_env);
+	custom_env_set(&child_env, "WAYLAND_SOCKET", wayland_socket.str1);
+	envp = custom_env_get_envp(&child_env);
 
 	const char *const argv[] = {
 		xserver,
@@ -195,9 +285,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		if (!ret)
 			_exit(EXIT_FAILURE);
 
-		setenv("WAYLAND_SOCKET", wayland_socket.str1, 1);
-
-		if (execv(xserver, (char *const *)argv) < 0) {
+		if (execve(xserver, (char *const *)argv, envp) < 0) {
 			if (exec_failure_msg) {
 				write(STDERR_FILENO, exec_failure_msg,
 				      strlen(exec_failure_msg));
@@ -237,6 +325,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		break;
 	}
 
+	custom_env_fini(&child_env);
 	free(exec_failure_msg);
 	free(xserver);
 
