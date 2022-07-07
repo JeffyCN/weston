@@ -43,7 +43,7 @@
 int
 os_fd_set_cloexec(int fd)
 {
-	long flags;
+	int flags;
 
 	if (fd == -1)
 		return -1;
