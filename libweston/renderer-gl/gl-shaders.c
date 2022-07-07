@@ -42,6 +42,7 @@
 
 #include "gl-renderer.h"
 #include "gl-renderer-internal.h"
+#include "pixel-formats.h"
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
 
@@ -129,6 +130,21 @@ gl_shader_color_mapping_to_string(enum gl_shader_color_mapping kind)
 	CASERET(SHADER_COLOR_MAPPING_IDENTITY)
 	CASERET(SHADER_COLOR_MAPPING_3DLUT)
 	CASERET(SHADER_COLOR_MAPPING_MATRIX)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
+
+static const char *
+gl_shader_color_order_to_string(enum gl_channel_order kind)
+{
+	switch (kind) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_CHANNEL_ORDER_RGBA)
+	CASERET(SHADER_CHANNEL_ORDER_BGRA)
+	CASERET(SHADER_CHANNEL_ORDER_GBAR)
+	CASERET(SHADER_CHANNEL_ORDER_ABGR)
 #undef CASERET
 	}
 
@@ -239,12 +255,14 @@ create_fragment_shader_config_string(const struct gl_shader_requirements *req)
 			"#define DEF_COLOR_PRE_CURVE %s\n"
 			"#define DEF_COLOR_MAPPING %s\n"
 			"#define DEF_COLOR_POST_CURVE %s\n"
+			"#define DEF_COLOR_CHANNEL_ORDER %s\n"
 			"#define DEF_VARIANT %s\n",
 			req->green_tint ? "true" : "false",
 			req->input_is_premult ? "true" : "false",
 			gl_shader_color_curve_to_string(req->color_pre_curve),
 			gl_shader_color_mapping_to_string(req->color_mapping),
 			gl_shader_color_curve_to_string(req->color_post_curve),
+			gl_shader_color_order_to_string(req->color_channel_order),
 			gl_shader_texture_variant_to_string(req->variant));
 	if (size < 0)
 		return NULL;
