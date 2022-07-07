@@ -121,6 +121,21 @@ gl_shader_color_mapping_to_string(enum gl_shader_color_mapping kind)
 	return "!?!?"; /* never reached */
 }
 
+static const char *
+gl_shader_color_swap_to_string(enum gl_shader_color_swap kind)
+{
+	switch (kind) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_COLOR_SWAP_NONE)
+	CASERET(SHADER_COLOR_SWAP_RGB)
+	CASERET(SHADER_COLOR_SWAP_ALPHA)
+	CASERET(SHADER_COLOR_SWAP_ALL)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
+
 static void
 dump_program_with_line_numbers(int count, const char **sources)
 {
@@ -210,12 +225,14 @@ create_shader_config_string(const struct gl_shader_requirements *req)
 			"#define DEF_COLOR_PRE_CURVE %s\n"
 			"#define DEF_COLOR_MAPPING %s\n"
 			"#define DEF_COLOR_POST_CURVE %s\n"
+			"#define DEF_COLOR_SWAP %s\n"
 			"#define DEF_VARIANT %s\n",
 			req->green_tint ? "true" : "false",
 			req->input_is_premult ? "true" : "false",
 			gl_shader_color_curve_to_string(req->color_pre_curve),
 			gl_shader_color_mapping_to_string(req->color_mapping),
 			gl_shader_color_curve_to_string(req->color_post_curve),
+			gl_shader_color_swap_to_string(req->color_swap),
 			gl_shader_texture_variant_to_string(req->variant));
 	if (size < 0)
 		return NULL;

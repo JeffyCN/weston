@@ -64,6 +64,13 @@ enum gl_shader_color_mapping {
 	SHADER_COLOR_MAPPING_MATRIX,
 };
 
+enum gl_shader_color_swap {
+	SHADER_COLOR_SWAP_NONE = 0,
+	SHADER_COLOR_SWAP_RGB,
+	SHADER_COLOR_SWAP_ALPHA,
+	SHADER_COLOR_SWAP_ALL,
+};
+
 /** GL shader requirements key
  *
  * This structure is used as a binary blob key for building and searching
@@ -82,11 +89,13 @@ struct gl_shader_requirements
 	unsigned color_pre_curve:1; /* enum gl_shader_color_curve */
 	unsigned color_mapping:2; /* enum gl_shader_color_mapping */
 	unsigned color_post_curve:1; /* enum gl_shader_color_curve */
+	unsigned color_swap:2; /* enum gl_shader_color_swap */
+
 	/*
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:22;
+	unsigned pad_bits_:20;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
