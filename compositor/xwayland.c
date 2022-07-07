@@ -140,13 +140,13 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		return 1;
 	}
 
+	section = weston_config_get_section(config, "xwayland", NULL, NULL);
+	weston_config_section_get_string(section, "path",
+					 &xserver, XSERVER_PATH);
+
 	pid = fork();
 	switch (pid) {
 	case 0:
-		section = weston_config_get_section(config,
-						    "xwayland", NULL, NULL);
-		weston_config_section_get_string(section, "path",
-						 &xserver, XSERVER_PATH);
 
 		/* SOCK_CLOEXEC closes both ends, so we need to unset
 		 * the flag on the client fd. */
@@ -204,6 +204,8 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		weston_log("Failed to fork to spawn xserver process\n");
 		break;
 	}
+
+	free(xserver);
 
 	return pid;
 }
