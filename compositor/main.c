@@ -357,6 +357,7 @@ sigchld_handler(int signal_number, void *data)
 		}
 
 		wl_list_remove(&p->link);
+		wl_list_init(&p->link);
 		p->cleanup(p, status);
 	}
 
