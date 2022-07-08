@@ -285,11 +285,12 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		if (!ret)
 			_exit(EXIT_FAILURE);
 
-		if (execve(xserver, (char *const *)argv, envp) < 0) {
-			if (exec_failure_msg) {
-				write(STDERR_FILENO, exec_failure_msg,
-				      strlen(exec_failure_msg));
-			}
+		execve(xserver, (char *const *)argv, envp);
+		/* execve does not return on success, so it failed */
+
+		if (exec_failure_msg) {
+			write(STDERR_FILENO, exec_failure_msg,
+			      strlen(exec_failure_msg));
 		}
 
 		_exit(EXIT_FAILURE);
