@@ -578,8 +578,6 @@ theme_render_frame(struct theme *t,
 		PangoLayout *title_layout;
 		PangoRectangle logical;
 
-		cairo_save(cr);
-
 		title_layout = create_layout(cr, title);
 
 		pango_layout_get_pixel_extents (title_layout, NULL, &logical);
@@ -623,7 +621,6 @@ theme_render_frame(struct theme *t,
 		}
 
 #ifdef HAVE_PANGO
-		cairo_restore(cr);
 		g_object_unref(title_layout);
 #endif
 	}
