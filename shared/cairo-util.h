@@ -28,6 +28,9 @@
 
 #include <stdint.h>
 #include <cairo.h>
+#ifdef HAVE_PANGO
+#include <pango/pangocairo.h>
+#endif
 
 #include <wayland-client.h>
 #include <wayland-util.h>
@@ -57,6 +60,9 @@ struct theme {
 	int margin;
 	int width;
 	int titlebar_height;
+#ifdef HAVE_PANGO
+	PangoContext *pango_context;
+#endif
 };
 
 struct theme *

@@ -26,7 +26,7 @@ dep_names_xwayland = [
 	'cairo-xcb',
 ]
 
-deps_xwayland = [ dep_libweston_public, dep_xcb_xwayland ]
+deps_xwayland = [ dep_libweston_public, dep_xcb_xwayland, dep_lib_cairo_shared ]
 
 foreach name : dep_names_xwayland
 	d = dependency(name, required: false)
@@ -39,7 +39,6 @@ endforeach
 plugin_xwayland = shared_library(
 	'xwayland',
 	srcs_xwayland,
-	link_with: lib_cairo_shared,
 	include_directories: common_inc,
 	dependencies: deps_xwayland,
 	name_prefix: '',
