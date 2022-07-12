@@ -108,6 +108,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	char *exec_failure_msg;
 	struct custom_env child_env;
 	char *const *envp;
+	char *const *argp;
 	bool ret;
 
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wayland_socket.fds) < 0) {
@@ -138,19 +139,22 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		   "Error: executing Xwayland as '%s' failed.\n", xserver);
 	custom_env_init_from_environ(&child_env);
 	custom_env_set_env_var(&child_env, "WAYLAND_SOCKET", wayland_socket.str1);
-	envp = custom_env_get_envp(&child_env);
 
-	const char *const argv[] = {
-		xserver,
-		display,
-		"-rootless",
-		LISTEN_STR, x11_abstract_socket.str1,
-		LISTEN_STR, x11_unix_socket.str1,
-		"-displayfd", display_pipe.str1,
-		"-wm", x11_wm_socket.str1,
-		"-terminate",
-		NULL
-	};
+	custom_env_add_arg(&child_env, xserver);
+	custom_env_add_arg(&child_env, display);
+	custom_env_add_arg(&child_env, "-rootless");
+	custom_env_add_arg(&child_env, LISTEN_STR);
+	custom_env_add_arg(&child_env, x11_abstract_socket.str1);
+	custom_env_add_arg(&child_env, LISTEN_STR);
+	custom_env_add_arg(&child_env, x11_unix_socket.str1);
+	custom_env_add_arg(&child_env, "-displayfd");
+	custom_env_add_arg(&child_env, display_pipe.str1);
+	custom_env_add_arg(&child_env, "-wm");
+	custom_env_add_arg(&child_env, x11_wm_socket.str1);
+	custom_env_add_arg(&child_env, "-terminate");
+
+	envp = custom_env_get_envp(&child_env);
+	argp = custom_env_get_argp(&child_env);
 
 	pid = fork();
 	switch (pid) {
@@ -165,7 +169,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		if (!ret)
 			_exit(EXIT_FAILURE);
 
-		execve(xserver, (char *const *)argv, envp);
+		execve(xserver, argp, envp);
 		/* execve does not return on success, so it failed */
 
 		if (exec_failure_msg) {
