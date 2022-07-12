@@ -140,6 +140,8 @@ custom_env_get_envp(struct custom_env *env)
 {
 	char **ep;
 
+	assert(!env->finalized);
+
 	/* add terminating NULL */
 	ep = wl_array_add(&env->p, sizeof *ep);
 	assert(ep);
