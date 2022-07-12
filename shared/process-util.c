@@ -25,6 +25,9 @@
 
 #include "config.h"
 
+#include <assert.h>
+#include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -152,6 +155,84 @@ custom_env_set_env_var(struct custom_env *env, const char *name, const char *val
 
 	str_printf(ep, "%s=%s", name, value);
 	assert(*ep);
+}
+
+/**
+ * Add information from a parsed exec string to a custom_env
+ *
+ * An 'exec string' is a string in the format:
+ *   ENVFOO=bar ENVBAR=baz /path/to/exec --arg anotherarg
+ *
+ * This function will parse such a string and add the specified environment
+ * variables (in the format KEY=value) up until it sees a non-environment
+ * string, after which point every entry will be interpreted as a new
+ * argument.
+ *
+ * Entries are space-separated; there is no support for quoting.
+ */
+void
+custom_env_add_from_exec_string(struct custom_env *env, const char *exec_str)
+{
+	char *dup_path = strdup(exec_str);
+	char *start = dup_path;
+
+	assert(dup_path);
+
+	/* Build the environment array (if any) by handling any number of
+	 * equal-separated key=value at the start of the string, split by
+	 * spaces; uses "foo=bar  baz=quux meh argh" as the example, where
+	 * "foo=bar" and "baz=quux" should go into the environment, and
+	 * "meh" should be executed with "argh" as its first argument */
+	while (*start) {
+		char *k = NULL, *v = NULL;
+		char *p;
+
+		/* Leaves us with "foo\0bar  baz=quux meh argh", with k pointing
+		 * to "foo" and v pointing to "bar  baz=quux meh argh" */
+		for (p = start; *p && !isspace(*p); p++) {
+			if (*p == '=') {
+				*p++ = '\0';
+				k = start;
+				v = p;
+				break;
+			}
+		}
+
+		if (!v)
+			break;
+
+		/* Walk to the next space or NUL, filling any trailing spaces
+		 * with NUL, to give us "foo\0bar\0\0baz=quux meh argh".
+		 * k will point to "foo", v will point to "bar", and
+		 * start will point to "baz=quux meh argh". */
+		while (*p && !isspace(*p))
+			p++;
+		while (*p && isspace(*p))
+			*p++ = '\0';
+		start = p;
+
+		custom_env_set_env_var(env, k, v);
+	}
+
+	/* Now build the argv array by splitting on spaces */
+	while (*start) {
+		char *p;
+		bool valid = false;
+
+		for (p = start; *p && !isspace(*p); p++)
+			valid = true;
+
+		if (!valid)
+			break;
+
+		while (*p && isspace(*p))
+			*p++ = '\0';
+
+		custom_env_add_arg(env, start);
+		start = p;
+	}
+
+	free(dup_path);
 }
 
 char *const *

@@ -104,3 +104,55 @@ TEST(basic_env_arg)
 	assert(env.arg_finalized);
 	custom_env_fini(&env);
 }
+
+struct test_str {
+	const char *exec_str;
+	char * const *envp;
+	char * const *argp;
+};
+
+static struct test_str str_tests[] = {
+	{
+		.exec_str = "ENV1=1  ENV2=owt two-arghs",
+		.envp = (char * const []) { "ENV1=1", "ENV2=owt", "ENV3=three", NULL },
+		.argp = (char * const []) { "two-arghs", NULL },
+	},
+	{
+		.exec_str = "ENV2=owt one-argh",
+		.envp = (char * const []) { "ENV1=one", "ENV2=owt", "ENV3=three", NULL },
+		.argp = (char * const []) { "one-argh", NULL },
+	},
+	{
+		.exec_str = "FOO=bar  one-argh-again",
+		.envp = (char * const []) { "ENV1=one", "ENV2=two", "ENV3=three", "FOO=bar", NULL },
+		.argp = (char * const []) { "one-argh-again", NULL },
+	},
+	{
+		.exec_str = "ENV1=number=7 one-argh-eq",
+		.envp = (char * const []) { "ENV1=number=7", "ENV2=two", "ENV3=three", NULL },
+		.argp = (char * const []) { "one-argh-eq", NULL },
+	},
+	{
+		.exec_str = "no-arg-h",
+		.envp = DEFAULT_ENVP,
+		.argp = (char * const []) { "no-arg-h", NULL },
+	},
+	{
+		.exec_str = "argh-w-arg argequals=thing  plainarg  ",
+		.envp = DEFAULT_ENVP,
+		.argp = (char * const []) { "argh-w-arg", "argequals=thing", "plainarg", NULL },
+	},
+};
+
+TEST_P(env_parse_string, str_tests)
+{
+	struct custom_env env;
+	struct test_str *test = data;
+
+	testlog("checking exec_str '%s'\n", test->exec_str);
+	custom_env_init_from_environ(&env);
+	custom_env_add_from_exec_string(&env, test->exec_str);
+	ASSERT_STR_ARRAY_MATCH("envp", custom_env_get_envp(&env), test->envp);
+	ASSERT_STR_ARRAY_MATCH("argp", custom_env_get_argp(&env), test->argp);
+	custom_env_fini(&env);
+}

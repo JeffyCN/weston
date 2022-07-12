@@ -84,6 +84,9 @@ custom_env_set_env_var(struct custom_env *env, const char *name, const char *val
 void
 custom_env_add_arg(struct custom_env *env, const char *arg);
 
+void
+custom_env_add_from_exec_string(struct custom_env *env, const char *exec_str);
+
 char *const *
 custom_env_get_envp(struct custom_env *env);
 
