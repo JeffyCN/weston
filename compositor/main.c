@@ -377,6 +377,9 @@ weston_client_launch(struct weston_compositor *compositor,
 	struct wl_client *client = NULL;
 	struct custom_env child_env;
 	struct fdstr wayland_socket;
+	const char *fail_cloexec = "Couldn't unset CLOEXEC on client socket";
+	const char *fail_seteuid = "Couldn't call seteuid";
+	char *fail_exec;
 	char * const *argp;
 	char * const *envp;
 	sigset_t allsigs;
@@ -384,6 +387,7 @@ weston_client_launch(struct weston_compositor *compositor,
 	bool ret;
 
 	weston_log("launching '%s'\n", path);
+	str_printf(&fail_exec, "Error: Couldn't launch client '%s'\n", path);
 
 	custom_env_init_from_environ(&child_env);
 	custom_env_add_arg(&child_env, path);
@@ -420,22 +424,22 @@ weston_client_launch(struct weston_compositor *compositor,
 
 		/* Launch clients as the user. Do not launch clients with wrong euid. */
 		if (seteuid(getuid()) == -1) {
-			weston_log("compositor: failed seteuid\n");
+			write(STDERR_FILENO, fail_seteuid,
+			      strlen(fail_seteuid));
 			_exit(EXIT_FAILURE);
 		}
 
 		ret = fdstr_clear_cloexec_fd1(&wayland_socket);
 		if (!ret) {
-			weston_log("compositor: clearing CLOEXEC failed: %s\n",
-				   strerror(errno));
+			write(STDERR_FILENO, fail_cloexec,
+			      strlen(fail_cloexec));
 			_exit(EXIT_FAILURE);
 		}
 
-		if (execve(argp[0], argp, envp)) {
-			weston_log("compositor: executing '%s' failed: %s\n",
-				   path, strerror(errno));
-		}
+		execve(argp[0], argp, envp);
 
+		if (fail_exec)
+			write(STDERR_FILENO, fail_exec, strlen(fail_exec));
 		_exit(EXIT_FAILURE);
 
 	default:
@@ -445,6 +449,7 @@ weston_client_launch(struct weston_compositor *compositor,
 		if (!client) {
 			custom_env_fini(&child_env);
 			close(wayland_socket.fds[0]);
+			free(fail_exec);
 			weston_log("weston_client_launch: "
 				"wl_client_create failed while launching '%s'.\n",
 				path);
@@ -465,6 +470,7 @@ weston_client_launch(struct weston_compositor *compositor,
 	}
 
 	custom_env_fini(&child_env);
+	free(fail_exec);
 
 	return client;
 }
