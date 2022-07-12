@@ -368,28 +368,6 @@ sigchld_handler(int signal_number, void *data)
 	return 1;
 }
 
-static void
-child_client_exec(struct fdstr *wayland_socket, const char *path)
-{
-	sigset_t allsigs;
-
-	/* do not give our signal mask to the new process */
-	sigfillset(&allsigs);
-	sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
-
-	/* Launch clients as the user. Do not launch clients with wrong euid. */
-	if (seteuid(getuid()) == -1) {
-		weston_log("compositor: failed seteuid\n");
-		return;
-	}
-
-	setenv("WAYLAND_SOCKET", wayland_socket->str1, 1);
-
-	if (execl(path, path, NULL) < 0)
-		weston_log("compositor: executing '%s' failed: %s\n",
-			   path, strerror(errno));
-}
-
 WL_EXPORT struct wl_client *
 weston_client_launch(struct weston_compositor *compositor,
 		     struct weston_process *proc,
@@ -398,6 +376,7 @@ weston_client_launch(struct weston_compositor *compositor,
 {
 	struct wl_client *client = NULL;
 	struct fdstr wayland_socket;
+	sigset_t allsigs;
 	pid_t pid;
 	bool ret;
 
@@ -423,6 +402,16 @@ weston_client_launch(struct weston_compositor *compositor,
 		 */
 		setsid();
 
+		/* do not give our signal mask to the new process */
+		sigfillset(&allsigs);
+		sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
+
+		/* Launch clients as the user. Do not launch clients with wrong euid. */
+		if (seteuid(getuid()) == -1) {
+			weston_log("compositor: failed seteuid\n");
+			_exit(EXIT_FAILURE);
+		}
+
 		ret = fdstr_clear_cloexec_fd1(&wayland_socket);
 		if (!ret) {
 			weston_log("compositor: clearing CLOEXEC failed: %s\n",
@@ -430,8 +419,13 @@ weston_client_launch(struct weston_compositor *compositor,
 			_exit(EXIT_FAILURE);
 		}
 
-		child_client_exec(&wayland_socket, path);
-		_exit(-1);
+		setenv("WAYLAND_SOCKET", wayland_socket.str1, 1);
+
+		if (execl(path, path, NULL) < 0)
+			weston_log("compositor: executing '%s' failed: %s\n",
+				   path, strerror(errno));
+
+		_exit(EXIT_FAILURE);
 
 	default:
 		close(wayland_socket.fds[1]);
