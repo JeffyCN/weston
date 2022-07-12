@@ -51,6 +51,7 @@
 #include <libweston/libweston.h>
 #include "shared/os-compatibility.h"
 #include "shared/helpers.h"
+#include "shared/process-util.h"
 #include "shared/string-helpers.h"
 #include "git-version.h"
 #include <libweston/version.h>
@@ -368,10 +369,8 @@ sigchld_handler(int signal_number, void *data)
 }
 
 static void
-child_client_exec(int sockfd, const char *path)
+child_client_exec(struct fdstr *wayland_socket, const char *path)
 {
-	int clientfd;
-	char s[32];
 	sigset_t allsigs;
 
 	/* do not give our signal mask to the new process */
@@ -384,16 +383,7 @@ child_client_exec(int sockfd, const char *path)
 		return;
 	}
 
-	/* SOCK_CLOEXEC closes both ends, so we dup the fd to get a
-	 * non-CLOEXEC fd to pass through exec. */
-	clientfd = dup(sockfd);
-	if (clientfd == -1) {
-		weston_log("compositor: dup failed: %s\n", strerror(errno));
-		return;
-	}
-
-	snprintf(s, sizeof s, "%d", clientfd);
-	setenv("WAYLAND_SOCKET", s, 1);
+	setenv("WAYLAND_SOCKET", wayland_socket->str1, 1);
 
 	if (execl(path, path, NULL) < 0)
 		weston_log("compositor: executing '%s' failed: %s\n",
@@ -406,18 +396,21 @@ weston_client_launch(struct weston_compositor *compositor,
 		     const char *path,
 		     weston_process_cleanup_func_t cleanup)
 {
-	int sv[2];
-	pid_t pid;
 	struct wl_client *client = NULL;
+	struct fdstr wayland_socket;
+	pid_t pid;
+	bool ret;
 
 	weston_log("launching '%s'\n", path);
 
-	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, sv) < 0) {
+	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
+				  wayland_socket.fds) < 0) {
 		weston_log("weston_client_launch: "
 			   "socketpair failed while launching '%s': %s\n",
 			   path, strerror(errno));
 		return NULL;
 	}
+	fdstr_update_str1(&wayland_socket);
 
 	pid = fork();
 	switch (pid) {
@@ -429,14 +422,23 @@ weston_client_launch(struct weston_compositor *compositor,
 		 * will cleanly shut down when the child exits.
 		 */
 		setsid();
-		child_client_exec(sv[1], path);
+
+		ret = fdstr_clear_cloexec_fd1(&wayland_socket);
+		if (!ret) {
+			weston_log("compositor: clearing CLOEXEC failed: %s\n",
+				   strerror(errno));
+			_exit(EXIT_FAILURE);
+		}
+
+		child_client_exec(&wayland_socket, path);
 		_exit(-1);
 
 	default:
-		close(sv[1]);
-		client = wl_client_create(compositor->wl_display, sv[0]);
+		close(wayland_socket.fds[1]);
+		client = wl_client_create(compositor->wl_display,
+					  wayland_socket.fds[0]);
 		if (!client) {
-			close(sv[0]);
+			close(wayland_socket.fds[0]);
 			weston_log("weston_client_launch: "
 				"wl_client_create failed while launching '%s'.\n",
 				path);
@@ -449,8 +451,7 @@ weston_client_launch(struct weston_compositor *compositor,
 		break;
 
 	case -1:
-		close(sv[0]);
-		close(sv[1]);
+		fdstr_close_all(&wayland_socket);
 		weston_log("weston_client_launch: "
 			   "fork failed while launching '%s': %s\n", path,
 			   strerror(errno));
