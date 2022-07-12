@@ -66,8 +66,8 @@ fdstr_close_all(struct fdstr *s);
  * between fork() and exec().
  */
 struct custom_env {
-	struct wl_array p;
-	bool finalized;
+	struct wl_array envp;
+	bool env_finalized;
 };
 
 void
@@ -77,7 +77,7 @@ void
 custom_env_fini(struct custom_env *env);
 
 void
-custom_env_set(struct custom_env *env, const char *name, const char *value);
+custom_env_set_env_var(struct custom_env *env, const char *name, const char *value);
 
 char *const *
 custom_env_get_envp(struct custom_env *env);

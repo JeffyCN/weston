@@ -76,11 +76,11 @@ custom_env_init_from_environ(struct custom_env *env)
 	char **it;
 	char **ep;
 
-	wl_array_init(&env->p);
-	env->finalized = false;
+	wl_array_init(&env->envp);
+	env->env_finalized = false;
 
 	for (it = environ; *it; it++) {
-		ep = wl_array_add(&env->p, sizeof *ep);
+		ep = wl_array_add(&env->envp, sizeof *ep);
 		assert(ep);
 		*ep = strdup(*it);
 		assert(*ep);
@@ -90,21 +90,21 @@ custom_env_init_from_environ(struct custom_env *env)
 void
 custom_env_fini(struct custom_env *env)
 {
-	char **ep;
+	char **p;
 
-	wl_array_for_each(ep, &env->p)
-		free(*ep);
+	wl_array_for_each(p, &env->envp)
+		free(*p);
 
-	wl_array_release(&env->p);
+	wl_array_release(&env->envp);
 }
 
 static char **
-custom_env_find_element(struct custom_env *env, const char *name)
+custom_env_get_env_var(struct custom_env *env, const char *name)
 {
 	char **ep;
 	size_t name_len = strlen(name);
 
-	wl_array_for_each(ep, &env->p) {
+	wl_array_for_each(ep, &env->envp) {
 		char *entry = *ep;
 
 		if (strncmp(entry, name, name_len) == 0 &&
@@ -117,18 +117,18 @@ custom_env_find_element(struct custom_env *env, const char *name)
 }
 
 void
-custom_env_set(struct custom_env *env, const char *name, const char *value)
+custom_env_set_env_var(struct custom_env *env, const char *name, const char *value)
 {
 	char **ep;
 
 	assert(strchr(name, '=') == NULL);
-	assert(!env->finalized);
+	assert(!env->env_finalized);
 
-	ep = custom_env_find_element(env, name);
+	ep = custom_env_get_env_var(env, name);
 	if (ep)
 		free(*ep);
 	else
-		ep = wl_array_add(&env->p, sizeof *ep);
+		ep = wl_array_add(&env->envp, sizeof *ep);
 	assert(ep);
 
 	str_printf(ep, "%s=%s", name, value);
@@ -140,14 +140,14 @@ custom_env_get_envp(struct custom_env *env)
 {
 	char **ep;
 
-	assert(!env->finalized);
+	assert(!env->env_finalized);
 
 	/* add terminating NULL */
-	ep = wl_array_add(&env->p, sizeof *ep);
+	ep = wl_array_add(&env->envp, sizeof *ep);
 	assert(ep);
 	*ep = NULL;
 
-	env->finalized = true;
+	env->env_finalized = true;
 
-	return env->p.data;
+	return env->envp.data;
 }

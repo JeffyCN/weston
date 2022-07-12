@@ -137,7 +137,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	str_printf(&exec_failure_msg,
 		   "Error: executing Xwayland as '%s' failed.\n", xserver);
 	custom_env_init_from_environ(&child_env);
-	custom_env_set(&child_env, "WAYLAND_SOCKET", wayland_socket.str1);
+	custom_env_set_env_var(&child_env, "WAYLAND_SOCKET", wayland_socket.str1);
 	envp = custom_env_get_envp(&child_env);
 
 	const char *const argv[] = {
