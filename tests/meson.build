@@ -146,6 +146,7 @@ tests = [
 		'dep_objs': dep_libexec_weston,
 	},
 	{	'name': 'color-manager', },
+        {       'name': 'custom-env', },
 	{	'name': 'devices', },
 	{
 		'name': 'drm-formats',
