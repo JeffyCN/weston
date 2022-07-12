@@ -41,21 +41,22 @@
 #include <assert.h>
 
 #include <wayland-client.h>
-#include "window.h"
-#include "shared/cairo-util.h"
+
 #include <libweston/config-parser.h>
+#include <libweston/zalloc.h>
 #include "shared/helpers.h"
 #include "shared/xalloc.h"
-#include <libweston/zalloc.h>
+#include "shared/cairo-util.h"
 #include "shared/file-util.h"
+#include "shared/process-util.h"
 #include "shared/timespec-util.h"
+
+#include "window.h"
 
 #include "weston-desktop-shell-client-protocol.h"
 
 #define DEFAULT_CLOCK_FORMAT CLOCK_FORMAT_MINUTES
 #define DEFAULT_SPACING 10
-
-extern char **environ; /* defined by libc */
 
 enum clock_format {
 	CLOCK_FORMAT_MINUTES,
@@ -144,8 +145,9 @@ struct panel_launcher {
 	char *path;
 	char *displayname;
 	struct wl_list link;
-	struct wl_array envp;
-	struct wl_array argv;
+	struct custom_env env;
+	char * const *argp;
+	char * const *envp;
 };
 
 struct panel_clock {
@@ -212,7 +214,6 @@ check_desktop_ready(struct window *window)
 static void
 panel_launcher_activate(struct panel_launcher *widget)
 {
-	char **argv;
 	pid_t pid;
 
 	pid = fork();
@@ -224,13 +225,11 @@ panel_launcher_activate(struct panel_launcher *widget)
 	if (pid)
 		return;
 
-	argv = widget->argv.data;
-
 	if (setsid() == -1)
 		exit(EXIT_FAILURE);
 
-	if (execve(argv[0], argv, widget->envp.data) < 0) {
-		fprintf(stderr, "execl '%s' failed: %s\n", argv[0],
+	if (execve(widget->argp[0], widget->argp, widget->envp) < 0) {
+		fprintf(stderr, "execl '%s' failed: %s\n", widget->argp[0],
 			strerror(errno));
 		exit(1);
 	}
@@ -576,8 +575,7 @@ panel_configure(void *data,
 static void
 panel_destroy_launcher(struct panel_launcher *launcher)
 {
-	wl_array_release(&launcher->argv);
-	wl_array_release(&launcher->envp);
+	custom_env_fini(&launcher->env);
 
 	free(launcher->path);
 	free(launcher->displayname);
@@ -683,56 +681,16 @@ static void
 panel_add_launcher(struct panel *panel, const char *icon, const char *path, const char *displayname)
 {
 	struct panel_launcher *launcher;
-	char *start, *p, *eq, **ps;
-	int i, j, k;
 
 	launcher = xzalloc(sizeof *launcher);
 	launcher->icon = load_icon_or_fallback(icon);
 	launcher->path = xstrdup(path);
 	launcher->displayname = xstrdup(displayname);
 
-	wl_array_init(&launcher->envp);
-	wl_array_init(&launcher->argv);
-	for (i = 0; environ[i]; i++) {
-		ps = wl_array_add(&launcher->envp, sizeof *ps);
-		*ps = environ[i];
-	}
-	j = 0;
-
-	start = launcher->path;
-	while (*start) {
-		for (p = start, eq = NULL; *p && !isspace(*p); p++)
-			if (*p == '=')
-				eq = p;
-
-		if (eq && j == 0) {
-			ps = launcher->envp.data;
-			for (k = 0; k < i; k++)
-				if (strncmp(ps[k], start, eq - start) == 0) {
-					ps[k] = start;
-					break;
-				}
-			if (k == i) {
-				ps = wl_array_add(&launcher->envp, sizeof *ps);
-				*ps = start;
-				i++;
-			}
-		} else {
-			ps = wl_array_add(&launcher->argv, sizeof *ps);
-			*ps = start;
-			j++;
-		}
-
-		while (*p && isspace(*p))
-			*p++ = '\0';
-
-		start = p;
-	}
-
-	ps = wl_array_add(&launcher->envp, sizeof *ps);
-	*ps = NULL;
-	ps = wl_array_add(&launcher->argv, sizeof *ps);
-	*ps = NULL;
+	custom_env_init_from_environ(&launcher->env);
+	custom_env_add_from_exec_string(&launcher->env, launcher->path);
+	launcher->envp = custom_env_get_envp(&launcher->env);
+	launcher->argp = custom_env_get_argp(&launcher->env);
 
 	launcher->panel = panel;
 	wl_list_insert(panel->launcher_list.prev, &launcher->link);
