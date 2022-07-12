@@ -4,6 +4,7 @@ srcs_libshared = [
 	'signal.c',
 	'file-util.c',
 	'os-compatibility.c',
+        'process-util.c',
 ]
 deps_libshared = [dep_wayland_client, dep_wayland_server]
 

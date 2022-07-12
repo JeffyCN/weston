@@ -37,6 +37,7 @@
 #include <libweston/xwayland-api.h>
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
+#include "shared/process-util.h"
 #include "shared/string-helpers.h"
 
 #ifdef HAVE_XWAYLAND_LISTENFD
@@ -88,127 +89,6 @@ out:
 	close(fd);
 
 	return 0;
-}
-
-struct fdstr {
-	char str1[12];
-	int fds[2];
-};
-
-static void
-fdstr_update_str1(struct fdstr *s)
-{
-	snprintf(s->str1, sizeof(s->str1), "%d", s->fds[1]);
-}
-
-static void
-fdstr_set_fd1(struct fdstr *s, int fd)
-{
-	s->fds[0] = -1;
-	s->fds[1] = fd;
-	fdstr_update_str1(s);
-}
-
-static bool
-fdstr_clear_cloexec_fd1(struct fdstr *s)
-{
-	return os_fd_clear_cloexec(s->fds[1]) >= 0;
-}
-
-static void
-fdstr_close_all(struct fdstr *s)
-{
-	unsigned i;
-
-	for (i = 0; i < ARRAY_LENGTH(s->fds); i++) {
-		close(s->fds[i]);
-		s->fds[i] = -1;
-	}
-}
-
-struct custom_env {
-	struct wl_array p;
-	bool finalized;
-};
-
-static void
-custom_env_init_from_environ(struct custom_env *env)
-{
-	char **it;
-	char **ep;
-
-	wl_array_init(&env->p);
-	env->finalized = false;
-
-	for (it = environ; *it; it++) {
-		ep = wl_array_add(&env->p, sizeof *ep);
-		assert(ep);
-		*ep = strdup(*it);
-		assert(*ep);
-	}
-}
-
-static void
-custom_env_fini(struct custom_env *env)
-{
-	char **ep;
-
-	wl_array_for_each(ep, &env->p)
-		free(*ep);
-
-	wl_array_release(&env->p);
-}
-
-static char **
-custom_env_find_element(struct custom_env *env, const char *name)
-{
-	char **ep;
-	size_t name_len = strlen(name);
-
-	wl_array_for_each(ep, &env->p) {
-		char *entry = *ep;
-
-		if (strncmp(entry, name, name_len) == 0 &&
-		    entry[name_len] == '=') {
-			return ep;
-		}
-	}
-
-	return NULL;
-}
-
-static void
-custom_env_set(struct custom_env *env, const char *name, const char *value)
-{
-	char **ep;
-
-	assert(strchr(name, '=') == NULL);
-	assert(!env->finalized);
-
-	ep = custom_env_find_element(env, name);
-	if (ep)
-		free(*ep);
-	else
-		ep = wl_array_add(&env->p, sizeof *ep);
-	assert(ep);
-
-	str_printf(ep, "%s=%s", name, value);
-	assert(*ep);
-}
-
-static char *const *
-custom_env_get_envp(struct custom_env *env)
-{
-	char **ep;
-
-	/* add terminating NULL */
-	ep = wl_array_add(&env->p, sizeof *ep);
-	assert(ep);
-	*ep = NULL;
-
-	env->finalized = true;
-
-	return env->p.data;
 }
 
 static pid_t
