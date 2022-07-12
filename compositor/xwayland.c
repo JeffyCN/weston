@@ -111,13 +111,13 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	char *const *argp;
 	bool ret;
 
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, wayland_socket.fds) < 0) {
+	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, wayland_socket.fds) < 0) {
 		weston_log("wl connection socketpair failed\n");
 		return 1;
 	}
 	fdstr_update_str1(&wayland_socket);
 
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, x11_wm_socket.fds) < 0) {
+	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, x11_wm_socket.fds) < 0) {
 		weston_log("X wm connection socketpair failed\n");
 		return 1;
 	}
