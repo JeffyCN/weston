@@ -37,6 +37,7 @@
 
 #include "shared/helpers.h"
 #include "image-loader.h"
+#include "shared/xalloc.h"
 #include <libweston/config-parser.h>
 
 #ifdef HAVE_PANGO
@@ -419,9 +420,7 @@ theme_create(void)
 	struct theme *t;
 	cairo_t *cr;
 
-	t = malloc(sizeof *t);
-	if (t == NULL)
-		return NULL;
+	t = xzalloc(sizeof *t);
 
 	t->margin = 32;
 	t->width = 6;
