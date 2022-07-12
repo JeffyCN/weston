@@ -73,6 +73,8 @@ setup_env(struct weston_test_harness *harness)
 
 DECLARE_FIXTURE_SETUP(setup_env);
 
+#define DEFAULT_ENVP (char * const []) { "ENV1=one", "ENV2=two", "ENV3=three", NULL }
+
 TEST(basic_env)
 {
 	struct custom_env env;
@@ -83,5 +85,22 @@ TEST(basic_env)
 	custom_env_set_env_var(&env, "ENV3", "four");
 	ASSERT_STR_ARRAY_MATCH("envp", custom_env_get_envp(&env), envp);
 	assert(env.env_finalized);
+	custom_env_fini(&env);
+}
+
+TEST(basic_env_arg)
+{
+	struct custom_env env;
+	char *const argp[] = { "arg1", "arg2", "arg3", NULL };
+
+	custom_env_init_from_environ(&env);
+	custom_env_add_arg(&env, "arg1");
+	custom_env_add_arg(&env, "arg2");
+	custom_env_add_arg(&env, "arg3");
+
+	ASSERT_STR_ARRAY_MATCH("envp", custom_env_get_envp(&env), DEFAULT_ENVP);
+	assert(env.env_finalized);
+	ASSERT_STR_ARRAY_MATCH("argp", custom_env_get_argp(&env), argp);
+	assert(env.arg_finalized);
 	custom_env_fini(&env);
 }

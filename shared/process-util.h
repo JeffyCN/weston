@@ -61,13 +61,15 @@ fdstr_close_all(struct fdstr *s);
 
 
 /**
- * A container for environment variables, designed to be used when forking child
- * processes, as setenv() and anything which allocates memory cannot be used
- * between fork() and exec().
+ * A container for environment variables and/or process arguments, designed to
+ * be used when forking child processes, as setenv() and anything which
+ * allocates memory cannot be used between fork() and exec().
  */
 struct custom_env {
 	struct wl_array envp;
 	bool env_finalized;
+	struct wl_array argp;
+	bool arg_finalized;
 };
 
 void
@@ -79,5 +81,11 @@ custom_env_fini(struct custom_env *env);
 void
 custom_env_set_env_var(struct custom_env *env, const char *name, const char *value);
 
+void
+custom_env_add_arg(struct custom_env *env, const char *arg);
+
 char *const *
 custom_env_get_envp(struct custom_env *env);
+
+char *const *
+custom_env_get_argp(struct custom_env *env);

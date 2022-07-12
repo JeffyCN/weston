@@ -78,6 +78,8 @@ custom_env_init_from_environ(struct custom_env *env)
 
 	wl_array_init(&env->envp);
 	env->env_finalized = false;
+	wl_array_init(&env->argp);
+	env->arg_finalized = false;
 
 	for (it = environ; *it; it++) {
 		ep = wl_array_add(&env->envp, sizeof *ep);
@@ -94,8 +96,11 @@ custom_env_fini(struct custom_env *env)
 
 	wl_array_for_each(p, &env->envp)
 		free(*p);
-
 	wl_array_release(&env->envp);
+
+	wl_array_for_each(p, &env->argp)
+		free(*p);
+	wl_array_release(&env->argp);
 }
 
 static char **
@@ -114,6 +119,20 @@ custom_env_get_env_var(struct custom_env *env, const char *name)
 	}
 
 	return NULL;
+}
+
+void
+custom_env_add_arg(struct custom_env *env, const char *arg)
+{
+	char **ap;
+
+	assert(!env->arg_finalized);
+
+	ap = wl_array_add(&env->argp, sizeof *ap);
+	assert(ap);
+
+	*ap = strdup(arg);
+	assert(*ap);
 }
 
 void
@@ -150,4 +169,21 @@ custom_env_get_envp(struct custom_env *env)
 	env->env_finalized = true;
 
 	return env->envp.data;
+}
+
+char *const *
+custom_env_get_argp(struct custom_env *env)
+{
+	char **ap;
+
+	assert(!env->arg_finalized);
+
+	/* add terminating NULL */
+	ap = wl_array_add(&env->argp, sizeof *ap);
+	assert(ap);
+	*ap = NULL;
+
+	env->arg_finalized = true;
+
+	return env->argp.data;
 }
