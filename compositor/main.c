@@ -375,21 +375,33 @@ weston_client_launch(struct weston_compositor *compositor,
 		     weston_process_cleanup_func_t cleanup)
 {
 	struct wl_client *client = NULL;
+	struct custom_env child_env;
 	struct fdstr wayland_socket;
+	char * const *argp;
+	char * const *envp;
 	sigset_t allsigs;
 	pid_t pid;
 	bool ret;
 
 	weston_log("launching '%s'\n", path);
 
+	custom_env_init_from_environ(&child_env);
+	custom_env_add_arg(&child_env, path);
+
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
 				  wayland_socket.fds) < 0) {
 		weston_log("weston_client_launch: "
 			   "socketpair failed while launching '%s': %s\n",
 			   path, strerror(errno));
+		custom_env_fini(&child_env);
 		return NULL;
 	}
 	fdstr_update_str1(&wayland_socket);
+	custom_env_set_env_var(&child_env, "WAYLAND_SOCKET",
+			       wayland_socket.str1);
+
+	argp = custom_env_get_argp(&child_env);
+	envp = custom_env_get_envp(&child_env);
 
 	pid = fork();
 	switch (pid) {
@@ -419,11 +431,10 @@ weston_client_launch(struct weston_compositor *compositor,
 			_exit(EXIT_FAILURE);
 		}
 
-		setenv("WAYLAND_SOCKET", wayland_socket.str1, 1);
-
-		if (execl(path, path, NULL) < 0)
+		if (execve(argp[0], argp, envp)) {
 			weston_log("compositor: executing '%s' failed: %s\n",
 				   path, strerror(errno));
+		}
 
 		_exit(EXIT_FAILURE);
 
@@ -432,6 +443,7 @@ weston_client_launch(struct weston_compositor *compositor,
 		client = wl_client_create(compositor->wl_display,
 					  wayland_socket.fds[0]);
 		if (!client) {
+			custom_env_fini(&child_env);
 			close(wayland_socket.fds[0]);
 			weston_log("weston_client_launch: "
 				"wl_client_create failed while launching '%s'.\n",
@@ -451,6 +463,8 @@ weston_client_launch(struct weston_compositor *compositor,
 			   strerror(errno));
 		break;
 	}
+
+	custom_env_fini(&child_env);
 
 	return client;
 }
