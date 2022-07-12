@@ -253,7 +253,8 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 {
 	struct rdp_output *output = container_of(output_base, struct rdp_output, base);
 	struct weston_compositor *ec = output->base.compositor;
-	struct rdp_peers_item *outputPeer;
+	struct rdp_backend *b = to_rdp_backend(ec);
+	struct rdp_peers_item *peer;
 	struct timespec now, target;
 	int refresh_nsec = millihz_to_nsec(output_base->current_mode->refresh);
 	int refresh_msec = refresh_nsec / 1000000;
@@ -279,11 +280,11 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	ec->renderer->repaint_output(&output->base, damage);
 
 	if (pixman_region32_not_empty(damage)) {
-		wl_list_for_each(outputPeer, &output->peers, link) {
-			if ((outputPeer->flags & RDP_PEER_ACTIVATED) &&
-					(outputPeer->flags & RDP_PEER_OUTPUT_ENABLED))
+		wl_list_for_each(peer, &b->peers, link) {
+			if ((peer->flags & RDP_PEER_ACTIVATED) &&
+					(peer->flags & RDP_PEER_OUTPUT_ENABLED))
 			{
-				rdp_peer_refresh_region(damage, outputPeer->peer);
+				rdp_peer_refresh_region(damage, peer->peer);
 			}
 		}
 	}
@@ -372,7 +373,7 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	pixman_image_unref(rdpOutput->shadow_surface);
 	rdpOutput->shadow_surface = new_shadow_buffer;
 
-	wl_list_for_each(rdpPeer, &rdpOutput->peers, link) {
+	wl_list_for_each(rdpPeer, &rdpBackend->peers, link) {
 		settings = rdpPeer->peer->context->settings;
 		if (settings->DesktopWidth == (UINT32)target_mode->width &&
 				settings->DesktopHeight == (UINT32)target_mode->height)
@@ -412,8 +413,6 @@ rdp_output_set_size(struct weston_output *base,
 		 * It's better to let frontends/clients use their defaults. */
 		weston_head_set_physical_size(head, 0, 0);
 	}
-
-	wl_list_init(&output->peers);
 
 	initMode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
 	initMode.width = width;
@@ -566,7 +565,7 @@ rdp_destroy(struct weston_compositor *ec)
 	struct rdp_peers_item *rdp_peer, *tmp;
 	int i;
 
-	wl_list_for_each_safe(rdp_peer, tmp, &b->output->peers, link) {
+	wl_list_for_each_safe(rdp_peer, tmp, &b->peers, link) {
 		freerdp_peer* client = rdp_peer->peer;
 
 		client->Disconnect(client);
@@ -1581,7 +1580,7 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	for ( ; i < (int)ARRAY_LENGTH(peerCtx->events); i++)
 		peerCtx->events[i] = 0;
 
-	wl_list_insert(&b->output->peers, &peerCtx->item.link);
+	wl_list_insert(&b->peers, &peerCtx->item.link);
 
 	if (!rdp_initialize_dispatch_task_event_source(peerCtx))
 		goto error_dispatch_initialize;
@@ -1697,6 +1696,8 @@ rdp_backend_create(struct weston_compositor *compositor,
 			rdp_debug(b, "TLS support activated\n");
 		}
 	}
+
+	wl_list_init(&b->peers);
 
 	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
 		goto err_compositor;

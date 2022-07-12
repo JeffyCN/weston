@@ -82,6 +82,8 @@ struct rdp_backend {
 	struct weston_log_scope *clipboard_debug;
 	struct weston_log_scope *clipboard_verbose;
 
+	struct wl_list peers;
+
 	char *server_cert;
 	char *server_key;
 	char *rdp_key;
@@ -120,8 +122,6 @@ struct rdp_output {
 	struct weston_output base;
 	struct wl_event_source *finish_frame_timer;
 	pixman_image_t *shadow_surface;
-
-	struct wl_list peers;
 };
 
 struct rdp_peer_context {
