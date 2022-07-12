@@ -408,7 +408,7 @@ weston_client_launch(struct weston_compositor *compositor,
 {
 	int sv[2];
 	pid_t pid;
-	struct wl_client *client;
+	struct wl_client *client = NULL;
 
 	weston_log("launching '%s'\n", path);
 
@@ -420,16 +420,8 @@ weston_client_launch(struct weston_compositor *compositor,
 	}
 
 	pid = fork();
-	if (pid == -1) {
-		close(sv[0]);
-		close(sv[1]);
-		weston_log("weston_client_launch: "
-			   "fork failed while launching '%s': %s\n", path,
-			   strerror(errno));
-		return NULL;
-	}
-
-	if (pid == 0) {
+	switch (pid) {
+	case 0:
 		/* Put the client in a new session so it won't catch signals
 		 * intended for the parent. Sharing a session can be
 		 * confusing when launching weston under gdb, as the ctrl-c
@@ -439,22 +431,31 @@ weston_client_launch(struct weston_compositor *compositor,
 		setsid();
 		child_client_exec(sv[1], path);
 		_exit(-1);
-	}
 
-	close(sv[1]);
+	default:
+		close(sv[1]);
+		client = wl_client_create(compositor->wl_display, sv[0]);
+		if (!client) {
+			close(sv[0]);
+			weston_log("weston_client_launch: "
+				"wl_client_create failed while launching '%s'.\n",
+				path);
+			return NULL;
+		}
 
-	client = wl_client_create(compositor->wl_display, sv[0]);
-	if (!client) {
+		proc->pid = pid;
+		proc->cleanup = cleanup;
+		wet_watch_process(compositor, proc);
+		break;
+
+	case -1:
 		close(sv[0]);
+		close(sv[1]);
 		weston_log("weston_client_launch: "
-			"wl_client_create failed while launching '%s'.\n",
-			path);
-		return NULL;
+			   "fork failed while launching '%s': %s\n", path,
+			   strerror(errno));
+		break;
 	}
-
-	proc->pid = pid;
-	proc->cleanup = cleanup;
-	wet_watch_process(compositor, proc);
 
 	return client;
 }
