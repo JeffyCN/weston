@@ -2749,12 +2749,26 @@ weston_output_damage(struct weston_output *output)
 	weston_output_schedule_repaint(output);
 }
 
+/* FIXME: note that we don't flush any damage when the core wants us to
+ * do so as it will sometimes ask for a flush not necessarily at the
+ * right time.
+ *
+ * A (more) proper way is to handle correctly damage whenever there's
+ * compositor side damage. See the comment for weston_surface_damage().
+ */
+static bool
+buffer_can_be_accessed_BANDAID_XXX(struct weston_buffer_reference buffer_ref)
+{
+	return buffer_ref.type == BUFFER_MAY_BE_ACCESSED;
+}
+
 static void
 surface_flush_damage(struct weston_surface *surface)
 {
 	struct weston_buffer *buffer = surface->buffer_ref.buffer;
 
-	if (buffer && buffer->type == WESTON_BUFFER_SHM)
+	if (buffer->type == WESTON_BUFFER_SHM &&
+	    buffer_can_be_accessed_BANDAID_XXX(surface->buffer_ref))
 		surface->compositor->renderer->flush_damage(surface, buffer);
 
 	if (pixman_region32_not_empty(&surface->damage))
