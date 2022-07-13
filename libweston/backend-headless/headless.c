@@ -1,6 +1,8 @@
 /*
  * Copyright © 2010-2011 Benjamin Franzke
  * Copyright © 2012 Intel Corporation
+ * Copyright © 2013 Jason Ekstrand
+ * Copyright 2022 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -42,6 +44,7 @@
 #include "renderer-gl/gl-renderer.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
+#include "shared/cairo-util.h"
 #include "linux-dmabuf.h"
 #include "presentation-time-server-protocol.h"
 #include <libweston/windowed-output-api.h>
@@ -60,6 +63,8 @@ struct headless_backend {
 	enum headless_renderer_type renderer_type;
 
 	struct gl_renderer_interface *glri;
+	bool decorate;
+	struct theme *theme;
 };
 
 struct headless_head {
@@ -72,6 +77,16 @@ struct headless_output {
 	struct weston_mode mode;
 	struct wl_event_source *finish_frame_timer;
 	pixman_image_t *image;
+
+	struct frame *frame;
+	struct {
+		struct {
+			cairo_surface_t *top;
+			cairo_surface_t *left;
+			cairo_surface_t *right;
+			cairo_surface_t *bottom;
+		} border;
+	} gl;
 };
 
 static const uint32_t headless_formats[] = {
@@ -130,6 +145,78 @@ finish_frame_handler(void *data)
 	return 1;
 }
 
+static void
+headless_output_update_gl_border(struct headless_output *output)
+{
+	struct headless_backend *backend = to_headless_backend(output->base.compositor);
+	struct gl_renderer_interface *glri = backend->glri;
+	int32_t ix, iy, iwidth, iheight, fwidth, fheight;
+	cairo_t *cr;
+
+	if (!output->frame)
+		return;
+	if (!(frame_status(output->frame) & FRAME_STATUS_REPAINT))
+		return;
+
+	fwidth = frame_width(output->frame);
+	fheight = frame_height(output->frame);
+	frame_interior(output->frame, &ix, &iy, &iwidth, &iheight);
+
+	if (!output->gl.border.top)
+		output->gl.border.top =
+			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+						   fwidth, iy);
+	cr = cairo_create(output->gl.border.top);
+	frame_repaint(output->frame, cr);
+	cairo_destroy(cr);
+	glri->output_set_border(&output->base, GL_RENDERER_BORDER_TOP,
+				fwidth, iy,
+				cairo_image_surface_get_stride(output->gl.border.top) / 4,
+				cairo_image_surface_get_data(output->gl.border.top));
+
+
+	if (!output->gl.border.left)
+		output->gl.border.left =
+			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+						   ix, 1);
+	cr = cairo_create(output->gl.border.left);
+	cairo_translate(cr, 0, -iy);
+	frame_repaint(output->frame, cr);
+	cairo_destroy(cr);
+	glri->output_set_border(&output->base, GL_RENDERER_BORDER_LEFT,
+				ix, 1,
+				cairo_image_surface_get_stride(output->gl.border.left) / 4,
+				cairo_image_surface_get_data(output->gl.border.left));
+
+
+	if (!output->gl.border.right)
+		output->gl.border.right =
+			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+						   fwidth - (ix + iwidth), 1);
+	cr = cairo_create(output->gl.border.right);
+	cairo_translate(cr, -(iwidth + ix), -iy);
+	frame_repaint(output->frame, cr);
+	cairo_destroy(cr);
+	glri->output_set_border(&output->base, GL_RENDERER_BORDER_RIGHT,
+				fwidth - (ix + iwidth), 1,
+				cairo_image_surface_get_stride(output->gl.border.right) / 4,
+				cairo_image_surface_get_data(output->gl.border.right));
+
+
+	if (!output->gl.border.bottom)
+		output->gl.border.bottom =
+			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+						   fwidth, fheight - (iy + iheight));
+	cr = cairo_create(output->gl.border.bottom);
+	cairo_translate(cr, 0, -(iy + iheight));
+	frame_repaint(output->frame, cr);
+	cairo_destroy(cr);
+	glri->output_set_border(&output->base, GL_RENDERER_BORDER_BOTTOM,
+				fwidth, fheight - (iy + iheight),
+				cairo_image_surface_get_stride(output->gl.border.bottom) / 4,
+				cairo_image_surface_get_data(output->gl.border.bottom));
+}
+
 static int
 headless_output_repaint(struct weston_output *output_base,
 		       pixman_region32_t *damage)
@@ -140,6 +227,8 @@ headless_output_repaint(struct weston_output *output_base,
 	assert(output);
 
 	ec = output->base.compositor;
+
+	headless_output_update_gl_border(output);
 
 	ec->renderer->repaint_output(&output->base, damage);
 
@@ -158,6 +247,20 @@ headless_output_disable_gl(struct headless_output *output)
 	struct headless_backend *b = to_headless_backend(compositor);
 
 	b->glri->output_destroy(&output->base);
+
+	if (output->frame) {
+		frame_destroy(output->frame);
+		output->frame = NULL;
+	}
+
+	cairo_surface_destroy(output->gl.border.top);
+	cairo_surface_destroy(output->gl.border.left);
+	cairo_surface_destroy(output->gl.border.right);
+	cairo_surface_destroy(output->gl.border.bottom);
+	output->gl.border.top = NULL;
+	output->gl.border.left = NULL;
+	output->gl.border.right = NULL;
+	output->gl.border.bottom = NULL;
 }
 
 static void
@@ -206,6 +309,7 @@ headless_output_destroy(struct weston_output *base)
 	headless_output_disable(&output->base);
 	weston_output_release(&output->base);
 
+	assert(!output->frame);
 	free(output);
 }
 
@@ -215,19 +319,43 @@ headless_output_enable_gl(struct headless_output *output)
 	struct weston_compositor *compositor = output->base.compositor;
 	struct headless_backend *b = to_headless_backend(compositor);
 	const struct weston_mode *mode = output->base.current_mode;
-	const struct gl_renderer_pbuffer_options options = {
+	struct gl_renderer_pbuffer_options options = {
 		.drm_formats = headless_formats,
 		.drm_formats_count = ARRAY_LENGTH(headless_formats),
-		.area.x = 0,
-		.area.y = 0,
-		.area.width = mode->width,
-		.area.height = mode->height,
-		.fb_size.width = mode->width,
-		.fb_size.height = mode->height,
 	};
+
+	if (b->decorate) {
+		/*
+		 * Start with a dummy exterior size and then resize, because
+		 * there is no frame_create() with interior size.
+		 */
+		output->frame = frame_create(b->theme, 100, 100,
+					     FRAME_BUTTON_CLOSE, NULL, NULL);
+		if (!output->frame) {
+			weston_log("failed to create frame for output\n");
+			return -1;
+		}
+		frame_resize_inside(output->frame, mode->width, mode->height);
+
+		options.fb_size.width = frame_width(output->frame);
+		options.fb_size.height = frame_height(output->frame);
+		frame_interior(output->frame, &options.area.x, &options.area.y,
+			       &options.area.width, &options.area.height);
+	} else {
+		options.area.x = 0;
+		options.area.y = 0;
+		options.area.width = mode->width;
+		options.area.height = mode->height;
+		options.fb_size.width = mode->width;
+		options.fb_size.height = mode->height;
+	}
 
 	if (b->glri->output_pbuffer_create(&output->base, &options) < 0) {
 		weston_log("failed to create gl renderer output state\n");
+		if (output->frame) {
+			frame_destroy(output->frame);
+			output->frame = NULL;
+		}
 		return -1;
 	}
 
@@ -435,6 +563,9 @@ headless_destroy(struct weston_compositor *ec)
 			headless_head_destroy(base);
 	}
 
+	if (b->theme)
+		theme_destroy(b->theme);
+
 	free(b);
 }
 
@@ -488,6 +619,19 @@ headless_backend_create(struct weston_compositor *compositor,
 		goto err_free;
 	}
 
+	if (config->decorate && !config->use_gl) {
+		weston_log("Error: headless-backend decorations require GL renderer.\n");
+		goto err_free;
+	}
+	b->decorate = config->decorate;
+	if (b->decorate) {
+		b->theme = theme_create();
+		if (!b->theme) {
+			weston_log("Error: could not load decorations theme.\n");
+			goto err_free;
+		}
+	}
+
 	if (config->use_gl)
 		b->renderer_type = HEADLESS_GL;
 	else if (config->use_pixman)
@@ -536,6 +680,9 @@ headless_backend_create(struct weston_compositor *compositor,
 	return b;
 
 err_input:
+	if (b->theme)
+		theme_destroy(b->theme);
+
 	weston_compositor_shutdown(compositor);
 err_free:
 	free(b);

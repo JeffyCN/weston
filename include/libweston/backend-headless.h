@@ -44,6 +44,9 @@ struct weston_headless_backend_config {
 
 	/** Whether to use the GL renderer, conflicts with use_pixman */
 	bool use_gl;
+
+	/** Use output decorations, requires use_gl = true */
+	bool decorate;
 };
 
 #ifdef  __cplusplus
