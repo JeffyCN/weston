@@ -204,6 +204,14 @@ spaces and perform monitor profiling, and tone mapping required to enable HDR
 video modes. This extended functionality comes at the cost of heavier image
 processing and sometimes a loss of some hardware off-loading features like
 composite-bypass.
+.TP 7
+.BI "output-decorations=" true
+For headless-backend with GL-renderer only: draws output window decorations,
+similar to what wayland-backend does for floating output windows.
+Boolean, defaults to
+.BR false .
+These decorations cannot normally be screenshot. This option is useful for
+the Weston test suite only.
 .\"---------------------------------------------------------------------
 .SH "LIBINPUT SECTION"
 The

@@ -2970,6 +2970,8 @@ load_headless_backend(struct weston_compositor *c,
 				       false);
 	weston_config_section_get_bool(section, "use-gl", &config.use_gl,
 				       false);
+	weston_config_section_get_bool(section, "output-decorations", &config.decorate,
+				       false);
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
