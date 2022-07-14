@@ -989,7 +989,7 @@ wet_get_bindir_path(const char *name)
 
 static int
 load_modules(struct weston_compositor *ec, const char *modules,
-	     int *argc, char *argv[], bool *xwayland)
+	     int *argc, char *argv[])
 {
 	const char *p, *end;
 	char buffer[256];
@@ -1003,11 +1003,11 @@ load_modules(struct weston_compositor *ec, const char *modules,
 		snprintf(buffer, sizeof buffer, "%.*s", (int) (end - p), p);
 
 		if (strstr(buffer, "xwayland.so")) {
-			weston_log("Old Xwayland module loading detected: "
+			weston_log("fatal: Old Xwayland module loading detected: "
 				   "Please use --xwayland command line option "
 				   "or set xwayland=true in the [core] section "
 				   "in weston.ini\n");
-			*xwayland = true;
+			return -1;
 		} else {
 			if (wet_load_module(ec, buffer, argc, argv) < 0)
 				return -1;
@@ -3730,10 +3730,10 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		goto out;
 
 	weston_config_section_get_string(section, "modules", &modules, "");
-	if (load_modules(wet.compositor, modules, &argc, argv, &xwayland) < 0)
+	if (load_modules(wet.compositor, modules, &argc, argv) < 0)
 		goto out;
 
-	if (load_modules(wet.compositor, option_modules, &argc, argv, &xwayland) < 0)
+	if (load_modules(wet.compositor, option_modules, &argc, argv) < 0)
 		goto out;
 
 	if (!xwayland) {
