@@ -79,6 +79,7 @@
 #include "backend.h"
 #include "libweston-internal.h"
 #include "color.h"
+#include "output-capture.h"
 
 #include "weston-log-internal.h"
 
@@ -3075,6 +3076,8 @@ weston_output_repaint(struct weston_output *output)
 		animation->frame_counter++;
 		animation->frame(animation, output, &output->frame_time);
 	}
+
+	weston_output_capture_info_repaint_done(output->capture_info);
 
 	TL_POINT(ec, "core_repaint_posted", TLP_OUTPUT(output), TLP_END);
 
@@ -6658,6 +6661,8 @@ weston_compositor_remove_output(struct weston_output *output)
 	wl_list_for_each(head, &output->head_list, output_link)
 		weston_head_remove_global(head);
 
+	weston_output_capture_info_destroy(&output->capture_info);
+
 	compositor->output_id_pool &= ~(1u << output->id);
 	output->id = 0xffffffff; /* invalid */
 }
@@ -7149,6 +7154,9 @@ weston_output_enable(struct weston_output *output)
 	if (!weston_output_set_color_outcome(output))
 		return -1;
 
+	output->capture_info = weston_output_capture_info_create();
+	assert(output->capture_info);
+
 	/* Enable the output (set up the crtc or create a
 	 * window representing the output, set up the
 	 * renderer, etc)
@@ -7156,6 +7164,7 @@ weston_output_enable(struct weston_output *output)
 	if (output->enable(output) < 0) {
 		weston_log("Enabling output \"%s\" failed.\n", output->name);
 		weston_output_color_outcome_destroy(&output->color_outcome);
+		weston_output_capture_info_destroy(&output->capture_info);
 		return -1;
 	}
 
@@ -8175,6 +8184,7 @@ weston_compositor_create(struct wl_display *display,
 	wl_signal_init(&ec->heads_changed_signal);
 	wl_signal_init(&ec->output_heads_changed_signal);
 	wl_signal_init(&ec->session_signal);
+	wl_signal_init(&ec->output_capture.ask_auth);
 	ec->session_active = true;
 
 	ec->output_id_pool = 0;
@@ -8213,6 +8223,8 @@ weston_compositor_create(struct wl_display *display,
 
 	if (weston_input_init(ec) != 0)
 		goto fail;
+
+	weston_compositor_install_capture_protocol(ec);
 
 	wl_list_init(&ec->view_list);
 	wl_list_init(&ec->plane_list);

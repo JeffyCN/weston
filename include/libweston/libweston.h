@@ -91,6 +91,7 @@ struct ro_anonymous_file;
 struct weston_color_profile;
 struct weston_color_transform;
 struct pixel_format_info;
+struct weston_output_capture_info;
 
 enum weston_keyboard_modifier {
 	MODIFIER_CTRL = (1 << 0),
@@ -502,6 +503,7 @@ struct weston_output {
 	int disable_planes;
 	int destroying;
 	struct wl_list feedback_list;
+	struct weston_output_capture_info *capture_info;
 
 	uint32_t transform;
 	int32_t native_scale;
@@ -1328,6 +1330,12 @@ struct weston_compositor {
 
 	struct weston_log_pacer unmapped_surface_or_view_pacer;
 	struct weston_log_pacer presentation_clock_failure_pacer;
+
+	/** Screenshooting global state, see output-capture.c */
+	struct {
+		struct wl_global *weston_capture_v1;
+		struct wl_signal ask_auth;
+	} output_capture;
 };
 
 struct weston_solid_buffer_values {
@@ -2362,6 +2370,31 @@ weston_color_profile_get_description(struct weston_color_profile *cprof);
 struct weston_color_profile *
 weston_compositor_load_icc_file(struct weston_compositor *compositor,
 				const char *path);
+
+/** Describes who is trying to capture and which output */
+struct weston_output_capture_client {
+	struct wl_client *client;
+	struct weston_output *output;
+};
+
+/** Arguments asking to authorize a screenshot/capture
+ *
+ * \sa weston_compositor_add_screenshot_authority
+ */
+struct weston_output_capture_attempt {
+	const struct weston_output_capture_client *const who;
+
+	/** Set to true to authorize the screenshot. */
+	bool authorized;
+	/** Set to true to deny the screenshot. */
+	bool denied;
+};
+
+void
+weston_compositor_add_screenshot_authority(struct weston_compositor *compositor,
+					   struct wl_listener *listener,
+					   void (*auth)(struct wl_listener *l,
+					   		struct weston_output_capture_attempt *att));
 
 #ifdef  __cplusplus
 }

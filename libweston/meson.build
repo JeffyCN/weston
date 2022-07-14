@@ -25,6 +25,7 @@ srcs_libweston = [
 	'linux-sync-file.c',
 	'log.c',
 	'noop-renderer.c',
+	'output-capture.c',
 	'pixel-formats.c',
 	'pixman-renderer.c',
 	'plugin-registry.c',
@@ -70,6 +71,8 @@ srcs_libweston = [
 	weston_debug_server_protocol_h,
 	weston_direct_display_protocol_c,
 	weston_direct_display_server_protocol_h,
+	weston_output_capture_protocol_c,
+	weston_output_capture_server_protocol_h,
 ]
 
 subdir('desktop')

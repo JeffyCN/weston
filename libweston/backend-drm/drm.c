@@ -55,6 +55,7 @@
 #include "shared/timespec-util.h"
 #include "shared/string-helpers.h"
 #include "shared/weston-drm-fourcc.h"
+#include "output-capture.h"
 #include "pixman-renderer.h"
 #include "pixel-formats.h"
 #include "libbacklight.h"
@@ -385,6 +386,7 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	 */
 	if (!pixman_region32_not_empty(damage) &&
 	    wl_list_empty(&output->base.frame_signal.listener_list) &&
+	    !weston_output_has_capture_tasks(&output->base) &&
 	    scanout_plane->state_cur->fb &&
 	    (scanout_plane->state_cur->fb->type == BUFFER_GBM_SURFACE ||
 	     scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB)) {
