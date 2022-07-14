@@ -193,6 +193,7 @@ tests = [
 		'dep_objs': [ dep_libdrm_headers ],
 	},
 	{	'name': 'output-damage', },
+	{	'name': 'output-decorations', },
 	{	'name': 'output-transforms', },
 	{	'name': 'plugin-registry', },
 	{

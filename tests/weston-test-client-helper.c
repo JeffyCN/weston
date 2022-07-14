@@ -1537,7 +1537,7 @@ write_image_as_png(pixman_image_t *image, const char *fname)
 	return true;
 }
 
-static pixman_image_t *
+pixman_image_t *
 image_convert_to_a8r8g8b8(pixman_image_t *image)
 {
 	pixman_image_t *ret;
@@ -1685,7 +1685,7 @@ static const struct weston_capture_source_v1_listener output_capturer_source_han
 	.failed = output_capturer_handle_failed,
 };
 
-static struct buffer *
+struct buffer *
 client_capture_output(struct client *client,
 		      struct output *output,
 		      enum weston_capture_v1_source src)

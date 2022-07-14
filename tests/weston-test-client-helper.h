@@ -38,6 +38,7 @@
 #include "weston-test-runner.h"
 #include "weston-test-client-protocol.h"
 #include "viewporter-client-protocol.h"
+#include "weston-output-capture-client-protocol.h"
 
 struct client {
 	struct wl_display *wl_display;
@@ -274,6 +275,14 @@ load_image_from_png(const char *fname);
 
 struct buffer *
 capture_screenshot_of_output(struct client *client);
+
+struct buffer *
+client_capture_output(struct client *client,
+		      struct output *output,
+		      enum weston_capture_v1_source src);
+
+pixman_image_t *
+image_convert_to_a8r8g8b8(pixman_image_t *image);
 
 bool
 verify_image(pixman_image_t *shot,
