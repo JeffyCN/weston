@@ -3729,13 +3729,10 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	if (wet_load_shell(wet.compositor, shell, &argc, argv) < 0)
 		goto out;
 
-	weston_config_section_get_string(section, "modules", &modules, "");
-	if (load_modules(wet.compositor, modules, &argc, argv) < 0)
-		goto out;
-
-	if (load_modules(wet.compositor, option_modules, &argc, argv) < 0)
-		goto out;
-
+	/* Load xwayland before other modules - this way if we're using
+	 * the systemd-notify module it will notify after we're ready
+	 * to receive xwayland connections.
+	 */
 	if (!xwayland) {
 		weston_config_section_get_bool(section, "xwayland", &xwayland,
 					       false);
@@ -3744,6 +3741,13 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		if (wet_load_xwayland(wet.compositor) < 0)
 			goto out;
 	}
+
+	weston_config_section_get_string(section, "modules", &modules, "");
+	if (load_modules(wet.compositor, modules, &argc, argv) < 0)
+		goto out;
+
+	if (load_modules(wet.compositor, option_modules, &argc, argv) < 0)
+		goto out;
 
 	section = weston_config_get_section(config, "keyboard", NULL, NULL);
 	weston_config_section_get_bool(section, "numlock-on", &numlock_on, false);
