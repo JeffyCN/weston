@@ -33,9 +33,24 @@ Kill active window
 Maximize active window
 .P
 .RE
-.B mod + PageUp, mod + PageDown
+.B mod + Shift + KEY_LEFT
 .RS 4
-Zoom desktop in (or out)
+Make the active window tiled left.
+.P
+.RE
+.B mod + Shift + KEY_RIGHT
+.RS 4
+Make the active window tiled right.
+.P
+.RE
+.B mod + Shift + KEY_UP
+.RS 4
+Make the active window tiled top.
+.P
+.RE
+.B mod + Shift + KEY_DOWN
+.RS 4
+Make the active window tiled bottom.
 .P
 .RE
 .B mod + Tab

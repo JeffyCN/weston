@@ -2897,6 +2897,83 @@ fullscreen_binding(struct weston_keyboard *keyboard,
 }
 
 static void
+set_tiled_orientation(struct weston_surface *focus,
+		      enum weston_top_level_tiled_orientation orientation)
+{
+	struct weston_surface *surface;
+	struct shell_surface *shsurf;
+	int width, height;
+	pixman_rectangle32_t area;
+	struct weston_geometry geom;
+	int x, y;
+
+	surface = weston_surface_get_main_surface(focus);
+	if (surface == NULL)
+		return;
+
+	shsurf = get_shell_surface(surface);
+	if (shsurf == NULL)
+		return;
+
+	get_maximized_size(shsurf, &width, &height);
+	get_output_work_area(shsurf->shell, shsurf->output, &area);
+	geom = weston_desktop_surface_get_geometry(shsurf->desktop_surface);
+
+	if (orientation & WESTON_TOP_LEVEL_TILED_ORIENTATION_LEFT ||
+	    orientation & WESTON_TOP_LEVEL_TILED_ORIENTATION_RIGHT)
+		width /= 2;
+	else if (orientation & WESTON_TOP_LEVEL_TILED_ORIENTATION_TOP ||
+		orientation & WESTON_TOP_LEVEL_TILED_ORIENTATION_BOTTOM)
+		height /= 2;
+
+	x = area.x - geom.x;
+	y = area.y - geom.y;
+
+	if (orientation & WESTON_TOP_LEVEL_TILED_ORIENTATION_RIGHT)
+		x += width;
+	else if (orientation & WESTON_TOP_LEVEL_TILED_ORIENTATION_BOTTOM)
+		y += height;
+
+	weston_view_set_position(shsurf->view, x, y);
+	weston_desktop_surface_set_size(shsurf->desktop_surface, width, height);
+	weston_desktop_surface_set_orientation(shsurf->desktop_surface, orientation);
+	weston_compositor_schedule_repaint(surface->compositor);
+}
+
+static void
+set_tiled_orientation_left(struct weston_keyboard *keyboard,
+			   const struct timespec *time,
+			   uint32_t button, void *data)
+{
+	set_tiled_orientation(keyboard->focus, WESTON_TOP_LEVEL_TILED_ORIENTATION_LEFT);
+
+}
+
+static void
+set_tiled_orientation_right(struct weston_keyboard *keyboard,
+			   const struct timespec *time,
+			   uint32_t button, void *data)
+{
+	set_tiled_orientation(keyboard->focus, WESTON_TOP_LEVEL_TILED_ORIENTATION_RIGHT);
+}
+
+static void
+set_tiled_orientation_up(struct weston_keyboard *keyboard,
+			   const struct timespec *time,
+			   uint32_t button, void *data)
+{
+	set_tiled_orientation(keyboard->focus, WESTON_TOP_LEVEL_TILED_ORIENTATION_TOP);
+}
+
+static void
+set_tiled_orientation_down(struct weston_keyboard *keyboard,
+			   const struct timespec *time,
+			   uint32_t button, void *data)
+{
+	set_tiled_orientation(keyboard->focus, WESTON_TOP_LEVEL_TILED_ORIENTATION_BOTTOM);
+}
+
+static void
 touch_move_binding(struct weston_touch *touch, const struct timespec *time, void *data)
 {
 	struct weston_surface *focus;
@@ -4491,6 +4568,15 @@ shell_add_bindings(struct weston_compositor *ec, struct desktop_shell *shell)
 	weston_compositor_add_button_binding(ec, BTN_LEFT,
 					     mod | MODIFIER_SHIFT,
 					     resize_binding, shell);
+
+	weston_compositor_add_key_binding(ec, KEY_LEFT, mod | MODIFIER_SHIFT,
+					  set_tiled_orientation_left, NULL);
+	weston_compositor_add_key_binding(ec, KEY_RIGHT, mod | MODIFIER_SHIFT,
+					  set_tiled_orientation_right, NULL);
+	weston_compositor_add_key_binding(ec, KEY_UP, mod | MODIFIER_SHIFT,
+					  set_tiled_orientation_up, NULL);
+	weston_compositor_add_key_binding(ec, KEY_DOWN, mod | MODIFIER_SHIFT,
+					  set_tiled_orientation_down, NULL);
 
 	if (ec->capabilities & WESTON_CAP_ROTATION_ANY)
 		weston_compositor_add_button_binding(ec, BTN_MIDDLE, mod,
