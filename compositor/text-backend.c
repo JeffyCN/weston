@@ -141,6 +141,12 @@ deactivate_input_method(struct input_method *input_method)
 	input_method->input = NULL;
 	input_method->context = NULL;
 
+	/* text_input_manager::destroy_listener by compositor shutdown */
+	if (!text_input->manager) {
+		zwp_text_input_v1_send_leave(text_input->resource);
+		return;
+	}
+
 	if (wl_list_empty(&text_input->input_methods) &&
 	    text_input->input_panel_visible &&
 	    text_input->manager->current_text_input == text_input) {
@@ -456,6 +462,8 @@ text_input_manager_notifier_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&text_input_manager->destroy_listener.link);
 	wl_global_destroy(text_input_manager->text_input_manager_global);
 
+	if (text_input_manager->current_text_input)
+		text_input_manager->current_text_input->manager = NULL;
 	free(text_input_manager);
 }
 
