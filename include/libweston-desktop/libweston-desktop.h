@@ -44,6 +44,14 @@ enum weston_desktop_surface_edge {
 	WESTON_DESKTOP_SURFACE_EDGE_BOTTOM_RIGHT = 10,
 };
 
+enum weston_top_level_tiled_orientation {
+	WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE 	= 0 << 0,
+	WESTON_TOP_LEVEL_TILED_ORIENTATION_LEFT 	= 1 << 1,
+	WESTON_TOP_LEVEL_TILED_ORIENTATION_RIGHT 	= 1 << 2,
+	WESTON_TOP_LEVEL_TILED_ORIENTATION_TOP 		= 1 << 3,
+	WESTON_TOP_LEVEL_TILED_ORIENTATION_BOTTOM 	= 1 << 4,
+};
+
 struct weston_desktop;
 struct weston_desktop_client;
 struct weston_desktop_surface;
@@ -165,6 +173,9 @@ weston_desktop_surface_set_resizing(struct weston_desktop_surface *surface,
 void
 weston_desktop_surface_set_size(struct weston_desktop_surface *surface,
 				int32_t width, int32_t height);
+void
+weston_desktop_surface_set_orientation(struct weston_desktop_surface *surface,
+				       enum weston_top_level_tiled_orientation tile_orientation);
 void
 weston_desktop_surface_close(struct weston_desktop_surface *surface);
 void

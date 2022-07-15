@@ -94,6 +94,7 @@ struct weston_desktop_xdg_toplevel_state {
 	bool fullscreen;
 	bool resizing;
 	bool activated;
+	uint32_t tiled_orientation;
 };
 
 struct weston_desktop_xdg_toplevel_configure {
@@ -625,6 +626,30 @@ weston_desktop_xdg_toplevel_send_configure(struct weston_desktop_xdg_toplevel *t
 		*s = XDG_TOPLEVEL_STATE_ACTIVATED;
 	}
 
+	if (toplevel->pending.state.tiled_orientation &
+	    WESTON_TOP_LEVEL_TILED_ORIENTATION_LEFT) {
+		s = wl_array_add(&states, sizeof(uint32_t));
+		*s = XDG_TOPLEVEL_STATE_TILED_LEFT;
+	}
+
+	if (toplevel->pending.state.tiled_orientation &
+	    WESTON_TOP_LEVEL_TILED_ORIENTATION_RIGHT) {
+		s = wl_array_add(&states, sizeof(uint32_t));
+		*s = XDG_TOPLEVEL_STATE_TILED_RIGHT;
+	}
+
+	if (toplevel->pending.state.tiled_orientation &
+	    WESTON_TOP_LEVEL_TILED_ORIENTATION_TOP) {
+		s = wl_array_add(&states, sizeof(uint32_t));
+		*s = XDG_TOPLEVEL_STATE_TILED_TOP;
+	}
+
+	if (toplevel->pending.state.tiled_orientation &
+	    WESTON_TOP_LEVEL_TILED_ORIENTATION_BOTTOM) {
+		s = wl_array_add(&states, sizeof(uint32_t));
+		*s = XDG_TOPLEVEL_STATE_TILED_BOTTOM;
+	}
+
 	xdg_toplevel_send_configure(toplevel->resource,
 				    toplevel->pending.size.width,
 				    toplevel->pending.size.height,
@@ -683,6 +708,16 @@ weston_desktop_xdg_toplevel_set_size(struct weston_desktop_surface *dsurface,
 	toplevel->pending.size.width = width;
 	toplevel->pending.size.height = height;
 
+	weston_desktop_xdg_surface_schedule_configure(&toplevel->base);
+}
+
+static void
+weston_desktop_xdg_toplevel_set_orientation(struct weston_desktop_surface *surface, void *user_data,
+					    enum weston_top_level_tiled_orientation tiled_orientation)
+{
+	struct weston_desktop_xdg_toplevel *toplevel = user_data;
+
+	toplevel->pending.state.tiled_orientation = tiled_orientation;
 	weston_desktop_xdg_surface_schedule_configure(&toplevel->base);
 }
 
@@ -1104,6 +1139,9 @@ weston_desktop_xdg_toplevel_state_compare(struct weston_desktop_xdg_toplevel *to
 		return false;
 	if (toplevel->pending.state.resizing != configured.state.resizing)
 		return false;
+	if (toplevel->pending.state.tiled_orientation !=
+	    configured.state.tiled_orientation)
+		return false;
 
 	if (toplevel->pending.size.width == configured.size.width &&
 	    toplevel->pending.size.height == configured.size.height)
@@ -1478,6 +1516,7 @@ static const struct weston_desktop_surface_implementation weston_desktop_xdg_sur
 	.set_resizing = weston_desktop_xdg_toplevel_set_resizing,
 	.set_activated = weston_desktop_xdg_toplevel_set_activated,
 	.set_size = weston_desktop_xdg_toplevel_set_size,
+	.set_orientation = weston_desktop_xdg_toplevel_set_orientation,
 
 	.get_maximized = weston_desktop_xdg_toplevel_get_maximized,
 	.get_fullscreen = weston_desktop_xdg_toplevel_get_fullscreen,

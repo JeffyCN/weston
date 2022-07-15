@@ -507,6 +507,16 @@ weston_desktop_surface_set_size(struct weston_desktop_surface *surface, int32_t 
 }
 
 WL_EXPORT void
+weston_desktop_surface_set_orientation(struct weston_desktop_surface *surface,
+				       enum weston_top_level_tiled_orientation tile_orientation)
+{
+	if (surface->implementation->set_orientation != NULL)
+		surface->implementation->set_orientation(surface,
+							 surface->implementation_data,
+							 tile_orientation);
+}
+
+WL_EXPORT void
 weston_desktop_surface_close(struct weston_desktop_surface *surface)
 {
 	if (surface->implementation->close != NULL)

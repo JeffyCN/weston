@@ -105,6 +105,8 @@ struct weston_desktop_surface_implementation {
 			     void *user_data, bool resizing);
 	void (*set_size)(struct weston_desktop_surface *surface,
 			 void *user_data, int32_t width, int32_t height);
+	void (*set_orientation)(struct weston_desktop_surface *surface,
+				void *user_data, enum weston_top_level_tiled_orientation tiled_orientation);
 	void (*committed)(struct weston_desktop_surface *surface, void *user_data,
 		          int32_t sx, int32_t sy);
 	void (*update_position)(struct weston_desktop_surface *surface,
