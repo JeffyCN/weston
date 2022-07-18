@@ -3239,8 +3239,6 @@ drm_backend_create(struct weston_compositor *compositor,
 					    planes_binding, b);
 	weston_compositor_add_debug_binding(compositor, KEY_Q,
 					    recorder_binding, b);
-	weston_compositor_add_debug_binding(compositor, KEY_W,
-					    renderer_switch_binding, b);
 
 	if (compositor->renderer->import_dmabuf) {
 		if (linux_dmabuf_setup(compositor) < 0)

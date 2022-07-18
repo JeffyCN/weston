@@ -130,10 +130,6 @@ Enable/Disable overlay planes.
 .RS 4
 Start VAAPI recorder.
 .RE
-- KEY_W :
-.RS 4
-Switch to gl-renderer from pixman.
-.RE
 - KEY_S : 
 .RS 4
 Enable fragment debugging for gl-renderer.
@@ -144,7 +140,7 @@ Enable fan debugging for gl-renderer.
 .RE
 - KEY_R :
 .RS 4
-Enable repaint debugging for pixman:
+Enable repaint debugging for Pixman.
 .RE
 .RE
 

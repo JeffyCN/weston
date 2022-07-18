@@ -1011,9 +1011,6 @@ draw_paint_node(struct weston_paint_node *pnode,
 	GLint filter;
 	struct gl_shader_config sconf;
 
-	/* In case of a runtime switch of renderers, we may not have received
-	 * an attach for this surface since the switch. In that case we don't
-	 * have a valid buffer or a proper shader set up so skip rendering. */
 	if (gb->shader_variant == SHADER_VARIANT_NONE &&
 	    !buffer->direct_display)
 		return;
