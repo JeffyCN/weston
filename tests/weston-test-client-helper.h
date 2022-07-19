@@ -216,6 +216,10 @@ struct client *
 create_client_and_test_surface(int x, int y, int width, int height);
 
 struct buffer *
+create_shm_buffer(struct client *client, int width, int height,
+		  uint32_t drm_format);
+
+struct buffer *
 create_shm_buffer_a8r8g8b8(struct client *client, int width, int height);
 
 void

@@ -59,6 +59,7 @@ dep_test_client = declare_dependency(
 		dep_wayland_client,
 		dep_test_runner,
 		dep_pixman,
+		dep_libdrm_headers,
 		dependency('libudev', version: '>= 136'),
 	]
 )
@@ -181,6 +182,15 @@ tests = [
 	{
 		'name': 'matrix-transform',
 		'dep_objs': dep_libm,
+	},
+	{
+		'name': 'output-capture-protocol',
+		'sources': [
+			'output-capture-protocol-test.c',
+			weston_output_capture_protocol_c,
+			weston_output_capture_client_protocol_h,
+		],
+		'dep_objs': [ dep_libdrm_headers ],
 	},
 	{	'name': 'output-damage', },
 	{	'name': 'output-transforms', },
