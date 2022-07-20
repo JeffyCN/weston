@@ -5775,7 +5775,23 @@ weston_head_release(struct weston_head *head)
 	wl_list_remove(&head->compositor_link);
 }
 
-static void
+/** Propagate device information changes
+ *
+ * \param head The head that changed.
+ *
+ * The information about the connected display device, e.g. a monitor, may
+ * change without being disconnected in between. Changing information
+ * causes a call to the heads_changed hook.
+ *
+ * Normally this is handled automatically by the generic setters, but if
+ * a backend has
+ * specific head properties it may have to call this directly.
+ *
+ * \sa weston_head_reset_device_changed, weston_compositor_set_heads_changed_cb,
+ * weston_head_is_device_changed
+ * \ingroup head
+ */
+WL_EXPORT void
 weston_head_set_device_changed(struct weston_head *head)
 {
 	head->device_changed = true;

@@ -2234,6 +2234,9 @@ bool
 weston_head_is_non_desktop(struct weston_head *head);
 
 void
+weston_head_set_device_changed(struct weston_head *head);
+
+void
 weston_head_reset_device_changed(struct weston_head *head);
 
 const char *
