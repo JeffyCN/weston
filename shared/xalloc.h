@@ -57,6 +57,7 @@ fail_on_null(void *p, size_t size, char *file, int32_t line)
 
 #define xmalloc(s) (fail_on_null(malloc(s), (s), __FILE__, __LINE__))
 #define xzalloc(s) (fail_on_null(zalloc(s), (s), __FILE__, __LINE__))
+#define xcalloc(n, s) (fail_on_null(calloc(n, s), (n) * (s), __FILE__, __LINE__))
 #define xstrdup(s) (fail_on_null(strdup(s), 0, __FILE__, __LINE__))
 #define xrealloc(p, s) (fail_on_null(realloc(p, s), (s), __FILE__, __LINE__))
 

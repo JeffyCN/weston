@@ -153,13 +153,6 @@ struct launcher_info {
 /*****************************************************************************
  *  local functions
  ****************************************************************************/
-static void *
-mem_alloc(size_t size, char *file, int32_t line)
-{
-	return fail_on_null(calloc(1, size), size, file, line);
-}
-
-#define MEM_ALLOC(s) mem_alloc((s),__FILE__,__LINE__)
 
 static int32_t
 is_surf_in_ui_widget(struct hmi_controller *hmi_ctrl,
@@ -222,8 +215,8 @@ mode_divided_into_tiling(struct hmi_controller *hmi_ctrl,
 	int32_t surf_num = 0;
 	int32_t idx = 0;
 
-	surfaces = MEM_ALLOC(sizeof(*surfaces) * surface_length);
-	new_order = MEM_ALLOC(sizeof(*surfaces) * surface_length);
+	surfaces = xcalloc(surface_length, sizeof(*surfaces));
+	new_order = xcalloc(surface_length, sizeof(*surfaces));
 
 	for (i = 0; i < surface_length; i++) {
 		ivisurf = pp_surface[i];
@@ -297,8 +290,8 @@ mode_divided_into_sidebyside(struct hmi_controller *hmi_ctrl,
 	int32_t surf_num = 0;
 	int32_t idx = 0;
 
-	surfaces = MEM_ALLOC(sizeof(*surfaces) * surface_length);
-	new_order = MEM_ALLOC(sizeof(*surfaces) * surface_length);
+	surfaces = xcalloc(surface_length, sizeof(*surfaces));
+	new_order = xcalloc(surface_length, sizeof(*surfaces));
 
 	for (i = 0; i < surface_length; i++) {
 		ivisurf = pp_surface[i];
@@ -362,7 +355,7 @@ mode_fullscreen_someone(struct hmi_controller *hmi_ctrl,
 	int32_t surf_num = 0;
 	struct ivi_layout_surface **surfaces;
 
-	surfaces = MEM_ALLOC(sizeof(*surfaces) * surface_length);
+	surfaces = xcalloc(surface_length, sizeof(*surfaces));
 
 	for (i = 0; i < surface_length; i++) {
 		ivisurf = pp_surface[i];
@@ -412,7 +405,7 @@ mode_random_replace(struct hmi_controller *hmi_ctrl,
 	int32_t i = 0;
 	int32_t layer_idx = 0;
 
-	layers = MEM_ALLOC(sizeof(*layers) * hmi_ctrl->screen_num);
+	layers = xcalloc(hmi_ctrl->screen_num, sizeof(*layers));
 
 	wl_list_for_each(application_layer, layer_list, link) {
 		layers[layer_idx] = application_layer;
@@ -689,7 +682,7 @@ set_notification_configure_desktop_surface(struct wl_listener *listener, void *d
 static struct hmi_server_setting *
 hmi_server_setting_create(struct weston_compositor *ec)
 {
-	struct hmi_server_setting *setting = MEM_ALLOC(sizeof(*setting));
+	struct hmi_server_setting *setting = xzalloc(sizeof(*setting));
 	struct weston_config *config = wet_get_config(ec);
 	struct weston_config_section *shell_section = NULL;
 	char *ivi_ui_config;
@@ -804,7 +797,7 @@ hmi_controller_create(struct weston_compositor *ec)
 		return NULL;
 	}
 
-	hmi_ctrl = MEM_ALLOC(sizeof(*hmi_ctrl));
+	hmi_ctrl = xzalloc(sizeof(*hmi_ctrl));
 	i = 0;
 
 	wl_array_init(&hmi_ctrl->ui_widgets);
@@ -817,7 +810,7 @@ hmi_controller_create(struct weston_compositor *ec)
 	/* init base ivi_layer*/
 	wl_list_init(&hmi_ctrl->base_layer_list);
 	wl_list_for_each(output, &ec->output_list, link) {
-		base_layer = MEM_ALLOC(1 * sizeof(struct hmi_controller_layer));
+		base_layer = xzalloc(sizeof(struct hmi_controller_layer));
 		base_layer->x = 0;
 		base_layer->y = 0;
 		base_layer->width = output->current_mode->width;
@@ -837,7 +830,7 @@ hmi_controller_create(struct weston_compositor *ec)
 	/* init application ivi_layer */
 	wl_list_init(&hmi_ctrl->application_layer_list);
 	wl_list_for_each(output, &ec->output_list, link) {
-		application_layer = MEM_ALLOC(1 * sizeof(struct hmi_controller_layer));
+		application_layer = xzalloc(sizeof(struct hmi_controller_layer));
 		application_layer->x = 0;
 		application_layer->y = 0;
 		application_layer->width = output->current_mode->width;
@@ -872,7 +865,7 @@ hmi_controller_create(struct weston_compositor *ec)
 
 
 	wl_list_init(&hmi_ctrl->workspace_fade.layer_list);
-	tmp_link_layer = MEM_ALLOC(sizeof(*tmp_link_layer));
+	tmp_link_layer = xzalloc(sizeof(*tmp_link_layer));
 	tmp_link_layer->layout_layer =
 		hmi_ctrl->workspace_background_layer.ivilayer;
 	wl_list_insert(&hmi_ctrl->workspace_fade.layer_list,
@@ -1267,7 +1260,7 @@ ivi_hmi_controller_add_launchers(struct hmi_controller *hmi_ctrl,
 	hmi_ctrl->interface->layer_set_visibility(hmi_ctrl->workspace_layer.ivilayer,
 					false);
 
-	tmp_link_layer = MEM_ALLOC(sizeof(*tmp_link_layer));
+	tmp_link_layer = xzalloc(sizeof(*tmp_link_layer));
 	tmp_link_layer->layout_layer = hmi_ctrl->workspace_layer.ivilayer;
 	wl_list_insert(&hmi_ctrl->workspace_fade.layer_list,
 		       &tmp_link_layer->link);
@@ -1756,7 +1749,7 @@ create_workspace_pointer_move(struct weston_pointer *pointer,
 			      struct wl_resource* resource)
 {
 	struct pointer_move_grab *pnt_move_grab =
-		MEM_ALLOC(sizeof(*pnt_move_grab));
+		xzalloc(sizeof(*pnt_move_grab));
 
 	pnt_move_grab->base.resource = resource;
 	move_grab_init_workspace(&pnt_move_grab->move, pointer->grab_x,
@@ -1770,7 +1763,7 @@ create_workspace_touch_move(struct weston_touch *touch,
 			    struct wl_resource* resource)
 {
 	struct touch_move_grab *tch_move_grab =
-		MEM_ALLOC(sizeof(*tch_move_grab));
+		xzalloc(sizeof(*tch_move_grab));
 
 	tch_move_grab->base.resource = resource;
 	tch_move_grab->is_active = 1;
