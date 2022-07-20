@@ -307,8 +307,6 @@ There are still many more details to be decided.
 For packagers
 -------------
 
-Always build Weston with --with-cairo=image.
-
 The Weston project is (will be) intended to be split into several
 binary packages, each with its own dependencies. The maximal split
 would be roughly like this:
