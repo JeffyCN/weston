@@ -41,7 +41,6 @@
 #include <linux/input.h>
 
 struct pixman_output_state {
-	void *shadow_buffer;
 	pixman_image_t *shadow_image;
 	pixman_image_t *hw_buffer;
 	pixman_region32_t *hw_extra_damage;
@@ -951,19 +950,11 @@ pixman_renderer_output_create(struct weston_output *output,
 		w = output->current_mode->width;
 		h = output->current_mode->height;
 
-		po->shadow_buffer = malloc(w * h * 4);
-
-		if (!po->shadow_buffer) {
-			free(po);
-			return -1;
-		}
-
 		po->shadow_image =
-			pixman_image_create_bits(PIXMAN_x8r8g8b8, w, h,
-						 po->shadow_buffer, w * 4);
+			pixman_image_create_bits_no_clear(PIXMAN_x8r8g8b8,
+							  w, h, NULL, 0);
 
 		if (!po->shadow_image) {
-			free(po->shadow_buffer);
 			free(po);
 			return -1;
 		}
@@ -985,9 +976,6 @@ pixman_renderer_output_destroy(struct weston_output *output)
 	if (po->hw_buffer)
 		pixman_image_unref(po->hw_buffer);
 
-	free(po->shadow_buffer);
-
-	po->shadow_buffer = NULL;
 	po->shadow_image = NULL;
 	po->hw_buffer = NULL;
 
