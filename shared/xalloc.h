@@ -36,8 +36,6 @@ extern "C" {
 #include <unistd.h>
 #include <string.h>
 
-#include <libweston/zalloc.h>
-
 static inline void *
 abort_oom_if_null(void *p)
 {
@@ -54,7 +52,7 @@ abort_oom_if_null(void *p)
 }
 
 #define xmalloc(s) (abort_oom_if_null(malloc(s)))
-#define xzalloc(s) (abort_oom_if_null(zalloc(s)))
+#define xzalloc(s) (abort_oom_if_null(calloc(1, s)))
 #define xcalloc(n, s) (abort_oom_if_null(calloc(n, s)))
 #define xstrdup(s) (abort_oom_if_null(strdup(s)))
 #define xrealloc(p, s) (abort_oom_if_null(realloc(p, s)))
