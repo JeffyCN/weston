@@ -70,7 +70,6 @@ struct headless_output {
 
 	struct weston_mode mode;
 	struct wl_event_source *finish_frame_timer;
-	uint32_t *image_buf;
 	pixman_image_t *image;
 };
 
@@ -165,7 +164,6 @@ headless_output_disable_pixman(struct headless_output *output)
 {
 	pixman_renderer_output_destroy(&output->base);
 	pixman_image_unref(output->image);
-	free(output->image_buf);
 }
 
 static int
@@ -237,16 +235,13 @@ headless_output_enable_pixman(struct headless_output *output)
 		.use_shadow = true,
 	};
 
-	output->image_buf = malloc(output->base.current_mode->width *
-				   output->base.current_mode->height * 4);
-	if (!output->image_buf)
+	output->image =
+		pixman_image_create_bits_no_clear(PIXMAN_x8r8g8b8,
+						  output->base.current_mode->width,
+						  output->base.current_mode->height,
+						  NULL, 0);
+	if (!output->image)
 		return -1;
-
-	output->image = pixman_image_create_bits(PIXMAN_x8r8g8b8,
-						 output->base.current_mode->width,
-						 output->base.current_mode->height,
-						 output->image_buf,
-						 output->base.current_mode->width * 4);
 
 	if (pixman_renderer_output_create(&output->base, &options) < 0)
 		goto err_renderer;
@@ -257,7 +252,6 @@ headless_output_enable_pixman(struct headless_output *output)
 
 err_renderer:
 	pixman_image_unref(output->image);
-	free(output->image_buf);
 
 	return -1;
 }
