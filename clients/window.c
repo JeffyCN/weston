@@ -5081,14 +5081,14 @@ window_create(struct display *display)
 		window->xdg_surface =
 			xdg_wm_base_get_xdg_surface(window->display->xdg_shell,
 						    window->main_surface->surface);
-		fail_on_null(window->xdg_surface, 0, __FILE__, __LINE__);
+		abort_oom_if_null(window->xdg_surface);
 
 		xdg_surface_add_listener(window->xdg_surface,
 					 &xdg_surface_listener, window);
 
 		window->xdg_toplevel =
 			xdg_surface_get_toplevel(window->xdg_surface);
-		fail_on_null(window->xdg_toplevel, 0, __FILE__, __LINE__);
+		abort_oom_if_null(window->xdg_toplevel);
 
 		xdg_toplevel_add_listener(window->xdg_toplevel,
 					  &xdg_toplevel_listener, window);
@@ -5293,7 +5293,7 @@ create_menu(struct display *display,
 	menu->widget = window_add_widget(menu->window, menu);
 	menu->frame = frame_create(window->display->theme, 0, 0,
 	                           FRAME_BUTTON_NONE, NULL, NULL);
-	fail_on_null(menu->frame, 0, __FILE__, __LINE__);
+	abort_oom_if_null(menu->frame);
 	menu->entries = entries;
 	menu->count = count;
 	menu->release_count = 0;
@@ -5327,7 +5327,7 @@ create_simple_positioner(struct display *display,
 	struct xdg_positioner *positioner;
 
 	positioner = xdg_wm_base_create_positioner(display->xdg_shell);
-	fail_on_null(positioner, 0, __FILE__, __LINE__);
+	abort_oom_if_null(positioner);
 	xdg_positioner_set_anchor_rect(positioner, x, y, 1, 1);
 	xdg_positioner_set_size(positioner, w, h);
 	xdg_positioner_set_anchor(positioner,
@@ -5372,7 +5372,7 @@ window_show_menu(struct display *display,
 	window->xdg_surface =
 		xdg_wm_base_get_xdg_surface(display->xdg_shell,
 					    window->main_surface->surface);
-	fail_on_null(window->xdg_surface, 0, __FILE__, __LINE__);
+	abort_oom_if_null(window->xdg_surface);
 
 	xdg_surface_add_listener(window->xdg_surface,
 				 &xdg_surface_listener, window);
@@ -5385,7 +5385,7 @@ window_show_menu(struct display *display,
 	window->xdg_popup = xdg_surface_get_popup(window->xdg_surface,
 						  parent->xdg_surface,
 						  positioner);
-	fail_on_null(window->xdg_popup, 0, __FILE__, __LINE__);
+	abort_oom_if_null(window->xdg_popup);
 	xdg_positioner_destroy(positioner);
 	xdg_popup_grab(window->xdg_popup, input->seat,
 		       display_get_serial(window->display));
