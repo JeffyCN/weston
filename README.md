@@ -18,6 +18,12 @@ bugs and shortcomings, we avoid unknown or variable behaviour as much as
 possible, including variable performance such as occasional spikes in frame
 display time.
 
+Weston and libweston are not suitable for memory constrained environments
+where the compositor is expected to continue running even in the face of
+trivial memory allocations failing. If standard functions like `malloc()`
+fail for small allocations,
+[you can expect libweston to abort](https://gitlab.freedesktop.org/wayland/weston/-/issues/631).
+
 A small suite of example or demo clients are also provided: though they can be
 useful in themselves, their main purpose is to be an example or test case for
 others building compositors or clients.

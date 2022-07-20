@@ -208,6 +208,10 @@ my_function(void)
                                              parameter3, parameter4);
 ```
 
+- do not write fallback paths for failed simple memory allocations, use the
+  `x*alloc()` wrappers from `shared/xalloc.h` instead or use
+  `abort_oom_if_null()`
+
 Conduct
 =======
 
