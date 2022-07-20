@@ -75,11 +75,9 @@ create_shm_buffer(struct touch *touch)
 	struct wl_shm_pool *pool;
 	int fd, size, stride;
 	void *data;
-	struct buffer *buffer = NULL;
+	struct buffer *buffer;
 
-	buffer = zalloc(sizeof(*buffer));
-	if (!buffer)
-		return NULL;
+	buffer = xzalloc(sizeof(*buffer));
 
 	stride = touch->width * 4;
 	size = stride * touch->height;
