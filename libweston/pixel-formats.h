@@ -191,6 +191,19 @@ const struct pixel_format_info *
 pixel_format_get_info_by_drm_name(const char *drm_format_name);
 
 /**
+ * Get pixel format information for a Pixman format code
+ *
+ * Given a Pixman format code, return a pixel format info structure describing
+ * the properties of that format.
+ *
+ * @param pixman_format Pixman format code to get info for
+ * @returns A pixel format structure (must not be freed), or NULL if the
+ *          format could not be found
+ */
+const struct pixel_format_info *
+pixel_format_get_info_by_pixman(pixman_format_code_t pixman_format);
+
+/**
  * Get number of planes used by a pixel format
  *
  * Given a pixel format info structure, return the number of planes

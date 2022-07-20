@@ -636,6 +636,19 @@ pixel_format_get_info_by_drm_name(const char *drm_format_name)
 	return NULL;
 }
 
+WL_EXPORT const struct pixel_format_info *
+pixel_format_get_info_by_pixman(pixman_format_code_t pixman_format)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_LENGTH(pixel_format_table); i++) {
+		if (pixel_format_table[i].pixman_format == pixman_format)
+			return &pixel_format_table[i];
+	}
+
+	return NULL;
+}
+
 WL_EXPORT unsigned int
 pixel_format_get_plane_count(const struct pixel_format_info *info)
 {
