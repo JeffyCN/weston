@@ -35,9 +35,11 @@
 #include "pixman-renderer.h"
 #include "color.h"
 #include "pixel-formats.h"
+#include "output-capture.h"
 #include "shared/helpers.h"
 #include "shared/signal.h"
 #include "shared/weston-drm-fourcc.h"
+#include "shared/xalloc.h"
 
 #include <linux/input.h>
 
@@ -45,6 +47,7 @@ struct pixman_output_state {
 	pixman_image_t *shadow_image;
 	const struct pixel_format_info *shadow_format;
 	pixman_image_t *hw_buffer;
+	const struct pixel_format_info *hw_format;
 	pixman_region32_t *hw_extra_damage;
 	struct weston_size fb_size;
 };
@@ -579,6 +582,63 @@ copy_to_hw_buffer(struct weston_output *output, pixman_region32_t *region)
 }
 
 static void
+pixman_renderer_do_capture(struct weston_buffer *into, pixman_image_t *from)
+{
+	struct wl_shm_buffer *shm = into->shm_buffer;
+	pixman_image_t *dest;
+
+	assert(into->type == WESTON_BUFFER_SHM);
+	assert(shm);
+
+	wl_shm_buffer_begin_access(shm);
+
+	dest = pixman_image_create_bits(into->pixel_format->pixman_format,
+					into->width, into->height,
+					wl_shm_buffer_get_data(shm),
+					wl_shm_buffer_get_stride(shm));
+	abort_oom_if_null(dest);
+
+	pixman_image_composite32(PIXMAN_OP_SRC, from, NULL /* mask */, dest,
+				 0, 0, /* src_x, src_y */
+				 0, 0, /* mask_x, mask_y */
+				 0, 0, /* dest_x, dest_y */
+				 into->width, into->height);
+
+	pixman_image_unref(dest);
+
+	wl_shm_buffer_end_access(shm);
+}
+
+static void
+pixman_renderer_do_capture_tasks(struct weston_output *output,
+				 enum weston_output_capture_source source,
+				 pixman_image_t *from,
+				 const struct pixel_format_info *pfmt)
+{
+	int width = pixman_image_get_width(from);
+	int height = pixman_image_get_height(from);
+	struct weston_capture_task *ct;
+
+	while ((ct = weston_output_pull_capture_task(output, source,
+						     width, height,
+						     pfmt))) {
+		struct weston_buffer *buffer = weston_capture_task_get_buffer(ct);
+
+		assert(buffer->width == width);
+		assert(buffer->height == height);
+		assert(buffer->pixel_format->format == pfmt->format);
+
+		if (buffer->type != WESTON_BUFFER_SHM) {
+			weston_capture_task_retire_failed(ct, "pixman: unsupported buffer");
+			continue;
+		}
+
+		pixman_renderer_do_capture(buffer, from);
+		weston_capture_task_retire_complete(ct);
+	}
+}
+
+static void
 pixman_renderer_repaint_output(struct weston_output *output,
 			       pixman_region32_t *output_damage)
 {
@@ -604,10 +664,16 @@ pixman_renderer_repaint_output(struct weston_output *output,
 
 	if (po->shadow_image) {
 		repaint_surfaces(output, output_damage);
+		pixman_renderer_do_capture_tasks(output,
+						 WESTON_OUTPUT_CAPTURE_SOURCE_BLENDING,
+						 po->shadow_image, po->shadow_format);
 		copy_to_hw_buffer(output, &hw_damage);
 	} else {
 		repaint_surfaces(output, &hw_damage);
 	}
+	pixman_renderer_do_capture_tasks(output,
+					 WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
+					 po->hw_buffer, po->hw_format);
 	pixman_region32_fini(&hw_damage);
 
 	wl_signal_emit(&output->frame_signal, output_damage);
@@ -866,6 +932,18 @@ pixman_renderer_resize_output(struct weston_output *output,
 
 	po->fb_size = *fb_size;
 
+	/*
+	 * Have a hw_format only after the first call to
+	 * pixman_renderer_output_set_buffer().
+	 */
+	if (po->hw_format) {
+		weston_output_update_capture_info(output,
+						  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
+						  po->fb_size.width,
+						  po->fb_size.height,
+						  po->hw_format);
+	}
+
 	if (!po->shadow_format)
 		return true;
 
@@ -876,6 +954,12 @@ pixman_renderer_resize_output(struct weston_output *output,
 		pixman_image_create_bits_no_clear(po->shadow_format->pixman_format,
 						  fb_size->width, fb_size->height,
 						  NULL, 0);
+
+	weston_output_update_capture_info(output,
+					  WESTON_OUTPUT_CAPTURE_SOURCE_BLENDING,
+					  po->fb_size.width,
+					  po->fb_size.height,
+					  po->shadow_format);
 
 	return !!po->shadow_image;
 }
@@ -955,6 +1039,7 @@ WL_EXPORT void
 pixman_renderer_output_set_buffer(struct weston_output *output,
 				  pixman_image_t *buffer)
 {
+	struct weston_compositor *compositor = output->compositor;
 	struct pixman_output_state *po = get_output_state(output);
 	pixman_format_code_t pixman_format;
 
@@ -962,15 +1047,28 @@ pixman_renderer_output_set_buffer(struct weston_output *output,
 		pixman_image_unref(po->hw_buffer);
 	po->hw_buffer = buffer;
 
-	if (po->hw_buffer) {
-		pixman_format = pixman_image_get_format(po->hw_buffer);
-		output->compositor->read_format =
-			pixel_format_get_info_by_pixman(pixman_format);
-		pixman_image_ref(po->hw_buffer);
+	if (!po->hw_buffer)
+		return;
 
-		assert(po->fb_size.width == pixman_image_get_width(po->hw_buffer));
-		assert(po->fb_size.height == pixman_image_get_height(po->hw_buffer));
-	}
+	pixman_format = pixman_image_get_format(po->hw_buffer);
+	po->hw_format = pixel_format_get_info_by_pixman(pixman_format);
+	compositor->read_format = po->hw_format;
+	assert(po->hw_format);
+
+	pixman_image_ref(po->hw_buffer);
+
+	assert(po->fb_size.width == pixman_image_get_width(po->hw_buffer));
+	assert(po->fb_size.height == pixman_image_get_height(po->hw_buffer));
+
+	/*
+	 * The size cannot change, but the format might, or we did not have
+	 * hw_format in pixman_renderer_resize_output() yet.
+	 */
+	weston_output_update_capture_info(output,
+					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
+					  po->fb_size.width,
+					  po->fb_size.height,
+					  po->hw_format);
 }
 
 WL_EXPORT void
