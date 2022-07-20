@@ -37,6 +37,7 @@
 #include <libweston/backend-headless.h>
 #include "shared/helpers.h"
 #include "linux-explicit-synchronization.h"
+#include "pixel-formats.h"
 #include "pixman-renderer.h"
 #include "renderer-gl/gl-renderer.h"
 #include "shared/weston-drm-fourcc.h"
@@ -74,7 +75,7 @@ struct headless_output {
 };
 
 static const uint32_t headless_formats[] = {
-	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XRGB8888, /* default for pixman-renderer */
 	DRM_FORMAT_ARGB8888,
 };
 
@@ -231,12 +232,15 @@ headless_output_enable_gl(struct headless_output *output)
 static int
 headless_output_enable_pixman(struct headless_output *output)
 {
+	const struct pixel_format_info *pfmt;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
 	};
 
+	pfmt = pixel_format_get_info(headless_formats[0]);
+
 	output->image =
-		pixman_image_create_bits_no_clear(PIXMAN_x8r8g8b8,
+		pixman_image_create_bits_no_clear(pfmt->pixman_format,
 						  output->base.current_mode->width,
 						  output->base.current_mode->height,
 						  NULL, 0);
