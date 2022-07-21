@@ -37,7 +37,7 @@ struct screenshooter {
 	struct weston_compositor *ec;
 	struct wl_client *client;
 	struct weston_process process;
-	struct wl_listener destroy_listener;
+	struct wl_listener compositor_destroy_listener;
 	struct weston_recorder *recorder;
 	struct wl_listener authorization;
 };
@@ -111,9 +111,10 @@ static void
 screenshooter_destroy(struct wl_listener *listener, void *data)
 {
 	struct screenshooter *shooter =
-		container_of(listener, struct screenshooter, destroy_listener);
+		container_of(listener, struct screenshooter,
+			     compositor_destroy_listener);
 
-	wl_list_remove(&shooter->destroy_listener.link);
+	wl_list_remove(&shooter->compositor_destroy_listener.link);
 	wl_list_remove(&shooter->authorization.link);
 
 	free(shooter);
@@ -135,8 +136,9 @@ screenshooter_create(struct weston_compositor *ec)
 	weston_compositor_add_key_binding(ec, KEY_R, MODIFIER_SUPER,
 					  recorder_binding, shooter);
 
-	shooter->destroy_listener.notify = screenshooter_destroy;
-	wl_signal_add(&ec->destroy_signal, &shooter->destroy_listener);
+	shooter->compositor_destroy_listener.notify = screenshooter_destroy;
+	wl_signal_add(&ec->destroy_signal,
+		      &shooter->compositor_destroy_listener);
 
 	weston_compositor_add_screenshot_authority(ec, &shooter->authorization,
 						   authorize_screenshooter);
