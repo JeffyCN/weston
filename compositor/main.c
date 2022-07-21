@@ -387,17 +387,14 @@ cleanup_for_child_process() {
 	sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
 }
 
-WL_EXPORT struct wl_client *
+WL_EXPORT bool
 weston_client_launch(struct weston_compositor *compositor,
 		     struct weston_process *proc,
-		     const char *path,
+		     struct custom_env *child_env,
+		     int *no_cloexec_fds,
+		     size_t num_no_cloexec_fds,
 		     weston_process_cleanup_func_t cleanup)
 {
-	struct wl_client *client = NULL;
-	struct custom_env child_env;
-	struct fdstr wayland_socket = FDSTR_INIT;
-	int no_cloexec_fds[1];
-	size_t num_no_cloexec_fds = 0;
 	const char *fail_cloexec = "Couldn't unset CLOEXEC on child FDs";
 	const char *fail_seteuid = "Couldn't call seteuid";
 	char *fail_exec;
@@ -405,32 +402,15 @@ weston_client_launch(struct weston_compositor *compositor,
 	char * const *envp;
 	pid_t pid;
 	int err;
+	bool ret;
 	size_t i;
 	size_t written __attribute__((unused));
 
-	weston_log("launching '%s'\n", path);
-	str_printf(&fail_exec, "Error: Couldn't launch client '%s'\n", path);
+	argp = custom_env_get_argp(child_env);
+	envp = custom_env_get_envp(child_env);
 
-	custom_env_init_from_environ(&child_env);
-	custom_env_add_from_exec_string(&child_env, path);
-
-	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
-				  wayland_socket.fds) < 0) {
-		weston_log("weston_client_launch: "
-			   "socketpair failed while launching '%s': %s\n",
-			   path, strerror(errno));
-		custom_env_fini(&child_env);
-		return NULL;
-	}
-	fdstr_update_str1(&wayland_socket);
-	no_cloexec_fds[num_no_cloexec_fds++] = wayland_socket.fds[1];
-	custom_env_set_env_var(&child_env, "WAYLAND_SOCKET",
-			       wayland_socket.str1);
-
-	argp = custom_env_get_argp(&child_env);
-	envp = custom_env_get_envp(&child_env);
-
-	assert(num_no_cloexec_fds <= ARRAY_LENGTH(no_cloexec_fds));
+	weston_log("launching '%s'\n", argp[0]);
+	str_printf(&fail_exec, "Error: Couldn't launch client '%s'\n", argp[0]);
 
 	pid = fork();
 	switch (pid) {
@@ -461,36 +441,23 @@ weston_client_launch(struct weston_compositor *compositor,
 		_exit(EXIT_FAILURE);
 
 	default:
-		close(wayland_socket.fds[1]);
-		client = wl_client_create(compositor->wl_display,
-					  wayland_socket.fds[0]);
-		if (!client) {
-			custom_env_fini(&child_env);
-			close(wayland_socket.fds[0]);
-			free(fail_exec);
-			weston_log("weston_client_launch: "
-				"wl_client_create failed while launching '%s'.\n",
-				path);
-			return NULL;
-		}
-
 		proc->pid = pid;
 		proc->cleanup = cleanup;
 		wet_watch_process(compositor, proc);
+		ret = true;
 		break;
 
 	case -1:
-		fdstr_close_all(&wayland_socket);
 		weston_log("weston_client_launch: "
-			   "fork failed while launching '%s': %s\n", path,
+			   "fork failed while launching '%s': %s\n", argp[0],
 			   strerror(errno));
+		ret = false;
 		break;
 	}
 
-	custom_env_fini(&child_env);
+	custom_env_fini(child_env);
 	free(fail_exec);
-
-	return client;
+	return ret;
 }
 
 WL_EXPORT void
@@ -536,6 +503,11 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 {
 	struct process_info *pinfo;
 	struct wl_client *client;
+	struct custom_env child_env;
+	struct fdstr wayland_socket = FDSTR_INIT;
+	int no_cloexec_fds[1];
+	size_t num_no_cloexec_fds = 0;
+	bool ret;
 
 	pinfo = zalloc(sizeof *pinfo);
 	if (!pinfo)
@@ -545,18 +517,51 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 	if (!pinfo->path)
 		goto out_free;
 
-	client = weston_client_launch(compositor, &pinfo->proc, path,
-				      process_handle_sigchld);
-	if (!client)
-		goto out_str;
+	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
+				  wayland_socket.fds) < 0) {
+		weston_log("weston_client_start: "
+			   "socketpair failed while launching '%s': %s\n",
+			   path, strerror(errno));
+		goto out_path;
+	}
+
+	custom_env_init_from_environ(&child_env);
+	custom_env_add_from_exec_string(&child_env, path);
+
+	fdstr_update_str1(&wayland_socket);
+	no_cloexec_fds[num_no_cloexec_fds++] = wayland_socket.fds[1];
+	custom_env_set_env_var(&child_env, "WAYLAND_SOCKET",
+			       wayland_socket.str1);
+
+	assert(num_no_cloexec_fds <= ARRAY_LENGTH(no_cloexec_fds));
+
+	ret = weston_client_launch(compositor, &pinfo->proc, &child_env,
+				   no_cloexec_fds, num_no_cloexec_fds,
+				   process_handle_sigchld);
+	if (!ret)
+		goto out_path;
+
+	client = wl_client_create(compositor->wl_display,
+				  wayland_socket.fds[0]);
+	if (!client) {
+		weston_log("weston_client_start: "
+			"wl_client_create failed while launching '%s'.\n",
+			path);
+		/* We have no way of killing the process, so leave it hanging */
+		goto out_sock;
+	}
+
+	/* Close the child end of our socket which we no longer need */
+	close(wayland_socket.fds[1]);
 
 	return client;
 
-out_str:
+out_path:
 	free(pinfo->path);
-
 out_free:
 	free(pinfo);
+out_sock:
+	fdstr_close_all(&wayland_socket);
 
 	return NULL;
 }

@@ -46,10 +46,14 @@ struct weston_process {
 	struct wl_list link;
 };
 
-struct wl_client *
+struct custom_env;
+
+bool
 weston_client_launch(struct weston_compositor *compositor,
 		     struct weston_process *proc,
-		     const char *path,
+		     struct custom_env *custom_env,
+		     int *fds_no_cloexec,
+		     size_t num_fds_no_cloexec,
 		     weston_process_cleanup_func_t cleanup);
 
 struct wl_client *
