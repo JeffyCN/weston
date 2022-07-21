@@ -36,17 +36,18 @@
 struct screenshooter {
 	struct weston_compositor *ec;
 	struct wl_client *client;
-	struct weston_process process;
+	struct wl_listener client_destroy_listener;
 	struct wl_listener compositor_destroy_listener;
 	struct weston_recorder *recorder;
 	struct wl_listener authorization;
 };
 
 static void
-screenshooter_sigchld(struct weston_process *process, int status)
+screenshooter_client_destroy(struct wl_listener *listener, void *data)
 {
 	struct screenshooter *shooter =
-		container_of(process, struct screenshooter, process);
+		container_of(listener, struct screenshooter,
+			     client_destroy_listener);
 
 	shooter->client = NULL;
 }
@@ -68,11 +69,16 @@ screenshooter_binding(struct weston_keyboard *keyboard,
 		return;
 	}
 
-	if (!shooter->client)
-		shooter->client = weston_client_launch(shooter->ec,
-					&shooter->process,
-					screenshooter_exe, screenshooter_sigchld);
+	shooter->client = weston_client_start(shooter->ec,
+					      screenshooter_exe);
 	free(screenshooter_exe);
+
+	if (!shooter->client)
+		return;
+
+	shooter->client_destroy_listener.notify = screenshooter_client_destroy;
+	wl_client_add_destroy_listener(shooter->client,
+				       &shooter->client_destroy_listener);
 }
 
 static void
