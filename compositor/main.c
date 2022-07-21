@@ -355,10 +355,9 @@ sigchld_handler(int signal_number, void *data)
 				break;
 		}
 
-		if (&p->link == &wet->child_process_list) {
-			weston_log("unknown child process exited\n");
+		/* An unknown child process exited. Oh well. */
+		if (&p->link == &wet->child_process_list)
 			continue;
-		}
 
 		wl_list_remove(&p->link);
 		wl_list_init(&p->link);
