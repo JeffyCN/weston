@@ -120,13 +120,13 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, x11_wm_socket.fds) < 0) {
 		weston_log("X wm connection socketpair failed\n");
-		return 1;
+		goto err_wayland_socket;
 	}
 	fdstr_update_str1(&x11_wm_socket);
 
 	if (pipe2(display_pipe.fds, O_CLOEXEC) < 0) {
 		weston_log("pipe creation for displayfd failed\n");
-		return 1;
+		goto err_x11_wm_socket;
 	}
 	fdstr_update_str1(&display_pipe);
 
@@ -217,6 +217,12 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	free(xserver);
 
 	return pid;
+
+err_x11_wm_socket:
+	fdstr_close_all(&x11_wm_socket);
+err_wayland_socket:
+	fdstr_close_all(&wayland_socket);
+	return -1;
 }
 
 static void
