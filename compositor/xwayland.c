@@ -106,32 +106,44 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	struct weston_config_section *section;
 	struct wl_event_loop *loop;
 	char *exec_failure_msg;
+	const char *cloexec_failure_msg = "Couldn't unset CLOEXEC on child FDs";
 	struct custom_env child_env;
+	int no_cloexec_fds[5];
+	size_t num_no_cloexec_fds = 0;
+	size_t i;
 	char *const *envp;
 	char *const *argp;
-	bool ret;
+	int ret;
 	size_t written __attribute__ ((unused));
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, wayland_socket.fds) < 0) {
 		weston_log("wl connection socketpair failed\n");
-		return 1;
+		return -1;
 	}
 	fdstr_update_str1(&wayland_socket);
+	no_cloexec_fds[num_no_cloexec_fds++] = wayland_socket.fds[1];
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, x11_wm_socket.fds) < 0) {
 		weston_log("X wm connection socketpair failed\n");
 		goto err_wayland_socket;
 	}
 	fdstr_update_str1(&x11_wm_socket);
+	no_cloexec_fds[num_no_cloexec_fds++] = x11_wm_socket.fds[1];
 
 	if (pipe2(display_pipe.fds, O_CLOEXEC) < 0) {
 		weston_log("pipe creation for displayfd failed\n");
 		goto err_x11_wm_socket;
 	}
 	fdstr_update_str1(&display_pipe);
+	no_cloexec_fds[num_no_cloexec_fds++] = display_pipe.fds[1];
 
 	fdstr_set_fd1(&x11_abstract_socket, abstract_fd);
+	no_cloexec_fds[num_no_cloexec_fds++] = abstract_fd;
+
 	fdstr_set_fd1(&x11_unix_socket, unix_fd);
+	no_cloexec_fds[num_no_cloexec_fds++] = unix_fd;
+
+	assert(num_no_cloexec_fds <= ARRAY_LENGTH(no_cloexec_fds));
 
 	section = weston_config_get_section(config, "xwayland", NULL, NULL);
 	weston_config_section_get_string(section, "path",
@@ -161,15 +173,15 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	switch (pid) {
 	case 0:
 		setsid();
-		/* SOCK_CLOEXEC closes both ends, so we need to unset
-		 * the flag on the client fd. */
-		ret = fdstr_clear_cloexec_fd1(&wayland_socket);
-		ret &= fdstr_clear_cloexec_fd1(&x11_abstract_socket);
-		ret &= fdstr_clear_cloexec_fd1(&x11_unix_socket);
-		ret &= fdstr_clear_cloexec_fd1(&x11_wm_socket);
-		ret &= fdstr_clear_cloexec_fd1(&display_pipe);
-		if (!ret)
-			_exit(EXIT_FAILURE);
+
+		for (i = 0; i < num_no_cloexec_fds; i++) {
+			ret = os_fd_clear_cloexec(no_cloexec_fds[i]);
+			if (ret < 0) {
+				write(STDERR_FILENO, cloexec_failure_msg,
+				      strlen(cloexec_failure_msg));
+				_exit(EXIT_FAILURE);
+			}
+		}
 
 		execve(xserver, argp, envp);
 		/* execve does not return on success, so it failed */
