@@ -58,6 +58,9 @@ screenshooter_binding(struct weston_keyboard *keyboard,
 	struct screenshooter *shooter = data;
 	char *screenshooter_exe;
 
+	/* Don't start a screenshot whilst we already have one in progress */
+	if (shooter->client)
+		return;
 
 	screenshooter_exe = wet_get_bindir_path("weston-screenshooter");
 	if (!screenshooter_exe) {
