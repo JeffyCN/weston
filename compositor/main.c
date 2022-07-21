@@ -396,13 +396,16 @@ weston_client_launch(struct weston_compositor *compositor,
 	struct wl_client *client = NULL;
 	struct custom_env child_env;
 	struct fdstr wayland_socket = FDSTR_INIT;
-	const char *fail_cloexec = "Couldn't unset CLOEXEC on client socket";
+	int no_cloexec_fds[1];
+	size_t num_no_cloexec_fds = 0;
+	const char *fail_cloexec = "Couldn't unset CLOEXEC on child FDs";
 	const char *fail_seteuid = "Couldn't call seteuid";
 	char *fail_exec;
 	char * const *argp;
 	char * const *envp;
 	pid_t pid;
-	bool ret;
+	int err;
+	size_t i;
 	size_t written __attribute__((unused));
 
 	weston_log("launching '%s'\n", path);
@@ -420,11 +423,14 @@ weston_client_launch(struct weston_compositor *compositor,
 		return NULL;
 	}
 	fdstr_update_str1(&wayland_socket);
+	no_cloexec_fds[num_no_cloexec_fds++] = wayland_socket.fds[1];
 	custom_env_set_env_var(&child_env, "WAYLAND_SOCKET",
 			       wayland_socket.str1);
 
 	argp = custom_env_get_argp(&child_env);
 	envp = custom_env_get_envp(&child_env);
+
+	assert(num_no_cloexec_fds <= ARRAY_LENGTH(no_cloexec_fds));
 
 	pid = fork();
 	switch (pid) {
@@ -438,11 +444,13 @@ weston_client_launch(struct weston_compositor *compositor,
 			_exit(EXIT_FAILURE);
 		}
 
-		ret = fdstr_clear_cloexec_fd1(&wayland_socket);
-		if (!ret) {
-			written = write(STDERR_FILENO, fail_cloexec,
-					strlen(fail_cloexec));
-			_exit(EXIT_FAILURE);
+		for (i = 0; i < num_no_cloexec_fds; i++) {
+			err = os_fd_clear_cloexec(no_cloexec_fds[i]);
+			if (err < 0) {
+				written = write(STDERR_FILENO, fail_cloexec,
+						strlen(fail_cloexec));
+				_exit(EXIT_FAILURE);
+			}
 		}
 
 		execve(argp[0], argp, envp);
