@@ -41,6 +41,7 @@
  */
 
 #include <libweston/libweston.h>
+#include <assert.h>
 #include "color.h"
 
 /* compositor <-> renderer interface */
@@ -52,6 +53,15 @@ struct weston_renderer {
 			   uint32_t width, uint32_t height);
 	void (*repaint_output)(struct weston_output *output,
 			       pixman_region32_t *output_damage);
+
+	/** See weston_renderer_resize_output()
+	 *
+	 * \return True for success, false for leaving the output in a mess.
+	 */
+	bool (*resize_output)(struct weston_output *output,
+			      const struct weston_size *fb_size,
+			      const struct weston_geometry *area);
+
 	void (*flush_damage)(struct weston_surface *surface,
 			     struct weston_buffer *buffer);
 	void (*attach)(struct weston_surface *es, struct weston_buffer *buffer);
@@ -73,6 +83,28 @@ struct weston_renderer {
 	bool (*fill_buffer_info)(struct weston_compositor *ec,
 				 struct weston_buffer *buffer);
 };
+
+void
+weston_renderer_resize_output(struct weston_output *output,
+			      const struct weston_size *fb_size,
+			      const struct weston_geometry *area);
+
+static inline void
+check_compositing_area(const struct weston_size *fb_size,
+		       const struct weston_geometry *area)
+{
+	assert(fb_size);
+	assert(fb_size->width > 0);
+	assert(fb_size->height > 0);
+
+	assert(area);
+	assert(area->x >= 0);
+	assert(area->width > 0);
+	assert(area->x <= fb_size->width - area->width);
+	assert(area->y >= 0);
+	assert(area->height > 0);
+	assert(area->y <= fb_size->height - area->height);
+}
 
 /* weston_buffer */
 
