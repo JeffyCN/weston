@@ -235,6 +235,10 @@ headless_output_enable_pixman(struct headless_output *output)
 	const struct pixel_format_info *pfmt;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
+		.fb_size = {
+			.width = output->base.current_mode->width,
+			.height = output->base.current_mode->height
+		},
 	};
 
 	pfmt = pixel_format_get_info(headless_formats[0]);

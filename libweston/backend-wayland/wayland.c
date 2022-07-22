@@ -823,6 +823,10 @@ wayland_output_init_pixman_renderer(struct wayland_output *output)
 {
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
+		.fb_size = {
+			.width = output->base.current_mode->width,
+			.height = output->base.current_mode->height
+		},
 	};
 	return pixman_renderer_output_create(&output->base, &options);
 }

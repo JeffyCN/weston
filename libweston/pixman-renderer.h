@@ -35,6 +35,8 @@ pixman_renderer_init(struct weston_compositor *ec);
 struct pixman_renderer_output_options {
 	/** Composite into a shadow buffer, copying to the hardware buffer */
 	bool use_shadow;
+	/** Initial framebuffer size */
+	struct weston_size fb_size;
 };
 
 int

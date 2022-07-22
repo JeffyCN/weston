@@ -859,6 +859,10 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	if (b->use_pixman) {
 		const struct pixman_renderer_output_options options = {
 			.use_shadow = true,
+			.fb_size = {
+				.width = output->base.current_mode->width,
+				.height = output->base.current_mode->height
+			},
 		};
 		pixman_renderer_output_destroy(&output->base);
 		x11_output_deinit_shm(b, output);
@@ -1049,6 +1053,10 @@ x11_output_enable(struct weston_output *base)
 	if (b->use_pixman) {
 		const struct pixman_renderer_output_options options = {
 			.use_shadow = true,
+			.fb_size = {
+				.width = mode->width,
+				.height = mode->height
+			},
 		};
 		if (x11_output_init_shm(b, output,
 					mode->width, mode->height) < 0) {

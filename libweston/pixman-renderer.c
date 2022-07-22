@@ -986,12 +986,8 @@ pixman_renderer_output_create(struct weston_output *output,
 	struct weston_geometry area = {
 		.x = 0,
 		.y = 0,
-		.width = output->current_mode->width,
-		.height = output->current_mode->height
-	};
-	struct weston_size fb_size = {
-		.width = area.width,
-		.height = area.height
+		.width = options->fb_size.width,
+		.height = options->fb_size.height
 	};
 
 	po = zalloc(sizeof *po);
@@ -1003,7 +999,7 @@ pixman_renderer_output_create(struct weston_output *output,
 	if (options->use_shadow)
 		po->shadow_format = pixel_format_get_info(DRM_FORMAT_XRGB8888);
 
-	if (!pixman_renderer_resize_output(output, &fb_size, &area)) {
+	if (!pixman_renderer_resize_output(output, &options->fb_size, &area)) {
 		output->renderer_state = NULL;
 		free(po);
 		return -1;
