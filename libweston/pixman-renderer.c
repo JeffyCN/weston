@@ -839,6 +839,25 @@ pixman_renderer_surface_copy_content(struct weston_surface *surface,
 	return 0;
 }
 
+static bool
+pixman_renderer_resize_output(struct weston_output *output,
+			      const struct weston_size *fb_size,
+			      const struct weston_geometry *area)
+{
+	check_compositing_area(fb_size, area);
+
+	/*
+	 * Pixman-renderer does not implement output decorations blitting,
+	 * wayland-backend does it on its own.
+	 */
+	assert(area->x == 0);
+	assert(area->y == 0);
+	assert(fb_size->width == area->width);
+	assert(fb_size->height == area->height);
+
+	return true;
+}
+
 static void
 debug_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 	      uint32_t key, void *data)
@@ -875,6 +894,7 @@ pixman_renderer_init(struct weston_compositor *ec)
 	renderer->debug_color = NULL;
 	renderer->base.read_pixels = pixman_renderer_read_pixels;
 	renderer->base.repaint_output = pixman_renderer_repaint_output;
+	renderer->base.resize_output = pixman_renderer_resize_output;
 	renderer->base.flush_damage = pixman_renderer_flush_damage;
 	renderer->base.attach = pixman_renderer_attach;
 	renderer->base.destroy = pixman_renderer_destroy;

@@ -886,6 +886,7 @@ wayland_output_resize_surface(struct wayland_output *output)
 	if (output->gl.egl_window) {
 		wl_egl_window_resize(output->gl.egl_window,
 				     fb_size.width, fb_size.height, 0, 0);
+		weston_renderer_resize_output(&output->base, &fb_size, &area);
 
 		/* These will need to be re-created due to the resize */
 		gl_renderer->output_set_border(&output->base,
@@ -908,8 +909,19 @@ wayland_output_resize_surface(struct wayland_output *output)
 					       0, 0, 0, NULL);
 		cairo_surface_destroy(output->gl.border.bottom);
 		output->gl.border.bottom = NULL;
-	}
+	} else
 #endif
+	{
+		/*
+		 * Pixman-renderer never knows about decorations, we blit them
+		 * ourselves.
+		 */
+		struct weston_size pm_size = {
+			.width = area.width,
+			.height = area.height
+		};
+		weston_renderer_resize_output(&output->base, &pm_size, NULL);
+	}
 
 	wayland_output_destroy_shm_buffers(output);
 }
