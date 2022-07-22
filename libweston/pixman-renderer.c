@@ -37,11 +37,13 @@
 #include "pixel-formats.h"
 #include "shared/helpers.h"
 #include "shared/signal.h"
+#include "shared/weston-drm-fourcc.h"
 
 #include <linux/input.h>
 
 struct pixman_output_state {
 	pixman_image_t *shadow_image;
+	const struct pixel_format_info *shadow_format;
 	pixman_image_t *hw_buffer;
 	pixman_region32_t *hw_extra_damage;
 };
@@ -848,6 +850,8 @@ pixman_renderer_resize_output(struct weston_output *output,
 			      const struct weston_size *fb_size,
 			      const struct weston_geometry *area)
 {
+	struct pixman_output_state *po = get_output_state(output);
+
 	check_compositing_area(fb_size, area);
 
 	/*
@@ -859,7 +863,20 @@ pixman_renderer_resize_output(struct weston_output *output,
 	assert(fb_size->width == area->width);
 	assert(fb_size->height == area->height);
 
-	return true;
+	pixman_renderer_output_set_buffer(output, NULL);
+
+	if (!po->shadow_format)
+		return true;
+
+	if (po->shadow_image)
+		pixman_image_unref(po->shadow_image);
+
+	po->shadow_image =
+		pixman_image_create_bits_no_clear(po->shadow_format->pixman_format,
+						  fb_size->width, fb_size->height,
+						  NULL, 0);
+
+	return !!po->shadow_image;
 }
 
 static void
@@ -966,28 +983,31 @@ pixman_renderer_output_create(struct weston_output *output,
 			      const struct pixman_renderer_output_options *options)
 {
 	struct pixman_output_state *po;
-	int w, h;
+	struct weston_geometry area = {
+		.x = 0,
+		.y = 0,
+		.width = output->current_mode->width,
+		.height = output->current_mode->height
+	};
+	struct weston_size fb_size = {
+		.width = area.width,
+		.height = area.height
+	};
 
 	po = zalloc(sizeof *po);
 	if (po == NULL)
 		return -1;
 
-	if (options->use_shadow) {
-		/* set shadow image transformation */
-		w = output->current_mode->width;
-		h = output->current_mode->height;
-
-		po->shadow_image =
-			pixman_image_create_bits_no_clear(PIXMAN_x8r8g8b8,
-							  w, h, NULL, 0);
-
-		if (!po->shadow_image) {
-			free(po);
-			return -1;
-		}
-	}
-
 	output->renderer_state = po;
+
+	if (options->use_shadow)
+		po->shadow_format = pixel_format_get_info(DRM_FORMAT_XRGB8888);
+
+	if (!pixman_renderer_resize_output(output, &fb_size, &area)) {
+		output->renderer_state = NULL;
+		free(po);
+		return -1;
+	}
 
 	return 0;
 }
