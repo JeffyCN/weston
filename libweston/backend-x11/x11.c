@@ -824,6 +824,7 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 {
 	struct x11_backend *b;
 	struct x11_output *output = to_x11_output(base);
+	struct weston_size fb_size;
 	static uint32_t values[2];
 	int ret;
 
@@ -853,30 +854,15 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 				     XCB_CONFIG_WINDOW_HEIGHT, values);
 	}
 
-	output->mode.width = mode->width;
-	output->mode.height = mode->height;
+	fb_size.width = output->mode.width = mode->width;
+	fb_size.height = output->mode.height = mode->height;
 
 	if (b->use_pixman) {
-		const struct pixman_renderer_output_options options = {
-			.use_shadow = true,
-			.fb_size = {
-				.width = output->base.current_mode->width,
-				.height = output->base.current_mode->height
-			},
-		};
-		pixman_renderer_output_destroy(&output->base);
+		weston_renderer_resize_output(&output->base, &fb_size, NULL);
 		x11_output_deinit_shm(b, output);
-
 		if (x11_output_init_shm(b, output,
-		                        output->base.current_mode->width,
-		                        output->base.current_mode->height) < 0) {
+					fb_size.width, fb_size.height) < 0) {
 			weston_log("Failed to initialize SHM for the X11 output\n");
-			return -1;
-		}
-
-		if (pixman_renderer_output_create(&output->base, &options) < 0) {
-			weston_log("Failed to create pixman renderer for output\n");
-			x11_output_deinit_shm(b, output);
 			return -1;
 		}
 	} else {
