@@ -46,6 +46,7 @@ struct pixman_output_state {
 	const struct pixel_format_info *shadow_format;
 	pixman_image_t *hw_buffer;
 	pixman_region32_t *hw_extra_damage;
+	struct weston_size fb_size;
 };
 
 struct pixman_surface_state {
@@ -121,8 +122,8 @@ pixman_renderer_read_pixels(struct weston_output *output,
 				 x, y, /* src_x, src_y */
 				 0, 0, /* mask_x, mask_y */
 				 0, 0, /* dest_x, dest_y */
-				 pixman_image_get_width (po->hw_buffer), /* width */
-				 pixman_image_get_height (po->hw_buffer) /* height */);
+				 po->fb_size.width, /* width */
+				 po->fb_size.height /* height */);
 
 	pixman_image_unref(out_buf);
 
@@ -383,8 +384,8 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 					 0, 0, /* src_x, src_y */
 					 0, 0, /* mask_x, mask_y */
 					 0, 0, /* dest_x, dest_y */
-					 pixman_image_get_width (target_image), /* width */
-					 pixman_image_get_height (target_image) /* height */);
+					 po->fb_size.width, /* width */
+					 po->fb_size.height /* height */);
 
 	pixman_image_set_clip_region32(target_image, NULL);
 }
@@ -573,8 +574,8 @@ copy_to_hw_buffer(struct weston_output *output, pixman_region32_t *region)
 				 0, 0, /* src_x, src_y */
 				 0, 0, /* mask_x, mask_y */
 				 0, 0, /* dest_x, dest_y */
-				 pixman_image_get_width (po->hw_buffer), /* width */
-				 pixman_image_get_height (po->hw_buffer) /* height */);
+				 po->fb_size.width, /* width */
+				 po->fb_size.height /* height */);
 
 	pixman_image_set_clip_region32 (po->hw_buffer, NULL);
 }
@@ -865,6 +866,8 @@ pixman_renderer_resize_output(struct weston_output *output,
 
 	pixman_renderer_output_set_buffer(output, NULL);
 
+	po->fb_size = *fb_size;
+
 	if (!po->shadow_format)
 		return true;
 
@@ -966,6 +969,9 @@ pixman_renderer_output_set_buffer(struct weston_output *output,
 		output->compositor->read_format =
 			pixel_format_get_info_by_pixman(pixman_format);
 		pixman_image_ref(po->hw_buffer);
+
+		assert(po->fb_size.width == pixman_image_get_width(po->hw_buffer));
+		assert(po->fb_size.height == pixman_image_get_height(po->hw_buffer));
 	}
 }
 
