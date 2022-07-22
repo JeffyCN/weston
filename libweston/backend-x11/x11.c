@@ -826,7 +826,6 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	struct x11_output *output = to_x11_output(base);
 	struct weston_size fb_size;
 	static uint32_t values[2];
-	int ret;
 
 	assert(output);
 
@@ -857,28 +856,15 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	fb_size.width = output->mode.width = mode->width;
 	fb_size.height = output->mode.height = mode->height;
 
+	weston_renderer_resize_output(&output->base, &fb_size, NULL);
+
 	if (b->use_pixman) {
-		weston_renderer_resize_output(&output->base, &fb_size, NULL);
 		x11_output_deinit_shm(b, output);
 		if (x11_output_init_shm(b, output,
 					fb_size.width, fb_size.height) < 0) {
 			weston_log("Failed to initialize SHM for the X11 output\n");
 			return -1;
 		}
-	} else {
-		Window xid = (Window) output->window;
-		const struct gl_renderer_output_options options = {
-			.window_for_legacy = (EGLNativeWindowType) (uintptr_t) output->window,
-			.window_for_platform = &xid,
-			.drm_formats = x11_formats,
-			.drm_formats_count = ARRAY_LENGTH(x11_formats),
-		};
-
-		gl_renderer->output_destroy(&output->base);
-
-		ret = gl_renderer->output_window_create(&output->base, &options);
-		if (ret < 0)
-			return -1;
 	}
 
 	output->resize_pending = false;
