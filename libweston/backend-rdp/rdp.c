@@ -345,7 +345,6 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	rdpSettings *settings;
 	pixman_image_t *new_shadow_buffer;
 	struct weston_mode *local_mode;
-	struct pixman_renderer_output_options options = { .use_shadow = true, };
 
 	assert(output);
 
@@ -363,11 +362,9 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	output->current_mode = local_mode;
 	output->current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
 
-	pixman_renderer_output_destroy(output);
-
-	options.fb_size.width = output->current_mode->width;
-	options.fb_size.height = output->current_mode->height;
-	pixman_renderer_output_create(output, &options);
+	weston_renderer_resize_output(output, &(struct weston_size){
+		.width = output->current_mode->width,
+		.height = output->current_mode->height }, NULL);
 
 	new_shadow_buffer = pixman_image_create_bits(PIXMAN_x8r8g8b8, target_mode->width,
 			target_mode->height, 0, target_mode->width * 4);
