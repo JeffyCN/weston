@@ -5803,6 +5803,33 @@ weston_output_iterate_heads(struct weston_output *output,
 	return container_of(node, struct weston_head, output_link);
 }
 
+static void
+weston_output_compute_protection(struct weston_output *output)
+{
+	struct weston_head *head;
+	enum weston_hdcp_protection op_protection;
+	bool op_protection_valid = false;
+	struct weston_compositor *wc = output->compositor;
+
+	wl_list_for_each(head, &output->head_list, output_link) {
+		if (!op_protection_valid) {
+			op_protection = head->current_protection;
+			op_protection_valid = true;
+		}
+		if (head->current_protection < op_protection)
+			op_protection = head->current_protection;
+	}
+
+	if (!op_protection_valid)
+		op_protection = WESTON_HDCP_DISABLE;
+
+	if (output->current_protection != op_protection) {
+		output->current_protection = op_protection;
+		weston_output_damage(output);
+		weston_schedule_surface_protection_update(wc);
+	}
+}
+
 /** Attach a head to an output
  *
  * \param output The output to attach to.
@@ -5841,6 +5868,8 @@ weston_output_attach_head(struct weston_output *output,
 
 	head->output = output;
 	wl_list_insert(output->head_list.prev, &head->output_link);
+
+	weston_output_compute_protection(output);
 
 	if (output->enabled) {
 		weston_head_add_global(head);
@@ -6152,33 +6181,6 @@ weston_head_set_supported_eotf_mask(struct weston_head *head,
 	head->supported_eotf_mask = eotf_mask;
 
 	weston_head_set_device_changed(head);
-}
-
-static void
-weston_output_compute_protection(struct weston_output *output)
-{
-	struct weston_head *head;
-	enum weston_hdcp_protection op_protection;
-	bool op_protection_valid = false;
-	struct weston_compositor *wc = output->compositor;
-
-	wl_list_for_each(head, &output->head_list, output_link) {
-		if (!op_protection_valid) {
-			op_protection = head->current_protection;
-			op_protection_valid = true;
-		}
-		if (head->current_protection < op_protection)
-			op_protection = head->current_protection;
-	}
-
-	if (!op_protection_valid)
-		op_protection = WESTON_HDCP_DISABLE;
-
-	if (output->current_protection != op_protection) {
-		output->current_protection = op_protection;
-		weston_output_damage(output);
-		weston_schedule_surface_protection_update(wc);
-	}
 }
 
 WL_EXPORT void
