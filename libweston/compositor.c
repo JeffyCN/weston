@@ -8865,3 +8865,30 @@ weston_output_disable_planes_decr(struct weston_output *output)
 		weston_schedule_surface_protection_update(output->compositor);
 
 }
+
+/** Tell the renderer that the target framebuffer size has changed
+ *
+ * \param output The output that was resized.
+ * \param fb_size The framebuffer size, including output decorations.
+ * \param area The composited area inside the framebuffer, excluding
+ * decorations. This can also be NULL, which means the whole fb_size is
+ * the composited area.
+ */
+WL_EXPORT void
+weston_renderer_resize_output(struct weston_output *output,
+			      const struct weston_size *fb_size,
+			      const struct weston_geometry *area)
+{
+	struct weston_renderer *r = output->compositor->renderer;
+	struct weston_geometry def = {
+		.x = 0,
+		.y = 0,
+		.width = fb_size->width,
+		.height = fb_size->height
+	};
+
+	if (!r->resize_output(output, fb_size, area ?: &def)) {
+		weston_log("Error: Resizing output '%s' failed.\n",
+			   output->name);
+	}
+}

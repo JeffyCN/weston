@@ -3260,6 +3260,15 @@ gl_renderer_output_set_border(struct weston_output *output,
 	go->border_status |= 1 << side;
 }
 
+static bool
+gl_renderer_resize_output(struct weston_output *output,
+			  const struct weston_size *fb_size,
+			  const struct weston_geometry *area)
+{
+	check_compositing_area(fb_size, area);
+	return true;
+}
+
 static int
 gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface);
 
@@ -3613,6 +3622,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	gr->base.read_pixels = gl_renderer_read_pixels;
 	gr->base.repaint_output = gl_renderer_repaint_output;
+	gr->base.resize_output = gl_renderer_resize_output;
 	gr->base.flush_damage = gl_renderer_flush_damage;
 	gr->base.attach = gl_renderer_attach;
 	gr->base.destroy = gl_renderer_destroy;

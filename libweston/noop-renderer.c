@@ -51,6 +51,15 @@ noop_renderer_repaint_output(struct weston_output *output,
 {
 }
 
+static bool
+noop_renderer_resize_output(struct weston_output *output,
+			    const struct weston_size *fb_size,
+			    const struct weston_geometry *area)
+{
+	check_compositing_area(fb_size, area);
+	return true;
+}
+
 static void
 noop_renderer_flush_damage(struct weston_surface *surface,
 			   struct weston_buffer *buffer)
@@ -124,6 +133,7 @@ noop_renderer_init(struct weston_compositor *ec)
 
 	renderer->base.read_pixels = noop_renderer_read_pixels;
 	renderer->base.repaint_output = noop_renderer_repaint_output;
+	renderer->base.resize_output = noop_renderer_resize_output;
 	renderer->base.flush_damage = noop_renderer_flush_damage;
 	renderer->base.attach = noop_renderer_attach;
 	renderer->base.destroy = noop_renderer_destroy;
