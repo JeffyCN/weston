@@ -3084,8 +3084,12 @@ output_accumulate_damage(struct weston_output *output)
 		 * later, keep_buffer is true. Otherwise, drop the core
 		 * reference now, and allow early buffer release. This enables
 		 * clients to use single-buffering.
+		 * The assumption that the backend has seen the surface only
+		 * holds for one backend, so skip this optimization when
+		 * multiple backends are involved.
 		 */
-		if (!pnode->surface->keep_buffer) {
+		if (!output->compositor->multi_backend &&
+		    !pnode->surface->keep_buffer) {
 			weston_buffer_reference(&pnode->surface->buffer_ref,
 						pnode->surface->buffer_ref.buffer,
 						BUFFER_WILL_NOT_BE_ACCESSED);
