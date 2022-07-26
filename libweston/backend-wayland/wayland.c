@@ -831,64 +831,54 @@ wayland_output_init_pixman_renderer(struct wayland_output *output)
 static void
 wayland_output_resize_surface(struct wayland_output *output)
 {
-	struct wayland_backend *b =
-		to_wayland_backend(output->base.compositor);
-	int32_t ix, iy, iwidth, iheight;
-	int32_t width, height;
+	struct wayland_backend *b = to_wayland_backend(output->base.compositor);
+	/* Defaults for without frame: */
+	struct weston_size fb_size = {
+		.width = output->base.current_mode->width,
+		.height = output->base.current_mode->height
+	};
+	struct weston_geometry area = {
+		.x = 0,
+		.y = 0,
+		.width = fb_size.width,
+		.height = fb_size.height
+	};
+	struct weston_geometry inp = area;
+	struct weston_geometry opa = area;
 	struct wl_region *region;
 
-	width = output->base.current_mode->width;
-	height = output->base.current_mode->height;
-
 	if (output->frame) {
-		frame_resize_inside(output->frame, width, height);
+		frame_resize_inside(output->frame, area.width, area.height);
+		frame_interior(output->frame, &area.x, &area.y, NULL, NULL);
+		fb_size.width = frame_width(output->frame);
+		fb_size.height = frame_height(output->frame);
 
-		frame_input_rect(output->frame, &ix, &iy, &iwidth, &iheight);
-		region = wl_compositor_create_region(b->parent.compositor);
-		wl_region_add(region, ix, iy, iwidth, iheight);
-		wl_surface_set_input_region(output->parent.surface, region);
-		wl_region_destroy(region);
-
-		if (output->parent.xdg_surface) {
-			xdg_surface_set_window_geometry(output->parent.xdg_surface,
-							ix,
-							iy,
-							iwidth,
-							iheight);
-		}
-
-		frame_opaque_rect(output->frame, &ix, &iy, &iwidth, &iheight);
-		region = wl_compositor_create_region(b->parent.compositor);
-		wl_region_add(region, ix, iy, iwidth, iheight);
-		wl_surface_set_opaque_region(output->parent.surface, region);
-		wl_region_destroy(region);
-
-		width = frame_width(output->frame);
-		height = frame_height(output->frame);
-	} else {
-		region = wl_compositor_create_region(b->parent.compositor);
-		wl_region_add(region, 0, 0, width, height);
-		wl_surface_set_input_region(output->parent.surface, region);
-		wl_region_destroy(region);
-
-		region = wl_compositor_create_region(b->parent.compositor);
-		wl_region_add(region, 0, 0, width, height);
-		wl_surface_set_opaque_region(output->parent.surface, region);
-		wl_region_destroy(region);
-
-		if (output->parent.xdg_surface) {
-			xdg_surface_set_window_geometry(output->parent.xdg_surface,
-							0,
-							0,
-							width,
-							height);
-		}
+		frame_input_rect(output->frame, &inp.x, &inp.y,
+				 &inp.width, &inp.height);
+		frame_opaque_rect(output->frame, &opa.x, &opa.y,
+				  &opa.width, &opa.height);
 	}
+
+	region = wl_compositor_create_region(b->parent.compositor);
+	wl_region_add(region, inp.x, inp.y, inp.width, inp.height);
+	wl_surface_set_input_region(output->parent.surface, region);
+	wl_region_destroy(region);
+
+	if (output->parent.xdg_surface) {
+		xdg_surface_set_window_geometry(output->parent.xdg_surface,
+						inp.x, inp.y,
+						inp.width, inp.height);
+	}
+
+	region = wl_compositor_create_region(b->parent.compositor);
+	wl_region_add(region, opa.x, opa.y, opa.width, opa.height);
+	wl_surface_set_opaque_region(output->parent.surface, region);
+	wl_region_destroy(region);
 
 #ifdef ENABLE_EGL
 	if (output->gl.egl_window) {
 		wl_egl_window_resize(output->gl.egl_window,
-				     width, height, 0, 0);
+				     fb_size.width, fb_size.height, 0, 0);
 
 		/* These will need to be re-created due to the resize */
 		gl_renderer->output_set_border(&output->base,
