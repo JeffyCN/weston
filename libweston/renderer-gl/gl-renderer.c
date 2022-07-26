@@ -89,6 +89,9 @@ struct gl_fbo_texture {
 };
 
 struct gl_output_state {
+	struct weston_size fb_size; /**< in pixels, including borders */
+	struct weston_geometry area; /**< composited area in pixels inside fb */
+
 	EGLSurface egl_surface;
 	pixman_region32_t buffer_damage[BUFFER_DAMAGE_COUNT];
 	int buffer_damage_index;
@@ -104,6 +107,7 @@ struct gl_output_state {
 	/* struct timeline_render_point::link */
 	struct wl_list timeline_render_point_list;
 
+	const struct pixel_format_info *shadow_format;
 	struct gl_fbo_texture shadow;
 };
 
@@ -1621,12 +1625,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	/* If using shadow, redirect all drawing to it first. */
 	if (shadow_exists(go)) {
-		/* XXX: Shadow code does not support resizing. */
-		assert(output->current_mode->width == go->shadow.width);
-		assert(output->current_mode->height == go->shadow.height);
-
 		glBindFramebuffer(GL_FRAMEBUFFER, go->shadow.fbo);
-		glViewport(0, 0, go->shadow.width, go->shadow.height);
+		glViewport(0, 0, go->area.width, go->area.height);
 	} else {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
@@ -3265,8 +3265,25 @@ gl_renderer_resize_output(struct weston_output *output,
 			  const struct weston_size *fb_size,
 			  const struct weston_geometry *area)
 {
+	struct gl_output_state *go = get_output_state(output);
+	const struct pixel_format_info *shfmt = go->shadow_format;
+	bool ret;
+
 	check_compositing_area(fb_size, area);
-	return true;
+
+	go->fb_size = *fb_size;
+	go->area = *area;
+
+	if (!shfmt)
+		return true;
+
+	if (shadow_exists(go))
+		gl_fbo_texture_fini(&go->shadow);
+
+	ret = gl_fbo_texture_init(&go->shadow, area->width, area->height,
+				  shfmt->gl_format, GL_RGBA, shfmt->gl_type);
+
+	return ret;
 }
 
 static int
@@ -3311,7 +3328,6 @@ gl_renderer_output_create(struct weston_output *output,
 	struct gl_output_state *go;
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	const struct weston_testsuite_quirks *quirks;
-	bool ret;
 	int i;
 
 	quirks = &output->compositor->test_data.test_quirks;
@@ -3335,22 +3351,24 @@ gl_renderer_output_create(struct weston_output *output,
 	    quirks->gl_force_full_redraw_of_shadow_fb) {
 		assert(gr->gl_supports_color_transforms);
 
-		ret = gl_fbo_texture_init(&go->shadow,
-					  output->current_mode->width,
-					  output->current_mode->height,
-					  GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT);
-		if (ret) {
-			weston_log("Output %s uses 16F shadow.\n",
-				   output->name);
-		} else {
-			weston_log("Output %s failed to create 16F shadow.\n",
-				   output->name);
-			free(go);
-			return -1;
-		}
+		go->shadow_format =
+			pixel_format_get_info(DRM_FORMAT_ABGR16161616F);
 	}
 
 	output->renderer_state = go;
+
+	if (!gl_renderer_resize_output(output, fb_size, area)) {
+		weston_log("Output %s failed to create 16F shadow.\n",
+			   output->name);
+		output->renderer_state = NULL;
+		free(go);
+		return -1;
+	}
+
+	if (shadow_exists(go)) {
+		weston_log("Output %s uses 16F shadow.\n",
+			   output->name);
+	}
 
 	return 0;
 }
