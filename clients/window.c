@@ -4206,9 +4206,24 @@ xdg_toplevel_handle_close(void *data, struct xdg_toplevel *xdg_surface)
 	window_close(window);
 }
 
+static void
+xdg_toplevel_handle_configure_bounds(void *data, struct xdg_toplevel *xdg_toplevel,
+				     int32_t width, int32_t height)
+{
+}
+
+
+static void
+xdg_toplevel_handle_wm_capabilities(void *data, struct xdg_toplevel *xdg_toplevel,
+				    struct wl_array *caps)
+{
+}
+
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 	xdg_toplevel_handle_configure,
 	xdg_toplevel_handle_close,
+	xdg_toplevel_handle_configure_bounds,
+	xdg_toplevel_handle_wm_capabilities,
 };
 
 static void
@@ -5849,7 +5864,8 @@ registry_handle_global(void *data, struct wl_registry *registry, uint32_t id,
 		display_add_data_device(d, id, version);
 	} else if (strcmp(interface, "xdg_wm_base") == 0) {
 		d->xdg_shell = wl_registry_bind(registry, id,
-						&xdg_wm_base_interface, 1);
+						&xdg_wm_base_interface,
+						MIN(version, 5));
 		xdg_wm_base_add_listener(d->xdg_shell, &wm_base_listener, d);
 	} else if (strcmp(interface, "text_cursor_position") == 0) {
 		d->text_cursor_position =
