@@ -945,6 +945,7 @@ static int
 x11_output_enable(struct weston_output *base)
 {
 	struct x11_output *output = to_x11_output(base);
+	const struct weston_mode *mode = output->base.current_mode;
 	struct x11_backend *b;
 
 	assert(output);
@@ -988,8 +989,7 @@ x11_output_enable(struct weston_output *base)
 			  output->window,
 			  screen->root,
 			  0, 0,
-			  output->base.current_mode->width,
-			  output->base.current_mode->height,
+			  mode->width, mode->height,
 			  0,
 			  XCB_WINDOW_CLASS_INPUT_OUTPUT,
 			  screen->root_visual,
@@ -1054,8 +1054,7 @@ x11_output_enable(struct weston_output *base)
 			.use_shadow = true,
 		};
 		if (x11_output_init_shm(b, output,
-					output->base.current_mode->width,
-					output->base.current_mode->height) < 0) {
+					mode->width, mode->height) < 0) {
 			weston_log("Failed to initialize SHM for the X11 output\n");
 			goto err;
 		}
@@ -1096,9 +1095,7 @@ x11_output_enable(struct weston_output *base)
 		wl_event_loop_add_timer(loop, finish_frame_handler, output);
 
 	weston_log("x11 output %dx%d, window id %d\n",
-		   output->base.current_mode->width,
-		   output->base.current_mode->height,
-		   output->window);
+		   mode->width, mode->height, output->window);
 
 	return 0;
 
