@@ -2415,7 +2415,7 @@ destroy_surface(struct wl_resource *resource)
 	weston_surface_unref(surface);
 }
 
-static struct solid_buffer_values *
+static struct weston_solid_buffer_values *
 single_pixel_buffer_get(struct wl_resource *resource);
 
 static void
@@ -2442,7 +2442,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 	struct wl_shm_buffer *shm;
 	struct linux_dmabuf_buffer *dmabuf;
 	struct wl_listener *listener;
-	struct solid_buffer_values *solid;
+	struct weston_solid_buffer_values *solid;
 
 	listener = wl_resource_get_destroy_listener(resource,
 						    weston_buffer_destroy_handler);
@@ -2722,7 +2722,7 @@ weston_buffer_destroy_solid(struct weston_buffer_reference *buffer_ref)
 static void
 single_pixel_buffer_destroy(struct wl_resource *resource)
 {
-	struct solid_buffer_values *solid =
+	struct weston_solid_buffer_values *solid =
 		wl_resource_get_user_data(resource);
 	free(solid);
 }
@@ -2738,7 +2738,7 @@ static const struct wl_buffer_interface single_pixel_buffer_implementation = {
 	single_pixel_buffer_handle_buffer_destroy,
 };
 
-static struct solid_buffer_values *
+static struct weston_solid_buffer_values *
 single_pixel_buffer_get(struct wl_resource *resource)
 {
 	if (!resource)
@@ -2762,7 +2762,7 @@ static void
 single_pixel_buffer_create(struct wl_client *client, struct wl_resource *resource,
 			   uint32_t id, uint32_t r, uint32_t g, uint32_t b, uint32_t a)
 {
-	struct solid_buffer_values *solid = zalloc(sizeof(*solid));
+	struct weston_solid_buffer_values *solid = zalloc(sizeof(*solid));
 	struct wl_resource *buffer;
 
 	if (!solid) {

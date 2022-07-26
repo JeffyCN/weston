@@ -1318,7 +1318,7 @@ struct weston_compositor {
 	bool warned_about_unmapped_surface_or_view;
 };
 
-struct solid_buffer_values {
+struct weston_solid_buffer_values {
 	float r, g, b, a;
 };
 
@@ -1338,7 +1338,7 @@ struct weston_buffer {
 		struct wl_shm_buffer *shm_buffer;
 		void *dmabuf;
 		void *legacy_buffer;
-		struct solid_buffer_values solid;
+		struct weston_solid_buffer_values solid;
 	};
 
 	int32_t width, height;
