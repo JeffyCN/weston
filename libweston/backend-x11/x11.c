@@ -1065,6 +1065,12 @@ x11_output_enable(struct weston_output *base)
 			.window_for_platform = &xid,
 			.drm_formats = x11_formats,
 			.drm_formats_count = ARRAY_LENGTH(x11_formats),
+			.area.x = 0,
+			.area.y = 0,
+			.area.width = mode->width,
+			.area.height = mode->height,
+			.fb_size.width = mode->width,
+			.fb_size.height = mode->height,
 		};
 
 		ret = gl_renderer->output_window_create(&output->base,

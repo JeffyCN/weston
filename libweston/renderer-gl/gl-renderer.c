@@ -3304,7 +3304,9 @@ gl_renderer_create_window_surface(struct gl_renderer *gr,
 
 static int
 gl_renderer_output_create(struct weston_output *output,
-			  EGLSurface surface)
+			  EGLSurface surface,
+			  const struct weston_size *fb_size,
+			  const struct weston_geometry *area)
 {
 	struct gl_output_state *go;
 	struct gl_renderer *gr = get_renderer(output->compositor);
@@ -3372,7 +3374,8 @@ gl_renderer_output_window_create(struct weston_output *output,
 		return -1;
 	}
 
-	ret = gl_renderer_output_create(output, egl_surface);
+	ret = gl_renderer_output_create(output, egl_surface,
+					&options->fb_size, &options->area);
 	if (ret < 0)
 		weston_platform_destroy_egl_surface(gr->egl_display, egl_surface);
 
@@ -3390,8 +3393,8 @@ gl_renderer_output_pbuffer_create(struct weston_output *output,
 	EGLint value = 0;
 	int ret;
 	EGLint pbuffer_attribs[] = {
-		EGL_WIDTH, options->width,
-		EGL_HEIGHT, options->height,
+		EGL_WIDTH, options->fb_size.width,
+		EGL_HEIGHT, options->fb_size.height,
 		EGL_NONE
 	};
 
@@ -3422,7 +3425,8 @@ gl_renderer_output_pbuffer_create(struct weston_output *output,
 			   " Continuing anyway.\n", value);
 	}
 
-	ret = gl_renderer_output_create(output, egl_surface);
+	ret = gl_renderer_output_create(output, egl_surface,
+					&options->fb_size, &options->area);
 	if (ret < 0) {
 		eglDestroySurface(gr->egl_display, egl_surface);
 	} else {

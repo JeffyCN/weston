@@ -783,23 +783,30 @@ wayland_output_destroy(struct weston_output *base)
 static int
 wayland_output_init_gl_renderer(struct wayland_output *output)
 {
-	int32_t fwidth = 0, fheight = 0;
+	const struct weston_mode *mode = output->base.current_mode;
 	struct gl_renderer_output_options options = {
 		.drm_formats = wayland_formats,
 		.drm_formats_count = ARRAY_LENGTH(wayland_formats),
 	};
 
 	if (output->frame) {
-		fwidth = frame_width(output->frame);
-		fheight = frame_height(output->frame);
+		frame_interior(output->frame, &options.area.x, &options.area.y,
+			       &options.area.width, &options.area.height);
+		options.fb_size.width = frame_width(output->frame);
+		options.fb_size.height = frame_height(output->frame);
 	} else {
-		fwidth = output->base.current_mode->width;
-		fheight = output->base.current_mode->height;
+		options.area.x = 0;
+		options.area.y = 0;
+		options.area.width = mode->width;
+		options.area.height = mode->height;
+		options.fb_size.width = mode->width;
+		options.fb_size.height = mode->height;
 	}
 
 	output->gl.egl_window =
 		wl_egl_window_create(output->parent.surface,
-				     fwidth, fheight);
+				     options.fb_size.width,
+				     options.fb_size.height);
 	if (!output->gl.egl_window) {
 		weston_log("failure to create wl_egl_window\n");
 		return -1;

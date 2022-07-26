@@ -81,6 +81,10 @@ struct gl_renderer_output_options {
 	EGLNativeWindowType window_for_legacy;
 	/** Native window handle for \c eglCreatePlatformWindowSurface */
 	void *window_for_platform;
+	/** Size of the framebuffer in pixels, including borders */
+	struct weston_size fb_size;
+	/** Area inside the framebuffer in pixels for composited content */
+	struct weston_geometry area;
 	/** Array of DRM pixel formats acceptable for the window */
 	const uint32_t *drm_formats;
 	/** The \c drm_formats array length */
@@ -88,10 +92,10 @@ struct gl_renderer_output_options {
 };
 
 struct gl_renderer_pbuffer_options {
-	/** Width of the rendering surface in pixels */
-	int width;
-	/** Height of the rendering surface in pixels */
-	int height;
+	/** Size of the framebuffer in pixels, including borders */
+	struct weston_size fb_size;
+	/** Area inside the framebuffer in pixels for composited content */
+	struct weston_geometry area;
 	/** Array of DRM pixel formats acceptable for the pbuffer */
 	const uint32_t *drm_formats;
 	/** The \c drm_formats array length */

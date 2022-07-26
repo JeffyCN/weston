@@ -214,11 +214,16 @@ headless_output_enable_gl(struct headless_output *output)
 {
 	struct weston_compositor *compositor = output->base.compositor;
 	struct headless_backend *b = to_headless_backend(compositor);
+	const struct weston_mode *mode = output->base.current_mode;
 	const struct gl_renderer_pbuffer_options options = {
-		.width = output->base.current_mode->width,
-		.height = output->base.current_mode->height,
 		.drm_formats = headless_formats,
 		.drm_formats_count = ARRAY_LENGTH(headless_formats),
+		.area.x = 0,
+		.area.y = 0,
+		.area.width = mode->width,
+		.area.height = mode->height,
+		.fb_size.width = mode->width,
+		.fb_size.height = mode->height,
 	};
 
 	if (b->glri->output_pbuffer_create(&output->base, &options) < 0) {

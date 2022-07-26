@@ -236,6 +236,7 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 int
 drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 {
+	const struct weston_mode *mode = output->base.current_mode;
 	uint32_t format[2] = {
 		output->gbm_format,
 		fallback_format_for(output->gbm_format),
@@ -243,6 +244,12 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 	struct gl_renderer_output_options options = {
 		.drm_formats = format,
 		.drm_formats_count = 1,
+		.area.x = 0,
+		.area.y = 0,
+		.area.width = mode->width,
+		.area.height = mode->height,
+		.fb_size.width = mode->width,
+		.fb_size.height = mode->height,
 	};
 
 	assert(output->gbm_surface == NULL);
