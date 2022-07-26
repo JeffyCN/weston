@@ -7268,11 +7268,8 @@ weston_output_create_heads_string(struct weston_output *output)
 WL_EXPORT int
 weston_output_enable(struct weston_output *output)
 {
-	struct weston_compositor *c = output->compositor;
-	struct weston_output *iterator;
 	struct weston_head *head;
 	char *head_names;
-	int x = 0, y = 0;
 
 	if (output->enabled) {
 		weston_log("Error: attempt to enable an enabled output '%s'\n",
@@ -7297,20 +7294,12 @@ weston_output_enable(struct weston_output *output)
 		assert(head->model);
 	}
 
-	iterator = container_of(c->output_list.prev,
-				struct weston_output, link);
-
-	if (!wl_list_empty(&c->output_list))
-		x = iterator->x + iterator->width;
-
 	/* Make sure the scale is set up */
 	assert(output->scale);
 
 	/* Make sure we have a transform set */
 	assert(output->transform != UINT32_MAX);
 
-	output->x = x;
-	output->y = y;
 	output->dirty = 1;
 	output->original_scale = output->scale;
 
@@ -7319,7 +7308,7 @@ weston_output_enable(struct weston_output *output)
 
 	weston_output_transform_scale_init(output, output->transform, output->scale);
 
-	weston_output_init_geometry(output, x, y);
+	weston_output_init_geometry(output, output->x, output->y);
 	weston_output_damage(output);
 
 	wl_list_init(&output->animation_list);

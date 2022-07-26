@@ -1707,6 +1707,38 @@ wet_head_tracker_create(struct wet_compositor *compositor,
 	weston_head_add_destroy_listener(head, &track->head_destroy_listener);
 }
 
+/* Place output exactly to the right of the most recently enabled output.
+ *
+ * Historically, we haven't given much thought to output placement,
+ * simply adding outputs in a horizontal line as they're enabled. This
+ * function simply sets an output's x coordinate to the right of the
+ * most recently enabled output, and its y to zero.
+ *
+ * If you're adding new calls to this function, you're also not giving
+ * much thought to output placement, so please consider carefully if
+ * it's really doing what you want.
+ *
+ * You especially don't want to use this for any code that won't
+ * immediately enable the passed output.
+ */
+static void
+weston_output_lazy_align(struct weston_output *output)
+{
+	struct weston_compositor *c;
+	struct weston_output *peer;
+	int next_x = 0;
+
+	/* Put this output to the right of the most recently enabled output */
+	c = output->compositor;
+	if (!wl_list_empty(&c->output_list)) {
+		peer = container_of(c->output_list.prev,
+				    struct weston_output, link);
+		next_x = peer->x + peer->width;
+	}
+	output->x = next_x;
+	output->y = 0;
+}
+
 static void
 simple_head_enable(struct wet_compositor *wet, struct weston_head *head)
 {
@@ -1722,6 +1754,8 @@ simple_head_enable(struct wet_compositor *wet, struct weston_head *head)
 
 		return;
 	}
+
+	weston_output_lazy_align(output);
 
 	if (wet->simple_output_configure)
 		ret = wet->simple_output_configure(output);
@@ -2359,6 +2393,8 @@ drm_try_enable(struct weston_output *output,
 {
 	/* Try to enable, and detach heads one by one until it succeeds. */
 	while (!output->enabled) {
+		weston_output_lazy_align(output);
+
 		if (weston_output_enable(output) == 0)
 			return 0;
 
