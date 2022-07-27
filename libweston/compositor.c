@@ -6562,6 +6562,12 @@ weston_output_set_position(struct weston_output *output, int x, int y)
 	struct wl_resource *resource;
 	int ver;
 
+	if (!output->enabled) {
+		output->x = x;
+		output->y = y;
+		return;
+	}
+
 	output->move_x = x - output->x;
 	output->move_y = y - output->y;
 
