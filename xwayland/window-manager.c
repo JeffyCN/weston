@@ -931,8 +931,6 @@ static void
 weston_wm_send_focus_window(struct weston_wm *wm,
 			    struct weston_wm_window *window)
 {
-	xcb_client_message_event_t client_message;
-
 	if (window) {
 		uint32_t values[1];
 
@@ -940,16 +938,15 @@ weston_wm_send_focus_window(struct weston_wm *wm,
 			return;
 
 		if (window->take_focus) {
-			client_message.response_type = XCB_CLIENT_MESSAGE;
-			client_message.format = 32;
-			client_message.window = window->id;
-			client_message.type = wm->atom.wm_protocols;
-			client_message.data.data32[0] = wm->atom.wm_take_focus;
-			client_message.data.data32[1] = XCB_TIME_CURRENT_TIME;
-
-			xcb_send_event(wm->conn, 0, window->id,
-				       XCB_EVENT_MASK_NO_EVENT,
-				       (char *) &client_message);
+			/* Set a property to get a roundtrip
+			 * with a timestamp for WM_TAKE_FOCUS */
+			xcb_change_property(wm->conn,
+					    XCB_PROP_MODE_REPLACE,
+					    window->id,
+					    wm->atom.weston_focus_ping,
+					    XCB_ATOM_STRING,
+					    8, /* format */
+					    0, NULL);
 		}
 
 		xcb_set_input_focus (wm->conn, XCB_INPUT_FOCUS_POINTER_ROOT,
@@ -1501,6 +1498,35 @@ weston_wm_handle_property_notify(struct weston_wm *wm, xcb_generic_event_t *even
 
 	if (!wm_lookup_window(wm, property_notify->window, &window))
 		return;
+
+	/* We set the weston_focus_ping property on this window to
+	 * get a timestamp to send a WM_TAKE_FOCUS... send it now,
+	 * or just return if this is confirming we deleted the
+	 * property.
+	 */
+	if (property_notify->atom == wm->atom.weston_focus_ping) {
+		xcb_client_message_event_t client_message;
+
+		if (property_notify->state == XCB_PROPERTY_DELETE)
+			return;
+
+		/* delete our ping property */
+		xcb_delete_property(window->wm->conn,
+		                    window->id,
+		                    window->wm->atom.weston_focus_ping);
+
+		client_message.response_type = XCB_CLIENT_MESSAGE;
+		client_message.format = 32;
+		client_message.window = window->id;
+		client_message.type = wm->atom.wm_protocols;
+		client_message.data.data32[0] = wm->atom.wm_take_focus;
+		client_message.data.data32[1] = property_notify->time;
+		xcb_send_event(wm->conn, 0, window->id,
+			       XCB_EVENT_MASK_NO_EVENT,
+			       (char *) &client_message);
+
+		return;
+	}
 
 	window->properties_dirty = 1;
 
