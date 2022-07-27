@@ -78,6 +78,8 @@ struct vnc_backend {
 
 struct vnc_output {
 	struct weston_output base;
+	struct weston_plane cursor_plane;
+	struct weston_surface *cursor_surface;
 	struct vnc_backend *backend;
 	struct wl_event_source *finish_frame_timer;
 	struct nvnc_display *display;
@@ -443,6 +445,86 @@ vnc_client_cleanup(struct nvnc_client *client)
 	weston_log("VNC Client disconnected\n");
 }
 
+static struct weston_pointer *
+vnc_output_get_pointer(struct vnc_output *output)
+{
+	struct weston_pointer *pointer = NULL;
+	struct weston_paint_node *pnode;
+	struct vnc_peer *peer;
+
+	wl_list_for_each(peer, &output->peers, link) {
+		pointer = weston_seat_get_pointer(peer->seat);
+		break;
+	}
+
+	if (!pointer)
+		return NULL;
+
+	wl_list_for_each(pnode, &output->base.paint_node_z_order_list, z_order_link) {
+		if (pnode->view == pointer->sprite)
+			return pointer;
+	}
+
+	return NULL;
+}
+
+static void
+vnc_output_update_cursor(struct vnc_output *output)
+{
+	struct vnc_backend *backend = output->backend;
+	struct weston_pointer *pointer;
+	struct weston_view *view;
+	struct weston_buffer *buffer;
+	struct nvnc_fb *fb;
+	int32_t stride;
+	uint32_t format;
+	uint8_t *src, *dst;
+	int i;
+
+	pointer = vnc_output_get_pointer(output);
+	if (!pointer)
+		return;
+
+	view = pointer->sprite;
+	if (!weston_view_has_valid_buffer(view))
+		return;
+
+	buffer = view->surface->buffer_ref.buffer;
+	if (buffer->type != WESTON_BUFFER_SHM)
+		return;
+
+	format = wl_shm_buffer_get_format(buffer->shm_buffer);
+	if (format != WL_SHM_FORMAT_ARGB8888)
+		return;
+
+	weston_view_move_to_plane(view, &output->cursor_plane);
+
+	if (view->surface == output->cursor_surface &&
+	    !pixman_region32_not_empty(&view->surface->damage))
+		return;
+
+	output->cursor_surface = view->surface;
+
+	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+
+	fb = nvnc_fb_new(buffer->width, buffer->height, DRM_FORMAT_ARGB8888,
+			 buffer->width);
+	assert(fb);
+
+	src = wl_shm_buffer_get_data(buffer->shm_buffer);
+	dst = nvnc_fb_get_addr(fb);
+
+	wl_shm_buffer_begin_access(buffer->shm_buffer);
+	for (i = 0; i < buffer->height; i++)
+		memcpy(dst + i * 4 * buffer->width, src + i * stride,
+		       4 * buffer->width);
+	wl_shm_buffer_end_access(buffer->shm_buffer);
+
+	nvnc_set_cursor(backend->server, fb, buffer->width, buffer->height,
+			pointer->hotspot.c.x, pointer->hotspot.c.y, true);
+	nvnc_fb_unref(fb);
+}
+
 /*
  * Convert damage rectangles from 32-bit global coordinates to 16-bit local
  * coordinates. The output transformation has to be a pure translation.
@@ -644,6 +726,8 @@ vnc_output_enable(struct weston_output *base)
 	backend = output->backend;
 	backend->output = output;
 
+	weston_plane_init(&output->cursor_plane, backend->compositor);
+
 	if (renderer->pixman->output_create(&output->base, &options) < 0)
 		return -1;
 
@@ -695,6 +779,8 @@ vnc_output_disable(struct weston_output *base)
 
 	wl_event_source_remove(output->finish_frame_timer);
 	backend->output = NULL;
+
+	weston_plane_release(&output->cursor_plane);
 
 	return 0;
 }
@@ -858,6 +944,34 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 	return 0;
 }
 
+static bool
+vnc_clients_support_cursor(struct vnc_output *output)
+{
+	struct vnc_peer *peer;
+
+	wl_list_for_each(peer, &output->peers, link) {
+		if (!nvnc_client_supports_cursor(peer->client))
+			return false;
+	}
+
+	return true;
+}
+
+static void
+vnc_output_assign_planes(struct weston_output *base)
+{
+	struct vnc_output *output = to_vnc_output(base);
+
+	assert(output);
+
+	if (wl_list_empty(&output->peers))
+		return;
+
+	/* Update VNC cursor and move cursor view to plane */
+	if (vnc_clients_support_cursor(output))
+		vnc_output_update_cursor(output);
+}
+
 static struct weston_mode *
 vnc_insert_new_mode(struct weston_output *output, int width, int height,
 		    int rate)
@@ -945,7 +1059,7 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 
 	output->base.start_repaint_loop = vnc_output_start_repaint_loop;
 	output->base.repaint = vnc_output_repaint;
-	output->base.assign_planes = NULL;
+	output->base.assign_planes = vnc_output_assign_planes;
 	output->base.set_backlight = NULL;
 	output->base.set_dpms = NULL;
 	output->base.switch_mode = vnc_switch_mode;
