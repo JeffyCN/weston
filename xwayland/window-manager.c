@@ -683,6 +683,17 @@ weston_wm_window_send_configure_notify(struct weston_wm_window *window)
 	const struct weston_desktop_xwayland_interface *xwayland_api =
 		wm->server->compositor->xwayland_interface;
 
+	if (window->override_redirect) {
+		/* Some clever application has changed the override redirect
+		 * flag on an existing window. We didn't see it at map time,
+		 * so have no idea what to do with it now. Log and leave.
+		 */
+		wm_printf(wm, "XWM warning: Can't send XCB_CONFIGURE_NOTIFY to"
+			  " window %d which was mapped override redirect\n",
+			  window->id);
+		return;
+	}
+
 	weston_wm_window_get_child_position(window, &x, &y);
 	/* Synthetic ConfigureNotify events must be relative to the root
 	 * window, so get our offset if we're mapped. */
@@ -781,6 +792,13 @@ weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *ev
 		  configure_request->width, configure_request->height);
 
 	if (!wm_lookup_window(wm, configure_request->window, &window))
+		return;
+
+	/* If we see this, a window's override_redirect state has changed
+	 * after it was mapped, and we don't really know what to do about
+	 * that.
+	 */
+	if (window->override_redirect)
 		return;
 
 	if (window->fullscreen) {
