@@ -301,7 +301,7 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 
 	struct wl_shm_pool *pool;
 	int width, height, stride;
-	int32_t fx, fy;
+	struct weston_geometry area;
 	int fd;
 	unsigned char *data;
 
@@ -377,13 +377,20 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 		cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32,
 						    width, height, stride);
 
-	fx = 0;
-	fy = 0;
-	if (output->frame)
-		frame_interior(output->frame, &fx, &fy, 0, 0);
+	if (output->frame) {
+		frame_interior(output->frame, &area.x, &area.y,
+			       &area.width, &area.height);
+	} else {
+		area.x = 0;
+		area.y = 0;
+		area.width = output->base.current_mode->width;
+		area.height = output->base.current_mode->height;
+	}
+
+	/* Address only the interior, excluding output decorations */
 	sb->pm_image =
-		pixman_image_create_bits(PIXMAN_a8r8g8b8, width, height,
-					 (uint32_t *)(data + fy * stride) + fx,
+		pixman_image_create_bits(PIXMAN_a8r8g8b8, area.width, area.height,
+					 (uint32_t *)(data + area.y * stride) + area.x,
 					 stride);
 
 	return sb;
