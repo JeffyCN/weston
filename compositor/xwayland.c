@@ -234,6 +234,8 @@ wxw_compositor_destroy(struct wl_listener *listener, void *data)
 	struct wet_xwayland *wxw =
 		wl_container_of(listener, wxw, compositor_destroy_listener);
 
+	wl_list_remove(&wxw->compositor_destroy_listener.link);
+
 	/* Don't call xserver_exited because Xwayland's own destroy handler
 	 * already does this for us ... */
 	if (wxw->client)
