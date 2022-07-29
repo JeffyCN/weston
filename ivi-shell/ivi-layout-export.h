@@ -67,7 +67,6 @@ extern "C" {
 #define IVI_INVALID_ID UINT_MAX
 
 struct ivi_layout_layer;
-struct ivi_layout_screen;
 struct ivi_layout_surface;
 
 struct ivi_layout_surface_properties
