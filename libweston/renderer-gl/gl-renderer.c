@@ -1274,8 +1274,9 @@ draw_output_borders(struct weston_output *output,
 	struct weston_color_transform *ctransf;
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
+	const struct weston_size *fb = &go->fb_size;
+	const struct weston_geometry *area = &go->area;
 	struct gl_border_image *top, *bottom, *left, *right;
-	int full_width, full_height;
 
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
@@ -1291,36 +1292,33 @@ draw_output_borders(struct weston_output *output,
 	left = &go->borders[GL_RENDERER_BORDER_LEFT];
 	right = &go->borders[GL_RENDERER_BORDER_RIGHT];
 
-	full_width = output->current_mode->width + left->width + right->width;
-	full_height = output->current_mode->height + top->height + bottom->height;
-
 	glDisable(GL_BLEND);
-	glViewport(0, 0, full_width, full_height);
+	glViewport(0, 0, fb->width, fb->height);
 
 	weston_matrix_init(&sconf.projection);
 	weston_matrix_translate(&sconf.projection,
-				-full_width / 2.0, -full_height / 2.0, 0);
+				-fb->width / 2.0, -fb->height / 2.0, 0);
 	weston_matrix_scale(&sconf.projection,
-			    2.0 / full_width, -2.0 / full_height, 1);
+			    2.0 / fb->width, -2.0 / fb->height, 1);
 
 	glActiveTexture(GL_TEXTURE0);
 
 	if (border_status & BORDER_TOP_DIRTY)
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_TOP,
 					   0, 0,
-					   full_width, top->height);
+					   fb->width, top->height);
 	if (border_status & BORDER_LEFT_DIRTY)
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_LEFT,
 					   0, top->height,
-					   left->width, output->current_mode->height);
+					   left->width, area->height);
 	if (border_status & BORDER_RIGHT_DIRTY)
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_RIGHT,
-					   full_width - right->width, top->height,
-					   right->width, output->current_mode->height);
+					   fb->width - right->width, top->height,
+					   right->width, area->height);
 	if (border_status & BORDER_BOTTOM_DIRTY)
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_BOTTOM,
-					   0, full_height - bottom->height,
-					   full_width, bottom->height);
+					   0, fb->height - bottom->height,
+					   fb->width, bottom->height);
 }
 
 static void
@@ -1329,8 +1327,9 @@ output_get_border_damage(struct weston_output *output,
 			 pixman_region32_t *damage)
 {
 	struct gl_output_state *go = get_output_state(output);
+	const struct weston_size *fb = &go->fb_size;
+	const struct weston_geometry *area = &go->area;
 	struct gl_border_image *top, *bottom, *left, *right;
-	int full_width, full_height;
 
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
@@ -1340,24 +1339,22 @@ output_get_border_damage(struct weston_output *output,
 	left = &go->borders[GL_RENDERER_BORDER_LEFT];
 	right = &go->borders[GL_RENDERER_BORDER_RIGHT];
 
-	full_width = output->current_mode->width + left->width + right->width;
-	full_height = output->current_mode->height + top->height + bottom->height;
 	if (border_status & BORDER_TOP_DIRTY)
 		pixman_region32_union_rect(damage, damage,
 					   0, 0,
-					   full_width, top->height);
+					   fb->width, top->height);
 	if (border_status & BORDER_LEFT_DIRTY)
 		pixman_region32_union_rect(damage, damage,
 					   0, top->height,
-					   left->width, output->current_mode->height);
+					   left->width, area->height);
 	if (border_status & BORDER_RIGHT_DIRTY)
 		pixman_region32_union_rect(damage, damage,
-					   full_width - right->width, top->height,
-					   right->width, output->current_mode->height);
+					   fb->width - right->width, top->height,
+					   right->width, area->height);
 	if (border_status & BORDER_BOTTOM_DIRTY)
 		pixman_region32_union_rect(damage, damage,
-					   0, full_height - bottom->height,
-					   full_width, bottom->height);
+					   0, fb->height - bottom->height,
+					   fb->width, bottom->height);
 }
 
 static void
