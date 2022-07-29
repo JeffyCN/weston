@@ -1516,8 +1516,8 @@ blit_shadow_to_output(struct weston_output *output,
 		.input_tex[0] = go->shadow.tex,
 	};
 	struct gl_renderer *gr = get_renderer(output->compositor);
-	double width = output->current_mode->width;
-	double height = output->current_mode->height;
+	double width = go->area.width;
+	double height = go->area.height;
 	struct weston_color_transform *ctransf;
 	pixman_box32_t *rects;
 	int n_rects;
@@ -1593,6 +1593,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 	pixman_region32_t total_damage;
 	enum gl_border_status border_status = BORDER_STATUS_CLEAN;
 	struct weston_paint_node *pnode;
+	const int32_t area_inv_y =
+		go->fb_size.height - go->area.y - go->area.height;
 
 	assert(output->from_blend_to_output_by_backend ||
 	       output->color_outcome->from_blend_to_output == NULL ||
@@ -1622,11 +1624,11 @@ gl_renderer_repaint_output(struct weston_output *output,
 	/* Calculate the global GL matrix */
 	go->output_matrix = output->matrix;
 	weston_matrix_translate(&go->output_matrix,
-				-(output->current_mode->width / 2.0),
-				-(output->current_mode->height / 2.0), 0);
+				-(go->area.width / 2.0),
+				-(go->area.height / 2.0), 0);
 	weston_matrix_scale(&go->output_matrix,
-			    2.0 / output->current_mode->width,
-			    -2.0 / output->current_mode->height, 1);
+			    2.0 / go->area.width,
+			    -2.0 / go->area.height, 1);
 
 	/* If using shadow, redirect all drawing to it first. */
 	if (shadow_exists(go)) {
@@ -1634,10 +1636,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 		glViewport(0, 0, go->area.width, go->area.height);
 	} else {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
-			   go->borders[GL_RENDERER_BORDER_BOTTOM].height,
-			   output->current_mode->width,
-			   output->current_mode->height);
+		glViewport(go->area.x, area_inv_y,
+			   go->area.width, go->area.height);
 	}
 
 	/* In fan debug mode, redraw everything to make sure that we clear any
@@ -1693,10 +1693,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 			repaint_views(output, output_damage);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(go->borders[GL_RENDERER_BORDER_LEFT].width,
-			   go->borders[GL_RENDERER_BORDER_BOTTOM].height,
-			   output->current_mode->width,
-			   output->current_mode->height);
+		glViewport(go->area.x, area_inv_y,
+			   go->area.width, go->area.height);
 		blit_shadow_to_output(output, &total_damage);
 	} else {
 		repaint_views(output, &total_damage);
@@ -1757,8 +1755,8 @@ gl_renderer_read_pixels(struct weston_output *output,
 {
 	struct gl_output_state *go = get_output_state(output);
 
-	x += go->borders[GL_RENDERER_BORDER_LEFT].width;
-	y += go->borders[GL_RENDERER_BORDER_BOTTOM].height;
+	x += go->area.x;
+	y += go->fb_size.height - go->area.y - go->area.height;
 
 	if (format->gl_format == 0 || format->gl_type == 0)
 		return -1;
