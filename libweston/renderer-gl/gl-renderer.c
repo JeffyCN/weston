@@ -1266,12 +1266,6 @@ output_get_border_area(const struct gl_output_state *go,
 {
 	const struct weston_size *fb = &go->fb_size;
 	const struct weston_geometry *area = &go->area;
-	const struct gl_border_image *top, *bottom, *left, *right;
-
-	top = &go->borders[GL_RENDERER_BORDER_TOP];
-	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
-	left = &go->borders[GL_RENDERER_BORDER_LEFT];
-	right = &go->borders[GL_RENDERER_BORDER_RIGHT];
 
 	switch (side) {
 	case GL_RENDERER_BORDER_TOP:
@@ -1279,28 +1273,28 @@ output_get_border_area(const struct gl_output_state *go,
 			.x = 0,
 			.y = 0,
 			.width = fb->width,
-			.height = top->height
+			.height = area->y
 		};
 	case GL_RENDERER_BORDER_LEFT:
 		return (struct weston_geometry){
 			.x = 0,
-			.y = top->height,
-			.width = left->width,
+			.y = area->y,
+			.width = area->x,
 			.height = area->height
 		};
 	case GL_RENDERER_BORDER_RIGHT:
 		return (struct weston_geometry){
-			.x = fb->width - right->width,
-			.y = top->height,
-			.width = right->width,
+			.x = area->x + area->width,
+			.y = area->y,
+			.width = fb->width - area->x - area->width,
 			.height = area->height
 		};
 	case GL_RENDERER_BORDER_BOTTOM:
 		return (struct weston_geometry){
 			.x = 0,
-			.y = fb->height - bottom->height,
+			.y = area->y + area->height,
 			.width = fb->width,
-			.height = bottom->height
+			.height = fb->height - area->y - area->height
 		};
 	}
 
