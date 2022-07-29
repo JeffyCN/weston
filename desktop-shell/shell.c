@@ -115,6 +115,7 @@ struct shell_surface {
 	bool saved_rotation_valid;
 	int unresponsive, grabbed;
 	uint32_t resize_edges;
+	uint32_t orientation;
 
 	struct {
 		struct weston_transform transform;
@@ -1122,6 +1123,9 @@ surface_move(struct shell_surface *shsurf, struct weston_pointer *pointer,
 		   pointer->grab_y;
 	move->client_initiated = client_initiated;
 
+	weston_desktop_surface_set_orientation(shsurf->desktop_surface,
+					       WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE);
+	shsurf->orientation = WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE;
 	shell_grab_start(&move->base, &move_grab_interface, shsurf,
 			 pointer, WESTON_DESKTOP_SHELL_CURSOR_MOVE);
 
@@ -1273,6 +1277,9 @@ surface_resize(struct shell_surface *shsurf,
 
 	shsurf->resize_edges = edges;
 	weston_desktop_surface_set_resizing(shsurf->desktop_surface, true);
+	weston_desktop_surface_set_orientation(shsurf->desktop_surface,
+					       WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE);
+	shsurf->orientation = WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE;
 	shell_grab_start(&resize->base, &resize_grab_interface, shsurf,
 			 pointer, edges);
 
@@ -1500,6 +1507,9 @@ unset_fullscreen(struct shell_surface *shsurf)
 		weston_view_set_initial_position(shsurf->view, shsurf->shell);
 	shsurf->saved_position_valid = false;
 
+	weston_desktop_surface_set_orientation(shsurf->desktop_surface,
+					       shsurf->orientation);
+
 	if (shsurf->saved_rotation_valid) {
 		wl_list_insert(&shsurf->view->geometry.transformation_list,
 		               &shsurf->rotation.transform.link);
@@ -1522,6 +1532,9 @@ unset_maximized(struct shell_surface *shsurf)
 	else
 		weston_view_set_initial_position(shsurf->view, shsurf->shell);
 	shsurf->saved_position_valid = false;
+
+	weston_desktop_surface_set_orientation(shsurf->desktop_surface,
+					       shsurf->orientation);
 
 	if (shsurf->saved_rotation_valid) {
 		wl_list_insert(&shsurf->view->geometry.transformation_list,
@@ -2167,6 +2180,8 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 			width = shsurf->output->width;
 			height = shsurf->output->height;
 		}
+		weston_desktop_surface_set_orientation(shsurf->desktop_surface,
+							WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE);
 	} else if (weston_desktop_surface_get_maximized(desktop_surface)) {
 		get_maximized_size(shsurf, &width, &height);
 	}
@@ -2286,6 +2301,9 @@ set_maximized(struct shell_surface *shsurf, bool maximized)
 		shell_surface_set_output(shsurf, output);
 
 		get_maximized_size(shsurf, &width, &height);
+
+		weston_desktop_surface_set_orientation(shsurf->desktop_surface,
+							WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE);
 	}
 	weston_desktop_surface_set_maximized(desktop_surface, maximized);
 	weston_desktop_surface_set_size(desktop_surface, width, height);
@@ -2915,6 +2933,7 @@ set_tiled_orientation(struct weston_surface *focus,
 	if (shsurf == NULL)
 		return;
 
+	shsurf->orientation = orientation;
 	get_maximized_size(shsurf, &width, &height);
 	get_output_work_area(shsurf->shell, shsurf->output, &area);
 	geom = weston_desktop_surface_get_geometry(shsurf->desktop_surface);
