@@ -1260,6 +1260,54 @@ output_has_borders(struct weston_output *output)
 	       go->borders[GL_RENDERER_BORDER_LEFT].data;
 }
 
+static struct weston_geometry
+output_get_border_area(const struct gl_output_state *go,
+		       enum gl_renderer_border_side side)
+{
+	const struct weston_size *fb = &go->fb_size;
+	const struct weston_geometry *area = &go->area;
+	const struct gl_border_image *top, *bottom, *left, *right;
+
+	top = &go->borders[GL_RENDERER_BORDER_TOP];
+	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
+	left = &go->borders[GL_RENDERER_BORDER_LEFT];
+	right = &go->borders[GL_RENDERER_BORDER_RIGHT];
+
+	switch (side) {
+	case GL_RENDERER_BORDER_TOP:
+		return (struct weston_geometry){
+			.x = 0,
+			.y = 0,
+			.width = fb->width,
+			.height = top->height
+		};
+	case GL_RENDERER_BORDER_LEFT:
+		return (struct weston_geometry){
+			.x = 0,
+			.y = top->height,
+			.width = left->width,
+			.height = area->height
+		};
+	case GL_RENDERER_BORDER_RIGHT:
+		return (struct weston_geometry){
+			.x = fb->width - right->width,
+			.y = top->height,
+			.width = right->width,
+			.height = area->height
+		};
+	case GL_RENDERER_BORDER_BOTTOM:
+		return (struct weston_geometry){
+			.x = 0,
+			.y = fb->height - bottom->height,
+			.width = fb->width,
+			.height = bottom->height
+		};
+	}
+
+	assert(0);
+	return (struct weston_geometry){};
+}
+
 static void
 draw_output_borders(struct weston_output *output,
 		    enum gl_border_status border_status)
@@ -1275,8 +1323,7 @@ draw_output_borders(struct weston_output *output,
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	const struct weston_size *fb = &go->fb_size;
-	const struct weston_geometry *area = &go->area;
-	struct gl_border_image *top, *bottom, *left, *right;
+	struct weston_geometry g;
 
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
@@ -1286,11 +1333,6 @@ draw_output_borders(struct weston_output *output,
 		weston_log("GL-renderer: %s failed to generate a color transformation.\n", __func__);
 		return;
 	}
-
-	top = &go->borders[GL_RENDERER_BORDER_TOP];
-	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
-	left = &go->borders[GL_RENDERER_BORDER_LEFT];
-	right = &go->borders[GL_RENDERER_BORDER_RIGHT];
 
 	glDisable(GL_BLEND);
 	glViewport(0, 0, fb->width, fb->height);
@@ -1303,22 +1345,26 @@ draw_output_borders(struct weston_output *output,
 
 	glActiveTexture(GL_TEXTURE0);
 
-	if (border_status & BORDER_TOP_DIRTY)
+	if (border_status & BORDER_TOP_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_TOP);
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_TOP,
-					   0, 0,
-					   fb->width, top->height);
-	if (border_status & BORDER_LEFT_DIRTY)
+					   g.x, g.y, g.width, g.height);
+	}
+	if (border_status & BORDER_LEFT_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_LEFT);
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_LEFT,
-					   0, top->height,
-					   left->width, area->height);
-	if (border_status & BORDER_RIGHT_DIRTY)
+					   g.x, g.y, g.width, g.height);
+	}
+	if (border_status & BORDER_RIGHT_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_RIGHT);
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_RIGHT,
-					   fb->width - right->width, top->height,
-					   right->width, area->height);
-	if (border_status & BORDER_BOTTOM_DIRTY)
+					   g.x, g.y, g.width, g.height);
+	}
+	if (border_status & BORDER_BOTTOM_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_BOTTOM);
 		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_BOTTOM,
-					   0, fb->height - bottom->height,
-					   fb->width, bottom->height);
+					   g.x, g.y, g.width, g.height);
+	}
 }
 
 static void
@@ -1327,34 +1373,31 @@ output_get_border_damage(struct weston_output *output,
 			 pixman_region32_t *damage)
 {
 	struct gl_output_state *go = get_output_state(output);
-	const struct weston_size *fb = &go->fb_size;
-	const struct weston_geometry *area = &go->area;
-	struct gl_border_image *top, *bottom, *left, *right;
+	struct weston_geometry g;
 
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
 
-	top = &go->borders[GL_RENDERER_BORDER_TOP];
-	bottom = &go->borders[GL_RENDERER_BORDER_BOTTOM];
-	left = &go->borders[GL_RENDERER_BORDER_LEFT];
-	right = &go->borders[GL_RENDERER_BORDER_RIGHT];
-
-	if (border_status & BORDER_TOP_DIRTY)
+	if (border_status & BORDER_TOP_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_TOP);
 		pixman_region32_union_rect(damage, damage,
-					   0, 0,
-					   fb->width, top->height);
-	if (border_status & BORDER_LEFT_DIRTY)
+					   g.x, g.y, g.width, g.height);
+	}
+	if (border_status & BORDER_LEFT_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_LEFT);
 		pixman_region32_union_rect(damage, damage,
-					   0, top->height,
-					   left->width, area->height);
-	if (border_status & BORDER_RIGHT_DIRTY)
+					   g.x, g.y, g.width, g.height);
+	}
+	if (border_status & BORDER_RIGHT_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_RIGHT);
 		pixman_region32_union_rect(damage, damage,
-					   fb->width - right->width, top->height,
-					   right->width, area->height);
-	if (border_status & BORDER_BOTTOM_DIRTY)
+					   g.x, g.y, g.width, g.height);
+	}
+	if (border_status & BORDER_BOTTOM_DIRTY) {
+		g = output_get_border_area(go, GL_RENDERER_BORDER_BOTTOM);
 		pixman_region32_union_rect(damage, damage,
-					   0, fb->height - bottom->height,
-					   fb->width, bottom->height);
+					   g.x, g.y, g.width, g.height);
+	}
 }
 
 static void
