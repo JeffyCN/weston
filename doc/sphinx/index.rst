@@ -9,6 +9,7 @@ Welcome to Weston documentation!
    toc/libweston.rst
    toc/test-suite.rst
    toc/kiosk-shell.rst
+   toc/ivi-shell.rst
 
 Weston
 ------
