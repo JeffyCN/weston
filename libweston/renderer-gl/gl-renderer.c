@@ -1456,7 +1456,6 @@ pixman_region_to_egl_y_invert(struct weston_output *output,
 	struct gl_output_state *go = get_output_state(output);
 	pixman_region32_t transformed;
 	struct pixman_box32 *box;
-	int buffer_height;
 	EGLint *d;
 	int i;
 
@@ -1471,8 +1470,7 @@ pixman_region_to_egl_y_invert(struct weston_output *output,
 	 * damage resulting from borders being redrawn. */
 	if (output_has_borders(output)) {
 		pixman_region32_translate(&transformed,
-					  go->borders[GL_RENDERER_BORDER_LEFT].width,
-					  go->borders[GL_RENDERER_BORDER_TOP].height);
+					  go->area.x, go->area.y);
 		output_get_border_damage(output, go->border_status,
 					 &transformed);
 	}
@@ -1482,14 +1480,10 @@ pixman_region_to_egl_y_invert(struct weston_output *output,
 	box = pixman_region32_rectangles(&transformed, nrects);
 	*rects = malloc(*nrects * 4 * sizeof(EGLint));
 
-	buffer_height = go->borders[GL_RENDERER_BORDER_TOP].height +
-			output->current_mode->height +
-			go->borders[GL_RENDERER_BORDER_BOTTOM].height;
-
 	d = *rects;
 	for (i = 0; i < *nrects; ++i) {
 		*d++ = box[i].x1;
-		*d++ = buffer_height - box[i].y2;
+		*d++ = go->fb_size.height - box[i].y2;
 		*d++ = box[i].x2 - box[i].x1;
 		*d++ = box[i].y2 - box[i].y1;
 	}
