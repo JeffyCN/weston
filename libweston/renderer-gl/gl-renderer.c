@@ -1317,7 +1317,7 @@ draw_output_borders(struct weston_output *output,
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	const struct weston_size *fb = &go->fb_size;
-	struct weston_geometry g;
+	unsigned side;
 
 	if (border_status == BORDER_STATUS_CLEAN)
 		return; /* Clean. Nothing to do. */
@@ -1339,24 +1339,14 @@ draw_output_borders(struct weston_output *output,
 
 	glActiveTexture(GL_TEXTURE0);
 
-	if (border_status & BORDER_TOP_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_TOP);
-		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_TOP,
-					   g.x, g.y, g.width, g.height);
-	}
-	if (border_status & BORDER_LEFT_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_LEFT);
-		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_LEFT,
-					   g.x, g.y, g.width, g.height);
-	}
-	if (border_status & BORDER_RIGHT_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_RIGHT);
-		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_RIGHT,
-					   g.x, g.y, g.width, g.height);
-	}
-	if (border_status & BORDER_BOTTOM_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_BOTTOM);
-		draw_output_border_texture(gr, go, &sconf, GL_RENDERER_BORDER_BOTTOM,
+	for (side = 0; side < 4; side++) {
+		struct weston_geometry g;
+
+		if (!(border_status & (1 << side)))
+			continue;
+
+		g = output_get_border_area(go, side);
+		draw_output_border_texture(gr, go, &sconf, side,
 					   g.x, g.y, g.width, g.height);
 	}
 }
