@@ -1357,28 +1357,15 @@ output_get_border_damage(struct weston_output *output,
 			 pixman_region32_t *damage)
 {
 	struct gl_output_state *go = get_output_state(output);
-	struct weston_geometry g;
+	unsigned side;
 
-	if (border_status == BORDER_STATUS_CLEAN)
-		return; /* Clean. Nothing to do. */
+	for (side = 0; side < 4; side++) {
+		struct weston_geometry g;
 
-	if (border_status & BORDER_TOP_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_TOP);
-		pixman_region32_union_rect(damage, damage,
-					   g.x, g.y, g.width, g.height);
-	}
-	if (border_status & BORDER_LEFT_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_LEFT);
-		pixman_region32_union_rect(damage, damage,
-					   g.x, g.y, g.width, g.height);
-	}
-	if (border_status & BORDER_RIGHT_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_RIGHT);
-		pixman_region32_union_rect(damage, damage,
-					   g.x, g.y, g.width, g.height);
-	}
-	if (border_status & BORDER_BOTTOM_DIRTY) {
-		g = output_get_border_area(go, GL_RENDERER_BORDER_BOTTOM);
+		if (!(border_status & (1 << side)))
+			continue;
+
+		g = output_get_border_area(go, side);
 		pixman_region32_union_rect(damage, damage,
 					   g.x, g.y, g.width, g.height);
 	}
