@@ -2879,13 +2879,23 @@ load_drm_backend(struct weston_compositor *c,
 	struct weston_config_section *section;
 	struct wet_compositor *wet = to_wet_compositor(c);
 	bool without_input = false;
+	bool use_pixman_default;
 	int ret = 0;
 
 	wet->drm_use_current_mode = false;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
+
+	/* Use the pixman renderer by default when GBM/EGL support is
+	 * not enabled */
+#if defined(BUILD_DRM_GBM)
+	use_pixman_default = false;
+#else
+	use_pixman_default = true;
+#endif
+
 	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
-				       false);
+				       use_pixman_default);
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
