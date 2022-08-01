@@ -828,6 +828,8 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	pixman_box32_t *r;
 	pixman_image_t *damaged_image;
 	pixman_transform_t transform;
+	const pixman_format_code_t pixman_format =
+		so->output->compositor->read_format;
 
 	width = so->output->current_mode->width;
 	height = so->output->current_mode->height;
@@ -882,13 +884,13 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 			y_orig = y;
 
 		so->output->compositor->renderer->read_pixels(
-			so->output, so->output->compositor->read_format,
+			so->output, pixman_format,
 			so->tmp_data, x, y_orig, width, height);
 
-		damaged_image = pixman_image_create_bits(PIXMAN_a8r8g8b8,
+		damaged_image = pixman_image_create_bits(pixman_format,
 							 width, height,
 							 so->tmp_data,
-				(PIXMAN_FORMAT_BPP(PIXMAN_a8r8g8b8) / 8) * width);
+				(PIXMAN_FORMAT_BPP(pixman_format) / 8) * width);
 		if (!damaged_image)
 			goto err_pixman_init;
 
