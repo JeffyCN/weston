@@ -47,9 +47,9 @@
 
 struct weston_renderer {
 	int (*read_pixels)(struct weston_output *output,
-			       pixman_format_code_t format, void *pixels,
-			       uint32_t x, uint32_t y,
-			       uint32_t width, uint32_t height);
+			   const struct pixel_format_info *format, void *pixels,
+			   uint32_t x, uint32_t y,
+			   uint32_t width, uint32_t height);
 	void (*repaint_output)(struct weston_output *output,
 			       pixman_region32_t *output_damage);
 	void (*flush_damage)(struct weston_surface *surface,

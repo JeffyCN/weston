@@ -38,9 +38,9 @@ struct noop_renderer {
 
 static int
 noop_renderer_read_pixels(struct weston_output *output,
-			       pixman_format_code_t format, void *pixels,
-			       uint32_t x, uint32_t y,
-			       uint32_t width, uint32_t height)
+			  const struct pixel_format_info *format, void *pixels,
+			  uint32_t x, uint32_t y,
+			  uint32_t width, uint32_t height)
 {
 	return 0;
 }

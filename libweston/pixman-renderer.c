@@ -94,9 +94,9 @@ get_renderer(struct weston_compositor *ec)
 
 static int
 pixman_renderer_read_pixels(struct weston_output *output,
-			       pixman_format_code_t format, void *pixels,
-			       uint32_t x, uint32_t y,
-			       uint32_t width, uint32_t height)
+			    const struct pixel_format_info *format, void *pixels,
+			    uint32_t x, uint32_t y,
+			    uint32_t width, uint32_t height)
 {
 	struct pixman_output_state *po = get_output_state(output);
 	pixman_image_t *out_buf;
@@ -106,11 +106,11 @@ pixman_renderer_read_pixels(struct weston_output *output,
 		return -1;
 	}
 
-	out_buf = pixman_image_create_bits(format,
+	out_buf = pixman_image_create_bits(format->pixman_format,
 		width,
 		height,
 		pixels,
-		(PIXMAN_FORMAT_BPP(format) / 8) * width);
+		(PIXMAN_FORMAT_BPP(format->pixman_format) / 8) * width);
 
 	pixman_image_composite32(PIXMAN_OP_SRC,
 				 po->hw_buffer, /* src */
@@ -914,13 +914,16 @@ pixman_renderer_output_set_buffer(struct weston_output *output,
 				  pixman_image_t *buffer)
 {
 	struct pixman_output_state *po = get_output_state(output);
+	pixman_format_code_t pixman_format;
 
 	if (po->hw_buffer)
 		pixman_image_unref(po->hw_buffer);
 	po->hw_buffer = buffer;
 
 	if (po->hw_buffer) {
-		output->compositor->read_format = pixman_image_get_format(po->hw_buffer);
+		pixman_format = pixman_image_get_format(po->hw_buffer);
+		output->compositor->read_format =
+			pixel_format_get_info_by_pixman(pixman_format);
 		pixman_image_ref(po->hw_buffer);
 	}
 }

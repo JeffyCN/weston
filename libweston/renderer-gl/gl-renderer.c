@@ -1748,7 +1748,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 static int
 gl_renderer_read_pixels(struct weston_output *output,
-			pixman_format_code_t format, void *pixels,
+			const struct pixel_format_info *format, void *pixels,
 			uint32_t x, uint32_t y,
 			uint32_t width, uint32_t height)
 {
@@ -1758,7 +1758,7 @@ gl_renderer_read_pixels(struct weston_output *output,
 	x += go->borders[GL_RENDERER_BORDER_LEFT].width;
 	y += go->borders[GL_RENDERER_BORDER_BOTTOM].height;
 
-	switch (format) {
+	switch (format->pixman_format) {
 	case PIXMAN_a8r8g8b8:
 		gl_format = GL_BGRA_EXT;
 		break;
@@ -3883,9 +3883,9 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	}
 
 	if (weston_check_egl_extension(extensions, "GL_EXT_read_format_bgra"))
-		ec->read_format = PIXMAN_a8r8g8b8;
+		ec->read_format = pixel_format_get_info_by_pixman(PIXMAN_a8r8g8b8);
 	else
-		ec->read_format = PIXMAN_a8b8g8r8;
+		ec->read_format = pixel_format_get_info_by_pixman(PIXMAN_a8b8g8r8);
 
 	if (gr->gl_version < gr_gl_version(3, 0) &&
 	    !weston_check_egl_extension(extensions, "GL_EXT_unpack_subimage")) {
@@ -3935,7 +3935,7 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		   gr_gl_version_major(gr->gl_version),
 		   gr_gl_version_minor(gr->gl_version));
 	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
-			    ec->read_format == PIXMAN_a8r8g8b8 ? "BGRA" : "RGBA");
+			    ec->read_format->drm_format_name);
 	weston_log_continue(STAMP_SPACE "wl_shm 10 bpc formats: %s\n",
 			    yesno(gr->has_texture_type_2_10_10_10_rev));
 	weston_log_continue(STAMP_SPACE "wl_shm 16 bpc formats: %s\n",

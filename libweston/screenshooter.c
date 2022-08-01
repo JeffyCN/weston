@@ -40,6 +40,7 @@
 #include "shared/timespec-util.h"
 #include "backend.h"
 #include "libweston-internal.h"
+#include "pixel-formats.h"
 
 #include "wcap/wcap-decode.h"
 
@@ -122,12 +123,14 @@ screenshooter_frame_notify(struct wl_listener *listener, void *data)
 			     struct screenshooter_frame_listener, listener);
 	struct weston_output *output = l->output;
 	struct weston_compositor *compositor = output->compositor;
+	const pixman_format_code_t pixman_format =
+		compositor->read_format->pixman_format;
 	int32_t stride;
 	uint8_t *pixels, *d, *s;
 
 	weston_output_disable_planes_decr(output);
 	wl_list_remove(&listener->link);
-	stride = l->buffer->width * (PIXMAN_FORMAT_BPP(compositor->read_format) / 8);
+	stride = l->buffer->width * (PIXMAN_FORMAT_BPP(pixman_format) / 8);
 	pixels = malloc(stride * l->buffer->height);
 
 	if (pixels == NULL) {
@@ -148,7 +151,7 @@ screenshooter_frame_notify(struct wl_listener *listener, void *data)
 
 	wl_shm_buffer_begin_access(l->buffer->shm_buffer);
 
-	switch (compositor->read_format) {
+	switch (pixman_format) {
 	case PIXMAN_a8r8g8b8:
 	case PIXMAN_x8r8g8b8:
 		if (compositor->capabilities & WESTON_CAP_CAPTURE_YFLIP)
@@ -414,7 +417,7 @@ weston_recorder_create(struct weston_output *output, const char *filename)
 
 	header.magic = WCAP_HEADER_MAGIC;
 
-	switch (compositor->read_format) {
+	switch (compositor->read_format->pixman_format) {
 	case PIXMAN_x8r8g8b8:
 	case PIXMAN_a8r8g8b8:
 		header.format = WCAP_FORMAT_XRGB8888;

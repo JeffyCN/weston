@@ -81,6 +81,7 @@ struct weston_pointer_constraint;
 struct ro_anonymous_file;
 struct weston_color_profile;
 struct weston_color_transform;
+struct pixel_format_info;
 
 enum weston_keyboard_modifier {
 	MODIFIER_CTRL = (1 << 0),
@@ -1252,7 +1253,7 @@ struct weston_compositor {
 
 	struct weston_color_manager *color_manager;
 	struct weston_renderer *renderer;
-	pixman_format_code_t read_format;
+	const struct pixel_format_info *read_format;
 
 	struct weston_backend *backend;
 	struct weston_launcher *launcher;

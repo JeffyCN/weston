@@ -43,6 +43,7 @@
 #include <libweston/libweston.h>
 #include "backend.h"
 #include "libweston-internal.h"
+#include "pixel-formats.h"
 #include "weston.h"
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
@@ -828,8 +829,9 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	pixman_box32_t *r;
 	pixman_image_t *damaged_image;
 	pixman_transform_t transform;
-	const pixman_format_code_t pixman_format =
+	const struct pixel_format_info *read_format =
 		so->output->compositor->read_format;
+	const pixman_format_code_t pixman_format = read_format->pixman_format;
 
 	width = so->output->current_mode->width;
 	height = so->output->current_mode->height;
@@ -884,7 +886,7 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 			y_orig = y;
 
 		so->output->compositor->renderer->read_pixels(
-			so->output, pixman_format,
+			so->output, read_format,
 			so->tmp_data, x, y_orig, width, height);
 
 		damaged_image = pixman_image_create_bits(pixman_format,
