@@ -442,24 +442,6 @@ shell_touch_grab_end(struct shell_touch_grab *grab)
 	weston_touch_end_grab(grab->touch);
 }
 
-static enum weston_keyboard_modifier
-get_modifier(char *modifier)
-{
-	if (!modifier)
-		return MODIFIER_SUPER;
-
-	if (!strcmp("ctrl", modifier))
-		return MODIFIER_CTRL;
-	else if (!strcmp("alt", modifier))
-		return MODIFIER_ALT;
-	else if (!strcmp("super", modifier))
-		return MODIFIER_SUPER;
-	else if (!strcmp("none", modifier))
-		return 0;
-	else
-		return MODIFIER_SUPER;
-}
-
 static enum animation_type
 get_animation_type(char *animation)
 {
@@ -480,11 +462,12 @@ static void
 shell_configuration(struct desktop_shell *shell)
 {
 	struct weston_config_section *section;
+	struct weston_config *config;
 	char *s, *client;
 	bool allow_zap;
 
-	section = weston_config_get_section(wet_get_config(shell->compositor),
-					    "shell", NULL, NULL);
+	config = wet_get_config(shell->compositor);
+	section = weston_config_get_section(config, "shell", NULL, NULL);
 	client = wet_get_libexec_path(WESTON_SHELL_CLIENT);
 	weston_config_section_get_string(section, "client", &s, client);
 	free(client);
@@ -494,10 +477,7 @@ shell_configuration(struct desktop_shell *shell)
 				       "allow-zap", &allow_zap, true);
 	shell->allow_zap = allow_zap;
 
-	weston_config_section_get_string(section,
-					 "binding-modifier", &s, "super");
-	shell->binding_modifier = get_modifier(s);
-	free(s);
+	shell->binding_modifier = weston_shell_get_binding_modifier(config, MODIFIER_SUPER);
 
 	weston_config_section_get_string(section, "animation", &s, "none");
 	shell->win_animation_type = get_animation_type(s);
