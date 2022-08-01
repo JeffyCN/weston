@@ -1752,29 +1752,20 @@ gl_renderer_read_pixels(struct weston_output *output,
 			uint32_t x, uint32_t y,
 			uint32_t width, uint32_t height)
 {
-	GLenum gl_format;
 	struct gl_output_state *go = get_output_state(output);
 
 	x += go->borders[GL_RENDERER_BORDER_LEFT].width;
 	y += go->borders[GL_RENDERER_BORDER_BOTTOM].height;
 
-	switch (format->pixman_format) {
-	case PIXMAN_a8r8g8b8:
-		gl_format = GL_BGRA_EXT;
-		break;
-	case PIXMAN_a8b8g8r8:
-		gl_format = GL_RGBA;
-		break;
-	default:
+	if (format->gl_format == 0 || format->gl_type == 0)
 		return -1;
-	}
 
 	if (use_output(output) < 0)
 		return -1;
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glReadPixels(x, y, width, height, gl_format,
-		     GL_UNSIGNED_BYTE, pixels);
+	glReadPixels(x, y, width, height, format->gl_format,
+		     format->gl_type, pixels);
 
 	return 0;
 }
