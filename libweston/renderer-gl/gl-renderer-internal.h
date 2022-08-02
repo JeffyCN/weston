@@ -177,6 +177,7 @@ struct gl_renderer {
 	bool has_texture_type_2_10_10_10_rev;
 	bool has_gl_texture_rg;
 	bool has_texture_norm16;
+	bool has_pack_reverse;
 
 	struct gl_shader *current_shader;
 	struct gl_shader *fallback_shader;

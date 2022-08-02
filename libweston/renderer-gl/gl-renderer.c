@@ -52,6 +52,7 @@
 #include "linux-dmabuf.h"
 #include "linux-dmabuf-unstable-v1-server-protocol.h"
 #include "linux-explicit-synchronization.h"
+#include "output-capture.h"
 #include "pixel-formats.h"
 
 #include "shared/fd-util.h"
@@ -61,6 +62,7 @@
 #include "shared/timespec-util.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
+#include "shared/xalloc.h"
 
 #define BUFFER_DAMAGE_COUNT 2
 
@@ -671,6 +673,138 @@ gl_fbo_texture_fini(struct gl_fbo_texture *fbotex)
 	fbotex->fbo = 0;
 	glDeleteTextures(1, &fbotex->tex);
 	fbotex->tex = 0;
+}
+
+static bool
+gl_renderer_do_capture(struct gl_renderer *gr, struct weston_buffer *into,
+		       const struct weston_geometry *rect)
+{
+	struct wl_shm_buffer *shm = into->shm_buffer;
+	const struct pixel_format_info *fmt = into->pixel_format;
+	void *shm_pixels;
+	void *read_target;
+	int32_t stride;
+	pixman_image_t *tmp = NULL;
+
+	assert(fmt->gl_type != 0);
+	assert(fmt->gl_format != 0);
+	assert(into->type == WESTON_BUFFER_SHM);
+	assert(shm);
+
+	stride = wl_shm_buffer_get_stride(shm);
+	if (stride % 4 != 0)
+		return false;
+
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+	shm_pixels = wl_shm_buffer_get_data(shm);
+
+	if (gr->has_pack_reverse) {
+		/* Make glReadPixels() return top row first. */
+		glPixelStorei(GL_PACK_REVERSE_ROW_ORDER_ANGLE, GL_TRUE);
+		read_target = shm_pixels;
+	} else {
+		/*
+		 * glReadPixels() returns bottom row first. We need to
+		 * read into a temporary buffer and y-flip it.
+		 */
+		tmp = pixman_image_create_bits(fmt->pixman_format,
+					       rect->width, rect->height,
+					       NULL, 0);
+		if (!tmp)
+			return false;
+
+		read_target = pixman_image_get_data(tmp);
+	}
+
+	wl_shm_buffer_begin_access(shm);
+
+	glReadPixels(rect->x, rect->y, rect->width, rect->height,
+		     fmt->gl_format, fmt->gl_type, read_target);
+
+	if (tmp) {
+		pixman_image_t *shm_image;
+		pixman_transform_t flip;
+
+		shm_image = pixman_image_create_bits_no_clear(fmt->pixman_format,
+							      rect->width,
+							      rect->height,
+							      shm_pixels,
+							      stride);
+		abort_oom_if_null(shm_image);
+
+		pixman_transform_init_scale(&flip, pixman_fixed_1,
+					    pixman_fixed_minus_1);
+		pixman_transform_translate(&flip, NULL,	0,
+					   pixman_int_to_fixed(rect->height));
+		pixman_image_set_transform(tmp, &flip);
+
+		pixman_image_composite32(PIXMAN_OP_SRC,
+					 tmp,       /* src */
+					 NULL,      /* mask */
+					 shm_image, /* dest */
+					 0, 0,      /* src x,y */
+					 0, 0,      /* mask x,y */
+					 0, 0,      /* dest x,y */
+					 rect->width, rect->height);
+
+		pixman_image_unref(shm_image);
+		pixman_image_unref(tmp);
+	}
+
+	wl_shm_buffer_end_access(shm);
+
+	return true;
+}
+
+static void
+gl_renderer_do_capture_tasks(struct gl_renderer *gr,
+			     struct weston_output *output,
+			     enum weston_output_capture_source source)
+{
+	struct gl_output_state *go = get_output_state(output);
+	const struct pixel_format_info *format;
+	struct weston_capture_task *ct;
+	struct weston_geometry rect;
+
+	switch (source) {
+	case WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER:
+		format = output->compositor->read_format;
+		rect = go->area;
+		/* Because glReadPixels has bottom-left origin */
+		rect.y = go->fb_size.height - go->area.y - go->area.height;
+		break;
+	case WESTON_OUTPUT_CAPTURE_SOURCE_FULL_FRAMEBUFFER:
+		format = output->compositor->read_format;
+		rect.x = 0;
+		rect.y = 0;
+		rect.width = go->fb_size.width;
+		rect.height = go->fb_size.height;
+		break;
+	default:
+		assert(0);
+		return;
+	}
+
+	while ((ct = weston_output_pull_capture_task(output, source, rect.width,
+						     rect.height, format))) {
+		struct weston_buffer *buffer = weston_capture_task_get_buffer(ct);
+
+		assert(buffer->width == rect.width);
+		assert(buffer->height == rect.height);
+		assert(buffer->pixel_format->format == format->format);
+
+		if (buffer->type != WESTON_BUFFER_SHM ||
+		    buffer->buffer_origin != ORIGIN_TOP_LEFT) {
+			weston_capture_task_retire_failed(ct, "GL: unsupported buffer");
+			continue;
+		}
+
+		if (gl_renderer_do_capture(gr, buffer, &rect))
+			weston_capture_task_retire_complete(ct);
+		else
+			weston_capture_task_retire_failed(ct, "GL: capture failed");
+	}
 }
 
 static void
@@ -1704,6 +1838,10 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	draw_output_borders(output, border_status);
 
+	gl_renderer_do_capture_tasks(gr, output,
+				     WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER);
+	gl_renderer_do_capture_tasks(gr, output,
+				     WESTON_OUTPUT_CAPTURE_SOURCE_FULL_FRAMEBUFFER);
 	wl_signal_emit(&output->frame_signal, output_damage);
 
 	go->end_render_sync = create_render_sync(gr);
@@ -1753,6 +1891,7 @@ gl_renderer_read_pixels(struct weston_output *output,
 			uint32_t width, uint32_t height)
 {
 	struct gl_output_state *go = get_output_state(output);
+	struct gl_renderer *gr = get_renderer(output->compositor);
 
 	x += go->area.x;
 	y += go->fb_size.height - go->area.y - go->area.height;
@@ -1763,6 +1902,8 @@ gl_renderer_read_pixels(struct weston_output *output,
 	if (use_output(output) < 0)
 		return -1;
 
+	if (gr->has_pack_reverse)
+		glPixelStorei(GL_PACK_REVERSE_ROW_ORDER_ANGLE, GL_FALSE);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glReadPixels(x, y, width, height, format->gl_format,
 		     format->gl_type, pixels);
@@ -3070,6 +3211,8 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 	glDisableVertexAttribArray(1);
 	glDisableVertexAttribArray(0);
 
+	if (gr->has_pack_reverse)
+		glPixelStorei(GL_PACK_REVERSE_ROW_ORDER_ANGLE, GL_FALSE);
 	glPixelStorei(GL_PACK_ALIGNMENT, bytespp);
 	glReadPixels(src_x, src_y, width, height, gl_format,
 		     GL_UNSIGNED_BYTE, target);
@@ -3275,6 +3418,16 @@ gl_renderer_resize_output(struct weston_output *output,
 
 	go->fb_size = *fb_size;
 	go->area = *area;
+
+	weston_output_update_capture_info(output,
+					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
+					  area->width, area->height,
+					  output->compositor->read_format);
+
+	weston_output_update_capture_info(output,
+					  WESTON_OUTPUT_CAPTURE_SOURCE_FULL_FRAMEBUFFER,
+					  fb_size->width, fb_size->height,
+					  output->compositor->read_format);
 
 	if (!shfmt)
 		return true;
@@ -3923,6 +4076,9 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	if (weston_check_egl_extension(extensions, "GL_EXT_texture_norm16"))
 		gr->has_texture_norm16 = true;
 
+	if (weston_check_egl_extension(extensions, "GL_ANGLE_pack_reverse_row_order"))
+		gr->has_pack_reverse = true;
+
 	if (gr->gl_version >= gr_gl_version(3, 0) ||
 	    weston_check_egl_extension(extensions, "GL_EXT_texture_rg"))
 		gr->has_gl_texture_rg = true;
@@ -3959,6 +4115,8 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		   gr_gl_version_minor(gr->gl_version));
 	weston_log_continue(STAMP_SPACE "read-back format: %s\n",
 			    ec->read_format->drm_format_name);
+	weston_log_continue(STAMP_SPACE "glReadPixels supports y-flip: %s\n",
+			    yesno(gr->has_pack_reverse));
 	weston_log_continue(STAMP_SPACE "wl_shm 10 bpc formats: %s\n",
 			    yesno(gr->has_texture_type_2_10_10_10_rev));
 	weston_log_continue(STAMP_SPACE "wl_shm 16 bpc formats: %s\n",
