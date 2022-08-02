@@ -625,6 +625,7 @@ fs_output_apply_pending(struct fs_output *fsout)
 			return;
 		}
 		fsout->view->is_mapped = true;
+		fsout->surface->is_mapped = true;
 
 		wl_signal_add(&fsout->surface->destroy_signal,
 			      &fsout->surface_destroyed);
