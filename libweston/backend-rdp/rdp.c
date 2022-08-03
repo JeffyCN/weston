@@ -39,6 +39,7 @@
 #include <winpr/ssl.h>
 
 #include "shared/timespec-util.h"
+#include "shared/xalloc.h"
 #include <libweston/libweston.h>
 #include <libweston/backend-rdp.h>
 #include "pixman-renderer.h"
@@ -1651,10 +1652,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 
 	struct weston_head *base, *next;
 
-	b = zalloc(sizeof *b);
-	if (b == NULL)
-		return NULL;
-
+	b = xzalloc(sizeof *b);
 	b->compositor_tid = gettid();
 	b->compositor = compositor;
 	b->base.destroy = rdp_destroy;
