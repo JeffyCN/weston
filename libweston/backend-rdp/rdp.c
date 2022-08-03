@@ -1776,7 +1776,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 
 	if (ret < 0) {
 		weston_log("Failed to register output API.\n");
-		goto err_output;
+		goto err_listener;
 	}
 
 	return b;
