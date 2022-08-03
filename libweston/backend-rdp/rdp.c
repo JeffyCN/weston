@@ -485,8 +485,6 @@ rdp_output_enable(struct weston_output *base)
 	loop = wl_display_get_event_loop(b->compositor->wl_display);
 	output->finish_frame_timer = wl_event_loop_add_timer(loop, finish_frame_handler, output);
 
-	b->output = output;
-
 	return 0;
 }
 
@@ -494,11 +492,8 @@ static int
 rdp_output_disable(struct weston_output *base)
 {
 	struct rdp_output *output = to_rdp_output(base);
-	struct rdp_backend *b;
 
 	assert(output);
-
-	b = to_rdp_backend(base->compositor);
 
 	if (!output->base.enabled)
 		return 0;
@@ -507,7 +502,6 @@ rdp_output_disable(struct weston_output *base)
 	pixman_renderer_output_destroy(&output->base);
 
 	wl_event_source_remove(output->finish_frame_timer);
-	b->output = NULL;
 
 	return 0;
 }
@@ -978,7 +972,7 @@ xf_peer_activate(freerdp_peer* client)
 	peerCtx = (RdpPeerContext *)client->context;
 	b = peerCtx->rdpBackend;
 	peersItem = &peerCtx->item;
-	output = b->output;
+	output = rdp_get_first_output(b);
 	settings = client->context->settings;
 
 	if (!settings->SurfaceCommandsEnabled) {
@@ -1276,7 +1270,7 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 	 * the RDP client.
 	 */
 	if (!(flags & (PTR_FLAGS_WHEEL | PTR_FLAGS_HWHEEL))) {
-		output = peerContext->rdpBackend->output;
+		output = rdp_get_first_output(peerContext->rdpBackend);
 		if (x < output->base.width && y < output->base.height) {
 			weston_compositor_get_time(&time);
 			notify_motion_absolute(peerContext->item.seat, &time,
@@ -1352,7 +1346,7 @@ xf_extendedMouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 		need_frame = true;
 	}
 
-	output = peerContext->rdpBackend->output;
+	output = rdp_get_first_output(peerContext->rdpBackend);
 	if (x < output->base.width && y < output->base.height) {
 		weston_compositor_get_time(&time);
 		notify_motion_absolute(peerContext->item.seat, &time, x, y);
@@ -1372,7 +1366,7 @@ xf_input_synchronize_event(rdpInput *input, UINT32 flags)
 	freerdp_peer *client = input->context->peer;
 	RdpPeerContext *peerCtx = (RdpPeerContext *)input->context;
 	struct rdp_backend *b = peerCtx->rdpBackend;
-	struct rdp_output *output = peerCtx->rdpBackend->output;
+	struct rdp_output *output = rdp_get_first_output(b);
 	struct weston_keyboard *keyboard;
 	pixman_box32_t box;
 	pixman_region32_t damage;

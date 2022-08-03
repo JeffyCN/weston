@@ -67,15 +67,12 @@
 #define ATKBD_RET_HANJA 0xf1
 #define ATKBD_RET_HANGEUL 0xf2
 
-struct rdp_output;
-
 struct rdp_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
 
 	freerdp_listener *listener;
 	struct wl_event_source *listener_events[MAX_FREERDP_FDS];
-	struct rdp_output *output;
 	struct weston_log_scope *debug;
 	struct weston_log_scope *verbose;
 
