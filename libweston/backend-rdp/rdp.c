@@ -1762,13 +1762,13 @@ rdp_backend_create(struct weston_compositor *compositor,
 		fd_str = getenv("RDP_FD");
 		if (!fd_str) {
 			weston_log("RDP_FD env variable not set\n");
-			goto err_output;
+			goto err_compositor;
 		}
 
 		fd = strtoul(fd_str, &fd_tail, 10);
 		if (errno != 0 || fd_tail == fd_str || *fd_tail != '\0'
 		    || rdp_peer_init(freerdp_peer_new(fd), b))
-			goto err_output;
+			goto err_compositor;
 	}
 
 	ret = weston_plugin_api_register(compositor, WESTON_RDP_OUTPUT_API_NAME,
@@ -1783,9 +1783,6 @@ rdp_backend_create(struct weston_compositor *compositor,
 
 err_listener:
 	freerdp_listener_free(b->listener);
-err_output:
-	if (b->output)
-		weston_output_release(&b->output->base);
 err_compositor:
 	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link) {
 		if (to_rdp_head(base))
