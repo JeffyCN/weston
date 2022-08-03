@@ -413,7 +413,6 @@ rdp_output_set_size(struct weston_output *base,
 {
 	struct rdp_output *output = to_rdp_output(base);
 	struct rdp_backend *rdpBackend = to_rdp_backend(base->compositor);
-	struct weston_head *head;
 	struct weston_mode *currentMode;
 	struct weston_mode initMode;
 
@@ -421,14 +420,6 @@ rdp_output_set_size(struct weston_output *base,
 
 	/* We can only be called once. */
 	assert(!output->base.current_mode);
-
-	wl_list_for_each(head, &output->base.head_list, output_link) {
-		weston_head_set_monitor_strings(head, "weston", "rdp", NULL);
-
-		/* This is a virtual output, so report a zero physical size.
-		 * It's better to let frontends/clients use their defaults. */
-		weston_head_set_physical_size(head, 0, 0);
-	}
 
 	initMode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
 	initMode.width = width;
@@ -551,6 +542,11 @@ rdp_head_create(struct weston_compositor *compositor, const char *name)
 		return -1;
 
 	weston_head_init(&head->base, name);
+	weston_head_set_monitor_strings(&head->base, "weston", "rdp", NULL);
+
+	/* This is a virtual output, so report a zero physical size.
+	 * It's better to let frontends/clients use their defaults. */
+	weston_head_set_physical_size(&head->base, 0, 0);
 
 	head->base.backend = &backend->base;
 
