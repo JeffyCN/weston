@@ -332,22 +332,45 @@ rdp_insert_new_mode(struct weston_output *output, int width, int height, int rat
 	ret->width = width;
 	ret->height = height;
 	ret->refresh = rate;
+	ret->flags = WL_OUTPUT_MODE_PREFERRED;
 	wl_list_insert(&output->mode_list, &ret->link);
 	return ret;
 }
 
+/* It doesn't make sense for RDP to have more than one mode, so
+ * we make sure that we have only one.
+ */
 static struct weston_mode *
-ensure_matching_mode(struct weston_output *output, struct weston_mode *target)
+ensure_single_mode(struct weston_output *output, struct weston_mode *target)
 {
 	struct rdp_backend *b = to_rdp_backend(output->compositor);
-	struct weston_mode *local;
+	struct weston_mode *iter, *local = NULL, *new_mode;
 
-	wl_list_for_each(local, &output->mode_list, link) {
-		if ((local->width == target->width) && (local->height == target->height))
-			return local;
+	wl_list_for_each(iter, &output->mode_list, link) {
+		assert(!local);
+
+		if ((iter->width == target->width) &&
+		    (iter->height == target->height) &&
+		    (iter->refresh == target->refresh)) {
+			return iter;
+		} else {
+			local = iter;
+		}
+	}
+	/* Make sure we create the new one before freeing the old one
+	 * because some mode switch code uses pointer comparisons! If
+	 * we freed the old mode first, malloc could theoretically give
+	 * us back the same pointer.
+	 */
+	new_mode = rdp_insert_new_mode(output,
+				       target->width, target->height,
+				       b->rdp_monitor_refresh_rate);
+	if (local) {
+		wl_list_remove(&local->link);
+		free(local);
 	}
 
-	return rdp_insert_new_mode(output, target->width, target->height, b->rdp_monitor_refresh_rate);
+	return new_mode;
 }
 
 static int
@@ -362,11 +385,9 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 
 	assert(output);
 
-	local_mode = ensure_matching_mode(output, target_mode);
+	local_mode = ensure_single_mode(output, target_mode);
 	if (local_mode == output->current_mode)
 		return 0;
-
-	output->current_mode->flags &= ~WL_OUTPUT_MODE_CURRENT;
 
 	output->current_mode = local_mode;
 	output->current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
@@ -417,8 +438,8 @@ rdp_output_set_size(struct weston_output *base,
 	initMode.width = width;
 	initMode.height = height;
 	initMode.refresh = rdpBackend->rdp_monitor_refresh_rate;
-	currentMode = ensure_matching_mode(&output->base, &initMode);
-	currentMode->flags = WL_OUTPUT_MODE_PREFERRED | WL_OUTPUT_MODE_CURRENT;
+	currentMode = ensure_single_mode(&output->base, &initMode);
+	currentMode->flags |= WL_OUTPUT_MODE_CURRENT;
 
 	output->base.current_mode = output->base.native_mode = currentMode;
 
@@ -1010,7 +1031,7 @@ xf_peer_activate(freerdp_peer* client)
 			struct weston_mode *target_mode;
 			new_mode.width = (int)settings->DesktopWidth;
 			new_mode.height = (int)settings->DesktopHeight;
-			target_mode = ensure_matching_mode(&output->base, &new_mode);
+			target_mode = ensure_single_mode(&output->base, &new_mode);
 			weston_output_mode_set_native(&output->base, target_mode, 1);
 			output->base.width = new_mode.width;
 			output->base.height = new_mode.height;
