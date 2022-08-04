@@ -414,11 +414,11 @@ rdp_output_set_size(struct weston_output *base,
 	/* We can only be called once. */
 	assert(!output->base.current_mode);
 
-	initMode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
 	initMode.width = width;
 	initMode.height = height;
 	initMode.refresh = rdpBackend->rdp_monitor_refresh_rate;
 	currentMode = ensure_matching_mode(&output->base, &initMode);
+	currentMode->flags = WL_OUTPUT_MODE_PREFERRED | WL_OUTPUT_MODE_CURRENT;
 
 	output->base.current_mode = output->base.native_mode = currentMode;
 
