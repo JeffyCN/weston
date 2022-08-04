@@ -328,9 +328,7 @@ static struct weston_mode *
 rdp_insert_new_mode(struct weston_output *output, int width, int height, int rate)
 {
 	struct weston_mode *ret;
-	ret = zalloc(sizeof *ret);
-	if (!ret)
-		return NULL;
+	ret = xzalloc(sizeof *ret);
 	ret->width = width;
 	ret->height = height;
 	ret->refresh = rate;
@@ -365,11 +363,6 @@ rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
 	assert(output);
 
 	local_mode = ensure_matching_mode(output, target_mode);
-	if (!local_mode) {
-		rdp_debug(rdpBackend, "mode %dx%d not available\n", target_mode->width, target_mode->height);
-		return -ENOENT;
-	}
-
 	if (local_mode == output->current_mode)
 		return 0;
 
@@ -426,8 +419,6 @@ rdp_output_set_size(struct weston_output *base,
 	initMode.height = height;
 	initMode.refresh = rdpBackend->rdp_monitor_refresh_rate;
 	currentMode = ensure_matching_mode(&output->base, &initMode);
-	if (!currentMode)
-		return -1;
 
 	output->base.current_mode = output->base.native_mode = currentMode;
 
@@ -1020,10 +1011,6 @@ xf_peer_activate(freerdp_peer* client)
 			new_mode.width = (int)settings->DesktopWidth;
 			new_mode.height = (int)settings->DesktopHeight;
 			target_mode = ensure_matching_mode(&output->base, &new_mode);
-			if (!target_mode) {
-				weston_log("client mode not found\n");
-				return FALSE;
-			}
 			weston_output_mode_set_native(&output->base, target_mode, 1);
 			output->base.width = new_mode.width;
 			output->base.height = new_mode.height;
