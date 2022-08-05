@@ -309,6 +309,8 @@ main()
 
 	if (c_need_color_pipeline)
 		color = color_pipeline(color); /* Produces straight alpha */
+	else if (color.a == 0.0)
+		color.rgb = vec3(0, 0, 0);
 
 	/* Ensure pre-multiplied for blending */
 	if (!c_input_is_premult || c_need_color_pipeline)
