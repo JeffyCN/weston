@@ -253,8 +253,12 @@ main()
 		/* Fast path for disabled color management */
 
 		if (c_input_is_premult) {
-			/* View alpha (opacity) */
-			color *= alpha;
+			if (color.a == 0.0) {
+				color.rgb = vec3(0, 0, 0);
+			} else {
+				/* View alpha (opacity) */
+				color *= alpha;
+			}
 		} else {
 			/* View alpha (opacity) */
 			color.a *= alpha;
