@@ -4598,6 +4598,13 @@ subsurface_committed(struct weston_surface *surface,
 		weston_surface_map(surface);
 	}
 
+	/**
+	 * HACK: Allow mapping bufferless subsurfaces
+	 * See: https://bugreports.qt.io/browse/QTBUG-86229
+	 */
+	if (!weston_surface_is_mapped(surface))
+		weston_surface_map(surface);
+
 	/* Cannot call weston_view_update_transform() here, because that would
 	 * call it also for the parent surface, which might not be mapped yet.
 	 * That would lead to inconsistent state, where the window could never
