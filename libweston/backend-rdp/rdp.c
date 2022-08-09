@@ -548,15 +548,13 @@ rdp_output_create(struct weston_compositor *compositor, const char *name)
 	return &output->base;
 }
 
-static int
+static void
 rdp_head_create(struct weston_compositor *compositor, const char *name)
 {
 	struct rdp_backend *backend = to_rdp_backend(compositor);
 	struct rdp_head *head;
 
-	head = zalloc(sizeof *head);
-	if (!head)
-		return -1;
+	head = xzalloc(sizeof *head);
 
 	weston_head_init(&head->base, name);
 	weston_head_set_monitor_strings(&head->base, "weston", "rdp", NULL);
@@ -569,8 +567,6 @@ rdp_head_create(struct weston_compositor *compositor, const char *name)
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);
-
-	return 0;
 }
 
 void
@@ -1731,8 +1727,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 	if (pixman_renderer_init(compositor) < 0)
 		goto err_compositor;
 
-	if (rdp_head_create(compositor, "rdp") < 0)
-		goto err_compositor;
+	rdp_head_create(compositor, "rdp");
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
 
