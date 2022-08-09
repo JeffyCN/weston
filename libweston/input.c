@@ -75,6 +75,15 @@ struct border {
 	enum motion_direction blocking_dir;
 };
 
+struct pending_touch {
+	struct weston_touch_device *touch_device;
+	bool pending_focus_touch_reset;
+
+	struct wl_list touch_link;
+};
+
+static struct wl_list pending_touch_list;
+
 static void
 maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint);
 
@@ -143,6 +152,7 @@ weston_touch_create_touch_device(struct weston_touch *touch,
 				 const struct weston_touch_device_ops *ops)
 {
 	struct weston_touch_device *device;
+	struct pending_touch *pt;
 
 	assert(syspath);
 	if (ops) {
@@ -164,20 +174,55 @@ weston_touch_create_touch_device(struct weston_touch *touch,
 		return NULL;
 	}
 
+	pt = zalloc(sizeof(*pt));
+	if (!pt) {
+		free(device);
+		return NULL;
+	}
+
+
 	device->backend_data = backend_data;
 	device->ops = ops;
 
+	pt->touch_device = device;
+	pt->pending_focus_touch_reset = false;
+
 	device->aggregate = touch;
 	wl_list_insert(touch->device_list.prev, &device->link);
+	wl_list_insert(&pending_touch_list, &pt->touch_link);
 
 	return device;
+}
+
+static struct pending_touch *
+weston_touch_get_pending(struct weston_touch_device *dev)
+{
+	struct pending_touch *pt_iter = NULL;
+	struct pending_touch *pt = NULL;
+
+	wl_list_for_each(pt_iter, &pending_touch_list, touch_link) {
+		if (pt_iter->touch_device == dev) {
+			pt = pt_iter;
+			break;
+		}
+	}
+
+	return pt;
 }
 
 /** Destroy the touch device. */
 WL_EXPORT void
 weston_touch_device_destroy(struct weston_touch_device *device)
 {
+	struct pending_touch *pt = NULL;
+
 	wl_list_remove(&device->link);
+	pt = weston_touch_get_pending(device);
+
+	assert(pt);
+	wl_list_remove(&pt->touch_link);
+	free(pt);
+
 	wl_signal_emit(&device->destroy_signal, device);
 	free(device->syspath);
 	free(device);
@@ -2388,6 +2433,7 @@ process_touch_normal(struct weston_touch_device *device,
 	struct weston_touch_grab *grab = device->aggregate->grab;
 	struct weston_compositor *ec = device->aggregate->seat->compositor;
 	struct weston_view *ev;
+	struct pending_touch *pt = NULL;
 	wl_fixed_t sx, sy;
 	wl_fixed_t x = wl_fixed_from_double(double_x);
 	wl_fixed_t y = wl_fixed_from_double(double_y);
@@ -2438,8 +2484,9 @@ process_touch_normal(struct weston_touch_device *device,
 		break;
 	case WL_TOUCH_UP:
 		grab->interface->up(grab, time, touch_id);
-		if (touch->num_tp == 0)
-			weston_touch_set_focus(touch, NULL);
+		pt = weston_touch_get_pending(device);
+		assert(pt);
+		pt->pending_focus_touch_reset = true;
 		break;
 	}
 }
@@ -2628,12 +2675,22 @@ WL_EXPORT void
 notify_touch_frame(struct weston_touch_device *device)
 {
 	struct weston_touch_grab *grab;
+	struct pending_touch *pt;
 
 	switch (weston_touch_device_get_mode(device)) {
 	case WESTON_TOUCH_MODE_NORMAL:
 	case WESTON_TOUCH_MODE_PREP_CALIB:
 		grab = device->aggregate->grab;
 		grab->interface->frame(grab);
+
+		pt = weston_touch_get_pending(device);
+		assert(pt);
+
+		if (pt->pending_focus_touch_reset) {
+			if (grab->touch->num_tp == 0)
+				weston_touch_set_focus(grab->touch, NULL);
+			pt->pending_focus_touch_reset = false;
+		}
 		break;
 	case WESTON_TOUCH_MODE_CALIB:
 	case WESTON_TOUCH_MODE_PREP_NORMAL:
@@ -5059,6 +5116,8 @@ bind_input_timestamps_manager(struct wl_client *client, void *data,
 int
 weston_input_init(struct weston_compositor *compositor)
 {
+	wl_list_init(&pending_touch_list);
+
 	if (!wl_global_create(compositor->wl_display,
 			      &zwp_relative_pointer_manager_v1_interface, 1,
 			      compositor, bind_relative_pointer_manager))
