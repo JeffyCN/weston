@@ -448,12 +448,6 @@ rdp_output_set_size(struct weston_output *base,
 
 	output->base.current_mode = output->base.native_mode = currentMode;
 
-	output->base.start_repaint_loop = rdp_output_start_repaint_loop;
-	output->base.repaint = rdp_output_repaint;
-	output->base.assign_planes = NULL;
-	output->base.set_backlight = NULL;
-	output->base.set_dpms = NULL;
-	output->base.switch_mode = rdp_switch_mode;
 
 	return 0;
 }
@@ -539,7 +533,10 @@ rdp_output_create(struct weston_compositor *compositor, const char *name)
 	output->base.destroy = rdp_output_destroy;
 	output->base.disable = rdp_output_disable;
 	output->base.enable = rdp_output_enable;
-	output->base.attach_head = NULL;
+
+	output->base.start_repaint_loop = rdp_output_start_repaint_loop;
+	output->base.repaint = rdp_output_repaint;
+	output->base.switch_mode = rdp_switch_mode;
 
 	weston_compositor_add_pending_output(&output->base, compositor);
 
