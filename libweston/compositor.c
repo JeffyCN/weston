@@ -273,6 +273,8 @@ weston_mode_switch_finish(struct weston_output *output,
 	if (!mode_changed && !scale_changed)
 		return;
 
+	weston_output_damage(output);
+
 	/* notify clients of the changes */
 	wl_list_for_each(head, &output->head_list, output_link)
 		weston_mode_switch_send_events(head,
