@@ -50,6 +50,7 @@
 #include "shared/string-helpers.h"
 
 #define MAX_FREERDP_FDS 32
+#define RDP_MAX_MONITOR 16
 #define DEFAULT_AXIS_STEP_DISTANCE 10
 #define DEFAULT_PIXEL_FORMAT PIXEL_FORMAT_BGRA32
 
@@ -116,6 +117,7 @@ struct rdp_peers_item {
 struct rdp_head {
 	struct weston_head base;
 	uint32_t index;
+	bool matched;
 	rdpMonitor config;
 };
 
@@ -162,6 +164,10 @@ struct rdp_peer_context {
 	struct rdp_clipboard_data_source *clipboard_inflight_client_data_source;
 
 	struct wl_listener clipboard_selection_listener;
+
+	/* Multiple monitor support (monitor topology) */
+	int32_t desktop_top, desktop_left;
+	int32_t desktop_width, desktop_height;
 };
 
 typedef struct rdp_peer_context RdpPeerContext;
@@ -191,6 +197,15 @@ struct rdp_loop_task {
 	rdp_debug_print(b->clipboard_debug, false, __VA_ARGS__)
 #define rdp_debug_clipboard_continue(b, ...) \
 	rdp_debug_print(b->clipboard_debug, true,  __VA_ARGS__)
+
+/* rdpdisp.c */
+bool
+handle_adjust_monitor_layout(freerdp_peer *client,
+			     int monitor_count, rdpMonitor *monitors);
+
+struct weston_output *
+to_weston_coordinate(RdpPeerContext *peerContext,
+		     int32_t *x, int32_t *y);
 
 /* rdputil.c */
 void

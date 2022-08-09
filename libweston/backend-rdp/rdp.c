@@ -54,6 +54,9 @@
 
 extern PWtsApiFunctionTable FreeRDP_InitWtsApi(void);
 
+static BOOL
+xf_peer_adjust_monitor_layout(freerdp_peer *client);
+
 static struct rdp_output *
 rdp_get_first_output(struct rdp_backend *b)
 {
@@ -378,78 +381,76 @@ ensure_single_mode(struct weston_output *output, struct weston_mode *target)
 	return new_mode;
 }
 
-static int
-rdp_switch_mode(struct weston_output *output, struct weston_mode *target_mode)
+static void
+rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 {
-	struct rdp_output *rdpOutput = container_of(output, struct rdp_output, base);
-	struct rdp_backend *rdpBackend = to_rdp_backend(output->compositor);
+	struct rdp_output *rdpOutput = container_of(base, struct rdp_output, base);
+	struct rdp_backend *b = to_rdp_backend(base->compositor);
+	struct weston_mode *cur;
+	struct weston_output *output = base;
 	struct rdp_peers_item *rdpPeer;
 	rdpSettings *settings;
 	pixman_image_t *new_shadow_buffer;
-	struct weston_mode *local_mode;
 
-	assert(output);
+	mode->refresh = b->rdp_monitor_refresh_rate;
+	cur = ensure_single_mode(base, mode);
 
-	local_mode = ensure_single_mode(output, target_mode);
-	if (local_mode == output->current_mode)
-		return 0;
+	base->current_mode = cur;
+	base->native_mode = cur;
+	if (base->enabled) {
+		weston_renderer_resize_output(output, &(struct weston_size){
+			.width = output->current_mode->width,
+			.height = output->current_mode->height }, NULL);
 
-	output->current_mode = local_mode;
-	output->current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
+		new_shadow_buffer = pixman_image_create_bits(PIXMAN_x8r8g8b8, mode->width,
+				mode->height, 0, mode->width * 4);
+		pixman_image_composite32(PIXMAN_OP_SRC, rdpOutput->shadow_surface, 0, new_shadow_buffer,
+				0, 0, 0, 0, 0, 0, mode->width, mode->height);
+		pixman_image_unref(rdpOutput->shadow_surface);
+		rdpOutput->shadow_surface = new_shadow_buffer;
+	}
 
-	weston_renderer_resize_output(output, &(struct weston_size){
-		.width = output->current_mode->width,
-		.height = output->current_mode->height }, NULL);
-
-	new_shadow_buffer = pixman_image_create_bits(PIXMAN_x8r8g8b8, target_mode->width,
-			target_mode->height, 0, target_mode->width * 4);
-	pixman_image_composite32(PIXMAN_OP_SRC, rdpOutput->shadow_surface, 0, new_shadow_buffer,
-			0, 0, 0, 0, 0, 0, target_mode->width, target_mode->height);
-	pixman_image_unref(rdpOutput->shadow_surface);
-	rdpOutput->shadow_surface = new_shadow_buffer;
-
-	wl_list_for_each(rdpPeer, &rdpBackend->peers, link) {
+	/* Apparently settings->DesktopWidth is supposed to be primary only.
+	 * For now we only work with a single monitor, so we don't need to
+	 * check that we're primary here.
+	 */
+	wl_list_for_each(rdpPeer, &b->peers, link) {
 		settings = rdpPeer->peer->context->settings;
-		if (settings->DesktopWidth == (UINT32)target_mode->width &&
-				settings->DesktopHeight == (UINT32)target_mode->height)
+		if (settings->DesktopWidth == (uint32_t)mode->width &&
+		    settings->DesktopHeight == (uint32_t)mode->height)
 			continue;
 
 		if (!settings->DesktopResize) {
 			/* too bad this peer does not support desktop resize */
+			weston_log("desktop resize is not allowed\n");
 			rdpPeer->peer->Close(rdpPeer->peer);
 		} else {
-			settings->DesktopWidth = target_mode->width;
-			settings->DesktopHeight = target_mode->height;
+			settings->DesktopWidth = mode->width;
+			settings->DesktopHeight = mode->height;
 			rdpPeer->peer->context->update->DesktopResize(rdpPeer->peer->context);
 		}
 	}
-	return 0;
 }
 
 static int
-rdp_output_set_size(struct weston_output *base,
-		    int width, int height)
+rdp_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 {
-	struct rdp_output *output = to_rdp_output(base);
-	struct rdp_backend *rdpBackend = to_rdp_backend(base->compositor);
-	struct weston_mode *currentMode;
-	struct weston_mode initMode;
-
-	assert(output);
-
-	/* We can only be called once. */
-	assert(!output->base.current_mode);
-
-	initMode.width = width;
-	initMode.height = height;
-	initMode.refresh = rdpBackend->rdp_monitor_refresh_rate;
-	currentMode = ensure_single_mode(&output->base, &initMode);
-	currentMode->flags |= WL_OUTPUT_MODE_CURRENT;
-
-	output->base.current_mode = output->base.native_mode = currentMode;
-
+	rdp_output_set_mode(base, mode);
 
 	return 0;
+}
+
+static void
+rdp_head_get_monitor(struct weston_head *base,
+		     struct weston_rdp_monitor *monitor)
+{
+	struct rdp_head *h = to_rdp_head(base);
+
+	monitor->x = h->config.x;
+	monitor->y = h->config.y;
+	monitor->width = h->config.width;
+	monitor->height = h->config.height;
+	monitor->desktop_scale = h->config.attributes.desktopScaleFactor;
 }
 
 static int
@@ -536,7 +537,7 @@ rdp_output_create(struct weston_compositor *compositor, const char *name)
 
 	output->base.start_repaint_loop = rdp_output_start_repaint_loop;
 	output->base.repaint = rdp_output_repaint;
-	output->base.switch_mode = rdp_switch_mode;
+	output->base.switch_mode = rdp_output_switch_mode;
 
 	weston_compositor_add_pending_output(&output->base, compositor);
 
@@ -1040,31 +1041,27 @@ xf_peer_activate(freerdp_peer* client)
 			peerCtx->audio_in_private = b->audio_in_setup(b->compositor, peerCtx->vcm);
 	}
 
-	if (output->base.width != (int)settings->DesktopWidth ||
-			output->base.height != (int)settings->DesktopHeight)
-	{
-		if (b->no_clients_resize) {
-			/* RDP peers don't dictate their resolution to weston */
+	/* If we don't allow resize, we need to tell the client to resize itself.
+	 * We still need the xf_peer_adjust_monitor_layout() call to make sure
+	 * we've set up scaling appropriately.
+	 */
+	if (b->no_clients_resize) {
+		struct weston_mode *mode = output->base.current_mode;
+
+		if (mode->width != (int)settings->DesktopWidth ||
+		    mode->height != (int)settings->DesktopHeight) {
 			if (!settings->DesktopResize) {
 				/* peer does not support desktop resize */
-				weston_log("%s: client doesn't support resizing, closing connection\n", __FUNCTION__);
+				weston_log("client doesn't support resizing, closing connection\n");
 				return FALSE;
 			} else {
-				settings->DesktopWidth = output->base.width;
-				settings->DesktopHeight = output->base.height;
+				settings->DesktopWidth = mode->width;
+				settings->DesktopHeight = mode->height;
 				client->context->update->DesktopResize(client->context);
 			}
-		} else {
-			/* ask weston to adjust size */
-			struct weston_mode new_mode;
-			struct weston_mode *target_mode;
-			new_mode.width = (int)settings->DesktopWidth;
-			new_mode.height = (int)settings->DesktopHeight;
-			target_mode = ensure_single_mode(&output->base, &new_mode);
-			weston_output_mode_set_native(&output->base, target_mode, 1);
-			output->base.width = new_mode.width;
-			output->base.height = new_mode.height;
 		}
+	} else {
+		xf_peer_adjust_monitor_layout(client);
 	}
 
 	weston_output = &output->base;
@@ -1142,6 +1139,36 @@ static BOOL
 xf_peer_post_connect(freerdp_peer *client)
 {
 	return TRUE;
+}
+
+static bool
+rdp_translate_and_notify_mouse_position(RdpPeerContext *peerContext, UINT16 x, UINT16 y)
+{
+	struct timespec time;
+	int sx, sy;
+
+	if (!peerContext->item.seat)
+		return FALSE;
+
+	/* (TS_POINTERX_EVENT):The xy-coordinate of the pointer relative to the top-left
+	 *                     corner of the server's desktop combined all monitors */
+
+	/* first, convert the coordinate based on primary monitor's upper-left as (0,0) */
+	sx = x + peerContext->desktop_left;
+	sy = y + peerContext->desktop_top;
+
+	/* translate client's x/y to the coordinate in weston space. */
+	/* TODO: to_weston_coordinate() is translate based on where pointer is,
+	         not based-on where/which window underneath. Thus, this doesn't
+	         work when window lays across more than 2 monitors and each monitor has
+	         different scaling. In such case, hit test to that window area on
+	         non primary-resident monitor (surface->output) dosn't work. */
+	if (to_weston_coordinate(peerContext, &sx, &sy)) {
+		weston_compositor_get_time(&time);
+		notify_motion_absolute(peerContext->item.seat, &time, sx, sy);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static void
@@ -1282,7 +1309,6 @@ static BOOL
 xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 {
 	RdpPeerContext *peerContext = (RdpPeerContext *)input->context;
-	struct rdp_output *output;
 	uint32_t button = 0;
 	bool need_frame = false;
 	struct timespec time;
@@ -1296,13 +1322,8 @@ xf_mouseEvent(rdpInput *input, UINT16 flags, UINT16 x, UINT16 y)
 	 * the RDP client.
 	 */
 	if (!(flags & (PTR_FLAGS_WHEEL | PTR_FLAGS_HWHEEL))) {
-		output = rdp_get_first_output(peerContext->rdpBackend);
-		if (x < output->base.width && y < output->base.height) {
-			weston_compositor_get_time(&time);
-			notify_motion_absolute(peerContext->item.seat, &time,
-					x, y);
+		if (rdp_translate_and_notify_mouse_position(peerContext, x, y))
 			need_frame = true;
-		}
 	}
 
 	if (flags & PTR_FLAGS_BUTTON1)
@@ -1524,6 +1545,85 @@ xf_suppress_output(rdpContext *context, BYTE allow, const RECTANGLE_16 *area)
 	return TRUE;
 }
 
+static BOOL
+xf_peer_adjust_monitor_layout(freerdp_peer *client)
+{
+	RdpPeerContext *peerCtx = (RdpPeerContext *)client->context;
+	struct rdp_backend *b = peerCtx->rdpBackend;
+	rdpSettings *settings = client->context->settings;
+	rdpMonitor *monitors;
+	unsigned int monitor_count;
+	BOOL success;
+	bool fallback = false;
+	unsigned int i;
+
+	rdp_debug(b, "%s:\n", __func__);
+	rdp_debug(b, "  DesktopWidth:%d, DesktopHeight:%d\n", settings->DesktopWidth, settings->DesktopHeight);
+	rdp_debug(b, "  UseMultimon:%d\n", settings->UseMultimon);
+	rdp_debug(b, "  ForceMultimon:%d\n", settings->ForceMultimon);
+	rdp_debug(b, "  MonitorCount:%d\n", settings->MonitorCount);
+	rdp_debug(b, "  HasMonitorAttributes:%d\n", settings->HasMonitorAttributes);
+	rdp_debug(b, "  HiDefRemoteApp:%d\n", settings->HiDefRemoteApp);
+
+	if (settings->MonitorCount > 1) {
+		weston_log("multiple monitor is not supported");
+		fallback = true;
+	}
+
+	if (b->no_clients_resize)
+		fallback = true;
+
+	if (settings->MonitorCount > RDP_MAX_MONITOR) {
+		weston_log("Client reports more monitors then expected:(%d)\n",
+			   settings->MonitorCount);
+		return FALSE;
+	}
+	if ((settings->MonitorCount > 0 && settings->MonitorDefArray) && !fallback) {
+		rdpMonitor *rdp_monitor = settings->MonitorDefArray;
+		monitor_count = settings->MonitorCount;
+		monitors = xmalloc(sizeof(*monitors) * monitor_count);
+		for (i = 0; i < monitor_count; i++) {
+			monitors[i] = rdp_monitor[i];
+			if (!settings->HasMonitorAttributes) {
+				monitors[i].attributes.physicalWidth = 0;
+				monitors[i].attributes.physicalHeight = 0;
+				monitors[i].attributes.orientation = ORIENTATION_LANDSCAPE;
+				monitors[i].attributes.desktopScaleFactor = 100;
+				monitors[i].attributes.deviceScaleFactor = 100;
+			}
+		}
+	} else {
+		monitor_count = 1;
+		monitors = xmalloc(sizeof(*monitors) * monitor_count);
+		/* when no monitor array provided, generate from desktop settings */
+		monitors[0].x = 0;
+		monitors[0].y = 0;
+		monitors[0].width = settings->DesktopWidth;
+		monitors[0].height = settings->DesktopHeight;
+		monitors[0].is_primary = 1;
+		monitors[0].attributes.physicalWidth = settings->DesktopPhysicalWidth;
+		monitors[0].attributes.physicalHeight = settings->DesktopPhysicalHeight;
+		monitors[0].attributes.orientation = settings->DesktopOrientation;
+		monitors[0].attributes.desktopScaleFactor = settings->DesktopScaleFactor;
+		monitors[0].attributes.deviceScaleFactor = settings->DeviceScaleFactor;
+		monitors[0].orig_screen = 0;
+
+		if (b->no_clients_resize) {
+			/* If we're not allowing clients to resize us, set these
+			 * to 0 so the front end knows it needs to make something
+			 * up.
+			 */
+			monitors[0].width = 0;
+			monitors[0].height = 0;
+			monitors[0].attributes.desktopScaleFactor = 0;
+		}
+	}
+	success = handle_adjust_monitor_layout(client, monitor_count, monitors);
+
+	free(monitors);
+	return success;
+}
+
 static int
 rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 {
@@ -1575,6 +1675,11 @@ rdp_peer_init(freerdp_peer *client, struct rdp_backend *b)
 	client->Capabilities = xf_peer_capabilities;
 	client->PostConnect = xf_peer_post_connect;
 	client->Activate = xf_peer_activate;
+
+	if (!b->no_clients_resize) {
+		settings->SupportMonitorLayoutPdu = TRUE;
+		client->AdjustMonitorsLayout = xf_peer_adjust_monitor_layout;
+	}
 
 	client->context->update->SuppressOutput = (pSuppressOutput)xf_suppress_output;
 
@@ -1648,7 +1753,8 @@ rdp_incoming_peer(freerdp_listener *instance, freerdp_peer *client)
 }
 
 static const struct weston_rdp_output_api api = {
-	rdp_output_set_size,
+	rdp_head_get_monitor,
+	rdp_output_set_mode,
 };
 
 static struct rdp_backend *

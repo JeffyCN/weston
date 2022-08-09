@@ -3070,40 +3070,6 @@ load_headless_backend(struct weston_compositor *c,
 	return 0;
 }
 
-static int
-rdp_backend_output_configure(struct weston_output *output)
-{
-	struct wet_compositor *compositor = to_wet_compositor(output->compositor);
-	struct wet_output_config *parsed_options = compositor->parsed_options;
-	const struct weston_rdp_output_api *api = weston_rdp_output_get_api(output->compositor);
-	int width = 640;
-	int height = 480;
-
-	assert(parsed_options);
-
-	if (!api) {
-		weston_log("Cannot use weston_rdp_output_api.\n");
-		return -1;
-	}
-
-	if (parsed_options->width)
-		width = parsed_options->width;
-
-	if (parsed_options->height)
-		height = parsed_options->height;
-
-	weston_output_set_scale(output, 1);
-	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
-
-	if (api->output_set_size(output, width, height) < 0) {
-		weston_log("Cannot configure output \"%s\" using weston_rdp_output_api.\n",
-			   output->name);
-		return -1;
-	}
-
-	return 0;
-}
-
 static void
 weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 {
@@ -3124,6 +3090,83 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 	config->refresh_rate = RDP_DEFAULT_FREQ;
 }
 
+static void
+rdp_handle_layout(struct weston_compositor *ec)
+{
+	struct wet_compositor *wc = to_wet_compositor(ec);
+	struct wet_output_config *parsed_options = wc->parsed_options;
+	const struct weston_rdp_output_api *api = weston_rdp_output_get_api(ec);
+	struct weston_rdp_monitor config;
+	struct weston_head *head = NULL;
+	int width;
+	int height;
+	int scale = 1;
+
+	while ((head = weston_compositor_iterate_heads(ec, head))) {
+		struct weston_output *output = head->output;
+		struct weston_mode new_mode = {};
+
+		assert(output);
+
+		api->head_get_monitor(head, &config);
+
+		width = config.width;
+		height = config.height;
+		scale = config.desktop_scale / 100;
+
+		/* If these are invalid, the backend is expecting
+		 * us to provide defaults.
+		 */
+		width = width ? width : parsed_options->width;
+		height = height ? height : parsed_options->height;
+		scale = scale ? scale : parsed_options->scale;
+
+		/* Fallback to 640 x 480 if we have nothing to use */
+		width = width ? width : 640;
+		height = height ? height : 480;
+		scale = scale ? scale : 1;
+
+		new_mode.width = width;
+		new_mode.height = height;
+		api->output_set_mode(output, &new_mode);
+
+		weston_output_set_scale(output, scale);
+		weston_output_set_transform(output,
+					    WL_OUTPUT_TRANSFORM_NORMAL);
+		weston_output_move(output, config.x, config.y);
+	}
+}
+
+static void
+rdp_heads_changed(struct wl_listener *listener, void *arg)
+{
+	struct weston_compositor *compositor = arg;
+	struct wet_compositor *wet = to_wet_compositor(compositor);
+	struct weston_head *head = NULL;
+
+	while ((head = weston_compositor_iterate_heads(compositor, head))) {
+		if (head->output)
+			continue;
+
+		struct weston_output *out;
+
+		out = weston_compositor_create_output(compositor,
+						      head, head->name);
+
+		wet_head_tracker_create(wet, head);
+		weston_output_attach_head(out, head);
+	}
+
+	rdp_handle_layout(compositor);
+
+	while ((head = weston_compositor_iterate_heads(compositor, head))) {
+		if (!head->output->enabled)
+			weston_output_enable(head->output);
+
+		weston_head_reset_device_changed(head);
+	}
+}
+
 static int
 load_rdp_backend(struct weston_compositor *c,
 		int *argc, char *argv[], struct weston_config *wc,
@@ -3133,8 +3176,9 @@ load_rdp_backend(struct weston_compositor *c,
 	struct weston_config_section *section;
 	int ret = 0;
 	bool no_remotefx_codec = false;
-
 	struct wet_output_config *parsed_options = wet_init_parsed_options(c);
+	struct wet_compositor *wet = to_wet_compositor(c);
+
 	if (!parsed_options)
 		return -1;
 
@@ -3151,6 +3195,7 @@ load_rdp_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_STRING,  "rdp4-key", 0, &config.rdp_key },
 		{ WESTON_OPTION_STRING,  "rdp-tls-cert", 0, &config.server_cert },
 		{ WESTON_OPTION_STRING,  "rdp-tls-key", 0, &config.server_key },
+		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
 		{ WESTON_OPTION_BOOLEAN, "force-no-compression", 0, &config.force_no_compression },
 		{ WESTON_OPTION_BOOLEAN, "no-remotefx-codec", 0, &no_remotefx_codec },
 	};
@@ -3159,11 +3204,14 @@ load_rdp_backend(struct weston_compositor *c,
 	config.remotefx_codec = !no_remotefx_codec;
 	config.renderer = renderer;
 
-	wet_set_simple_head_configurator(c, rdp_backend_output_configure);
 	section = weston_config_get_section(wc, "rdp", NULL, NULL);
 	weston_config_section_get_int(section, "refresh-rate",
 				      &config.refresh_rate,
 				      RDP_DEFAULT_FREQ);
+
+	wet->heads_changed_listener.notify = rdp_heads_changed;
+	weston_compositor_add_heads_changed_listener(c,
+						     &wet->heads_changed_listener);
 
 	ret = weston_compositor_load_backend(c, WESTON_BACKEND_RDP,
 					     &config.base);
