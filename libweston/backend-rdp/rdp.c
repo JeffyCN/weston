@@ -960,6 +960,23 @@ convert_rdp_keyboard_to_xkb_rule_names(UINT32 KeyboardType,
 		   xkbRuleNames->variant);
 }
 
+static void
+rdp_full_refresh(freerdp_peer *peer, struct rdp_output *output)
+{
+	pixman_box32_t box;
+	pixman_region32_t damage;
+
+	box.x1 = 0;
+	box.y1 = 0;
+	box.x2 = output->base.current_mode->width;
+	box.y2 = output->base.current_mode->height;
+	pixman_region32_init_with_extents(&damage, &box);
+
+	rdp_peer_refresh_region(&damage, peer);
+
+	pixman_region32_fini(&damage);
+}
+
 static BOOL
 xf_peer_activate(freerdp_peer* client)
 {
@@ -972,8 +989,6 @@ xf_peer_activate(freerdp_peer* client)
 	struct xkb_rule_names xkbRuleNames;
 	struct xkb_keymap *keymap;
 	struct weston_output *weston_output;
-	pixman_box32_t box;
-	pixman_region32_t damage;
 	char seat_name[50];
 	POINTER_SYSTEM_UPDATE pointer_system;
 
@@ -1090,16 +1105,7 @@ xf_peer_activate(freerdp_peer* client)
 	pointer_system.type = SYSPTR_NULL;
 	pointer->PointerSystem(client->context, &pointer_system);
 
-	/* sends a full refresh */
-	box.x1 = 0;
-	box.y1 = 0;
-	box.x2 = output->base.width;
-	box.y2 = output->base.height;
-	pixman_region32_init_with_extents(&damage, &box);
-
-	rdp_peer_refresh_region(&damage, client);
-
-	pixman_region32_fini(&damage);
+	rdp_full_refresh(client, output);
 
 	return TRUE;
 
@@ -1372,8 +1378,6 @@ xf_input_synchronize_event(rdpInput *input, UINT32 flags)
 	struct rdp_backend *b = peerCtx->rdpBackend;
 	struct rdp_output *output = rdp_get_first_output(b);
 	struct weston_keyboard *keyboard;
-	pixman_box32_t box;
-	pixman_region32_t damage;
 
         rdp_debug_verbose(b, "RDP backend: %s ScrLk:%d, NumLk:%d, CapsLk:%d, KanaLk:%d\n",
 			  __func__,
@@ -1395,16 +1399,8 @@ xf_input_synchronize_event(rdpInput *input, UINT32 flags)
 					  value);
 	}
 
-	/* sends a full refresh */
-	box.x1 = 0;
-	box.y1 = 0;
-	box.x2 = output->base.width;
-	box.y2 = output->base.height;
-	pixman_region32_init_with_extents(&damage, &box);
+	rdp_full_refresh(client, output);
 
-	rdp_peer_refresh_region(&damage, client);
-
-	pixman_region32_fini(&damage);
 	return TRUE;
 }
 
