@@ -2435,8 +2435,7 @@ process_touch_normal(struct weston_touch_device *device,
 		break;
 	case WL_TOUCH_UP:
 		grab->interface->up(grab, time, touch_id);
-		if (touch->num_tp == 0)
-			weston_touch_set_focus(touch, NULL);
+		touch->pending_focus_reset = true;
 		break;
 	}
 }
@@ -2631,6 +2630,11 @@ notify_touch_frame(struct weston_touch_device *device)
 	case WESTON_TOUCH_MODE_PREP_CALIB:
 		grab = device->aggregate->grab;
 		grab->interface->frame(grab);
+		if (grab->touch->pending_focus_reset) {
+			if (grab->touch->num_tp == 0)
+				weston_touch_set_focus(grab->touch, NULL);
+			grab->touch->pending_focus_reset = false;
+		}
 		break;
 	case WESTON_TOUCH_MODE_CALIB:
 	case WESTON_TOUCH_MODE_PREP_NORMAL:

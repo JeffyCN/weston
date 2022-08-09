@@ -809,6 +809,7 @@ struct weston_touch {
 	struct wl_listener focus_resource_listener;
 	uint32_t focus_serial;
 	struct wl_signal focus_signal;
+	bool pending_focus_reset;
 
 	uint32_t num_tp;
 
