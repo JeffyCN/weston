@@ -6698,13 +6698,16 @@ WL_EXPORT void
 weston_output_set_scale(struct weston_output *output,
 			int32_t scale)
 {
-	/* We can only set scale on a disabled output */
-	assert(!output->enabled);
-
-	/* We only want to set scale once */
-	assert(!output->scale);
-
 	output->scale = scale;
+	if (!output->enabled)
+		return;
+
+	if (output->current_scale == scale)
+		return;
+
+	output->current_scale = scale;
+	weston_mode_switch_finish(output, false, true);
+	wl_signal_emit(&output->compositor->output_resized_signal, output);
 }
 
 /** Sets the output transform for a given output.
