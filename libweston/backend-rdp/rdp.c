@@ -296,13 +296,18 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	ec->renderer->repaint_output(&output->base, damage);
 
 	if (pixman_region32_not_empty(damage)) {
+		pixman_region32_t transformed_damage;
+		pixman_region32_init(&transformed_damage);
+		weston_region_global_to_output(&transformed_damage,
+					       output_base,
+					       damage);
 		wl_list_for_each(peer, &b->peers, link) {
 			if ((peer->flags & RDP_PEER_ACTIVATED) &&
-					(peer->flags & RDP_PEER_OUTPUT_ENABLED))
-			{
-				rdp_peer_refresh_region(damage, peer->peer);
+			    (peer->flags & RDP_PEER_OUTPUT_ENABLED)) {
+				rdp_peer_refresh_region(&transformed_damage, peer->peer);
 			}
 		}
+		pixman_region32_fini(&transformed_damage);
 	}
 
 	pixman_region32_subtract(&ec->primary_plane.damage,
