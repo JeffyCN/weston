@@ -532,9 +532,7 @@ rdp_output_create(struct weston_compositor *compositor, const char *name)
 {
 	struct rdp_output *output;
 
-	output = zalloc(sizeof *output);
-	if (output == NULL)
-		return NULL;
+	output = xzalloc(sizeof *output);
 
 	weston_output_init(&output->base, compositor, name);
 
