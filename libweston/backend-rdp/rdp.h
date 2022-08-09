@@ -96,6 +96,8 @@ struct rdp_backend {
         rdp_audio_in_teardown audio_in_teardown;
         rdp_audio_out_setup audio_out_setup;
         rdp_audio_out_teardown audio_out_teardown;
+
+	uint32_t head_index;
 };
 
 enum peer_item_flags {
@@ -113,6 +115,8 @@ struct rdp_peers_item {
 
 struct rdp_head {
 	struct weston_head base;
+	uint32_t index;
+	rdpMonitor config;
 };
 
 struct rdp_output {
@@ -228,6 +232,10 @@ rdp_clipboard_init(freerdp_peer *client);
 
 void
 rdp_clipboard_destroy(RdpPeerContext *peerCtx);
+
+/* rdp.c */
+void
+rdp_head_create(struct weston_compositor *compositor, rdpMonitor *config);
 
 void
 rdp_destroy(struct weston_compositor *ec);

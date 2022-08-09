@@ -543,20 +543,37 @@ rdp_output_create(struct weston_compositor *compositor, const char *name)
 	return &output->base;
 }
 
-static void
-rdp_head_create(struct weston_compositor *compositor, const char *name)
+void
+rdp_head_create(struct weston_compositor *compositor, rdpMonitor *config)
 {
 	struct rdp_backend *backend = to_rdp_backend(compositor);
 	struct rdp_head *head;
+	char name[13] = {}; /* "rdp-" + 8 chars for hex uint32_t + NULL. */
 
 	head = xzalloc(sizeof *head);
+	head->index = backend->head_index++;
+	if (config)
+		head->config = *config;
+	else {
+		/* Before any client conenctions we create a default head
+		 * with no configuration. Make it the primary, and make
+		 * it avoid the high dpi scaling paths.
+		 */
+		head->config.is_primary = true;
+		head->config.attributes.desktopScaleFactor = 0;
+	}
+
+	sprintf(name, "rdp-%x", head->index);
 
 	weston_head_init(&head->base, name);
 	weston_head_set_monitor_strings(&head->base, "weston", "rdp", NULL);
 
-	/* This is a virtual output, so report a zero physical size.
-	 * It's better to let frontends/clients use their defaults. */
-	weston_head_set_physical_size(&head->base, 0, 0);
+	if (config)
+		weston_head_set_physical_size(&head->base,
+					      config->attributes.physicalWidth,
+					      config->attributes.physicalHeight);
+	else
+		weston_head_set_physical_size(&head->base, 0, 0);
 
 	head->base.backend = &backend->base;
 
@@ -1725,7 +1742,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 	if (pixman_renderer_init(compositor) < 0)
 		goto err_compositor;
 
-	rdp_head_create(compositor, "rdp");
+	rdp_head_create(compositor, NULL);
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
 
