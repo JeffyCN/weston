@@ -987,6 +987,7 @@ xf_peer_activate(freerdp_peer* client)
 	struct weston_output *weston_output;
 	char seat_name[50];
 	POINTER_SYSTEM_UPDATE pointer_system;
+	int width, height;
 
 	peerCtx = (RdpPeerContext *)client->context;
 	b = peerCtx->rdpBackend;
@@ -1050,8 +1051,10 @@ xf_peer_activate(freerdp_peer* client)
 	}
 
 	weston_output = &output->base;
-	rfx_context_reset(peerCtx->rfx_context, weston_output->width, weston_output->height);
-	nsc_context_reset(peerCtx->nsc_context, weston_output->width, weston_output->height);
+	width = weston_output->width * weston_output->scale;
+	height = weston_output->height * weston_output->scale;
+	rfx_context_reset(peerCtx->rfx_context, width, height);
+	nsc_context_reset(peerCtx->nsc_context, width, height);
 
 	if (peersItem->flags & RDP_PEER_ACTIVATED)
 		return TRUE;
