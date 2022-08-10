@@ -26,7 +26,7 @@
 #ifndef WESTON_LINUX_DMABUF_H
 #define WESTON_LINUX_DMABUF_H
 
-#include <stdint.h>
+#include <libweston/libweston.h>
 
 #define MAX_DMABUF_PLANES 4
 
