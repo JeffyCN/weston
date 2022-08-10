@@ -2162,10 +2162,6 @@ input_handle_touch_up(void *data, struct wl_touch *wl_touch,
 	timespec_from_msec(&ts, time);
 
 	input->touch_points--;
-	if (input->touch_points == 0) {
-		input->touch_focus = NULL;
-		input->touch_active = false;
-	}
 
 	if (!output)
 		return;
@@ -2228,6 +2224,11 @@ input_handle_touch_frame(void *data, struct wl_touch *wl_touch)
 		return;
 
 	notify_touch_frame(input->touch_device);
+
+	if (input->touch_points == 0) {
+		input->touch_focus = NULL;
+		input->touch_active = false;
+	}
 }
 
 static void
