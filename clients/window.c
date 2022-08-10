@@ -318,6 +318,8 @@ struct input {
 	struct toytimer cursor_timer;
 	bool cursor_timer_running;
 	struct wl_surface *pointer_surface;
+	bool pointer_surface_has_role;
+	int hotspot_x, hotspot_y;
 	uint32_t modifiers;
 	uint32_t pointer_enter_serial;
 	uint32_t cursor_serial;
@@ -2569,6 +2571,7 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
 	input->display->serial = serial;
 	input->pointer_enter_serial = serial;
 	input->pointer_focus = window;
+	input->pointer_surface_has_role = false;
 
 	input->sx = sx;
 	input->sy = sy;
@@ -3581,6 +3584,7 @@ input_set_pointer_image_index(struct input *input, int index)
 	struct wl_buffer *buffer;
 	struct wl_cursor *cursor;
 	struct wl_cursor_image *image;
+	int dx = 0, dy = 0;
 
 	if (!input->pointer)
 		return;
@@ -3599,13 +3603,24 @@ input_set_pointer_image_index(struct input *input, int index)
 	if (!buffer)
 		return;
 
-	wl_surface_attach(input->pointer_surface, buffer, 0, 0);
+	if (input->pointer_surface_has_role) {
+		dx = input->hotspot_x - image->hotspot_x;
+		dy = input->hotspot_y - image->hotspot_y;
+	}
+	wl_surface_attach(input->pointer_surface, buffer, dx, dy);
 	wl_surface_damage(input->pointer_surface, 0, 0,
 			  image->width, image->height);
 	wl_surface_commit(input->pointer_surface);
-	wl_pointer_set_cursor(input->pointer, input->pointer_enter_serial,
-			      input->pointer_surface,
-			      image->hotspot_x, image->hotspot_y);
+
+	if (!input->pointer_surface_has_role) {
+		wl_pointer_set_cursor(input->pointer,
+				      input->pointer_enter_serial,
+				      input->pointer_surface,
+				      image->hotspot_x, image->hotspot_y);
+		input->pointer_surface_has_role = true;
+	}
+	input->hotspot_x = image->hotspot_x;
+	input->hotspot_y = image->hotspot_y;
 }
 
 static const struct wl_callback_listener pointer_surface_listener;
@@ -3617,11 +3632,14 @@ input_set_pointer_special(struct input *input)
 		wl_pointer_set_cursor(input->pointer,
 				      input->pointer_enter_serial,
 				      NULL, 0, 0);
+		input->pointer_surface_has_role = false;
 		return true;
 	}
 
-	if (input->current_cursor == CURSOR_UNSET)
+	if (input->current_cursor == CURSOR_UNSET) {
+		input->pointer_surface_has_role = false;
 		return true;
+	}
 
 	return false;
 }
@@ -5726,6 +5744,7 @@ display_add_input(struct display *d, uint32_t id, int display_seat_version)
 	}
 
 	input->pointer_surface = wl_compositor_create_surface(d->compositor);
+	input->pointer_surface_has_role = false;
 
 	toytimer_init(&input->cursor_timer, CLOCK_MONOTONIC, d,
 		      cursor_timer_func);
