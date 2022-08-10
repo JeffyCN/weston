@@ -320,6 +320,7 @@ struct input {
 	struct wl_surface *pointer_surface;
 	uint32_t modifiers;
 	uint32_t pointer_enter_serial;
+	uint32_t cursor_serial;
 	float sx, sy;
 	struct wl_list link;
 
@@ -2541,12 +2542,6 @@ input_remove_pointer_focus(struct input *input)
 	input->pointer_focus = NULL;
 	input->current_cursor = CURSOR_UNSET;
 	cancel_pointer_image_update(input);
-	wl_surface_destroy(input->pointer_surface);
-	input->pointer_surface = NULL;
-	if (input->cursor_frame_cb) {
-		wl_callback_destroy(input->cursor_frame_cb);
-		input->cursor_frame_cb = NULL;
-	}
 }
 
 static void
@@ -3676,7 +3671,6 @@ schedule_pointer_image_update(struct input *input,
 	wl_callback_add_listener(input->cursor_frame_cb,
 				 &pointer_surface_listener, input);
 
-	wl_surface_commit(input->pointer_surface);
 }
 
 static void
@@ -3760,15 +3754,30 @@ static const struct wl_callback_listener pointer_surface_listener = {
 void
 input_set_pointer_image(struct input *input, int pointer)
 {
+	int force = 0;
+
 	if (!input->pointer)
 		return;
 
-	if (pointer == input->current_cursor)
+	if (input->pointer_enter_serial > input->cursor_serial)
+		force = 1;
+
+	if (!force && pointer == input->current_cursor)
 		return;
 
 	input->current_cursor = pointer;
+	input->cursor_serial = input->pointer_enter_serial;
 	if (!input->cursor_frame_cb)
 		pointer_surface_frame_callback(input, NULL, 0);
+	else if (force && !input_set_pointer_special(input)) {
+		/* The current frame callback may be stuck if, for instance,
+		 * the set cursor request was processed by the server after
+		 * this client lost the focus. In this case the cursor surface
+		 * might not be mapped and the frame callback wouldn't ever
+		 * complete. Send a set_cursor and attach to try to map the
+		 * cursor surface again so that the callback will finish */
+		input_set_pointer_image_index(input, 0);
+	}
 }
 
 struct wl_data_device *
