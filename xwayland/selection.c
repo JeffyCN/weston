@@ -716,13 +716,61 @@ weston_wm_set_selection(struct wl_listener *listener, void *data)
 				XCB_TIME_CURRENT_TIME);
 }
 
+static void
+maybe_reassign_selection_seat(struct weston_wm *wm)
+{
+	struct weston_seat *seat;
+
+	/* If we already have a seat, keep it */
+	if (!wl_list_empty(&wm->selection_listener.link))
+		return;
+
+	seat = weston_wm_pick_seat(wm);
+	if (!seat)
+		return;
+
+	wl_list_remove(&wm->selection_listener.link);
+	wl_list_remove(&wm->seat_destroy_listener.link);
+
+	wl_signal_add(&seat->selection_signal, &wm->selection_listener);
+	wl_signal_add(&seat->destroy_signal, &wm->seat_destroy_listener);
+
+	weston_wm_set_selection(&wm->selection_listener, seat);
+}
+
+static void
+weston_wm_seat_created(struct wl_listener *listener, void *data)
+{
+	struct weston_wm *wm =
+		container_of(listener, struct weston_wm, seat_create_listener);
+
+	maybe_reassign_selection_seat(wm);
+}
+
+static void
+weston_wm_seat_destroyed(struct wl_listener *listener, void *data)
+{
+	struct weston_wm *wm =
+		container_of(listener, struct weston_wm, seat_destroy_listener);
+
+	wl_list_remove(&wm->selection_listener.link);
+	wl_list_init(&wm->selection_listener.link);
+
+	wl_list_remove(&wm->seat_destroy_listener.link);
+	wl_list_init(&wm->seat_destroy_listener.link);
+
+	/* Try to pick another available seat to fall back to */
+	maybe_reassign_selection_seat(wm);
+}
+
 void
 weston_wm_selection_init(struct weston_wm *wm)
 {
-	struct weston_seat *seat;
 	uint32_t values[1], mask;
 
 	wl_list_init(&wm->selection_listener.link);
+	wl_list_init(&wm->seat_create_listener.link);
+	wl_list_init(&wm->seat_destroy_listener.link);
 
 	wm->selection_request.requestor = XCB_NONE;
 
@@ -751,11 +799,20 @@ weston_wm_selection_init(struct weston_wm *wm)
 	xcb_xfixes_select_selection_input(wm->conn, wm->selection_window,
 					  wm->atom.clipboard, mask);
 
-	seat = weston_wm_pick_seat(wm);
-	if (seat == NULL)
-		return;
+	/* Try to set up a selection listener for any existing seat - we
+	 * have a clipboard manager that can copy a subset of available
+	 * selections so they don't disappear when the client owning
+	 * them quits, but to make this work we need to have a seat
+	 * to hang the selection off.
+	 *
+	 * If we have no seat or lose our seat we need to make sure we
+	 * eventually assign a new one, so we listen for seat creation
+	 * and destruction.
+	 */
 	wm->selection_listener.notify = weston_wm_set_selection;
-	wl_signal_add(&seat->selection_signal, &wm->selection_listener);
-
-	weston_wm_set_selection(&wm->selection_listener, seat);
+	wm->seat_destroy_listener.notify = weston_wm_seat_destroyed;
+	wm->seat_create_listener.notify = weston_wm_seat_created;
+	wl_signal_add(&wm->server->compositor->seat_created_signal,
+		      &wm->seat_create_listener);
+	maybe_reassign_selection_seat(wm);
 }

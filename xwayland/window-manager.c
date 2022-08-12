@@ -2728,6 +2728,8 @@ weston_wm_destroy(struct weston_wm *wm)
 	theme_destroy(wm->theme);
 	xcb_disconnect(wm->conn);
 	wl_event_source_remove(wm->source);
+	wl_list_remove(&wm->seat_create_listener.link);
+	wl_list_remove(&wm->seat_destroy_listener.link);
 	wl_list_remove(&wm->selection_listener.link);
 	wl_list_remove(&wm->activate_listener.link);
 	wl_list_remove(&wm->kill_listener.link);
