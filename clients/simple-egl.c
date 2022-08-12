@@ -303,6 +303,9 @@ init_gl(struct window *window)
 			     window->egl_surface, window->display->egl.ctx);
 	assert(ret == EGL_TRUE);
 
+	if (!window->frame_sync)
+		eglSwapInterval(window->display->egl.dpy, 0);
+
 	frag = create_shader(window, frag_shader_text, GL_FRAGMENT_SHADER);
 	vert = create_shader(window, vert_shader_text, GL_VERTEX_SHADER);
 
@@ -491,9 +494,6 @@ create_surface(struct window *window)
 
 	window->wait_for_configure = true;
 	wl_surface_commit(window->surface);
-
-	if (!window->frame_sync)
-		eglSwapInterval(display->egl.dpy, 0);
 }
 
 static void
