@@ -395,6 +395,7 @@ enum drm_fb_type {
 struct drm_fb {
 	enum drm_fb_type type;
 
+	struct drm_backend *backend;
 	struct drm_device *scanout_device;
 
 	int refcnt;

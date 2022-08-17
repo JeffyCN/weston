@@ -1875,13 +1875,7 @@ ret:
 static void
 drm_crtc_destroy(struct drm_crtc *crtc)
 {
-	/* TODO: address the issue below to be able to remove the comment
-	 * from the assert.
-	 *
-	 * https://gitlab.freedesktop.org/wayland/weston/-/issues/421
-	 */
-
-	//assert(!crtc->output);
+	assert(!crtc->output);
 
 	wl_list_remove(&crtc->link);
 	drm_property_info_free(crtc->props_crtc, WDRM_CRTC__COUNT);
@@ -2094,6 +2088,29 @@ drm_output_detach_crtc(struct drm_output *output)
 	output->crtc = NULL;
 }
 
+static bool
+should_wait_drm_events(struct drm_device *device)
+{
+	struct weston_output *base;
+	struct drm_output *output;
+
+	wl_list_for_each(base, &device->backend->compositor->output_list, link) {
+		/* We only care about outputs related to the DRM backend. */
+		output = to_drm_output(base);
+		if (!output)
+			continue;
+
+		/* We only care about the outputs on our device. */
+		if (output->device != device)
+			continue;
+
+		if (output->destroy_pending || output->disable_pending)
+			return true;
+	}
+
+	return false;
+}
+
 static int
 drm_output_enable(struct weston_output *base)
 {
@@ -2104,6 +2121,21 @@ drm_output_enable(struct weston_output *base)
 
 	assert(output);
 	assert(!output->virtual);
+
+	/* TODO: drop this hack when we rework the output configuration API. For
+	 * now we need this because the frontend may call
+	 * weston_output_destroy() or weston_output_disable() but it may have a
+	 * pending page flip. In such case the destruction is delayed, but the
+	 * frontend can't tell that. Until the flip completes, the DRM objects
+	 * of the card (CRTC, planes, etc) won't be available, as they will
+	 * still be attached to the output marked to be destroyed/disabled. So
+	 * if the frontend calls weston_output_enable() for an output right
+	 * after weston_output_destroy() or weston_output_disable(), it might
+	 * not find DRM objects available and fail. So we spin here until the
+	 * flip completes and the output gets destroyed/disabled and release the
+	 * DRM objects. */
+	while (should_wait_drm_events(device))
+		on_drm_input(device->drm.fd, 0 /* unused mask */, device);
 
 	if (!output->format) {
 		if (output->base.eotf_mode != WESTON_EOTF_MODE_SDR)
@@ -2204,9 +2236,19 @@ drm_output_destroy(struct weston_output *base)
 	assert(!output->virtual);
 
 	if (output->page_flip_pending || output->atomic_complete_pending) {
-		output->destroy_pending = true;
-		weston_log("destroy output while page flip pending\n");
-		return;
+		if (!base->compositor->shutting_down) {
+			/* We are not shutting down, so we can wait for flip
+			 * completion. */
+			output->destroy_pending = true;
+			weston_log("delaying output destruction because of a " \
+				   "pending flip, wait until it completes\n");
+			return;
+		} else {
+			weston_log("destroying output %s (id %u) with a pending " \
+				   "flip, but as we are shutting down we can't " \
+				   "wait to destroy it when the flip completes... " \
+				   "destroying it now\n", base->name, base->id);
+		}
 	}
 
 	drm_output_set_cursor_view(output, NULL);
@@ -3168,6 +3210,8 @@ drm_destroy(struct weston_backend *backend)
 	struct weston_compositor *ec = b->compositor;
 	struct drm_device *device = b->drm;
 	struct weston_head *base, *next;
+	struct weston_output *output_base;
+	struct drm_output *output;
 	struct drm_crtc *crtc, *crtc_tmp;
 	struct drm_writeback *writeback, *writeback_tmp;
 
@@ -3175,6 +3219,34 @@ drm_destroy(struct weston_backend *backend)
 
 	wl_event_source_remove(b->udev_drm_source);
 	wl_event_source_remove(b->drm_source);
+
+	/* We are shutting down. This function destroy the planes with
+	 * destroy_sprites() and then calls weston_compositor_shutdown(), which
+	 * will lead to calls to drm_output_destroy(). We are destroying the
+	 * plane and its state_cur in drm_plane_destroy(), and that removes
+	 * state_cur from the output->state_cur list, but not from the
+	 * state_last list.
+	 *
+	 * This was not an issue because we'd leak the drm_output (and so
+	 * output->last_state) during shutdown with a pending page flip. And if
+	 * we were no shutting down, we'd always wait until flip completion
+	 * before destroying an output (meaning that
+	 * drm_output_update_complete() would be called and output->state_last
+	 * would be freed and set to NULL).
+	 *
+	 * But now we don't leak the drm_output during shutdown with a pending
+	 * flip anymore. So we must destroy output->state_last for every output
+	 * before destroying the planes with destroy_sprites(), otherwise we'd
+	 * leave output->state_last referring to a freed plane, leading to
+	 * issues when trying to free it at a later point.
+	 */
+	wl_list_for_each(output_base, &ec->output_list, link) {
+		output = to_drm_output(output_base);
+		if (output && (output->page_flip_pending || output->atomic_complete_pending)) {
+			drm_output_state_free(output->state_last);
+			output->state_last = NULL;
+		}
+	}
 
 	destroy_sprites(b->drm);
 

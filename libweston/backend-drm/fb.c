@@ -47,7 +47,12 @@
 static void
 drm_fb_destroy(struct drm_fb *fb)
 {
-	if (fb->fb_id != 0)
+	/* TODO: do not leak the fb during shutdown.
+	 * When we are shutting down, the CRTC may be scanning out our fb. If we
+	 * destroy it, the CRTC may turn off. So leak that on purpose. What we
+	 * need here is a libdrm function that we can use to tell DRM/KMS that
+	 * it is free to destroy our fb once it stops using it. */
+	if (fb->fb_id != 0 && !fb->backend->compositor->shutting_down)
 		drmModeRmFB(fb->fd, fb->fb_id);
 	free(fb);
 }
@@ -264,6 +269,8 @@ drm_fb_create_dumb(struct drm_device *device, int width, int height,
 		return NULL;
 	fb->refcnt = 1;
 
+	fb->backend = device->backend;
+
 	fb->format = pixel_format_get_info(format);
 	if (!fb->format) {
 		weston_log("failed to look up format 0x%lx\n",
@@ -418,6 +425,7 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 
 	fb->refcnt = 1;
 	fb->type = BUFFER_DMABUF;
+	fb->backend = device->backend;
 
 	ARRAY_COPY(import_mod.fds, dmabuf->attributes.fd);
 	ARRAY_COPY(import_mod.strides, dmabuf->attributes.stride);
@@ -507,6 +515,7 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_device *device,
 
 	fb->type = type;
 	fb->refcnt = 1;
+	fb->backend = device->backend;
 	fb->bo = bo;
 	fb->fd = device->drm.fd;
 
