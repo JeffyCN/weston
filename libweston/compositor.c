@@ -187,6 +187,12 @@ weston_mode_switch_send_events(struct weston_head *head,
 		if (version >= WL_OUTPUT_SCALE_SINCE_VERSION && scale_changed)
 			wl_output_send_scale(resource, output->current_scale);
 
+		if (version >= WL_OUTPUT_NAME_SINCE_VERSION)
+			wl_output_send_name(resource, head->name);
+
+		if (version >= WL_OUTPUT_DESCRIPTION_SINCE_VERSION)
+			wl_output_send_description(resource, head->model);
+
 		if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
 			wl_output_send_done(resource);
 	}
@@ -5314,6 +5320,12 @@ bind_output(struct wl_client *client,
 				    mode->refresh);
 	}
 
+	if (version >= WL_OUTPUT_NAME_SINCE_VERSION)
+		wl_output_send_name(resource, head->name);
+
+	if (version >= WL_OUTPUT_DESCRIPTION_SINCE_VERSION)
+		wl_output_send_description(resource, head->model);
+
 	if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
 		wl_output_send_done(resource);
 }
@@ -5322,7 +5334,7 @@ static void
 weston_head_add_global(struct weston_head *head)
 {
 	head->global = wl_global_create(head->compositor->wl_display,
-					&wl_output_interface, 3,
+					&wl_output_interface, 4,
 					head, bind_output);
 }
 

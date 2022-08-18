@@ -718,6 +718,20 @@ output_handle_scale(void *data,
 }
 
 static void
+output_handle_name(void *data, struct wl_output *wl_output, const char *name)
+{
+	struct output *output = data;
+	output->name = strdup(name);
+}
+
+static void
+output_handle_description(void *data, struct wl_output *wl_output, const char *desc)
+{
+	struct output *output = data;
+	output->name = strdup(desc);
+}
+
+static void
 output_handle_done(void *data,
 		   struct wl_output *wl_output)
 {
@@ -731,6 +745,8 @@ static const struct wl_output_listener output_listener = {
 	output_handle_mode,
 	output_handle_done,
 	output_handle_scale,
+	output_handle_name,
+	output_handle_description,
 };
 
 static void
@@ -739,6 +755,8 @@ output_destroy(struct output *output)
 	assert(wl_proxy_get_version((struct wl_proxy *)output->wl_output) >= 3);
 	wl_output_release(output->wl_output);
 	wl_list_remove(&output->link);
+	free(output->name);
+	free(output->desc);
 	free(output);
 }
 

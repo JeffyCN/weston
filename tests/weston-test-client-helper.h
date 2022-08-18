@@ -163,6 +163,8 @@ struct output {
 	int height;
 	int scale;
 	int initialized;
+	char *name;
+	char *desc;
 };
 
 struct buffer {
