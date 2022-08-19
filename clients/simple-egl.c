@@ -283,6 +283,92 @@ create_shader(struct window *window, const char *source, GLenum shader_type)
 	return shader;
 }
 
+static int32_t
+compute_buffer_scale(struct window *window)
+{
+	struct window_output *window_output;
+	int32_t scale = 1;
+
+	wl_list_for_each(window_output, &window->window_output_list, link) {
+		if (window_output->output->scale > scale)
+			scale = window_output->output->scale;
+	}
+
+	return scale;
+}
+
+static enum wl_output_transform
+compute_buffer_transform(struct window *window)
+{
+	struct window_output *window_output;
+	enum wl_output_transform transform = WL_OUTPUT_TRANSFORM_NORMAL;
+
+	wl_list_for_each(window_output, &window->window_output_list, link) {
+		/* If the surface spans over multiple outputs the optimal
+		 * transform value can be ambiguous. Thus just return the value
+		 * from the oldest entered output.
+		 */
+		transform = window_output->output->transform;
+		break;
+	}
+
+	return transform;
+}
+
+static void
+update_buffer_geometry(struct window *window)
+{
+	enum wl_output_transform new_buffer_transform;
+	int32_t new_buffer_scale;
+	struct geometry new_buffer_size;
+
+	new_buffer_transform = compute_buffer_transform(window);
+	if (window->buffer_transform != new_buffer_transform) {
+		window->buffer_transform = new_buffer_transform;
+		wl_surface_set_buffer_transform(window->surface,
+						window->buffer_transform);
+	}
+
+	new_buffer_scale = compute_buffer_scale(window);
+	if (window->buffer_scale != new_buffer_scale) {
+		window->buffer_scale = new_buffer_scale;
+		wl_surface_set_buffer_scale(window->surface,
+					    window->buffer_scale);
+	}
+
+	switch (window->buffer_transform) {
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+	case WL_OUTPUT_TRANSFORM_180:
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		new_buffer_size.width = window->logical_size.width;
+		new_buffer_size.height = window->logical_size.height;
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+	case WL_OUTPUT_TRANSFORM_270:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		new_buffer_size.width = window->logical_size.height;
+		new_buffer_size.height = window->logical_size.width;
+		break;
+	}
+
+	new_buffer_size.width *= window->buffer_scale;
+	new_buffer_size.height *= window->buffer_scale;
+
+	if (window->buffer_size.width != new_buffer_size.width ||
+	    window->buffer_size.height != new_buffer_size.height) {
+		window->buffer_size = new_buffer_size;
+		if (window->native)
+			wl_egl_window_resize(window->native,
+					     window->buffer_size.width,
+					     window->buffer_size.height, 0, 0);
+	}
+
+	window->needs_buffer_geometry_update = false;
+}
+
+
 static void
 init_gl(struct window *window)
 {
@@ -290,6 +376,9 @@ init_gl(struct window *window)
 	GLuint program;
 	GLint status;
 	EGLBoolean ret;
+
+	if (window->needs_buffer_geometry_update)
+		update_buffer_geometry(window);
 
 	window->native = wl_egl_window_create(window->surface,
 					      window->buffer_size.width,
@@ -515,89 +604,6 @@ destroy_surface(struct window *window)
 	wl_surface_destroy(window->surface);
 }
 
-static int32_t
-compute_buffer_scale(struct window *window)
-{
-	struct window_output *window_output;
-	int32_t scale = 1;
-
-	wl_list_for_each(window_output, &window->window_output_list, link) {
-		if (window_output->output->scale > scale)
-			scale = window_output->output->scale;
-	}
-
-	return scale;
-}
-
-static enum wl_output_transform
-compute_buffer_transform(struct window *window)
-{
-	struct window_output *window_output;
-	enum wl_output_transform transform = WL_OUTPUT_TRANSFORM_NORMAL;
-
-	wl_list_for_each(window_output, &window->window_output_list, link) {
-		/* If the surface spans over multiple outputs the optimal
-		 * transform value can be ambiguous. Thus just return the value
-		 * from the oldest entered output.
-		 */
-		transform = window_output->output->transform;
-		break;
-	}
-
-	return transform;
-}
-
-static void
-update_buffer_geometry(struct window *window)
-{
-	enum wl_output_transform new_buffer_transform;
-	int32_t new_buffer_scale;
-	struct geometry new_buffer_size;
-
-	new_buffer_transform = compute_buffer_transform(window);
-	if (window->buffer_transform != new_buffer_transform) {
-		window->buffer_transform = new_buffer_transform;
-		wl_surface_set_buffer_transform(window->surface,
-						window->buffer_transform);
-	}
-
-	new_buffer_scale = compute_buffer_scale(window);
-	if (window->buffer_scale != new_buffer_scale) {
-		window->buffer_scale = new_buffer_scale;
-		wl_surface_set_buffer_scale(window->surface,
-					    window->buffer_scale);
-	}
-
-	switch (window->buffer_transform) {
-	case WL_OUTPUT_TRANSFORM_NORMAL:
-	case WL_OUTPUT_TRANSFORM_180:
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-		new_buffer_size.width = window->logical_size.width;
-		new_buffer_size.height = window->logical_size.height;
-		break;
-	case WL_OUTPUT_TRANSFORM_90:
-	case WL_OUTPUT_TRANSFORM_270:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		new_buffer_size.width = window->logical_size.height;
-		new_buffer_size.height = window->logical_size.width;
-		break;
-	}
-
-	new_buffer_size.width *= window->buffer_scale;
-	new_buffer_size.height *= window->buffer_scale;
-
-	if (window->buffer_size.width != new_buffer_size.width ||
-	    window->buffer_size.height != new_buffer_size.height) {
-		window->buffer_size = new_buffer_size;
-		wl_egl_window_resize(window->native,
-				     window->buffer_size.width,
-				     window->buffer_size.height, 0, 0);
-	}
-
-	window->needs_buffer_geometry_update = false;
-}
 
 static void
 redraw(struct window *window)
