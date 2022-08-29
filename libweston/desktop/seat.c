@@ -299,6 +299,10 @@ weston_desktop_seat_popup_grab_start(struct weston_desktop_seat *seat,
 		return false;
 	}
 
+	seat->popup_grab.initial_up =
+		(pointer == NULL || pointer->button_count == 0);
+	seat->popup_grab.client = client;
+
 	if (keyboard != NULL &&
 	    keyboard->grab->interface != &weston_desktop_seat_keyboard_popup_grab_interface)
 		weston_keyboard_start_grab(keyboard, &seat->popup_grab.keyboard);
@@ -310,10 +314,6 @@ weston_desktop_seat_popup_grab_start(struct weston_desktop_seat *seat,
 	if (touch != NULL &&
 	    touch->grab->interface != &weston_desktop_seat_touch_popup_grab_interface)
 		weston_touch_start_grab(touch, &seat->popup_grab.touch);
-
-	seat->popup_grab.initial_up =
-		(pointer == NULL || pointer->button_count == 0);
-	seat->popup_grab.client = client;
 
 	return true;
 }
