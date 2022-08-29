@@ -2177,7 +2177,8 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 		}
 		weston_desktop_surface_set_orientation(shsurf->desktop_surface,
 							WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE);
-	} else if (weston_desktop_surface_get_maximized(desktop_surface)) {
+	} else if (weston_desktop_surface_get_maximized(desktop_surface) ||
+		   weston_desktop_surface_get_pending_maximized(desktop_surface)) {
 		get_maximized_size(shsurf, &width, &height);
 	}
 	weston_desktop_surface_set_fullscreen(desktop_surface, fullscreen);

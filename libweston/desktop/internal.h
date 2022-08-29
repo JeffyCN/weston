@@ -123,6 +123,14 @@ struct weston_desktop_surface_implementation {
 			      void *user_data);
 	bool (*get_resizing)(struct weston_desktop_surface *surface,
 			     void *user_data);
+	bool (*get_pending_activated)(struct weston_desktop_surface *surface,
+			      void *user_data);
+	bool (*get_pending_fullscreen)(struct weston_desktop_surface *surface,
+			       void *user_data);
+	bool (*get_pending_maximized)(struct weston_desktop_surface *surface,
+			      void *user_data);
+	bool (*get_pending_resizing)(struct weston_desktop_surface *surface,
+			     void *user_data);
 	struct weston_size
 	(*get_max_size)(struct weston_desktop_surface *surface,
 			void *user_data);

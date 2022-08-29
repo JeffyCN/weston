@@ -665,6 +665,42 @@ weston_desktop_surface_get_fullscreen(struct weston_desktop_surface *surface)
 						       surface->implementation_data);
 }
 
+WL_EXPORT bool
+weston_desktop_surface_get_pending_activated(struct weston_desktop_surface *surface)
+{
+	if (surface->implementation->get_pending_activated == NULL)
+		return false;
+	return surface->implementation->get_pending_activated(surface,
+						surface->implementation_data);
+}
+
+WL_EXPORT bool
+weston_desktop_surface_get_pending_resizing(struct weston_desktop_surface *surface)
+{
+	if (surface->implementation->get_pending_resizing == NULL)
+		return false;
+	return surface->implementation->get_pending_resizing(surface,
+						 surface->implementation_data);
+}
+
+WL_EXPORT bool
+weston_desktop_surface_get_pending_maximized(struct weston_desktop_surface *surface)
+{
+	if (surface->implementation->get_pending_maximized == NULL)
+		return false;
+	return surface->implementation->get_pending_maximized(surface,
+						      surface->implementation_data);
+}
+
+WL_EXPORT bool
+weston_desktop_surface_get_pending_fullscreen(struct weston_desktop_surface *surface)
+{
+	if (surface->implementation->get_pending_fullscreen == NULL)
+		return false;
+	return surface->implementation->get_pending_fullscreen(surface,
+						       surface->implementation_data);
+}
+
 WL_EXPORT struct weston_geometry
 weston_desktop_surface_get_geometry(struct weston_desktop_surface *surface)
 {

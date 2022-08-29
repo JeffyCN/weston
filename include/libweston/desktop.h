@@ -201,6 +201,14 @@ weston_desktop_surface_get_maximized(struct weston_desktop_surface *surface);
 bool
 weston_desktop_surface_get_fullscreen(struct weston_desktop_surface *surface);
 bool
+weston_desktop_surface_get_pending_resizing(struct weston_desktop_surface *surface);
+bool
+weston_desktop_surface_get_pending_activated(struct weston_desktop_surface *surface);
+bool
+weston_desktop_surface_get_pending_maximized(struct weston_desktop_surface *surface);
+bool
+weston_desktop_surface_get_pending_fullscreen(struct weston_desktop_surface *surface);
+bool
 weston_desktop_surface_get_resizing(struct weston_desktop_surface *surface);
 struct weston_geometry
 weston_desktop_surface_get_geometry(struct weston_desktop_surface *surface);

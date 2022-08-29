@@ -825,6 +825,42 @@ weston_desktop_xdg_toplevel_get_activated(struct weston_desktop_surface *dsurfac
 	return toplevel->current.state.activated;
 }
 
+static bool
+weston_desktop_xdg_toplevel_get_pending_maximized(struct weston_desktop_surface *dsurface,
+					  void *user_data)
+{
+	struct weston_desktop_xdg_toplevel *toplevel = user_data;
+
+	return toplevel->pending.state.maximized;
+}
+
+static bool
+weston_desktop_xdg_toplevel_get_pending_fullscreen(struct weston_desktop_surface *dsurface,
+					   void *user_data)
+{
+	struct weston_desktop_xdg_toplevel *toplevel = user_data;
+
+	return toplevel->pending.state.fullscreen;
+}
+
+static bool
+weston_desktop_xdg_toplevel_get_pending_resizing(struct weston_desktop_surface *dsurface,
+					 void *user_data)
+{
+	struct weston_desktop_xdg_toplevel *toplevel = user_data;
+
+	return toplevel->pending.state.resizing;
+}
+
+static bool
+weston_desktop_xdg_toplevel_get_pending_activated(struct weston_desktop_surface *dsurface,
+					  void *user_data)
+{
+	struct weston_desktop_xdg_toplevel *toplevel = user_data;
+
+	return toplevel->pending.state.activated;
+}
+
 static void
 weston_desktop_xdg_toplevel_destroy(struct weston_desktop_xdg_toplevel *toplevel)
 {
@@ -1522,6 +1558,11 @@ static const struct weston_desktop_surface_implementation weston_desktop_xdg_sur
 	.get_fullscreen = weston_desktop_xdg_toplevel_get_fullscreen,
 	.get_resizing = weston_desktop_xdg_toplevel_get_resizing,
 	.get_activated = weston_desktop_xdg_toplevel_get_activated,
+
+	.get_pending_maximized = weston_desktop_xdg_toplevel_get_pending_maximized,
+	.get_pending_fullscreen = weston_desktop_xdg_toplevel_get_pending_fullscreen,
+	.get_pending_resizing = weston_desktop_xdg_toplevel_get_pending_resizing,
+	.get_pending_activated = weston_desktop_xdg_toplevel_get_pending_activated,
 
 	/* These are used for popup only */
 	.update_position = weston_desktop_xdg_popup_update_position,
