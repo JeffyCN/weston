@@ -99,9 +99,16 @@ weston_desktop_seat_popup_grab_pointer_focus(struct weston_pointer_grab *grab)
 	view = weston_compositor_pick_view(pointer->seat->compositor,
 					   pointer->x, pointer->y);
 
+	/* Ignore views that don't belong to the grabbing client */
 	if (view != NULL &&
 	    view->surface->resource != NULL &&
-	    wl_resource_get_client(view->surface->resource) == seat->popup_grab.client)
+	    wl_resource_get_client(view->surface->resource) != seat->popup_grab.client)
+		view = NULL;
+
+	if (pointer->focus == view)
+		return;
+
+	if (view)
 		weston_pointer_set_focus(pointer, view);
 	else
 		weston_pointer_clear_focus(pointer);
