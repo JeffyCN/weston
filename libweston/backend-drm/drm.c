@@ -840,13 +840,13 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 	weston_plane_init(&plane->base, compositor, 0, 0);
 
 	wl_list_for_each(tmp, &device->plane_list, link) {
-		if (tmp->zpos_max > plane->zpos_max) {
+		if (tmp->zpos_max < plane->zpos_max) {
 			wl_list_insert(tmp->link.prev, &plane->link);
 			break;
 		}
 	}
 	if (plane->link.next == NULL)
-		wl_list_insert(&device->plane_list, &plane->link);
+		wl_list_insert(device->plane_list.prev, &plane->link);
 
 	return plane;
 
