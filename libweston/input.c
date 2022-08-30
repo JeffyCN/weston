@@ -2329,6 +2329,7 @@ notify_keyboard_focus_out(struct weston_seat *seat)
 	if (focus) {
 		seat->use_saved_kbd_focus = true;
 		seat->saved_kbd_focus = focus;
+		assert(seat->saved_kbd_focus_listener.notify == NULL);
 		seat->saved_kbd_focus_listener.notify =
 			destroy_device_saved_kbd_focus;
 		wl_signal_add(&focus->destroy_signal,
