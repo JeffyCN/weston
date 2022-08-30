@@ -119,6 +119,7 @@ struct x11_backend {
 		xcb_atom_t		 cardinal;
 		xcb_atom_t		 xkb_names;
 	} atom;
+	xcb_generic_event_t *prev_event;
 };
 
 struct x11_head {
@@ -1494,7 +1495,7 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 {
 	struct x11_backend *b = data;
 	struct x11_output *output;
-	xcb_generic_event_t *event, *prev;
+	xcb_generic_event_t *event;
 	xcb_client_message_event_t *client_message;
 	xcb_enter_notify_event_t *enter_notify;
 	xcb_key_press_event_t *key_press, *key_release;
@@ -1510,16 +1511,15 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 	int count;
 	struct timespec time;
 
-	prev = NULL;
 	count = 0;
 	while (x11_backend_next_event(b, &event, mask)) {
 		response_type = event->response_type & ~0x80;
 
-		switch (prev ? prev->response_type & ~0x80 : 0x80) {
+		switch (b->prev_event ? b->prev_event->response_type & ~0x80 : 0x80) {
 		case XCB_KEY_RELEASE:
 			/* Suppress key repeat events; this is only used if we
 			 * don't have XCB XKB support. */
-			key_release = (xcb_key_press_event_t *) prev;
+			key_release = (xcb_key_press_event_t *) b->prev_event;
 			key_press = (xcb_key_press_event_t *) event;
 			if (response_type == XCB_KEY_PRESS &&
 			    key_release->time == key_press->time &&
@@ -1527,8 +1527,8 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 				/* Don't deliver the held key release
 				 * event or the new key press event. */
 				free(event);
-				free(prev);
-				prev = NULL;
+				free(b->prev_event);
+				b->prev_event = NULL;
 				continue;
 			} else {
 				/* Deliver the held key release now
@@ -1541,8 +1541,8 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 					   key_release->detail - 8,
 					   WL_KEYBOARD_KEY_STATE_RELEASED,
 					   STATE_UPDATE_AUTOMATIC);
-				free(prev);
-				prev = NULL;
+				free(b->prev_event);
+				b->prev_event = NULL;
 				break;
 			}
 
@@ -1566,8 +1566,8 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 			notify_keyboard_focus_in(&b->core_seat, &b->keys,
 						 STATE_UPDATE_AUTOMATIC);
 
-			free(prev);
-			prev = NULL;
+			free(b->prev_event);
+			b->prev_event = NULL;
 			break;
 
 		default:
@@ -1592,7 +1592,7 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 			/* If we don't have XKB, we need to use the lame
 			 * autorepeat detection above. */
 			if (!b->has_xkb) {
-				prev = event;
+				b->prev_event = event;
 				break;
 			}
 			key_release = (xcb_key_press_event_t *) event;
@@ -1687,7 +1687,7 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 			if (focus_in->mode == XCB_NOTIFY_MODE_WHILE_GRABBED)
 				break;
 
-			prev = event;
+			b->prev_event = event;
 			break;
 
 		case XCB_FOCUS_OUT:
@@ -1721,13 +1721,13 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 #endif
 
 		count++;
-		if (prev != event)
-			free (event);
+		if (b->prev_event != event)
+			free(event);
 	}
 
-	switch (prev ? prev->response_type & ~0x80 : 0x80) {
+	switch (b->prev_event ? b->prev_event->response_type & ~0x80 : 0x80) {
 	case XCB_KEY_RELEASE:
-		key_release = (xcb_key_press_event_t *) prev;
+		key_release = (xcb_key_press_event_t *) b->prev_event;
 		update_xkb_state_from_core(b, key_release->state);
 		weston_compositor_get_time(&time);
 		notify_key(&b->core_seat,
@@ -1735,8 +1735,8 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 			   key_release->detail - 8,
 			   WL_KEYBOARD_KEY_STATE_RELEASED,
 			   STATE_UPDATE_AUTOMATIC);
-		free(prev);
-		prev = NULL;
+		free(b->prev_event);
+		b->prev_event = NULL;
 		break;
 	default:
 		break;
