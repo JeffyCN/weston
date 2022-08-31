@@ -2311,6 +2311,10 @@ void
 weston_output_allow_protection(struct weston_output *output,
 			       bool allow_protection);
 
+bool
+weston_output_contains_point(struct weston_output *output,
+			     int32_t x, int32_t y);
+
 int
 weston_compositor_enable_touch_calibrator(struct weston_compositor *compositor,
 				weston_touch_calibration_save_func save);

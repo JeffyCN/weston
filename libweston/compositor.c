@@ -201,6 +201,13 @@ weston_mode_switch_send_events(struct weston_head *head,
 	}
 }
 
+WL_EXPORT bool
+weston_output_contains_point(struct weston_output *output,
+			     int32_t x, int32_t y)
+{
+	return pixman_region32_contains_point(&output->region, x, y, NULL);
+}
+
 static void
 weston_mode_switch_finish(struct weston_output *output,
 			  int mode_changed, int scale_changed)
@@ -234,8 +241,7 @@ weston_mode_switch_finish(struct weston_output *output,
 
 		if (!pixman_region32_contains_point(&old_output_region,
 						    x, y, NULL) ||
-		    pixman_region32_contains_point(&output->region,
-						   x, y, NULL))
+		    weston_output_contains_point(output, x, y))
 			continue;
 
 		if (x >= output->x + output->width)

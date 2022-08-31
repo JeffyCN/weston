@@ -1688,11 +1688,9 @@ weston_pointer_clamp(struct weston_pointer *pointer, wl_fixed_t *fx, wl_fixed_t 
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (pointer->seat->output && pointer->seat->output != output)
 			continue;
-		if (pixman_region32_contains_point(&output->region,
-						   x, y, NULL))
+		if (weston_output_contains_point(output, x, y))
 			valid = 1;
-		if (pixman_region32_contains_point(&output->region,
-						   old_x, old_y, NULL))
+		if (weston_output_contains_point(output, old_x, old_y))
 			prev = output;
 	}
 
@@ -1757,8 +1755,7 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 	y = wl_fixed_to_int(pointer->y);
 
 	wl_list_for_each(output, &ec->output_list, link) {
-		if (pixman_region32_contains_point(&output->region,
-						   x, y, NULL))
+		if (weston_output_contains_point(output, x, y))
 			return;
 
 		/* Aproximante the distance from the pointer to the center of

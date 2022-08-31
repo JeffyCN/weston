@@ -3836,7 +3836,7 @@ weston_view_set_initial_position(struct weston_view *view,
 	}
 
 	wl_list_for_each(output, &compositor->output_list, link) {
-		if (pixman_region32_contains_point(&output->region, ix, iy, NULL)) {
+		if (weston_output_contains_point(output, ix, iy)) {
 			target_output = output;
 			break;
 		}
@@ -4251,8 +4251,7 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	 * otherwise, move it to the first output. */
 	visible = 0;
 	wl_list_for_each(output, &ec->output_list, link) {
-		if (pixman_region32_contains_point(&output->region,
-						   x, y, NULL)) {
+		if (weston_output_contains_point(output, x, y)) {
 			visible = 1;
 			break;
 		}
