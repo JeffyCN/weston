@@ -43,6 +43,8 @@ lib_test_client = static_library(
 		dep_libshared,
 		dep_wayland_client,
 		dep_libexec_weston,
+		dep_libweston_private,
+		dep_libdrm_headers,
 		dep_pixman,
 		dependency('cairo'),
 	],

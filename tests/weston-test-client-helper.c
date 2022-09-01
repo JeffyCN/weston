@@ -37,6 +37,8 @@
 #include <cairo.h>
 
 #include "test-config.h"
+#include "pixel-formats.h"
+#include "shared/weston-drm-fourcc.h"
 #include "shared/os-compatibility.h"
 #include "shared/string-helpers.h"
 #include "shared/xalloc.h"
@@ -445,8 +447,9 @@ static const struct wl_surface_listener surface_listener = {
 
 static struct buffer *
 create_shm_buffer(struct client *client, int width, int height,
-		  pixman_format_code_t format, uint32_t wlfmt)
+		  uint32_t drm_format)
 {
+	const struct pixel_format_info *pfmt;
 	struct wl_shm *shm = client->wl_shm;
 	struct buffer *buf;
 	size_t stride_bytes;
@@ -458,9 +461,13 @@ create_shm_buffer(struct client *client, int width, int height,
 	assert(width > 0);
 	assert(height > 0);
 
+	pfmt = pixel_format_get_info(drm_format);
+	assert(pfmt);
+	assert(pixel_format_get_plane_count(pfmt) == 1);
+
 	buf = xzalloc(sizeof *buf);
 
-	bytes_pp = PIXMAN_FORMAT_BPP(format) / 8;
+	bytes_pp = pfmt->bpp / 8;
 	stride_bytes = width * bytes_pp;
 	/* round up to multiple of 4 bytes for Pixman */
 	stride_bytes = (stride_bytes + 3) & ~3u;
@@ -480,11 +487,13 @@ create_shm_buffer(struct client *client, int width, int height,
 
 	pool = wl_shm_create_pool(shm, fd, buf->len);
 	buf->proxy = wl_shm_pool_create_buffer(pool, 0, width, height,
-					       stride_bytes, wlfmt);
+					       stride_bytes,
+					       pixel_format_get_shm_format(pfmt));
 	wl_shm_pool_destroy(pool);
 	close(fd);
 
-	buf->image = pixman_image_create_bits(format, width, height,
+	buf->image = pixman_image_create_bits(pfmt->pixman_format,
+					      width, height,
 					      data, stride_bytes);
 
 	assert(buf->proxy);
@@ -498,8 +507,7 @@ create_shm_buffer_a8r8g8b8(struct client *client, int width, int height)
 {
 	assert(client->has_argb);
 
-	return create_shm_buffer(client, width, height,
-				 PIXMAN_a8r8g8b8, WL_SHM_FORMAT_ARGB8888);
+	return create_shm_buffer(client, width, height, DRM_FORMAT_ARGB8888);
 }
 
 void
