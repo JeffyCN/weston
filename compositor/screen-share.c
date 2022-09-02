@@ -1129,12 +1129,9 @@ weston_output_find(struct weston_compositor *c, int32_t x, int32_t y)
 {
 	struct weston_output *output;
 
-	wl_list_for_each(output, &c->output_list, link) {
-		if (x >= output->x && y >= output->y &&
-		    x < output->x + output->width &&
-		    y < output->y + output->height)
+	wl_list_for_each(output, &c->output_list, link)
+		if (weston_output_contains_point(output, x, y))
 			return output;
-	}
 
 	return NULL;
 }
