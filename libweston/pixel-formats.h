@@ -345,3 +345,12 @@ pixel_format_height_for_plane(const struct pixel_format_info *format,
  */
 char *
 pixel_format_get_modifier(uint64_t modifier);
+
+/**
+ * Return the wl_shm format code
+ *
+ * @param info Pixel format info structure
+ * @returns The wl_shm format code for this pixel format.
+ */
+uint32_t
+pixel_format_get_shm_format(const struct pixel_format_info *info);

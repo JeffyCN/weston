@@ -760,3 +760,19 @@ pixel_format_get_modifier(uint64_t modifier)
 
 	return mod_str;
 }
+
+WL_EXPORT uint32_t
+pixel_format_get_shm_format(const struct pixel_format_info *info)
+{
+	/* Only these two format codes differ between wl_shm and DRM fourcc */
+	switch (info->format) {
+	case DRM_FORMAT_ARGB8888:
+		return WL_SHM_FORMAT_ARGB8888;
+	case DRM_FORMAT_XRGB8888:
+		return WL_SHM_FORMAT_XRGB8888;
+	default:
+		break;
+	}
+
+	return info->format;
+}
