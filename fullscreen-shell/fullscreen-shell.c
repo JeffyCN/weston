@@ -228,11 +228,11 @@ black_surface_committed(struct weston_surface *es,
 
 static struct weston_curtain *
 create_curtain(struct weston_compositor *ec, struct fs_output *fsout,
-	       float x, float y, int w, int h)
+	       struct weston_coord_global pos, int w, int h)
 {
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = x, .y = y, .width = w, .height = h,
+		.pos = pos, .width = w, .height = h,
 		.surface_committed = black_surface_committed,
 		.get_label = NULL,
 		.surface_private = fsout,
@@ -324,7 +324,7 @@ fs_output_create(struct fullscreen_shell *shell, struct weston_output *output)
 	fsout->surface_destroyed.notify = surface_destroyed;
 	fsout->pending.surface_destroyed.notify = pending_surface_destroyed;
 	fsout->curtain = create_curtain(shell->compositor, fsout,
-					output->pos.c.x, output->pos.c.y,
+					output->pos,
 					output->width, output->height);
 	fsout->curtain->view->is_mapped = true;
 	weston_layer_entry_insert(&shell->layer.view_list,

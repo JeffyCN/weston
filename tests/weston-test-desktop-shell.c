@@ -217,7 +217,8 @@ wet_shell_init(struct weston_compositor *ec,
 	struct desktest_shell *dts;
 	struct weston_curtain_params background_params = {
 		.r = 0.16, .g = 0.32, .b = 0.48, .a = 1.0,
-		.x = 0, .y = 0, .width = 2000, .height = 2000,
+		.pos.c = weston_coord(0, 0),
+		.width = 2000, .height = 2000,
 		.capture_input = true,
 		.surface_committed = NULL,
 		.get_label = background_get_label,

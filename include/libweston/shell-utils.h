@@ -36,7 +36,8 @@ struct weston_curtain_params {
 				  struct weston_coord_surface new_origin);
 	void *surface_private;
 	float r, g, b, a;
-	int x, y, width, height;
+	struct weston_coord_global pos;
+	int width, height;
 	bool capture_input;
 };
 

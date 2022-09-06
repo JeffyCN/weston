@@ -643,7 +643,7 @@ create_focus_surface(struct weston_compositor *ec,
 	struct focus_surface *fsurf = NULL;
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = output->pos.c.x, .y = output->pos.c.y,
+		.pos = output->pos,
 		.width = output->width, .height = output->height,
 		.surface_committed = focus_surface_committed,
 		.get_label = focus_surface_get_label,
@@ -1917,7 +1917,7 @@ shell_set_view_fullscreen(struct shell_surface *shsurf)
 	struct weston_output *output = shsurf->fullscreen_output;
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = output->pos.c.x, .y = output->pos.c.y,
+		.pos = output->pos,
 		.width = output->width, .height = output->height,
 		.surface_committed = black_surface_committed,
 		.get_label = black_surface_get_label,
@@ -3897,8 +3897,6 @@ shell_fade_create_view(struct desktop_shell *shell)
 	struct shell_output *shell_output;
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = 0, .y = 0,
-		.width = 8192, .height = 8192,
 		.surface_committed = black_surface_committed,
 		.get_label = fade_surface_get_label,
 		.surface_private = shell,
@@ -3925,8 +3923,8 @@ shell_fade_create_view(struct desktop_shell *shell)
 		x2 = MAX(x2, op->pos.c.x + op->width);
 		y2 = MAX(y2, op->pos.c.y + op->height);
 	}
-	curtain_params.x = x1;
-	curtain_params.y = y1;
+	curtain_params.pos.c.x = x1;
+	curtain_params.pos.c.y = y1;
 	curtain_params.width = x2 - x1;
 	curtain_params.height = y2 - y1;
 	curtain = weston_shell_utils_curtain_create(compositor, &curtain_params);

@@ -180,7 +180,6 @@ weston_shell_utils_curtain_create(struct weston_compositor *compositor,
 	struct weston_surface *surface = NULL;
 	struct weston_buffer_reference *buffer_ref;
 	struct weston_view *view;
-	struct weston_coord_global pos;
 
 	curtain = zalloc(sizeof(*curtain));
 	if (curtain == NULL)
@@ -222,8 +221,7 @@ weston_shell_utils_curtain_create(struct weston_compositor *compositor,
 
 	weston_surface_map(surface);
 
-	pos.c = weston_coord(params->x, params->y);
-	weston_view_set_position(view, pos);
+	weston_view_set_position(view, params->pos);
 
 	return curtain;
 
