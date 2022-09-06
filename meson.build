@@ -171,6 +171,13 @@ subdir('tests')
 subdir('data')
 subdir('man')
 
+if meson.version().version_compare('>= 0.58.0')
+	devenv = environment()
+	devenv.set('WESTON_MODULE_MAP', env_modmap)
+	devenv.set('WESTON_DATA_DIR', join_paths(meson.current_source_dir(), 'data'))
+	meson.add_devenv(devenv)
+endif
+
 configure_file(output: 'config.h', configuration: config_h)
 
 if get_option('doc')
