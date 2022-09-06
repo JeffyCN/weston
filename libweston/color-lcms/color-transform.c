@@ -59,6 +59,10 @@ fill_in_curves(cmsToneCurve *curves[3], float *values, unsigned len)
 	unsigned i;
 	cmsFloat32Number x;
 
+	assert(len > 1);
+	for (i = 0; i < 3; i++)
+		assert(curves[i]);
+
 	for (i = 0; i < len; i++) {
 		x = (double)i / (len - 1);
 		R_lut[i] = cmsEvalToneCurveFloat(curves[0], x);
@@ -72,13 +76,10 @@ cmlcms_fill_in_output_inv_eotf_vcgt(struct weston_color_transform *xform_base,
 				    float *values, unsigned len)
 {
 	struct cmlcms_color_transform *xform = get_xform(xform_base);
+	struct cmlcms_color_profile *p = xform->search_key.output_profile;
 
-	assert(xform->search_key.category == CMLCMS_CATEGORY_BLEND_TO_OUTPUT);
-
-	assert(len > 1);
-
-	fill_in_curves(xform->search_key.output_profile->output_inv_eotf_vcgt,
-		       values, len);
+	assert(p && "output_profile");
+	fill_in_curves(p->output_inv_eotf_vcgt, values, len);
 }
 
 /**
