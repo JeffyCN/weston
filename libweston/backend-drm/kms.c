@@ -912,20 +912,29 @@ drm_connector_set_max_bpc(struct drm_connector *connector,
 			  drmModeAtomicReq *req)
 {
 	const struct drm_property_info *info;
+	struct drm_head *head;
+	struct drm_backend *backend = output->device->backend;
 	uint64_t max_bpc;
 	uint64_t a, b;
 
 	if (!drm_connector_has_prop(connector, WDRM_CONNECTOR_MAX_BPC))
 		return 0;
 
-	info = &connector->props[WDRM_CONNECTOR_MAX_BPC];
-	assert(info->flags & DRM_MODE_PROP_RANGE);
-	assert(info->num_range_values == 2);
-	a = info->range_values[0];
-	b = info->range_values[1];
-	assert(a <= b);
+	if (output->max_bpc == 0) {
+		/* A value of 0 means that the current max_bpc must be programmed. */
+		head = drm_head_find_by_connector(backend, connector->connector_id);
+		max_bpc = head->inherited_max_bpc;
+	} else {
+		info = &connector->props[WDRM_CONNECTOR_MAX_BPC];
+		assert(info->flags & DRM_MODE_PROP_RANGE);
+		assert(info->num_range_values == 2);
+		a = info->range_values[0];
+		b = info->range_values[1];
+		assert(a <= b);
 
-	max_bpc = MAX(a, MIN(output->max_bpc, b));
+		max_bpc = MAX(a, MIN(output->max_bpc, b));
+	}
+
 	return connector_add_prop(req, connector,
 				  WDRM_CONNECTOR_MAX_BPC, max_bpc);
 }

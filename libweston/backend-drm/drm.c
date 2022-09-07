@@ -1388,6 +1388,12 @@ drm_head_read_current_setup(struct drm_head *head, struct drm_device *device)
 		drmModeFreeCrtc(crtc);
 	}
 
+	/* Get the current max_bpc that's currently configured to
+	 * this connector. */
+	head->inherited_max_bpc = drm_property_get_value(
+		&head->connector.props[WDRM_CONNECTOR_MAX_BPC],
+		head->connector.props_drm, 0);
+
 	return 0;
 }
 

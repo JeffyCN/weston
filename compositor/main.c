@@ -2051,7 +2051,8 @@ drm_backend_output_configure(struct weston_output *output,
 	enum weston_drm_backend_output_mode mode =
 		WESTON_DRM_BACKEND_OUTPUT_PREFERRED;
 	uint32_t transform = WL_OUTPUT_TRANSFORM_NORMAL;
-	uint32_t max_bpc;
+	uint32_t max_bpc = 0;
+	bool max_bpc_specified = false;
 	char *s;
 	char *modeline = NULL;
 	char *gbm_format = NULL;
@@ -2063,16 +2064,19 @@ drm_backend_output_configure(struct weston_output *output,
 		return -1;
 	}
 
-	weston_config_section_get_uint(section, "max-bpc", &max_bpc, 16);
-	api->set_max_bpc(output, max_bpc);
-
 	weston_config_section_get_string(section, "mode", &s, "preferred");
+	if (weston_config_section_get_uint(section, "max-bpc", &max_bpc, 16) == 0)
+		max_bpc_specified = true;
 
 	if (strcmp(s, "off") == 0) {
 		assert(0 && "off was supposed to be pruned");
 		return -1;
 	} else if (wet->drm_use_current_mode || strcmp(s, "current") == 0) {
 		mode = WESTON_DRM_BACKEND_OUTPUT_CURRENT;
+		/* If mode=current and no max-bpc was specfied on the .ini file,
+		   use current max_bpc so full modeset is not done. */
+		if (!max_bpc_specified) 
+			max_bpc = 0;
 	} else if (strcmp(s, "preferred") != 0) {
 		modeline = s;
 		s = NULL;
@@ -2085,6 +2089,8 @@ drm_backend_output_configure(struct weston_output *output,
 		return -1;
 	}
 	free(modeline);
+
+	api->set_max_bpc(output, max_bpc);
 
 	if (count_remaining_heads(output, NULL) == 1) {
 		struct weston_head *head = weston_output_get_first_head(output);

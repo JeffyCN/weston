@@ -517,6 +517,7 @@ struct drm_head {
 	struct backlight *backlight;
 
 	drmModeModeInfo inherited_mode;	/**< Original mode on the connector */
+	uint32_t inherited_max_bpc;	/**< Original max_bpc on the connector */
 	uint32_t inherited_crtc_id;	/**< Original CRTC assignment */
 };
 
