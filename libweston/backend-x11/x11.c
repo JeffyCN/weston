@@ -100,8 +100,7 @@ struct x11_backend {
 	/* We could map multi-pointer X to multiple wayland seats, but
 	 * for now we only support core X input. */
 	struct weston_seat		 core_seat;
-	double				 prev_x;
-	double				 prev_y;
+	struct weston_coord_global	 prev_pos;
 
 	struct {
 		xcb_atom_t		 wm_protocols;
@@ -1447,14 +1446,13 @@ x11_backend_deliver_motion_event(struct x11_backend *b,
 
 	motion_event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_REL,
-		.rel = weston_coord_sub(pos.c, weston_coord(b->prev_x, b->prev_y)),
+		.rel = weston_coord_sub(pos.c, b->prev_pos.c),
 	};
 	weston_compositor_get_time(&time);
 	notify_motion(&b->core_seat, &time, &motion_event);
 	notify_pointer_frame(&b->core_seat);
 
-	b->prev_x = pos.c.x;
-	b->prev_y = pos.c.y;
+	b->prev_pos = pos;
 }
 
 static void
@@ -1480,8 +1478,7 @@ x11_backend_deliver_enter_event(struct x11_backend *b,
 
 	notify_pointer_focus(&b->core_seat, &output->base, pos);
 
-	b->prev_x = pos.c.x;
-	b->prev_y = pos.c.y;
+	b->prev_pos = pos;
 }
 
 static int
