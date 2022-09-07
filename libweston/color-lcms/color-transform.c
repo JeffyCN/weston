@@ -32,6 +32,7 @@
 #include "color.h"
 #include "color-lcms.h"
 #include "shared/helpers.h"
+#include "shared/xalloc.h"
 
 /**
  * The method is used in linearization of an arbitrary color profile
@@ -142,36 +143,63 @@ cmlcms_color_transform_destroy(struct cmlcms_color_transform *xform)
 	free(xform);
 }
 
+static cmsHPROFILE
+profile_from_rgb_curves(cmsContext ctx, cmsToneCurve *const curveset[3])
+{
+	cmsHPROFILE p;
+	int i;
+
+	for (i = 0; i < 3; i++)
+		assert(curveset[i]);
+
+	p = cmsCreateLinearizationDeviceLinkTHR(ctx, cmsSigRgbData, curveset);
+	abort_oom_if_null(p);
+
+	return p;
+}
+
 static bool
-xform_set_cmap_3dlut(struct cmlcms_color_transform *xform,
-		     cmsHPROFILE input_profile,
-		     cmsHPROFILE output_profile,
-		     cmsToneCurve *curves[3],
-		     cmsUInt32Number intent)
+xform_realize_chain(struct cmlcms_color_transform *xform)
 {
 	struct weston_color_manager_lcms *cm = get_cmlcms(xform->base.cm);
-	cmsHPROFILE arr_prof[3] = { input_profile, output_profile, NULL };
-	int num_profiles = 2;
+	struct cmlcms_color_profile *output_profile = xform->search_key.output_profile;
+	cmsHPROFILE chain[5];
+	unsigned chain_len = 0;
+	cmsHPROFILE extra = NULL;
 
-	if (curves[0]) {
-		arr_prof[2] = cmsCreateLinearizationDeviceLinkTHR(cm->lcms_ctx,
-								  cmsSigRgbData,
-								  curves);
-		if (!arr_prof[2])
-			return false;
+	chain[chain_len++] = xform->search_key.input_profile->profile;
+	chain[chain_len++] = output_profile->profile;
 
-		num_profiles = 3;
+	switch (xform->search_key.category) {
+	case CMLCMS_CATEGORY_INPUT_TO_BLEND:
+		/* Add linearization step to make blending well-defined. */
+		extra = profile_from_rgb_curves(cm->lcms_ctx, output_profile->eotf);
+		chain[chain_len++] = extra;
+		break;
+	case CMLCMS_CATEGORY_INPUT_TO_OUTPUT:
+		/* Just add VCGT if it is provided. */
+		if (output_profile->vcgt[0]) {
+			extra = profile_from_rgb_curves(cm->lcms_ctx,
+							output_profile->vcgt);
+			chain[chain_len++] = extra;
+		}
+		break;
+	case CMLCMS_CATEGORY_BLEND_TO_OUTPUT:
+		assert(0 && "category handled in the caller");
+		return false;
 	}
 
+	assert(chain_len <= ARRAY_LENGTH(chain));
+
 	xform->cmap_3dlut = cmsCreateMultiprofileTransformTHR(cm->lcms_ctx,
-							      arr_prof,
-							      num_profiles,
+							      chain,
+							      chain_len,
 							      TYPE_RGB_FLT,
 							      TYPE_RGB_FLT,
-							      intent,
+							      xform->search_key.intent_output,
 							      0);
 	if (!xform->cmap_3dlut) {
-		cmsCloseProfile(arr_prof[2]);
+		cmsCloseProfile(extra);
 		weston_log("color-lcms error: fail cmsCreateMultiprofileTransformTHR.\n");
 		return false;
 	}
@@ -179,7 +207,7 @@ xform_set_cmap_3dlut(struct cmlcms_color_transform *xform,
 	xform->base.mapping.u.lut3d.fill_in = cmlcms_fill_in_3dlut;
 	xform->base.mapping.u.lut3d.optimal_len =
 				cmlcms_reasonable_3D_points();
-	cmsCloseProfile(arr_prof[2]);
+	cmsCloseProfile(extra);
 
 	return true;
 }
@@ -214,21 +242,15 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 			goto error;
 	}
 
+	/*
+	 * The blending space is chosen to be the output device space but
+	 * linearized. This means that BLEND_TO_OUTPUT only needs to
+	 * undo the linearization and add VCGT.
+	 */
 	switch (search_param->category) {
 	case CMLCMS_CATEGORY_INPUT_TO_BLEND:
-		/* Use EOTF to linearize the result. */
-		ok = xform_set_cmap_3dlut(xform, input_profile->profile,
-					  output_profile->profile,
-					  output_profile->eotf,
-					  search_param->intent_output);
-		break;
-
 	case CMLCMS_CATEGORY_INPUT_TO_OUTPUT:
-		/* Apply also VCGT if it exists. */
-		ok = xform_set_cmap_3dlut(xform, input_profile->profile,
-					  output_profile->profile,
-					  output_profile->vcgt,
-					  search_param->intent_output);
+		ok = xform_realize_chain(xform);
 		break;
 
 	case CMLCMS_CATEGORY_BLEND_TO_OUTPUT:
