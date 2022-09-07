@@ -84,7 +84,8 @@ struct weston_drm_output_api {
 	 * The property is used for working around faulty sink hardware like
 	 * monitors or media converters that mishandle the kernel driver
 	 * chosen bits-per-channel on the physical link. When having trouble,
-	 * try a lower value like 8.
+	 * try a lower value like 8. A value of 0 means that the current max
+	 * bpc will be reprogrammed.
 	 *
 	 * The value actually used in KMS is silently clamped to the range the
 	 * KMS driver claims to support. The default value is 16.

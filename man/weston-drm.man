@@ -172,7 +172,7 @@ silenty clamped to the hardware driver supported range. This artificially
 limits the driver chosen link bits-per-channel which may be useful for working
 around sink hardware (e.g. monitor) limitations. The default is 16 which is
 practically unlimited. If you need to work around hardware issues, try a lower
-value like 8.
+value like 8. A value of 0 means that the current max bpc will be reprogrammed.
 
 .SS Section remote-output
 .TP
