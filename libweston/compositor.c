@@ -1300,6 +1300,14 @@ weston_view_set_output(struct weston_view *view, struct weston_output *output)
 	}
 }
 
+static struct weston_layer *
+get_view_layer(struct weston_view *view)
+{
+	if (view->parent_view)
+		return get_view_layer(view->parent_view);
+	return view->layer_link.layer;
+}
+
 /** Recalculate which output(s) the surface has views displayed on
  *
  * \param es  The surface to remap to outputs
@@ -1325,7 +1333,9 @@ weston_surface_assign_output(struct weston_surface *es)
 	mask = 0;
 	pixman_region32_init(&region);
 	wl_list_for_each(view, &es->views, surface_link) {
-		if (!view->output)
+		/* Only views that are visible on some layer participate in
+		 * output_mask calculations. */
+		if (!view->output || !get_view_layer(view))
 			continue;
 
 		pixman_region32_intersect(&region, &view->transform.boundingbox,
@@ -1603,14 +1613,6 @@ weston_view_update_transform_enable(struct weston_view *view)
 	pixman_region32_fini(&surfregion);
 
 	return 0;
-}
-
-static struct weston_layer *
-get_view_layer(struct weston_view *view)
-{
-	if (view->parent_view)
-		return get_view_layer(view->parent_view);
-	return view->layer_link.layer;
 }
 
 WL_EXPORT void
