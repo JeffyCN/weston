@@ -59,7 +59,8 @@ weston_matrix_translate(struct weston_matrix *matrix,
 void
 weston_matrix_rotate_xy(struct weston_matrix *matrix, float cos, float sin);
 void
-weston_matrix_transform(struct weston_matrix *matrix, struct weston_vector *v);
+weston_matrix_transform(const struct weston_matrix *matrix,
+			struct weston_vector *v);
 
 int
 weston_matrix_invert(struct weston_matrix *inverse,

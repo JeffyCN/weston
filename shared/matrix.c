@@ -110,7 +110,8 @@ weston_matrix_rotate_xy(struct weston_matrix *matrix, float cos, float sin)
 
 /* v <- m * v */
 WL_EXPORT void
-weston_matrix_transform(struct weston_matrix *matrix, struct weston_vector *v)
+weston_matrix_transform(const struct weston_matrix *matrix,
+			struct weston_vector *v)
 {
 	int i, j;
 	struct weston_vector t;
