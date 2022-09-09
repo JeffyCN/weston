@@ -114,6 +114,9 @@ enum cmlcms_category {
 	CMLCMS_CATEGORY_INPUT_TO_OUTPUT,
 };
 
+const char *
+cmlcms_category_name(enum cmlcms_category cat);
+
 static inline struct cmlcms_color_profile *
 get_cprof(struct weston_color_profile *cprof_base)
 {

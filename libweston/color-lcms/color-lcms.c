@@ -34,6 +34,21 @@
 #include "color-lcms.h"
 #include "shared/helpers.h"
 
+const char *
+cmlcms_category_name(enum cmlcms_category cat)
+{
+	static const char *const category_names[] = {
+		[CMLCMS_CATEGORY_INPUT_TO_BLEND] = "input-to-blend",
+		[CMLCMS_CATEGORY_BLEND_TO_OUTPUT] = "blend-to-output",
+		[CMLCMS_CATEGORY_INPUT_TO_OUTPUT] = "input-to-output",
+	};
+
+	if (cat < 0 || cat >= ARRAY_LENGTH(category_names))
+		return "[illegal category value]";
+
+	return category_names[cat] ?: "[undocumented category value]";
+}
+
 static cmsUInt32Number
 cmlcms_get_render_intent(enum cmlcms_category cat,
 			 struct weston_surface *surface,
