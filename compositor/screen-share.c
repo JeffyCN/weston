@@ -854,7 +854,7 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	} else {
 		/* Damage in output coordinates */
 		pixman_region32_init(&damage);
-		pixman_region32_intersect(&damage, &so->output->region, current_damage);
+		pixman_region32_copy(&damage, current_damage);
 		pixman_region32_translate(&damage, -so->output->x, -so->output->y);
 	}
 
