@@ -821,8 +821,9 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 {
 	struct shared_output *so =
 		container_of(listener, struct shared_output, frame_listener);
-	pixman_region32_t damage;
-	pixman_region32_t *current_damage = data;
+	pixman_region32_t sb_damage;
+	pixman_region32_t output_damage;
+	pixman_region32_t *global_output_damage;
 	struct ss_shm_buffer *sb;
 	int32_t x, y, width, height, stride;
 	int i, nrects, do_yflip, y_orig;
@@ -850,30 +851,44 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 		if (!so->cache_image)
 			goto err_shared_output;
 
-		pixman_region32_init(&damage);
-		pixman_region32_copy(&damage, &so->output->region);
+		global_output_damage = &so->output->region;
 	} else {
-		pixman_region32_init(&damage);
-		pixman_region32_copy(&damage, current_damage);
+		global_output_damage = data;
 	}
-	pixman_region32_translate(&damage, -so->output->x, -so->output->y);
+	/* We want to calculate surface damage and store it for later.
+	 * The buffers we use for the remote connection's surface are
+	 * scale=1 and transform=normal, and cover the region the output
+	 * covers in the compositor's global space. So if the output
+	 * has a different scale or rotation, this is effectively undone
+	 * (possibly by throwing away pixels in a later step).
+	 *
+	 * First, translate damage so the output's corner is the origin
+	 * and store that in sb_damage.
+	 */
+	pixman_region32_init(&sb_damage);
+	pixman_region32_copy(&sb_damage, global_output_damage);
+	pixman_region32_translate(&sb_damage, -so->output->x, -so->output->y);
 
 	/* Apply damage to all buffers */
 	wl_list_for_each(sb, &so->shm.buffers, link)
-		pixman_region32_union(&sb->damage, &sb->damage, &damage);
+		pixman_region32_union(&sb->damage, &sb->damage, &sb_damage);
 
-	/* Translate back to global space for transform_region */
-	pixman_region32_translate(&damage, so->output->x, so->output->y);
+	pixman_region32_fini(&sb_damage);
 
-	/* Transform to buffer coordinates */
-	weston_region_global_to_output(&damage, so->output, &damage);
+	/* Get damage in output coordinates */
+	pixman_region32_init(&output_damage);
+	weston_region_global_to_output(&output_damage, so->output,
+				       global_output_damage);
 
-	if (shared_output_ensure_tmp_data(so, &damage) < 0)
+	if (shared_output_ensure_tmp_data(so, &output_damage) < 0)
 		goto err_pixman_init;
 
 	do_yflip = !!(so->output->compositor->capabilities & WESTON_CAP_CAPTURE_YFLIP);
 
-	r = pixman_region32_rectangles(&damage, &nrects);
+	/* Create our cache image - a 1:1 copy of the output of interest's
+	 * pixels from the output space.
+	 */
+	r = pixman_region32_rectangles(&output_damage, &nrects);
 	for (i = 0; i < nrects; ++i) {
 		x = r[i].x1;
 		y = r[i].y1;
@@ -921,13 +936,13 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 
 	so->cache_dirty = 1;
 
-	pixman_region32_fini(&damage);
+	pixman_region32_fini(&output_damage);
 	shared_output_update(so);
 
 	return;
 
 err_pixman_init:
-	pixman_region32_fini(&damage);
+	pixman_region32_fini(&output_damage);
 err_shared_output:
 	shared_output_destroy(so);
 }
