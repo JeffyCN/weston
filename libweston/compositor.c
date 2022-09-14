@@ -7896,6 +7896,12 @@ debug_scene_view_print(FILE *fp, struct weston_view *view, int view_idx)
 		fprintf(fp, "\t[view is not mapped!]\n");
 	if (!weston_surface_is_mapped(view->surface))
 		fprintf(fp, "\t[surface is not mapped!]\n");
+	if (wl_list_empty(&view->layer_link.link)) {
+		if (!get_view_layer(view))
+			fprintf(fp, "\t[view is not part of any layer]\n");
+		else
+			fprintf(fp, "\t[view is under parent view layer]\n");
+	}
 
 	box = pixman_region32_extents(&view->transform.boundingbox);
 	fprintf(fp, "\t\tposition: (%d, %d) -> (%d, %d)\n",
