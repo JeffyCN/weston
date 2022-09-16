@@ -44,6 +44,15 @@ extern "C" {
 #include <libweston/matrix.h>
 #include <libweston/zalloc.h>
 
+struct weston_log_pacer {
+	/** This must be set to zero before first use */
+	bool initialized;
+	struct timespec burst_start;
+	unsigned int event_count;
+	unsigned int max_burst;
+	unsigned int reset_ms;
+};
+
 struct weston_geometry {
 	int32_t x, y;
 	int32_t width, height;
@@ -2081,6 +2090,11 @@ weston_log(const char *fmt, ...)
 int
 weston_log_continue(const char *fmt, ...)
 	__attribute__ ((format (printf, 1, 2)));
+
+void
+weston_log_paced(struct weston_log_pacer *pacer, unsigned int max_burst,
+		 unsigned int reset_ms, const char *fmt, ...)
+	__attribute__ ((format (printf, 4, 5)));
 
 enum weston_screenshooter_outcome {
 	WESTON_SCREENSHOOTER_SUCCESS,
