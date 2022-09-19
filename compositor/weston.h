@@ -62,9 +62,6 @@ wet_watch_process(struct weston_compositor *compositor,
 struct weston_config *
 wet_get_config(struct weston_compositor *compositor);
 
-void *
-wet_load_module_entrypoint(const char *name, const char *entrypoint);
-
 int
 wet_shell_init(struct weston_compositor *ec,
 	       int *argc, char *argv[]);

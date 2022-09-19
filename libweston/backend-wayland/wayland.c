@@ -2857,7 +2857,8 @@ wayland_backend_create(struct weston_compositor *compositor,
 
 	if (!b->use_pixman) {
 		gl_renderer = weston_load_module("gl-renderer.so",
-						 "gl_renderer_interface");
+						 "gl_renderer_interface",
+						 LIBWESTON_MODULEDIR);
 		if (!gl_renderer)
 			b->use_pixman = true;
 	}

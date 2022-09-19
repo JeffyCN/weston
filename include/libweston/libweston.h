@@ -2156,7 +2156,7 @@ int
 weston_module_init(struct weston_compositor *compositor);
 
 void *
-weston_load_module(const char *name, const char *entrypoint);
+weston_load_module(const char *name, const char *entrypoint, const char *module_dir);
 
 size_t
 weston_module_path_from_env(const char *name, char *path, size_t path_len);

@@ -440,7 +440,9 @@ headless_gl_renderer_init(struct headless_backend *b)
 		.drm_formats_count = ARRAY_LENGTH(headless_formats),
 	};
 
-	b->glri = weston_load_module("gl-renderer.so", "gl_renderer_interface");
+	b->glri = weston_load_module("gl-renderer.so",
+				     "gl_renderer_interface",
+				     LIBWESTON_MODULEDIR);
 	if (!b->glri)
 		return -1;
 

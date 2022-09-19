@@ -883,53 +883,6 @@ weston_create_listening_socket(struct wl_display *display, const char *socket_na
 	}
 }
 
-WL_EXPORT void *
-wet_load_module_entrypoint(const char *name, const char *entrypoint)
-{
-	char path[PATH_MAX];
-	void *module, *init;
-	size_t len;
-
-	if (name == NULL)
-		return NULL;
-
-	if (name[0] != '/') {
-		len = weston_module_path_from_env(name, path, sizeof path);
-		if (len == 0)
-			len = snprintf(path, sizeof path, "%s/%s", MODULEDIR,
-				       name);
-	} else {
-		len = snprintf(path, sizeof path, "%s", name);
-	}
-
-	/* snprintf returns the length of the string it would've written,
-	 * _excluding_ the NUL byte. So even being equal to the size of
-	 * our buffer is an error here. */
-	if (len >= sizeof path)
-		return NULL;
-
-	module = dlopen(path, RTLD_NOW | RTLD_NOLOAD);
-	if (module) {
-		weston_log("Module '%s' already loaded\n", path);
-	} else {
-		weston_log("Loading module '%s'\n", path);
-		module = dlopen(path, RTLD_NOW);
-		if (!module) {
-			weston_log("Failed to load module: %s\n", dlerror());
-			return NULL;
-		}
-	}
-
-	init = dlsym(module, entrypoint);
-	if (!init) {
-		weston_log("Failed to lookup init function: %s\n", dlerror());
-		dlclose(module);
-		return NULL;
-	}
-
-	return init;
-}
-
 WL_EXPORT int
 wet_load_module(struct weston_compositor *compositor,
 	        const char *name, int *argc, char *argv[])
@@ -937,7 +890,7 @@ wet_load_module(struct weston_compositor *compositor,
 	int (*module_init)(struct weston_compositor *ec,
 			   int *argc, char *argv[]);
 
-	module_init = wet_load_module_entrypoint(name, "wet_module_init");
+	module_init = weston_load_module(name, "wet_module_init", MODULEDIR);
 	if (!module_init)
 		return -1;
 	if (module_init(compositor, argc, argv) < 0)
@@ -952,7 +905,7 @@ wet_load_shell(struct weston_compositor *compositor,
 	int (*shell_init)(struct weston_compositor *ec,
 			  int *argc, char *argv[]);
 
-	shell_init = wet_load_module_entrypoint(name, "wet_shell_init");
+	shell_init = weston_load_module(name, "wet_shell_init", MODULEDIR);
 	if (!shell_init)
 		return -1;
 	if (shell_init(compositor, argc, argv) < 0)
@@ -2729,7 +2682,8 @@ load_remoting(struct weston_compositor *c, struct weston_config *wc)
 							 &module_name,
 							 "remoting-plugin.so");
 			module_init = weston_load_module(module_name,
-							 "weston_module_init");
+							 "weston_module_init",
+							 LIBWESTON_MODULEDIR);
 			free(module_name);
 			if (!module_init) {
 				weston_log("Can't load remoting-plugin\n");
@@ -2859,7 +2813,8 @@ load_pipewire(struct weston_compositor *c, struct weston_config *wc)
 							 &module_name,
 							 "pipewire-plugin.so");
 			module_init = weston_load_module(module_name,
-							 "weston_module_init");
+							 "weston_module_init",
+							 LIBWESTON_MODULEDIR);
 			free(module_name);
 			if (!module_init) {
 				weston_log("Can't load pipewire-plugin\n");

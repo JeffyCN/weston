@@ -1853,7 +1853,8 @@ init_gl_renderer(struct x11_backend *b)
 	};
 
 	gl_renderer = weston_load_module("gl-renderer.so",
-					 "gl_renderer_interface");
+					 "gl_renderer_interface",
+					 LIBWESTON_MODULEDIR);
 	if (!gl_renderer)
 		return -1;
 

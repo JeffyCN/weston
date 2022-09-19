@@ -8512,8 +8512,23 @@ weston_module_path_from_env(const char *name, char *path, size_t path_len)
 	return 0;
 }
 
+/** A wrapper function to open and return the entry point of a shared library
+ * module
+ *
+ * This function loads the module and provides the caller with the entry point
+ * address which can be later used to execute shared library code. It can be
+ * used to load-up libweston modules but also other modules, specific to the
+ * compositor (i.e., weston).
+ *
+ * \param name the name of the shared library
+ * \param entrypoint the entry point of the shared library
+ * \param module_dir the path where to look for the shared library module
+ * \return the address of the module specified the entry point, or NULL otherwise
+ *
+ */
 WL_EXPORT void *
-weston_load_module(const char *name, const char *entrypoint)
+weston_load_module(const char *name, const char *entrypoint,
+		   const char *module_dir)
 {
 	char path[PATH_MAX];
 	void *module, *init;
@@ -8526,7 +8541,7 @@ weston_load_module(const char *name, const char *entrypoint)
 		len = weston_module_path_from_env(name, path, sizeof path);
 		if (len == 0)
 			len = snprintf(path, sizeof path, "%s/%s",
-				       LIBWESTON_MODULEDIR, name);
+				       module_dir, name);
 	} else {
 		len = snprintf(path, sizeof path, "%s", name);
 	}
@@ -8708,7 +8723,9 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 	if (backend >= ARRAY_LENGTH(backend_map))
 		return -1;
 
-	backend_init = weston_load_module(backend_map[backend], "weston_backend_init");
+	backend_init = weston_load_module(backend_map[backend],
+					  "weston_backend_init",
+					  LIBWESTON_MODULEDIR);
 	if (!backend_init)
 		return -1;
 
@@ -8741,7 +8758,9 @@ weston_compositor_load_xwayland(struct weston_compositor *compositor)
 {
 	int (*module_init)(struct weston_compositor *ec);
 
-	module_init = weston_load_module("xwayland.so", "weston_module_init");
+	module_init = weston_load_module("xwayland.so",
+					 "weston_module_init",
+					 LIBWESTON_MODULEDIR);
 	if (!module_init)
 		return -1;
 	if (module_init(compositor) < 0)
@@ -8769,7 +8788,9 @@ weston_compositor_load_color_manager(struct weston_compositor *compositor)
 		return -1;
 	}
 
-	cm_create = weston_load_module("color-lcms.so", "weston_color_manager_create");
+	cm_create = weston_load_module("color-lcms.so",
+				       "weston_color_manager_create",
+				       LIBWESTON_MODULEDIR);
 	if (!cm_create) {
 		weston_log("Error: Could not load color-lcms.so.\n");
 		return -1;
