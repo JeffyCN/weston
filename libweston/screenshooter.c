@@ -287,8 +287,8 @@ weston_recorder_frame_notify(struct wl_listener *listener, void *data)
 	pixman_region32_init(&damage);
 	pixman_region32_init(&transformed_damage);
 	pixman_region32_intersect(&damage, &output->region, data);
-	weston_matrix_transform_region(&transformed_damage,
-				       &output->matrix,
+	weston_region_global_to_output(&transformed_damage,
+				       output,
 				       &damage);
 	pixman_region32_fini(&damage);
 

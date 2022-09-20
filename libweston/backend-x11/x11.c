@@ -466,8 +466,8 @@ set_clip_for_output(struct weston_output *output_base, pixman_region32_t *region
 	b = to_x11_backend(ec);
 
 	pixman_region32_init(&transformed_region);
-	weston_matrix_transform_region(&transformed_region,
-				       &output_base->matrix,
+	weston_region_global_to_output(&transformed_region,
+				       output_base,
 				       region);
 
 	rects = pixman_region32_rectangles(&transformed_region, &nrects);

@@ -615,7 +615,7 @@ wayland_shm_buffer_attach(struct wayland_shm_buffer *sb)
 	int i, n;
 
 	pixman_region32_init(&damage);
-	weston_matrix_transform_region(&damage, &sb->output->base.matrix, &sb->damage);
+	weston_region_global_to_output(&damage, &sb->output->base, &sb->damage);
 
 	if (sb->output->frame) {
 		frame_interior(sb->output->frame, &ix, &iy, &iwidth, &iheight);

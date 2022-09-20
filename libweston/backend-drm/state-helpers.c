@@ -227,7 +227,7 @@ drm_plane_state_coords_for_view(struct drm_plane_state *state,
 	pixman_region32_init(&dest_rect);
 	pixman_region32_intersect(&dest_rect, &ev->transform.boundingbox,
 				  &output->base.region);
-	weston_matrix_transform_region(&dest_rect, &output->base.matrix, &dest_rect);
+	weston_region_global_to_output(&dest_rect, &output->base, &dest_rect);
 
 	box = pixman_region32_extents(&dest_rect);
 

@@ -422,8 +422,8 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 
 	pixman_region32_init(&scanout_damage);
 
-	weston_matrix_transform_region(&scanout_damage,
-				       &output->base.matrix,
+	weston_region_global_to_output(&scanout_damage,
+				       &output->base,
 				       damage);
 
 	assert(scanout_state->damage_blob_id == 0);

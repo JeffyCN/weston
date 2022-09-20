@@ -866,7 +866,7 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	pixman_region32_translate(&damage, so->output->x, so->output->y);
 
 	/* Transform to buffer coordinates */
-	weston_matrix_transform_region(&damage, &so->output->matrix, &damage);
+	weston_region_global_to_output(&damage, so->output, &damage);
 
 	if (shared_output_ensure_tmp_data(so, &damage) < 0)
 		goto err_pixman_init;
