@@ -390,7 +390,7 @@ weston_client_launch(struct weston_compositor *compositor,
 	str_printf(&fail_exec, "Error: Couldn't launch client '%s'\n", path);
 
 	custom_env_init_from_environ(&child_env);
-	custom_env_add_arg(&child_env, path);
+	custom_env_add_from_exec_string(&child_env, path);
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
 				  wayland_socket.fds) < 0) {

@@ -333,8 +333,12 @@ different shell plugins.
 .PP
 The entries that can appear in this section are:
 .TP 7
-.BI "client=" file
-sets the path for the shell client to run. If not specified
+.BI "client=" "@weston_libexecdir@/@weston_shell_client@"
+specifies the path for the shell client to run.
+It is possible to pass arguments and environment variables to the program,
+for example, 'ENVFOO=bar ENVBAR=baz /path/to/program --arg anotherarg',
+with entries that are space-separated but with no support for quoting.
+If no client was specified then
 .I @weston_shell_client@
 is launched (string).
 .TP 7
@@ -574,6 +578,10 @@ section with the key
 .TP 7
 .BI "path=" "@weston_libexecdir@/weston-keyboard"
 sets the path of the on screen keyboard input method (string).
+It is possible to pass arguments and environment variables to the program,
+for example, 'ENVFOO=bar ENVBAR=baz /path/to/program --arg anotherarg',
+with entries that are space-separated but with no support for quoting.
+
 .TP 7
 .BI "overlay-keyboard=" false
 sets weston-keyboard as overlay panel.
