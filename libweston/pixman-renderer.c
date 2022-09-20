@@ -414,8 +414,9 @@ draw_view_translated(struct weston_view *view, struct weston_output *output,
 							  repaint_global,
 							  &surface->opaque,
 							  view);
-			weston_output_region_from_global(output,
-							 &repaint_output);
+			weston_region_global_to_output(&repaint_output,
+						       output,
+						       &repaint_output);
 
 			repaint_region(view, output, &repaint_output, NULL,
 				       PIXMAN_OP_SRC);
@@ -426,7 +427,9 @@ draw_view_translated(struct weston_view *view, struct weston_output *output,
 		region_intersect_only_translation(&repaint_output,
 						  repaint_global,
 						  &surface_blend, view);
-		weston_output_region_from_global(output, &repaint_output);
+		weston_region_global_to_output(&repaint_output,
+					       output,
+					       &repaint_output);
 
 		repaint_region(view, output, &repaint_output, NULL,
 			       PIXMAN_OP_OVER);
@@ -462,7 +465,8 @@ draw_view_source_clipped(struct weston_view *view,
 
 	pixman_region32_init(&repaint_output);
 	pixman_region32_copy(&repaint_output, repaint_global);
-	weston_output_region_from_global(output, &repaint_output);
+	weston_region_global_to_output(&repaint_output, output,
+				       &repaint_output);
 
 	repaint_region(view, output, &repaint_output, &buffer_region,
 		       PIXMAN_OP_OVER);
@@ -555,7 +559,7 @@ copy_to_hw_buffer(struct weston_output *output, pixman_region32_t *region)
 	pixman_region32_init(&output_region);
 	pixman_region32_copy(&output_region, region);
 
-	weston_output_region_from_global(output, &output_region);
+	weston_region_global_to_output(&output_region, output, &output_region);
 
 	pixman_image_set_clip_region32 (po->hw_buffer, &output_region);
 	pixman_region32_fini(&output_region);

@@ -172,8 +172,9 @@ weston_output_transform_coordinate(struct weston_output *output,
 				   double *x, double *y);
 
 void
-weston_output_region_from_global(struct weston_output *output,
-				 pixman_region32_t *region);
+weston_region_global_to_output(pixman_region32_t *dst,
+			       struct weston_output *output,
+			       pixman_region32_t *src);
 
 const struct weston_hdr_metadata_type1 *
 weston_output_get_hdr_metadata_type1(const struct weston_output *output);

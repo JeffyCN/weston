@@ -1531,7 +1531,8 @@ blit_shadow_to_output(struct weston_output *output,
 	pixman_region32_intersect(&translated_damage, output_damage,
 				  &output->region);
 	/* Convert to output pixel coordinates in-place */
-	weston_output_region_from_global(output, &translated_damage);
+	weston_region_global_to_output(&translated_damage, output,
+				       &translated_damage);
 
 	rects = pixman_region32_rectangles(&translated_damage, &n_rects);
 	for (i = 0; i < n_rects; i++) {

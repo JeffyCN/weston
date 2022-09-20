@@ -6202,10 +6202,11 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
 	}
 }
 
-/** Transform a region in-place from global to output coordinates
+/** Transform a region from global to output coordinates
  *
+ * \param dst The region transformed into output coordinates
  * \param output The output that defines the transformation.
- * \param region The region to be transformed in-place.
+ * \param src The region to be transformed, in global coordinates.
  *
  * This takes a region in the global coordinate system, and takes into account
  * output position, transform and scale, and converts the region into output
@@ -6215,10 +6216,11 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
  * \ingroup output
  */
 WL_EXPORT void
-weston_output_region_from_global(struct weston_output *output,
-				 pixman_region32_t *region)
+weston_region_global_to_output(pixman_region32_t *dst,
+			       struct weston_output *output,
+			       pixman_region32_t *src)
 {
-	weston_matrix_transform_region(region, &output->matrix, region);
+	weston_matrix_transform_region(dst, &output->matrix, src);
 }
 
 static void
