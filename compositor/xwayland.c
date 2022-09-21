@@ -110,6 +110,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	char *const *envp;
 	char *const *argp;
 	bool ret;
+	size_t written __attribute__ ((unused));
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, wayland_socket.fds) < 0) {
 		weston_log("wl connection socketpair failed\n");
@@ -174,8 +175,8 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		/* execve does not return on success, so it failed */
 
 		if (exec_failure_msg) {
-			write(STDERR_FILENO, exec_failure_msg,
-			      strlen(exec_failure_msg));
+			written = write(STDERR_FILENO, exec_failure_msg,
+					strlen(exec_failure_msg));
 		}
 
 		_exit(EXIT_FAILURE);

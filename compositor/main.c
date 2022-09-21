@@ -385,6 +385,7 @@ weston_client_launch(struct weston_compositor *compositor,
 	sigset_t allsigs;
 	pid_t pid;
 	bool ret;
+	size_t written __attribute__((unused));
 
 	weston_log("launching '%s'\n", path);
 	str_printf(&fail_exec, "Error: Couldn't launch client '%s'\n", path);
@@ -424,22 +425,23 @@ weston_client_launch(struct weston_compositor *compositor,
 
 		/* Launch clients as the user. Do not launch clients with wrong euid. */
 		if (seteuid(getuid()) == -1) {
-			write(STDERR_FILENO, fail_seteuid,
-			      strlen(fail_seteuid));
+			written = write(STDERR_FILENO, fail_seteuid,
+					strlen(fail_seteuid));
 			_exit(EXIT_FAILURE);
 		}
 
 		ret = fdstr_clear_cloexec_fd1(&wayland_socket);
 		if (!ret) {
-			write(STDERR_FILENO, fail_cloexec,
-			      strlen(fail_cloexec));
+			written = write(STDERR_FILENO, fail_cloexec,
+					strlen(fail_cloexec));
 			_exit(EXIT_FAILURE);
 		}
 
 		execve(argp[0], argp, envp);
 
 		if (fail_exec)
-			write(STDERR_FILENO, fail_exec, strlen(fail_exec));
+			written = write(STDERR_FILENO, fail_exec,
+					strlen(fail_exec));
 		_exit(EXIT_FAILURE);
 
 	default:
