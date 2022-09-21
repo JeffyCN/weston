@@ -850,13 +850,13 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 		if (!so->cache_image)
 			goto err_shared_output;
 
-		pixman_region32_init_rect(&damage, 0, 0, width, height);
+		pixman_region32_init(&damage);
+		pixman_region32_copy(&damage, &so->output->region);
 	} else {
-		/* Damage in output coordinates */
 		pixman_region32_init(&damage);
 		pixman_region32_copy(&damage, current_damage);
-		pixman_region32_translate(&damage, -so->output->x, -so->output->y);
 	}
+	pixman_region32_translate(&damage, -so->output->x, -so->output->y);
 
 	/* Apply damage to all buffers */
 	wl_list_for_each(sb, &so->shm.buffers, link)
