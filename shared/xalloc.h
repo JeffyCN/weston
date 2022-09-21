@@ -40,13 +40,14 @@ static inline void *
 abort_oom_if_null(void *p)
 {
 	static const char oommsg[] = ": out of memory\n";
+	size_t written __attribute__((unused));
 
 	if (p)
 		return p;
 
-	write(STDERR_FILENO, program_invocation_short_name,
-	      strlen(program_invocation_short_name));
-	write(STDERR_FILENO, oommsg, strlen(oommsg));
+	written = write(STDERR_FILENO, program_invocation_short_name,
+		        strlen(program_invocation_short_name));
+	written = write(STDERR_FILENO, oommsg, strlen(oommsg));
 
 	abort();
 }
