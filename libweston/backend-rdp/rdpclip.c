@@ -1111,9 +1111,9 @@ clipboard_data_source_send(struct weston_data_source *base,
 		}
 	} else {
 		source->state = RDP_CLIPBOARD_SOURCE_FAILED;
-		weston_log("RDP %s (%p:%s) specified format \"%s\" index:%d formatId:%d is not supported by client\n",
+		weston_log("RDP %s (%p:%s) specified format \"%s\" index:%d is not supported by client\n",
 			   __func__, source, clipboard_data_source_state_to_string(source),
-			   mime_type, index, source->client_format_id_table[index]);
+			   mime_type, index);
 		goto error_return_close_fd;
 	}
 
