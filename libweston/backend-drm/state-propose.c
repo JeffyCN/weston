@@ -317,10 +317,8 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	    plane_state->src_h > (unsigned) b->cursor_height << 16 ||
 	    plane_state->src_w != plane_state->dest_w << 16 ||
 	    plane_state->src_h != plane_state->dest_h << 16) {
-		drm_debug(b, "\t\t\t\t[%s] not assigning view %p to %s plane "
-			     "(positioning requires cropping or scaling)\n",
-			     p_name, ev, p_name);
-		goto err;
+		if (!b->atomic_modeset)
+			goto err_scale;
 	}
 
 	/* Since we're setting plane state up front, we need to work out
@@ -349,6 +347,28 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 		cursor_bo_update(plane_state, ev);
 	}
 
+	if (b->atomic_modeset) {
+		float scale =
+			1.0 * b->compositor->cursor_size / ev->surface->width;
+
+		/* HACK: The HW might not be able to crop it */
+		if ((plane_state->src_w >> 16) < 4 ||
+		    (plane_state->src_h >> 16) < 4)
+			goto err_scale;
+
+		plane_state->dest_w *= scale;
+		plane_state->dest_h *= scale;
+
+		/* HACK: The HW might not be able to scale it */
+		if (plane_state->dest_w > 8 * (plane_state->src_w >> 16) ||
+		    plane_state->dest_w * 8 < (plane_state->src_w >> 16) ||
+		    plane_state->dest_h > 8 * (plane_state->src_h >> 16) ||
+		    plane_state->dest_h * 8 < (plane_state->src_h >> 16))
+			goto err_scale;
+
+		goto out;
+	}
+
 	/* The cursor API is somewhat special: in cursor_bo_update(), we upload
 	 * a buffer which is always cursor_width x cursor_height, even if the
 	 * surface we want to promote is actually smaller than this. Manually
@@ -358,11 +378,16 @@ drm_output_prepare_cursor_view(struct drm_output_state *output_state,
 	plane_state->dest_w = b->cursor_width;
 	plane_state->dest_h = b->cursor_height;
 
+out:
 	drm_debug(b, "\t\t\t\t[%s] provisionally assigned view %p to cursor\n",
 		  p_name, ev);
 
 	return plane_state;
 
+err_scale:
+	drm_debug(b, "\t\t\t\t[%s] not assigning view %p to %s plane "
+		  "(positioning requires cropping or scaling)\n",
+		  p_name, ev, p_name);
 err:
 	drm_plane_state_put_back(plane_state);
 	return NULL;
