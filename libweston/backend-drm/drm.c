@@ -5052,6 +5052,11 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev_dev;
 	}
 
+	if (compositor->cursor_size) {
+		device->cursor_width = compositor->cursor_size;
+		device->cursor_height = compositor->cursor_size;
+	}
+
 	res = drmModeGetResources(b->drm->drm.fd);
 	if (!res) {
 		weston_log("Failed to get drmModeRes\n");
