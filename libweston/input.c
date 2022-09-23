@@ -1728,8 +1728,8 @@ weston_pointer_move_to(struct weston_pointer *pointer,
 
 	if (pointer->sprite) {
 		weston_view_set_position(pointer->sprite,
-					 ix - pointer->hotspot_x,
-					 iy - pointer->hotspot_y);
+					 ix - pointer->hotspot_x * pointer->scale,
+					 iy - pointer->hotspot_y * pointer->scale);
 		weston_view_schedule_repaint(pointer->sprite);
 	}
 
@@ -2683,6 +2683,33 @@ pointer_cursor_surface_get_label(struct weston_surface *surface,
 }
 
 static void
+pointer_cursor_scale(struct weston_pointer *pointer,
+		     struct weston_surface *surface)
+{
+	struct weston_compositor *compositor = surface->compositor;
+	float scale;
+
+	if (!compositor->cursor_size || !surface->width ||
+	    surface->width == compositor->cursor_size)
+		return;
+
+	if (compositor->cursor_size > surface->width) {
+		scale = compositor->cursor_size / surface->width;
+
+		/* HACK: Use -scale as 1/scale */
+		surface->buffer_viewport.buffer.scale = -scale;
+	} else {
+		scale = 1.0 / (surface->width / compositor->cursor_size);
+		surface->buffer_viewport.buffer.scale = 1 / scale;
+	}
+
+	surface->width *= scale;
+	surface->height *= scale;
+
+	pointer->scale = scale;
+}
+
+static void
 pointer_cursor_surface_committed(struct weston_surface *es,
 				 int32_t dx, int32_t dy)
 {
@@ -2694,11 +2721,13 @@ pointer_cursor_surface_committed(struct weston_surface *es,
 
 	assert(es == pointer->sprite->surface);
 
+	pointer_cursor_scale(pointer, es);
+
 	pointer->hotspot_x -= dx;
 	pointer->hotspot_y -= dy;
 
-	x = wl_fixed_to_int(pointer->x) - pointer->hotspot_x;
-	y = wl_fixed_to_int(pointer->y) - pointer->hotspot_y;
+	x = wl_fixed_to_int(pointer->x) - pointer->hotspot_x * pointer->scale;
+	y = wl_fixed_to_int(pointer->y) - pointer->hotspot_y * pointer->scale;
 
 	weston_view_set_position(pointer->sprite, x, y);
 
@@ -3378,6 +3407,8 @@ weston_seat_init_pointer(struct weston_seat *seat)
 	pointer->seat = seat;
 
 	seat_send_updated_caps(seat);
+
+	pointer->scale = 1.0;
 
 	return 0;
 }
