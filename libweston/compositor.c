@@ -2296,7 +2296,7 @@ WESTON_EXPORT_FOR_TESTS void
 convert_size_by_transform_scale(int32_t *width_out, int32_t *height_out,
 				int32_t width, int32_t height,
 				uint32_t transform,
-				int32_t scale)
+				float scale)
 {
 	assert(scale > 0);
 
