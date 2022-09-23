@@ -709,11 +709,11 @@ weston_view_to_global_float(struct weston_view *view,
  * The given width and height must be the result of inverse scaled and
  * inverse transformed buffer size.
  */
-WL_EXPORT void
-weston_transformed_coord(int width, int height,
-			 enum wl_output_transform transform,
-			 int32_t scale,
-			 float sx, float sy, float *bx, float *by)
+static void
+weston_transformed_coord_float(int width, int height,
+			       enum wl_output_transform transform,
+			       float scale,
+			       float sx, float sy, float *bx, float *by)
 {
 	switch (transform) {
 	case WL_OUTPUT_TRANSFORM_NORMAL:
@@ -755,6 +755,16 @@ weston_transformed_coord(int width, int height,
 	*by *= scale;
 }
 
+WL_EXPORT void
+weston_transformed_coord(int width, int height,
+			 enum wl_output_transform transform,
+			 int32_t scale,
+			 float sx, float sy, float *bx, float *by)
+{
+	weston_transformed_coord_float(width, height, transform,
+				       scale, sx, sy, bx, by);
+}
+
 /** Transform a rectangle to buffer coordinates
  *
  * \param width Surface width.
@@ -772,20 +782,20 @@ weston_transformed_coord(int width, int height,
  * The given width and height must be the result of inverse scaled and
  * inverse transformed buffer size.
  */
-WL_EXPORT pixman_box32_t
-weston_transformed_rect(int width, int height,
-			enum wl_output_transform transform,
-			int32_t scale,
-			pixman_box32_t rect)
+static pixman_box32_t
+weston_transformed_rect_float(int width, int height,
+			      enum wl_output_transform transform,
+			      float scale,
+			      pixman_box32_t rect)
 {
 	float x1, x2, y1, y2;
 
 	pixman_box32_t ret;
 
-	weston_transformed_coord(width, height, transform, scale,
-				 rect.x1, rect.y1, &x1, &y1);
-	weston_transformed_coord(width, height, transform, scale,
-				 rect.x2, rect.y2, &x2, &y2);
+	weston_transformed_coord_float(width, height, transform, scale,
+				       rect.x1, rect.y1, &x1, &y1);
+	weston_transformed_coord_float(width, height, transform, scale,
+				       rect.x2, rect.y2, &x2, &y2);
 
 	if (x1 <= x2) {
 		ret.x1 = x1;
@@ -804,6 +814,16 @@ weston_transformed_rect(int width, int height,
 	}
 
 	return ret;
+}
+
+WL_EXPORT pixman_box32_t
+weston_transformed_rect(int width, int height,
+			enum wl_output_transform transform,
+			int32_t scale,
+			pixman_box32_t rect)
+{
+	return weston_transformed_rect_float(width, height, transform,
+					     scale, rect);
 }
 
 /** Transform a region by a matrix, restricted to axis-aligned transformations
@@ -1011,10 +1031,10 @@ weston_surface_to_buffer_float(struct weston_surface *surface,
 	/* first transform coordinates if the viewport is set */
 	viewport_surface_to_buffer(surface, sx, sy, bx, by);
 
-	weston_transformed_coord(surface->width_from_buffer,
-				 surface->height_from_buffer,
-				 vp->buffer.transform, vp->buffer.scale,
-				 *bx, *by, bx, by);
+	weston_transformed_coord_float(surface->width_from_buffer,
+				       surface->height_from_buffer,
+				       vp->buffer.transform, vp->buffer.scale,
+				       *bx, *by, bx, by);
 }
 
 /** Transform a rectangle from surface coordinates to buffer coordinates
@@ -1051,10 +1071,10 @@ weston_surface_to_buffer_rect(struct weston_surface *surface,
 	rect.x2 = ceilf(xf);
 	rect.y2 = ceilf(yf);
 
-	return weston_transformed_rect(surface->width_from_buffer,
-				       surface->height_from_buffer,
-				       vp->buffer.transform, vp->buffer.scale,
-				       rect);
+	return weston_transformed_rect_float(surface->width_from_buffer,
+					     surface->height_from_buffer,
+					     vp->buffer.transform,
+					     vp->buffer.scale, rect);
 }
 
 /** Transform a region from surface coordinates to buffer coordinates
@@ -2162,7 +2182,7 @@ static void
 convert_size_by_transform_scale(int32_t *width_out, int32_t *height_out,
 				int32_t width, int32_t height,
 				uint32_t transform,
-				int32_t scale)
+				float scale)
 {
 	assert(scale > 0);
 
