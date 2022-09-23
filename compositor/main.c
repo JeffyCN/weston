@@ -3611,6 +3611,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	section = weston_config_get_section(config, "shell", NULL, NULL);
 	weston_config_section_get_bool(section, "hide-cursor",
 				       &wet.compositor->hide_cursor, false);
+	weston_config_section_get_int(section, "cursor-size",
+				      &wet.compositor->cursor_size, 0);
 
 	for (i = 1; i < argc; i++)
 		weston_log("fatal: unhandled option: %s\n", argv[i]);
