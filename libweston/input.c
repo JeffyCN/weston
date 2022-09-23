@@ -2190,6 +2190,8 @@ weston_pointer_move_to(struct weston_pointer *pointer,
 		struct weston_coord_surface hotspot_inv;
 
 		hotspot_inv = weston_coord_surface_invert(pointer->hotspot);
+		hotspot_inv.c.x *= pointer->scale;
+		hotspot_inv.c.y *= pointer->scale;
 		weston_view_set_position_with_offset(pointer->sprite,
 						     pos, hotspot_inv);
 	}
@@ -3511,6 +3513,29 @@ notify_tablet_tool_frame(struct weston_tablet_tool *tool,
 
 
 static void
+pointer_cursor_scale(struct weston_pointer *pointer,
+		     struct weston_surface *surface)
+{
+	struct weston_compositor *compositor = surface->compositor;
+	float scale;
+
+	if (!compositor->cursor_size || !surface->width ||
+	    surface->width == compositor->cursor_size)
+		return;
+
+	scale = 1.0 * compositor->cursor_size / surface->width;
+	surface->buffer_viewport.buffer.scale = 1 / scale;
+	pointer->scale = scale;
+	surface->width *= scale;
+	surface->height *= scale;
+
+	weston_matrix_scale(&surface->surface_to_buffer_matrix,
+			    1 / scale, 1 / scale, 1);
+	weston_matrix_invert(&surface->buffer_to_surface_matrix,
+			     &surface->surface_to_buffer_matrix);
+}
+
+static void
 pointer_cursor_surface_committed(struct weston_surface *es,
 				 struct weston_coord_surface new_origin)
 {
@@ -3522,9 +3547,13 @@ pointer_cursor_surface_committed(struct weston_surface *es,
 
 	assert(es == pointer->sprite->surface);
 
+	pointer_cursor_scale(pointer, es);
+
 	pointer->hotspot = weston_coord_surface_sub(pointer->hotspot,
 						    new_origin);
 	hotspot_inv = weston_coord_surface_invert(pointer->hotspot);
+	hotspot_inv.c.x *= pointer->scale;
+	hotspot_inv.c.y *= pointer->scale;
 	weston_view_set_position_with_offset(pointer->sprite,
 					     pointer->pos, hotspot_inv);
 
@@ -4207,6 +4236,8 @@ weston_seat_init_pointer(struct weston_seat *seat)
 	pointer->seat = seat;
 
 	seat_send_updated_caps(seat);
+
+	pointer->scale = 1.0;
 
 	return 0;
 }
