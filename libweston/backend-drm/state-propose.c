@@ -234,6 +234,7 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	struct drm_output *output = output_state->output;
 	struct drm_device *device = output->device;
 	struct drm_backend *b = device->backend;
+	struct weston_compositor *compositor = b->compositor;
 	struct drm_plane_handle *handle = output->cursor_handle;
 	struct drm_plane *plane;
 	struct drm_plane_state *plane_state;
@@ -262,17 +263,55 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	plane_state->handle = handle;
 	drm_plane_state_coords_for_paint_node(plane_state, pnode, zpos);
 
+	/* Apply cursor size scaling */
+	if (compositor->cursor_size) {
+		float scale =
+			(float)compositor->cursor_size / pnode->surface->width;
+		plane_state->dest_w *= scale;
+		plane_state->dest_h *= scale;
+	}
+
+	/* Rockchip hw constraint: cursor min size 4x4 */
+	if ((plane_state->src_w >> 16) < 4 ||
+	    (plane_state->src_h >> 16) < 4) {
+		drm_debug(b, "\t\t\t\t[%s] not assigning paint node %s to %s plane "
+			  "(cursor too small)\n",
+			  p_name, pnode->internal_name, p_name);
+		goto err;
+	}
+
+	/* Check crop/scaling support for non-atomic modeset */
 	if (plane_state->src_x != 0 || plane_state->src_y != 0 ||
 	    plane_state->src_w > (unsigned) device->cursor_width << 16 ||
 	    plane_state->src_h > (unsigned) device->cursor_height << 16 ||
 	    plane_state->src_w != plane_state->dest_w << 16 ||
 	    plane_state->src_h != plane_state->dest_h << 16) {
-		drm_debug(b, "\t\t\t\t[%s] not assigning paint node %s to %s plane "
-			     "(positioning requires cropping or scaling)\n",
-			     p_name, pnode->internal_name, p_name);
-		goto err;
+		if (!device->atomic_modeset)
+			goto err_crop_scale;
+
+		/* Rockchip hw constraint: max 8x scaling */
+		if (!plane->can_scale ||
+		    plane_state->dest_w > 8 * (plane_state->src_w >> 16) ||
+		    plane_state->dest_w * 8 < (plane_state->src_w >> 16) ||
+		    plane_state->dest_h > 8 * (plane_state->src_h >> 16) ||
+		    plane_state->dest_h * 8 < (plane_state->src_h >> 16))
+			goto err_crop_scale;
+
+		goto out;
 	}
 
+	/* The cursor API is somewhat special: in cursor_bo_update(), we upload
+	 * a buffer which is always cursor_width x cursor_height, even if the
+	 * surface we want to promote is actually smaller than this. Manually
+	 * mangle the plane state to deal with this. */
+	plane_state->src_w = device->cursor_width << 16;
+	plane_state->src_h = device->cursor_height << 16;
+	plane_state->src_w -= plane_state->src_x;
+	plane_state->src_h -= plane_state->src_y;
+	plane_state->dest_w = plane_state->src_w >> 16;
+	plane_state->dest_h = plane_state->src_h >> 16;
+
+out:
 	plane_state->paint_node = pnode;
 	/* We always test with cursor fb 0. There are two potential fbs, and
 	 * they are identically allocated for cursor use specifically, so if
@@ -283,20 +322,14 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	 */
 	plane_state->fb = drm_fb_ref(output->gbm_cursor_fb[0]);
 
-	/* The cursor API is somewhat special: in cursor_bo_update(), we upload
-	 * a buffer which is always cursor_width x cursor_height, even if the
-	 * surface we want to promote is actually smaller than this. Manually
-	 * mangle the plane state to deal with this. */
-	plane_state->src_w = device->cursor_width << 16;
-	plane_state->src_h = device->cursor_height << 16;
-	plane_state->dest_w = device->cursor_width;
-	plane_state->dest_h = device->cursor_height;
-
 	drm_debug(b, "\t\t\t\t[%s] provisionally assigned paint node %s to cursor\n",
 		  p_name, pnode->internal_name);
 
 	return plane_state;
-
+err_crop_scale:
+	drm_debug(b, "\t\t\t\t[%s] not assigning paint node %s to %s plane "
+		  "(positioning requires cropping or scaling)\n",
+		  p_name, pnode->internal_name, p_name);
 err:
 	drm_plane_state_put_back(plane_state);
 	return NULL;
