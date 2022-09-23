@@ -579,6 +579,8 @@ struct weston_pointer {
 	struct wl_listener output_destroy_listener;
 
 	struct wl_list timestamps_list;
+
+	float scale;
 };
 
 /** libinput style calibration matrix
@@ -1216,6 +1218,8 @@ struct weston_compositor {
 	bool hide_cursor;
 
 	uint32_t pending_fade_out;
+
+	int cursor_size;
 };
 
 struct weston_buffer {
