@@ -4822,6 +4822,11 @@ drm_backend_create(struct weston_compositor *compositor,
 	if (!device->cursors_are_broken)
 		compositor->capabilities |= WESTON_CAP_CURSOR_PLANE;
 
+	if (compositor->cursor_size) {
+		device->cursor_width = compositor->cursor_size;
+		device->cursor_height = compositor->cursor_size;
+	}
+
 	b->udev_monitor = udev_monitor_new_from_netlink(b->udev, "udev");
 	if (b->udev_monitor == NULL) {
 		weston_log("failed to initialize udev monitor\n");
