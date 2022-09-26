@@ -530,7 +530,7 @@ process_pipeline_comparison(const struct buffer *src_buf,
 	 *
 	 * weston_plot_rgb_diff_stat('opaque_pixel_conversion-f05-dump.txt')
 	 */
-	dump = fopen_dump_file("dump");
+	dump = fopen_dump_file(arg->meta.name);
 #endif
 
 	struct image_header ih_src = image_header_from(src_buf->image);
@@ -693,7 +693,7 @@ check_blend_pattern(struct buffer *bg_buf,
 	 *
 	 * weston_plot_rgb_diff_stat('output_icc_alpha_blend-f01-dump.txt', 255, 8)
 	 */
-	dump = fopen_dump_file("dump");
+	dump = fopen_dump_file(arg->meta.name);
 #endif
 
 	uint32_t *bg_row = get_middle_row(bg_buf);
