@@ -37,7 +37,6 @@
 #include <wayland-client-protocol.h>
 #include "weston-test-runner.h"
 #include "weston-test-client-protocol.h"
-#include "weston-screenshooter-client-protocol.h"
 #include "viewporter-client-protocol.h"
 
 struct client {
@@ -66,8 +65,6 @@ struct client {
 	int has_argb;
 	struct wl_list global_list;
 	struct wl_list output_list; /* struct output::link */
-	struct weston_screenshooter *screenshooter;
-	bool buffer_copy_done;
 };
 
 struct global {

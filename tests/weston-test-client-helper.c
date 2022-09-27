@@ -45,6 +45,7 @@
 #include <libweston/zalloc.h>
 #include "weston-test-client-helper.h"
 #include "image-iter.h"
+#include "weston-output-capture-client-protocol.h"
 
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #define min(a, b) (((a) > (b)) ? (b) : (a))
@@ -510,6 +511,22 @@ create_shm_buffer_a8r8g8b8(struct client *client, int width, int height)
 	return create_shm_buffer(client, width, height, DRM_FORMAT_ARGB8888);
 }
 
+static struct buffer *
+create_pixman_buffer(int width, int height, pixman_format_code_t pixman_format)
+{
+	struct buffer *buf;
+
+	assert(width > 0);
+	assert(height > 0);
+
+	buf = xzalloc(sizeof *buf);
+	buf->image = pixman_image_create_bits(pixman_format,
+					      width, height, NULL, 0);
+	assert(buf->image);
+
+	return buf;
+}
+
 void
 buffer_destroy(struct buffer *buf)
 {
@@ -551,19 +568,6 @@ test_handle_pointer_position(void *data, struct weston_test *weston_test,
 	testlog("test-client: got global pointer %d %d\n",
 		test->pointer_x, test->pointer_y);
 }
-
-static void
-test_handle_capture_screenshot_done(void *data, struct weston_screenshooter *screenshooter)
-{
-	struct client *client = data;
-
-	testlog("Screenshot has been captured\n");
-	client->buffer_copy_done = true;
-}
-
-static const struct weston_screenshooter_listener screenshooter_listener = {
-	test_handle_capture_screenshot_done
-};
 
 static const struct weston_test_listener test_listener = {
 	test_handle_pointer_position,
@@ -826,12 +830,6 @@ handle_global(void *data, struct wl_registry *registry,
 					 &weston_test_interface, version);
 		weston_test_add_listener(test->weston_test, &test_listener, test);
 		client->test = test;
-	} else if (strcmp(interface, "weston_screenshooter") == 0) {
-		client->screenshooter =
-			wl_registry_bind(registry, id,
-					 &weston_screenshooter_interface, 1);
-		weston_screenshooter_add_listener(client->screenshooter,
-						  &screenshooter_listener, client);
 	}
 }
 
@@ -1100,8 +1098,6 @@ client_destroy(struct client *client)
 		free(client->test);
 	}
 
-	if (client->screenshooter)
-		weston_screenshooter_destroy(client->screenshooter);
 	if (client->wl_shm)
 		wl_shm_destroy(client->wl_shm);
 	if (client->wl_compositor)
@@ -1624,6 +1620,104 @@ load_image_from_png(const char *fname)
 	return converted;
 }
 
+struct output_capturer {
+	int width;
+	int height;
+	uint32_t drm_format;
+
+	struct weston_capture_v1 *factory;
+	struct weston_capture_source_v1 *source;
+
+	bool complete;
+};
+
+static void
+output_capturer_handle_format(void *data,
+			      struct weston_capture_source_v1 *proxy,
+			      uint32_t drm_format)
+{
+	struct output_capturer *capt = data;
+
+	capt->drm_format = drm_format;
+}
+
+static void
+output_capturer_handle_size(void *data,
+			    struct weston_capture_source_v1 *proxy,
+			    int32_t width, int32_t height)
+{
+	struct output_capturer *capt = data;
+
+	capt->width = width;
+	capt->height = height;
+}
+
+static void
+output_capturer_handle_complete(void *data,
+			        struct weston_capture_source_v1 *proxy)
+{
+	struct output_capturer *capt = data;
+
+	capt->complete = true;
+}
+
+static void
+output_capturer_handle_retry(void *data,
+			     struct weston_capture_source_v1 *proxy)
+{
+	assert(0 && "output capture retry in tests indicates a race");
+}
+
+static void
+output_capturer_handle_failed(void *data,
+			      struct weston_capture_source_v1 *proxy,
+			      const char *msg)
+{
+	testlog("output capture failed: %s", msg ? msg : "?");
+	assert(0 && "output capture failed");
+}
+
+static const struct weston_capture_source_v1_listener output_capturer_source_handlers = {
+	.format = output_capturer_handle_format,
+	.size = output_capturer_handle_size,
+	.complete = output_capturer_handle_complete,
+	.retry = output_capturer_handle_retry,
+	.failed = output_capturer_handle_failed,
+};
+
+static struct buffer *
+client_capture_output(struct client *client,
+		      struct output *output,
+		      enum weston_capture_v1_source src)
+{
+	struct output_capturer capt = {};
+	struct buffer *buf;
+
+	capt.factory = bind_to_singleton_global(client,
+						&weston_capture_v1_interface,
+						1);
+
+	capt.source = weston_capture_v1_create(capt.factory,
+					       output->wl_output, src);
+	weston_capture_source_v1_add_listener(capt.source,
+					      &output_capturer_source_handlers,
+					      &capt);
+
+	client_roundtrip(client);
+
+	buf = create_shm_buffer(client,
+				capt.width, capt.height, capt.drm_format);
+
+	weston_capture_source_v1_capture(capt.source, buf->proxy);
+	while (!capt.complete)
+		assert(wl_display_dispatch(client->wl_display) >= 0);
+
+	weston_capture_source_v1_destroy(capt.source);
+	weston_capture_v1_destroy(capt.factory);
+
+	return buf;
+}
+
 /**
  * Take screenshot of a single output
  *
@@ -1632,33 +1726,34 @@ load_image_from_png(const char *fname)
  * repaint to provide the screenshot before this function returns. This
  * function is therefore both a server roundtrip and a wait for a repaint.
  *
+ * The resulting buffer shall contain a copy of the framebuffer contents,
+ * the output area only, that is, without borders (output decorations).
+ * The shot is in output physical pixels, with the output scale and
+ * orientation rather than scale=1 or orientation=normal. The pixel format
+ * is ensured to be PIXMAN_a8r8g8b8.
+ *
  * @returns A new buffer object, that should be freed with buffer_destroy().
  */
 struct buffer *
 capture_screenshot_of_output(struct client *client)
 {
-	struct buffer *buffer;
+	struct image_header ih;
+	struct buffer *shm;
+	struct buffer *buf;
 
-	assert(client->screenshooter);
+	shm = client_capture_output(client, client->output,
+				    WESTON_CAPTURE_V1_SOURCE_FRAMEBUFFER);
+	ih = image_header_from(shm->image);
 
-	buffer = create_shm_buffer_a8r8g8b8(client,
-					    client->output->width,
-					    client->output->height);
+	if (ih.pixman_format == PIXMAN_a8r8g8b8)
+		return shm;
 
-	client->buffer_copy_done = false;
-	weston_screenshooter_take_shot(client->screenshooter,
-				       client->output->wl_output,
-				       buffer->proxy);
-	while (client->buffer_copy_done == false)
-		assert(wl_display_dispatch(client->wl_display) >= 0);
+	buf = create_pixman_buffer(ih.width, ih.height, PIXMAN_a8r8g8b8);
+	pixman_image_composite32(PIXMAN_OP_SRC, shm->image, NULL, buf->image,
+				 0, 0, 0, 0, 0, 0, ih.width, ih.height);
 
-	/* FIXME: Document somewhere the orientation the screenshot is taken
-	 * and how the clip coords are interpreted, in case of scaling/transform.
-	 * If we're using read_pixels() just make sure it is documented somewhere.
-	 * Protocol docs in the XML, comparison function docs in Doxygen style.
-	 */
-
-	return buffer;
+	buffer_destroy(shm);
+	return buf;
 }
 
 static void
