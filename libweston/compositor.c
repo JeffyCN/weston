@@ -3410,6 +3410,10 @@ weston_compositor_build_view_list(struct weston_compositor *compositor)
 						view->surface->flags |=
 							SURFACE_STAY_ON_BOTTOM;
 				}
+
+#define BOOTANIM "/usr/bin/bootanim"
+				if (!access(BOOTANIM, X_OK))
+					(void)!system(BOOTANIM " stop&");
 			}
 
 			view_list_add(compositor, view);
@@ -3720,6 +3724,7 @@ output_repaint_timer_handler(void *data)
 
 	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK)) {
 		usleep(DEFAULT_REPAINT_WINDOW * 1000);
+		weston_compositor_build_view_list(compositor);
 		goto out;
 	}
 
