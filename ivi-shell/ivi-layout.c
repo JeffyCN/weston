@@ -1194,14 +1194,13 @@ ivi_layout_get_layers_under_surface(struct ivi_layout_surface *ivisurf,
 			else
 				length--;
 		}
+		if (length == 0) {
+			free(*ppArray);
+			*ppArray = NULL;
+		}
 	}
 
 	*pLength = length;
-
-	if (!length) {
-		free(*ppArray);
-		*ppArray = NULL;
-	}
 
 	return IVI_SUCCEEDED;
 }
