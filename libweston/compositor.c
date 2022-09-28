@@ -4451,6 +4451,19 @@ weston_output_should_freeze(struct weston_output *output)
 	if (timespec_sub_to_msec(&output->freeze_until, &now) > 0)
 		return true;
 
+	/* HACK: Try to stop the custom bootanim when first app appears.
+	 * This is a Rockchip-specific hack to stop the boot animation
+	 * when the first desktop application surface is detected.
+	 */
+	{
+#define BOOTANIM "/usr/bin/bootanim"
+		static bool ready = false;
+		if (!ready && has_desktop_surface && !access(BOOTANIM, X_OK)) {
+			ready = true;
+			(void)!system(BOOTANIM " stop&");
+		}
+	}
+
 	if (!access(getenv("WESTON_FREEZE_DISPLAY") ? : "", F_OK))
 		return true;
 
