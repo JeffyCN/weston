@@ -130,6 +130,7 @@ struct wet_compositor {
 	pid_t autolaunch_pid;
 	bool autolaunch_watch;
 	bool use_color_manager;
+	struct wl_listener screenshot_auth;
 };
 
 static FILE *weston_logfile = NULL;
@@ -2046,7 +2047,7 @@ drm_backend_output_configure(struct weston_output *output,
 		mode = WESTON_DRM_BACKEND_OUTPUT_CURRENT;
 		/* If mode=current and no max-bpc was specfied on the .ini file,
 		   use current max_bpc so full modeset is not done. */
-		if (!max_bpc_specified) 
+		if (!max_bpc_specified)
 			max_bpc = 0;
 	} else if (strcmp(s, "preferred") != 0) {
 		modeline = s;
@@ -3576,6 +3577,17 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
 }
 
 static void
+screenshot_allow_all(struct wl_listener *l,
+		     struct weston_output_capture_attempt *att)
+{
+	/*
+	 * The effect of --debug option: indiscriminately allow everyone to
+	 * take screenshots of any output.
+	 */
+	att->authorized = true;
+}
+
+static void
 sigint_helper(int sig)
 {
 	raise(SIGUSR2);
@@ -3779,8 +3791,12 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	protologger = wl_display_add_protocol_logger(display,
 						     protocol_log_fn,
 						     NULL);
-	if (debug_protocol)
+	if (debug_protocol) {
 		weston_compositor_enable_debug_protocol(wet.compositor);
+		weston_compositor_add_screenshot_authority(wet.compositor,
+							   &wet.screenshot_auth,
+							   screenshot_allow_all);
+	}
 
 	if (flight_rec)
 		weston_compositor_add_debug_binding(wet.compositor, KEY_D,
