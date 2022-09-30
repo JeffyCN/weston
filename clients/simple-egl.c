@@ -108,6 +108,7 @@ struct window {
 	struct xdg_toplevel *xdg_toplevel;
 	EGLSurface egl_surface;
 	int fullscreen, maximized, opaque, buffer_bpp, frame_sync, delay;
+	bool fullscreen_ratio;
 	bool wait_for_configure;
 
 	struct wl_list window_output_list; /* struct window_output::link */
@@ -355,6 +356,13 @@ update_buffer_geometry(struct window *window)
 
 	new_buffer_size.width *= window->buffer_scale;
 	new_buffer_size.height *= window->buffer_scale;
+
+	if (window->fullscreen && window->fullscreen_ratio) {
+		int new_buffer_size_min = MIN(new_buffer_size.width,
+					      new_buffer_size.height);
+		new_buffer_size.width = new_buffer_size_min;
+		new_buffer_size.height = new_buffer_size_min;
+	}
 
 	if (window->buffer_size.width != new_buffer_size.width ||
 	    window->buffer_size.height != new_buffer_size.height) {
@@ -1102,6 +1110,7 @@ usage(int error_code)
 	fprintf(stderr, "Usage: simple-egl [OPTIONS]\n\n"
 		"  -d <us>\tBuffer swap delay in microseconds\n"
 		"  -f\tRun in fullscreen mode\n"
+		"  -r\tUse fixed width/height ratio when run in fullscreen mode\n"
 		"  -m\tRun in maximized mode\n"
 		"  -o\tCreate an opaque surface\n"
 		"  -s\tUse a 16 bpp EGL config\n"
@@ -1130,6 +1139,7 @@ main(int argc, char **argv)
 	window.buffer_bpp = 0;
 	window.frame_sync = 1;
 	window.delay = 0;
+	window.fullscreen_ratio = false;
 
 	wl_list_init(&display.output_list);
 	wl_list_init(&window.window_output_list);
@@ -1139,6 +1149,8 @@ main(int argc, char **argv)
 			window.delay = atoi(argv[++i]);
 		else if (strcmp("-f", argv[i]) == 0)
 			window.fullscreen = 1;
+		else if (strcmp("-r", argv[i]) == 0)
+			window.fullscreen_ratio = true;
 		else if (strcmp("-m", argv[i]) == 0)
 			window.maximized = 1;
 		else if (strcmp("-o", argv[i]) == 0)
