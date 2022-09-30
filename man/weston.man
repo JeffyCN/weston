@@ -45,6 +45,13 @@ to the desktop is done by using the RDP protocol. Each connecting
 client has its own seat making it a cheap way to test multi-seat support. See
 .BR weston-rdp (7),
 if installed.
+.TP
+.I vnc-backend.so
+The VNC backend runs in memory without the need of graphical hardware. Access
+to the desktop is done by using the RFB protocol. Currently only one
+connecting client is supported. See
+.BR weston-vnc (7),
+if installed.
 .
 .\" ***************************************************************
 .SH SHELLS
@@ -264,6 +271,10 @@ pixman library for software compsiting.
 See
 .BR weston-rdp (7).
 .
+.SS VNC backend options:
+See
+.BR weston-vnc (7).
+.
 .
 .\" ***************************************************************
 .SH FILES
@@ -367,4 +378,5 @@ weston
 .BR weston-debug (1),
 .BR weston-drm (7),
 .BR weston-rdp (7),
+.BR weston-vnc (7),
 .BR weston.ini (5)
