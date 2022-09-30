@@ -53,3 +53,12 @@ if get_option('backend-rdp')
 		configuration: man_conf
 	)
 endif
+
+if get_option('backend-vnc')
+	configure_file(
+		input: 'weston-vnc.man',
+		output: 'weston-vnc.7',
+		install_dir: join_paths(dir_man, 'man7'),
+		configuration: man_conf
+	)
+endif
