@@ -2040,6 +2040,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	    shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
 
 		if (shsurf->shell->compositor->state == WESTON_COMPOSITOR_ACTIVE &&
+		    shsurf->view->output &&
 		    shsurf->view->output->power_state == WESTON_OUTPUT_POWER_NORMAL) {
 			struct weston_coord_global pos;
 
@@ -4053,6 +4054,8 @@ check_desktop_shell_crash_too_early(struct desktop_shell *shell)
 	if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
 		return false;
 
+	/* HACK: The shell might be crashed too early when hotplugging */
+#if 0
 	/*
 	 * If the shell helper client dies before the session has been
 	 * up for roughly 30 seconds, better just make Weston shut down,
@@ -4068,6 +4071,7 @@ check_desktop_shell_crash_too_early(struct desktop_shell *shell)
 
 		return true;
 	}
+#endif
 
 	return false;
 }
@@ -4680,7 +4684,7 @@ setup_output_destroy_handler(struct weston_compositor *ec,
 static void
 desktop_shell_destroy_layer(struct weston_layer *layer)
 {
-	struct weston_view *view;
+	struct weston_view *view, *tmp;
 	bool removed;
 
 	do {
@@ -4705,9 +4709,15 @@ desktop_shell_destroy_layer(struct weston_layer *layer)
 		 * we restart the loop as long as we keep removing views from
 		 * the list.
 		 */
-		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+		wl_list_for_each_safe(view, tmp, &layer->view_list.link,
+				      layer_link.link) {
 			struct shell_surface *shsurf =
 				get_shell_surface(view->surface);
+
+			wl_list_remove(&view->layer_link.link);
+			wl_list_init(&view->layer_link.link);
+			view->layer_link.layer = NULL;
+
 			if (shsurf) {
 				desktop_shell_destroy_surface(shsurf);
 				removed = true;
