@@ -7414,6 +7414,7 @@ static void
 weston_compositor_remove_output(struct weston_output *output)
 {
 	struct weston_compositor *compositor = output->compositor;
+	struct weston_animation *animation, *atmp;
 	struct weston_paint_node *pnode, *pntmp;
 	struct weston_view *view;
 	struct weston_head *head;
@@ -7424,6 +7425,11 @@ weston_compositor_remove_output(struct weston_output *output)
 	if (output->idle_repaint_source) {
 		wl_event_source_remove(output->idle_repaint_source);
 		output->idle_repaint_source = NULL;
+	}
+
+	wl_list_for_each_safe(animation, atmp, &output->animation_list, link) {
+		wl_list_remove(&animation->link);
+		wl_list_init(&animation->link);
 	}
 
 	wl_list_for_each_safe(pnode, pntmp,

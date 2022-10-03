@@ -2766,9 +2766,16 @@ drm_output_destroy(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
 	struct drm_device *device = output->device;
+	struct drm_head *head, *tmp;
 
 	assert(output);
 	assert(!output->virtual);
+
+	wl_list_for_each_safe(head, tmp, &output->disable_head,
+			      disable_head_link) {
+		wl_list_remove(&head->disable_head_link);
+		wl_list_init(&head->disable_head_link);
+	}
 
 	if (output->page_flip_pending || output->atomic_complete_pending) {
 		if (!base->compositor->shutting_down) {
