@@ -1,5 +1,6 @@
 /*
  * Copyright © 2008-2011 Kristian Høgsberg
+ * Copyright 2022 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -41,6 +42,7 @@ struct screenshooter {
 	struct weston_process process;
 	struct wl_listener destroy_listener;
 	struct weston_recorder *recorder;
+	struct wl_listener authorization;
 };
 
 static void
@@ -166,12 +168,24 @@ recorder_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 }
 
 static void
+authorize_screenshooter(struct wl_listener *l,
+			struct weston_output_capture_attempt *att)
+{
+	struct screenshooter *shooter = wl_container_of(l, shooter,
+							authorization);
+
+	if (shooter->client && att->who->client == shooter->client)
+		att->authorized = true;
+}
+
+static void
 screenshooter_destroy(struct wl_listener *listener, void *data)
 {
 	struct screenshooter *shooter =
 		container_of(listener, struct screenshooter, destroy_listener);
 
 	wl_list_remove(&shooter->destroy_listener.link);
+	wl_list_remove(&shooter->authorization.link);
 
 	wl_global_destroy(shooter->global);
 	free(shooter);
@@ -198,4 +212,7 @@ screenshooter_create(struct weston_compositor *ec)
 
 	shooter->destroy_listener.notify = screenshooter_destroy;
 	wl_signal_add(&ec->destroy_signal, &shooter->destroy_listener);
+
+	weston_compositor_add_screenshot_authority(ec, &shooter->authorization,
+						   authorize_screenshooter);
 }
