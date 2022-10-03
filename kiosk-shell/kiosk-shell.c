@@ -413,6 +413,7 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 	weston_layer_entry_insert(&shsurf->shell->normal_layer.view_list,
 				  &shsurf->view->layer_link);
 	weston_view_geometry_dirty(shsurf->view);
+	weston_view_update_transform(shsurf->view);
 	weston_surface_damage(shsurf->view->surface);
 }
 
