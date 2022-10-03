@@ -63,6 +63,10 @@ static int
 calc_input_panel_position(struct input_panel_surface *ip_surface, float *x, float*y)
 {
 	struct desktop_shell *shell = ip_surface->shell;
+
+	if (!ip_surface->output)
+		return -1;
+
 	if (ip_surface->panel) {
 		struct weston_view *view = get_default_view(shell->text_input.surface);
 		if (view == NULL)
