@@ -4407,6 +4407,8 @@ check_desktop_shell_crash_too_early(struct desktop_shell *shell)
 	if (clock_gettime(CLOCK_MONOTONIC, &now) < 0)
 		return false;
 
+	/* HACK: The shell might be crashed too early when hotplugging */
+#if 0
 	/*
 	 * If the shell helper client dies before the session has been
 	 * up for roughly 30 seconds, better just make Weston shut down,
@@ -4422,6 +4424,7 @@ check_desktop_shell_crash_too_early(struct desktop_shell *shell)
 
 		return true;
 	}
+#endif
 
 	return false;
 }
@@ -4951,10 +4954,14 @@ shell_output_destroy(struct shell_output *shell_output)
 	if (shell_output->fade.startup_timer)
 		wl_event_source_remove(shell_output->fade.startup_timer);
 
-	if (shell_output->panel_surface)
+	if (shell_output->panel_surface) {
 		wl_list_remove(&shell_output->panel_surface_listener.link);
-	if (shell_output->background_surface)
+		shell_output->panel_surface->committed = NULL;
+	}
+	if (shell_output->background_surface) {
 		wl_list_remove(&shell_output->background_surface_listener.link);
+		shell_output->background_surface->committed = NULL;
+	}
 	wl_list_remove(&shell_output->destroy_listener.link);
 	wl_list_remove(&shell_output->link);
 	free(shell_output);
@@ -5141,6 +5148,7 @@ desktop_shell_destroy_layer(struct weston_layer *layer)
 	wl_list_for_each_safe(view, view_next, &layer->view_list.link, layer_link.link) {
 		struct shell_surface *shsurf =
 			get_shell_surface(view->surface);
+		weston_layer_entry_remove(&view->layer_link);
 		/* fullscreen_layer is special as it would have a view with an
 		 * additional black_view created and added to its layer_link
 		 * fullscreen view. See shell_ensure_fullscreen_black_view()
