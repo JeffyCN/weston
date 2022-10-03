@@ -6605,12 +6605,18 @@ static void
 weston_compositor_remove_output(struct weston_output *output)
 {
 	struct weston_compositor *compositor = output->compositor;
+	struct weston_animation *animation, *atmp;
 	struct weston_paint_node *pnode, *pntmp;
 	struct weston_view *view;
 	struct weston_head *head;
 
 	assert(output->destroying);
 	assert(output->enabled);
+
+	wl_list_for_each_safe(animation, atmp, &output->animation_list, link) {
+		wl_list_remove(&animation->link);
+		wl_list_init(&animation->link);
+	}
 
 	wl_list_for_each_safe(pnode, pntmp,
 			      &output->paint_node_list, output_link) {
