@@ -364,10 +364,14 @@ if get_option('shell-desktop')
 	exe_shooter = executable(
 		'weston-screenshooter',
 		'screenshot.c',
-		weston_screenshooter_client_protocol_h,
-		weston_screenshooter_protocol_c,
+		weston_output_capture_client_protocol_h,
+		weston_output_capture_protocol_c,
 		include_directories: common_inc,
-		dependencies: dep_toytoolkit,
+		dependencies: [
+			dep_toytoolkit,
+			dep_libweston_private, # for pixel-formats.h
+			dep_pixman,
+		],
 		install_dir: get_option('bindir'),
 		install: true
 	)
