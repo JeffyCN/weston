@@ -31,87 +31,16 @@
 
 #include <libweston/libweston.h>
 #include "weston.h"
-#include "weston-screenshooter-server-protocol.h"
 #include "shared/helpers.h"
-#include <libweston/weston-log.h>
 
 struct screenshooter {
 	struct weston_compositor *ec;
-	struct wl_global *global;
 	struct wl_client *client;
 	struct weston_process process;
 	struct wl_listener destroy_listener;
 	struct weston_recorder *recorder;
 	struct wl_listener authorization;
 };
-
-static void
-screenshooter_done(void *data, enum weston_screenshooter_outcome outcome)
-{
-	struct wl_resource *resource = data;
-
-	switch (outcome) {
-	case WESTON_SCREENSHOOTER_SUCCESS:
-		weston_screenshooter_send_done(resource);
-		break;
-	case WESTON_SCREENSHOOTER_NO_MEMORY:
-		wl_resource_post_no_memory(resource);
-		break;
-	default:
-		break;
-	}
-}
-
-static void
-screenshooter_take_shot(struct wl_client *client,
-			struct wl_resource *resource,
-			struct wl_resource *output_resource,
-			struct wl_resource *buffer_resource)
-{
-	struct weston_output *output =
-		weston_head_from_resource(output_resource)->output;
-	struct weston_compositor *ec = output->compositor;
-	struct weston_buffer *buffer =
-		weston_buffer_from_resource(ec, buffer_resource);
-
-	if (buffer == NULL) {
-		wl_resource_post_no_memory(resource);
-		return;
-	}
-
-	weston_screenshooter_shoot(output, buffer, screenshooter_done, resource);
-}
-
-struct weston_screenshooter_interface screenshooter_implementation = {
-	screenshooter_take_shot
-};
-
-static void
-bind_shooter(struct wl_client *client,
-	     void *data, uint32_t version, uint32_t id)
-{
-	struct screenshooter *shooter = data;
-	struct wl_resource *resource;
-	bool debug_enabled =
-		weston_compositor_is_debug_protocol_enabled(shooter->ec);
-
-	resource = wl_resource_create(client,
-				      &weston_screenshooter_interface, 1, id);
-
-	if (!debug_enabled && !shooter->client) {
-		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "screenshooter failed: permission denied. "\
-				       "Debug protocol must be enabled");
-		return;
-	} else if (!debug_enabled && client != shooter->client) {
-		wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
-				       "screenshooter failed: permission denied.");
-		return;
-	}
-
-	wl_resource_set_implementation(resource, &screenshooter_implementation,
-				       data, NULL);
-}
 
 static void
 screenshooter_sigchld(struct weston_process *process, int status)
@@ -187,7 +116,6 @@ screenshooter_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shooter->destroy_listener.link);
 	wl_list_remove(&shooter->authorization.link);
 
-	wl_global_destroy(shooter->global);
 	free(shooter);
 }
 
@@ -202,9 +130,6 @@ screenshooter_create(struct weston_compositor *ec)
 
 	shooter->ec = ec;
 
-	shooter->global = wl_global_create(ec->wl_display,
-					   &weston_screenshooter_interface, 1,
-					   shooter, bind_shooter);
 	weston_compositor_add_key_binding(ec, KEY_S, MODIFIER_SUPER,
 					  screenshooter_binding, shooter);
 	weston_compositor_add_key_binding(ec, KEY_R, MODIFIER_SUPER,
