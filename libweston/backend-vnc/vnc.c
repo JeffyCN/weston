@@ -997,6 +997,30 @@ vnc_backend_create(struct weston_compositor *compositor,
 	nvnc_set_userdata(backend->server, backend, NULL);
 	nvnc_set_name(backend->server, "Weston VNC backend");
 
+	if (config->server_cert || config->server_key) {
+		if (!nvnc_has_auth()) {
+			weston_log("Neat VNC built without TLS support\n");
+			goto err_output;
+		}
+		if (!config->server_cert) {
+			weston_log("Missing TLS certificate (--vnc-tls-cert)\n");
+			goto err_output;
+		}
+		if (!config->server_key) {
+			weston_log("Missing TLS key (--vnc-tls-key)\n");
+			goto err_output;
+		}
+
+		ret = nvnc_enable_auth(backend->server, config->server_key,
+				       config->server_cert, NULL, NULL);
+		if (ret) {
+			weston_log("Failed to enable TLS support\n");
+			goto err_output;
+		}
+
+		weston_log("TLS support activated\n");
+	}
+
 	ret = weston_plugin_api_register(compositor, WESTON_VNC_OUTPUT_API_NAME,
 					 &api, sizeof(api));
 	if (ret < 0) {
