@@ -62,6 +62,8 @@ struct weston_vnc_backend_config {
 	char *bind_address;
 	int port;
 	int refresh_rate;
+	char *server_cert;
+	char *server_key;
 };
 
 #ifdef  __cplusplus

@@ -729,6 +729,8 @@ usage(int error_code)
 		"  --width=WIDTH\t\tWidth of desktop\n"
 		"  --height=HEIGHT\tHeight of desktop\n"
 		"  --port=PORT\t\tThe port to listen on\n"
+		"  --vnc-tls-cert=FILE\tThe file containing the certificate for TLS encryption\n"
+		"  --vnc-tls-key=FILE\tThe file containing the private key for TLS encryption\n"
 		"\n");
 #endif
 
@@ -3184,6 +3186,8 @@ load_vnc_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
 		{ WESTON_OPTION_STRING,  "address", 0, &config.bind_address },
 		{ WESTON_OPTION_INTEGER, "port", 0, &config.port },
+		{ WESTON_OPTION_STRING,  "vnc-tls-cert", 0, &config.server_cert },
+		{ WESTON_OPTION_STRING,  "vnc-tls-key", 0, &config.server_key },
 	};
 
 	parse_options(vnc_options, ARRAY_LENGTH(vnc_options), argc, argv);
@@ -3198,6 +3202,8 @@ load_vnc_backend(struct weston_compositor *c,
 					     &config.base);
 
 	free(config.bind_address);
+	free(config.server_cert);
+	free(config.server_key);
 
 	return ret;
 }
