@@ -19,9 +19,8 @@ the graphical content, depending on what is supported by the VNC client.
 The VNC backend is not multi-seat aware, so if a second client connects to the
 backend, the first client will be disconnected.
 
-Note that authentication and encryption are not supported yet. Anyone with
-access to the port can get control of the desktop via the VNC output, and
-all data is transferred in plaintext.
+Note that authentication is not supported yet. Anyone with access to the port
+can get control of the desktop via the VNC output.
 
 .\" ***************************************************************
 .SH CONFIGURATION
@@ -50,7 +49,35 @@ The height of the framebuffer. It defaults to 480.
 .TP
 \fB\-\-port\fR=\fIport\fR
 The TCP port to listen on for connections. It defaults to 5900.
+.TP
+\fB\-\-vnc\-tls\-key\fR=\fIfile\fR
+The file containing the key for doing TLS security. To have TLS security you also need
+to ship a file containing a certificate.
+.TP
+\fB\-\-vnc\-tls\-cert\fR=\fIfile\fR
+The file containing the certificate for doing TLS security. To have TLS security you also need
+to ship a key file.
 
+
+.\" ***************************************************************
+.SH Generating cryptographic material for the VNC backend
+.
+You can generate a key and certificate file to use with TLS security using typical
+.B openssl
+invocations:
+
+.nf
+$ openssl genrsa -out tls.key 2048
+Generating RSA private key, 2048 bit long modulus
+[...]
+$ openssl req -new -key tls.key -out tls.csr
+[...]
+$ openssl x509 -req -days 365 -signkey tls.key -in tls.csr -out tls.crt
+[...]
+.fi
+
+You will get the tls.key and tls.crt files to use with the VNC backend.
+.
 .\" ***************************************************************
 .SH "SEE ALSO"
 .BR weston (1)
