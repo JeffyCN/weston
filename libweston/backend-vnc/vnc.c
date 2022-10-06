@@ -965,9 +965,9 @@ vnc_backend_create(struct weston_compositor *compositor,
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
 
-	backend->xkb_rule_name.rules = strdup("evdev");
-	backend->xkb_rule_name.model = strdup("pc105");
-	backend->xkb_rule_name.layout = strdup("us");
+	backend->xkb_rule_name.rules = strdup(compositor->xkb_names.rules);
+	backend->xkb_rule_name.model = strdup(compositor->xkb_names.model);
+	backend->xkb_rule_name.layout = strdup(compositor->xkb_names.layout);
 
 	backend->xkb_keymap = xkb_keymap_new_from_names(
 					backend->compositor->xkb_context,
