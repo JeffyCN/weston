@@ -334,6 +334,24 @@ vnc_handle_key_event(struct nvnc_client *client, uint32_t keysym,
 }
 
 static void
+vnc_handle_key_code_event(struct nvnc_client *client, uint32_t key,
+			  bool is_pressed)
+{
+	struct vnc_peer *peer = nvnc_get_userdata(client);
+	enum wl_keyboard_key_state state;
+	struct timespec time;
+
+	weston_compositor_get_time(&time);
+
+	if (is_pressed)
+		state = WL_KEYBOARD_KEY_STATE_PRESSED;
+	else
+		state = WL_KEYBOARD_KEY_STATE_RELEASED;
+
+	notify_key(peer->seat, &time, key, state, STATE_UPDATE_AUTOMATIC);
+}
+
+static void
 vnc_pointer_event(struct nvnc_client *client, uint16_t x, uint16_t y,
 		  enum nvnc_button_mask button_mask)
 {
@@ -975,6 +993,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 	nvnc_set_new_client_fn(backend->server, vnc_new_client);
 	nvnc_set_pointer_fn(backend->server, vnc_pointer_event);
 	nvnc_set_key_fn(backend->server, vnc_handle_key_event);
+	nvnc_set_key_code_fn(backend->server, vnc_handle_key_code_event);
 	nvnc_set_userdata(backend->server, backend, NULL);
 	nvnc_set_name(backend->server, "Weston VNC backend");
 
