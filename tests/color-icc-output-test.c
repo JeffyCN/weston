@@ -450,6 +450,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 
 	weston_ini_setup(&setup,
 		cfgln("[core]"),
+		cfgln("output-decorations=true"),
 		cfgln("color-management=true"),
 		cfgln("[output]"),
 		cfgln("name=headless"),
@@ -587,6 +588,9 @@ process_pipeline_comparison(const struct buffer *src_buf,
  * The groundtruth conversion comes from the struct lcms_pipeline definitions.
  * The first error source is converting those to ICC files. The second error
  * source is Weston.
+ *
+ * This tests particularly the chain of input-to-blend followed by
+ * blend-to-output categories of color transformations.
  */
 TEST(opaque_pixel_conversion)
 {
@@ -844,4 +848,40 @@ TEST(output_icc_alpha_blend)
 	buffer_destroy(fg);
 	wl_subcompositor_destroy(subco);
 	client_destroy(client); /* destroys bg */
+}
+
+/*
+ * Test that output decorations have the expected colors.
+ *
+ * This is the only way to test input-to-output category of color
+ * transformations. They are used only for output decorations and some other
+ * debug-like features. The input color space is hardcoded to sRGB in the
+ * compositor.
+ *
+ * Because the output decorations are drawn with Cairo, we do not have an
+ * easy access to the ground-truth image and so do not check the results
+ * against a reference formula.
+ */
+TEST(output_icc_decorations)
+{
+	int seq_no = get_test_fixture_index();
+	const struct setup_args *arg = &my_setup_args[seq_no];
+	struct client *client;
+	struct buffer *shot;
+	pixman_image_t *img;
+	bool match;
+
+	client = create_client();
+
+	shot = client_capture_output(client, client->output,
+				     WESTON_CAPTURE_V1_SOURCE_FULL_FRAMEBUFFER);
+	img = image_convert_to_a8r8g8b8(shot->image);
+
+	match = verify_image(img, "output-icc-decorations",
+			     arg->ref_image_index, NULL, seq_no);
+	assert(match);
+
+	pixman_image_unref(img);
+	buffer_destroy(shot);
+	client_destroy(client);
 }
