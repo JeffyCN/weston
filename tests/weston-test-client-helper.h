@@ -276,7 +276,7 @@ struct buffer *
 capture_screenshot_of_output(struct client *client);
 
 bool
-verify_image(struct buffer *shot,
+verify_image(pixman_image_t *shot,
 	     const char *ref_image,
 	     int ref_seq_no,
 	     const struct rectangle *clip,

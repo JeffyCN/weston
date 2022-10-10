@@ -1758,7 +1758,7 @@ capture_screenshot_of_output(struct client *client)
 
 static void
 write_visual_diff(pixman_image_t *ref_image,
-		  struct buffer *shot,
+		  pixman_image_t *shot,
 		  const struct rectangle *clip,
 		  const char *test_name,
 		  int seq_no,
@@ -1773,7 +1773,7 @@ write_visual_diff(pixman_image_t *ref_image,
 	assert(ret >= 0);
 
 	fname = screenshot_output_filename(ext_test_name, seq_no);
-	diff = visualize_image_difference(ref_image, shot->image, clip, fuzz);
+	diff = visualize_image_difference(ref_image, shot, clip, fuzz);
 	write_image_as_png(diff, fname);
 
 	pixman_image_unref(diff);
@@ -1812,7 +1812,7 @@ write_visual_diff(pixman_image_t *ref_image,
  * \sa verify_screen_content
  */
 bool
-verify_image(struct buffer *shot,
+verify_image(pixman_image_t *shot,
 	     const char *ref_image,
 	     int ref_seq_no,
 	     const struct rectangle *clip,
@@ -1833,7 +1833,7 @@ verify_image(struct buffer *shot,
 	}
 
 	if (ref) {
-		match = check_images_match(ref, shot->image, clip, &gl_fuzz);
+		match = check_images_match(ref, shot, clip, &gl_fuzz);
 		testlog("Verify reference image %s vs. shot %s: %s\n",
 			ref_fname, shot_fname, match ? "PASS" : "FAIL");
 
@@ -1848,7 +1848,7 @@ verify_image(struct buffer *shot,
 	}
 
 	if (!match)
-		write_image_as_png(shot->image, shot_fname);
+		write_image_as_png(shot, shot_fname);
 
 	free(ref_fname);
 	free(shot_fname);
@@ -1881,7 +1881,7 @@ verify_screen_content(struct client *client,
 
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
-	match = verify_image(shot, ref_image, ref_seq_no, clip, seq_no);
+	match = verify_image(shot->image, ref_image, ref_seq_no, clip, seq_no);
 	buffer_destroy(shot);
 
 	return match;

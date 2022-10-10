@@ -348,7 +348,7 @@ TEST(alpha_blend)
 
 	shot = capture_screenshot_of_output(client);
 	assert(shot);
-	match = verify_image(shot, "alpha_blend", seq_no, NULL, seq_no);
+	match = verify_image(shot->image, "alpha_blend", seq_no, NULL, seq_no);
 	assert(check_blend_pattern(bg, fg, shot, space));
 	assert(match);
 
