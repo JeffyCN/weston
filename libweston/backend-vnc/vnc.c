@@ -62,6 +62,7 @@ struct vnc_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
 	struct vnc_output *output;
+	struct wl_listener output_move_listener;
 
 	struct xkb_rule_names xkb_rule_name;
 	struct xkb_keymap *xkb_keymap;
@@ -707,6 +708,8 @@ vnc_destroy(struct weston_compositor *ec)
 	struct weston_head *base, *next;
 	struct vnc_backend *backend = to_vnc_backend(ec);
 
+	wl_list_remove(&backend->output_move_listener.link);
+
 	nvnc_close(backend->server);
 
 	weston_compositor_shutdown(ec);
@@ -918,6 +921,22 @@ static const struct weston_vnc_output_api api = {
 	vnc_output_set_size,
 };
 
+static void
+vnc_handle_output_move(struct wl_listener *listener, void *data)
+{
+	struct weston_output *base = data;
+	struct vnc_output *output = to_vnc_output(base);
+	struct fb_side_data *fb_side_data;
+
+	if (!output)
+		return;
+
+	/* Move accumulated damage with output */
+	wl_list_for_each(fb_side_data, &output->fb_side_data_list, link)
+		pixman_region32_translate(&fb_side_data->damage, base->move_x,
+					  base->move_y);
+}
+
 static int
 vnc_aml_dispatch(int fd, uint32_t mask, void *data)
 {
@@ -1019,6 +1038,10 @@ vnc_backend_create(struct weston_compositor *compositor,
 	}
 
 	weston_log("TLS support activated\n");
+
+	backend->output_move_listener.notify = vnc_handle_output_move;
+	wl_signal_add(&compositor->output_moved_signal,
+		      &backend->output_move_listener);
 
 	ret = weston_plugin_api_register(compositor, WESTON_VNC_OUTPUT_API_NAME,
 					 &api, sizeof(api));
