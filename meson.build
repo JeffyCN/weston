@@ -27,7 +27,7 @@ else
 	error('Bad versions in meson.build: libweston_major is too low')
 endif
 
-if not (get_option('launcher-logind') or get_option('launcher-libseat'))
+if not (get_option('deprecated-launcher-logind') or get_option('launcher-libseat'))
        error('At least one launcher must be enabled')
 endif
 

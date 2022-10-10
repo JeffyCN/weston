@@ -145,10 +145,10 @@ option(
 )
 
 option(
-	'launcher-logind',
+	'deprecated-launcher-logind',
 	type: 'boolean',
-	value: true,
-	description: 'Compositor: support systemd-logind D-Bus protocol'
+	value: false,
+	description: 'DEPRECATED: Compositor: support systemd-logind D-Bus protocol (superseded by launcher-libseat)'
 )
 
 option(

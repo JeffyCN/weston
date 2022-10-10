@@ -156,15 +156,15 @@ if get_option('backend-drm')
 endif
 
 systemd_dep = dependency('', required: false)
-if get_option('launcher-logind')
+if get_option('deprecated-launcher-logind')
 	systemd_dep = dependency('libsystemd', version: '>= 209', required: false)
 	if not systemd_dep.found()
-		error('logind support requires libsystemd >= 209. Or, you can use \'-Dlauncher-logind=false\'')
+		error('logind support requires libsystemd >= 209. Or, you can use \'-Ddeprecated-launcher-logind=false\'')
 	endif
 
 	dbus_dep = dependency('dbus-1', version: '>= 1.6', required: false)
 	if not dbus_dep.found()
-		error('logind support requires dbus-1 >= 1.6 which was not found. Or, you can use \'-Dlauncher-logind=false\'')
+		error('logind support requires dbus-1 >= 1.6 which was not found. Or, you can use \'-Ddeprecated-launcher-logind=false\'')
 	endif
 
 	config_h.set('HAVE_DBUS', '1')
@@ -178,6 +178,8 @@ if get_option('launcher-logind')
 		dbus_dep,
 		systemd_dep,
 	]
+
+	warning('deprecated-launcher-logind is enabled. This will go away, see https://gitlab.freedesktop.org/wayland/weston/-/issues/488')
 endif
 if get_option('launcher-libseat')
 	libseat_dep = dependency('libseat', version: '>= 0.4')

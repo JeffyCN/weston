@@ -283,6 +283,7 @@ aarch64-debian-container_prep:
       -Dwerror=true
       -Dtest-skip-is-failure=true
       -Dlauncher-libseat=true
+      -Ddeprecated-launcher-logind=true
       -Ddeprecated-color-management-static=true
       -Ddeprecated-color-management-colord=true
   after_script:
