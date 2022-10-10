@@ -102,7 +102,8 @@ simple_clients = [
 		'dep_objs': [
 			dep_wayland_client,
 			dep_libdrm,
-			dep_libm
+			dep_libm,
+			dep_matrix_c,
 		],
 		'deps': [ 'egl', 'glesv2', 'gbm' ],
 		'options': [ 'renderer-gl' ]

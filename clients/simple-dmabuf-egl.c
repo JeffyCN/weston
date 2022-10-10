@@ -58,6 +58,7 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
+#include <libweston/matrix.h>
 #include "shared/weston-egl-ext.h"
 
 /* Possible options that affect the displayed image */
@@ -149,6 +150,7 @@ struct window {
 		GLuint pos;
 		GLuint color;
 		GLuint offset_uniform;
+		GLuint reflection_uniform;
 	} gl;
 	bool render_mandelbrot;
 };
@@ -329,9 +331,7 @@ static int
 create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 		     int width, int height, uint32_t opts)
 {
-	/* Y-Invert the buffer image, since we are going to renderer to the
-	 * buffer through a FBO. */
-	static uint32_t flags = ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
+	static uint32_t flags = 0;
 	struct zwp_linux_buffer_params_v1 *params;
 	int i;
 
@@ -411,15 +411,8 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 
 	params = zwp_linux_dmabuf_v1_create_params(display->dmabuf);
 
-	if ((opts & OPT_DIRECT_DISPLAY) && display->direct_display) {
+	if ((opts & OPT_DIRECT_DISPLAY) && display->direct_display)
 		weston_direct_display_v1_enable(display->direct_display, params);
-		/* turn off Y_INVERT otherwise linux-dmabuf will reject it and
-		 * we need all dmabuf flags turned off */
-		flags &= ~ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
-
-		fprintf(stdout, "image is y-inverted as direct-display flag was set, "
-				"dmabuf y-inverted attribute flag was removed\n");
-	}
 
 	for (i = 0; i < buffer->plane_count; ++i) {
 		zwp_linux_buffer_params_v1_add(params,
@@ -503,11 +496,12 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 
 static const char *vert_shader_text =
 	"uniform float offset;\n"
+	"uniform mat4 reflection;\n"
 	"attribute vec4 pos;\n"
 	"attribute vec4 color;\n"
 	"varying vec4 v_color;\n"
 	"void main() {\n"
-	"  gl_Position = pos + vec4(offset, offset, 0.0, 0.0);\n"
+	"  gl_Position = reflection * (pos + vec4(offset, offset, 0.0, 0.0));\n"
 	"  v_color = color;\n"
 	"}\n";
 
@@ -520,11 +514,12 @@ static const char *frag_shader_text =
 
 static const char *vert_shader_mandelbrot_text =
 	"uniform float offset;\n"
+	"uniform mat4 reflection;\n"
 	"attribute vec4 pos;\n"
 	"varying vec2 v_pos;\n"
 	"void main() {\n"
 	"  v_pos = pos.xy;\n"
-	"  gl_Position = pos + vec4(offset, offset, 0.0, 0.0);\n"
+	"  gl_Position = reflection * (pos + vec4(offset, offset, 0.0, 0.0));\n"
 	"}\n";
 
 
@@ -624,6 +619,8 @@ window_set_up_gl(struct window *window)
 
 	window->gl.offset_uniform =
 		glGetUniformLocation(window->gl.program, "offset");
+	window->gl.reflection_uniform =
+		glGetUniformLocation(window->gl.program, "reflection");
 
 	return window->gl.program != 0;
 }
@@ -803,6 +800,7 @@ render(struct window *window, struct buffer *buffer)
 	GLfloat offset;
 	struct timeval tv;
 	uint64_t time_ms;
+	struct weston_matrix reflection;
 
 	gettimeofday(&tv, NULL);
 	time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
@@ -811,12 +809,32 @@ render(struct window *window, struct buffer *buffer)
 	 * to offsets in the [-0.5, 0.5) range. */
 	offset = (time_ms % iteration_ms) / (float) iteration_ms - 0.5;
 
+	weston_matrix_init(&reflection);
+	/* perform a reflection about x-axis to keep the same orientation of
+	 * the vertices colors,  as outlined in the comment at the beginning
+	 * of this function.
+	 *
+	 * We need to render upside-down, because rendering through an FBO
+	 * causes the bottom of the image to be written to the top pixel row of
+	 * the buffer, y-flipping the image.
+	 *
+	 * Reflection is a specialized version of scaling with the
+	 * following matrix:
+	 *
+	 * [1,  0,  0]
+	 * [0, -1,  0]
+	 * [0,  0,  1]
+	 */
+	weston_matrix_scale(&reflection, 1, -1, 1);
+
 	/* Direct all GL draws to the buffer through the FBO */
 	glBindFramebuffer(GL_FRAMEBUFFER, buffer->gl_fbo);
 
 	glViewport(0, 0, window->width, window->height);
 
 	glUniform1f(window->gl.offset_uniform, offset);
+	glUniformMatrix4fv(window->gl.reflection_uniform, 1, GL_FALSE,
+			   (GLfloat *) reflection.d);
 
 	glClearColor(0.0,0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -846,6 +864,7 @@ render_mandelbrot(struct window *window, struct buffer *buffer)
 	struct timeval tv;
 	uint64_t time_ms;
 	int i;
+	struct weston_matrix reflection;
 
 	gettimeofday(&tv, NULL);
 	time_ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
@@ -854,12 +873,17 @@ render_mandelbrot(struct window *window, struct buffer *buffer)
 	 * to offsets in the [-0.5, 0.5) range. */
 	offset = (time_ms % iteration_ms) / (float) iteration_ms - 0.5;
 
+	weston_matrix_init(&reflection);
+	weston_matrix_scale(&reflection, 1, -1, 1);
+
 	/* Direct all GL draws to the buffer through the FBO */
 	glBindFramebuffer(GL_FRAMEBUFFER, buffer->gl_fbo);
 
 	glViewport(0, 0, window->width, window->height);
 
 	glUniform1f(window->gl.offset_uniform, offset);
+	glUniformMatrix4fv(window->gl.reflection_uniform, 1, GL_FALSE,
+			   (GLfloat *) reflection.d);
 
 	glClearColor(0.6, 0.6, 0.6, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT);
