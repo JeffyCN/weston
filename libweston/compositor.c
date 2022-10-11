@@ -4129,12 +4129,12 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 		return;
 	}
 
-	weston_surface_commit(surface);
-
 	wl_list_for_each(sub, &surface->subsurface_list, parent_link) {
 		if (sub->surface != surface)
 			weston_subsurface_parent_commit(sub, 0);
 	}
+
+	weston_surface_commit(surface);
 }
 
 static void
