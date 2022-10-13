@@ -32,6 +32,10 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
+#if HAVE_LIBDISPLAY_INFO
+#include <libdisplay-info/info.h>
+#endif
+
 #include "drm-internal.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/xalloc.h"
@@ -221,6 +225,36 @@ parse_modeline(const char *s, drmModeModeInfo *mode)
 	return 0;
 }
 
+#if HAVE_LIBDISPLAY_INFO
+
+static void
+drm_head_info_from_edid(struct drm_head_info *dhi,
+			const uint8_t *data,
+			size_t length)
+{
+	struct di_info *di_ctx;
+	const char *msg;
+
+	di_ctx = di_info_parse_edid(data, length);
+	if (!di_ctx)
+		return;
+
+	msg = di_info_get_failure_msg(di_ctx);
+	if (msg)
+		weston_log("DRM: EDID for the following head fails conformity:\n%s\n", msg);
+
+	dhi->make = di_info_get_make(di_ctx);
+	dhi->model = di_info_get_model(di_ctx);
+	dhi->serial_number = di_info_get_serial(di_ctx);
+
+	di_info_destroy(di_ctx);
+
+	/* TODO: parse this from EDID */
+	dhi->eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
+}
+
+#else /* HAVE_LIBDISPLAY_INFO */
+
 struct drm_edid {
 	char eisa_id[13];
 	char monitor_name[13];
@@ -347,6 +381,8 @@ drm_head_info_from_edid(struct drm_head_info *dhi,
 	/* TODO: parse this from EDID */
 	dhi->eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
 }
+
+#endif /* HAVE_LIBDISPLAY_INFO else */
 
 /** Parse monitor make, model and serial from EDID
  *

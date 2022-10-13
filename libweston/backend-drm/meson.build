@@ -2,6 +2,17 @@ if not get_option('backend-drm')
 	subdir_done()
 endif
 
+dep_libdisplay_info = dependency(
+	'libdisplay-info',
+	version: ['>= 0.1.1', '< 0.2.0'],
+	fallback: ['display-info', 'di_dep'],
+	default_options: [
+		'werror=false',
+	],
+	required: false,
+)
+config_h.set10('HAVE_LIBDISPLAY_INFO', dep_libdisplay_info.found())
+
 lib_backlight = static_library(
 	'backlight',
 	'libbacklight.c',
@@ -42,6 +53,7 @@ deps_drm = [
 	dep_libdrm,
 	dep_libinput_backend,
 	dependency('libudev', version: '>= 136'),
+	dep_libdisplay_info,
 	dep_backlight
 ]
 
