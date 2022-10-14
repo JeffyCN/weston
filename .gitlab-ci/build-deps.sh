@@ -163,3 +163,17 @@ meson build -Dauto_features=disabled \
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf seatd
+
+# Build and install aml and neatvnc, which are required for the VNC backend
+git clone --branch v0.2.2 --depth=1 https://github.com/any1/aml.git
+cd aml
+meson build
+ninja ${NINJAFLAGS} -C build install
+cd ..
+rm -rf aml
+git clone --branch v0.5.4 --depth=1 https://github.com/any1/neatvnc.git
+cd neatvnc
+meson build -Dauto_features=disabled
+ninja ${NINJAFLAGS} -C build install
+cd ..
+rm -rf neatvnc

@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2022-07-13.00-wayland-protocols-1.26'
+  FDO_DISTRIBUTION_TAG: '2022-10-14.00-aml-0.2.2-neatvnc-0.5.4'
 
 
 include:
