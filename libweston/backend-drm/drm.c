@@ -2215,9 +2215,6 @@ drm_head_update_info(struct drm_head *head, drmModeConnector *conn)
 	weston_head_set_content_protection_status(&head->base,
 					drm_head_get_current_protection(head));
 
-	if (head->base.device_changed)
-		drm_head_log_info(head, "updated");
-
 	return ret;
 }
 
@@ -2534,12 +2531,15 @@ drm_backend_update_connectors(struct drm_device *device,
 		 * one of the searches must fail. */
 		assert(head == NULL || writeback == NULL);
 
-		if (head)
+		if (head) {
 			ret = drm_head_update_info(head, conn);
-		else if (writeback)
+			if (head->base.device_changed)
+				drm_head_log_info(head, "updated");
+		} else if (writeback) {
 			ret = drm_writeback_update_info(writeback, conn);
-		else
+		} else {
 			ret = drm_backend_add_connector(b->drm, conn, drm_device);
+		}
 
 		if (ret < 0)
 			drmModeFreeConnector(conn);
