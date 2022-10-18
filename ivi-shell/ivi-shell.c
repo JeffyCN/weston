@@ -507,6 +507,8 @@ desktop_surface_added(struct weston_desktop_surface *surface,
 	ivisurf->layout_surface = layout_surface;
 	ivisurf->surface = weston_surf;
 
+	wl_list_insert(&shell->ivi_surface_list, &ivisurf->link);
+
 	weston_desktop_surface_set_user_data(surface, ivisurf);
 }
 
@@ -519,8 +521,14 @@ desktop_surface_removed(struct weston_desktop_surface *surface,
 
 	assert(ivisurf != NULL);
 
+	weston_desktop_surface_set_user_data(surface, NULL);
+
 	if (ivisurf->layout_surface)
 		layout_surface_cleanup(ivisurf);
+
+	wl_list_remove(&ivisurf->link);
+
+	free(ivisurf);
 }
 
 static void
