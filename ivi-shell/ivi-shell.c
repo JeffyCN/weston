@@ -537,6 +537,8 @@ desktop_surface_added(struct weston_desktop_surface *surface,
 	ivisurf->layout_surface = layout_surface;
 	ivisurf->surface = weston_surf;
 
+	wl_list_insert(&shell->ivi_surface_list, &ivisurf->link);
+
 	/*
 	 * initialize list as well as link. The latter allows to use
 	 * wl_list_remove() event when this surface is not in another list.
@@ -557,6 +559,8 @@ desktop_surface_removed(struct weston_desktop_surface *surface,
 
 	assert(ivisurf != NULL);
 
+	weston_desktop_surface_set_user_data(surface, NULL);
+
 	wl_list_for_each_safe(ivisurf_child, tmp, &ivisurf->children_list,
 			      children_link) {
 		wl_list_remove(&ivisurf_child->children_link);
@@ -566,6 +570,10 @@ desktop_surface_removed(struct weston_desktop_surface *surface,
 
 	if (ivisurf->layout_surface)
 		layout_surface_cleanup(ivisurf);
+
+	wl_list_remove(&ivisurf->link);
+
+	free(ivisurf);
 }
 
 static void
