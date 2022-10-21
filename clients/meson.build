@@ -361,6 +361,20 @@ if get_option('shell-desktop')
 	)
 	env_modmap += 'weston-keyboard=@0@;'.format(exe_keyboard.full_path())
 
+	exe_shell_desktop = executable(
+		'weston-desktop-shell',
+		'desktop-shell.c',
+		weston_desktop_shell_client_protocol_h,
+		weston_desktop_shell_protocol_c,
+		include_directories: common_inc,
+		dependencies: dep_toytoolkit,
+		install_dir: get_option('libexecdir'),
+		install: true
+	)
+	env_modmap += 'weston-desktop-shell=@0@;'.format(exe_shell_desktop.full_path())
+endif
+
+if get_option('shell-desktop') or get_option('shell-fullscreen') or get_option('shell-kiosk')
 	exe_shooter = executable(
 		'weston-screenshooter',
 		'screenshot.c',
@@ -376,20 +390,7 @@ if get_option('shell-desktop')
 		install: true
 	)
 	env_modmap += 'weston-screenshooter=@0@;'.format(exe_shooter.full_path())
-
-	exe_shell_desktop = executable(
-		'weston-desktop-shell',
-		'desktop-shell.c',
-		weston_desktop_shell_client_protocol_h,
-		weston_desktop_shell_protocol_c,
-		include_directories: common_inc,
-		dependencies: dep_toytoolkit,
-		install_dir: get_option('libexecdir'),
-		install: true
-	)
-	env_modmap += 'weston-desktop-shell=@0@;'.format(exe_shell_desktop.full_path())
 endif
-
 
 if get_option('shell-ivi')
 	exe_shell_ivi_ui = executable(
