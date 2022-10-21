@@ -1069,13 +1069,13 @@ kiosk_shell_add_bindings(struct kiosk_shell *shell)
 
 	mod = weston_shell_get_binding_modifier(shell->config, MODIFIER_SUPER);
 
-	weston_compositor_add_button_binding(shell->compositor, BTN_LEFT, mod,
+	weston_compositor_add_button_binding(shell->compositor, BTN_LEFT, 0,
 					     kiosk_shell_click_to_activate_binding,
 					     shell);
-	weston_compositor_add_button_binding(shell->compositor, BTN_RIGHT, mod,
+	weston_compositor_add_button_binding(shell->compositor, BTN_RIGHT, 0,
 					     kiosk_shell_click_to_activate_binding,
 					     shell);
-	weston_compositor_add_touch_binding(shell->compositor, mod,
+	weston_compositor_add_touch_binding(shell->compositor, 0,
 					    kiosk_shell_touch_to_activate_binding,
 					    shell);
 
