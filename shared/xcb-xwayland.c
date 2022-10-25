@@ -139,6 +139,7 @@ x11_get_atoms(xcb_connection_t *connection, struct atom_x11 *atom)
                 { "XdndActionCopy",     		F(xdnd_action_copy) },
                 { "_XWAYLAND_ALLOW_COMMITS",    	F(allow_commits) },
 		{ "WL_SURFACE_ID",			F(wl_surface_id) },
+		{ "WL_SURFACE_SERIAL", 			F(wl_surface_serial) },
 		{ "_WESTON_FOCUS_PING",			F(weston_focus_ping) },
 	};
 

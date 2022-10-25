@@ -49,6 +49,7 @@
 #include "shared/hash.h"
 #include "shared/helpers.h"
 #include "shared/xcb-xwayland.h"
+#include "xwayland-shell-v1-server-protocol.h"
 
 struct wm_size_hints {
 	uint32_t flags;
@@ -129,6 +130,8 @@ struct motif_wm_hints {
 #define _NET_WM_MOVERESIZE_MOVE_KEYBOARD    10   /* move via keyboard */
 #define _NET_WM_MOVERESIZE_CANCEL           11   /* cancel operation */
 
+static const char *xwayland_surface_role = "xwayland";
+
 struct weston_output_weak_ref {
 	struct weston_output *output;
 	struct wl_listener destroy_listener;
@@ -141,6 +144,7 @@ struct weston_wm_window {
 	struct frame *frame;
 	cairo_surface_t *cairo_surface;
 	uint32_t surface_id;
+	uint64_t surface_serial;
 	struct weston_surface *surface;
 	struct weston_desktop_xwayland_surface *shsurf;
 	struct wl_listener surface_destroy_listener;
@@ -179,6 +183,15 @@ struct weston_wm_window {
 	int decor_bottom;
 	int decor_left;
 	int decor_right;
+};
+
+struct xwl_surface {
+	struct wl_resource *resource;
+	struct weston_wm *wm;
+	struct weston_surface *weston_surface;
+	uint64_t serial;
+	struct wl_listener surface_commit_listener;
+	struct wl_list link;
 };
 
 static void
@@ -911,6 +924,9 @@ weston_wm_create_surface(struct wl_listener *listener, void *data)
 		container_of(listener,
 			     struct weston_wm, create_surface_listener);
 	struct weston_wm_window *window;
+
+	if (wm->shell_bound)
+		return;
 
 	if (wl_resource_get_client(surface->resource) != wm->server->client)
 		return;
@@ -1963,6 +1979,8 @@ weston_wm_window_handle_surface_id(struct weston_wm_window *window,
 	struct weston_wm *wm = window->wm;
 	struct wl_resource *resource;
 
+	assert(!wm->shell_bound);
+
 	if (window->surface_id != 0) {
 		wm_printf(wm, "already have surface id for window %d\n",
 			  window->id);
@@ -1987,6 +2005,30 @@ weston_wm_window_handle_surface_id(struct weston_wm_window *window,
 		window->surface_id = id;
 		wl_list_insert(&wm->unpaired_window_list, &window->link);
 	}
+}
+
+static void
+weston_wm_window_handle_surface_serial(struct weston_wm_window *window,
+				       xcb_client_message_event_t *client_message)
+{
+	struct xwl_surface *xsurf, *next;
+	struct weston_wm *wm = window->wm;
+	uint64_t serial = u64_from_u32s(client_message->data.data32[1],
+					client_message->data.data32[0]);
+
+	window->surface_serial = serial;
+	wl_list_remove(&window->link);
+	wl_list_init(&window->link);
+
+	wl_list_for_each_safe(xsurf, next, &wm->unpaired_surface_list, link) {
+		if (window->surface_serial == xsurf->serial) {
+			xserver_map_shell_surface(window, xsurf->weston_surface);
+			wl_list_remove(&xsurf->link);
+			wl_list_init(&xsurf->link);
+			return;
+		}
+	}
+	wl_list_insert(&wm->unpaired_window_list, &window->link);
 }
 
 static void
@@ -2016,10 +2058,13 @@ weston_wm_handle_client_message(struct weston_wm *wm,
 		weston_wm_window_handle_moveresize(window, client_message);
 	else if (client_message->type == wm->atom.net_wm_state)
 		weston_wm_window_handle_state(window, client_message);
-	else if (client_message->type == wm->atom.wl_surface_id)
+	else if (client_message->type == wm->atom.wl_surface_id &&
+		 !wm->shell_bound)
 		weston_wm_window_handle_surface_id(window, client_message);
 	else if (client_message->type == wm->atom.wm_change_state)
 		weston_wm_window_handle_iconic_state(window, client_message);
+	else if (client_message->type == wm->atom.wl_surface_serial)
+		weston_wm_window_handle_surface_serial(window, client_message);
 }
 
 enum cursor_type {
@@ -2632,6 +2677,155 @@ weston_wm_create_wm_window(struct weston_wm *wm)
 				XCB_TIME_CURRENT_TIME);
 }
 
+static void
+free_xwl_surface(struct wl_resource *resource)
+{
+	struct xwl_surface *xsurf = wl_resource_get_user_data(resource);
+
+	wl_list_remove(&xsurf->surface_commit_listener.link);
+	wl_list_remove(&xsurf->link);
+	free(xsurf);
+}
+
+static void
+xwl_surface_set_serial(struct wl_client *client,
+		       struct wl_resource *resource,
+		       uint32_t serial_lo,
+		       uint32_t serial_hi)
+{
+	struct xwl_surface *xsurf = wl_resource_get_user_data(resource);
+	uint64_t serial = u64_from_u32s(serial_hi, serial_lo);
+
+	if (serial == 0) {
+		wl_resource_post_error(resource,
+				       XWAYLAND_SURFACE_V1_ERROR_INVALID_SERIAL,
+				       "Invalid serial for xwayland surface");
+		return;
+	}
+
+	if (xsurf->serial != 0) {
+		wl_resource_post_error(resource,
+				       XWAYLAND_SURFACE_V1_ERROR_ALREADY_ASSOCIATED,
+				       "Surface already has a serial");
+		return;
+	}
+	xsurf->serial = serial;
+}
+
+static void
+xwl_surface_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+	wl_resource_destroy(resource);
+}
+
+static const struct xwayland_surface_v1_interface xwl_surface_interface = {
+	.set_serial = xwl_surface_set_serial,
+	.destroy = xwl_surface_destroy,
+};
+
+static void
+xwl_surface_committed(struct wl_listener *listener, void *data)
+{
+	struct weston_wm_window *window, *next;
+	struct xwl_surface *xsurf = wl_container_of(listener, xsurf,
+						    surface_commit_listener);
+
+	/* We haven't set a serial yet */
+	if (xsurf->serial == 0)
+		return;
+
+	window = get_wm_window(xsurf->weston_surface);
+	wl_list_remove(&xsurf->surface_commit_listener.link);
+	wl_list_init(&xsurf->surface_commit_listener.link);
+
+	wl_list_for_each_safe(window, next, &xsurf->wm->unpaired_window_list, link) {
+		if (window->surface_serial == xsurf->serial) {
+			xserver_map_shell_surface(window, xsurf->weston_surface);
+			wl_list_remove(&window->link);
+			wl_list_init(&window->link);
+			return;
+		}
+	}
+
+	wl_list_insert(&xsurf->wm->unpaired_surface_list, &xsurf->link);
+}
+
+static void
+get_xwl_surface(struct wl_client *client, struct wl_resource *resource,
+		uint32_t id, struct wl_resource *surface_resource)
+{
+	struct weston_wm *wm = wl_resource_get_user_data(resource);
+	struct weston_surface *surf;
+	struct xwl_surface *xsurf;
+	uint32_t version;
+
+	surf = wl_resource_get_user_data(surface_resource);
+	if (weston_surface_set_role(surf, xwayland_surface_role, resource,
+				    XWAYLAND_SHELL_V1_ERROR_ROLE) < 0)
+		return;
+
+	xsurf = zalloc(sizeof *xsurf);
+	if (!xsurf)
+		goto fail;
+
+	version = wl_resource_get_version(resource);
+	xsurf->resource = wl_resource_create(client,
+					     &xwayland_surface_v1_interface,
+					     version, id);
+	if (!xsurf->resource)
+		goto fail;
+
+	wl_list_init(&xsurf->link);
+	xsurf->wm = wm;
+	xsurf->weston_surface = surf;
+
+	wl_resource_set_implementation(xsurf->resource, &xwl_surface_interface,
+				       xsurf, free_xwl_surface);
+	xsurf->surface_commit_listener.notify = xwl_surface_committed;
+	wl_signal_add(&surf->commit_signal, &xsurf->surface_commit_listener);
+
+	return;
+
+fail:
+	wl_client_post_no_memory(client);
+}
+
+static void
+xwl_shell_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+	wl_resource_destroy(resource);
+}
+
+static const struct xwayland_shell_v1_interface xwayland_shell_implementation = {
+	.get_xwayland_surface = get_xwl_surface,
+	.destroy = xwl_shell_destroy,
+};
+
+static void
+bind_xwayland_shell(struct wl_client *client,
+		    void *data,
+		    uint32_t version,
+		    uint32_t id)
+{
+	struct weston_wm *wm = data;
+	struct wl_resource *resource;
+
+	resource = wl_resource_create(client, &xwayland_shell_v1_interface,
+				      version, id);
+	if (client != wm->server->client) {
+		wl_resource_post_error(resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "permission to bind xwayland_shell "
+				       "denied");
+		return;
+	}
+
+	wm->shell_bound = true;
+
+	wl_resource_set_implementation(resource, &xwayland_shell_implementation,
+				       wm, NULL);
+}
+
 struct weston_wm *
 weston_wm_create(struct weston_xserver *wxs, int fd)
 {
@@ -2720,9 +2914,14 @@ weston_wm_create(struct weston_xserver *wxs, int fd)
 	wl_signal_add(&wxs->compositor->kill_signal,
 		      &wm->kill_listener);
 	wl_list_init(&wm->unpaired_window_list);
+	wl_list_init(&wm->unpaired_surface_list);
 
 	weston_wm_create_cursors(wm);
 	weston_wm_window_set_cursor(wm, wm->screen->root, XWM_CURSOR_LEFT_PTR);
+
+	wm->xwayland_shell_global = wl_global_create(wxs->compositor->wl_display,
+						     &xwayland_shell_v1_interface,
+						     1, wm, bind_xwayland_shell);
 
 	/* Create wm window and take WM_S0 selection last, which
 	 * signals to Xwayland that we're done with setup. */
@@ -2736,6 +2935,7 @@ weston_wm_create(struct weston_xserver *wxs, int fd)
 void
 weston_wm_destroy(struct weston_wm *wm)
 {
+	wl_global_destroy(wm->xwayland_shell_global);
 	/* FIXME: Free windows in hash. */
 	hash_table_destroy(wm->window_hash);
 	weston_wm_destroy_cursors(wm);

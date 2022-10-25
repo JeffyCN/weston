@@ -14,6 +14,8 @@ srcs_xwayland = [
 	'window-manager.c',
 	'selection.c',
 	'dnd.c',
+	xwayland_shell_v1_server_protocol_h,
+	xwayland_shell_v1_protocol_c,
 ]
 
 dep_names_xwayland = [

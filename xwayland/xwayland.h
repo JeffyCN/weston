@@ -61,6 +61,7 @@ struct weston_wm {
 	xcb_screen_t *screen;
 	struct hash_table *window_hash;
 	struct weston_xserver *server;
+	struct wl_global *xwayland_shell_global;
 	xcb_window_t wm_window;
 	struct weston_wm_window *focus_window;
 	struct theme *theme;
@@ -93,6 +94,9 @@ struct weston_wm {
 
 	xcb_window_t dnd_window;
 	xcb_window_t dnd_owner;
+
+	struct wl_list unpaired_surface_list;
+	bool shell_bound;
 
 	struct atom_x11 atom;
 };

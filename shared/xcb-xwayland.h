@@ -96,6 +96,7 @@ struct atom_x11 {
 	xcb_atom_t		 xdnd_type_list;
 	xcb_atom_t		 xdnd_action_copy;
 	xcb_atom_t		 wl_surface_id;
+	xcb_atom_t		 wl_surface_serial;
 	xcb_atom_t		 allow_commits;
 	xcb_atom_t		 weston_focus_ping;
 };
