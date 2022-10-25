@@ -1318,6 +1318,7 @@ weston_wm_handle_unmap_notify(struct weston_wm *wm, xcb_generic_event_t *event)
 		 * was mapped before this unmap request.
 		 */
 		wl_list_remove(&window->link);
+		wl_list_init(&window->link);
 		window->surface_id = 0;
 	}
 	if (wm->focus_window == window)
@@ -1604,6 +1605,7 @@ weston_wm_window_create(struct weston_wm *wm,
 	window->decor_bottom = -1;
 	window->decor_left = -1;
 	window->decor_right = -1;
+	wl_list_init(&window->link);
 	weston_output_weak_ref_init(&window->legacy_fullscreen_output);
 
 	geometry_reply = xcb_get_geometry_reply(wm->conn, geometry_cookie, NULL);
