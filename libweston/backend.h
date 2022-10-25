@@ -217,6 +217,9 @@ void
 notify_pointer_focus(struct weston_seat *seat, struct weston_output *output,
 		     double x, double y);
 
+void
+clear_pointer_focus(struct weston_seat *seat);
+
 /* weston_touch_device */
 
 void

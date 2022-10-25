@@ -130,7 +130,7 @@ ss_seat_handle_pointer_enter(void *data, struct wl_pointer *pointer,
 	/* No transformation of input position is required here because we are
 	 * always receiving the input in the same coordinates as the output. */
 
-	notify_pointer_focus(&seat->base, NULL, 0, 0);
+	clear_pointer_focus(&seat->base);
 }
 
 static void
@@ -139,7 +139,7 @@ ss_seat_handle_pointer_leave(void *data, struct wl_pointer *pointer,
 {
 	struct ss_seat *seat = data;
 
-	notify_pointer_focus(&seat->base, NULL, 0, 0);
+	clear_pointer_focus(&seat->base);
 }
 
 static void

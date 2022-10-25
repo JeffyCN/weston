@@ -2243,19 +2243,23 @@ notify_key(struct weston_seat *seat, const struct timespec *time, uint32_t key,
 }
 
 WL_EXPORT void
+clear_pointer_focus(struct weston_seat *seat)
+{
+	/* FIXME: We should call weston_pointer_set_focus(seat, NULL) here,
+	 * but somehow that breaks re-entry... */
+}
+
+WL_EXPORT void
 notify_pointer_focus(struct weston_seat *seat, struct weston_output *output,
 		     double x, double y)
 {
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 
-	if (output) {
-		weston_pointer_move_to(pointer,
-				       wl_fixed_from_double(x),
-				       wl_fixed_from_double(y));
-	} else {
-		/* FIXME: We should call weston_pointer_set_focus(seat,
-		 * NULL) here, but somehow that breaks re-entry... */
-	}
+	assert(output);
+
+	weston_pointer_move_to(pointer,
+			       wl_fixed_from_double(x),
+			       wl_fixed_from_double(y));
 }
 
 static void

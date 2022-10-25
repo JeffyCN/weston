@@ -1613,7 +1613,7 @@ x11_backend_handle_event(int fd, uint32_t mask, void *data)
 				break;
 			if (!b->has_xkb)
 				update_xkb_state_from_core(b, enter_notify->state);
-			notify_pointer_focus(&b->core_seat, NULL, 0, 0);
+			clear_pointer_focus(&b->core_seat);
 			break;
 
 		case XCB_CLIENT_MESSAGE:

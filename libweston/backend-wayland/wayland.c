@@ -1661,7 +1661,7 @@ input_handle_pointer_enter(void *data, struct wl_pointer *pointer,
 	if (!surface) {
 		input->output = NULL;
 		input->has_focus = false;
-		notify_pointer_focus(&input->base, NULL, 0, 0);
+		clear_pointer_focus(&input->base);
 		return;
 	}
 
@@ -1695,7 +1695,7 @@ input_handle_pointer_enter(void *data, struct wl_pointer *pointer,
 				      input->enter_serial, NULL, 0, 0);
 	} else {
 		input->has_focus = false;
-		notify_pointer_focus(&input->base, NULL, 0, 0);
+		clear_pointer_focus(&input->base);
 		input_set_cursor(input);
 	}
 }
@@ -1716,7 +1716,7 @@ input_handle_pointer_leave(void *data, struct wl_pointer *pointer,
 			weston_output_schedule_repaint(&input->output->base);
 	}
 
-	notify_pointer_focus(&input->base, NULL, 0, 0);
+	clear_pointer_focus(&input->base);
 	input->output = NULL;
 	input->has_focus = false;
 }
@@ -1755,7 +1755,7 @@ input_handle_motion(void *data, struct wl_pointer *pointer,
 
 	if (input->has_focus && location != THEME_LOCATION_CLIENT_AREA) {
 		input_set_cursor(input);
-		notify_pointer_focus(&input->base, NULL, 0, 0);
+		clear_pointer_focus(&input->base);
 		input->has_focus = false;
 		want_frame = true;
 	} else if (!input->has_focus &&
