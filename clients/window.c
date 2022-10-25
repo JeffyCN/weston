@@ -4704,7 +4704,7 @@ relative_pointer_handle_motion(void *data, struct zwp_relative_pointer_v1 *point
 {
 	struct input *input = data;
 	struct window *window = input->pointer_focus;
-	uint32_t ms = (((uint64_t) utime_hi) << 32 | utime_lo) / 1000;
+	uint32_t ms = u64_from_u32s(utime_hi, utime_lo) / 1000;
 
 	if (window->locked_pointer_motion_handler &&
 	    window->pointer_locked) {

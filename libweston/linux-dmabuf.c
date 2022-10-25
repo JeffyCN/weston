@@ -37,6 +37,7 @@
 #include "linux-dmabuf.h"
 #include "linux-dmabuf-unstable-v1-server-protocol.h"
 #include "shared/os-compatibility.h"
+#include "shared/helpers.h"
 #include "libweston-internal.h"
 #include "shared/weston-drm-fourcc.h"
 
@@ -121,8 +122,7 @@ params_add(struct wl_client *client,
 	if (wl_resource_get_version(params_resource) < ZWP_LINUX_DMABUF_V1_MODIFIER_SINCE_VERSION)
 		buffer->attributes.modifier[plane_idx] = DRM_FORMAT_MOD_INVALID;
 	else
-		buffer->attributes.modifier[plane_idx] = ((uint64_t)modifier_hi << 32) |
-							 modifier_lo;
+		buffer->attributes.modifier[plane_idx] = u64_from_u32s(modifier_hi, modifier_lo);
 
 	buffer->attributes.n_planes++;
 }

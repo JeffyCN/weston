@@ -1382,12 +1382,12 @@ drm_pending_state_apply_sync(struct drm_pending_state *pending_state)
 void
 drm_output_update_msc(struct drm_output *output, unsigned int seq)
 {
-	uint64_t msc_hi = output->base.msc >> 32;
+	uint32_t msc_hi = output->base.msc >> 32;
 
 	if (seq < (output->base.msc & 0xffffffff))
 		msc_hi++;
 
-	output->base.msc = (msc_hi << 32) + seq;
+	output->base.msc = u64_from_u32s(msc_hi, seq);
 }
 
 static void

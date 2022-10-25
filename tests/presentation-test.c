@@ -123,7 +123,7 @@ feedback_presented(void *data,
 
 	assert(fb->result == FB_PENDING);
 	fb->result = FB_PRESENTED;
-	fb->seq = ((uint64_t)seq_hi << 32) + seq_lo;
+	fb->seq = u64_from_u32s(seq_hi, seq_lo);
 	timespec_from_proto(&fb->time, tv_sec_hi, tv_sec_lo, tv_nsec);
 	fb->refresh_nsec = refresh_nsec;
 	fb->flags = flags;

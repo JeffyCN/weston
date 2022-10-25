@@ -22,6 +22,8 @@
 #ifndef WESTON_HELPERS_H
 #define WESTON_HELPERS_H
 
+#include <stdint.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -170,6 +172,12 @@ do { \
  * This may happen in all git branches, including stable release branches.
  */
 #define WESTON_EXPORT_FOR_TESTS __attribute__ ((visibility("default")))
+
+static inline uint64_t
+u64_from_u32s(uint32_t hi, uint32_t lo)
+{
+	return ((uint64_t)hi << 32) + lo;
+}
 
 #ifdef  __cplusplus
 }
