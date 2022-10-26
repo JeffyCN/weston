@@ -302,8 +302,7 @@ pending_surface_destroyed(struct wl_listener *listener, void *data)
 }
 
 static void
-configure_presented_surface(struct weston_surface *surface, int32_t sx,
-			    int32_t sy);
+configure_presented_surface_internal(struct weston_surface *surface);
 
 static struct fs_output *
 fs_output_create(struct fullscreen_shell *shell, struct weston_output *output)
@@ -337,7 +336,7 @@ fs_output_create(struct fullscreen_shell *shell, struct weston_output *output)
 				    struct fs_client_surface, link);
 
 		fs_output_set_surface(fsout, surf->surface, surf->method, 0, 0);
-		configure_presented_surface(surf->surface, 0, 0);
+		configure_presented_surface_internal(surf->surface);
 	}
 
 	return fsout;
@@ -580,6 +579,12 @@ fs_output_configure(struct fs_output *fsout,
 static void
 configure_presented_surface(struct weston_surface *surface, int32_t sx,
 			    int32_t sy)
+{
+	configure_presented_surface_internal(surface);
+}
+
+static void
+configure_presented_surface_internal(struct weston_surface *surface)
 {
 	struct fullscreen_shell *shell = surface->committed_private;
 	struct fs_output *fsout;
