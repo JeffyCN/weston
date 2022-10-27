@@ -497,6 +497,17 @@ destroy_drag_focus(struct wl_listener *listener, void *data)
 }
 
 static void
+weston_drag_clear_focus(struct weston_drag *drag)
+{
+	if (drag->focus_resource) {
+		wl_data_device_send_leave(drag->focus_resource);
+		wl_list_remove(&drag->focus_listener.link);
+		drag->focus_resource = NULL;
+		drag->focus = NULL;
+	}
+}
+
+static void
 weston_drag_set_focus(struct weston_drag *drag,
 			struct weston_seat *seat,
 			struct weston_view *view,
@@ -507,19 +518,16 @@ weston_drag_set_focus(struct weston_drag *drag,
 	struct weston_data_offer *offer;
 	uint32_t serial;
 
-	if (drag->focus && view && drag->focus->surface == view->surface) {
+	assert(view);
+
+	if (drag->focus && drag->focus->surface == view->surface) {
 		drag->focus = view;
 		return;
 	}
 
-	if (drag->focus_resource) {
-		wl_data_device_send_leave(drag->focus_resource);
-		wl_list_remove(&drag->focus_listener.link);
-		drag->focus_resource = NULL;
-		drag->focus = NULL;
-	}
+	weston_drag_clear_focus(drag);
 
-	if (!view || !view->surface->resource)
+	if (!view->surface->resource)
 		return;
 
 	if (!drag->data_source &&
@@ -578,7 +586,10 @@ drag_grab_focus_internal(struct weston_drag *drag, struct weston_seat *seat,
 	if (drag->focus == view)
 		return;
 
-	weston_drag_set_focus(drag, seat, view, sx, sy);
+	if (view)
+		weston_drag_set_focus(drag, seat, view, sx, sy);
+	else
+		weston_drag_clear_focus(drag);
 }
 
 static void
@@ -638,7 +649,7 @@ data_device_end_drag_grab(struct weston_drag *drag,
 		weston_view_destroy(drag->icon);
 	}
 
-	weston_drag_set_focus(drag, seat, NULL, 0, 0);
+	weston_drag_clear_focus(drag);
 }
 
 static void
