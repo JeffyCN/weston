@@ -40,6 +40,8 @@ fixture_setup(struct weston_test_harness *harness)
 
 	compositor_setup_defaults(&setup);
 
+	setup.shell = SHELL_TEST_DESKTOP;
+
 	/* We need to use the pixman renderer, since a few of the tests depend
 	 * on the renderer holding onto a surface buffer until the next one
 	 * is committed, which the noop renderer doesn't do. */
