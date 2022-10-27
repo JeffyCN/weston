@@ -568,19 +568,28 @@ weston_drag_set_focus(struct weston_drag *drag,
 }
 
 static void
+drag_grab_focus_internal(struct weston_drag *drag, struct weston_seat *seat,
+			 wl_fixed_t x, wl_fixed_t y)
+{
+	struct weston_view *view;
+	wl_fixed_t sx, sy;
+
+	view = weston_compositor_pick_view(seat->compositor, x, y, &sx, &sy);
+	if (drag->focus == view)
+		return;
+
+	weston_drag_set_focus(drag, seat, view, sx, sy);
+}
+
+static void
 drag_grab_focus(struct weston_pointer_grab *grab)
 {
 	struct weston_pointer_drag *drag =
 		container_of(grab, struct weston_pointer_drag, grab);
 	struct weston_pointer *pointer = grab->pointer;
-	struct weston_view *view;
-	wl_fixed_t sx, sy;
 
-	view = weston_compositor_pick_view(pointer->seat->compositor,
-					   pointer->x, pointer->y,
-					   &sx, &sy);
-	if (drag->base.focus != view)
-		weston_drag_set_focus(&drag->base, pointer->seat, view, sx, sy);
+	drag_grab_focus_internal(&drag->base, pointer->seat,
+				 pointer->x, pointer->y);
 }
 
 static void
@@ -770,15 +779,8 @@ static void
 drag_grab_touch_focus(struct weston_touch_drag *drag)
 {
 	struct weston_touch *touch = drag->grab.touch;
-	struct weston_view *view;
-	wl_fixed_t view_x, view_y;
 
-	view = weston_compositor_pick_view(touch->seat->compositor,
-				touch->grab_x, touch->grab_y,
-				&view_x, &view_y);
-	if (drag->base.focus != view)
-		weston_drag_set_focus(&drag->base, touch->seat,
-				view, view_x, view_y);
+	drag_grab_focus_internal(&drag->base, touch->seat, touch->grab_x, touch->grab_y);
 }
 
 static void
