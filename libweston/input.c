@@ -1441,6 +1441,15 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 	struct wl_list *focus_resource_list;
 	int refocus = 0;
 
+	if (view) {
+		int ix = wl_fixed_to_int(sx);
+		int iy = wl_fixed_to_int(sy);
+
+		if (!weston_view_takes_input_at_point(view, ix, iy))
+			weston_log("View focused with external coordinate %d, %d\n",
+				   ix, iy);
+	}
+
 	if ((!pointer->focus && view) ||
 	    (pointer->focus && !view) ||
 	    (pointer->focus && pointer->focus->surface != view->surface) ||
