@@ -456,6 +456,7 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 	struct weston_pointer *pointer = grab->pointer;
 	struct weston_view *view;
 	wl_fixed_t sx, sy;
+	bool surface_jump = false;
 
 	if (pointer->button_count > 0)
 		return;
@@ -463,8 +464,12 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 	view = weston_compositor_pick_view(pointer->seat->compositor,
 					   pointer->x, pointer->y,
 					   &sx, &sy);
+	if (view) {
+		if (pointer->sx != sx || pointer->sy != sy)
+			surface_jump = true;
+	}
 
-	if (pointer->focus != view || pointer->sx != sx || pointer->sy != sy)
+	if (pointer->focus != view || surface_jump)
 		weston_pointer_set_focus(pointer, view);
 }
 
@@ -1458,7 +1463,7 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 	if ((!pointer->focus && view) ||
 	    (pointer->focus && !view) ||
 	    (pointer->focus && pointer->focus->surface != view->surface) ||
-	    pointer->sx != sx || pointer->sy != sy)
+	    (view && (pointer->sx != sx || pointer->sy != sy)))
 		refocus = 1;
 
 	if (pointer->focus_client && refocus) {
