@@ -1925,6 +1925,21 @@ weston_compositor_get_time(struct timespec *time)
 	clock_gettime(CLOCK_REALTIME, time);
 }
 
+bool
+weston_view_takes_input_at_point(struct weston_view *view, int x, int y)
+{
+	if (!pixman_region32_contains_point(&view->surface->input,
+					    x, y, NULL))
+		return false;
+
+	if (view->geometry.scissor_enabled &&
+	    !pixman_region32_contains_point(&view->geometry.scissor,
+					    x, y, NULL))
+		return false;
+
+	return true;
+}
+
 /** weston_compositor_pick_view
  * \ingroup compositor
  */
@@ -1949,13 +1964,7 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 		view_ix = wl_fixed_to_int(view_x);
 		view_iy = wl_fixed_to_int(view_y);
 
-		if (!pixman_region32_contains_point(&view->surface->input,
-						    view_ix, view_iy, NULL))
-			continue;
-
-		if (view->geometry.scissor_enabled &&
-		    !pixman_region32_contains_point(&view->geometry.scissor,
-						    view_ix, view_iy, NULL))
+		if (!weston_view_takes_input_at_point(view, view_ix, view_iy))
 			continue;
 
 		*vx = view_x;
