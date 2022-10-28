@@ -303,12 +303,13 @@ shell_grab_start(struct shell_grab *grab,
 	shsurf->grabbed = 1;
 	weston_pointer_start_grab(pointer, &grab->grab);
 	if (shell->child.desktop_shell) {
+		struct weston_view *view = get_default_view(shell->grab_surface);
+		wl_fixed_t sx, sy;
+
+		weston_view_from_global_fixed(view, pointer->x, pointer->y, &sx, &sy);
 		weston_desktop_shell_send_grab_cursor(shell->child.desktop_shell,
 					       cursor);
-		weston_pointer_set_focus(pointer,
-					 get_default_view(shell->grab_surface),
-					 wl_fixed_from_int(0),
-					 wl_fixed_from_int(0));
+		weston_pointer_set_focus(pointer, view, sx, sy);
 	}
 }
 
