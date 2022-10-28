@@ -465,7 +465,7 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 					   &sx, &sy);
 
 	if (pointer->focus != view || pointer->sx != sx || pointer->sy != sy)
-		weston_pointer_set_focus(pointer, view, sx, sy);
+		weston_pointer_set_focus(pointer, view);
 }
 
 static void
@@ -633,7 +633,7 @@ default_grab_pointer_button(struct weston_pointer_grab *grab,
 						   pointer->x, pointer->y,
 						   &sx, &sy);
 
-		weston_pointer_set_focus(pointer, view, sx, sy);
+		weston_pointer_set_focus(pointer, view);
 	}
 }
 
@@ -1422,15 +1422,12 @@ seat_send_updated_caps(struct weston_seat *seat)
 WL_EXPORT void
 weston_pointer_clear_focus(struct weston_pointer *pointer)
 {
-	weston_pointer_set_focus(pointer, NULL,
-				 wl_fixed_from_int(-1000000),
-				 wl_fixed_from_int(-1000000));
+	weston_pointer_set_focus(pointer, NULL);
 }
 
 WL_EXPORT void
 weston_pointer_set_focus(struct weston_pointer *pointer,
-			 struct weston_view *view,
-			 wl_fixed_t sx, wl_fixed_t sy)
+			 struct weston_view *view)
 {
 	struct weston_pointer_client *pointer_client;
 	struct weston_keyboard *kbd = weston_seat_get_keyboard(pointer->seat);
@@ -1440,14 +1437,22 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 	uint32_t serial;
 	struct wl_list *focus_resource_list;
 	int refocus = 0;
+	wl_fixed_t sx, sy;
 
 	if (view) {
-		int ix = wl_fixed_to_int(sx);
-		int iy = wl_fixed_to_int(sy);
+		int ix;
+		int iy;
 
+		weston_view_from_global_fixed(view, pointer->x, pointer->y,
+					      &sx, &sy);
+		ix = wl_fixed_to_int(sx);
+		iy = wl_fixed_to_int(sy);
 		if (!weston_view_takes_input_at_point(view, ix, iy))
 			weston_log("View focused with external coordinate %d, %d\n",
 				   ix, iy);
+	} else {
+		sx = wl_fixed_from_int(-1000000);
+		sy = wl_fixed_from_int(-1000000);
 	}
 
 	if ((!pointer->focus && view) ||

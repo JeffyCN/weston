@@ -850,8 +850,8 @@ weston_pointer_send_frame(struct weston_pointer *pointer);
 
 void
 weston_pointer_set_focus(struct weston_pointer *pointer,
-			 struct weston_view *view,
-			 wl_fixed_t sx, wl_fixed_t sy);
+			 struct weston_view *view);
+
 void
 weston_pointer_clear_focus(struct weston_pointer *pointer);
 void

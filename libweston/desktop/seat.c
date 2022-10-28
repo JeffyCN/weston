@@ -103,7 +103,7 @@ weston_desktop_seat_popup_grab_pointer_focus(struct weston_pointer_grab *grab)
 	if (view != NULL &&
 	    view->surface->resource != NULL &&
 	    wl_resource_get_client(view->surface->resource) == seat->popup_grab.client)
-		weston_pointer_set_focus(pointer, view, sx, sy);
+		weston_pointer_set_focus(pointer, view);
 	else
 		weston_pointer_clear_focus(pointer);
 }
