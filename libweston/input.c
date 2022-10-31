@@ -4613,6 +4613,8 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 	float new_x_f, new_y_f;
 	uint32_t directions;
 
+	assert(pointer->focus);
+
 	weston_pointer_motion_to_abs(pointer, event, &x, &y);
 	weston_view_from_global_fixed(pointer->focus, x, y, &sx, &sy);
 
