@@ -540,18 +540,21 @@ weston_pointer_send_motion(struct weston_pointer *pointer,
 			   struct weston_pointer_motion_event *event)
 {
 	wl_fixed_t x, y;
-	wl_fixed_t old_sx = pointer->sx;
-	wl_fixed_t old_sy = pointer->sy;
+	wl_fixed_t old_sx;
+	wl_fixed_t old_sy;
 
 	if (pointer->focus) {
 		weston_pointer_motion_to_abs(pointer, event, &x, &y);
+		old_sx = pointer->sx;
+		old_sy = pointer->sy;
 		weston_view_from_global_fixed(pointer->focus, x, y,
 					      &pointer->sx, &pointer->sy);
 	}
 
 	weston_pointer_move(pointer, event);
 
-	if (old_sx != pointer->sx || old_sy != pointer->sy) {
+	if (pointer->focus &&
+	    (old_sx != pointer->sx || old_sy != pointer->sy)) {
 		pointer_send_motion(pointer, time,
 				    pointer->sx, pointer->sy);
 	}
@@ -1244,9 +1247,6 @@ weston_pointer_create(struct weston_seat *seat)
 	wl_signal_add(&seat->compositor->output_destroyed_signal,
 		      &pointer->output_destroy_listener);
 
-	pointer->sx = wl_fixed_from_int(-1000000);
-	pointer->sy = wl_fixed_from_int(-1000000);
-
 	return pointer;
 }
 
@@ -1452,9 +1452,6 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 		if (!weston_view_takes_input_at_point(view, ix, iy))
 			weston_log("View focused with external coordinate %d, %d\n",
 				   ix, iy);
-	} else {
-		sx = wl_fixed_from_int(-1000000);
-		sy = wl_fixed_from_int(-1000000);
 	}
 
 	if ((!pointer->focus && view) ||
@@ -1516,11 +1513,10 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 
 	pointer->focus = view;
 	pointer->focus_view_listener.notify = pointer_focus_view_destroyed;
-	pointer->sx = sx;
-	pointer->sy = sy;
-
-	assert(view || sx == wl_fixed_from_int(-1000000));
-	assert(view || sy == wl_fixed_from_int(-1000000));
+	if (view) {
+		pointer->sx = sx;
+		pointer->sy = sy;
+	}
 
 	wl_signal_emit(&pointer->focus_signal, pointer);
 }
