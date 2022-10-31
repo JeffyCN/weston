@@ -1945,8 +1945,7 @@ weston_view_takes_input_at_point(struct weston_view *view, int x, int y)
  */
 WL_EXPORT struct weston_view *
 weston_compositor_pick_view(struct weston_compositor *compositor,
-			    wl_fixed_t x, wl_fixed_t y,
-			    wl_fixed_t *vx, wl_fixed_t *vy)
+			    wl_fixed_t x, wl_fixed_t y)
 {
 	struct weston_view *view;
 	wl_fixed_t view_x, view_y;
@@ -1967,13 +1966,9 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 		if (!weston_view_takes_input_at_point(view, view_ix, view_iy))
 			continue;
 
-		*vx = view_x;
-		*vy = view_y;
 		return view;
 	}
 
-	*vx = wl_fixed_from_int(-1000000);
-	*vy = wl_fixed_from_int(-1000000);
 	return NULL;
 }
 

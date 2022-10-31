@@ -462,13 +462,13 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 		return;
 
 	view = weston_compositor_pick_view(pointer->seat->compositor,
-					   pointer->x, pointer->y,
-					   &sx, &sy);
+					   pointer->x, pointer->y);
 	if (view) {
+		weston_view_to_global_fixed(view, pointer->x, pointer->y,
+					    &sx, &sy);
 		if (pointer->sx != sx || pointer->sy != sy)
 			surface_jump = true;
 	}
-
 	if (pointer->focus != view || surface_jump)
 		weston_pointer_set_focus(pointer, view);
 }
@@ -628,15 +628,13 @@ default_grab_pointer_button(struct weston_pointer_grab *grab,
 	struct weston_pointer *pointer = grab->pointer;
 	struct weston_compositor *compositor = pointer->seat->compositor;
 	struct weston_view *view;
-	wl_fixed_t sx, sy;
 
 	weston_pointer_send_button(pointer, time, button, state);
 
 	if (pointer->button_count == 0 &&
 	    state == WL_POINTER_BUTTON_STATE_RELEASED) {
 		view = weston_compositor_pick_view(compositor,
-						   pointer->x, pointer->y,
-						   &sx, &sy);
+						   pointer->x, pointer->y);
 
 		weston_pointer_set_focus(pointer, view);
 	}
@@ -1420,9 +1418,8 @@ seat_send_updated_caps(struct weston_seat *seat)
  * This can be used to unset pointer focus and set the co-ordinates to the
  * arbitrary values we use for the no focus case.
  *
- * There's no requirement to use this function.  For example, passing the
- * results of a weston_compositor_pick_view() directly to
- * weston_pointer_set_focus() will do the right thing when no view is found.
+ * There's no requirement to use this function. Passing NULL directly to
+ * weston_pointer_set_focus() will do the right thing.
  */
 WL_EXPORT void
 weston_pointer_clear_focus(struct weston_pointer *pointer)
@@ -2408,7 +2405,6 @@ process_touch_normal(struct weston_touch_device *device,
 	struct weston_touch_grab *grab = device->aggregate->grab;
 	struct weston_compositor *ec = device->aggregate->seat->compositor;
 	struct weston_view *ev;
-	wl_fixed_t sx, sy;
 	wl_fixed_t x = wl_fixed_from_double(double_x);
 	wl_fixed_t y = wl_fixed_from_double(double_y);
 
@@ -2424,7 +2420,7 @@ process_touch_normal(struct weston_touch_device *device,
 		 * to that view for the remainder of the touch session i.e.
 		 * until all touch points are up again. */
 		if (touch->num_tp == 1) {
-			ev = weston_compositor_pick_view(ec, x, y, &sx, &sy);
+			ev = weston_compositor_pick_view(ec, x, y);
 			weston_touch_set_focus(touch, ev);
 		} else if (!touch->focus) {
 			/* Unexpected condition: We have non-initial touch but
