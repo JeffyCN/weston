@@ -234,7 +234,8 @@ composite_whole(pixman_op_t op,
 }
 
 static void
-composite_clipped(pixman_image_t *src,
+composite_clipped(struct weston_output *output,
+		  pixman_image_t *src,
 		  pixman_image_t *mask,
 		  pixman_image_t *dest,
 		  const pixman_transform_t *transform,
@@ -303,12 +304,9 @@ composite_clipped(pixman_image_t *src,
 	}
 
 	if (n_box > 1) {
-		static bool warned = false;
-
-		if (!warned)
-			weston_log("Pixman-renderer warning: %dx overdraw\n",
-				   n_box);
-		warned = true;
+		weston_log_paced(&output->pixman_overdraw_pacer, 1, 0,
+				 "Pixman-renderer warning: %dx overdraw\n",
+				 n_box);
 	}
 }
 
@@ -364,7 +362,7 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 	}
 
 	if (source_clip)
-		composite_clipped(ps->image, mask_image, target_image,
+		composite_clipped(output, ps->image, mask_image, target_image,
 				  &transform, filter, source_clip);
 	else
 		composite_whole(pixman_op, ps->image, mask_image,

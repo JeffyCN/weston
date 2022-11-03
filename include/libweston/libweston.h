@@ -520,6 +520,7 @@ struct weston_output {
 	bool allow_protection;
 
 	struct weston_log_pacer repaint_delay_pacer;
+	struct weston_log_pacer pixman_overdraw_pacer;
 
 	int (*start_repaint_loop)(struct weston_output *output);
 	int (*repaint)(struct weston_output *output, pixman_region32_t *damage);
