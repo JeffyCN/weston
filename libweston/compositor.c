@@ -3308,12 +3308,11 @@ weston_output_finish_frame(struct weston_output *output,
 	msec_rel = timespec_sub_to_msec(&output->next_repaint, &now);
 
 	if (msec_rel < -1000 || msec_rel > 1000) {
-		static bool warned;
-
-		if (!warned)
-			weston_log("Warning: computed repaint delay is "
-				   "insane: %lld msec\n", (long long) msec_rel);
-		warned = true;
+		weston_log_paced(&output->repaint_delay_pacer,
+				 5, 60 * 60 * 1000,
+				 "Warning: computed repaint delay for output "
+				 "[%s] is abnormal: %lld msec\n",
+				 output->name, (long long) msec_rel);
 
 		output->next_repaint = now;
 	}

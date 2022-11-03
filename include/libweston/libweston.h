@@ -519,6 +519,8 @@ struct weston_output {
 	enum weston_hdcp_protection current_protection;
 	bool allow_protection;
 
+	struct weston_log_pacer repaint_delay_pacer;
+
 	int (*start_repaint_loop)(struct weston_output *output);
 	int (*repaint)(struct weston_output *output, pixman_region32_t *damage);
 	void (*destroy)(struct weston_output *output);
