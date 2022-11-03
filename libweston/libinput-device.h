@@ -52,6 +52,7 @@ struct evdev_device {
 	char *output_name;
 	int fd;
 	bool override_wl_calibration;
+	struct weston_log_pacer unknown_scroll_pacer;
 };
 
 void

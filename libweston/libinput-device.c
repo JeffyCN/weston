@@ -248,7 +248,6 @@ static bool
 handle_pointer_axis(struct libinput_device *libinput_device,
 		    struct libinput_event_pointer *pointer_event)
 {
-	static int warned;
 	struct evdev_device *device =
 		libinput_device_get_user_data(libinput_device);
 	double vert, horiz;
@@ -282,10 +281,8 @@ handle_pointer_axis(struct libinput_device *libinput_device,
 		wl_axis_source = WL_POINTER_AXIS_SOURCE_CONTINUOUS;
 		break;
 	default:
-		if (warned < 5) {
-			weston_log("Unknown scroll source %d.\n", source);
-			warned++;
-		}
+		weston_log_paced(&device->unknown_scroll_pacer, 5, 0,
+				 "Unknown scroll source %d.\n", source);
 		return false;
 	}
 
