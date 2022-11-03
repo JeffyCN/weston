@@ -113,7 +113,7 @@ compositor_setup_defaults_(struct compositor_setup *setup,
  * The defaults are:
  * - backend: headless
  * - renderer: noop
- * - shell: desktop shell
+ * - shell: test desktop shell
  * - xwayland: no
  * - width: 320
  * - height: 240
