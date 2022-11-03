@@ -68,7 +68,10 @@ static const char *vert_shader_text =
 	"attribute vec4 color;\n"
 	"varying vec4 v_color;\n"
 	"void main() {\n"
-	"	gl_Position = pos;\n"
+	"	// We need to render upside-down, because rendering through an\n"
+	"	// FBO causes the bottom of the image to be written to the top\n"
+	"	// pixel row of the buffer, y-flipping the image.\n"
+	"	gl_Position = vec4(1.0, -1.0f, 1.0f, 1.0f) * pos;\n"
 	"	v_color = color;\n"
 	"}\n";
 
