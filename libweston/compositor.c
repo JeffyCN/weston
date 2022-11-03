@@ -8392,10 +8392,9 @@ weston_compositor_set_presentation_clock_software(
  */
 WL_EXPORT void
 weston_compositor_read_presentation_clock(
-			const struct weston_compositor *compositor,
+			struct weston_compositor *compositor,
 			struct timespec *ts)
 {
-	static bool warned;
 	int ret;
 
 	ret = clock_gettime(compositor->presentation_clock, ts);
@@ -8403,12 +8402,12 @@ weston_compositor_read_presentation_clock(
 		ts->tv_sec = 0;
 		ts->tv_nsec = 0;
 
-		if (!warned)
-			weston_log("Error: failure to read "
-				   "the presentation clock %#x: '%s' (%d)\n",
-				   compositor->presentation_clock,
-				   strerror(errno), errno);
-		warned = true;
+		weston_log_paced(&compositor->presentation_clock_failure_pacer,
+				 1, 0,
+				 "Error: failure to read "
+				 "the presentation clock %#x: '%s' (%d)\n",
+				 compositor->presentation_clock,
+				 strerror(errno), errno);
 	}
 }
 

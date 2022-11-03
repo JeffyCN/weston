@@ -156,7 +156,7 @@ weston_compositor_print_scene_graph(struct weston_compositor *ec);
 
 void
 weston_compositor_read_presentation_clock(
-			const struct weston_compositor *compositor,
+			struct weston_compositor *compositor,
 			struct timespec *ts);
 
 int

@@ -1328,6 +1328,8 @@ struct weston_compositor {
 	/* One-time warning about a view appearing in the layer list when it
 	 * or its surface are not mapped. */
 	bool warned_about_unmapped_surface_or_view;
+
+	struct weston_log_pacer presentation_clock_failure_pacer;
 };
 
 struct weston_solid_buffer_values {
