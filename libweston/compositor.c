@@ -2877,11 +2877,10 @@ view_list_add(struct weston_compositor *compositor,
 	if (!weston_surface_is_mapped(view->surface) ||
 	    !weston_view_is_mapped(view) ||
 	    !weston_surface_has_content(view->surface)) {
-		if (!compositor->warned_about_unmapped_surface_or_view) {
-			weston_log("Detected an unmapped surface or view in "
-				   "the layer list, which should not occur.\n");
-			compositor->warned_about_unmapped_surface_or_view = true;
-		}
+		weston_log_paced(&compositor->unmapped_surface_or_view_pacer,
+				 1, 0,
+				 "Detected an unmapped surface or view in "
+				 "the layer list, which should not occur.\n");
 
 		pnode = weston_view_find_paint_node(view, output);
 		if (pnode)
