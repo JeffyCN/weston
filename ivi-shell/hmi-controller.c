@@ -738,6 +738,8 @@ hmi_controller_destroy(struct wl_listener *listener, void *data)
 	struct hmi_controller *hmi_ctrl =
 		container_of(listener, struct hmi_controller, destroy_listener);
 
+	wl_list_remove(&hmi_ctrl->destroy_listener.link);
+
 	wl_list_for_each_safe(link, next,
 			      &hmi_ctrl->workspace_fade.layer_list, link) {
 		wl_list_remove(&link->link);
