@@ -360,6 +360,56 @@ vnc_handle_key_code_event(struct nvnc_client *client, uint32_t key,
 }
 
 static void
+vnc_log_desktop_layout(struct vnc_backend *backend,
+		       const struct nvnc_desktop_layout *layout)
+{
+	uint8_t num_displays = nvnc_desktop_layout_get_display_count(layout);
+	char timestr[128];
+
+	if (!weston_log_scope_is_enabled(backend->debug))
+		return;
+
+	weston_log_scope_timestamp(backend->debug, timestr, sizeof timestr);
+
+	weston_log_scope_printf(backend->debug,
+				"%s desktop size event, %u displays:",
+				timestr, num_displays);
+	for (int i = 0; i < num_displays; i++) {
+		uint16_t x = nvnc_desktop_layout_get_display_x_pos(layout, i);
+		uint16_t y = nvnc_desktop_layout_get_display_y_pos(layout, i);
+		uint16_t width = nvnc_desktop_layout_get_display_width(layout, i);
+		uint16_t height = nvnc_desktop_layout_get_display_height(layout, i);
+		struct nvnc_display *display = nvnc_desktop_layout_get_display(layout, i);
+
+		weston_log_scope_printf(backend->debug, " %ux%u(%u,%u)%s",
+					width, height, x, y,
+					display ? "" : "*");
+	}
+	weston_log_scope_printf(backend->debug, "\n");
+}
+
+static bool
+vnc_handle_desktop_layout_event(struct nvnc_client *client,
+				const struct nvnc_desktop_layout *layout)
+{
+	struct vnc_peer *peer = nvnc_get_userdata(client);
+	struct vnc_output *output = peer->backend->output;
+	struct weston_mode new_mode;
+	uint16_t width = nvnc_desktop_layout_get_width(layout);
+	uint16_t height = nvnc_desktop_layout_get_height(layout);
+
+	vnc_log_desktop_layout(peer->backend, layout);
+
+	new_mode.width = width;
+	new_mode.height = height;
+	new_mode.refresh = peer->backend->vnc_monitor_refresh_rate;
+
+	weston_output_mode_set_native(&output->base, &new_mode, 1);
+
+	return false;
+}
+
+static void
 vnc_pointer_event(struct nvnc_client *client, uint16_t x, uint16_t y,
 		  enum nvnc_button_mask button_mask)
 {
@@ -1227,6 +1277,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 	nvnc_set_pointer_fn(backend->server, vnc_pointer_event);
 	nvnc_set_key_fn(backend->server, vnc_handle_key_event);
 	nvnc_set_key_code_fn(backend->server, vnc_handle_key_code_event);
+	nvnc_set_desktop_layout_fn(backend->server, vnc_handle_desktop_layout_event);
 	nvnc_set_userdata(backend->server, backend, NULL);
 	nvnc_set_name(backend->server, "Weston VNC backend");
 
