@@ -1096,56 +1096,15 @@ vnc_output_assign_planes(struct weston_output *base)
 	}
 }
 
-static struct weston_mode *
-vnc_insert_new_mode(struct weston_output *output, int width, int height,
-		    int rate)
-{
-	struct weston_mode *mode;
-
-	mode = xzalloc(sizeof *mode);
-	mode->width = width;
-	mode->height = height;
-	mode->refresh = rate;
-	wl_list_insert(&output->mode_list, &mode->link);
-
-	return mode;
-}
-
-static struct weston_mode *
-vnc_ensure_matching_mode(struct vnc_output *output,
-			 struct weston_mode *target)
-{
-	struct vnc_backend *backend = output->backend;
-	struct weston_mode *local;
-
-	wl_list_for_each(local, &output->base.mode_list, link) {
-		if ((local->width == target->width) &&
-		    (local->height == target->height))
-			return local;
-	}
-
-	return vnc_insert_new_mode(&output->base, target->width, target->height,
-				   backend->vnc_monitor_refresh_rate);
-}
-
 static int
 vnc_switch_mode(struct weston_output *base, struct weston_mode *target_mode)
 {
 	struct vnc_output *output = to_vnc_output(base);
-	struct weston_mode *local_mode;
 	struct weston_size fb_size;
 
 	assert(output);
 
-	local_mode = vnc_ensure_matching_mode(output, target_mode);
-
-	if (local_mode == base->current_mode)
-		return 0;
-
-	base->current_mode->flags &= ~WL_OUTPUT_MODE_CURRENT;
-
-	base->current_mode = base->native_mode = local_mode;
-	base->current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
+	weston_output_set_single_mode(base, target_mode);
 
 	fb_size.width = target_mode->width;
 	fb_size.height = target_mode->height;
@@ -1164,7 +1123,6 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 {
 	struct vnc_output *output = to_vnc_output(base);
 	struct vnc_backend *backend = output->backend;
-	struct weston_mode *current_mode;
 	struct weston_mode init_mode;
 
 	/* We can only be called once. */
@@ -1176,10 +1134,7 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 	init_mode.height = height;
 	init_mode.refresh = backend->vnc_monitor_refresh_rate;
 
-	current_mode = vnc_ensure_matching_mode(output, &init_mode);
-	current_mode->flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
-
-	output->base.current_mode = output->base.native_mode = current_mode;
+	weston_output_set_single_mode(base, &init_mode);
 
 	output->base.start_repaint_loop = vnc_output_start_repaint_loop;
 	output->base.repaint = vnc_output_repaint;
