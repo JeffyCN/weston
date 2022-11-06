@@ -875,12 +875,9 @@ vnc_switch_mode(struct weston_output *base, struct weston_mode *target_mode)
 
 	weston_renderer_resize_output(base, &fb_size, NULL);
 
-	nvnc_fb_pool_unref(output->fb_pool);
-
-	output->fb_pool = nvnc_fb_pool_new(target_mode->width,
-					   target_mode->height,
-					   DRM_FORMAT_XRGB8888,
-					   target_mode->width * 4);
+	nvnc_fb_pool_resize(output->fb_pool, target_mode->width,
+			    target_mode->height, DRM_FORMAT_XRGB8888,
+			    target_mode->width);
 
 	return 0;
 }
