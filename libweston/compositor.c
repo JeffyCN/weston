@@ -649,6 +649,8 @@ WL_EXPORT void
 weston_view_to_global_float(struct weston_view *view,
 			    float sx, float sy, float *x, float *y)
 {
+	assert(!view->transform.dirty);
+
 	if (view->transform.enabled) {
 		struct weston_vector v = { { sx, sy, 0.0f, 1.0f } };
 
@@ -1465,6 +1467,8 @@ WL_EXPORT void
 weston_view_from_global_float(struct weston_view *view,
 			      float x, float y, float *vx, float *vy)
 {
+	assert(!view->transform.dirty);
+
 	if (view->transform.enabled) {
 		struct weston_vector v = { { x, y, 0.0f, 1.0f } };
 
