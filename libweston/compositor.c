@@ -425,6 +425,7 @@ weston_view_create(struct weston_surface *surface)
 	pixman_region32_init(&view->geometry.scissor);
 	pixman_region32_init(&view->transform.boundingbox);
 	view->transform.dirty = 1;
+	weston_view_update_transform(view);
 
 	return view;
 }
@@ -1961,6 +1962,8 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 
 	/* Can't use paint node list: occlusion by input regions, not opaque. */
 	wl_list_for_each(view, &compositor->view_list, link) {
+		weston_view_update_transform(view);
+
 		if (!pixman_region32_contains_point(
 				&view->transform.boundingbox, ix, iy, NULL))
 			continue;

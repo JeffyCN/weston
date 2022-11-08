@@ -465,6 +465,7 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 					   pointer->x, pointer->y);
 
 	if (view && view == pointer->focus) {
+		weston_view_update_transform(view);
 		weston_view_from_global_fixed(view, pointer->x, pointer->y,
 					      &sx, &sy);
 		if (pointer->sx != sx || pointer->sy != sy)
@@ -549,6 +550,7 @@ weston_pointer_send_motion(struct weston_pointer *pointer,
 		weston_pointer_motion_to_abs(pointer, event, &x, &y);
 		old_sx = pointer->sx;
 		old_sy = pointer->sy;
+		weston_view_update_transform(pointer->focus);
 		weston_view_from_global_fixed(pointer->focus, x, y,
 					      &pointer->sx, &pointer->sy);
 	}
@@ -3769,6 +3771,7 @@ maybe_enable_pointer_constraint(struct weston_pointer_constraint *constraint)
 	if (!keyboard || keyboard->focus != surface)
 		return;
 
+	weston_view_update_transform(view);
 	/* Postpone constraint if the pointer is not within the
 	 * constraint region.
 	 */

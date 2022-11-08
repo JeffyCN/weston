@@ -2101,6 +2101,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		}
 	}
 
+	weston_view_update_transform(shsurf->view);
+
 	if (shsurf->state.fullscreen) {
 		shell_configure_fullscreen(shsurf);
 	} else if (shsurf->state.maximized) {
@@ -2613,6 +2615,11 @@ panel_committed(struct weston_surface *es, int32_t sx, int32_t sy)
 	int x = 0, y = 0;
 
 	view = container_of(es->views.next, struct weston_view, surface_link);
+
+	/* XXX delete me eventually - it would be better if we didn't get here
+	 * with a dirty transform at all, but for now just make sure the
+	 * transform is updated here. */
+	weston_view_update_transform(view);
 
 	get_panel_size(shell, view, &width, &height);
 	switch (shell->panel_position) {
