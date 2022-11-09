@@ -1266,7 +1266,8 @@ wayland_output_enable(struct weston_output *base)
 	weston_log("Creating %dx%d wayland output at (%d, %d)\n",
 		   output->base.current_mode->width,
 		   output->base.current_mode->height,
-		   output->base.x, output->base.y);
+		   (int)output->base.pos.c.x,
+		   (int)output->base.pos.c.y);
 
 	if (!output->parent.surface)
 		ret = wayland_backend_create_output_surface(output);

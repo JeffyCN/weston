@@ -546,13 +546,13 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 						     lp->dest_y,
 						     lp->dest_width,
 						     lp->dest_height };
-	struct ivi_rectangle screen_dest_rect =    { output->x,
-						     output->y,
+	struct ivi_rectangle screen_dest_rect =    { output->pos.c.x,
+						     output->pos.c.y,
 						     output->width,
 						     output->height };
 	struct ivi_rectangle layer_dest_rect_in_global =
-						   { lp->dest_x + output->x,
-						     lp->dest_y + output->y,
+						   { lp->dest_x + output->pos.c.x,
+						     lp->dest_y + output->pos.c.y,
 						     lp->dest_width,
 						     lp->dest_height };
 	struct ivi_rectangle layer_dest_rect_in_global_intersected;
@@ -569,7 +569,7 @@ calc_surface_to_global_matrix_and_mask_to_weston_surface(
 	calc_transformation_matrix(&surface_source_rect, &surface_dest_rect, m);
 	calc_transformation_matrix(&layer_source_rect, &layer_dest_rect, m);
 
-	weston_matrix_translate(m, output->x, output->y, 0.0f);
+	weston_matrix_translate(m, output->pos.c.x, output->pos.c.y, 0.0f);
 
 	/*
 	 * destination rectangle of layer in multi screens coordinate

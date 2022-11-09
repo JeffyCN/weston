@@ -389,8 +389,8 @@ get_output_work_area(struct desktop_shell *shell,
 		return;
 	}
 
-	area->x = output->x;
-	area->y = output->y;
+	area->x = output->pos.c.x;
+	area->y = output->pos.c.y;
 
 	get_output_panel_size(shell, output, &panel_width, &panel_height);
 	switch (shell->panel_position) {
@@ -580,7 +580,7 @@ create_focus_surface(struct weston_compositor *ec,
 	struct focus_surface *fsurf = NULL;
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = output->x, .y = output->y,
+		.x = output->pos.c.x, .y = output->pos.c.y,
 		.width = output->width, .height = output->height,
 		.surface_committed = focus_surface_committed,
 		.get_label = focus_surface_get_label,
@@ -1922,7 +1922,7 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 	struct weston_output *output = shsurf->fullscreen_output;
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = output->x, .y = output->y,
+		.x = output->pos.c.x, .y = output->pos.c.y,
 		.width = output->width, .height = output->height,
 		.surface_committed = black_surface_committed,
 		.get_label = black_surface_get_label,
@@ -2326,7 +2326,7 @@ set_position_from_xwayland(struct shell_surface *shsurf)
 #ifdef WM_DEBUG
 	weston_log("%s: XWM %d, %d; geometry %d, %d; view %f, %f\n",
 		   __func__, shsurf->xwayland.x, shsurf->xwayland.y,
-		   geometry.x, geometry.y, x, y);
+		   (int)geometry.coord.x, (int)geometry.coord.y, pos.x, pos.y);
 #endif
 }
 
@@ -2874,7 +2874,9 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer, int x,
 		}
 	}
 
-	pos.c = weston_coord(ev->output->x + x, ev->output->y + y);
+	pos = ev->output->pos;
+	pos.c.x += x;
+	pos.c.y += y;
 	weston_view_set_position(ev, pos);
 	weston_surface_map(ev->surface);
 	ev->is_mapped = true;
@@ -3985,7 +3987,7 @@ shell_fade_create_view_for_output(struct desktop_shell *shell,
 	struct weston_output *output = shell_output->output;
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
-		.x = output->x, .y = output->y,
+		.x = output->pos.c.x, .y = output->pos.c.y,
 		.width = output->width, .height = output->height,
 		.surface_committed = black_surface_committed,
 		.get_label = fade_surface_get_label,
@@ -4228,7 +4230,6 @@ weston_view_set_initial_position(struct weston_view *view,
 				 struct desktop_shell *shell)
 {
 	struct weston_compositor *compositor = shell->compositor;
-	int ix = 0, iy = 0;
 	int32_t range_x, range_y;
 	int32_t x, y;
 	struct weston_output *output, *target_output = NULL;
@@ -4241,18 +4242,18 @@ weston_view_set_initial_position(struct weston_view *view,
 	 *
 	 * TODO: Do something clever for touch too?
 	 */
+	pos.c = weston_coord(0, 0);
 	wl_list_for_each(seat, &compositor->seat_list, link) {
 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 
 		if (pointer) {
-			ix = pointer->pos.c.x;
-			iy = pointer->pos.c.y;
+			pos = pointer->pos;
 			break;
 		}
 	}
 
 	wl_list_for_each(output, &compositor->output_list, link) {
-		if (weston_output_contains_point(output, ix, iy)) {
+		if (weston_output_contains_coord(output, pos)) {
 			target_output = output;
 			break;
 		}
@@ -4655,21 +4656,20 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	struct weston_output *output, *first_output;
 	struct weston_compositor *ec = view->surface->compositor;
 	struct shell_surface *shsurf;
-	float x, y;
 	int visible;
 
 	if (wl_list_empty(&ec->output_list))
 		return;
-
-	x = view->geometry.pos_offset.x;
-	y = view->geometry.pos_offset.y;
 
 	/* At this point the destroyed output is not in the list anymore.
 	 * If the view is still visible somewhere, we leave where it is,
 	 * otherwise, move it to the first output. */
 	visible = 0;
 	wl_list_for_each(output, &ec->output_list, link) {
-		if (weston_output_contains_point(output, x, y)) {
+		struct weston_coord_global pos;
+
+		pos.c = view->geometry.pos_offset;
+		if (weston_output_contains_coord(output, pos)) {
 			visible = 1;
 			break;
 		}
@@ -4685,7 +4685,7 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 		first_output = container_of(ec->output_list.next,
 					    struct weston_output, link);
 
-		pos.c = weston_coord(first_output->x, first_output->y);
+		pos = first_output->pos;
 		pos.c.x += first_output->width / 4;
 		pos.c.y += first_output->height / 4;
 
@@ -4832,12 +4832,11 @@ handle_output_move_layer(struct desktop_shell *shell,
 
 	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
 		struct weston_coord_global pos;
-
 		if (view->output != output)
 			continue;
 
-		pos.c = weston_coord(output->move_x, output->move_y);
-		pos.c = weston_coord_add(view->geometry.pos_offset, pos.c);
+		pos.c = weston_coord_add(view->geometry.pos_offset,
+					 output->move.c);
 		weston_view_set_position(view, pos);
 	}
 }

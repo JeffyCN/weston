@@ -1766,10 +1766,9 @@ weston_output_lazy_align(struct weston_output *output)
 	if (!wl_list_empty(&c->output_list)) {
 		peer = container_of(c->output_list.prev,
 				    struct weston_output, link);
-		next_x = peer->x + peer->width;
+		next_x = peer->pos.c.x + peer->width;
 	}
-	output->x = next_x;
-	output->y = 0;
+	output->pos.c = weston_coord(next_x, 0);
 }
 
 static void

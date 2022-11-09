@@ -181,7 +181,6 @@ map_calibrator(struct weston_touch_calibrator *calibrator)
 {
 	struct weston_compositor *c = calibrator->compositor;
 	struct weston_touch_device *device = calibrator->device;
-	struct weston_coord_global pos;
 	static const struct weston_touch_device_matrix identity = {
 		.m = { 1, 0, 0, 0, 1, 0}
 	};
@@ -200,8 +199,7 @@ map_calibrator(struct weston_touch_calibrator *calibrator)
 	weston_layer_entry_insert(&c->calibrator_layer.view_list,
 				  &calibrator->view->layer_link);
 
-	pos.c = weston_coord(calibrator->output->x, calibrator->output->y);
-	weston_view_set_position(calibrator->view, pos);
+	weston_view_set_position(calibrator->view, calibrator->output->pos);
 	calibrator->view->output = calibrator->surface->output;
 	calibrator->view->is_mapped = true;
 

@@ -468,7 +468,8 @@ struct weston_output {
 	struct weston_matrix inverse_matrix;
 
 	struct wl_list animation_list;
-	int32_t x, y, width, height;
+	struct weston_coord_global pos;
+	int32_t width, height;
 
 	/** List of paint nodes in z-order, from top to bottom, maybe pruned
 	 *
@@ -503,7 +504,7 @@ struct weston_output {
 
 	struct wl_signal frame_signal;
 	struct wl_signal destroy_signal;	/**< sent when disabled */
-	int move_x, move_y;
+	struct weston_coord_global move;
 	struct timespec frame_time; /* presentation timestamp */
 	uint64_t msc;        /* media stream counter */
 	int disable_planes;
@@ -2550,8 +2551,8 @@ weston_output_allow_protection(struct weston_output *output,
 			       bool allow_protection);
 
 bool
-weston_output_contains_point(struct weston_output *output,
-			     int32_t x, int32_t y);
+weston_output_contains_coord(struct weston_output *output,
+			     struct weston_coord_global pos);
 
 int
 weston_compositor_enable_touch_calibrator(struct weston_compositor *compositor,

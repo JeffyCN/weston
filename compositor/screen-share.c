@@ -870,7 +870,9 @@ shared_output_repainted(struct wl_listener *listener, void *data)
 	 */
 	pixman_region32_init(&sb_damage);
 	pixman_region32_copy(&sb_damage, global_output_damage);
-	pixman_region32_translate(&sb_damage, -so->output->x, -so->output->y);
+	pixman_region32_translate(&sb_damage,
+				  -so->output->pos.c.x,
+				  -so->output->pos.c.y);
 
 	/* Apply damage to all buffers */
 	wl_list_for_each(sb, &so->shm.buffers, link)
@@ -1149,12 +1151,12 @@ weston_output_share(struct weston_output *output, struct screen_share *ss)
 }
 
 static struct weston_output *
-weston_output_find(struct weston_compositor *c, int32_t x, int32_t y)
+weston_output_find(struct weston_compositor *c, struct weston_coord_global pos)
 {
 	struct weston_output *output;
 
 	wl_list_for_each(output, &c->output_list, link)
-		if (weston_output_contains_point(output, x, y))
+		if (weston_output_contains_coord(output, pos))
 			return output;
 
 	return NULL;
@@ -1171,8 +1173,7 @@ share_output_binding(struct weston_keyboard *keyboard,
 	pointer = weston_seat_get_pointer(keyboard->seat);
 	if (pointer) {
 		output = weston_output_find(pointer->seat->compositor,
-					    pointer->pos.c.x,
-					    pointer->pos.c.y);
+					    pointer->pos);
 	} else {
 		output = weston_shell_utils_get_focused_output(keyboard->seat->compositor);
 		if (!output)

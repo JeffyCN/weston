@@ -3148,8 +3148,8 @@ legacy_fullscreen(struct weston_wm *wm,
 	/* Heuristics for detecting legacy fullscreen windows... */
 
 	wl_list_for_each(output, &compositor->output_list, link) {
-		if (output->x == window->x &&
-		    output->y == window->y &&
+		if ((int)output->pos.c.x == window->x &&
+		    (int)output->pos.c.y == window->y &&
 		    output->width == window->width &&
 		    output->height == window->height &&
 		    window->override_redirect) {
@@ -3171,8 +3171,8 @@ legacy_fullscreen(struct weston_wm *wm,
 
 		if (matching_size && !window->decorate &&
 		    (window->size_hints.flags & (USPosition | PPosition)) &&
-		    window->size_hints.x == output->x &&
-		    window->size_hints.y == output->y) {
+		    window->size_hints.x == (int)output->pos.c.x &&
+		    window->size_hints.y == (int)output->pos.c.y) {
 			*output_ret = output;
 			return 1;
 		}

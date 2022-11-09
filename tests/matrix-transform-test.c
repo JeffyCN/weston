@@ -365,8 +365,7 @@ simple_weston_output_prepare(struct weston_output *output,
 			     int x, int y, int width, int height,
 			     int scale, uint32_t transform)
 {
-	output->x = x;
-	output->y = y;
+	output->pos.c = weston_coord(x, y);
 	output->width = width;
 	output->height = height;
 	output->current_scale = scale;
@@ -383,36 +382,36 @@ simple_transform_vector(struct weston_output *output, struct weston_vector in)
 
 	switch (output->transform) {
 	case WL_OUTPUT_TRANSFORM_NORMAL:
-		out.f[0] = (-output->x + in.f[0]) * scale;
-		out.f[1] = (-output->y + in.f[1]) * scale;
+		out.f[0] = (-output->pos.c.x + in.f[0]) * scale;
+		out.f[1] = (-output->pos.c.y + in.f[1]) * scale;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED:
-		out.f[0] = (output->x + output->width - in.f[0]) * scale;
-		out.f[1] = (-output->y + in.f[1]) * scale;
+		out.f[0] = (output->pos.c.x + output->width - in.f[0]) * scale;
+		out.f[1] = (-output->pos.c.y + in.f[1]) * scale;
 		break;
 	case WL_OUTPUT_TRANSFORM_90:
-		out.f[0] = (-output->y + in.f[1]) * scale;
-		out.f[1] = (output->x + output->width - in.f[0]) * scale;
+		out.f[0] = (-output->pos.c.y + in.f[1]) * scale;
+		out.f[1] = (output->pos.c.x + output->width - in.f[0]) * scale;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		out.f[0] = (-output->y + in.f[1]) * scale;
-		out.f[1] = (-output->x + in.f[0]) * scale;
+		out.f[0] = (-output->pos.c.y + in.f[1]) * scale;
+		out.f[1] = (-output->pos.c.x + in.f[0]) * scale;
 		break;
 	case WL_OUTPUT_TRANSFORM_180:
-		out.f[0] = (output->x + output->width - in.f[0]) * scale;
-		out.f[1] = (output->y + output->height - in.f[1]) * scale;
+		out.f[0] = (output->pos.c.x + output->width - in.f[0]) * scale;
+		out.f[1] = (output->pos.c.y + output->height - in.f[1]) * scale;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-		out.f[0] = (-output->x + in.f[0]) * scale;
-		out.f[1] = (output->y + output->height - in.f[1]) * scale;
+		out.f[0] = (-output->pos.c.x + in.f[0]) * scale;
+		out.f[1] = (output->pos.c.y + output->height - in.f[1]) * scale;
 		break;
 	case WL_OUTPUT_TRANSFORM_270:
-		out.f[0] = (output->y + output->height - in.f[1]) * scale;
-		out.f[1] = (-output->x + in.f[0]) * scale;
+		out.f[0] = (output->pos.c.y + output->height - in.f[1]) * scale;
+		out.f[1] = (-output->pos.c.x + in.f[0]) * scale;
 		break;
 	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		out.f[0] = (output->y + output->height - in.f[1]) * scale;
-		out.f[1] = (output->x + output->width - in.f[0]) * scale;
+		out.f[0] = (output->pos.c.y + output->height - in.f[1]) * scale;
+		out.f[1] = (output->pos.c.x + output->width - in.f[0]) * scale;
 		break;
 	}
 	out.f[2] = 0;

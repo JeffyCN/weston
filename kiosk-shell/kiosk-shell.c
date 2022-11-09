@@ -502,8 +502,8 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	curtain_params.b = ((bg_color >> 0) & 0xff) / 255.0;
 	curtain_params.a = 1.0;
 
-	curtain_params.x = output->x;
-	curtain_params.y = output->y;
+	curtain_params.x = output->pos.c.x;
+	curtain_params.y = output->pos.c.y;
 	curtain_params.width = output->width;
 	curtain_params.height = output->height;
 
@@ -1130,25 +1130,28 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		container_of(listener, struct kiosk_shell, output_moved_listener);
 	struct weston_output *output = data;
 	struct weston_view *view;
-	struct weston_coord_global pos;
 
 	wl_list_for_each(view, &shell->background_layer.view_list.link,
 			 layer_link.link) {
+		struct weston_coord_global pos;
+
 		if (view->output != output)
 			continue;
-		pos.c = view->geometry.pos_offset;
-		pos.c.x += output->move_x;
-		pos.c.y += output->move_y;
+
+		pos.c = weston_coord_add(view->geometry.pos_offset,
+					 output->move.c);
 		weston_view_set_position(view, pos);
 	}
 
 	wl_list_for_each(view, &shell->normal_layer.view_list.link,
 			 layer_link.link) {
+		struct weston_coord_global pos;
+
 		if (view->output != output)
 			continue;
-		pos.c = view->geometry.pos_offset;
-		pos.c.x += output->move_x;
-		pos.c.x += output->move_y;
+
+		pos.c = weston_coord_add(view->geometry.pos_offset,
+					 output->move.c);
 		weston_view_set_position(view, pos);
 	}
 }

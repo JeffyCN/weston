@@ -72,8 +72,10 @@ calc_input_panel_position(struct input_panel_surface *ip_surface, float *x, floa
 		*y = view->geometry.pos_offset.y +
 		     shell->text_input.cursor_rectangle.y2;
 	} else {
-		*x = ip_surface->output->x + (ip_surface->output->width - ip_surface->surface->width) / 2;
-		*y = ip_surface->output->y + ip_surface->output->height - ip_surface->surface->height;
+		*x = ip_surface->output->pos.c.x +
+		     (ip_surface->output->width - ip_surface->surface->width) / 2;
+		*y = ip_surface->output->pos.c.y +
+		     ip_surface->output->height - ip_surface->surface->height;
 	}
 	return 0;
 }

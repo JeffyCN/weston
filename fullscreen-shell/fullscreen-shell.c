@@ -324,7 +324,7 @@ fs_output_create(struct fullscreen_shell *shell, struct weston_output *output)
 	fsout->surface_destroyed.notify = surface_destroyed;
 	fsout->pending.surface_destroyed.notify = pending_surface_destroyed;
 	fsout->curtain = create_curtain(shell->compositor, fsout,
-					output->x, output->y,
+					output->pos.c.x, output->pos.c.y,
 					output->width, output->height);
 	fsout->curtain->view->is_mapped = true;
 	weston_layer_entry_insert(&shell->layer.view_list,
@@ -369,20 +369,16 @@ fs_output_scale_view(struct fs_output *fsout, float width, float height)
 	struct weston_matrix *matrix;
 	struct weston_view *view = fsout->view;
 	struct weston_output *output = fsout->output;
+	struct weston_coord_global pos = fsout->output->pos;
 
 	weston_shell_utils_subsurfaces_boundingbox(view->surface, &surf_x, &surf_y,
 						   &surf_width, &surf_height);
 
 	if (output->width == surf_width && output->height == surf_height) {
-		struct weston_coord_global pos;
-
-		pos.c = weston_coord(fsout->output->x, fsout->output->y);
 		pos.c.x -= surf_x;
 		pos.c.y -= surf_y;
 		weston_view_set_position(view, pos);
 	} else {
-		struct weston_coord_global pos;
-
 		matrix = &fsout->transform.matrix;
 		weston_matrix_init(matrix);
 
@@ -392,10 +388,8 @@ fs_output_scale_view(struct fs_output *fsout, float width, float height)
 		wl_list_insert(&fsout->view->geometry.transformation_list,
 			       &fsout->transform.link);
 
-		pos.c = weston_coord(output->x, output->y);
 		pos.c.x += (output->width - width) / 2 - surf_x;
 		pos.c.y += (output->height - height) / 2 - surf_y;
-
 		weston_view_set_position(view, pos);
 	}
 }
@@ -464,7 +458,7 @@ fs_output_configure_simple(struct fs_output *fsout,
 		break;
 	}
 
-	pos.c = weston_coord(fsout->output->x, fsout->output->y);
+	pos = fsout->output->pos;
 	pos.c.x -= surf_x;
 	pos.c.y -= surf_y;
 	weston_view_set_position(fsout->curtain->view, pos);
@@ -544,7 +538,7 @@ fs_output_configure_for_mode(struct fs_output *fsout,
 
 	fs_output_apply_pending(fsout);
 
-	pos.c = weston_coord(fsout->output->x, fsout->output->y);
+	pos = fsout->output->pos;
 	pos.c.x -= surf_x;
 	pos.c.y -= surf_y;
 	weston_view_set_position(fsout->view, pos);

@@ -1455,7 +1455,8 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 			goto err;
 
 		pixman_region32_init_rect(&output->renderbuffer[i]->damage,
-					  output->base.x, output->base.y,
+					  output->base.pos.c.x,
+					  output->base.pos.c.y,
 					  output->base.width,
 					  output->base.height);
 	}

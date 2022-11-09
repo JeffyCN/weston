@@ -548,10 +548,10 @@ vnc_region_global_to_output(pixman_region16_t *dst,
 	dest_rects = xcalloc(n_rects, sizeof(*dest_rects));
 
 	for (i = 0; i < n_rects; i++) {
-		dest_rects[i].x1 = src_rects[i].x1 - output->x;
-		dest_rects[i].y1 = src_rects[i].y1 - output->y;
-		dest_rects[i].x2 = src_rects[i].x2 - output->x;
-		dest_rects[i].y2 = src_rects[i].y2 - output->y;
+		dest_rects[i].x1 = src_rects[i].x1 - output->pos.c.x;
+		dest_rects[i].y1 = src_rects[i].y1 - output->pos.c.y;
+		dest_rects[i].x2 = src_rects[i].x2 - output->pos.c.x;
+		dest_rects[i].y2 = src_rects[i].y2 - output->pos.c.y;
 	}
 
 	pixman_region_init_rects(dst, dest_rects, n_rects);

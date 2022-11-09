@@ -315,7 +315,7 @@ rdp_head_contains(struct rdp_head *rdp_head, int32_t x, int32_t y)
 		if (!output)
 			return false;
 
-		return rect_contains(x, y, output->x, output->y,
+		return rect_contains(x, y, output->pos.c.x, output->pos.c.y,
 				     output->width * output->scale,
 				     output->height * output->scale);
 	}
@@ -349,8 +349,8 @@ to_weston_coordinate(RdpPeerContext *peerContext, int32_t *x, int32_t *y)
 			sx *= scale;
 			sy *= scale;
 			/* translate x/y to offset of this output in weston space. */
-			sx += output->x;
-			sy += output->y;
+			sx += output->pos.c.x;
+			sy += output->pos.c.y;
 			rdp_debug_verbose(b, "%s: (x:%d, y:%d) -> (sx:%d, sy:%d) at head:%s\n",
 					  __func__, *x, *y, sx, sy, head->base.name);
 			*x = sx;

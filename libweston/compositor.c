@@ -264,8 +264,8 @@ weston_mode_switch_send_events(struct weston_head *head,
 	}
 	wl_resource_for_each(resource, &head->xdg_output_resource_list) {
 		zxdg_output_v1_send_logical_position(resource,
-						     output->x,
-						     output->y);
+						     output->pos.c.x,
+						     output->pos.c.y);
 		zxdg_output_v1_send_logical_size(resource,
 						 output->width,
 						 output->height);
@@ -274,10 +274,11 @@ weston_mode_switch_send_events(struct weston_head *head,
 }
 
 WL_EXPORT bool
-weston_output_contains_point(struct weston_output *output,
-			     int32_t x, int32_t y)
+weston_output_contains_coord(struct weston_output *output,
+			     struct weston_coord_global pos)
 {
-	return pixman_region32_contains_point(&output->region, x, y, NULL);
+	return pixman_region32_contains_point(&output->region,
+					      pos.c.x, pos.c.y, NULL);
 }
 
 static void
@@ -294,7 +295,8 @@ weston_mode_switch_finish(struct weston_output *output,
 	/* Update output region and transformation matrix */
 	weston_output_transform_scale_init(output, output->transform, output->current_scale);
 
-	pixman_region32_init_rect(&output->region, output->x, output->y,
+	pixman_region32_init_rect(&output->region,
+				  output->pos.c.x, output->pos.c.y,
 				  output->width, output->height);
 
 	weston_output_update_matrix(output);
@@ -303,6 +305,7 @@ weston_mode_switch_finish(struct weston_output *output,
 	 * lower-right corner */
 	wl_list_for_each(seat, &output->compositor->seat_list, link) {
 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
+		double quantum = 1.0 / 1024.0;
 		int32_t x, y;
 
 		if (!pointer)
@@ -312,15 +315,14 @@ weston_mode_switch_finish(struct weston_output *output,
 		y = pointer->pos.c.y;
 		if (!pixman_region32_contains_point(&old_output_region,
 						    x, y, NULL) ||
-		    weston_output_contains_point(output, x, y))
+		    weston_output_contains_coord(output, pointer->pos))
 			continue;
 
-		if (x >= output->x + output->width)
-			x = output->x + output->width - 1;
-		if (y >= output->y + output->height)
-			y = output->y + output->height - 1;
+		if (pointer->pos.c.x >= output->pos.c.x + output->width - quantum)
+			pointer->pos.c.x = output->pos.c.x + output->width - quantum;
 
-		pointer->pos.c = weston_coord(x, y);
+		if (pointer->pos.c.y >= output->pos.c.y + output->height - quantum)
+			pointer->pos.c.y = output->pos.c.y + output->height - quantum;
 	}
 
 	pixman_region32_fini(&old_output_region);
@@ -1819,10 +1821,10 @@ weston_view_matches_output_entirely(struct weston_view *ev,
 
 	assert(!ev->transform.dirty);
 
-	if (extents->x1 != output->x ||
-	    extents->y1 != output->y ||
-	    extents->x2 != output->x + output->width ||
-	    extents->y2 != output->y + output->height)
+	if (extents->x1 != (int32_t)output->pos.c.x ||
+	    extents->y1 != (int32_t)output->pos.c.y ||
+	    extents->x2 != (int32_t)output->pos.c.x + output->width ||
+	    extents->y2 != (int32_t)output->pos.c.y + output->height)
 		return false;
 
 	return true;
@@ -5396,8 +5398,8 @@ bind_output(struct wl_client *client,
 				       unbind_resource);
 
 	wl_output_send_geometry(resource,
-				output->x,
-				output->y,
+				output->pos.c.x,
+				output->pos.c.y,
 				head->mm_width,
 				head->mm_height,
 				head->subpixel,
@@ -6381,10 +6383,9 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor,
 		}
 
 		if (start_resizing) {
-			struct weston_coord_global pos;
+			struct weston_coord_global pos = output->pos;
 
-			pos.c = weston_coord(output->x + delta_width,
-					     output->y);
+			pos.c.x += delta_width;
 			weston_output_set_position(output, pos);
 		}
 	}
@@ -6417,7 +6418,7 @@ weston_output_update_matrix(struct weston_output *output)
 	weston_output_dirty_paint_nodes(output);
 
 	weston_matrix_init_transform(&output->matrix, output->transform,
-				     output->x, output->y,
+				     output->pos.c.x, output->pos.c.y,
 				     output->width, output->height,
 				     output->current_scale);
 
@@ -6438,13 +6439,16 @@ weston_output_transform_scale_init(struct weston_output *output, uint32_t transf
 }
 
 static void
-weston_output_init_geometry(struct weston_output *output, int x, int y)
+weston_output_init_geometry(struct weston_output *output,
+			    struct weston_coord_global pos)
 {
-	output->x = x;
-	output->y = y;
+	output->pos = pos;
+	output->pos.c.x = (int)output->pos.c.x;
+	output->pos.c.y = (int)output->pos.c.y;
 
 	pixman_region32_fini(&output->region);
-	pixman_region32_init_rect(&output->region, x, y,
+	pixman_region32_init_rect(&output->region,
+				  output->pos.c.x, output->pos.c.y,
 				  output->width,
 				  output->height);
 }
@@ -6460,19 +6464,20 @@ weston_output_set_position(struct weston_output *output,
 	struct wl_resource *resource;
 	int ver;
 
+	output->pos.c.x = (int)output->pos.c.x;
+	output->pos.c.y = (int)output->pos.c.y;
+
 	if (!output->enabled) {
-		output->x = pos.c.x;
-		output->y = pos.c.y;
+		output->pos = pos;
 		return;
 	}
 
-	output->move_x = pos.c.x - output->x;
-	output->move_y = pos.c.y - output->y;
+	output->move.c = weston_coord_sub(pos.c, output->pos.c);
 
-	if (output->move_x == 0 && output->move_y == 0)
+	if (output->move.c.x == 0 && output->move.c.y == 0)
 		return;
 
-	weston_output_init_geometry(output, pos.c.x, pos.c.y);
+	weston_output_init_geometry(output, pos);
 
 	weston_output_update_matrix(output);
 
@@ -6483,8 +6488,8 @@ weston_output_set_position(struct weston_output *output,
 	wl_list_for_each(head, &output->head_list, output_link) {
 		wl_resource_for_each(resource, &head->resource_list) {
 			wl_output_send_geometry(resource,
-						output->x,
-						output->y,
+						output->pos.c.x,
+						output->pos.c.y,
 						head->mm_width,
 						head->mm_height,
 						head->subpixel,
@@ -6499,8 +6504,8 @@ weston_output_set_position(struct weston_output *output,
 
 		wl_resource_for_each(resource, &head->xdg_output_resource_list) {
 			zxdg_output_v1_send_logical_position(resource,
-							     output->x,
-							     output->y);
+							     output->pos.c.x,
+							     output->pos.c.y);
 			zxdg_output_v1_send_done(resource);
 		}
 	}
@@ -6851,7 +6856,7 @@ weston_output_set_transform(struct weston_output *output,
 	pixman_region32_init(&old_region);
 	pixman_region32_copy(&old_region, &output->region);
 
-	weston_output_init_geometry(output, output->x, output->y);
+	weston_output_init_geometry(output, output->pos);
 
 	weston_output_update_matrix(output);
 
@@ -6859,8 +6864,8 @@ weston_output_set_transform(struct weston_output *output,
 	wl_list_for_each(head, &output->head_list, output_link) {
 		wl_resource_for_each(resource, &head->resource_list) {
 			wl_output_send_geometry(resource,
-						output->x,
-						output->y,
+						output->pos.c.x,
+						output->pos.c.y,
 						head->mm_width,
 						head->mm_height,
 						head->subpixel,
@@ -6874,8 +6879,8 @@ weston_output_set_transform(struct weston_output *output,
 		}
 		wl_resource_for_each(resource, &head->xdg_output_resource_list) {
 			zxdg_output_v1_send_logical_position(resource,
-							     output->x,
-							     output->y);
+							     output->pos.c.x,
+							     output->pos.c.y);
 			zxdg_output_v1_send_logical_size(resource,
 							 output->width,
 							 output->height);
@@ -6884,8 +6889,8 @@ weston_output_set_transform(struct weston_output *output,
 	}
 
 	/* we must ensure that pointers are inside output, otherwise they disappear */
-	mid_x = output->x + output->width / 2;
-	mid_y = output->y + output->height / 2;
+	mid_x = output->pos.c.x + output->width / 2;
+	mid_y = output->pos.c.y + output->height / 2;
 
 	ev.mask = WESTON_POINTER_MOTION_ABS;
 	ev.abs.c = weston_coord(mid_x, mid_y);
@@ -7072,6 +7077,7 @@ weston_output_init(struct weston_output *output,
 		   struct weston_compositor *compositor,
 		   const char *name)
 {
+	output->pos.c = weston_coord(0, 0);
 	output->compositor = compositor;
 	output->destroying = 0;
 	output->name = strdup(name);
@@ -7261,7 +7267,7 @@ weston_output_enable(struct weston_output *output)
 
 	weston_output_transform_scale_init(output, output->transform, output->scale);
 
-	weston_output_init_geometry(output, output->x, output->y);
+	weston_output_init_geometry(output, output->pos);
 
 	/* At this point we have a valid region so we can check placement. */
 	if (!weston_output_placement_ok(output))
@@ -7717,7 +7723,9 @@ xdg_output_manager_get_xdg_output(struct wl_client *client,
 	wl_resource_set_implementation(resource, &xdg_output_interface,
 				       NULL, xdg_output_unlist);
 
-	zxdg_output_v1_send_logical_position(resource, output->x, output->y);
+	zxdg_output_v1_send_logical_position(resource,
+					     output->pos.c.x,
+					     output->pos.c.y);
 	zxdg_output_v1_send_logical_size(resource,
 					 output->width,
 					 output->height);
@@ -8340,14 +8348,16 @@ weston_compositor_print_scene_graph(struct weston_compositor *ec)
 	wl_list_for_each(output, &ec->output_list, link) {
 		struct weston_head *head;
 		int head_idx = 0;
+		int x, y;
 
 		fprintf(fp, "Output %d (%s):\n", output->id, output->name);
 		assert(output->enabled);
 
+		x = output->pos.c.x;
+		y = output->pos.c.y;
+
 		fprintf(fp, "\tposition: (%d, %d) -> (%d, %d)\n",
-			output->x, output->y,
-			output->x + output->width,
-			output->y + output->height);
+			x, y, x + output->width, y + output->height);
 		fprintf(fp, "\tmode: %dx%d@%.3fHz\n",
 			output->current_mode->width,
 			output->current_mode->height,

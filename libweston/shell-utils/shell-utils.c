@@ -141,7 +141,7 @@ weston_shell_utils_center_on_output(struct weston_view *view,
 	weston_shell_utils_subsurfaces_boundingbox(view->surface, &surf_x,
 						   &surf_y, &width, &height);
 
-	pos.c = weston_coord(output->x, output->y);
+	pos = output->pos;
 	pos.c.x += (output->width - width) / 2 - surf_x / 2;
 	pos.c.y += (output->height - height) / 2 - surf_y / 2;
 

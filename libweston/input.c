@@ -2147,18 +2147,19 @@ weston_pointer_clamp_for_output(struct weston_pointer *pointer,
 				struct weston_output *output,
 				struct weston_coord_global pos)
 {
+	double quantum = 1.0 / 1024.0;
 	struct weston_coord_global out = pos;
 	int x = pos.c.x;
 	int y = pos.c.y;
 
-	if (x < output->x)
-		out.c.x = output->x;
-	else if (x >= output->x + output->width)
-		out.c.x = output->x + output->width - 1;
-	if (y < output->y)
-		out.c.y = output->y;
-	else if (y >= output->y + output->height)
-		out.c.y = output->y + output->height - 1;
+	if (x < output->pos.c.x)
+		out.c.x = output->pos.c.x;
+	else if (x >= output->pos.c.x + output->width - quantum)
+		out.c.x = output->pos.c.x + output->width - quantum;
+	if (y < output->pos.c.y)
+		out.c.y = output->pos.c.y;
+	else if (y >= output->pos.c.y + output->height - quantum)
+		out.c.y = output->pos.c.y + output->height - quantum;
 
 	return out;
 }
@@ -2173,10 +2174,9 @@ weston_pointer_clamp(struct weston_pointer *pointer, struct weston_coord_global 
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (pointer->seat->output && pointer->seat->output != output)
 			continue;
-		if (weston_output_contains_point(output, pos.c.x, pos.c.y))
+		if (weston_output_contains_coord(output, pos))
 			valid = 1;
-		if (weston_output_contains_point(output, pointer->pos.c.x,
-						 pointer->pos.c.y))
+		if (weston_output_contains_coord(output, pointer->pos))
 			prev = output;
 	}
 
@@ -2237,13 +2237,17 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 	y = pointer->pos.c.y;
 
 	wl_list_for_each(output, &ec->output_list, link) {
-		if (weston_output_contains_point(output, x, y))
+		int ox, oy;
+
+		if (weston_output_contains_coord(output, pointer->pos))
 			return;
 
+		ox = output->pos.c.x;
+		oy = output->pos.c.y;
 		/* Aproximante the distance from the pointer to the center of
 		 * the output. */
-		distance = abs(output->x + output->width / 2 - x) +
-			   abs(output->y + output->height / 2 - y);
+		distance = abs(ox + output->width / 2 - x) +
+			   abs(oy + output->height / 2 - y);
 		if (distance < min) {
 			min = distance;
 			closest = output;
