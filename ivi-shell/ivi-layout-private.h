@@ -100,6 +100,10 @@ struct ivi_layout {
 	struct wl_list view_list;	/* ivi_layout_view::link */
 
 	struct {
+		struct wl_signal destroy_signal;
+	} shell_notification;
+
+	struct {
 		struct wl_signal created;
 		struct wl_signal removed;
 	} layer_notification;

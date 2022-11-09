@@ -587,6 +587,20 @@ struct ivi_layout_interface {
 	 */
 	int32_t (*screen_remove_layer)(struct weston_output *output,
 				       struct ivi_layout_layer *removelayer);
+
+	/**
+	 * \brief Add a shell destroy listener only once.
+	 *
+	 * The begining of shell destroying, this signal is emitted
+	 * to the listening controller plugins.
+	 * The null pointer sent as the void *data argument
+	 * to the wl_listener::notify callback function of the listener.
+	 *
+	 * \return IVI_SUCCEEDED if the method call was successful
+	 * \return IVI_FAILED if the method call was failed
+	 */
+	int32_t (*shell_add_destroy_listener_once)(struct wl_listener *listener, 
+				wl_notify_func_t destroy_handler);
 };
 
 static inline const struct ivi_layout_interface *

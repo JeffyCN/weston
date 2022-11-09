@@ -70,6 +70,7 @@
 
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
+#include "shared/signal.h"
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
@@ -1031,6 +1032,23 @@ ivi_layout_add_listener_configure_desktop_surface(struct wl_listener *listener)
 
 	wl_signal_add(&layout->surface_notification.configure_desktop_changed, listener);
 
+	return IVI_SUCCEEDED;
+}
+
+static int32_t
+ivi_layout_shell_add_destroy_listener_once(struct wl_listener *listener, wl_notify_func_t destroy_handler)
+{
+	struct ivi_layout *layout = get_instance();
+	if (!listener || !destroy_handler) {
+		weston_log("ivi_layout_shell_add_destroy_listener_once: invalid argument\n");
+		return IVI_FAILED;
+	}
+
+	if (wl_signal_get(&layout->shell_notification.destroy_signal, destroy_handler))
+		return IVI_FAILED;
+
+	listener->notify = destroy_handler;
+	wl_signal_add(&layout->shell_notification.destroy_signal, listener);
 	return IVI_SUCCEEDED;
 }
 
@@ -2064,6 +2082,15 @@ ivi_layout_surface_create(struct weston_surface *wl_surface,
 	return ivisurf;
 }
 
+void
+ivi_layout_ivi_shell_destroy(void)
+{
+	struct ivi_layout *layout = get_instance();
+
+	/* emit callback which is set by ivi-layout api user */
+	weston_signal_emit_mutable(&layout->shell_notification.destroy_signal, NULL);
+}
+
 static struct ivi_layout_interface ivi_layout_interface;
 
 void
@@ -2085,6 +2112,8 @@ ivi_layout_init_with_compositor(struct weston_compositor *ec)
 	wl_signal_init(&layout->surface_notification.removed);
 	wl_signal_init(&layout->surface_notification.configure_changed);
 	wl_signal_init(&layout->surface_notification.configure_desktop_changed);
+
+	wl_signal_init(&layout->shell_notification.destroy_signal);
 
 	/* Add layout_layer at the last of weston_compositor.layer_list */
 	weston_layer_init(&layout->layout_layer, ec);
@@ -2190,4 +2219,9 @@ static struct ivi_layout_interface ivi_layout_interface = {
 	 */
 	.surface_get_size		= ivi_layout_surface_get_size,
 	.surface_dump			= ivi_layout_surface_dump,
+
+	/**
+	 * shell interfaces
+	 */
+	.shell_add_destroy_listener_once = ivi_layout_shell_add_destroy_listener_once,
 };

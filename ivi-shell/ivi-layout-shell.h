@@ -68,4 +68,7 @@ int
 load_controller_modules(struct weston_compositor *compositor, const char *modules,
 			int *argc, char *argv[]);
 
+void
+ivi_layout_ivi_shell_destroy(void);
+
 #endif /* IVI_LAYOUT_SHELL_H */
