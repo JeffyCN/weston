@@ -415,7 +415,7 @@ drag_surface_configure(struct weston_drag *drag,
 		       struct weston_coord_surface new_origin)
 {
 	struct weston_layer_entry *list;
-	float fx, fy;
+	struct weston_coord_global pos;
 
 	assert((pointer != NULL && touch == NULL) ||
 			(pointer == NULL && touch != NULL));
@@ -440,15 +440,14 @@ drag_surface_configure(struct weston_drag *drag,
 	drag->offset.c = weston_coord_add(drag->offset.c, new_origin.c);
 
 	/* init to 0 for avoiding a compile warning */
-	fx = fy = 0;
-	if (pointer) {
-		fx = pointer->pos.c.x + drag->offset.c.x;
-		fy = pointer->pos.c.y + drag->offset.c.y;
-	} else if (touch) {
-		fx = wl_fixed_to_double(touch->grab_x) + drag->offset.c.x;
-		fy = wl_fixed_to_double(touch->grab_y) + drag->offset.c.y;
-	}
-	weston_view_set_position(drag->icon, fx, fy);
+	pos.c = weston_coord(0, 0);
+	if (pointer)
+		pos = pointer->pos;
+	else if (touch)
+		pos.c = weston_coord_from_fixed(touch->grab_x, touch->grab_y);
+
+	pos.c = weston_coord_add(pos.c, drag->offset.c);
+	weston_view_set_position(drag->icon, pos);
 }
 
 static int
@@ -617,15 +616,15 @@ drag_grab_motion(struct weston_pointer_grab *grab,
 	struct weston_pointer_drag *drag =
 		container_of(grab, struct weston_pointer_drag, grab);
 	struct weston_pointer *pointer = drag->grab.pointer;
-	float fx, fy;
 	uint32_t msecs;
 
 	weston_pointer_move(pointer, event);
 
 	if (drag->base.icon) {
-		fx = pointer->pos.c.x + drag->base.offset.c.x;
-		fy = pointer->pos.c.y + drag->base.offset.c.y;
-		weston_view_set_position(drag->base.icon, fx, fy);
+		struct weston_coord_global pos;
+
+		pos.c = weston_coord_add(pointer->pos.c, drag->base.offset.c);
+		weston_view_set_position(drag->base.icon, pos);
 		weston_view_schedule_repaint(drag->base.icon);
 	}
 
@@ -812,7 +811,6 @@ drag_grab_touch_motion(struct weston_touch_grab *grab,
 	struct weston_touch_drag *touch_drag =
 		container_of(grab, struct weston_touch_drag, grab);
 	struct weston_touch *touch = grab->touch;
-	float fx, fy;
 	uint32_t msecs;
 
 	if (touch_id != touch->grab_touch_id)
@@ -820,11 +818,11 @@ drag_grab_touch_motion(struct weston_touch_grab *grab,
 
 	drag_grab_touch_focus(touch_drag);
 	if (touch_drag->base.icon) {
-		fx = wl_fixed_to_double(touch->grab_x) +
-		     touch_drag->base.offset.c.x;
-		fy = wl_fixed_to_double(touch->grab_y) +
-		     touch_drag->base.offset.c.y;
-		weston_view_set_position(touch_drag->base.icon, fx, fy);
+		struct weston_coord_global pos;
+
+		pos.c = weston_coord_from_fixed(touch->grab_x, touch->grab_y);
+		pos.c = weston_coord_add(pos.c, touch_drag->base.offset.c);
+		weston_view_set_position(touch_drag->base.icon, pos);
 		weston_view_schedule_repaint(touch_drag->base.icon);
 	}
 

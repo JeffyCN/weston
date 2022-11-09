@@ -2151,11 +2151,11 @@ weston_view_destroy(struct weston_view *view);
 
 void
 weston_view_set_rel_position(struct weston_view *view,
-			     float x, float y);
+			     struct weston_coord_surface offset);
 
 void
 weston_view_set_position(struct weston_view *view,
-			 float x, float y);
+			 struct weston_coord_global pos);
 
 void
 weston_view_set_transform_parent(struct weston_view *view,

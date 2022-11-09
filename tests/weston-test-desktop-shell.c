@@ -86,6 +86,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_geometry geometry =
 		weston_desktop_surface_get_geometry(desktop_surface);
+	struct weston_coord_global pos;
 
 	assert(dts->view);
 
@@ -94,7 +95,10 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	weston_surface_map(surface);
 	weston_layer_entry_insert(&dts->layer.view_list, &dts->view->layer_link);
-	weston_view_set_position(dts->view, 0 - geometry.x, 0 - geometry.y);
+	pos.c = weston_coord(0, 0);
+	pos.c.x -= geometry.x;
+	pos.c.y -= geometry.y;
+	weston_view_set_position(dts->view, pos);
 	weston_view_update_transform(dts->view);
 	dts->view->is_mapped = true;
 }
@@ -195,6 +199,7 @@ wet_shell_init(struct weston_compositor *ec,
 		.get_label = background_get_label,
 		.surface_private = NULL,
 	};
+	struct weston_coord_global pos;
 
 	dts = zalloc(sizeof *dts);
 	if (!dts)
@@ -221,7 +226,8 @@ wet_shell_init(struct weston_compositor *ec,
 	weston_surface_set_role(dts->background->view->surface,
 				"test-desktop background", NULL, 0);
 
-	weston_view_set_position(dts->background->view, 0, 0);
+	pos.c = weston_coord(0, 0);
+	weston_view_set_position(dts->background->view, pos);
 	weston_layer_entry_insert(&dts->background_layer.view_list,
 				  &dts->background->view->layer_link);
 	weston_view_update_transform(dts->background->view);

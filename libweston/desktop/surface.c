@@ -81,27 +81,35 @@ static void
 weston_desktop_surface_update_view_position(struct weston_desktop_surface *surface)
 {
 	struct weston_desktop_view *view;
-	int32_t x, y;
-
-	x = surface->position.x;
-	y = surface->position.y;
 
 	if (surface->use_geometry) {
 		struct weston_desktop_surface *parent =
 			weston_desktop_surface_get_parent(surface);
 		struct weston_geometry geometry, parent_geometry;
+		struct weston_coord offset;
+
+		offset = weston_coord(surface->position.x, surface->position.y);
 
 		geometry = weston_desktop_surface_get_geometry(surface);
 		parent_geometry = weston_desktop_surface_get_geometry(parent);
 
-		x += parent_geometry.x - geometry.x;
-		y += parent_geometry.y - geometry.y;
+		offset.x += parent_geometry.x - geometry.x;
+		offset.y += parent_geometry.y - geometry.y;
+		wl_list_for_each(view, &surface->view_list, link) {
+			struct weston_view *wv = view->view;
+			struct weston_coord_surface surf_offset;
+
+			surf_offset.c = offset;
+			surf_offset.coordinate_space_id = wv->geometry.parent->surface;
+			weston_view_set_rel_position(wv, surf_offset);
+		}
+	} else {
+		struct weston_coord_global pos;
+
+		pos.c = weston_coord(surface->position.x, surface->position.y);
 
 		wl_list_for_each(view, &surface->view_list, link)
-			weston_view_set_rel_position(view->view, x, y);
-	} else {
-		wl_list_for_each(view, &surface->view_list, link)
-			weston_view_set_position(view->view, x, y);
+			weston_view_set_position(view->view, pos);
 	}
 }
 

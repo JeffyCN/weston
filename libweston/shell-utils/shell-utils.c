@@ -130,20 +130,22 @@ weston_shell_utils_center_on_output(struct weston_view *view,
 				    struct weston_output *output)
 {
 	int32_t surf_x, surf_y, width, height;
-	float x, y;
+	struct weston_coord_global pos;
 
 	if (!output) {
-		weston_view_set_position(view, 0, 0);
+		pos.c = weston_coord(0, 0);
+		weston_view_set_position(view, pos);
 		return;
 	}
 
 	weston_shell_utils_subsurfaces_boundingbox(view->surface, &surf_x,
 						   &surf_y, &width, &height);
 
-	x = output->x + (output->width - width) / 2 - surf_x / 2;
-	y = output->y + (output->height - height) / 2 - surf_y / 2;
+	pos.c = weston_coord(output->x, output->y);
+	pos.c.x += (output->width - width) / 2 - surf_x / 2;
+	pos.c.y += (output->height - height) / 2 - surf_y / 2;
 
-	weston_view_set_position(view, x, y);
+	weston_view_set_position(view, pos);
 }
 
 /**
@@ -177,6 +179,7 @@ weston_shell_utils_curtain_create(struct weston_compositor *compositor,
 	struct weston_surface *surface = NULL;
 	struct weston_buffer_reference *buffer_ref;
 	struct weston_view *view;
+	struct weston_coord_global pos;
 
 	curtain = zalloc(sizeof(*curtain));
 	if (curtain == NULL)
@@ -218,7 +221,8 @@ weston_shell_utils_curtain_create(struct weston_compositor *compositor,
 
 	weston_surface_map(surface);
 
-	weston_view_set_position(view, params->x, params->y);
+	pos.c = weston_coord(params->x, params->y);
+	weston_view_set_position(view, pos);
 
 	return curtain;
 

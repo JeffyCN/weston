@@ -781,12 +781,14 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 			weston_shell_utils_center_on_output(shsurf->view,
 							    shsurf->output);
 		} else {
+			struct weston_coord_global tmp;
 			struct weston_geometry geometry =
 				weston_desktop_surface_get_geometry(desktop_surface);
 			float x = shsurf->xwayland.x - geometry.x;
 			float y = shsurf->xwayland.y - geometry.y;
 
-			weston_view_set_position(shsurf->view, x, y);
+			tmp.c = weston_coord(x, y);
+			weston_view_set_position(shsurf->view, tmp);
 		}
 
 		weston_view_update_transform(shsurf->view);
@@ -822,7 +824,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		pos.c = weston_coord_add(shsurf->view->geometry.pos_offset,
 					 offset.c);
 
-		weston_view_set_position(shsurf->view, pos.c.x, pos.c.y);
+		weston_view_set_position(shsurf->view, pos);
 		weston_view_update_transform(shsurf->view);
 	}
 
@@ -1128,23 +1130,26 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		container_of(listener, struct kiosk_shell, output_moved_listener);
 	struct weston_output *output = data;
 	struct weston_view *view;
+	struct weston_coord_global pos;
 
 	wl_list_for_each(view, &shell->background_layer.view_list.link,
 			 layer_link.link) {
 		if (view->output != output)
 			continue;
-		weston_view_set_position(view,
-					 view->geometry.pos_offset.x + output->move_x,
-					 view->geometry.pos_offset.y + output->move_y);
+		pos.c = view->geometry.pos_offset;
+		pos.c.x += output->move_x;
+		pos.c.y += output->move_y;
+		weston_view_set_position(view, pos);
 	}
 
 	wl_list_for_each(view, &shell->normal_layer.view_list.link,
 			 layer_link.link) {
 		if (view->output != output)
 			continue;
-		weston_view_set_position(view,
-					 view->geometry.pos_offset.x + output->move_x,
-					 view->geometry.pos_offset.y + output->move_y);
+		pos.c = view->geometry.pos_offset;
+		pos.c.x += output->move_x;
+		pos.c.x += output->move_y;
+		weston_view_set_position(view, pos);
 	}
 }
 

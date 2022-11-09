@@ -1584,29 +1584,32 @@ weston_surface_damage(struct weston_surface *surface)
 }
 
 WL_EXPORT void
-weston_view_set_rel_position(struct weston_view *view, float x, float y)
+weston_view_set_rel_position(struct weston_view *view,
+			     struct weston_coord_surface offset)
 {
 	assert(view->geometry.parent);
+	assert(offset.coordinate_space_id == view->geometry.parent->surface);
 
-	if (view->geometry.pos_offset.x == x &&
-	    view->geometry.pos_offset.y == y)
+	if (view->geometry.pos_offset.x == offset.c.x &&
+	    view->geometry.pos_offset.y == offset.c.y)
 		return;
 
-	view->geometry.pos_offset = weston_coord(x, y);
+	view->geometry.pos_offset = offset.c;
 	weston_view_geometry_dirty(view);
 }
 
 WL_EXPORT void
-weston_view_set_position(struct weston_view *view, float x, float y)
+weston_view_set_position(struct weston_view *view,
+			 struct weston_coord_global pos)
 {
 	assert(view->surface->committed != subsurface_committed);
 	assert(!view->geometry.parent);
 
-	if (view->geometry.pos_offset.x == x &&
-	    view->geometry.pos_offset.y == y)
+	if (view->geometry.pos_offset.x == pos.c.x &&
+	    view->geometry.pos_offset.y == pos.c.y)
 		return;
 
-	view->geometry.pos_offset = weston_coord(x, y);
+	view->geometry.pos_offset = pos.c;
 	weston_view_geometry_dirty(view);
 }
 
@@ -2901,9 +2904,7 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 	} else {
 		view = weston_view_create(sub->surface);
 		weston_view_set_transform_parent(view, parent);
-		weston_view_set_rel_position(view,
-					     sub->position.offset.c.x,
-					     sub->position.offset.c.y);
+		weston_view_set_rel_position(view, sub->position.offset);
 	}
 
 	view->parent_view = parent;
@@ -4524,8 +4525,7 @@ weston_subsurface_parent_commit(struct weston_subsurface *sub,
 	if (sub->position.changed) {
 		wl_list_for_each(view, &sub->surface->views, surface_link)
 			weston_view_set_rel_position(view,
-						     sub->position.offset.c.x,
-						     sub->position.offset.c.y);
+						     sub->position.offset);
 
 		sub->position.changed = false;
 	}
@@ -4546,8 +4546,10 @@ subsurface_committed(struct weston_surface *surface,
 {
 	struct weston_view *view;
 
+	assert(new_origin.coordinate_space_id == surface);
+
 	wl_list_for_each(view, &surface->views, surface_link) {
-		struct weston_coord_surface tmp = new_origin;
+		struct weston_coord_surface tmp;
 
 		if (!view->geometry.parent) {
 			weston_log_paced(&view->subsurface_parent_log_pacer,
@@ -4556,9 +4558,11 @@ subsurface_committed(struct weston_surface *surface,
 			continue;
 		}
 
-		tmp.c = weston_coord_add(tmp.c,
-					 view->geometry.pos_offset);
-		weston_view_set_rel_position(view, tmp.c.x, tmp.c.y);
+		tmp = weston_coord_surface(view->geometry.pos_offset.x,
+					   view->geometry.pos_offset.y,
+					   view->geometry.parent->surface);
+		tmp.c = weston_coord_add(tmp.c, new_origin.c);
+		weston_view_set_rel_position(view, tmp);
 	}
 	/* No need to check parent mappedness, because if parent is not
 	 * mapped, parent is not in a visible layer, so this sub-surface
@@ -4788,7 +4792,9 @@ subsurface_set_position(struct wl_client *client,
 	if (!sub)
 		return;
 
-	sub->position.offset = weston_coord_surface(x, y, sub->surface);
+	assert(sub->parent);
+
+	sub->position.offset = weston_coord_surface(x, y, sub->parent);
 	sub->position.changed = true;
 }
 
@@ -5048,7 +5054,7 @@ weston_subsurface_create(uint32_t id, struct weston_surface *surface,
 		return NULL;
 	}
 
-	sub->position.offset = weston_coord_surface(0, 0, surface);
+	sub->position.offset = weston_coord_surface(0, 0, parent);
 
 	wl_resource_set_implementation(sub->resource,
 				       &subsurface_implementation,

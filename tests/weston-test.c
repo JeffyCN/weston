@@ -157,13 +157,14 @@ test_surface_committed(struct weston_surface *surface,
 {
 	struct weston_test_surface *test_surface = surface->committed_private;
 	struct weston_test *test = test_surface->test;
+	struct weston_coord_global pos;
 
 	if (wl_list_empty(&test_surface->view->layer_link.link))
 		weston_layer_entry_insert(&test->layer.view_list,
 					  &test_surface->view->layer_link);
 
-	weston_view_set_position(test_surface->view,
-				 test_surface->x, test_surface->y);
+	pos.c = weston_coord(test_surface->x, test_surface->y);
+	weston_view_set_position(test_surface->view, pos);
 
 	weston_view_update_transform(test_surface->view);
 

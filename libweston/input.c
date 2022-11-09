@@ -1863,9 +1863,10 @@ weston_tablet_tool_cursor_move(struct weston_tablet_tool *tool,
 	tool->pos = pos;
 
 	if (tool->sprite) {
-		weston_view_set_position(tool->sprite,
-					 pos.c.x - tool->hotspot.c.x,
-					 pos.c.y - tool->hotspot.c.y);
+		struct weston_coord_global hotspot;
+
+		hotspot.c = weston_coord_sub(pos.c, tool->hotspot.c);
+		weston_view_set_position(tool->sprite, hotspot);
 		weston_view_schedule_repaint(tool->sprite);
 	}
 }
@@ -2197,9 +2198,9 @@ weston_pointer_move_to(struct weston_pointer *pointer,
 	pointer->pos = pos;
 
 	if (pointer->sprite) {
-		weston_view_set_position(pointer->sprite,
-					 pos.c.x - pointer->hotspot.c.x,
-					 pos.c.y - pointer->hotspot.c.y);
+		pos.c = weston_coord_sub(pointer->pos.c,
+					 pointer->hotspot.c);
+		weston_view_set_position(pointer->sprite, pos);
 		weston_view_schedule_repaint(pointer->sprite);
 	}
 
@@ -3241,7 +3242,7 @@ tablet_tool_cursor_surface_committed(struct weston_surface *es,
 	tool->hotspot.c = weston_coord_sub(tool->hotspot.c, new_origin.c);
 	pos.c = weston_coord_sub(tool->pos.c, tool->hotspot.c);
 
-	weston_view_set_position(tool->sprite, pos.c.x, pos.c.y);
+	weston_view_set_position(tool->sprite, pos);
 
 	empty_region(&es->pending.input);
 	empty_region(&es->input);
@@ -3537,7 +3538,7 @@ pointer_cursor_surface_committed(struct weston_surface *es,
 					      new_origin.c);
 	pos.c = weston_coord_sub(pointer->pos.c, pointer->hotspot.c);
 
-	weston_view_set_position(pointer->sprite, pos.c.x, pos.c.y);
+	weston_view_set_position(pointer->sprite, pos);
 
 	empty_region(&es->pending.input);
 	empty_region(&es->input);

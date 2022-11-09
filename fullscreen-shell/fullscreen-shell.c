@@ -365,7 +365,6 @@ restore_output_mode(struct weston_output *output)
 static void
 fs_output_scale_view(struct fs_output *fsout, float width, float height)
 {
-	float x, y;
 	int32_t surf_x, surf_y, surf_width, surf_height;
 	struct weston_matrix *matrix;
 	struct weston_view *view = fsout->view;
@@ -375,10 +374,15 @@ fs_output_scale_view(struct fs_output *fsout, float width, float height)
 						   &surf_width, &surf_height);
 
 	if (output->width == surf_width && output->height == surf_height) {
-		weston_view_set_position(view,
-					 fsout->output->x - surf_x,
-					 fsout->output->y - surf_y);
+		struct weston_coord_global pos;
+
+		pos.c = weston_coord(fsout->output->x, fsout->output->y);
+		pos.c.x -= surf_x;
+		pos.c.y -= surf_y;
+		weston_view_set_position(view, pos);
 	} else {
+		struct weston_coord_global pos;
+
 		matrix = &fsout->transform.matrix;
 		weston_matrix_init(matrix);
 
@@ -388,10 +392,11 @@ fs_output_scale_view(struct fs_output *fsout, float width, float height)
 		wl_list_insert(&fsout->view->geometry.transformation_list,
 			       &fsout->transform.link);
 
-		x = output->x + (output->width - width) / 2 - surf_x;
-		y = output->y + (output->height - height) / 2 - surf_y;
+		pos.c = weston_coord(output->x, output->y);
+		pos.c.x += (output->width - width) / 2 - surf_x;
+		pos.c.y += (output->height - height) / 2 - surf_y;
 
-		weston_view_set_position(view, x, y);
+		weston_view_set_position(view, pos);
 	}
 }
 
@@ -405,6 +410,7 @@ fs_output_configure_simple(struct fs_output *fsout,
 	struct weston_output *output = fsout->output;
 	float output_aspect, surface_aspect;
 	int32_t surf_x, surf_y, surf_width, surf_height;
+	struct weston_coord_global pos;
 
 	if (fsout->pending.surface == configured_surface)
 		fs_output_apply_pending(fsout);
@@ -458,9 +464,10 @@ fs_output_configure_simple(struct fs_output *fsout,
 		break;
 	}
 
-	weston_view_set_position(fsout->curtain->view,
-				 fsout->output->x - surf_x,
-				 fsout->output->y - surf_y);
+	pos.c = weston_coord(fsout->output->x, fsout->output->y);
+	pos.c.x -= surf_x;
+	pos.c.y -= surf_y;
+	weston_view_set_position(fsout->curtain->view, pos);
 	weston_surface_set_size(fsout->curtain->view->surface,
 				fsout->output->width,
 				fsout->output->height);
@@ -472,6 +479,7 @@ fs_output_configure_for_mode(struct fs_output *fsout,
 {
 	int32_t surf_x, surf_y, surf_width, surf_height;
 	struct weston_mode mode;
+	struct weston_coord_global pos;
 	int ret;
 
 	if (fsout->pending.surface != configured_surface) {
@@ -536,9 +544,10 @@ fs_output_configure_for_mode(struct fs_output *fsout,
 
 	fs_output_apply_pending(fsout);
 
-	weston_view_set_position(fsout->view,
-				 fsout->output->x - surf_x,
-				 fsout->output->y - surf_y);
+	pos.c = weston_coord(fsout->output->x, fsout->output->y);
+	pos.c.x -= surf_x;
+	pos.c.y -= surf_y;
+	weston_view_set_position(fsout->view, pos);
 }
 
 static void
