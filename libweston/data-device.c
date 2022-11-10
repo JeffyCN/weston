@@ -587,7 +587,7 @@ drag_grab_focus_internal(struct weston_drag *drag, struct weston_seat *seat,
 		return;
 
 	if (view) {
-		weston_view_to_global_fixed(view, x, y, &sx, &sy);
+		weston_view_from_global_fixed(view, x, y, &sx, &sy);
 		weston_drag_set_focus(drag, seat, view, sx, sy);
 	} else
 		weston_drag_clear_focus(drag);
