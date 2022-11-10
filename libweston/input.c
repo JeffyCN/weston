@@ -542,6 +542,7 @@ weston_pointer_send_motion(struct weston_pointer *pointer,
 	wl_fixed_t x, y;
 	wl_fixed_t old_sx;
 	wl_fixed_t old_sy;
+	struct weston_view *old_focus = pointer->focus;
 
 	if (pointer->focus) {
 		weston_pointer_motion_to_abs(pointer, event, &x, &y);
@@ -553,7 +554,7 @@ weston_pointer_send_motion(struct weston_pointer *pointer,
 
 	weston_pointer_move(pointer, event);
 
-	if (pointer->focus &&
+	if (pointer->focus && old_focus == pointer->focus &&
 	    (old_sx != pointer->sx || old_sy != pointer->sy)) {
 		pointer_send_motion(pointer, time,
 				    pointer->sx, pointer->sy);
