@@ -884,9 +884,12 @@ hmi_controller_create(struct weston_compositor *ec)
 	hmi_ctrl->desktop_surface_configured.notify = set_notification_configure_desktop_surface;
 	hmi_ctrl->interface->add_listener_configure_desktop_surface(&hmi_ctrl->desktop_surface_configured);
 
-	hmi_ctrl->destroy_listener.notify = hmi_controller_destroy;
-	wl_signal_add(&hmi_ctrl->compositor->destroy_signal,
-		      &hmi_ctrl->destroy_listener);
+	if(hmi_ctrl->interface->shell_add_destroy_listener_once(&hmi_ctrl->destroy_listener,
+				hmi_controller_destroy) == IVI_FAILED){
+		hmi_controller_destroy(&hmi_ctrl->destroy_listener, NULL);
+		return NULL;
+	}
+
 
 	return hmi_ctrl;
 }
@@ -1977,10 +1980,6 @@ wet_module_init(struct weston_compositor *ec,
 {
 	struct hmi_controller *hmi_ctrl = NULL;
 	struct wl_event_loop *loop = NULL;
-
-	/* ad hoc weston_compositor_add_destroy_listener_once() */
-	if (wl_signal_get(&ec->destroy_signal, hmi_controller_destroy))
-		return 0;
 
 	hmi_ctrl = hmi_controller_create(ec);
 	if (hmi_ctrl == NULL)
