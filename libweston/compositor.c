@@ -655,14 +655,7 @@ weston_view_to_global_float(struct weston_view *view,
 
 	weston_matrix_transform(&view->transform.matrix, &v);
 
-	if (fabsf(v.f[3]) < 1e-6) {
-		weston_log("warning: numerical instability in "
-			"%s(), divisor = %g\n", __func__,
-			v.f[3]);
-		*x = 0;
-		*y = 0;
-		return;
-	}
+	assert(fabs(v.f[3]) > 1e-6);
 
 	*x = v.f[0] / v.f[3];
 	*y = v.f[1] / v.f[3];
@@ -1468,14 +1461,7 @@ weston_view_from_global_float(struct weston_view *view,
 
 	weston_matrix_transform(&view->transform.inverse, &v);
 
-	if (fabsf(v.f[3]) < 1e-6) {
-		weston_log("warning: numerical instability in "
-			"weston_view_from_global(), divisor = %g\n",
-			v.f[3]);
-		*vx = 0;
-		*vy = 0;
-		return;
-	}
+	assert(fabs(v.f[3]) > 1e-6);
 
 	*vx = v.f[0] / v.f[3];
 	*vy = v.f[1] / v.f[3];
