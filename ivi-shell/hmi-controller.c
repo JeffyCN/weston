@@ -758,6 +758,10 @@ hmi_controller_destroy(struct wl_listener *listener, void *data)
 		free(ctrl_layer_link);
 	}
 
+	wl_list_remove(&hmi_ctrl->surface_removed.link);
+	wl_list_remove(&hmi_ctrl->surface_configured.link);
+	wl_list_remove(&hmi_ctrl->desktop_surface_configured.link);
+
 	wl_array_release(&hmi_ctrl->ui_widgets);
 	free(hmi_ctrl->hmi_setting);
 	free(hmi_ctrl);
