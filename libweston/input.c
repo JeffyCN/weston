@@ -463,9 +463,10 @@ default_grab_pointer_focus(struct weston_pointer_grab *grab)
 
 	view = weston_compositor_pick_view(pointer->seat->compositor,
 					   pointer->x, pointer->y);
-	if (view) {
-		weston_view_to_global_fixed(view, pointer->x, pointer->y,
-					    &sx, &sy);
+
+	if (view && view == pointer->focus) {
+		weston_view_from_global_fixed(view, pointer->x, pointer->y,
+					      &sx, &sy);
 		if (pointer->sx != sx || pointer->sy != sy)
 			surface_jump = true;
 	}
