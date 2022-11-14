@@ -43,6 +43,10 @@ foreach name : [ 'egl', 'glesv2' ]
 		error('gl-renderer requires @0@ which was not found. Or, you can use \'-Drenderer-gl=false\'.'.format(name))
 	endif
 	deps_renderer_gl += d
+
+	if cc.has_function('glTexImage3D', dependencies: d)
+	config_h.set('HAVE_GLES3', 1)
+	endif
 endforeach
 
 plugin_gl = shared_library(
