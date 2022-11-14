@@ -177,7 +177,7 @@ static bool
 gl_3d_lut(struct gl_renderer_color_transform *gl_xform,
 	  struct weston_color_transform *xform)
 {
-
+#ifdef HAVE_GLES3
 	GLuint tex3d;
 	float *lut;
 	const unsigned dim_size = xform->mapping.u.lut3d.optimal_len;
@@ -211,6 +211,9 @@ gl_3d_lut(struct gl_renderer_color_transform *gl_xform,
 	free(lut);
 
 	return true;
+#else
+	return false;
+#endif
 }
 
 
