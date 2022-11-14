@@ -381,6 +381,10 @@ gl_renderer_color_transform_create_3dlut(struct gl_renderer *gr,
 	float len_lut3d;
 	bool ok;
 
+#ifndef HAVE_GLES3
+	goto err;
+#endif
+
 	/**
 	 * These are values that allow us to have good precision without
 	 * excessive memory consumption.
