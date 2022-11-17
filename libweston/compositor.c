@@ -1759,6 +1759,8 @@ weston_view_matches_output_entirely(struct weston_view *ev,
 	pixman_box32_t *extents =
 		pixman_region32_extents(&ev->transform.boundingbox);
 
+	assert(!ev->transform.dirty);
+
 	if (extents->x1 != output->x ||
 	    extents->y1 != output->y ||
 	    extents->x2 != output->x + output->width ||
@@ -2636,6 +2638,8 @@ view_accumulate_damage(struct weston_view *view,
 		       pixman_region32_t *opaque)
 {
 	pixman_region32_t damage;
+
+	assert(!view->transform.dirty);
 
 	pixman_region32_init(&damage);
 	if (view->transform.enabled) {
