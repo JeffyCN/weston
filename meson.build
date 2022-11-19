@@ -44,6 +44,7 @@ dir_data_pc = join_paths(dir_data, 'pkgconfig')
 dir_lib_pc = join_paths(dir_lib, 'pkgconfig')
 dir_man = join_paths(dir_prefix, get_option('mandir'))
 dir_protocol_libweston = join_paths('libweston-@0@'.format(libweston_major), 'protocols')
+dir_sysconf = join_paths(dir_prefix, get_option('sysconfdir'))
 
 public_inc = include_directories('include')
 common_inc = [ include_directories('.'), public_inc ]
@@ -176,6 +177,7 @@ subdir('wcap')
 subdir('tests')
 subdir('data')
 subdir('man')
+subdir('pam')
 
 configure_file(output: 'config.h', configuration: config_h)
 
