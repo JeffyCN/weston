@@ -10,6 +10,7 @@ deps_libweston = [
 srcs_libweston = [
 	git_version_h,
 	'animation.c',
+	'auth.c',
 	'bindings.c',
 	'clipboard.c',
 	'color.c',
@@ -79,6 +80,18 @@ if get_option('renderer-gl')
 		error('libweston + gl-renderer requires egl which was not found. Or, you can use \'-Drenderer-gl=false\'.')
 	endif
 	deps_libweston += dep_egl
+endif
+
+if get_option('backend-vnc')
+	dep_pam = dependency('pam', required: false)
+	if not dep_pam.found()
+		dep_pam = cc.find_library('pam')
+	endif
+	if not dep_pam.found()
+		error('VNC backend requires libpam which was not found. Or, you can use \'-Dbackend-vnc=false\'.')
+	endif
+	config_h.set('HAVE_PAM', '1')
+	deps_libweston += dep_pam
 endif
 
 lib_weston = shared_library(
