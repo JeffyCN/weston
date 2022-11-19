@@ -44,6 +44,7 @@ dir_data_pc = join_paths(dir_data, 'pkgconfig')
 dir_lib_pc = join_paths(dir_lib, 'pkgconfig')
 dir_man = join_paths(dir_prefix, get_option('mandir'))
 dir_protocol_libweston = join_paths('libweston-@0@'.format(libweston_major), 'protocols')
+dir_sysconf = join_paths(dir_prefix, get_option('sysconfdir'))
 
 public_inc = include_directories('include')
 common_inc = [ include_directories('.'), public_inc ]
@@ -170,6 +171,7 @@ subdir('wcap')
 subdir('tests')
 subdir('data')
 subdir('man')
+subdir('pam')
 
 if meson.version().version_compare('>= 0.58.0')
 	devenv = environment()

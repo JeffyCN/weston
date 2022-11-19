@@ -490,4 +490,9 @@ wl_data_device_manager_init(struct wl_display *display);
 bool
 weston_output_set_color_outcome(struct weston_output *output);
 
+/* User authentication for remote backends */
+
+bool
+weston_authenticate_user(const char *username, const char *password);
+
 #endif
