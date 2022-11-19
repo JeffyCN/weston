@@ -19,8 +19,8 @@ the graphical content, depending on what is supported by the VNC client.
 The VNC backend is not multi-seat aware, so if a second client connects to the
 backend, the first client will be disconnected.
 
-Note that authentication is not supported yet. Anyone with access to the port
-can get control of the desktop via the VNC output.
+The VNC client has to authenticate as the user running weston. This requires a PAM configuration file
+.BR /etc/pam.d/weston-remote-access .
 
 .\" ***************************************************************
 .SH CONFIGURATION

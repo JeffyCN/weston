@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <linux/input.h>
 #include <netinet/in.h>
+#include <pwd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -409,6 +410,19 @@ vnc_pointer_event(struct nvnc_client *client, uint16_t x, uint16_t y,
 	peer->last_button_mask = button_mask;
 
 	notify_pointer_frame(peer->seat);
+}
+
+static bool
+vnc_handle_auth(const char *username, const char *password, void *userdata)
+{
+	struct passwd *pw = getpwnam(username);
+
+	if (!pw || pw->pw_uid != getuid()) {
+		weston_log("VNC: wrong user '%s'\n", username);
+		return false;
+	}
+
+	return weston_authenticate_user(username, password);
 }
 
 static void
@@ -997,29 +1011,33 @@ vnc_backend_create(struct weston_compositor *compositor,
 	nvnc_set_userdata(backend->server, backend, NULL);
 	nvnc_set_name(backend->server, "Weston VNC backend");
 
-	if (config->server_cert || config->server_key) {
-		if (!nvnc_has_auth()) {
-			weston_log("Neat VNC built without TLS support\n");
-			goto err_output;
-		}
-		if (!config->server_cert) {
-			weston_log("Missing TLS certificate (--vnc-tls-cert)\n");
-			goto err_output;
-		}
-		if (!config->server_key) {
-			weston_log("Missing TLS key (--vnc-tls-key)\n");
-			goto err_output;
-		}
-
-		ret = nvnc_enable_auth(backend->server, config->server_key,
-				       config->server_cert, NULL, NULL);
-		if (ret) {
-			weston_log("Failed to enable TLS support\n");
-			goto err_output;
-		}
-
-		weston_log("TLS support activated\n");
+	if (!nvnc_has_auth()) {
+		weston_log("Neat VNC built without TLS support\n");
+		goto err_output;
 	}
+	if (!config->server_cert && !config->server_key) {
+		weston_log("The VNC backend requires a key and a certificate for TLS security"
+			   " (--vnc-tls-cert/--vnc-tls-key)\n");
+		goto err_output;
+	}
+	if (!config->server_cert) {
+		weston_log("Missing TLS certificate (--vnc-tls-cert)\n");
+		goto err_output;
+	}
+	if (!config->server_key) {
+		weston_log("Missing TLS key (--vnc-tls-key)\n");
+		goto err_output;
+	}
+
+	ret = nvnc_enable_auth(backend->server, config->server_key,
+			       config->server_cert, vnc_handle_auth,
+			       NULL);
+	if (ret) {
+		weston_log("Failed to enable TLS support\n");
+		goto err_output;
+	}
+
+	weston_log("TLS support activated\n");
 
 	ret = weston_plugin_api_register(compositor, WESTON_VNC_OUTPUT_API_NAME,
 					 &api, sizeof(api));
