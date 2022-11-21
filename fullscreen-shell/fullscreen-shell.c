@@ -363,22 +363,6 @@ restore_output_mode(struct weston_output *output)
 }
 
 static void
-fs_output_center_view(struct fs_output *fsout)
-{
-	int32_t surf_x, surf_y, surf_width, surf_height;
-	float x, y;
-	struct weston_output *output = fsout->output;
-
-	surface_subsurfaces_boundingbox(fsout->view->surface, &surf_x, &surf_y,
-					&surf_width, &surf_height);
-
-	x = output->x + (output->width - surf_width) / 2 - surf_x / 2;
-	y = output->y + (output->height - surf_height) / 2 - surf_y / 2;
-
-	weston_view_set_position(fsout->view, x, y);
-}
-
-static void
 fs_output_scale_view(struct fs_output *fsout, float width, float height)
 {
 	float x, y;
@@ -442,7 +426,7 @@ fs_output_configure_simple(struct fs_output *fsout,
 	switch (fsout->method) {
 	case ZWP_FULLSCREEN_SHELL_V1_PRESENT_METHOD_DEFAULT:
 	case ZWP_FULLSCREEN_SHELL_V1_PRESENT_METHOD_CENTER:
-		fs_output_center_view(fsout);
+		center_on_output(fsout->view, fsout->output);
 		break;
 
 	case ZWP_FULLSCREEN_SHELL_V1_PRESENT_METHOD_ZOOM:
@@ -493,7 +477,7 @@ fs_output_configure_for_mode(struct fs_output *fsout,
 	if (fsout->pending.surface != configured_surface) {
 		/* Nothing to really reconfigure.  We'll just recenter the
 		 * view in case they played with subsurfaces */
-		fs_output_center_view(fsout);
+		center_on_output(fsout->view, fsout->output);
 		return;
 	}
 
