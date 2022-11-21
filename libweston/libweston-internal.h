@@ -496,6 +496,19 @@ wl_data_device_manager_init(struct wl_display *display);
 bool
 weston_output_set_color_outcome(struct weston_output *output);
 
+void
+weston_surface_build_buffer_matrix(const struct weston_surface *surface,
+				   struct weston_matrix *matrix);
+
+void
+weston_output_update_matrix(struct weston_output *output);
+
+void
+convert_size_by_transform_scale(int32_t *width_out, int32_t *height_out,
+				int32_t width, int32_t height,
+				uint32_t transform,
+				int32_t scale);
+
 /* User authentication for remote backends */
 
 bool

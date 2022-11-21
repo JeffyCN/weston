@@ -91,9 +91,6 @@
 #define DEFAULT_REPAINT_WINDOW 7 /* milliseconds */
 
 static void
-weston_output_update_matrix(struct weston_output *output);
-
-static void
 weston_output_transform_scale_init(struct weston_output *output,
 				   uint32_t transform, uint32_t scale);
 
@@ -1854,7 +1851,7 @@ fixed_round_up_to_int(wl_fixed_t f)
 	return wl_fixed_to_int(wl_fixed_from_int(1) - 1 + f);
 }
 
-static void
+WESTON_EXPORT_FOR_TESTS void
 convert_size_by_transform_scale(int32_t *width_out, int32_t *height_out,
 				int32_t width, int32_t height,
 				uint32_t transform,
@@ -3724,7 +3721,7 @@ weston_surface_commit_subsurface_order(struct weston_surface *surface)
 	}
 }
 
-static void
+WESTON_EXPORT_FOR_TESTS void
 weston_surface_build_buffer_matrix(const struct weston_surface *surface,
 				   struct weston_matrix *matrix)
 {
@@ -6248,7 +6245,7 @@ weston_region_global_to_output(pixman_region32_t *dst,
 	weston_matrix_transform_region(dst, &output->matrix, src);
 }
 
-static void
+WESTON_EXPORT_FOR_TESTS void
 weston_output_update_matrix(struct weston_output *output)
 {
 	weston_matrix_init(&output->matrix);

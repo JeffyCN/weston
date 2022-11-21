@@ -284,3 +284,125 @@ TEST(transformation_matrix)
 	transform_expect(&a, true, WL_OUTPUT_TRANSFORM_NORMAL);
 	assert(!weston_matrix_needs_filtering(&a));
 }
+
+static void
+simple_weston_surface_prepare(struct weston_surface *surf,
+			      int buffer_width, int buffer_height,
+			      int surface_width, int surface_height,
+			      int scale, uint32_t transform,
+			      int src_x, int src_y,
+			      int src_width, int src_height)
+{
+	struct weston_buffer_viewport vp = {
+		.buffer = {
+			.transform = transform,
+			.scale = scale,
+			.src_x = wl_fixed_from_int(src_x),
+			.src_y = wl_fixed_from_int(src_y),
+			.src_width = wl_fixed_from_int(src_width),
+			.src_height = wl_fixed_from_int(src_height),
+			},
+		.surface = {
+			.width = surface_width,
+			.height = surface_height,
+		},
+	};
+	surf->buffer_viewport = vp;
+	convert_size_by_transform_scale(&surf->width_from_buffer,
+					&surf->height_from_buffer,
+					buffer_width,
+					buffer_height,
+					transform,
+					scale);
+	weston_surface_build_buffer_matrix(surf,
+					   &surf->surface_to_buffer_matrix);
+	weston_matrix_invert(&surf->buffer_to_surface_matrix,
+			     &surf->surface_to_buffer_matrix);
+}
+
+static void
+surface_test_all_transforms(struct weston_surface *surf,
+			    int buffer_width, int buffer_height,
+			    int surface_width, int surface_height,
+			    int scale, int src_x, int src_y,
+			    int src_width, int src_height)
+{
+	int transform;
+
+	for (transform = WL_OUTPUT_TRANSFORM_NORMAL;
+	     transform <= WL_OUTPUT_TRANSFORM_FLIPPED_270; transform++) {
+		simple_weston_surface_prepare(surf,
+					      buffer_width, buffer_height,
+					      surface_width, surface_height,
+					      scale, transform,
+					      src_x, src_y,
+					      src_width, src_height);
+		transform_expect(&surf->surface_to_buffer_matrix,
+				 true, transform);
+	}
+}
+
+TEST(surface_matrix_to_standard_transform)
+{
+	struct weston_surface surf;
+	int scale;
+
+	for (scale = 1; scale < 8; scale++) {
+		/* A simple case */
+		surface_test_all_transforms(&surf, 500, 700, -1, -1, scale,
+					    0, 0, 500, 700);
+		/* Translate the source corner */
+		surface_test_all_transforms(&surf, 500, 700, -1, -1, scale,
+					    70, 20, 500, 700);
+		/* Get some scaling (and fractional translation) in there */
+		surface_test_all_transforms(&surf, 723, 300, 512, 77, scale,
+					    120, 10, 200, 200);
+	}
+}
+
+static void
+simple_weston_output_prepare(struct weston_output *output,
+			     int x, int y, int width, int height,
+			     int scale, uint32_t transform)
+{
+	output->x = x;
+	output->y = y;
+	output->width = width;
+	output->height = height;
+	output->current_scale = scale;
+	output->transform = transform;
+	weston_output_update_matrix(output);
+}
+
+static void
+output_test_all_transforms(struct weston_output *output,
+			   int x, int y, int width, int height, int scale)
+{
+	int transform;
+
+	for (transform = WL_OUTPUT_TRANSFORM_NORMAL;
+	     transform <= WL_OUTPUT_TRANSFORM_FLIPPED_270; transform++) {
+		simple_weston_output_prepare(output, x, y, width, height,
+					      scale, transform);
+		/* The inverse matrix takes us from output to global space,
+		 * which makes it the one that will have the expected
+		 * standard transform.
+		 */
+		transform_expect(&output->matrix, true, transform);
+	}
+}
+
+TEST(output_matrix_to_standard_transform)
+{
+	struct weston_output output;
+	int scale;
+
+	/* Just a few arbitrary sizes and positions to make sure we have
+	 * scales and translations.
+	 */
+	for (scale = 1; scale < 8; scale++) {
+		output_test_all_transforms(&output, 0, 0, 1024, 768, scale);
+		output_test_all_transforms(&output, 1000, 1000, 1024, 768, scale);
+		output_test_all_transforms(&output, 1024, 768, 1920, 1080, scale);
+	}
+}
