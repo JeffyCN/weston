@@ -2,7 +2,7 @@ plugin_test_shell_desktop = shared_library(
 	'weston-test-desktop-shell',
 	'weston-test-desktop-shell.c',
 	include_directories: common_inc,
-	dependencies: [ dep_libweston_public, dep_libexec_weston, dep_shell_utils ],
+	dependencies: [ dep_libweston_public, dep_libexec_weston ],
 	name_prefix: '',
 	install: false
 )
@@ -266,7 +266,7 @@ tests = [
 		'sources': [
 		  'safe-signal-output-removal-test.c',
 		],
-		'dep_objs': [ dep_shell_utils ]
+		'dep_objs': [ dep_libweston_public ]
 	},
 ]
 

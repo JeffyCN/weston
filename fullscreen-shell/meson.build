@@ -7,7 +7,6 @@ if get_option('shell-fullscreen')
 	deps_shell_fullscreen = [
 		dep_libweston_public,
 		dep_libexec_weston,
-		dep_shell_utils,
 	]
 	shared_library(
 		'fullscreen-shell',

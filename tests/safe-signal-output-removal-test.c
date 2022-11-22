@@ -30,7 +30,7 @@
 #include <stdio.h>
 
 #include "../shared/signal.h"
-#include "shell-utils.h"
+#include <libweston/shell-utils.h>
 #include "weston-test-client-helper.h"
 #include "weston-test-fixture-compositor.h"
 
@@ -61,7 +61,7 @@ output_destroy(struct test_output *t_output)
        t_output->output_destroy_listener.notify = NULL;
 
        if (t_output->curtain)
-               weston_curtain_destroy(t_output->curtain);
+               weston_shell_utils_curtain_destroy(t_output->curtain);
 
        wl_list_remove(&t_output->output_destroy_listener.link);
        free(t_output);
@@ -88,8 +88,8 @@ output_create_view(struct test_output *t_output)
 	       .surface_private = NULL,
        };
 
-       t_output->curtain = weston_curtain_create(t_output->compositor,
-						 &curtain_params);
+       t_output->curtain = weston_shell_utils_curtain_create(t_output->compositor,
+							     &curtain_params);
        weston_view_set_output(t_output->curtain->view, t_output->output);
 
        /* weston_compositor_remove_output() has to be patched with

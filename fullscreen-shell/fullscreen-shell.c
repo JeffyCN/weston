@@ -37,7 +37,7 @@
 #include "compositor/weston.h"
 #include "fullscreen-shell-unstable-v1-server-protocol.h"
 #include "shared/helpers.h"
-#include "shell-utils.h"
+#include <libweston/shell-utils.h>
 
 struct fullscreen_shell {
 	struct wl_client *client;
@@ -241,7 +241,7 @@ create_curtain(struct weston_compositor *ec, struct fs_output *fsout,
 	};
 	struct weston_curtain *curtain;
 
-	curtain = weston_curtain_create(ec, &curtain_params);
+	curtain = weston_shell_utils_curtain_create(ec, &curtain_params);
 	if (!curtain) {
 		weston_log("no memory\n");
 		return NULL;
@@ -371,8 +371,8 @@ fs_output_scale_view(struct fs_output *fsout, float width, float height)
 	struct weston_view *view = fsout->view;
 	struct weston_output *output = fsout->output;
 
-	surface_subsurfaces_boundingbox(view->surface, &surf_x, &surf_y,
-					&surf_width, &surf_height);
+	weston_shell_utils_subsurfaces_boundingbox(view->surface, &surf_x, &surf_y,
+						   &surf_width, &surf_height);
 
 	if (output->width == surf_width && output->height == surf_height) {
 		weston_view_set_position(view,
@@ -416,9 +416,9 @@ fs_output_configure_simple(struct fs_output *fsout,
 	wl_list_remove(&fsout->transform.link);
 	wl_list_init(&fsout->transform.link);
 
-	surface_subsurfaces_boundingbox(fsout->view->surface,
-					&surf_x, &surf_y,
-					&surf_width, &surf_height);
+	weston_shell_utils_subsurfaces_boundingbox(fsout->view->surface,
+						   &surf_x, &surf_y,
+						   &surf_width, &surf_height);
 
 	output_aspect = (float) output->width / (float) output->height;
 	surface_aspect = (float) surf_width / (float) surf_height;
@@ -426,7 +426,7 @@ fs_output_configure_simple(struct fs_output *fsout,
 	switch (fsout->method) {
 	case ZWP_FULLSCREEN_SHELL_V1_PRESENT_METHOD_DEFAULT:
 	case ZWP_FULLSCREEN_SHELL_V1_PRESENT_METHOD_CENTER:
-		center_on_output(fsout->view, fsout->output);
+		weston_shell_utils_center_on_output(fsout->view, fsout->output);
 		break;
 
 	case ZWP_FULLSCREEN_SHELL_V1_PRESENT_METHOD_ZOOM:
@@ -477,14 +477,14 @@ fs_output_configure_for_mode(struct fs_output *fsout,
 	if (fsout->pending.surface != configured_surface) {
 		/* Nothing to really reconfigure.  We'll just recenter the
 		 * view in case they played with subsurfaces */
-		center_on_output(fsout->view, fsout->output);
+		weston_shell_utils_center_on_output(fsout->view, fsout->output);
 		return;
 	}
 
 	/* We have a pending surface */
-	surface_subsurfaces_boundingbox(fsout->pending.surface,
-					&surf_x, &surf_y,
-					&surf_width, &surf_height);
+	weston_shell_utils_subsurfaces_boundingbox(fsout->pending.surface,
+						   &surf_x, &surf_y,
+						   &surf_width, &surf_height);
 
 	/* The actual output mode is in physical units.  We need to
 	 * transform the surface size to physical unit size by flipping and

@@ -48,7 +48,7 @@
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
 #include "shared/timespec-util.h"
-#include "shell-utils/shell-utils.h"
+#include <libweston/shell-utils.h>
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 
 struct shared_output {
@@ -1165,9 +1165,9 @@ share_output_binding(struct weston_keyboard *keyboard,
 					    wl_fixed_to_int(pointer->x),
 					    wl_fixed_to_int(pointer->y));
 	} else {
-		output = get_focused_output(keyboard->seat->compositor);
+		output = weston_shell_utils_get_focused_output(keyboard->seat->compositor);
 		if (!output)
-			output = get_default_output(keyboard->seat->compositor);
+			output = weston_shell_utils_get_default_output(keyboard->seat->compositor);
 	}
 
 	if (!output) {

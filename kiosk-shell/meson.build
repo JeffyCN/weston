@@ -10,7 +10,6 @@ if get_option('shell-kiosk')
 		dep_libexec_weston,
 		dep_libshared,
 		dep_libweston_public,
-		dep_shell_utils,
 	]
 	plugin_shell_kiosk = shared_library(
 		'kiosk-shell',

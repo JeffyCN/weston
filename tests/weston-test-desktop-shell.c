@@ -39,7 +39,7 @@
 #include "compositor/weston.h"
 #include <libweston/config-parser.h>
 #include "shared/helpers.h"
-#include "shell-utils.h"
+#include <libweston/shell-utils.h>
 #include <libweston/desktop.h>
 
 struct desktest_shell {
@@ -174,7 +174,7 @@ shell_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&dts->compositor_destroy_listener.link);
 
 	weston_desktop_destroy(dts->desktop);
-	weston_curtain_destroy(dts->background);
+	weston_shell_utils_curtain_destroy(dts->background);
 
 	weston_layer_fini(&dts->layer);
 	weston_layer_fini(&dts->background_layer);
@@ -215,7 +215,7 @@ wet_shell_init(struct weston_compositor *ec,
 	weston_layer_set_position(&dts->background_layer,
 				  WESTON_LAYER_POSITION_BACKGROUND);
 
-	dts->background = weston_curtain_create(ec, &background_params);
+	dts->background = weston_shell_utils_curtain_create(ec, &background_params);
 	if (dts->background == NULL)
 		goto out_free;
 	weston_surface_set_role(dts->background->view->surface,
@@ -236,7 +236,7 @@ wet_shell_init(struct weston_compositor *ec,
 	return 0;
 
 out_view:
-	weston_curtain_destroy(dts->background);
+	weston_shell_utils_curtain_destroy(dts->background);
 
 out_free:
 	wl_list_remove(&dts->compositor_destroy_listener.link);

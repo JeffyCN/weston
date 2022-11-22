@@ -14,7 +14,6 @@ if get_option('shell-desktop')
 		dep_libexec_weston,
 		dep_libshared,
 		dep_libweston_public,
-		dep_shell_utils,
 	]
 	plugin_shell_desktop = shared_library(
 		'desktop-shell',

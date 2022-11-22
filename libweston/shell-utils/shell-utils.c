@@ -25,11 +25,11 @@
  */
 
 #include "config.h"
-#include "shell-utils.h"
+#include <libweston/shell-utils.h>
 #include <libweston/desktop.h>
 
-struct weston_output *
-get_default_output(struct weston_compositor *compositor)
+WL_EXPORT struct weston_output *
+weston_shell_utils_get_default_output(struct weston_compositor *compositor)
 {
 	if (wl_list_empty(&compositor->output_list))
 		return NULL;
@@ -38,8 +38,8 @@ get_default_output(struct weston_compositor *compositor)
 			    struct weston_output, link);
 }
 
-struct weston_output *
-get_focused_output(struct weston_compositor *compositor)
+WL_EXPORT struct weston_output *
+weston_shell_utils_get_focused_output(struct weston_compositor *compositor)
 {
 	struct weston_seat *seat;
 	struct weston_output *output = NULL;
@@ -70,9 +70,10 @@ get_focused_output(struct weston_compositor *compositor)
 }
 
 /* TODO: Fix this function to take into account nested subsurfaces. */
-void
-surface_subsurfaces_boundingbox(struct weston_surface *surface, int32_t *x,
-				int32_t *y, int32_t *w, int32_t *h)
+WL_EXPORT void
+weston_shell_utils_subsurfaces_boundingbox(struct weston_surface *surface,
+					   int32_t *x, int32_t *y,
+					   int32_t *w, int32_t *h)
 {
 	pixman_region32_t region;
 	pixman_box32_t *box;
@@ -103,8 +104,9 @@ surface_subsurfaces_boundingbox(struct weston_surface *surface, int32_t *x,
 	pixman_region32_fini(&region);
 }
 
-void
-center_on_output(struct weston_view *view, struct weston_output *output)
+WL_EXPORT void
+weston_shell_utils_center_on_output(struct weston_view *view,
+				    struct weston_output *output)
 {
 	int32_t surf_x, surf_y, width, height;
 	float x, y;
@@ -114,7 +116,8 @@ center_on_output(struct weston_view *view, struct weston_output *output)
 		return;
 	}
 
-	surface_subsurfaces_boundingbox(view->surface, &surf_x, &surf_y, &width, &height);
+	weston_shell_utils_subsurfaces_boundingbox(view->surface, &surf_x,
+						   &surf_y, &width, &height);
 
 	x = output->x + (output->width - width) / 2 - surf_x / 2;
 	y = output->y + (output->height - height) / 2 - surf_y / 2;
@@ -122,8 +125,9 @@ center_on_output(struct weston_view *view, struct weston_output *output)
 	weston_view_set_position(view, x, y);
 }
 
-int
-surface_get_label(struct weston_surface *surface, char *buf, size_t len)
+WL_EXPORT int
+weston_shell_utils_surface_get_label(struct weston_surface *surface,
+				     char *buf, size_t len)
 {
 	const char *t, *c;
 	struct weston_desktop_surface *desktop_surface =
@@ -138,9 +142,9 @@ surface_get_label(struct weston_surface *surface, char *buf, size_t len)
 		c ? " of " : "", c ?: "");
 }
 
-struct weston_curtain *
-weston_curtain_create(struct weston_compositor *compositor,
-		      struct weston_curtain_params *params)
+WL_EXPORT struct weston_curtain *
+weston_shell_utils_curtain_create(struct weston_compositor *compositor,
+				  struct weston_curtain_params *params)
 {
 	struct weston_curtain *curtain;
 	struct weston_surface *surface = NULL;
@@ -202,8 +206,8 @@ err:
 	return NULL;
 }
 
-void
-weston_curtain_destroy(struct weston_curtain *curtain)
+WL_EXPORT void
+weston_shell_utils_curtain_destroy(struct weston_curtain *curtain)
 {
 	struct weston_surface *surface = curtain->view->surface;
 
@@ -213,7 +217,7 @@ weston_curtain_destroy(struct weston_curtain *curtain)
 	free(curtain);
 }
 
-uint32_t
+WL_EXPORT uint32_t
 weston_shell_get_binding_modifier(struct weston_config *config,
 				  uint32_t default_mod)
 {

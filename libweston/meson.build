@@ -74,6 +74,7 @@ srcs_libweston = [
 ]
 
 subdir('desktop')
+subdir('shell-utils')
 
 if get_option('renderer-gl')
 	dep_egl = dependency('egl', required: false)

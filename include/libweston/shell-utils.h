@@ -45,27 +45,30 @@ struct weston_curtain {
 };
 
 struct weston_output *
-get_default_output(struct weston_compositor *compositor);
+weston_shell_utils_get_default_output(struct weston_compositor *compositor);
 
 struct weston_output *
-get_focused_output(struct weston_compositor *compositor);
+weston_shell_utils_get_focused_output(struct weston_compositor *compositor);
 
 void
-center_on_output(struct weston_view *view, struct weston_output *output);
+weston_shell_utils_center_on_output(struct weston_view *view,
+				    struct weston_output *output);
 
 void
-surface_subsurfaces_boundingbox(struct weston_surface *surface, int32_t *x,
-				int32_t *y, int32_t *w, int32_t *h);
+weston_shell_utils_subsurfaces_boundingbox(struct weston_surface *surface,
+					   int32_t *x, int32_t *y,
+					   int32_t *w, int32_t *h);
 
 int
-surface_get_label(struct weston_surface *surface, char *buf, size_t len);
+weston_shell_utils_surface_get_label(struct weston_surface *surface,
+				     char *buf, size_t len);
 
 /* helper to create a view w/ a color */
 struct weston_curtain *
-weston_curtain_create(struct weston_compositor *compositor,
-		      struct weston_curtain_params *params);
+weston_shell_utils_curtain_create(struct weston_compositor *compositor,
+				  struct weston_curtain_params *params);
 void
-weston_curtain_destroy(struct weston_curtain *curtain);
+weston_shell_utils_curtain_destroy(struct weston_curtain *curtain);
 
 uint32_t
 weston_shell_get_binding_modifier(struct weston_config *config, uint32_t default_mod);

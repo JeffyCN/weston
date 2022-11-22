@@ -42,7 +42,7 @@
 #include <libweston/config-parser.h>
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
-#include "shell-utils.h"
+#include <libweston/shell-utils.h>
 #include <libweston/desktop.h>
 
 #define DEFAULT_NUM_WORKSPACES 1
@@ -262,7 +262,7 @@ desktop_shell_destroy_surface(struct shell_surface *shsurf)
 	struct shell_surface *shsurf_child, *tmp;
 
 	if (shsurf->fullscreen.black_view)
-		weston_curtain_destroy(shsurf->fullscreen.black_view);
+		weston_shell_utils_curtain_destroy(shsurf->fullscreen.black_view);
 
 	wl_list_for_each_safe(shsurf_child, tmp, &shsurf->children_list, children_link) {
 		wl_list_remove(&shsurf_child->children_link);
@@ -535,7 +535,7 @@ create_focus_surface(struct weston_compositor *ec,
 
 	curtain_params.surface_private = fsurf;
 
-	fsurf->curtain = weston_curtain_create(ec, &curtain_params);
+	fsurf->curtain = weston_shell_utils_curtain_create(ec, &curtain_params);
 	weston_view_set_output(fsurf->curtain->view, output);
 	fsurf->curtain->view->is_mapped = true;
 
@@ -545,7 +545,7 @@ create_focus_surface(struct weston_compositor *ec,
 static void
 focus_surface_destroy(struct focus_surface *fsurf)
 {
-	weston_curtain_destroy(fsurf->curtain);
+	weston_shell_utils_curtain_destroy(fsurf->curtain);
 	free(fsurf);
 }
 
@@ -753,7 +753,7 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 	if (from == to || shell->focus_animation_type != ANIMATION_DIM_LAYER)
 		return;
 
-	output = get_default_output(shell->compositor);
+	output = weston_shell_utils_get_default_output(shell->compositor);
 	if (ws->fsurf_front == NULL && (from || to)) {
 		ws->fsurf_front = create_focus_surface(shell->compositor, output);
 		if (ws->fsurf_front == NULL)
@@ -1468,7 +1468,7 @@ shell_surface_set_output(struct shell_surface *shsurf,
 	else if (es->output)
 		shsurf->output = es->output;
 	else
-		shsurf->output = get_default_output(es->compositor);
+		shsurf->output = weston_shell_utils_get_default_output(es->compositor);
 
 	if (shsurf->output_destroy_listener.notify) {
 		wl_list_remove(&shsurf->output_destroy_listener.link);
@@ -1495,7 +1495,7 @@ unset_fullscreen(struct shell_surface *shsurf)
 	wl_list_init(&shsurf->fullscreen.transform.link);
 
 	if (shsurf->fullscreen.black_view)
-		weston_curtain_destroy(shsurf->fullscreen.black_view);
+		weston_shell_utils_curtain_destroy(shsurf->fullscreen.black_view);
 	shsurf->fullscreen.black_view = NULL;
 
 	if (shsurf->saved_position_valid)
@@ -1522,7 +1522,8 @@ unset_maximized(struct shell_surface *shsurf)
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
 	/* undo all maximized things here */
-	shell_surface_set_output(shsurf, get_default_output(surface->compositor));
+	shell_surface_set_output(shsurf,
+			weston_shell_utils_get_default_output(surface->compositor));
 
 	if (shsurf->saved_position_valid)
 		weston_view_set_position(shsurf->view,
@@ -1648,7 +1649,7 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 
 	if (!shsurf->fullscreen.black_view) {
 		shsurf->fullscreen.black_view =
-			weston_curtain_create(ec, &curtain_params);
+			weston_shell_utils_curtain_create(ec, &curtain_params);
 	}
 	view = shsurf->fullscreen.black_view->view;
 
@@ -1686,11 +1687,11 @@ shell_configure_fullscreen(struct shell_surface *shsurf)
 
 	shell_ensure_fullscreen_black_view(shsurf);
 
-	surface_subsurfaces_boundingbox(surface, &surf_x, &surf_y,
-	                                &surf_width, &surf_height);
+	weston_shell_utils_subsurfaces_boundingbox(surface, &surf_x, &surf_y,
+						   &surf_width, &surf_height);
 
 	if (weston_surface_has_content(surface))
-		center_on_output(shsurf->view, shsurf->fullscreen_output);
+		weston_shell_utils_center_on_output(shsurf->view, shsurf->fullscreen_output);
 }
 
 static void
@@ -1851,7 +1852,7 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 		return;
 	}
 
-	weston_surface_set_label_func(surface, surface_get_label);
+	weston_surface_set_label_func(surface, weston_shell_utils_surface_get_label);
 
 	shsurf->shell = (struct desktop_shell *) shell;
 	shsurf->unresponsive = 0;
@@ -1863,7 +1864,7 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 	wl_list_init(&shsurf->fullscreen.transform.link);
 
 	shell_surface_set_output(
-		shsurf, get_default_output(shsurf->shell->compositor));
+		shsurf, weston_shell_utils_get_default_output(shsurf->shell->compositor));
 
 	wl_signal_init(&shsurf->destroy_signal);
 
@@ -1907,7 +1908,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	}
 
 	if (shsurf->fullscreen.black_view) {
-		weston_curtain_destroy(shsurf->fullscreen.black_view);
+		weston_shell_utils_curtain_destroy(shsurf->fullscreen.black_view);
 		shsurf->fullscreen.black_view = NULL;
 	}
 
@@ -1996,7 +1997,8 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 
 	/* initial positioning, see also configure() */
 	if (shsurf->state.fullscreen) {
-		center_on_output(shsurf->view, shsurf->fullscreen_output);
+		weston_shell_utils_center_on_output(shsurf->view,
+						    shsurf->fullscreen_output);
 		shell_map_fullscreen(shsurf);
 	} else if (shsurf->state.maximized) {
 		set_maximized_position(shell, shsurf);
@@ -2169,7 +2171,7 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 		/* handle clients launching in fullscreen */
 		if (output == NULL && !weston_surface_is_mapped(surface)) {
 			/* Set the output to the one that has focus currently. */
-			output = get_focused_output(surface->compositor);
+			output = weston_shell_utils_get_focused_output(surface->compositor);
 		}
 
 		shell_surface_set_output(shsurf, output);
@@ -2294,7 +2296,7 @@ set_maximized(struct shell_surface *shsurf, bool maximized)
 		struct weston_output *output;
 
 		if (!weston_surface_is_mapped(surface))
-			output = get_focused_output(surface->compositor);
+			output = weston_shell_utils_get_focused_output(surface->compositor);
 		else
 			output = surface->output;
 
@@ -2719,7 +2721,8 @@ lock_surface_committed(struct weston_surface *surface, int32_t sx, int32_t sy)
 	if (surface->width == 0)
 		return;
 
-	center_on_output(view, get_default_output(shell->compositor));
+	weston_shell_utils_center_on_output(view,
+		weston_shell_utils_get_default_output(shell->compositor));
 
 	if (!weston_surface_is_mapped(surface)) {
 		weston_layer_entry_insert(&shell->lock_layer.view_list,
@@ -3548,7 +3551,7 @@ shell_fade_done_for_output(struct weston_view_animation *animation, void *data)
 	shell_output->fade.animation = NULL;
 	switch (shell_output->fade.type) {
 	case FADE_IN:
-		weston_curtain_destroy(shell_output->fade.curtain);
+		weston_shell_utils_curtain_destroy(shell_output->fade.curtain);
 		shell_output->fade.curtain = NULL;
 		break;
 	case FADE_OUT:
@@ -3586,7 +3589,7 @@ shell_fade_create_view_for_output(struct desktop_shell *shell,
 	};
 	struct weston_curtain *curtain;
 
-	curtain = weston_curtain_create(compositor, &curtain_params);
+	curtain = weston_shell_utils_curtain_create(compositor, &curtain_params);
 	assert(curtain);
 
 	weston_view_set_output(curtain->view, output);
@@ -3611,7 +3614,7 @@ shell_fade_create_fade_out_view(struct shell_surface *shsurf,
 	if (!view)
 		return NULL;
 
-	woutput = get_focused_output(surface->compositor);
+	woutput = weston_shell_utils_get_focused_output(surface->compositor);
 	/* set the initial position and output just in case we happen to not
 	 * move it around and just destroy it */
 	weston_view_set_output(view, woutput);
@@ -3661,7 +3664,7 @@ shell_fade(struct desktop_shell *shell, enum fade_type type)
 			 * happens when you close the last window under the
 			 * X11 or Wayland backends. */
 			shell->locked = false;
-			weston_curtain_destroy(shell_output->fade.curtain);
+			weston_shell_utils_curtain_destroy(shell_output->fade.curtain);
 			shell_output->fade.curtain = NULL;
 		} else if (shell_output->fade.animation) {
 			weston_fade_update(shell_output->fade.animation, tint);
@@ -3687,7 +3690,7 @@ do_shell_fade_startup(void *data)
 			   "unexpected fade-in animation type %d\n",
 			   shell->startup_animation_type);
 		wl_list_for_each(shell_output, &shell->output_list, link) {
-			weston_curtain_destroy(shell_output->fade.curtain);
+			weston_shell_utils_curtain_destroy(shell_output->fade.curtain);
 			shell_output->fade.curtain = NULL;
 		}
 	}
@@ -4190,7 +4193,7 @@ backlight_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 	 * control on the primary display. We'd have to extend later if we
 	 * ever get support for setting backlights on random desktop LCD
 	 * panels though */
-	output = get_default_output(compositor);
+	output = weston_shell_utils_get_default_output(compositor);
 	if (!output)
 		return;
 
@@ -4323,7 +4326,7 @@ shell_output_destroy(struct shell_output *shell_output)
 	}
 
 	if (shell_output->fade.curtain)
-		weston_curtain_destroy(shell_output->fade.curtain);
+		weston_shell_utils_curtain_destroy(shell_output->fade.curtain);
 
 	if (shell_output->fade.startup_timer)
 		wl_event_source_remove(shell_output->fade.startup_timer);

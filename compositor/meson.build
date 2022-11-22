@@ -76,7 +76,6 @@ if get_option('screenshare')
 	deps_screenshare = [
 		dep_libexec_weston,
 		dep_libshared,
-		dep_shell_utils,
 		dep_libweston_public,
 		dep_libweston_private_h, # XXX: https://gitlab.freedesktop.org/wayland/weston/issues/292
 		dep_wayland_client,

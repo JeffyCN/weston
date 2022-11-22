@@ -33,7 +33,7 @@
 #include "kiosk-shell-grab.h"
 #include "compositor/weston.h"
 #include "shared/helpers.h"
-#include "shell-utils.h"
+#include <libweston/shell-utils.h>
 
 #include <libweston/xwayland-api.h>
 
@@ -185,11 +185,11 @@ kiosk_shell_surface_find_best_output(struct kiosk_shell_surface *shsurf)
 	if (root->output)
 		return root->output;
 
-	output = get_focused_output(shsurf->shell->compositor);
+	output = weston_shell_utils_get_focused_output(shsurf->shell->compositor);
 	if (output)
 		return output;
 
-	output = get_default_output(shsurf->shell->compositor);
+	output = weston_shell_utils_get_default_output(shsurf->shell->compositor);
 	if (output)
 		return output;
 
@@ -299,7 +299,7 @@ kiosk_shell_surface_reconfigure_for_output(struct kiosk_shell_surface *shsurf)
 						shsurf->output->height);
 	}
 
-	center_on_output(shsurf->view, shsurf->output);
+	weston_shell_utils_center_on_output(shsurf->view, shsurf->output);
 	weston_view_update_transform(shsurf->view);
 }
 
@@ -488,7 +488,7 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	struct weston_curtain_params curtain_params = {};
 
 	if (shoutput->curtain)
-		weston_curtain_destroy(shoutput->curtain);
+		weston_shell_utils_curtain_destroy(shoutput->curtain);
 
 	if (!output)
 		return;
@@ -515,7 +515,7 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	curtain_params.surface_committed = NULL;
 	curtain_params.surface_private = NULL;
 
-	shoutput->curtain = weston_curtain_create(ec, &curtain_params);
+	shoutput->curtain = weston_shell_utils_curtain_create(ec, &curtain_params);
 
 	weston_surface_set_role(shoutput->curtain->view->surface,
 				"kiosk-shell-background", NULL, 0);
@@ -535,7 +535,7 @@ kiosk_shell_output_destroy(struct kiosk_shell_output *shoutput)
 	shoutput->output_destroy_listener.notify = NULL;
 
 	if (shoutput->curtain)
-		weston_curtain_destroy(shoutput->curtain);
+		weston_shell_utils_curtain_destroy(shoutput->curtain);
 
 	wl_list_remove(&shoutput->output_destroy_listener.link);
 	wl_list_remove(&shoutput->link);
@@ -636,7 +636,7 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 	if (!shsurf)
 		return;
 
-	weston_surface_set_label_func(surface, surface_get_label);
+	weston_surface_set_label_func(surface, weston_shell_utils_surface_get_label);
 	kiosk_shell_surface_set_fullscreen(shsurf, NULL);
 }
 
@@ -780,7 +780,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	if (!weston_surface_is_mapped(surface) || (is_resized && is_fullscreen)) {
 		if (is_fullscreen || !shsurf->xwayland.is_set) {
-			center_on_output(shsurf->view, shsurf->output);
+			weston_shell_utils_center_on_output(shsurf->view,
+							    shsurf->output);
 		} else {
 			struct weston_geometry geometry =
 				weston_desktop_surface_get_geometry(desktop_surface);
