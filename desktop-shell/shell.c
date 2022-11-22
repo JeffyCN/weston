@@ -476,7 +476,7 @@ shell_configuration(struct desktop_shell *shell)
 				       "allow-zap", &allow_zap, true);
 	shell->allow_zap = allow_zap;
 
-	shell->binding_modifier = weston_shell_get_binding_modifier(config, MODIFIER_SUPER);
+	shell->binding_modifier = weston_config_get_binding_modifier(config, MODIFIER_SUPER);
 
 	weston_config_section_get_string(section, "animation", &s, "none");
 	shell->win_animation_type = get_animation_type(s);

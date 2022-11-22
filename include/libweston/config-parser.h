@@ -104,6 +104,9 @@ int weston_config_next_section(struct weston_config *config,
 			       struct weston_config_section **section,
 			       const char **name);
 
+uint32_t
+weston_config_get_binding_modifier(struct weston_config *config, uint32_t default_mod);
+
 #ifdef  __cplusplus
 }
 #endif

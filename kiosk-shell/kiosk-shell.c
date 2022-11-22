@@ -1068,7 +1068,7 @@ kiosk_shell_add_bindings(struct kiosk_shell *shell)
 {
 	uint32_t mod = 0;
 
-	mod = weston_shell_get_binding_modifier(shell->config, MODIFIER_SUPER);
+	mod = weston_config_get_binding_modifier(shell->config, MODIFIER_SUPER);
 
 	weston_compositor_add_button_binding(shell->compositor, BTN_LEFT, 0,
 					     kiosk_shell_click_to_activate_binding,
