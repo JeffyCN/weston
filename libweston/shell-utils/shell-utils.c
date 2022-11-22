@@ -28,6 +28,17 @@
 #include <libweston/shell-utils.h>
 #include <libweston/desktop.h>
 
+/**
+ * \defgroup shell-utils Shell utils
+ *
+ * These are some commonly used functions in our shells, useful for other shells
+ * as well.
+ */
+
+
+/**
+ * \ingroup shell-utils
+ */
 WL_EXPORT struct weston_output *
 weston_shell_utils_get_default_output(struct weston_compositor *compositor)
 {
@@ -38,6 +49,9 @@ weston_shell_utils_get_default_output(struct weston_compositor *compositor)
 			    struct weston_output, link);
 }
 
+/**
+ * \ingroup shell-utils
+ */
 WL_EXPORT struct weston_output *
 weston_shell_utils_get_focused_output(struct weston_compositor *compositor)
 {
@@ -69,7 +83,11 @@ weston_shell_utils_get_focused_output(struct weston_compositor *compositor)
 	return output;
 }
 
-/* TODO: Fix this function to take into account nested subsurfaces. */
+/**
+ * \ingroup shell-utils
+ *
+ *  TODO: Fix this function to take into account nested subsurfaces.
+ */
 WL_EXPORT void
 weston_shell_utils_subsurfaces_boundingbox(struct weston_surface *surface,
 					   int32_t *x, int32_t *y,
@@ -104,6 +122,9 @@ weston_shell_utils_subsurfaces_boundingbox(struct weston_surface *surface,
 	pixman_region32_fini(&region);
 }
 
+/**
+ * \ingroup shell-utils
+ */
 WL_EXPORT void
 weston_shell_utils_center_on_output(struct weston_view *view,
 				    struct weston_output *output)
@@ -125,6 +146,9 @@ weston_shell_utils_center_on_output(struct weston_view *view,
 	weston_view_set_position(view, x, y);
 }
 
+/**
+ * \ingroup shell-utils
+ */
 WL_EXPORT int
 weston_shell_utils_surface_get_label(struct weston_surface *surface,
 				     char *buf, size_t len)
@@ -142,6 +166,9 @@ weston_shell_utils_surface_get_label(struct weston_surface *surface,
 		c ? " of " : "", c ?: "");
 }
 
+/**
+ * \ingroup shell-utils
+ */
 WL_EXPORT struct weston_curtain *
 weston_shell_utils_curtain_create(struct weston_compositor *compositor,
 				  struct weston_curtain_params *params)
@@ -206,6 +233,9 @@ err:
 	return NULL;
 }
 
+/**
+ * \ingroup shell-utils
+ */
 WL_EXPORT void
 weston_shell_utils_curtain_destroy(struct weston_curtain *curtain)
 {

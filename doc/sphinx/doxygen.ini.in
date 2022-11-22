@@ -789,6 +789,7 @@ WARN_LOGFILE           =
 
 INPUT                  = @SRC_ROOT@/libweston \
                          @SRC_ROOT@/include/libweston \
+                         @SRC_ROOT@/shared/config-parser.c \
                          @SRC_ROOT@/tests
 
 # This tag can be used to specify the character encoding of the source files
