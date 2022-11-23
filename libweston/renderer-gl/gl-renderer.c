@@ -4164,6 +4164,9 @@ import_dmabuf(struct gl_renderer *gr,
 		const GLint swizzles[] = { GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA };
 		GLenum target = choose_texture_target(gr, &dmabuf->attributes);
 
+		/* HACK: Mali GPUs require it for dma-buf import. */
+		target = GL_TEXTURE_EXTERNAL_OES;
+
 		gb->num_images = 1;
 		gb->images[0] = egl_image;
 		gb->egl_image_import_color_rep = color_rep;
