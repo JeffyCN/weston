@@ -2880,6 +2880,10 @@ static GLenum
 choose_texture_target(struct gl_renderer *gr,
 		      struct dmabuf_attributes *attributes)
 {
+	/* HACK: Mali needs GL_TEXTURE_EXTERNAL_OES for all imported dmabuf */
+#if 1
+	return GL_TEXTURE_EXTERNAL_OES;
+#else
 	struct dmabuf_format *tmp, *format = NULL;
 
 	wl_list_for_each(tmp, &gr->dmabuf_formats, link) {
@@ -2916,6 +2920,7 @@ choose_texture_target(struct gl_renderer *gr,
 	default:
 		return GL_TEXTURE_2D;
 	}
+#endif
 }
 
 static struct gl_buffer_state *
