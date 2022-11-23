@@ -2530,88 +2530,6 @@ import_yuv_dmabuf(struct gl_renderer *gr, struct gl_buffer_state *gb,
 	return true;
 }
 
-static void
-gl_renderer_query_dmabuf_modifiers_full(struct gl_renderer *gr, int format,
-					uint64_t **modifiers,
-					unsigned **external_only,
-					int *num_modifiers);
-
-static struct dmabuf_format*
-dmabuf_format_create(struct gl_renderer *gr, uint32_t format)
-{
-	struct dmabuf_format *dmabuf_format;
-
-	dmabuf_format = calloc(1, sizeof(struct dmabuf_format));
-	if (!dmabuf_format)
-		return NULL;
-
-	dmabuf_format->format = format;
-
-	gl_renderer_query_dmabuf_modifiers_full(gr, format,
-			&dmabuf_format->modifiers,
-			&dmabuf_format->external_only,
-			&dmabuf_format->num_modifiers);
-
-	if (dmabuf_format->num_modifiers == 0) {
-		free(dmabuf_format);
-		return NULL;
-	}
-
-	wl_list_insert(&gr->dmabuf_formats, &dmabuf_format->link);
-	return dmabuf_format;
-}
-
-static void
-dmabuf_format_destroy(struct dmabuf_format *format)
-{
-	free(format->modifiers);
-	free(format->external_only);
-	wl_list_remove(&format->link);
-	free(format);
-}
-
-static GLenum
-choose_texture_target(struct gl_renderer *gr,
-		      struct dmabuf_attributes *attributes)
-{
-	struct dmabuf_format *tmp, *format = NULL;
-
-	wl_list_for_each(tmp, &gr->dmabuf_formats, link) {
-		if (tmp->format == attributes->format) {
-			format = tmp;
-			break;
-		}
-	}
-
-	if (!format)
-		format = dmabuf_format_create(gr, attributes->format);
-
-	if (format) {
-		int i;
-
-		for (i = 0; i < format->num_modifiers; ++i) {
-			if (format->modifiers[i] == attributes->modifier[0]) {
-				if (format->external_only[i])
-					return GL_TEXTURE_EXTERNAL_OES;
-				else
-					return GL_TEXTURE_2D;
-			}
-		}
-	}
-
-	switch (attributes->format & ~DRM_FORMAT_BIG_ENDIAN) {
-	case DRM_FORMAT_YUYV:
-	case DRM_FORMAT_YVYU:
-	case DRM_FORMAT_UYVY:
-	case DRM_FORMAT_VYUY:
-	case DRM_FORMAT_AYUV:
-	case DRM_FORMAT_XYUV8888:
-		return GL_TEXTURE_EXTERNAL_OES;
-	default:
-		return GL_TEXTURE_2D;
-	}
-}
-
 static struct gl_buffer_state *
 import_dmabuf(struct gl_renderer *gr,
 	      struct linux_dmabuf_buffer *dmabuf)
@@ -2632,19 +2550,11 @@ import_dmabuf(struct gl_renderer *gr,
 
 	egl_image = import_simple_dmabuf(gr, &dmabuf->attributes);
 	if (egl_image != EGL_NO_IMAGE_KHR) {
-		GLenum target = choose_texture_target(gr, &dmabuf->attributes);
+		GLenum target = GL_TEXTURE_EXTERNAL_OES;
 
 		gb->num_images = 1;
 		gb->images[0] = egl_image;
-
-		switch (target) {
-		case GL_TEXTURE_2D:
-			gb->shader_variant = SHADER_VARIANT_RGBA;
-			break;
-		default:
-			gb->shader_variant = SHADER_VARIANT_EXTERNAL;
-		}
-
+		gb->shader_variant = SHADER_VARIANT_EXTERNAL;
 		ensure_textures(gb, target, gb->num_images);
 
 		return gb;
@@ -3575,7 +3485,6 @@ static void
 gl_renderer_destroy(struct weston_compositor *ec)
 {
 	struct gl_renderer *gr = get_renderer(ec);
-	struct dmabuf_format *format, *next_format;
 
 	wl_signal_emit(&gr->destroy_signal, gr);
 
@@ -3590,9 +3499,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	eglMakeCurrent(gr->egl_display,
 		       EGL_NO_SURFACE, EGL_NO_SURFACE,
 		       EGL_NO_CONTEXT);
-
-	wl_list_for_each_safe(format, next_format, &gr->dmabuf_formats, link)
-		dmabuf_format_destroy(format);
 
 	weston_drm_format_array_fini(&gr->supported_formats);
 
