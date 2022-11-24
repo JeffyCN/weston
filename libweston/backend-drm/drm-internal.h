@@ -298,6 +298,8 @@ struct drm_device {
 
 	bool atomic_modeset;
 
+	bool tearing_supported;
+
 	bool aspect_ratio_supported;
 
 	int32_t cursor_width;

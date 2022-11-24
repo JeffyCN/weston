@@ -42,6 +42,10 @@
 #include "pixel-formats.h"
 #include "presentation-time-server-protocol.h"
 
+#ifndef DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP
+#define DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP 0x15
+#endif
+
 struct drm_property_enum_info plane_type_enums[] = {
 	[WDRM_PLANE_TYPE_PRIMARY] = {
 		.name = "Primary",
@@ -1638,6 +1642,11 @@ init_kms_caps(struct drm_device *device)
 		   device->fb_modifiers ? "supports" : "does not support");
 
 	drmSetClientCap(device->drm.fd, DRM_CLIENT_CAP_WRITEBACK_CONNECTORS, 1);
+
+	ret = drmGetCap(device->drm.fd, DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP, &cap);
+	if (ret != 0)
+		cap = 0;
+	device->tearing_supported = cap;
 
 	/*
 	 * KMS support for hardware planes cannot properly synchronize
