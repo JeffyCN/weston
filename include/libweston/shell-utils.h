@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Collabora, Ltd.
+ * Copyright 2021, 2022 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,7 @@
  * DEALINGS IN THE SOFTWARE.
  *
  */
+#pragma once
 
 #include "config.h"
 #include "shared/helpers.h"
@@ -28,6 +29,10 @@
 
 #include <libweston/config-parser.h>
 #include <string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* parameter for weston_curtain_create() */
 struct weston_curtain_params {
@@ -72,3 +77,7 @@ weston_shell_utils_curtain_destroy(struct weston_curtain *curtain);
 
 uint32_t
 weston_shell_get_binding_modifier(struct weston_config *config, uint32_t default_mod);
+
+#ifdef __cplusplus
+}
+#endif
