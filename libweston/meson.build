@@ -53,6 +53,8 @@ srcs_libweston = [
 	relative_pointer_unstable_v1_server_protocol_h,
 	single_pixel_buffer_v1_protocol_c,
 	single_pixel_buffer_v1_server_protocol_h,
+	tearing_control_v1_protocol_c,
+	tearing_control_v1_server_protocol_h,
 	text_cursor_position_protocol_c,
 	text_cursor_position_server_protocol_h,
 	text_input_unstable_v1_protocol_c,

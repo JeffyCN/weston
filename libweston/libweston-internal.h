@@ -105,6 +105,11 @@ struct weston_renderer {
 	const struct pixman_renderer_interface *pixman;
 };
 
+struct weston_tearing_control {
+	struct weston_surface *surface;
+	bool may_tear;
+};
+
 void
 weston_renderer_resize_output(struct weston_output *output,
 			      const struct weston_size *fb_size,

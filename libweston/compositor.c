@@ -72,6 +72,8 @@
 #include "shared/string-helpers.h"
 #include "shared/timespec-util.h"
 #include "shared/signal.h"
+#include "shared/xalloc.h"
+#include "tearing-control-v1-server-protocol.h"
 #include "git-version.h"
 #include <libweston/version.h>
 #include <libweston/plugin-registry.h>
@@ -2135,6 +2137,9 @@ weston_surface_unref(struct weston_surface *surface)
 
 	fd_clear(&surface->acquire_fence_fd);
 
+	if (surface->tear_control)
+		surface->tear_control->surface = NULL;
+
 	free(surface);
 }
 
@@ -3297,6 +3302,12 @@ weston_output_finish_frame(struct weston_output *output,
 						  presented_flags);
 
 	output->frame_time = *stamp;
+
+	/* If we're tearing just repaint right away */
+	if (presented_flags & WESTON_FINISH_FRAME_TEARING) {
+		output->next_repaint = now;
+		goto out;
+	}
 
 	timespec_add_nsec(&output->next_repaint, stamp, refresh_nsec);
 	timespec_add_msec(&output->next_repaint, &output->next_repaint,
@@ -7793,6 +7804,115 @@ compositor_bind(struct wl_client *client,
 				       compositor, NULL);
 }
 
+static void
+set_presentation_hint(struct wl_client *client, struct wl_resource *resource, uint32_t hint)
+{
+	struct weston_tearing_control *tc = wl_resource_get_user_data(resource);
+	struct weston_surface *surf = tc->surface;
+
+	if (hint == WP_TEARING_CONTROL_V1_PRESENTATION_HINT_ASYNC)
+		surf->tear_control->may_tear = true;
+	else
+		surf->tear_control->may_tear = false;
+}
+
+static void
+destroy_tearing_control(struct wl_client *client, struct wl_resource *res)
+{
+	struct weston_tearing_control *tc = wl_resource_get_user_data(res);
+	struct weston_surface *surf = tc->surface;
+
+	if (surf)
+		surf->tear_control = NULL;
+
+	wl_resource_destroy(res);
+}
+
+static const struct wp_tearing_control_v1_interface tearing_interface = {
+	set_presentation_hint,
+	destroy_tearing_control,
+};
+
+static void
+destroy_tearing_controller(struct wl_client *client,
+			   struct wl_resource *resource)
+{
+	wl_resource_destroy(resource);
+}
+
+static void
+free_tearing_control(struct wl_resource *res)
+{
+	struct weston_tearing_control *tc = wl_resource_get_user_data(res);
+	struct weston_surface *surf = tc->surface;
+
+	if (surf)
+		surf->tear_control = NULL;
+
+	free(tc);
+}
+
+static void
+get_tearing_control(struct wl_client *client,
+		    struct wl_resource *resource,
+		    uint32_t id,
+		    struct wl_resource *surface_resource)
+{
+	struct wl_resource *ctl_res;
+	struct weston_tearing_control *control;
+	struct weston_surface *surface;
+	uint32_t version;
+
+	surface = wl_resource_get_user_data(surface_resource);
+	if (surface->tear_control) {
+		wl_resource_post_error(resource,
+				       WP_TEARING_CONTROL_MANAGER_V1_ERROR_TEARING_CONTROL_EXISTS,
+				       "Surface already has a tearing controller");
+		return;
+	}
+
+	version = wl_resource_get_version(resource);
+	ctl_res = wl_resource_create(client,
+				     &wp_tearing_control_v1_interface,
+				     version, id);
+	if (resource == NULL) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+
+	control = xzalloc(sizeof *control);
+	control->may_tear = false;
+	control->surface = surface;
+	surface->tear_control = control;
+	wl_resource_set_implementation(ctl_res, &tearing_interface,
+				       control, free_tearing_control);
+}
+
+static const struct wp_tearing_control_manager_v1_interface
+tearing_control_manager_implementation = {
+	destroy_tearing_controller,
+	get_tearing_control,
+};
+
+static void
+bind_tearing_controller(struct wl_client *client, void *data,
+			uint32_t version, uint32_t id)
+{
+	struct weston_compositor *compositor = data;
+	struct wl_resource *resource;
+
+	resource = wl_resource_create(client,
+				      &wp_tearing_control_manager_v1_interface,
+				      version, id);
+	if (resource == NULL) {
+		wl_client_post_no_memory(client);
+		return;
+	}
+
+	wl_resource_set_implementation(resource, &tearing_control_manager_implementation,
+				       compositor, NULL);
+}
+
 static const char *
 output_repaint_status_text(struct weston_output *output)
 {
@@ -8184,6 +8304,11 @@ weston_compositor_create(struct wl_display *display,
 	if (!wl_global_create(ec->wl_display,
 			      &wp_single_pixel_buffer_manager_v1_interface, 1,
 			      NULL, bind_single_pixel_buffer))
+		goto fail;
+
+	if (!wl_global_create(ec->wl_display,
+			      &wp_tearing_control_manager_v1_interface, 1,
+			      ec, bind_tearing_controller))
 		goto fail;
 
 	if (weston_input_init(ec) != 0)

@@ -92,6 +92,7 @@ struct weston_color_profile;
 struct weston_color_transform;
 struct pixel_format_info;
 struct weston_output_capture_info;
+struct weston_tearing_control;
 
 enum weston_keyboard_modifier {
 	MODIFIER_CTRL = (1 << 0),
@@ -1733,6 +1734,8 @@ struct weston_surface {
 	enum weston_hdcp_protection desired_protection;
 	enum weston_hdcp_protection current_protection;
 	enum weston_surface_protection_mode protection_mode;
+
+	struct weston_tearing_control *tear_control;
 };
 
 struct weston_subsurface {
@@ -1854,6 +1857,8 @@ weston_layer_mask_is_infinite(struct weston_layer *layer);
 
 /* An invalid flag in presented_flags to catch logic errors. */
 #define WP_PRESENTATION_FEEDBACK_INVALID (1U << 31)
+/* Steal another bit from presented_flags for tearing */
+#define WESTON_FINISH_FRAME_TEARING (1U << 30)
 
 void
 weston_output_schedule_repaint(struct weston_output *output);
