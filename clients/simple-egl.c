@@ -43,6 +43,8 @@
 #include <EGL/eglext.h>
 
 #include "xdg-shell-client-protocol.h"
+#include "tearing-control-v1-client-protocol.h"
+
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -68,6 +70,7 @@ struct display {
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *default_cursor;
 	struct wl_surface *cursor_surface;
+	struct wp_tearing_control_manager_v1 *tearing_manager;
 	struct {
 		EGLDisplay dpy;
 		EGLContext ctx;
@@ -108,6 +111,8 @@ struct window {
 	struct xdg_toplevel *xdg_toplevel;
 	EGLSurface egl_surface;
 	int fullscreen, maximized, opaque, buffer_bpp, frame_sync, delay;
+	struct wp_tearing_control_v1 *tear_control;
+	bool tearing, toggled_tearing, tear_enabled;
 	bool fullscreen_ratio;
 	bool wait_for_configure;
 
@@ -540,6 +545,22 @@ destroy_window_output(struct window *window, struct wl_output *wl_output)
 }
 
 static void
+set_tearing(struct window *window, bool enable)
+{
+	if (!window->tear_control)
+		return;
+
+	if (enable) {
+		wp_tearing_control_v1_set_presentation_hint(window->tear_control,
+							    WP_TEARING_CONTROL_V1_PRESENTATION_HINT_ASYNC);
+	} else {
+		wp_tearing_control_v1_set_presentation_hint(window->tear_control,
+							    WP_TEARING_CONTROL_V1_PRESENTATION_HINT_VSYNC);
+	}
+	window->tear_enabled = enable;
+}
+
+static void
 surface_enter(void *data,
 	      struct wl_surface *wl_surface, struct wl_output *wl_output)
 {
@@ -569,6 +590,13 @@ create_surface(struct window *window)
 
 	window->surface = wl_compositor_create_surface(display->compositor);
 	wl_surface_add_listener(window->surface, &surface_listener, window);
+
+	if (display->tearing_manager && window->tearing) {
+		window->tear_control = wp_tearing_control_manager_v1_get_tearing_control(
+			display->tearing_manager,
+			window->surface);
+		set_tearing(window, true);
+	}
 
 	window->xdg_surface = xdg_wm_base_get_xdg_surface(display->wm_base,
 							  window->surface);
@@ -651,6 +679,8 @@ redraw(struct window *window)
 		       (float) window->frames / benchmark_interval);
 		window->benchmark_time = time;
 		window->frames = 0;
+		if (window->toggled_tearing)
+			set_tearing(window, window->tear_enabled ^ true);
 	}
 
 	weston_matrix_init(&rotation);
@@ -1075,6 +1105,10 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		}
 	} else if (strcmp(interface, "wl_output") == 0 && version >= 2) {
 		display_add_output(d, name);
+	} else if (strcmp(interface, "wp_tearing_control_manager_v1") == 0) {
+		d->tearing_manager = wl_registry_bind(registry, name,
+						      &wp_tearing_control_manager_v1_interface,
+						      1);
 	}
 }
 
@@ -1115,6 +1149,8 @@ usage(int error_code)
 		"  -o\tCreate an opaque surface\n"
 		"  -s\tUse a 16 bpp EGL config\n"
 		"  -b\tDon't sync to compositor redraw (eglSwapInterval 0)\n"
+		"  -t\tEnable tearing via the tearing_control protocol\n"
+		"  -T\tEnable and disable tearing every 5 seconds\n"
 		"  -h\tThis help text\n\n");
 
 	exit(error_code);
@@ -1159,7 +1195,12 @@ main(int argc, char **argv)
 			window.buffer_bpp = 16;
 		else if (strcmp("-b", argv[i]) == 0)
 			window.frame_sync = 0;
-		else if (strcmp("-h", argv[i]) == 0)
+		else if (strcmp("-t", argv[i]) == 0) {
+			window.tearing = true;
+		} else if (strcmp("-T", argv[i]) == 0) {
+			window.tearing = true;
+			window.toggled_tearing = true;
+		} else if (strcmp("-h", argv[i]) == 0)
 			usage(EXIT_SUCCESS);
 		else
 			usage(EXIT_FAILURE);

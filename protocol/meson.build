@@ -1,7 +1,7 @@
 dep_scanner = dependency('wayland-scanner', native: true)
 prog_scanner = find_program(dep_scanner.get_variable(pkgconfig: 'wayland_scanner'))
 
-dep_wp = dependency('wayland-protocols', version: '>= 1.26',
+dep_wp = dependency('wayland-protocols', version: '>= 1.30',
 	fallback: ['wayland-protocols', 'wayland_protocols'])
 dir_wp_base = dep_wp.get_variable(pkgconfig: 'pkgdatadir', internal: 'pkgdatadir')
 
@@ -28,6 +28,7 @@ generated_protocols = [
 	[ 'relative-pointer', 'unstable', 'v1' ],
 	[ 'single-pixel-buffer', 'staging', 'v1' ],
 	[ 'tablet', 'unstable', 'v2' ],
+	[ 'tearing-control', 'staging', 'v1' ],
 	[ 'text-cursor-position', 'internal' ],
 	[ 'text-input', 'unstable', 'v1' ],
 	[ 'viewporter', 'stable' ],

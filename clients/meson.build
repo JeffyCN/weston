@@ -128,6 +128,8 @@ simple_clients = [
 		'name': 'egl',
 		'sources': [
 			'simple-egl.c',
+			tearing_control_v1_client_protocol_h,
+			tearing_control_v1_protocol_c,
 			xdg_shell_client_protocol_h,
 			xdg_shell_protocol_c,
 			ivi_application_client_protocol_h,
