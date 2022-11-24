@@ -660,6 +660,14 @@ drm_output_propose_state(struct weston_output *output_base,
 					   pending_state,
 					   DRM_OUTPUT_STATE_CLEAR_PLANES);
 
+	/* Start with the assumption that we're going to do a tearing commit,
+	 * if the hardware supports it and we're not compositing with the
+	 * renderer.
+	 * As soon as anything in the scene graph wants to be presented without
+	 * tearing, or a test fails, drop the tear flag. */
+	state->tear = device->tearing_supported &&
+		      mode == DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY;
+
 	/* We implement mixed mode by progressively creating and testing
 	 * incremental states, of scanout + overlay + cursor. Since we
 	 * walk our views top to bottom, the scanout plane is last, however
@@ -829,6 +837,11 @@ drm_output_propose_state(struct weston_output *output_base,
 				     "(enforced protection mode on unsecured output)\n", ev);
 			force_renderer = true;
 		}
+
+		if (pnode->view->surface->tear_control)
+			state->tear &= pnode->view->surface->tear_control->may_tear;
+		else
+			state->tear = 0;
 
 		/* Now try to place it on a plane if we can. */
 		if (!force_renderer) {

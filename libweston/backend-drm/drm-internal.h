@@ -427,6 +427,7 @@ struct drm_output_state {
 	enum dpms_enum dpms;
 	enum weston_hdcp_protection protection;
 	struct wl_list plane_list;
+	bool tear;
 };
 
 /**

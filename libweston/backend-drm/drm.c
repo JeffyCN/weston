@@ -319,6 +319,9 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 		return;
 	}
 
+	if (output->state_cur->tear)
+		flags |= WESTON_FINISH_FRAME_TEARING;
+
 	ts.tv_sec = sec;
 	ts.tv_nsec = usec * 1000;
 
@@ -528,6 +531,7 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 	struct timespec ts, tnow;
 	struct timespec vbl2now;
 	int64_t refresh_nsec;
+	uint32_t flags = WP_PRESENTATION_FEEDBACK_INVALID;
 	int ret;
 	drmVBlank vbl = {
 		.request.type = DRM_VBLANK_RELATIVE,
@@ -551,6 +555,16 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 
 	assert(scanout_plane->state_cur->output == output);
 
+	/* If we're tearing, we've been generating timestamps from the
+	 * presentation clock that don't line up with the msc timestamps,
+	 * and could be more recent than the latest msc, which would cause
+	 * an assert() later.
+	 */
+	if (output->state_cur->tear) {
+		flags |= WESTON_FINISH_FRAME_TEARING;
+		goto finish_frame;
+	}
+
 	/* Try to get current msc and timestamp via instant query */
 	vbl.request.type |= drm_waitvblank_pipe(output->crtc);
 	ret = drmWaitVBlank(device->drm.fd, &vbl);
@@ -571,8 +585,7 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 			millihz_to_nsec(output->base.current_mode->refresh);
 		if (timespec_to_nsec(&vbl2now) < refresh_nsec) {
 			drm_output_update_msc(output, vbl.reply.sequence);
-			weston_output_finish_frame(output_base, &ts,
-						WP_PRESENTATION_FEEDBACK_INVALID);
+			weston_output_finish_frame(output_base, &ts, flags);
 			return 0;
 		}
 	}
@@ -601,8 +614,7 @@ drm_output_start_repaint_loop(struct weston_output *output_base)
 
 finish_frame:
 	/* if we cannot page-flip, immediately finish frame */
-	weston_output_finish_frame(output_base, NULL,
-				   WP_PRESENTATION_FEEDBACK_INVALID);
+	weston_output_finish_frame(output_base, NULL, flags);
 	return 0;
 }
 

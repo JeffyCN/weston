@@ -1189,6 +1189,18 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 	return 0;
 }
 
+static void
+drm_pending_state_clear_tearing(struct drm_pending_state *pending_state)
+{
+	struct drm_output_state *output_state;
+
+	wl_list_for_each(output_state, &pending_state->output_list, link) {
+		if (output_state->output->virtual)
+			continue;
+		output_state->tear = false;
+	}
+}
+
 /**
  * Helper function used only by drm_pending_state_apply, with the same
  * guarantees and constraints as that function.
@@ -1202,7 +1214,8 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 	struct drm_output_state *output_state, *tmp;
 	struct drm_plane *plane;
 	drmModeAtomicReq *req = drmModeAtomicAlloc();
-	uint32_t flags;
+	uint32_t flags, tear_flag = 0;
+	bool may_tear = true;
 	int ret = 0;
 
 	if (!req)
@@ -1312,6 +1325,7 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 			continue;
 		if (mode == DRM_STATE_APPLY_SYNC)
 			assert(output_state->dpms == WESTON_DPMS_OFF);
+		may_tear &= output_state->tear;
 		ret |= drm_output_apply_state_atomic(output_state, req, &flags);
 	}
 
@@ -1319,10 +1333,22 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 		weston_log("atomic: couldn't compile atomic state\n");
 		goto out;
 	}
+	if (may_tear)
+		tear_flag = DRM_MODE_PAGE_FLIP_ASYNC;
 
-	ret = drmModeAtomicCommit(device->drm.fd, req, flags, device);
+	ret = drmModeAtomicCommit(device->drm.fd, req, flags | tear_flag,
+				  device);
 	drm_debug(b, "[atomic] drmModeAtomicCommit\n");
-
+	if (ret != 0 && may_tear && mode == DRM_STATE_TEST_ONLY) {
+		/* If we failed trying to set up a tearing commit, try again
+		 * without tearing. If that succeeds, knock the tearing flag
+		 * out of our state in case we were testing for a later commit.
+		 */
+		drm_debug(b, "[atomic] drmModeAtomicCommit (no tear fallback)\n");
+		ret = drmModeAtomicCommit(device->drm.fd, req, flags, device);
+		if (ret == 0)
+			drm_pending_state_clear_tearing(pending_state);
+	}
 	/* Test commits do not take ownership of the state; return
 	 * without freeing here. */
 	if (mode == DRM_STATE_TEST_ONLY) {
@@ -1539,8 +1565,10 @@ atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 {
 	struct drm_device *device = data;
 	struct drm_backend *b = device->backend;
+	struct weston_compositor *ec = b->compositor;
 	struct drm_crtc *crtc;
 	struct drm_output *output;
+	struct timespec now;
 	uint32_t flags = WP_PRESENTATION_FEEDBACK_KIND_VSYNC |
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_COMPLETION |
 			 WP_PRESENTATION_FEEDBACK_KIND_HW_CLOCK;
@@ -1557,6 +1585,17 @@ atomic_flip_handler(int fd, unsigned int frame, unsigned int sec,
 		return;
 
 	drm_output_update_msc(output, frame);
+
+	if (output->state_cur->tear) {
+		/* When tearing we might not get accurate timestamps from
+		 * the driver, so just use whatever time it is now.
+		 * Note: This could actually be after a vblank that occured
+		 * after entering this function.
+		 */
+		weston_compositor_read_presentation_clock(ec, &now);
+		sec = now.tv_sec;
+		usec = now.tv_nsec / 1000;
+	}
 
 	drm_debug(b, "[atomic][CRTC:%u] flip processing started\n", crtc_id);
 	assert(device->atomic_modeset);
