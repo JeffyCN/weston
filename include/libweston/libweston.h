@@ -1515,8 +1515,10 @@ struct weston_view {
 		pixman_region32_t boundingbox;
 		pixman_region32_t opaque;
 
-		/* matrix and inverse are used only if enabled = 1.
-		 * If enabled = 0, use x, y, width, height directly.
+		/* Regardless of enabled status, matrix and inverse are
+		 * updated by weston_view_update_transform(), and are
+		 * used for coordinate conversion between the view
+		 * and global spaces.
 		 */
 		int enabled;
 		struct weston_matrix matrix;
