@@ -545,6 +545,57 @@ destroy_window_output(struct window *window, struct wl_output *wl_output)
 }
 
 static void
+draw_triangle(struct window *window, EGLint buffer_age)
+{
+	struct display *display = window->display;
+	static const GLfloat verts[3][2] = {
+		{ -0.5, -0.5 },
+		{  0.5, -0.5 },
+		{  0,    0.5 }
+	};
+	static const GLfloat colors[3][3] = {
+		{ 1, 0, 0 },
+		{ 0, 1, 0 },
+		{ 0, 0, 1 }
+	};
+	struct wl_region *region;
+	EGLint rect[4];
+
+	glVertexAttribPointer(window->gl.pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(window->gl.col, 3, GL_FLOAT, GL_FALSE, 0, colors);
+	glEnableVertexAttribArray(window->gl.pos);
+	glEnableVertexAttribArray(window->gl.col);
+
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	glDisableVertexAttribArray(window->gl.pos);
+	glDisableVertexAttribArray(window->gl.col);
+
+	usleep(window->delay);
+
+	if (window->opaque || window->fullscreen) {
+		region = wl_compositor_create_region(window->display->compositor);
+		wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+		wl_surface_set_opaque_region(window->surface, region);
+		wl_region_destroy(region);
+	} else {
+		wl_surface_set_opaque_region(window->surface, NULL);
+	}
+
+	if (display->swap_buffers_with_damage && buffer_age > 0) {
+		rect[0] = window->buffer_size.width / 4 - 1;
+		rect[1] = window->buffer_size.height / 4 - 1;
+		rect[2] = window->buffer_size.width / 2 + 2;
+		rect[3] = window->buffer_size.height / 2 + 2;
+		display->swap_buffers_with_damage(display->egl.dpy,
+						  window->egl_surface,
+						  rect, 1);
+	} else {
+		eglSwapBuffers(display->egl.dpy, window->egl_surface);
+	}
+}
+
+static void
 set_tearing(struct window *window, bool enable)
 {
 	if (!window->tear_control)
@@ -645,21 +696,9 @@ static void
 redraw(struct window *window)
 {
 	struct display *display = window->display;
-	static const GLfloat verts[3][2] = {
-		{ -0.5, -0.5 },
-		{  0.5, -0.5 },
-		{  0,    0.5 }
-	};
-	static const GLfloat colors[3][3] = {
-		{ 1, 0, 0 },
-		{ 0, 1, 0 },
-		{ 0, 0, 1 }
-	};
 	GLfloat angle;
 	struct weston_matrix rotation;
 	static const uint32_t speed_div = 5, benchmark_interval = 5;
-	struct wl_region *region;
-	EGLint rect[4];
 	EGLint buffer_age = 0;
 	struct timeval tv;
 
@@ -735,38 +774,8 @@ redraw(struct window *window)
 		glClearColor(0.0, 0.0, 0.0, 0.5);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glVertexAttribPointer(window->gl.pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-	glVertexAttribPointer(window->gl.col, 3, GL_FLOAT, GL_FALSE, 0, colors);
-	glEnableVertexAttribArray(window->gl.pos);
-	glEnableVertexAttribArray(window->gl.col);
+	draw_triangle(window, buffer_age);
 
-	glDrawArrays(GL_TRIANGLES, 0, 3);
-
-	glDisableVertexAttribArray(window->gl.pos);
-	glDisableVertexAttribArray(window->gl.col);
-
-	usleep(window->delay);
-
-	if (window->opaque || window->fullscreen) {
-		region = wl_compositor_create_region(window->display->compositor);
-		wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
-		wl_surface_set_opaque_region(window->surface, region);
-		wl_region_destroy(region);
-	} else {
-		wl_surface_set_opaque_region(window->surface, NULL);
-	}
-
-	if (display->swap_buffers_with_damage && buffer_age > 0) {
-		rect[0] = window->buffer_size.width / 4 - 1;
-		rect[1] = window->buffer_size.height / 4 - 1;
-		rect[2] = window->buffer_size.width / 2 + 2;
-		rect[3] = window->buffer_size.height / 2 + 2;
-		display->swap_buffers_with_damage(display->egl.dpy,
-						  window->egl_surface,
-						  rect, 1);
-	} else {
-		eglSwapBuffers(display->egl.dpy, window->egl_surface);
-	}
 	window->frames++;
 }
 
