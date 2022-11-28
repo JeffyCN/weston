@@ -113,6 +113,7 @@ struct window {
 	int fullscreen, maximized, opaque, buffer_bpp, frame_sync, delay;
 	struct wp_tearing_control_v1 *tear_control;
 	bool tearing, toggled_tearing, tear_enabled;
+	bool vertical_bar;
 	bool fullscreen_ratio;
 	bool wait_for_configure;
 
@@ -596,6 +597,57 @@ draw_triangle(struct window *window, EGLint buffer_age)
 }
 
 static void
+draw_bar(struct window *window, EGLint buffer_age, struct weston_matrix *rotation)
+{
+	struct display *display = window->display;
+	GLfloat verts[4][2] = {
+		{ -1, 1 },
+		{  -0.9, 1 },
+		{  -1, -1 },
+		{  -0.9, -1   }
+	};
+	static const GLfloat colors[4][3] = {
+		{ 1, 1, 1 },
+		{ 1, 1, 1 },
+		{ 1, 1, 1 },
+		{ 1, 1, 1 }
+	};
+	struct wl_region *region;
+	int i;
+	const float delta = 0.01;
+	static float offset = 0;
+
+	offset += delta;
+	if (offset > 2)
+		offset = 0;
+
+	for (i = 0 ; i < 4; i++) {
+		verts[i][0] += offset;
+	}
+	glVertexAttribPointer(window->gl.pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(window->gl.col, 3, GL_FLOAT, GL_FALSE, 0, colors);
+	glEnableVertexAttribArray(window->gl.pos);
+	glEnableVertexAttribArray(window->gl.col);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	glDisableVertexAttribArray(window->gl.pos);
+	glDisableVertexAttribArray(window->gl.col);
+
+	usleep(window->delay);
+
+	if (window->opaque || window->fullscreen) {
+		region = wl_compositor_create_region(window->display->compositor);
+		wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+		wl_surface_set_opaque_region(window->surface, region);
+		wl_region_destroy(region);
+	} else {
+		wl_surface_set_opaque_region(window->surface, NULL);
+	}
+
+	eglSwapBuffers(display->egl.dpy, window->egl_surface);
+}
+
+static void
 set_tearing(struct window *window, bool enable)
 {
 	if (!window->tear_control)
@@ -723,7 +775,12 @@ redraw(struct window *window)
 	}
 
 	weston_matrix_init(&rotation);
-	angle = ((time - window->initial_frame_time) / speed_div) % 360 * M_PI / 180.0;
+	if (window->vertical_bar) {
+		angle = 0;
+	} else {
+		angle = ((time - window->initial_frame_time) / speed_div)
+			% 360 * M_PI / 180.0;
+	}
 	rotation.d[0] =   cos(angle);
 	rotation.d[2] =   sin(angle);
 	rotation.d[8] =  -sin(angle);
@@ -774,7 +831,10 @@ redraw(struct window *window)
 		glClearColor(0.0, 0.0, 0.0, 0.5);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	draw_triangle(window, buffer_age);
+	if (window->vertical_bar)
+		draw_bar(window, buffer_age, &rotation);
+	else
+		draw_triangle(window, buffer_age);
 
 	window->frames++;
 }
@@ -1160,6 +1220,7 @@ usage(int error_code)
 		"  -b\tDon't sync to compositor redraw (eglSwapInterval 0)\n"
 		"  -t\tEnable tearing via the tearing_control protocol\n"
 		"  -T\tEnable and disable tearing every 5 seconds\n"
+		"  -v\tDraw a moving vertical bar instead of a triangle\n"
 		"  -h\tThis help text\n\n");
 
 	exit(error_code);
@@ -1209,7 +1270,9 @@ main(int argc, char **argv)
 		} else if (strcmp("-T", argv[i]) == 0) {
 			window.tearing = true;
 			window.toggled_tearing = true;
-		} else if (strcmp("-h", argv[i]) == 0)
+		} else if (strcmp("-v", argv[i]) == 0)
+			window.vertical_bar = true;
+		else if (strcmp("-h", argv[i]) == 0)
 			usage(EXIT_SUCCESS);
 		else
 			usage(EXIT_FAILURE);
