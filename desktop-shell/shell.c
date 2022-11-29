@@ -2502,6 +2502,7 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer, int x,
 
 	if (wl_list_empty(&ev->layer_link.link)) {
 		weston_layer_entry_insert(&layer->view_list, &ev->layer_link);
+		weston_view_geometry_dirty(ev);
 		weston_compositor_schedule_repaint(ev->surface->compositor);
 	}
 }
