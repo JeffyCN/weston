@@ -1197,6 +1197,7 @@ struct weston_debug_compositor;
 struct weston_color_manager;
 struct weston_dmabuf_feedback;
 struct weston_dmabuf_feedback_format_table;
+struct weston_renderer;
 
 /** Main object, container-like structure which aggregates all other objects.
  *
