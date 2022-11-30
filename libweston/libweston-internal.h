@@ -46,6 +46,12 @@
 
 /* compositor <-> renderer interface */
 
+enum weston_renderer_type {
+	WESTON_RENDERER_NOOP,
+	WESTON_RENDERER_PIXMAN,
+	WESTON_RENDERER_GL,
+};
+
 struct weston_renderer {
 	int (*read_pixels)(struct weston_output *output,
 			   const struct pixel_format_info *format, void *pixels,
@@ -82,6 +88,8 @@ struct weston_renderer {
 
 	bool (*fill_buffer_info)(struct weston_compositor *ec,
 				 struct weston_buffer *buffer);
+
+	enum weston_renderer_type type;
 };
 
 void

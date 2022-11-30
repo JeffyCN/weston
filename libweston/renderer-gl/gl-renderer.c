@@ -3805,6 +3805,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.destroy = gl_renderer_destroy;
 	gr->base.surface_copy_content = gl_renderer_surface_copy_content;
 	gr->base.fill_buffer_info = gl_renderer_fill_buffer_info;
+	gr->base.type = WESTON_RENDERER_GL;
 
 	if (gl_renderer_setup_egl_display(gr, options->egl_native_display) < 0)
 		goto fail;

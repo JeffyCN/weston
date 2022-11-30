@@ -137,6 +137,7 @@ noop_renderer_init(struct weston_compositor *ec)
 	renderer->base.flush_damage = noop_renderer_flush_damage;
 	renderer->base.attach = noop_renderer_attach;
 	renderer->base.destroy = noop_renderer_destroy;
+	renderer->base.type = WESTON_RENDERER_NOOP;
 	ec->renderer = &renderer->base;
 
 	return 0;

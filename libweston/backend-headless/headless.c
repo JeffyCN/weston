@@ -49,18 +49,11 @@
 #include "presentation-time-server-protocol.h"
 #include <libweston/windowed-output-api.h>
 
-enum headless_renderer_type {
-	HEADLESS_NOOP,
-	HEADLESS_PIXMAN,
-	HEADLESS_GL,
-};
-
 struct headless_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
 
 	struct weston_seat fake_seat;
-	enum headless_renderer_type renderer_type;
 
 	struct gl_renderer_interface *glri;
 	bool decorate;
@@ -285,14 +278,14 @@ headless_output_disable(struct weston_output *base)
 
 	wl_event_source_remove(output->finish_frame_timer);
 
-	switch (b->renderer_type) {
-	case HEADLESS_GL:
+	switch (b->compositor->renderer->type) {
+	case WESTON_RENDERER_GL:
 		headless_output_disable_gl(output);
 		break;
-	case HEADLESS_PIXMAN:
+	case WESTON_RENDERER_PIXMAN:
 		headless_output_disable_pixman(output);
 		break;
-	case HEADLESS_NOOP:
+	case WESTON_RENDERER_NOOP:
 		break;
 	}
 
@@ -418,14 +411,14 @@ headless_output_enable(struct weston_output *base)
 		return -1;
 	}
 
-	switch (b->renderer_type) {
-	case HEADLESS_GL:
+	switch (b->compositor->renderer->type) {
+	case WESTON_RENDERER_GL:
 		ret = headless_output_enable_gl(output);
 		break;
-	case HEADLESS_PIXMAN:
+	case WESTON_RENDERER_PIXMAN:
 		ret = headless_output_enable_pixman(output);
 		break;
-	case HEADLESS_NOOP:
+	case WESTON_RENDERER_NOOP:
 		break;
 	}
 
@@ -633,26 +626,11 @@ headless_backend_create(struct weston_compositor *compositor,
 	}
 
 	if (config->use_gl)
-		b->renderer_type = HEADLESS_GL;
-	else if (config->use_pixman)
-		b->renderer_type = HEADLESS_PIXMAN;
-	else
-		b->renderer_type = HEADLESS_NOOP;
-
-	switch (b->renderer_type) {
-	case HEADLESS_GL:
 		ret = headless_gl_renderer_init(b);
-		break;
-	case HEADLESS_PIXMAN:
+	else if (config->use_pixman)
 		ret = pixman_renderer_init(compositor);
-		break;
-	case HEADLESS_NOOP:
+	else
 		ret = noop_renderer_init(compositor);
-		break;
-	default:
-		assert(0 && "invalid renderer type");
-		ret = -1;
-	}
 
 	if (ret < 0)
 		goto err_input;

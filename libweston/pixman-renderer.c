@@ -1006,6 +1006,7 @@ pixman_renderer_init(struct weston_compositor *ec)
 	renderer->base.destroy = pixman_renderer_destroy;
 	renderer->base.surface_copy_content =
 		pixman_renderer_surface_copy_content;
+	renderer->base.type = WESTON_RENDERER_PIXMAN;
 	ec->renderer = &renderer->base;
 	ec->capabilities |= WESTON_CAP_ROTATION_ANY;
 	ec->capabilities |= WESTON_CAP_VIEW_CLIP_MASK;
