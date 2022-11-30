@@ -118,7 +118,7 @@ TEST(internal_screenshot)
 
 	/* Take a snapshot.  Result will be in screenshot->wl_buffer. */
 	testlog("Taking a screenshot\n");
-	screenshot = capture_screenshot_of_output(client);
+	screenshot = capture_screenshot_of_output(client, NULL);
 	assert(screenshot);
 
 	/* Load good reference image */

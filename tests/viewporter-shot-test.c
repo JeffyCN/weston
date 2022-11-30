@@ -92,7 +92,7 @@ TEST(viewport_upscale_solid)
 	move_client(client, 19, 19);
 
 	match = verify_screen_content(client, "viewport_upscale_solid", 0,
-				      NULL, 0);
+				      NULL, 0, NULL);
 	assert(match);
 
 	wp_viewport_destroy(viewport);

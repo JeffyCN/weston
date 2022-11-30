@@ -274,7 +274,7 @@ pixman_image_t *
 load_image_from_png(const char *fname);
 
 struct buffer *
-capture_screenshot_of_output(struct client *client);
+capture_screenshot_of_output(struct client *client, const char *output_name);
 
 struct buffer *
 client_capture_output(struct client *client,
@@ -296,7 +296,7 @@ verify_screen_content(struct client *client,
 		      const char *ref_image,
 		      int ref_seq_no,
 		      const struct rectangle *clip,
-		      int seq_no);
+		      int seq_no, const char *output_name);
 
 struct buffer *
 client_buffer_from_image_file(struct client *client,

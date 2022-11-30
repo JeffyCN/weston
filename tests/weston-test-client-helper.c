@@ -1721,8 +1721,8 @@ client_capture_output(struct client *client,
 /**
  * Take screenshot of a single output
  *
- * Requests a screenshot from the server of the output that the
- * client appears on. This implies that the compositor goes through an output
+ * Requests a screenshot from the server of the output specified
+ * in output_name. This implies that the compositor goes through an output
  * repaint to provide the screenshot before this function returns. This
  * function is therefore both a server roundtrip and a wait for a repaint.
  *
@@ -1732,16 +1732,34 @@ client_capture_output(struct client *client,
  * orientation rather than scale=1 or orientation=normal. The pixel format
  * is ensured to be PIXMAN_a8r8g8b8.
  *
+ * @param client a client instance, as created by create_client()
+ * @param output_name the name of the output, as specified by wl_output.name
  * @returns A new buffer object, that should be freed with buffer_destroy().
  */
 struct buffer *
-capture_screenshot_of_output(struct client *client)
+capture_screenshot_of_output(struct client *client, const char *output_name)
 {
 	struct image_header ih;
 	struct buffer *shm;
 	struct buffer *buf;
+	struct output *output = NULL;
 
-	shm = client_capture_output(client, client->output,
+	if (output_name) {
+		struct output *output_iter;
+
+		wl_list_for_each(output_iter, &client->output_list, link) {
+			if (!strcmp(output_name, output_iter->name)) {
+				output = output_iter;
+				break;
+			}
+		}
+
+		assert(output);
+	} else {
+		output = client->output;
+	}
+
+	shm = client_capture_output(client, output,
 				    WESTON_CAPTURE_V1_SOURCE_FRAMEBUFFER);
 	ih = image_header_from(shm->image);
 
@@ -1866,6 +1884,8 @@ verify_image(pixman_image_t *shot,
  * \param ref_seq_no See verify_image().
  * \param clip See verify_image().
  * \param seq_no See verify_image().
+ * \param output_name the output name as specified by wl_output.name. If NULL,
+ * this is the last wl_output advertised by wl_registry.
  * \return True if the screen contents matches the reference image,
  * false otherwise.
  */
@@ -1874,12 +1894,12 @@ verify_screen_content(struct client *client,
 		      const char *ref_image,
 		      int ref_seq_no,
 		      const struct rectangle *clip,
-		      int seq_no)
+		      int seq_no, const char *output_name)
 {
 	struct buffer *shot;
 	bool match;
 
-	shot = capture_screenshot_of_output(client);
+	shot = capture_screenshot_of_output(client, output_name);
 	assert(shot);
 	match = verify_image(shot->image, ref_image, ref_seq_no, clip, seq_no);
 	buffer_destroy(shot);

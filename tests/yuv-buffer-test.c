@@ -464,7 +464,7 @@ TEST_P(yuv_buffer_shm, yuv_cases)
 	buf = my_case->create_buffer(client, my_case->drm_format, img);
 	show_window_with_yuv(client, buf);
 
-	match = verify_screen_content(client, "yuv-buffer", 0, NULL, 0);
+	match = verify_screen_content(client, "yuv-buffer", 0, NULL, 0, NULL);
 	assert(match);
 
 	yuv_buffer_destroy(buf);

@@ -221,7 +221,7 @@ TEST(output_damage)
 	 */
 	for (i = 1; i < COUNT_BUFS; i++) {
 		commit_buffer_with_damage(client->surface, buf[i], damages[i]);
-		if (!verify_screen_content(client, refname, i, NULL, i))
+		if (!verify_screen_content(client, refname, i, NULL, i, NULL))
 			match = false;
 	}
 

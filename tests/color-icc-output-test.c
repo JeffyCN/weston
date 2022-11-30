@@ -618,7 +618,7 @@ TEST(opaque_pixel_conversion)
 	wl_surface_damage(surface, 0, 0, width, height);
 	wl_surface_commit(surface);
 
-	shot = capture_screenshot_of_output(client);
+	shot = capture_screenshot_of_output(client, NULL);
 	assert(shot);
 
 	match = verify_image(shot->image, "shaper_matrix", arg->ref_image_index,
@@ -834,7 +834,7 @@ TEST(output_icc_alpha_blend)
 	/* attach, damage, commit background window */
 	move_client(client, 0, 0);
 
-	shot = capture_screenshot_of_output(client);
+	shot = capture_screenshot_of_output(client, NULL);
 	assert(shot);
 	match = verify_image(shot->image, "output_icc_alpha_blend", arg->ref_image_index,
 			     NULL, seq_no);
