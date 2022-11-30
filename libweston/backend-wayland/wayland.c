@@ -86,7 +86,6 @@ struct wayland_backend {
 		uint32_t event_mask;
 	} parent;
 
-	bool use_pixman;
 	bool sprawl_across_outputs;
 	bool fullscreen;
 
@@ -728,16 +727,13 @@ static int
 wayland_output_disable(struct weston_output *base)
 {
 	struct wayland_output *output = to_wayland_output(base);
-	struct wayland_backend *b;
 
 	assert(output);
-
-	b = to_wayland_backend(base->compositor);
 
 	if (!output->base.enabled)
 		return 0;
 
-	if (b->use_pixman) {
+	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		pixman_renderer_output_destroy(&output->base);
 #ifdef ENABLE_EGL
 	} else {
@@ -1141,7 +1137,7 @@ wayland_output_switch_mode(struct weston_output *output_base,
 	old_mode->flags &= ~WL_OUTPUT_MODE_CURRENT;
 	output->base.current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
 
-	if (b->use_pixman) {
+	if (output_base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		pixman_renderer_output_destroy(output_base);
 		if (wayland_output_init_pixman_renderer(output) < 0)
 			goto err_output;
@@ -1275,7 +1271,7 @@ wayland_output_enable(struct weston_output *base)
 	if (ret < 0)
 		return -1;
 
-	if (b->use_pixman) {
+	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		if (wayland_output_init_pixman_renderer(output) < 0)
 			goto err_output;
 
@@ -2837,6 +2833,7 @@ wayland_backend_create(struct weston_compositor *compositor,
 {
 	struct wayland_backend *b;
 	struct wl_event_loop *loop;
+	bool use_pixman;
 	int fd;
 
 	b = zalloc(sizeof *b);
@@ -2874,21 +2871,21 @@ wayland_backend_create(struct weston_compositor *compositor,
 	create_cursor(b, new_config);
 
 #ifdef ENABLE_EGL
-	b->use_pixman = new_config->use_pixman;
+	use_pixman = new_config->use_pixman;
 #else
-	b->use_pixman = true;
+	use_pixman = true;
 #endif
 	b->fullscreen = new_config->fullscreen;
 
-	if (!b->use_pixman) {
+	if (!use_pixman) {
 		gl_renderer = weston_load_module("gl-renderer.so",
 						 "gl_renderer_interface",
 						 LIBWESTON_MODULEDIR);
 		if (!gl_renderer)
-			b->use_pixman = true;
+			use_pixman = true;
 	}
 
-	if (!b->use_pixman) {
+	if (!use_pixman) {
 		const struct gl_renderer_display_options options = {
 			.egl_platform = EGL_PLATFORM_WAYLAND_KHR,
 			.egl_native_display = b->parent.wl_display,
@@ -2899,11 +2896,11 @@ wayland_backend_create(struct weston_compositor *compositor,
 		if (gl_renderer->display_create(compositor, &options) < 0) {
 			weston_log("Failed to initialize the GL renderer; "
 				   "falling back to pixman.\n");
-			b->use_pixman = true;
+			use_pixman = true;
 		}
 	}
 
-	if (b->use_pixman) {
+	if (use_pixman) {
 		if (pixman_renderer_init(compositor) < 0) {
 			weston_log("Failed to initialize pixman renderer\n");
 			goto err_display;
