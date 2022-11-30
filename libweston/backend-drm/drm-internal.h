@@ -327,7 +327,6 @@ struct drm_backend {
 	struct wl_listener session_listener;
 	uint32_t gbm_format;
 
-	bool use_pixman;
 	bool use_pixman_shadow;
 
 	struct udev_input input;

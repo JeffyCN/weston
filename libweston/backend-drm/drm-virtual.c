@@ -274,7 +274,7 @@ drm_virtual_output_enable(struct weston_output *output_base)
 
 	assert(output->virtual);
 
-	if (b->use_pixman) {
+	if (output_base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		weston_log("Not support pixman renderer on Virtual output\n");
 		goto err;
 	}

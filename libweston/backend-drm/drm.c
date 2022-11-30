@@ -365,7 +365,6 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	struct drm_plane *scanout_plane = output->scanout_plane;
 	struct drm_property_info *damage_info =
 		&scanout_plane->props[WDRM_PLANE_FB_DAMAGE_CLIPS];
-	struct drm_backend *b = device->backend;
 	struct drm_fb *fb;
 	pixman_region32_t scanout_damage;
 	pixman_box32_t *rects;
@@ -391,7 +390,7 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	    (scanout_plane->state_cur->fb->type == BUFFER_GBM_SURFACE ||
 	     scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB)) {
 		fb = drm_fb_ref(scanout_plane->state_cur->fb);
-	} else if (b->use_pixman) {
+	} else if (c->renderer->type == WESTON_RENDERER_PIXMAN) {
 		fb = drm_output_render_pixman(state, damage);
 	} else {
 		fb = drm_output_render_gl(state, damage);
@@ -733,7 +732,7 @@ drm_output_apply_mode(struct drm_output *output)
 	 */
 	device->state_invalid = true;
 
-	if (b->use_pixman) {
+	if (b->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		drm_output_fini_pixman(output);
 		if (drm_output_init_pixman(output, b) < 0) {
 			weston_log("failed to init output pixman state with "
@@ -1904,7 +1903,7 @@ drm_output_enable(struct weston_output *base)
 	if (b->pageflip_timeout)
 		drm_output_pageflip_timer_create(output);
 
-	if (b->use_pixman) {
+	if (b->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		if (drm_output_init_pixman(output, b) < 0) {
 			weston_log("Failed to init output pixman state\n");
 			goto err_planes;
@@ -1950,7 +1949,7 @@ drm_output_deinit(struct weston_output *base)
 		drm_pending_state_apply_sync(pending);
 	}
 
-	if (b->use_pixman)
+	if (b->compositor->renderer->type == WESTON_RENDERER_PIXMAN)
 		drm_output_fini_pixman(output);
 	else
 		drm_output_fini_egl(output);
@@ -3158,7 +3157,6 @@ drm_backend_create(struct weston_compositor *compositor,
 	b->drm = device;
 
 	b->compositor = compositor;
-	b->use_pixman = config->use_pixman;
 	b->pageflip_timeout = config->pageflip_timeout;
 	b->use_pixman_shadow = config->use_pixman_shadow;
 
@@ -3203,7 +3201,7 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev_dev;
 	}
 
-	if (b->use_pixman) {
+	if (config->use_pixman) {
 		if (init_pixman(b) < 0) {
 			weston_log("failed to initialize pixman renderer\n");
 			goto err_udev_dev;
