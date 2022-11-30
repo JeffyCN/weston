@@ -2430,7 +2430,8 @@ wayland_input_destroy(struct wayland_input *input)
 	if (input->touch_device)
 		weston_touch_device_destroy(input->touch_device);
 
-	weston_seat_release(&input->base);
+	if (input->seat_initialized)
+		weston_seat_release(&input->base);
 
 	if (input->parent.keyboard) {
 		if (input->seat_version >= WL_KEYBOARD_RELEASE_SINCE_VERSION)
