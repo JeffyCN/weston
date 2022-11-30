@@ -92,7 +92,6 @@ struct x11_backend {
 	uint8_t			 xkb_event_base;
 	int			 fullscreen;
 	int			 no_input;
-	int			 use_pixman;
 
 	int			 has_net_wm_state_fullscreen;
 
@@ -858,7 +857,7 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 
 	weston_renderer_resize_output(&output->base, &fb_size, NULL);
 
-	if (b->use_pixman) {
+	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		x11_output_deinit_shm(b, output);
 		if (x11_output_init_shm(b, output,
 					fb_size.width, fb_size.height) < 0) {
@@ -888,7 +887,7 @@ x11_output_disable(struct weston_output *base)
 
 	wl_event_source_remove(output->finish_frame_timer);
 
-	if (backend->use_pixman) {
+	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		pixman_renderer_output_destroy(&output->base);
 		x11_output_deinit_shm(backend, output);
 	} else {
@@ -1022,7 +1021,7 @@ x11_output_enable(struct weston_output *base)
 	if (b->fullscreen)
 		x11_output_wait_for_map(b, output);
 
-	if (b->use_pixman) {
+	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		const struct pixman_renderer_output_options options = {
 			.use_shadow = true,
 			.fb_size = {
@@ -1895,8 +1894,7 @@ x11_backend_create(struct weston_compositor *compositor,
 		config->fullscreen = 0;
 	}
 
-	b->use_pixman = config->use_pixman;
-	if (b->use_pixman) {
+	if (config->use_pixman) {
 		if (pixman_renderer_init(compositor) < 0) {
 			weston_log("Failed to initialize pixman renderer for X11 backend\n");
 			goto err_xdisplay;
