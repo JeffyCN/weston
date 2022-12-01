@@ -720,6 +720,8 @@ weston_wm_set_selection(struct wl_listener *listener, void *data)
 				wm->selection_window,
 				wm->atom.clipboard,
 				XCB_TIME_CURRENT_TIME);
+
+	xcb_flush(wm->conn);
 }
 
 static void
