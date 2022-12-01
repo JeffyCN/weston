@@ -199,6 +199,9 @@ weston_wm_get_selection_targets(struct weston_wm *wm)
 	char *logstr;
 	size_t logsize;
 
+	if (!seat)
+		return;
+
 	cookie = xcb_get_property(wm->conn,
 				  1, /* delete */
 				  wm->selection_window,
@@ -631,6 +634,9 @@ weston_wm_handle_xfixes_selection_notify(struct weston_wm *wm,
 	       xfixes_selection_notify->owner);
 
 	if (xfixes_selection_notify->owner == XCB_WINDOW_NONE) {
+		if (!seat)
+			return 1;
+
 		if (wm->selection_owner != wm->selection_window) {
 			/* A real X client selection went away, not our
 			 * proxy selection.  Clear the wayland selection. */
