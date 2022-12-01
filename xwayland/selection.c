@@ -25,6 +25,7 @@
 
 #include "config.h"
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -590,6 +591,7 @@ weston_wm_handle_selection_request(struct weston_wm *wm,
 	weston_log_continue("property %s\n",
 		get_atom_name(wm->conn, selection_request->property));
 
+	assert(selection_request->requestor != wm->selection_window);
 	wm->selection_request = *selection_request;
 	wm->incr = 0;
 	wm->flush_property_on_delete = 0;
