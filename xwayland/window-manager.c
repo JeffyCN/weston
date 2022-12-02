@@ -3035,6 +3035,8 @@ xserver_map_shell_surface(struct weston_wm_window *window,
 						       parent->surface);
 		}
 	} else if (weston_wm_window_is_maximized(window)) {
+		window->saved_width = window->width;
+		window->saved_height = window->height;
 		xwayland_interface->set_maximized(window->shsurf);
 	} else {
 		if (weston_wm_window_type_inactive(window)) {
