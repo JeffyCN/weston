@@ -1026,8 +1026,6 @@ vnc_backend_create(struct weston_compositor *compositor,
 	return backend;
 
 err_output:
-	if (backend->output)
-		weston_output_release(&backend->output->base);
 	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link)
 		vnc_head_destroy(base);
 err_compositor:
