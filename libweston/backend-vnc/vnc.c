@@ -816,9 +816,7 @@ vnc_insert_new_mode(struct weston_output *output, int width, int height,
 {
 	struct weston_mode *mode;
 
-	mode = zalloc(sizeof *mode);
-	if (!mode)
-		return NULL;
+	mode = xzalloc(sizeof *mode);
 	mode->width = width;
 	mode->height = height;
 	mode->refresh = rate;
@@ -854,11 +852,6 @@ vnc_switch_mode(struct weston_output *base, struct weston_mode *target_mode)
 	assert(output);
 
 	local_mode = vnc_ensure_matching_mode(base, target_mode);
-	if (!local_mode) {
-		weston_log("mode %dx%d not available\n",
-			   target_mode->width, target_mode->height);
-		return -ENOENT;
-	}
 
 	if (local_mode == base->current_mode)
 		return 0;
@@ -909,8 +902,6 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 	init_mode.refresh = backend->vnc_monitor_refresh_rate;
 
 	current_mode = vnc_ensure_matching_mode(&output->base, &init_mode);
-	if (!current_mode)
-		return -1;
 
 	output->base.current_mode = output->base.native_mode = current_mode;
 
