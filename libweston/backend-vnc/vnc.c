@@ -720,14 +720,12 @@ vnc_destroy(struct weston_compositor *ec)
 	free(backend);
 }
 
-static int
+static void
 vnc_head_create(struct weston_compositor *compositor, const char *name)
 {
 	struct vnc_head *head;
 
-	head = zalloc(sizeof *head);
-	if (!head)
-		return -1;
+	head = xzalloc(sizeof *head);
 
 	weston_head_init(&head->base, name);
 
@@ -735,8 +733,6 @@ vnc_head_create(struct weston_compositor *compositor, const char *name)
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(compositor, &head->base);
-
-	return 0;
 }
 
 static void
@@ -970,8 +966,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 	if (pixman_renderer_init(compositor) < 0)
 		goto err_compositor;
 
-	if (vnc_head_create(compositor, "vnc") < 0)
-		goto err_compositor;
+	vnc_head_create(compositor, "vnc");
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
 
