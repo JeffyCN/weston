@@ -728,6 +728,8 @@ vnc_head_create(struct weston_compositor *compositor, const char *name)
 	head = xzalloc(sizeof *head);
 
 	weston_head_init(&head->base, name);
+	weston_head_set_monitor_strings(&head->base, "weston", "vnc", NULL);
+	weston_head_set_physical_size(&head->base, 0, 0);
 
 	head->base.backend_id = vnc_head_destroy;
 
@@ -881,18 +883,11 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 {
 	struct vnc_output *output = to_vnc_output(base);
 	struct vnc_backend *backend = to_vnc_backend(base->compositor);
-	struct weston_head *head;
 	struct weston_mode *current_mode;
 	struct weston_mode init_mode;
 
 	/* We can only be called once. */
 	assert(!output->base.current_mode);
-
-	wl_list_for_each(head, &output->base.head_list, output_link) {
-		weston_head_set_monitor_strings(head, "weston", "vnc", NULL);
-
-		weston_head_set_physical_size(head, 0, 0);
-	}
 
 	wl_list_init(&output->peers);
 
