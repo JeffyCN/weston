@@ -891,12 +891,12 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 
 	wl_list_init(&output->peers);
 
-	init_mode.flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
 	init_mode.width = width;
 	init_mode.height = height;
 	init_mode.refresh = backend->vnc_monitor_refresh_rate;
 
 	current_mode = vnc_ensure_matching_mode(&output->base, &init_mode);
+	current_mode->flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
 
 	output->base.current_mode = output->base.native_mode = current_mode;
 
