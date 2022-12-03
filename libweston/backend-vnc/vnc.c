@@ -548,12 +548,8 @@ vnc_new_client(struct nvnc_client *client)
 	peer = xzalloc(sizeof(*peer));
 	peer->client = client;
 	peer->backend = backend;
-	peer->seat = zalloc(sizeof(*peer->seat));
+	peer->seat = xzalloc(sizeof(*peer->seat));
 
-	if (!peer->seat) {
-		weston_log("unable to create a weston_seat\n");
-		return;
-	}
 	weston_seat_init(peer->seat, backend->compositor, seat_name);
 	weston_seat_init_pointer(peer->seat);
 	weston_seat_init_keyboard(peer->seat, backend->xkb_keymap);
