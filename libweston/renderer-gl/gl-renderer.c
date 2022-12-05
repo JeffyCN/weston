@@ -1622,6 +1622,9 @@ draw_paint_node(struct weston_paint_node *pnode,
 	struct clipper_quad *quads = NULL;
 	int nquads;
 
+	if (!gb)
+		return;
+
 	if (gb->shader_variant == SHADER_VARIANT_NONE &&
 	    !buffer->direct_display)
 		return;
