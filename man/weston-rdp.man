@@ -2,7 +2,7 @@
 .SH NAME
 weston-rdp \- the RDP backend for Weston
 .SH SYNOPSIS
-.B weston --backend=rdp-backend.so
+.B weston --backend=rdp
 .
 .\" ***************************************************************
 .SH DESCRIPTION

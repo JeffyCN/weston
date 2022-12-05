@@ -124,8 +124,7 @@ if backend_default == 'auto'
 		endif
 	endforeach
 endif
-opt_backend_native = backend_default + '-backend.so'
-config_h.set_quoted('WESTON_NATIVE_BACKEND', opt_backend_native)
+config_h.set_quoted('WESTON_NATIVE_BACKEND', backend_default)
 message('The default backend is ' + backend_default)
 if not get_option('backend-' + backend_default)
 	error('Backend @0@ was chosen as native but is not being built.'.format(backend_default))

@@ -14,7 +14,7 @@ Weston on a machine that already has another graphical environment running,
 being either another wayland compositor (e.g.  Weston) or on a X11 server.
 You should only specify the backend manually if you know that what Weston picks
 is not the best, or the one you intended to use is different than the one
-loaded.  In that case, the backend can be selected by using ``-B [backend.so]``
+loaded.  In that case, the backend can be selected by using ``-B [backend]``
 command line option.  As each back-end uses a different way to get input and
 produce output, it means that the most suitable back-end depends on the
 environment being used.
@@ -173,7 +173,7 @@ Then, weston can be run by selecting the DRM-backend and the seat ``seat-insecur
 
 ::
 
-        SEATD_VTBOUND=0 ./weston -Bdrm-backend.so --seat=seat-insecure
+        SEATD_VTBOUND=0 ./weston -Bdrm --seat=seat-insecure
 
 This assumes you are using the libseat launcher of Weston with the "builtin"
 backend of libseat. Libseat automatically falls back to the builtin backend if

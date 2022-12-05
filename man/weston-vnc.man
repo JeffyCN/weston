@@ -2,7 +2,7 @@
 .SH NAME
 weston-vnc \- the VNC backend for Weston
 .SH SYNOPSIS
-.B weston --backend=vnc-backend.so
+.B weston --backend=vnc
 .
 .\" ***************************************************************
 .SH DESCRIPTION

@@ -23,30 +23,30 @@ Weston also supports X clients via
 .\" ***************************************************************
 .SH BACKENDS
 .TP
-.I drm-backend.so
+.I drm
 The DRM backend uses Linux KMS for output and evdev devices for input.
 It supports multiple monitors in a unified desktop with DPMS. See
 .BR weston-drm (7),
 if installed.
 .TP
-.I wayland-backend.so
+.I wayland
 The Wayland backend runs on another Wayland server, a different Weston
 instance, for example. Weston shows up as a single desktop window on
 the parent server.
 .TP
-.I x11-backend.so
+.I x11
 The X11 backend runs on an X server. Each Weston output becomes an
 X window. This is a cheap way to test multi-monitor support of a
 Wayland shell, desktop, or applications.
 .TP
-.I rdp-backend.so
+.I rdp
 The RDP backend runs in memory without the need of graphical hardware. Access
 to the desktop is done by using the RDP protocol. Each connecting
 client has its own seat making it a cheap way to test multi-seat support. See
 .BR weston-rdp (7),
 if installed.
 .TP
-.I vnc-backend.so
+.I vnc
 The VNC backend runs in memory without the need of graphical hardware. Access
 to the desktop is done by using the RFB protocol. Currently only one
 connecting client is supported. See
@@ -110,12 +110,14 @@ and
 .
 .SS Weston core options:
 .TP
-\fB\-\^B\fR\fIbackend.so\fR, \fB\-\-backend\fR=\fIbackend.so\fR
+\fB\-\^B\fR\fIbackend\fR, \fB\-\-backend\fR=\fIbackend\fR
 Load
-.I backend.so
-instead of the default backend. The file is searched for in
-.IR "@weston_modules_dir@" ,
-or you can pass an absolute path. The default backend is
+.I backend
+instead of the default backend, see
+.IR BACKENDS .
+The backend module is searched for in
+.IR "@weston_modules_dir@" .
+The default backend is
 .I @weston_native_backend@
 unless the environment suggests otherwise, see
 .IR DISPLAY " and " WAYLAND_DISPLAY .
@@ -297,7 +299,7 @@ The X display. If
 is set, and
 .B WAYLAND_DISPLAY
 is not set, the default backend becomes
-.IR x11-backend.so .
+.IR x11 .
 .TP
 .B WAYLAND_DEBUG
 If set to any value, causes libwayland to print the live protocol
@@ -314,7 +316,7 @@ is not set, the socket name is "wayland-0".
 If
 .B WAYLAND_DISPLAY
 is already set, the default backend becomes
-.IR wayland-backend.so .
+.IR wayland .
 This allows launching Weston as a nested server.
 .TP
 .B WAYLAND_SOCKET

@@ -124,18 +124,17 @@ directory are:
 .fi
 .RE
 .TP 7
-.BI "backend=" headless-backend.so
-overrides defaults backend. Available backend modules in the
-.IR "@libweston_modules_dir@"
-directory are:
+.BI "backend=" headless
+overrides defaults backend. Available backends are:
 .PP
 .RS 10
 .nf
-.BR drm-backend.so
-.BR headless-backend.so
-.BR rdp-backend.so
-.BR wayland-backend.so
-.BR x11-backend.so
+.BR drm
+.BR headless
+.BR rdp
+.BR vnc
+.BR wayland
+.BR x11
 .fi
 .RE
 .TP 7
@@ -660,7 +659,7 @@ sets the path to the xserver to run (string).
 .\"---------------------------------------------------------------------
 .SH "SCREEN-SHARE SECTION"
 .TP 7
-.BI "command=" "@weston_bindir@/weston --backend=rdp-backend.so \
+.BI "command=" "@weston_bindir@/weston --backend=rdp \
 --shell=fullscreen-shell.so --no-clients-resize --no-config"
 sets the command to start a fullscreen-shell server for screen sharing (string).
 .TP 7

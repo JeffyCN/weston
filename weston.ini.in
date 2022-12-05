@@ -82,7 +82,7 @@ path=@libexecdir@/weston-keyboard
 #max_accel_factor = 1.0
 
 [screen-share]
-command=@bindir@/weston --backend=rdp-backend.so --shell=fullscreen-shell.so --no-clients-resize
+command=@bindir@/weston --backend=rdp --shell=fullscreen-shell.so --no-clients-resize
 #start-on-startup=false
 
 #[xwayland]

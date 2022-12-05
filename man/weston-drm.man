@@ -2,7 +2,7 @@
 .SH NAME
 weston-drm \- the DRM backend for Weston
 .SH SYNOPSIS
-.B weston --backend=drm-backend.so
+.B weston --backend=drm
 .
 .\" ***************************************************************
 .SH DESCRIPTION

@@ -645,24 +645,24 @@ usage(int error_code)
 
 		"Core options:\n\n"
 		"  --version\t\tPrint weston version\n"
-		"  -B, --backend=MODULE\tBackend module, one of\n"
+		"  -B, --backend=BACKEND\tBackend module, one of\n"
 #if defined(BUILD_DRM_COMPOSITOR)
-			"\t\t\t\tdrm-backend.so\n"
+			"\t\t\t\tdrm\n"
 #endif
 #if defined(BUILD_HEADLESS_COMPOSITOR)
-			"\t\t\t\theadless-backend.so\n"
+			"\t\t\t\theadless\n"
 #endif
 #if defined(BUILD_RDP_COMPOSITOR)
-			"\t\t\t\trdp-backend.so\n"
+			"\t\t\t\trdp\n"
 #endif
 #if defined(BUILD_VNC_COMPOSITOR)
-			"\t\t\t\tvnc-backend.so\n"
+			"\t\t\t\tvnc\n"
 #endif
 #if defined(BUILD_WAYLAND_COMPOSITOR)
-			"\t\t\t\twayland-backend.so\n"
+			"\t\t\t\twayland\n"
 #endif
 #if defined(BUILD_X11_COMPOSITOR)
-			"\t\t\t\tx11-backend.so\n"
+			"\t\t\t\tx11\n"
 #endif
 		"  --shell=MODULE\tShell module, defaults to desktop-shell.so\n"
 		"  -S, --socket=NAME\tName of socket to listen on\n"
@@ -686,7 +686,7 @@ usage(int error_code)
 
 #if defined(BUILD_DRM_COMPOSITOR)
 	fprintf(out,
-		"Options for drm-backend.so:\n\n"
+		"Options for drm:\n\n"
 		"  --seat=SEAT\t\tThe seat that weston should run on, instead of the seat defined in XDG_SEAT\n"
 		"  --drm-device=CARD\tThe DRM device to use, e.g. \"card0\".\n"
 		"  --use-pixman\t\tUse the pixman (CPU) renderer\n"
@@ -696,7 +696,7 @@ usage(int error_code)
 
 #if defined(BUILD_HEADLESS_COMPOSITOR)
 	fprintf(out,
-		"Options for headless-backend.so:\n\n"
+		"Options for headless:\n\n"
 		"  --width=WIDTH\t\tWidth of memory surface\n"
 		"  --height=HEIGHT\tHeight of memory surface\n"
 		"  --scale=SCALE\t\tScale factor of output\n"
@@ -710,7 +710,7 @@ usage(int error_code)
 
 #if defined(BUILD_RDP_COMPOSITOR)
 	fprintf(out,
-		"Options for rdp-backend.so:\n\n"
+		"Options for rdp:\n\n"
 		"  --width=WIDTH\t\tWidth of desktop\n"
 		"  --height=HEIGHT\tHeight of desktop\n"
 		"  --env-socket\t\tUse socket defined in RDP_FD env variable as peer connection\n"
@@ -726,7 +726,7 @@ usage(int error_code)
 
 #if defined(BUILD_VNC_COMPOSITOR)
 	fprintf(out,
-		"Options for vnc-backend.so:\n\n"
+		"Options for vnc:\n\n"
 		"  --width=WIDTH\t\tWidth of desktop\n"
 		"  --height=HEIGHT\tHeight of desktop\n"
 		"  --port=PORT\t\tThe port to listen on\n"
@@ -737,7 +737,7 @@ usage(int error_code)
 
 #if defined(BUILD_WAYLAND_COMPOSITOR)
 	fprintf(out,
-		"Options for wayland-backend.so:\n\n"
+		"Options for wayland:\n\n"
 		"  --width=WIDTH\t\tWidth of Wayland surface\n"
 		"  --height=HEIGHT\tHeight of Wayland surface\n"
 		"  --scale=SCALE\t\tScale factor of output\n"
@@ -750,7 +750,7 @@ usage(int error_code)
 
 #if defined(BUILD_X11_COMPOSITOR)
 	fprintf(out,
-		"Options for x11-backend.so:\n\n"
+		"Options for x11:\n\n"
 		"  --width=WIDTH\t\tWidth of X window\n"
 		"  --height=HEIGHT\tHeight of X window\n"
 		"  --scale=SCALE\t\tScale factor of output\n"
@@ -1123,9 +1123,9 @@ weston_choose_default_backend(void)
 	char *backend = NULL;
 
 	if (getenv("WAYLAND_DISPLAY") || getenv("WAYLAND_SOCKET"))
-		backend = strdup("wayland-backend.so");
+		backend = strdup("wayland");
 	else if (getenv("DISPLAY"))
-		backend = strdup("x11-backend.so");
+		backend = strdup("x11");
 	else
 		backend = strdup(WESTON_NATIVE_BACKEND);
 
@@ -3452,17 +3452,23 @@ static int
 load_backend(struct weston_compositor *compositor, const char *backend,
 	     int *argc, char **argv, struct weston_config *config)
 {
-	if (strstr(backend, "headless-backend.so"))
+	if (strcmp(backend, "headless") == 0 ||
+	    strstr(backend, "headless-backend.so"))
 		return load_headless_backend(compositor, argc, argv, config);
-	else if (strstr(backend, "rdp-backend.so"))
+	else if (strcmp(backend, "rdp") == 0 ||
+		 strstr(backend, "rdp-backend.so"))
 		return load_rdp_backend(compositor, argc, argv, config);
-	else if (strstr(backend, "vnc-backend.so"))
+	else if (strcmp(backend, "vnc") == 0 ||
+		 strstr(backend, "vnc-backend.so"))
 		return load_vnc_backend(compositor, argc, argv, config);
-	else if (strstr(backend, "drm-backend.so"))
+	else if (strcmp(backend, "drm") == 0 ||
+		 strstr(backend, "drm-backend.so"))
 		return load_drm_backend(compositor, argc, argv, config);
-	else if (strstr(backend, "x11-backend.so"))
+	else if (strcmp(backend, "x11") == 0 ||
+		 strstr(backend, "x11-backend.so"))
 		return load_x11_backend(compositor, argc, argv, config);
-	else if (strstr(backend, "wayland-backend.so"))
+	else if (strcmp(backend, "wayland") == 0 ||
+		 strstr(backend, "wayland-backend.so"))
 		return load_wayland_backend(compositor, argc, argv, config);
 
 	weston_log("Error: unknown backend \"%s\"\n", backend);

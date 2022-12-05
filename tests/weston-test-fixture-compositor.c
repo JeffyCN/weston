@@ -206,11 +206,12 @@ static const char *
 backend_to_str(enum weston_compositor_backend b)
 {
 	static const char * const names[] = {
-		[WESTON_BACKEND_DRM] = "drm-backend.so",
-		[WESTON_BACKEND_HEADLESS] = "headless-backend.so",
-		[WESTON_BACKEND_RDP] = "rdp-backend.so",
-		[WESTON_BACKEND_WAYLAND] = "wayland-backend.so",
-		[WESTON_BACKEND_X11] = "X11-backend.so",
+		[WESTON_BACKEND_DRM] = "drm",
+		[WESTON_BACKEND_HEADLESS] = "headless",
+		[WESTON_BACKEND_RDP] = "rdp",
+		[WESTON_BACKEND_VNC] = "vnc",
+		[WESTON_BACKEND_WAYLAND] = "wayland",
+		[WESTON_BACKEND_X11] = "x11",
 	};
 	assert(b >= 0 && b < ARRAY_LENGTH(names));
 	return names[b];

@@ -1,5 +1,5 @@
 man_conf = configuration_data()
-man_conf.set('weston_native_backend', opt_backend_native)
+man_conf.set('weston_native_backend', backend_default)
 man_conf.set('weston_modules_dir', dir_module_weston)
 man_conf.set('libweston_modules_dir', dir_module_libweston)
 man_conf.set('weston_shell_client', get_option('desktop-shell-client-default'))
