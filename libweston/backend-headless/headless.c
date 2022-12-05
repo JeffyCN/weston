@@ -73,12 +73,7 @@ struct headless_output {
 
 	struct frame *frame;
 	struct {
-		struct {
-			cairo_surface_t *top;
-			cairo_surface_t *left;
-			cairo_surface_t *right;
-			cairo_surface_t *bottom;
-		} border;
+		cairo_surface_t *border[4]; /* enum gl_renderer_border_side */
 	} gl;
 };
 
@@ -144,7 +139,6 @@ headless_output_update_gl_border(struct headless_output *output)
 	struct headless_backend *backend = to_headless_backend(output->base.compositor);
 	struct gl_renderer_interface *glri = backend->glri;
 	int32_t ix, iy, iwidth, iheight, fwidth, fheight;
-	cairo_t *cr;
 
 	if (!output->frame)
 		return;
@@ -155,59 +149,45 @@ headless_output_update_gl_border(struct headless_output *output)
 	fheight = frame_height(output->frame);
 	frame_interior(output->frame, &ix, &iy, &iwidth, &iheight);
 
-	if (!output->gl.border.top)
-		output->gl.border.top =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   fwidth, iy);
-	cr = cairo_create(output->gl.border.top);
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	glri->output_set_border(&output->base, GL_RENDERER_BORDER_TOP,
-				fwidth, iy,
-				cairo_image_surface_get_stride(output->gl.border.top) / 4,
-				cairo_image_surface_get_data(output->gl.border.top));
+	struct weston_geometry border_area[4] = {
+		[GL_RENDERER_BORDER_TOP] = {
+			.x = 0, .y = 0,
+			.width = fwidth, .height = iy
+		},
+		[GL_RENDERER_BORDER_LEFT] = {
+			.x = 0, .y = iy,
+			.width = ix, .height = 1
+		},
+		[GL_RENDERER_BORDER_RIGHT] = {
+			.x = iwidth + ix, .y = iy,
+			.width = fwidth - (ix + iwidth), .height = 1
+		},
+		[GL_RENDERER_BORDER_BOTTOM] = {
+			.x = 0, .y = iy + iheight,
+			.width = fwidth, .height = fheight - (iy + iheight)
+		},
+	};
 
+	for (unsigned i = 0; i < ARRAY_LENGTH(border_area); i++) {
+		const struct weston_geometry *g = &border_area[i];
+		int tex_width;
+		cairo_t *cr;
 
-	if (!output->gl.border.left)
-		output->gl.border.left =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   ix, 1);
-	cr = cairo_create(output->gl.border.left);
-	cairo_translate(cr, 0, -iy);
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	glri->output_set_border(&output->base, GL_RENDERER_BORDER_LEFT,
-				ix, 1,
-				cairo_image_surface_get_stride(output->gl.border.left) / 4,
-				cairo_image_surface_get_data(output->gl.border.left));
+		if (!output->gl.border[i]) {
+			output->gl.border[i] =
+				cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+							   g->width, g->height);
+		}
 
+		tex_width = cairo_image_surface_get_stride(output->gl.border[i]) / 4;
 
-	if (!output->gl.border.right)
-		output->gl.border.right =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   fwidth - (ix + iwidth), 1);
-	cr = cairo_create(output->gl.border.right);
-	cairo_translate(cr, -(iwidth + ix), -iy);
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	glri->output_set_border(&output->base, GL_RENDERER_BORDER_RIGHT,
-				fwidth - (ix + iwidth), 1,
-				cairo_image_surface_get_stride(output->gl.border.right) / 4,
-				cairo_image_surface_get_data(output->gl.border.right));
-
-
-	if (!output->gl.border.bottom)
-		output->gl.border.bottom =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   fwidth, fheight - (iy + iheight));
-	cr = cairo_create(output->gl.border.bottom);
-	cairo_translate(cr, 0, -(iy + iheight));
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	glri->output_set_border(&output->base, GL_RENDERER_BORDER_BOTTOM,
-				fwidth, fheight - (iy + iheight),
-				cairo_image_surface_get_stride(output->gl.border.bottom) / 4,
-				cairo_image_surface_get_data(output->gl.border.bottom));
+		cr = cairo_create(output->gl.border[i]);
+		cairo_translate(cr, -g->x, -g->y);
+		frame_repaint(output->frame, cr);
+		cairo_destroy(cr);
+		glri->output_set_border(&output->base, i, g->width, g->height, tex_width,
+					cairo_image_surface_get_data(output->gl.border[i]));
+	}
 }
 
 static int
@@ -246,14 +226,10 @@ headless_output_disable_gl(struct headless_output *output)
 		output->frame = NULL;
 	}
 
-	cairo_surface_destroy(output->gl.border.top);
-	cairo_surface_destroy(output->gl.border.left);
-	cairo_surface_destroy(output->gl.border.right);
-	cairo_surface_destroy(output->gl.border.bottom);
-	output->gl.border.top = NULL;
-	output->gl.border.left = NULL;
-	output->gl.border.right = NULL;
-	output->gl.border.bottom = NULL;
+	for (unsigned i = 0; i < ARRAY_LENGTH(output->gl.border); i++) {
+		cairo_surface_destroy(output->gl.border[i]);
+		output->gl.border[i] = NULL;
+	}
 }
 
 static void
