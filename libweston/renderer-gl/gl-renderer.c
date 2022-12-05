@@ -1024,6 +1024,9 @@ draw_paint_node(struct weston_paint_node *pnode,
 	GLint filter;
 	struct gl_shader_config sconf;
 
+	if (!gb)
+		return;
+
 	if (gb->shader_variant == SHADER_VARIANT_NONE &&
 	    !buffer->direct_display)
 		return;
