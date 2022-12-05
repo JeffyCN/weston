@@ -33,19 +33,19 @@
 
 struct setup_args {
 	struct fixture_metadata meta;
-	enum renderer_type renderer;
+	enum weston_renderer_type renderer;
 	uint32_t expected_drm_format;
 };
 
 static const struct setup_args my_setup_args[] = {
 	{
 		.meta.name = "pixman",
-		.renderer = RENDERER_PIXMAN,
+		.renderer = WESTON_RENDERER_PIXMAN,
 		.expected_drm_format = DRM_FORMAT_XRGB8888,
 	},
 	{
 		.meta.name = "GL",
-		.renderer = RENDERER_GL,
+		.renderer = WESTON_RENDERER_GL,
 		.expected_drm_format = DRM_FORMAT_ARGB8888,
 	},
 };

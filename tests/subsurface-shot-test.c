@@ -35,16 +35,16 @@
 
 struct setup_args {
 	struct fixture_metadata meta;
-	enum renderer_type renderer;
+	enum weston_renderer_type renderer;
 };
 
 static const struct setup_args my_setup_args[] = {
 	{
-		.renderer = RENDERER_PIXMAN,
+		.renderer = WESTON_RENDERER_PIXMAN,
 		.meta.name = "pixman"
 	},
 	{
-		.renderer = RENDERER_GL,
+		.renderer = WESTON_RENDERER_GL,
 		.meta.name = "GL"
 	},
 };

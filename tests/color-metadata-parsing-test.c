@@ -38,7 +38,7 @@ fixture_setup(struct weston_test_harness *harness)
 	struct compositor_setup setup;
 
 	compositor_setup_defaults(&setup);
-	setup.renderer = RENDERER_GL;
+	setup.renderer = WESTON_RENDERER_GL;
 	setup.shell = SHELL_TEST_DESKTOP;
 
 	weston_ini_setup(&setup,

@@ -438,7 +438,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 	cmsSetLogErrorHandler(test_lcms_error_logger);
 
 	compositor_setup_defaults(&setup);
-	setup.renderer = RENDERER_GL;
+	setup.renderer = WESTON_RENDERER_GL;
 	setup.backend = WESTON_BACKEND_HEADLESS;
 	setup.width = WINDOW_WIDTH;
 	setup.height = WINDOW_HEIGHT;

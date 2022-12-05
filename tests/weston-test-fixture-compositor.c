@@ -188,7 +188,7 @@ compositor_setup_defaults_(struct compositor_setup *setup,
 	*setup = (struct compositor_setup) {
 		.test_quirks = (struct weston_testsuite_quirks){ },
 		.backend = WESTON_BACKEND_HEADLESS,
-		.renderer = RENDERER_NOOP,
+		.renderer = WESTON_RENDERER_NOOP,
 		.shell = SHELL_TEST_DESKTOP,
 		.xwayland = false,
 		.width = 320,
@@ -218,12 +218,12 @@ backend_to_str(enum weston_compositor_backend b)
 }
 
 static const char *
-renderer_to_str(enum renderer_type t)
+renderer_to_str(enum weston_renderer_type t)
 {
 	static const char * const names[] = {
-		[RENDERER_NOOP] = "noop",
-		[RENDERER_PIXMAN] = "pixman",
-		[RENDERER_GL] = "gl",
+		[WESTON_RENDERER_NOOP] = "noop",
+		[WESTON_RENDERER_PIXMAN] = "pixman",
+		[WESTON_RENDERER_GL] = "gl",
 	};
 	assert(t >= 0 && t <= ARRAY_LENGTH(names));
 	return names[t];
@@ -405,7 +405,7 @@ execute_compositor(const struct compositor_setup *setup,
 #endif
 
 #ifndef ENABLE_EGL
-	if (setup->renderer == RENDERER_GL) {
+	if (setup->renderer == WESTON_RENDERER_GL) {
 		fprintf(stderr, "GL-renderer required but not built, skipping.\n");
 		ret = RESULT_SKIP;
 	}

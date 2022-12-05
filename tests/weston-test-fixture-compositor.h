@@ -31,20 +31,6 @@
 
 #include "weston-testsuite-data.h"
 
-/** Weston renderer type
- *
- * \sa compositor_setup
- * \ingroup testharness
- */
-enum renderer_type {
-	/** Dummy renderer that does nothing. */
-	RENDERER_NOOP = 0,
-	/** Pixman-renderer */
-	RENDERER_PIXMAN,
-	/** GL-renderer */
-	RENDERER_GL
-};
-
 /** Weston shell plugin
  *
  * \sa compositor_setup
@@ -76,7 +62,7 @@ struct compositor_setup {
 	/** The backend to use. */
 	enum weston_compositor_backend backend;
 	/** The renderer to use. */
-	enum renderer_type renderer;
+	enum weston_renderer_type renderer;
 	/** The shell plugin to use. */
 	enum shell_type shell;
 	/** Whether to enable xwayland support. */

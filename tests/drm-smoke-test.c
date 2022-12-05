@@ -36,7 +36,7 @@ fixture_setup(struct weston_test_harness *harness)
 	compositor_setup_defaults(&setup);
 	setup.shell = SHELL_TEST_DESKTOP;
 	setup.backend = WESTON_BACKEND_DRM;
-	setup.renderer = RENDERER_PIXMAN;
+	setup.renderer = WESTON_RENDERER_PIXMAN;
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
