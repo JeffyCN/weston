@@ -3915,6 +3915,9 @@ pointer_constraint_surface_committed(struct wl_listener *listener, void *data)
 		container_of(listener, struct weston_pointer_constraint,
 			     surface_commit_listener);
 
+	if (is_pointer_constraint_enabled(constraint))
+		weston_view_update_transform(constraint->view);
+
 	if (constraint->region_is_pending) {
 		constraint->region_is_pending = false;
 		pixman_region32_copy(&constraint->region,
