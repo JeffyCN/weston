@@ -112,10 +112,11 @@ if get_option('backend-vnc')
 		dep_pam = cc.find_library('pam', required: false)
 	endif
 	if not dep_pam.found()
-		error('VNC backend requires libpam which was not found. Or, you can use \'-Dbackend-vnc=false\'.')
+		warning('VNC backend suggests libpam which was not found. Or, you can use \'-Dbackend-vnc=false\'.')
+	else
+		config_h.set('HAVE_PAM', '1')
+		deps_libweston += dep_pam
 	endif
-	config_h.set('HAVE_PAM', '1')
-	deps_libweston += dep_pam
 endif
 
 if get_option('perfetto')

@@ -1365,12 +1365,17 @@ vnc_backend_create(struct weston_compositor *compositor,
 
 		weston_log("TLS support activated\n");
 	} else {
+#ifdef HAVE_PAM
 		ret = nvnc_enable_auth(backend->server, NVNC_AUTH_REQUIRE_AUTH,
 				       vnc_handle_auth, NULL);
 		if (ret) {
 			weston_log("Failed to enable authentication\n");
 			goto err_nvnc;
 		}
+#else
+		weston_log(
+			"warning: VNC enabled without auth!\n");
+#endif
 
 		weston_log(
 			"warning: VNC enabled without Transport Layer "
