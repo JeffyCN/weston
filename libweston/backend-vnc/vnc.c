@@ -42,6 +42,7 @@
 #include <unistd.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
+#define AML_UNSTABLE_API 1
 #include <aml.h>
 #include <neatvnc.h>
 #include <drm_fourcc.h>
@@ -604,10 +605,6 @@ vnc_output_enable(struct weston_output *base)
 	struct wl_event_loop *loop;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
-		.fb_size = {
-			.width = output->base.width,
-			.height = output->base.height,
-		},
 	};
 
 	assert(output);
