@@ -33,6 +33,7 @@ srcs_drm = [
 ]
 
 deps_drm = [
+	dep_egl, # optional
 	dep_libm,
 	dep_libdl,
 	dep_libweston_private,
@@ -55,10 +56,6 @@ if get_option('renderer-gl')
 		config_h.set('HAVE_GBM_FD_IMPORT', '1')
 	endif
 	deps_drm += dep_gbm
-	if not dep_egl.found()
-		error('drm-backend + gl-renderer requires egl which was not found. Or, you can use \'-Dbackend-drm=false\' or \'-Drenderer-gl=false\'.')
-	endif
-	deps_drm += dep_egl
 	srcs_drm += 'drm-gbm.c'
 	config_h.set('BUILD_DRM_GBM', '1')
 endif

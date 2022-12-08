@@ -81,6 +81,8 @@ if get_option('renderer-gl')
 		error('libweston + gl-renderer requires egl which was not found. Or, you can use \'-Drenderer-gl=false\'.')
 	endif
 	deps_libweston += dep_egl
+else
+	dep_egl = dependency('', required: false)
 endif
 
 if get_option('backend-vnc')
