@@ -370,6 +370,23 @@ sigchld_handler(int signal_number, void *data)
 	return 1;
 }
 
+static void
+cleanup_for_child_process() {
+	sigset_t allsigs;
+
+	/* Put the client in a new session so it won't catch signals
+	* intended for the parent. Sharing a session can be
+	* confusing when launching weston under gdb, as the ctrl-c
+	* intended for gdb will pass to the child, and weston
+	* will cleanly shut down when the child exits.
+	*/
+	setsid();
+
+	/* do not give our signal mask to the new process */
+	sigfillset(&allsigs);
+	sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
+}
+
 WL_EXPORT struct wl_client *
 weston_client_launch(struct weston_compositor *compositor,
 		     struct weston_process *proc,
@@ -384,7 +401,6 @@ weston_client_launch(struct weston_compositor *compositor,
 	char *fail_exec;
 	char * const *argp;
 	char * const *envp;
-	sigset_t allsigs;
 	pid_t pid;
 	bool ret;
 	size_t written __attribute__((unused));
@@ -413,17 +429,7 @@ weston_client_launch(struct weston_compositor *compositor,
 	pid = fork();
 	switch (pid) {
 	case 0:
-		/* Put the client in a new session so it won't catch signals
-		 * intended for the parent. Sharing a session can be
-		 * confusing when launching weston under gdb, as the ctrl-c
-		 * intended for gdb will pass to the child, and weston
-		 * will cleanly shut down when the child exits.
-		 */
-		setsid();
-
-		/* do not give our signal mask to the new process */
-		sigfillset(&allsigs);
-		sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
+		cleanup_for_child_process();
 
 		/* Launch clients as the user. Do not launch clients with wrong euid. */
 		if (seteuid(getuid()) == -1) {
@@ -3545,6 +3551,7 @@ execute_autolaunch(struct wet_compositor *wet, struct weston_config *config)
 		weston_log("Failed to fork autolaunch process: %s\n", strerror(errno));
 		goto out;
 	} else if (tmp_pid == 0) {
+		cleanup_for_child_process();
 		execl(autolaunch_path, autolaunch_path, NULL);
 		/* execl shouldn't return */
 		fprintf(stderr, "Failed to execute autolaunch: %s\n", strerror(errno));
