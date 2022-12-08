@@ -4733,6 +4733,11 @@ load_vnc_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_BOOLEAN, "disable-transport-layer-security", 0, &config.disable_tls },
 	};
 
+	/* Force disable TLS when built without PAM for security */
+#ifndef HAVE_PAM
+	config.disable_tls = true;
+#endif
+
 	parse_options(vnc_options, ARRAY_LENGTH(vnc_options), argc, argv);
 
 	config.renderer = renderer;
