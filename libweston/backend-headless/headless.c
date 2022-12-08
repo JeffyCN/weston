@@ -42,6 +42,7 @@
 #include "pixel-formats.h"
 #include "pixman-renderer.h"
 #include "renderer-gl/gl-renderer.h"
+#include "gl-borders.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
 #include "shared/cairo-util.h"
@@ -62,10 +63,6 @@ struct headless_backend {
 
 struct headless_head {
 	struct weston_head base;
-};
-
-struct weston_gl_borders {
-	cairo_surface_t *tile[4]; /* enum gl_renderer_border_side */
 };
 
 struct headless_output {
@@ -138,59 +135,6 @@ finish_frame_handler(void *data)
 }
 
 static void
-weston_gl_borders_update(struct weston_gl_borders *borders,
-			 struct frame *frame,
-			 struct weston_output *output,
-			 struct gl_renderer_interface *glri)
-{
-	int32_t ix, iy, iwidth, iheight, fwidth, fheight;
-
-	fwidth = frame_width(frame);
-	fheight = frame_height(frame);
-	frame_interior(frame, &ix, &iy, &iwidth, &iheight);
-
-	struct weston_geometry border_area[4] = {
-		[GL_RENDERER_BORDER_TOP] = {
-			.x = 0, .y = 0,
-			.width = fwidth, .height = iy
-		},
-		[GL_RENDERER_BORDER_LEFT] = {
-			.x = 0, .y = iy,
-			.width = ix, .height = 1
-		},
-		[GL_RENDERER_BORDER_RIGHT] = {
-			.x = iwidth + ix, .y = iy,
-			.width = fwidth - (ix + iwidth), .height = 1
-		},
-		[GL_RENDERER_BORDER_BOTTOM] = {
-			.x = 0, .y = iy + iheight,
-			.width = fwidth, .height = fheight - (iy + iheight)
-		},
-	};
-
-	for (unsigned i = 0; i < ARRAY_LENGTH(border_area); i++) {
-		const struct weston_geometry *g = &border_area[i];
-		int tex_width;
-		cairo_t *cr;
-
-		if (!borders->tile[i]) {
-			borders->tile[i] =
-				cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-							   g->width, g->height);
-		}
-
-		tex_width = cairo_image_surface_get_stride(borders->tile[i]) / 4;
-
-		cr = cairo_create(borders->tile[i]);
-		cairo_translate(cr, -g->x, -g->y);
-		frame_repaint(frame, cr);
-		cairo_destroy(cr);
-		glri->output_set_border(output, i, g->width, g->height, tex_width,
-					cairo_image_surface_get_data(borders->tile[i]));
-	}
-}
-
-static void
 headless_output_update_gl_border(struct headless_output *output)
 {
 	struct headless_backend *backend = to_headless_backend(output->base.compositor);
@@ -225,18 +169,6 @@ headless_output_repaint(struct weston_output *output_base,
 	wl_event_source_timer_update(output->finish_frame_timer, 16);
 
 	return 0;
-}
-
-static void
-weston_gl_borders_fini(struct weston_gl_borders *borders,
-		       struct weston_output *output,
-		       struct gl_renderer_interface *glri)
-{
-	for (unsigned i = 0; i < ARRAY_LENGTH(borders->tile); i++) {
-		glri->output_set_border(output, i, 0, 0, 0, NULL);
-		cairo_surface_destroy(borders->tile[i]);
-		borders->tile[i] = NULL;
-	}
 }
 
 static void
