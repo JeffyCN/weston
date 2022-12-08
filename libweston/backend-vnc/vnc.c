@@ -482,7 +482,10 @@ vnc_handle_auth(const char *username, const char *password, void *userdata)
 		return false;
 	}
 
+#ifdef HAVE_PAM
 	return weston_authenticate_user(username, password);
+#endif
+	return true;
 }
 
 static void
@@ -1228,14 +1231,20 @@ vnc_backend_create(struct weston_compositor *compositor,
 	nvnc_set_userdata(backend->server, backend, NULL);
 	nvnc_set_name(backend->server, "Weston VNC backend");
 
+#ifdef HAVE_PAM
 	if (!nvnc_has_auth()) {
 		weston_log("Neat VNC built without TLS support\n");
 		goto err_output;
 	}
+#endif
+
 	if (!config->server_cert && !config->server_key) {
 		weston_log("The VNC backend requires a key and a certificate for TLS security"
 			   " (--vnc-tls-cert/--vnc-tls-key)\n");
+#ifdef HAVE_PAM
 		goto err_output;
+#endif
+		goto no_tls;
 	}
 	if (!config->server_cert) {
 		weston_log("Missing TLS certificate (--vnc-tls-cert)\n");
@@ -1263,6 +1272,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 
 	weston_log("TLS support activated\n");
 
+no_tls:
 	ret = weston_plugin_api_register(compositor, WESTON_VNC_OUTPUT_API_NAME,
 					 &api, sizeof(api));
 	if (ret < 0) {
