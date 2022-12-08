@@ -48,6 +48,7 @@
 #include <libweston/libweston.h>
 #include <libweston/backend-wayland.h>
 #include "renderer-gl/gl-renderer.h"
+#include "gl-borders.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
 #include "pixman-renderer.h"
@@ -123,12 +124,7 @@ struct wayland_output {
 
 	struct {
 		struct wl_egl_window *egl_window;
-		struct {
-			cairo_surface_t *top;
-			cairo_surface_t *left;
-			cairo_surface_t *right;
-			cairo_surface_t *bottom;
-		} border;
+		struct weston_gl_borders borders;
 	} gl;
 
 	struct {
@@ -443,71 +439,13 @@ draw_initial_frame(struct wayland_output *output)
 static void
 wayland_output_update_gl_border(struct wayland_output *output)
 {
-	int32_t ix, iy, iwidth, iheight, fwidth, fheight;
-	cairo_t *cr;
-
 	if (!output->frame)
 		return;
 	if (!(frame_status(output->frame) & FRAME_STATUS_REPAINT))
 		return;
 
-	fwidth = frame_width(output->frame);
-	fheight = frame_height(output->frame);
-	frame_interior(output->frame, &ix, &iy, &iwidth, &iheight);
-
-	if (!output->gl.border.top)
-		output->gl.border.top =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   fwidth, iy);
-	cr = cairo_create(output->gl.border.top);
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	gl_renderer->output_set_border(&output->base, GL_RENDERER_BORDER_TOP,
-				       fwidth, iy,
-				       cairo_image_surface_get_stride(output->gl.border.top) / 4,
-				       cairo_image_surface_get_data(output->gl.border.top));
-
-
-	if (!output->gl.border.left)
-		output->gl.border.left =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   ix, 1);
-	cr = cairo_create(output->gl.border.left);
-	cairo_translate(cr, 0, -iy);
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	gl_renderer->output_set_border(&output->base, GL_RENDERER_BORDER_LEFT,
-				       ix, 1,
-				       cairo_image_surface_get_stride(output->gl.border.left) / 4,
-				       cairo_image_surface_get_data(output->gl.border.left));
-
-
-	if (!output->gl.border.right)
-		output->gl.border.right =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   fwidth - (ix + iwidth), 1);
-	cr = cairo_create(output->gl.border.right);
-	cairo_translate(cr, -(iwidth + ix), -iy);
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	gl_renderer->output_set_border(&output->base, GL_RENDERER_BORDER_RIGHT,
-				       fwidth - (ix + iwidth), 1,
-				       cairo_image_surface_get_stride(output->gl.border.right) / 4,
-				       cairo_image_surface_get_data(output->gl.border.right));
-
-
-	if (!output->gl.border.bottom)
-		output->gl.border.bottom =
-			cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-						   fwidth, fheight - (iy + iheight));
-	cr = cairo_create(output->gl.border.bottom);
-	cairo_translate(cr, 0, -(iy + iheight));
-	frame_repaint(output->frame, cr);
-	cairo_destroy(cr);
-	gl_renderer->output_set_border(&output->base, GL_RENDERER_BORDER_BOTTOM,
-				       fwidth, fheight - (iy + iheight),
-				       cairo_image_surface_get_stride(output->gl.border.bottom) / 4,
-				       cairo_image_surface_get_data(output->gl.border.bottom));
+	weston_gl_borders_update(&output->gl.borders, output->frame,
+				 &output->base, gl_renderer);
 }
 #endif
 
@@ -737,6 +675,9 @@ wayland_output_disable(struct weston_output *base)
 		pixman_renderer_output_destroy(&output->base);
 #ifdef ENABLE_EGL
 	} else {
+		weston_gl_borders_fini(&output->gl.borders,
+				       &output->base, gl_renderer);
+
 		gl_renderer->output_destroy(&output->base);
 		wl_egl_window_destroy(output->gl.egl_window);
 #endif
@@ -748,11 +689,6 @@ wayland_output_disable(struct weston_output *base)
 
 	if (output->frame)
 		frame_destroy(output->frame);
-
-	cairo_surface_destroy(output->gl.border.top);
-	cairo_surface_destroy(output->gl.border.left);
-	cairo_surface_destroy(output->gl.border.right);
-	cairo_surface_destroy(output->gl.border.bottom);
 
 	return 0;
 }
@@ -888,26 +824,8 @@ wayland_output_resize_surface(struct wayland_output *output)
 		weston_renderer_resize_output(&output->base, &fb_size, &area);
 
 		/* These will need to be re-created due to the resize */
-		gl_renderer->output_set_border(&output->base,
-					       GL_RENDERER_BORDER_TOP,
-					       0, 0, 0, NULL);
-		cairo_surface_destroy(output->gl.border.top);
-		output->gl.border.top = NULL;
-		gl_renderer->output_set_border(&output->base,
-					       GL_RENDERER_BORDER_LEFT,
-					       0, 0, 0, NULL);
-		cairo_surface_destroy(output->gl.border.left);
-		output->gl.border.left = NULL;
-		gl_renderer->output_set_border(&output->base,
-					       GL_RENDERER_BORDER_RIGHT,
-					       0, 0, 0, NULL);
-		cairo_surface_destroy(output->gl.border.right);
-		output->gl.border.right = NULL;
-		gl_renderer->output_set_border(&output->base,
-					       GL_RENDERER_BORDER_BOTTOM,
-					       0, 0, 0, NULL);
-		cairo_surface_destroy(output->gl.border.bottom);
-		output->gl.border.bottom = NULL;
+		weston_gl_borders_fini(&output->gl.borders,
+				       &output->base, gl_renderer);
 	} else
 #endif
 	{
