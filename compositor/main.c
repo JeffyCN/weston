@@ -1536,6 +1536,35 @@ allow_content_protection(struct weston_output *output,
 	weston_output_allow_protection(output, allow_hdcp);
 }
 
+static void
+parse_simple_mode(struct weston_output *output,
+		  struct weston_config_section *section, int *width,
+		  int *height, struct wet_output_config *defaults,
+		  struct wet_output_config *parsed_options)
+{
+	*width = defaults->width;
+	*height = defaults->height;
+
+	if (section) {
+		char *mode;
+
+		weston_config_section_get_string(section, "mode", &mode, NULL);
+		if (!mode || sscanf(mode, "%dx%d", width, height) != 2) {
+			weston_log("Invalid mode for output %s. Using defaults.\n",
+				   output->name);
+			*width = defaults->width;
+			*height = defaults->height;
+		}
+		free(mode);
+	}
+
+	if (parsed_options->width)
+		*width = parsed_options->width;
+
+	if (parsed_options->height)
+		*height = parsed_options->height;
+}
+
 static int
 wet_configure_windowed_output_from_config(struct weston_output *output,
 					  struct wet_output_config *defaults)
@@ -1547,8 +1576,8 @@ wet_configure_windowed_output_from_config(struct weston_output *output,
 	struct weston_config_section *section = NULL;
 	struct wet_compositor *compositor = to_wet_compositor(output->compositor);
 	struct wet_output_config *parsed_options = compositor->parsed_options;
-	int width = defaults->width;
-	int height = defaults->height;
+	int width;
+	int height;
 
 	assert(parsed_options);
 
@@ -1559,27 +1588,10 @@ wet_configure_windowed_output_from_config(struct weston_output *output,
 
 	section = weston_config_get_section(wc, "output", "name", output->name);
 
-	if (section) {
-		char *mode;
-
-		weston_config_section_get_string(section, "mode", &mode, NULL);
-		if (!mode || sscanf(mode, "%dx%d", &width,
-				    &height) != 2) {
-			weston_log("Invalid mode for output %s. Using defaults.\n",
-				   output->name);
-			width = defaults->width;
-			height = defaults->height;
-		}
-		free(mode);
-	}
+	parse_simple_mode(output, section, &width, &height, defaults,
+			  parsed_options);
 
 	allow_content_protection(output, section);
-
-	if (parsed_options->width)
-		width = parsed_options->width;
-
-	if (parsed_options->height)
-		height = parsed_options->height;
 
 	wet_output_set_scale(output, section, defaults->scale, parsed_options->scale);
 	if (wet_output_set_transform(output, section, defaults->transform,
