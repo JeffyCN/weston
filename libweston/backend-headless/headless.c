@@ -219,16 +219,17 @@ headless_output_disable_gl(struct headless_output *output)
 	struct weston_compositor *compositor = output->base.compositor;
 	struct headless_backend *b = to_headless_backend(compositor);
 
+	for (unsigned i = 0; i < ARRAY_LENGTH(output->gl.border); i++) {
+		b->glri->output_set_border(&output->base, i, 0, 0, 0, NULL);
+		cairo_surface_destroy(output->gl.border[i]);
+		output->gl.border[i] = NULL;
+	}
+
 	b->glri->output_destroy(&output->base);
 
 	if (output->frame) {
 		frame_destroy(output->frame);
 		output->frame = NULL;
-	}
-
-	for (unsigned i = 0; i < ARRAY_LENGTH(output->gl.border); i++) {
-		cairo_surface_destroy(output->gl.border[i]);
-		output->gl.border[i] = NULL;
 	}
 }
 
