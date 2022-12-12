@@ -96,9 +96,13 @@ weston_desktop_surface_update_view_position(struct weston_desktop_surface *surfa
 
 		x += parent_geometry.x - geometry.x;
 		y += parent_geometry.y - geometry.y;
+
+		wl_list_for_each(view, &surface->view_list, link)
+			weston_view_set_rel_position(view->view, x, y);
+	} else {
+		wl_list_for_each(view, &surface->view_list, link)
+			weston_view_set_position(view->view, x, y);
 	}
-	wl_list_for_each(view, &surface->view_list, link)
-		weston_view_set_position(view->view, x, y);
 }
 
 

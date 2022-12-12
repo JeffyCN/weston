@@ -1962,6 +1962,10 @@ void
 weston_view_destroy(struct weston_view *view);
 
 void
+weston_view_set_rel_position(struct weston_view *view,
+			     float x, float y);
+
+void
 weston_view_set_position(struct weston_view *view,
 			 float x, float y);
 
