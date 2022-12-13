@@ -441,7 +441,6 @@ rdp_output_enable(struct weston_output *base)
 	struct rdp_backend *b;
 	struct wl_event_loop *loop;
 	const struct pixman_renderer_output_options options = {
-		.use_shadow = true,
 		.fb_size = {
 			.width = output->base.current_mode->width,
 			.height = output->base.current_mode->height
