@@ -550,7 +550,7 @@ rdp_head_create(struct weston_compositor *compositor, const char *name)
 	return 0;
 }
 
-static void
+void
 rdp_head_destroy(struct weston_head *base)
 {
 	struct rdp_head *head = to_rdp_head(base);

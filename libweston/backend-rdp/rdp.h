@@ -235,6 +235,9 @@ rdp_clipboard_destroy(RdpPeerContext *peerCtx);
 void
 rdp_destroy(struct weston_compositor *ec);
 
+void
+rdp_head_destroy(struct weston_head *base);
+
 static inline struct rdp_head *
 to_rdp_head(struct weston_head *base)
 {
