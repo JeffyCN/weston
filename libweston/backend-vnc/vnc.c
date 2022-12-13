@@ -53,6 +53,7 @@
 #include <libweston/libweston.h>
 #include <libweston/backend-vnc.h>
 #include <libweston/weston-log.h>
+#include "linux-dmabuf.h"
 #include "pixel-formats.h"
 #include "pixman-renderer.h"
 #include "renderer-gl/gl-renderer.h"
@@ -1278,6 +1279,12 @@ no_tls:
 	if (ret < 0) {
 		weston_log("Failed to register output API.\n");
 		goto err_output;
+	}
+
+	if (compositor->renderer->import_dmabuf) {
+		if (linux_dmabuf_setup(compositor) < 0)
+			weston_log("Error: initializing dmabuf "
+				   "support failed.\n");
 	}
 
 	return backend;
