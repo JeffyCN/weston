@@ -2846,6 +2846,8 @@ seat_get_pointer(struct wl_client *client, struct wl_resource *resource,
 	    wl_resource_get_client(pointer->focus->surface->resource) == client) {
 		wl_fixed_t sx, sy;
 
+		weston_view_update_transform(pointer->focus);
+
 		weston_view_from_global_fixed(pointer->focus,
 					      pointer->x,
 					      pointer->y,
