@@ -46,6 +46,9 @@
 
 /* compositor <-> renderer interface */
 
+struct weston_renderer_options {
+};
+
 struct weston_renderer {
 	int (*read_pixels)(struct weston_output *output,
 			   const struct pixel_format_info *format, void *pixels,
@@ -84,6 +87,7 @@ struct weston_renderer {
 				 struct weston_buffer *buffer);
 
 	enum weston_renderer_type type;
+	const struct gl_renderer_interface *gl;
 };
 
 void
@@ -160,6 +164,11 @@ void
 weston_compositor_read_presentation_clock(
 			struct weston_compositor *compositor,
 			struct timespec *ts);
+
+int
+weston_compositor_init_renderer(struct weston_compositor *compositor,
+				enum weston_renderer_type renderer_type,
+				const struct weston_renderer_options *options);
 
 int
 weston_compositor_run_axis_binding(struct weston_compositor *compositor,

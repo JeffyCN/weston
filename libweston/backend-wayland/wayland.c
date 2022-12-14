@@ -225,8 +225,6 @@ struct wayland_input {
 	enum wl_seat_capability caps;
 };
 
-struct gl_renderer_interface *gl_renderer;
-
 static void
 wayland_destroy(struct weston_backend *backend);
 
@@ -445,7 +443,7 @@ wayland_output_update_gl_border(struct wayland_output *output)
 		return;
 
 	weston_gl_borders_update(&output->gl.borders, output->frame,
-				 &output->base, gl_renderer);
+				 &output->base);
 }
 #endif
 
@@ -664,6 +662,7 @@ wayland_output_destroy_shm_buffers(struct wayland_output *output)
 static int
 wayland_output_disable(struct weston_output *base)
 {
+	const struct weston_renderer *renderer = base->compositor->renderer;
 	struct wayland_output *output = to_wayland_output(base);
 
 	assert(output);
@@ -671,14 +670,13 @@ wayland_output_disable(struct weston_output *base)
 	if (!output->base.enabled)
 		return 0;
 
-	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
+	if (renderer->type == WESTON_RENDERER_PIXMAN) {
 		pixman_renderer_output_destroy(&output->base);
 #ifdef ENABLE_EGL
 	} else {
-		weston_gl_borders_fini(&output->gl.borders,
-				       &output->base, gl_renderer);
+		weston_gl_borders_fini(&output->gl.borders, &output->base);
 
-		gl_renderer->output_destroy(&output->base);
+		renderer->gl->output_destroy(&output->base);
 		wl_egl_window_destroy(output->gl.egl_window);
 #endif
 	}
@@ -716,6 +714,7 @@ static int
 wayland_output_init_gl_renderer(struct wayland_output *output)
 {
 	const struct weston_mode *mode = output->base.current_mode;
+	const struct weston_renderer *renderer;
 	struct gl_renderer_output_options options = {
 		.drm_formats = wayland_formats,
 		.drm_formats_count = ARRAY_LENGTH(wayland_formats),
@@ -746,7 +745,9 @@ wayland_output_init_gl_renderer(struct wayland_output *output)
 	options.window_for_legacy = output->gl.egl_window;
 	options.window_for_platform = output->gl.egl_window;
 
-	if (gl_renderer->output_window_create(&output->base, &options) < 0)
+	renderer = output->base.compositor->renderer;
+
+	if (renderer->gl->output_window_create(&output->base, &options) < 0)
 		goto cleanup_window;
 
 	return 0;
@@ -824,8 +825,7 @@ wayland_output_resize_surface(struct wayland_output *output)
 		weston_renderer_resize_output(&output->base, &fb_size, &area);
 
 		/* These will need to be re-created due to the resize */
-		weston_gl_borders_fini(&output->gl.borders,
-				       &output->base, gl_renderer);
+		weston_gl_borders_fini(&output->gl.borders, &output->base);
 	} else
 #endif
 	{
@@ -1060,7 +1060,10 @@ wayland_output_switch_mode(struct weston_output *output_base,
 			goto err_output;
 #ifdef ENABLE_EGL
 	} else {
-		gl_renderer->output_destroy(output_base);
+		struct weston_compositor *compositor = output_base->compositor;
+		const struct weston_renderer *renderer = compositor->renderer;
+
+		renderer->gl->output_destroy(output_base);
 		wl_egl_window_destroy(output->gl.egl_window);
 		if (wayland_output_init_gl_renderer(output) < 0)
 			goto err_output;
@@ -2793,7 +2796,8 @@ wayland_backend_create(struct weston_compositor *compositor,
 
 	create_cursor(b, new_config);
 
-	if (renderer == WESTON_RENDERER_AUTO || renderer == WESTON_RENDERER_GL) {
+	if (renderer == WESTON_RENDERER_AUTO ||
+	    renderer == WESTON_RENDERER_GL) {
 		const struct gl_renderer_display_options options = {
 			.egl_platform = EGL_PLATFORM_WAYLAND_KHR,
 			.egl_native_display = b->parent.wl_display,
@@ -2802,14 +2806,9 @@ wayland_backend_create(struct weston_compositor *compositor,
 			.drm_formats_count = ARRAY_LENGTH(wayland_formats),
 		};
 
-#ifdef ENABLE_EGL
-		gl_renderer = weston_load_module("gl-renderer.so",
-						 "gl_renderer_interface",
-						 LIBWESTON_MODULEDIR);
-#endif
-
-		if (!gl_renderer ||
-		    gl_renderer->display_create(compositor, &options) < 0) {
+		if (weston_compositor_init_renderer(compositor,
+						    WESTON_RENDERER_GL,
+						    &options.base) < 0) {
 			weston_log("Failed to initialize the GL renderer");
 			if (renderer == WESTON_RENDERER_AUTO) {
 				weston_log_continue("; falling back to Pixman.\n");

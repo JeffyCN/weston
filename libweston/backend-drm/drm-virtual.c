@@ -390,7 +390,10 @@ drm_virtual_output_set_submit_frame_cb(struct weston_output *output_base,
 static int
 drm_virtual_output_get_fence_fd(struct weston_output *output_base)
 {
-	return gl_renderer->create_fence_fd(output_base);
+	struct weston_compositor *compositor = output_base->compositor;
+	const struct weston_renderer *renderer = compositor->renderer;
+
+	return renderer->gl->create_fence_fd(output_base);
 }
 
 static void

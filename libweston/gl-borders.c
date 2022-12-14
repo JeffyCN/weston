@@ -34,9 +34,10 @@
 void
 weston_gl_borders_update(struct weston_gl_borders *borders,
 			 struct frame *frame,
-			 struct weston_output *output,
-			 struct gl_renderer_interface *glri)
+			 struct weston_output *output)
 {
+	const struct gl_renderer_interface *glri =
+		output->compositor->renderer->gl;
 	int32_t ix, iy, iwidth, iheight, fwidth, fheight;
 
 	fwidth = frame_width(frame);
@@ -86,9 +87,11 @@ weston_gl_borders_update(struct weston_gl_borders *borders,
 
 void
 weston_gl_borders_fini(struct weston_gl_borders *borders,
-		       struct weston_output *output,
-		       struct gl_renderer_interface *glri)
+		       struct weston_output *output)
 {
+	const struct gl_renderer_interface *glri =
+		output->compositor->renderer->gl;
+
 	for (unsigned i = 0; i < ARRAY_LENGTH(borders->tile); i++) {
 		glri->output_set_border(output, i, 0, 0, 0, NULL);
 		cairo_surface_destroy(borders->tile[i]);

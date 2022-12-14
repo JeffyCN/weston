@@ -80,6 +80,7 @@
 #include "libweston-internal.h"
 #include "color.h"
 #include "output-capture.h"
+#include "renderer-gl/gl-renderer.h"
 
 #include "weston-log-internal.h"
 
@@ -8741,6 +8742,39 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 	weston_log("Color manager: %s\n", compositor->color_manager->name);
 
 	return 0;
+}
+
+WL_EXPORT int
+weston_compositor_init_renderer(struct weston_compositor *compositor,
+				enum weston_renderer_type renderer_type,
+				const struct weston_renderer_options *options)
+{
+	const struct gl_renderer_interface *gl_renderer;
+	const struct gl_renderer_display_options *gl_options;
+	int ret;
+
+	switch (renderer_type) {
+	case WESTON_RENDERER_GL:
+		gl_renderer = weston_load_module("gl-renderer.so",
+						 "gl_renderer_interface",
+						 LIBWESTON_MODULEDIR);
+		if (!gl_renderer)
+			return -1;
+
+		gl_options = container_of(options,
+					  struct gl_renderer_display_options,
+					  base);
+		ret = gl_renderer->display_create(compositor, gl_options);
+		if (ret < 0)
+			return ret;
+
+		compositor->renderer->gl = gl_renderer;
+		break;
+	default:
+		ret = -1;
+	}
+
+	return ret;
 }
 
 /** weston_compositor_load_xwayland

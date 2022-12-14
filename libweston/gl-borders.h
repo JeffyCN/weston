@@ -35,10 +35,8 @@ struct weston_gl_borders {
 void
 weston_gl_borders_update(struct weston_gl_borders *borders,
 			 struct frame *frame,
-			 struct weston_output *output,
-			 struct gl_renderer_interface *glri);
+			 struct weston_output *output);
 
 void
 weston_gl_borders_fini(struct weston_gl_borders *borders,
-		       struct weston_output *output,
-		       struct gl_renderer_interface *glri);
+		       struct weston_output *output);

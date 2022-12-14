@@ -44,18 +44,10 @@
 #include "linux-dmabuf.h"
 #include "linux-explicit-synchronization.h"
 
-struct gl_renderer_interface *gl_renderer;
-
 static struct gbm_device *
 create_gbm_device(int fd)
 {
 	struct gbm_device *gbm;
-
-	gl_renderer = weston_load_module("gl-renderer.so",
-					 "gl_renderer_interface",
-					 LIBWESTON_MODULEDIR);
-	if (!gl_renderer)
-		return NULL;
 
 	/* GBM will load a dri driver, but even though they need symbols from
 	 * libglapi, in some version of Mesa they are not linked to it. Since
@@ -110,10 +102,9 @@ drm_backend_create_gl_renderer(struct drm_backend *b)
 	if (format[1])
 		options.drm_formats_count = 3;
 
-	if (gl_renderer->display_create(b->compositor, &options) < 0)
-		return -1;
-
-	return 0;
+	return weston_compositor_init_renderer(b->compositor,
+					       WESTON_RENDERER_GL,
+					       &options.base);
 }
 
 int
@@ -236,6 +227,7 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 int
 drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 {
+	const struct weston_renderer *renderer = b->compositor->renderer;
 	const struct weston_mode *mode = output->base.current_mode;
 	uint32_t format[2] = {
 		output->gbm_format,
@@ -263,7 +255,7 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 		options.drm_formats_count = 2;
 	options.window_for_legacy = (EGLNativeWindowType) output->gbm_surface;
 	options.window_for_platform = output->gbm_surface;
-	if (gl_renderer->output_window_create(&output->base, &options) < 0) {
+	if (renderer->gl->output_window_create(&output->base, &options) < 0) {
 		weston_log("failed to create gl renderer output state\n");
 		gbm_surface_destroy(output->gbm_surface);
 		output->gbm_surface = NULL;
@@ -279,6 +271,7 @@ void
 drm_output_fini_egl(struct drm_output *output)
 {
 	struct drm_backend *b = output->backend;
+	const struct weston_renderer *renderer = b->compositor->renderer;
 
 	/* Destroying the GBM surface will destroy all our GBM buffers,
 	 * regardless of refcount. Ensure we destroy them here. */
@@ -288,7 +281,7 @@ drm_output_fini_egl(struct drm_output *output)
 		drm_plane_reset_state(output->scanout_plane);
 	}
 
-	gl_renderer->output_destroy(&output->base);
+	renderer->gl->output_destroy(&output->base);
 	gbm_surface_destroy(output->gbm_surface);
 	output->gbm_surface = NULL;
 	drm_output_fini_cursor_egl(output);

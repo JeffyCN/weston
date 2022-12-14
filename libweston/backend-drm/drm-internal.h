@@ -863,8 +863,6 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage);
 int
 parse_gbm_format(const char *s, uint32_t default_value, uint32_t *gbm_format);
 
-extern struct gl_renderer_interface *gl_renderer;
-
 #ifdef BUILD_DRM_VIRTUAL
 extern int
 drm_backend_init_virtual_output_api(struct weston_compositor *compositor);

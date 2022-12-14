@@ -56,7 +56,6 @@ struct headless_backend {
 
 	struct weston_seat fake_seat;
 
-	struct gl_renderer_interface *glri;
 	bool decorate;
 	struct theme *theme;
 };
@@ -138,15 +137,13 @@ finish_frame_handler(void *data)
 static void
 headless_output_update_gl_border(struct headless_output *output)
 {
-	struct headless_backend *backend = output->backend;
-
 	if (!output->frame)
 		return;
 	if (!(frame_status(output->frame) & FRAME_STATUS_REPAINT))
 		return;
 
 	weston_gl_borders_update(&output->gl.borders, output->frame,
-				 &output->base, backend->glri);
+				 &output->base);
 }
 
 static int
@@ -175,11 +172,12 @@ headless_output_repaint(struct weston_output *output_base,
 static void
 headless_output_disable_gl(struct headless_output *output)
 {
-	struct headless_backend *b = output->backend;
+	struct weston_compositor *compositor = output->base.compositor;
+	const struct weston_renderer *renderer = compositor->renderer;
 
-	weston_gl_borders_fini(&output->gl.borders, &output->base, b->glri);
+	weston_gl_borders_fini(&output->gl.borders, &output->base);
 
-	b->glri->output_destroy(&output->base);
+	renderer->gl->output_destroy(&output->base);
 
 	if (output->frame) {
 		frame_destroy(output->frame);
@@ -243,6 +241,7 @@ static int
 headless_output_enable_gl(struct headless_output *output)
 {
 	struct headless_backend *b = output->backend;
+	const struct weston_renderer *renderer = b->compositor->renderer;
 	const struct weston_mode *mode = output->base.current_mode;
 	struct gl_renderer_pbuffer_options options = {
 		.drm_formats = headless_formats,
@@ -275,7 +274,7 @@ headless_output_enable_gl(struct headless_output *output)
 		options.fb_size.height = mode->height;
 	}
 
-	if (b->glri->output_pbuffer_create(&output->base, &options) < 0) {
+	if (renderer->gl->output_pbuffer_create(&output->base, &options) < 0) {
 		weston_log("failed to create gl renderer output state\n");
 		if (output->frame) {
 			frame_destroy(output->frame);
@@ -502,26 +501,6 @@ headless_destroy(struct weston_backend *backend)
 	free(b);
 }
 
-static int
-headless_gl_renderer_init(struct headless_backend *b)
-{
-	const struct gl_renderer_display_options options = {
-		.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
-		.egl_native_display = NULL,
-		.egl_surface_type = EGL_PBUFFER_BIT,
-		.drm_formats = headless_formats,
-		.drm_formats_count = ARRAY_LENGTH(headless_formats),
-	};
-
-	b->glri = weston_load_module("gl-renderer.so",
-				     "gl_renderer_interface",
-				     LIBWESTON_MODULEDIR);
-	if (!b->glri)
-		return -1;
-
-	return b->glri->display_create(b->compositor, &options);
-}
-
 static const struct weston_windowed_output_api api = {
 	headless_output_set_size,
 	headless_head_create,
@@ -557,9 +536,19 @@ headless_backend_create(struct weston_compositor *compositor,
 	}
 
 	switch (config->renderer) {
-	case WESTON_RENDERER_GL:
-		ret = headless_gl_renderer_init(b);
+	case WESTON_RENDERER_GL: {
+		const struct gl_renderer_display_options options = {
+			.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+			.egl_native_display = NULL,
+			.egl_surface_type = EGL_PBUFFER_BIT,
+			.drm_formats = headless_formats,
+			.drm_formats_count = ARRAY_LENGTH(headless_formats),
+		};
+		ret = weston_compositor_init_renderer(compositor,
+						      WESTON_RENDERER_GL,
+						      &options.base);
 		break;
+	}
 	case WESTON_RENDERER_PIXMAN:
 		if (config->decorate) {
 			weston_log("Error: Pixman renderer does not support decorations.\n");

@@ -150,8 +150,6 @@ struct window_delete_data {
 	xcb_window_t		window;
 };
 
-struct gl_renderer_interface *gl_renderer;
-
 static void
 x11_destroy(struct weston_backend *backend);
 
@@ -874,6 +872,7 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 static int
 x11_output_disable(struct weston_output *base)
 {
+	const struct weston_renderer *renderer = base->compositor->renderer;
 	struct x11_output *output = to_x11_output(base);
 	struct x11_backend *backend;
 
@@ -886,11 +885,11 @@ x11_output_disable(struct weston_output *base)
 
 	wl_event_source_remove(output->finish_frame_timer);
 
-	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
+	if (renderer->type == WESTON_RENDERER_PIXMAN) {
 		pixman_renderer_output_destroy(&output->base);
 		x11_output_deinit_shm(backend, output);
 	} else {
-		gl_renderer->output_destroy(&output->base);
+		renderer->gl->output_destroy(&output->base);
 	}
 
 	xcb_destroy_window(backend->conn, output->window);
@@ -915,6 +914,7 @@ x11_output_destroy(struct weston_output *base)
 static int
 x11_output_enable(struct weston_output *base)
 {
+	const struct weston_renderer *renderer = base->compositor->renderer;
 	struct x11_output *output = to_x11_output(base);
 	const struct weston_mode *mode = output->base.current_mode;
 	struct x11_backend *b;
@@ -1020,7 +1020,7 @@ x11_output_enable(struct weston_output *base)
 	if (b->fullscreen)
 		x11_output_wait_for_map(b, output);
 
-	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
+	if (renderer->type == WESTON_RENDERER_PIXMAN) {
 		const struct pixman_renderer_output_options options = {
 			.use_shadow = true,
 			.fb_size = {
@@ -1057,8 +1057,7 @@ x11_output_enable(struct weston_output *base)
 			.fb_size.height = mode->height,
 		};
 
-		ret = gl_renderer->output_window_create(&output->base,
-							&options);
+		ret = renderer->gl->output_window_create(base, &options);
 		if (ret < 0)
 			goto err;
 
@@ -1831,26 +1830,6 @@ x11_destroy(struct weston_backend *base)
 	free(backend);
 }
 
-static int
-init_gl_renderer(struct x11_backend *b)
-{
-	const struct gl_renderer_display_options options = {
-		.egl_platform = EGL_PLATFORM_X11_KHR,
-		.egl_native_display = b->dpy,
-		.egl_surface_type = EGL_WINDOW_BIT,
-		.drm_formats = x11_formats,
-		.drm_formats_count = ARRAY_LENGTH(x11_formats),
-	};
-
-	gl_renderer = weston_load_module("gl-renderer.so",
-					 "gl_renderer_interface",
-					 LIBWESTON_MODULEDIR);
-	if (!gl_renderer)
-		return -1;
-
-	return gl_renderer->display_create(b->compositor, &options);
-}
-
 static const struct weston_windowed_output_api api = {
 	x11_output_set_size,
 	x11_head_create,
@@ -1905,8 +1884,18 @@ x11_backend_create(struct weston_compositor *compositor,
 			goto err_xdisplay;
 		}
 	}
-	else if (init_gl_renderer(b) < 0) {
-		goto err_xdisplay;
+	else {
+		const struct gl_renderer_display_options options = {
+			.egl_platform = EGL_PLATFORM_X11_KHR,
+			.egl_native_display = b->dpy,
+			.egl_surface_type = EGL_WINDOW_BIT,
+			.drm_formats = x11_formats,
+			.drm_formats_count = ARRAY_LENGTH(x11_formats),
+		};
+		if (weston_compositor_init_renderer(compositor,
+						    WESTON_RENDERER_GL,
+						    &options.base) < 0)
+			goto err_xdisplay;
 	}
 	weston_log("Using %s renderer\n",
 		   (config->renderer == WESTON_RENDERER_PIXMAN) ? "pixman" : "gl");

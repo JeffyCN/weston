@@ -66,6 +66,7 @@ enum gl_renderer_border_side {
  * \see struct gl_renderer_interface
  */
 struct gl_renderer_display_options {
+	struct weston_renderer_options base;
 	/** The EGL platform identifier */
 	EGLenum egl_platform;
 	/** The native display corresponding to the given EGL platform */
