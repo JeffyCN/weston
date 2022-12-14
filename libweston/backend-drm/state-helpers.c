@@ -251,18 +251,11 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	weston_surface_to_buffer_float(ev->surface, sxf2, syf2, &sxf2, &syf2);
 	pixman_region32_fini(&src_rect);
 
-	/* Buffer transforms may mean that x2 is to the left of x1, and/or that
-	 * y2 is above y1. */
-	if (sxf2 < sxf1) {
-		double tmp = sxf1;
-		sxf1 = sxf2;
-		sxf2 = tmp;
-	}
-	if (syf2 < syf1) {
-		double tmp = syf1;
-		syf1 = syf2;
-		syf2 = tmp;
-	}
+	/* We currently only support WL_OUTPUT_TRANSFORM_NORMAL, so it's
+	 * not possible for x2 to be left of x1 or y2 above y1.
+	 */
+	assert(sxf1 < sxf2);
+	assert(syf1 < syf2);
 
 	/* Shift from S23.8 wl_fixed to U16.16 KMS fixed-point encoding. */
 	state->src_x = wl_fixed_from_double(sxf1) << 8;
