@@ -4798,6 +4798,8 @@ confined_pointer_grab_pointer_motion(struct weston_pointer_grab *grab,
 
 	surface = pointer->focus->surface;
 
+	weston_view_update_transform(pointer->focus);
+
 	pixman_region32_init(&confine_region);
 	pixman_region32_intersect(&confine_region,
 				  &surface->input,
