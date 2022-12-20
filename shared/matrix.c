@@ -516,3 +516,51 @@ weston_matrix_to_transform(const struct weston_matrix *mat,
 
 	return true;
 }
+
+WL_EXPORT void
+weston_matrix_init_transform(struct weston_matrix *matrix,
+			     enum wl_output_transform transform,
+			     int x, int y, int width, int height,
+			     int scale)
+{
+	weston_matrix_init(matrix);
+
+	weston_matrix_translate(matrix, -x, -y, 0);
+
+	switch (transform) {
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		weston_matrix_scale(matrix, -1, 1, 1);
+		weston_matrix_translate(matrix, width, 0, 0);
+		break;
+	default:
+		break;
+	}
+
+	switch (transform) {
+	default:
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		weston_matrix_rotate_xy(matrix, 0, -1);
+		weston_matrix_translate(matrix, 0, width, 0);
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		weston_matrix_rotate_xy(matrix, -1, 0);
+		weston_matrix_translate(matrix,
+					width, height, 0);
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		weston_matrix_rotate_xy(matrix, 0, 1);
+		weston_matrix_translate(matrix, height, 0, 0);
+		break;
+	}
+
+	weston_matrix_scale(matrix, scale, scale, 1);
+}

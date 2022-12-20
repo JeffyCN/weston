@@ -6269,46 +6269,10 @@ weston_region_global_to_output(pixman_region32_t *dst,
 WESTON_EXPORT_FOR_TESTS void
 weston_output_update_matrix(struct weston_output *output)
 {
-	weston_matrix_init(&output->matrix);
-	weston_matrix_translate(&output->matrix, -output->x, -output->y, 0);
-
-	switch (output->transform) {
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		weston_matrix_translate(&output->matrix, -output->width, 0, 0);
-		weston_matrix_scale(&output->matrix, -1, 1, 1);
-		break;
-	}
-
-	switch (output->transform) {
-	default:
-	case WL_OUTPUT_TRANSFORM_NORMAL:
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-		break;
-	case WL_OUTPUT_TRANSFORM_90:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		weston_matrix_translate(&output->matrix, -output->width, 0, 0);
-		weston_matrix_rotate_xy(&output->matrix, 0, -1);
-		break;
-	case WL_OUTPUT_TRANSFORM_180:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-		weston_matrix_translate(&output->matrix,
-					-output->width, -output->height, 0);
-		weston_matrix_rotate_xy(&output->matrix, -1, 0);
-		break;
-	case WL_OUTPUT_TRANSFORM_270:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		weston_matrix_translate(&output->matrix, 0, -output->height, 0);
-		weston_matrix_rotate_xy(&output->matrix, 0, 1);
-		break;
-	}
-
-	if (output->current_scale != 1)
-		weston_matrix_scale(&output->matrix,
-				    output->current_scale,
-				    output->current_scale, 1);
+	weston_matrix_init_transform(&output->matrix, output->transform,
+				     output->x, output->y,
+				     output->width, output->height,
+				     output->current_scale);
 
 	weston_matrix_invert(&output->inverse_matrix, &output->matrix);
 }

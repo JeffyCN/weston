@@ -77,6 +77,12 @@ bool
 weston_matrix_to_transform(const struct weston_matrix *mat,
 			   enum wl_output_transform *transform);
 
+void
+weston_matrix_init_transform(struct weston_matrix *matrix,
+			     enum wl_output_transform transform,
+			     int x, int y, int width, int height,
+			     int scale);
+
 #ifdef  __cplusplus
 }
 #endif
