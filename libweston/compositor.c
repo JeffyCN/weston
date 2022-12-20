@@ -3732,6 +3732,7 @@ weston_surface_build_buffer_matrix(const struct weston_surface *surface,
 {
 	const struct weston_buffer_viewport *vp = &surface->buffer_viewport;
 	double src_width, src_height, dest_width, dest_height;
+	struct weston_matrix transform_matrix;
 
 	weston_matrix_init(matrix);
 
@@ -3762,44 +3763,13 @@ weston_surface_build_buffer_matrix(const struct weston_surface *surface,
 					wl_fixed_to_double(vp->buffer.src_y),
 					0);
 
-	switch (vp->buffer.transform) {
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		weston_matrix_scale(matrix, -1, 1, 1);
-		weston_matrix_translate(matrix,
-					surface->width_from_buffer, 0, 0);
-		break;
-	}
-
-	switch (vp->buffer.transform) {
-	default:
-	case WL_OUTPUT_TRANSFORM_NORMAL:
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-		break;
-	case WL_OUTPUT_TRANSFORM_90:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		weston_matrix_rotate_xy(matrix, 0, -1);
-		weston_matrix_translate(matrix,
-					0, surface->width_from_buffer, 0);
-		break;
-	case WL_OUTPUT_TRANSFORM_180:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-		weston_matrix_rotate_xy(matrix, -1, 0);
-		weston_matrix_translate(matrix,
-					surface->width_from_buffer,
-					surface->height_from_buffer, 0);
-		break;
-	case WL_OUTPUT_TRANSFORM_270:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		weston_matrix_rotate_xy(matrix, 0, 1);
-		weston_matrix_translate(matrix,
-					surface->height_from_buffer, 0, 0);
-		break;
-	}
-
-	weston_matrix_scale(matrix, vp->buffer.scale, vp->buffer.scale, 1);
+	weston_matrix_init_transform(&transform_matrix,
+				     vp->buffer.transform,
+				     0, 0,
+				     surface->width_from_buffer,
+				     surface->height_from_buffer,
+				     vp->buffer.scale);
+	weston_matrix_multiply(matrix, &transform_matrix);
 }
 
 /**
