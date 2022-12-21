@@ -20,6 +20,7 @@ srcs_toytoolkit = [
 deps_toytoolkit = [
 	dep_wayland_client,
 	dep_lib_cairo_shared,
+	dep_matrix_c,
 	dep_xkbcommon,
 	dependency('wayland-cursor'),
 	cc.find_library('util'),

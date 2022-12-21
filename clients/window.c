@@ -61,6 +61,7 @@
 #include "relative-pointer-unstable-v1-client-protocol.h"
 #include "shared/os-compatibility.h"
 #include "shared/string-helpers.h"
+#include "libweston/matrix.h"
 
 #include "window.h"
 #include "viewporter-client-protocol.h"
@@ -1592,78 +1593,16 @@ static void
 widget_cairo_update_transform(struct widget *widget, cairo_t *cr)
 {
 	struct surface *surface = widget->surface;
-	double angle;
+	struct weston_matrix matrix;
 	cairo_matrix_t m;
-	enum wl_output_transform transform;
-	int surface_width, surface_height;
-	int translate_x, translate_y;
-	int32_t scale;
 
-	surface_width = surface->allocation.width;
-	surface_height = surface->allocation.height;
-
-	transform = surface->buffer_transform;
-	scale = surface->buffer_scale;
-
-	switch (transform) {
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		cairo_matrix_init(&m, -1, 0, 0, 1, 0, 0);
-		break;
-	default:
-		cairo_matrix_init_identity(&m);
-		break;
-	}
-
-	switch (transform) {
-	case WL_OUTPUT_TRANSFORM_NORMAL:
-	default:
-		angle = 0;
-		translate_x = 0;
-		translate_y = 0;
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED:
-		angle = 0;
-		translate_x = surface_width;
-		translate_y = 0;
-		break;
-	case WL_OUTPUT_TRANSFORM_90:
-		angle = M_PI + M_PI_2;
-		translate_x = 0;
-		translate_y = surface_width;
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-		angle = M_PI + M_PI_2;
-		translate_x = 0;
-		translate_y = 0;
-		break;
-	case WL_OUTPUT_TRANSFORM_180:
-		angle = M_PI;
-		translate_x = surface_width;
-		translate_y = surface_height;
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-		angle = M_PI;
-		translate_x = 0;
-		translate_y = surface_height;
-		break;
-	case WL_OUTPUT_TRANSFORM_270:
-		angle = M_PI_2;
-		translate_x = surface_height;
-		translate_y = 0;
-		break;
-	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-		angle = M_PI_2;
-		translate_x = surface_height;
-		translate_y = surface_width;
-		break;
-	}
-
-	cairo_scale(cr, scale, scale);
-	cairo_translate(cr, translate_x, translate_y);
-	cairo_rotate(cr, angle);
+	weston_matrix_init_transform(&matrix, surface->buffer_transform,
+				     0, 0,
+				     surface->allocation.width,
+				     surface->allocation.height,
+				     surface->buffer_scale);
+	cairo_matrix_init(&m, matrix.d[0], matrix.d[4], matrix.d[1],
+			  matrix.d[5], matrix.d[12], matrix.d[13]);
 	cairo_transform(cr, &m);
 }
 
