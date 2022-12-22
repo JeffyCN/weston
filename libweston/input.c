@@ -835,6 +835,8 @@ weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
 	if (!weston_touch_has_focus_resource(touch))
 		return;
 
+	weston_view_update_transform(touch->focus);
+
 	weston_view_from_global_fixed(touch->focus, x, y, &sx, &sy);
 
 	resource_list = &touch->focus_resource_list;
