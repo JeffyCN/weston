@@ -2892,33 +2892,30 @@ load_drm_backend(struct weston_compositor *c,
 	struct weston_config_section *section;
 	struct wet_compositor *wet = to_wet_compositor(c);
 	bool without_input = false;
-	bool use_pixman_default;
+	bool force_pixman = false;
 	int ret = 0;
 
 	wet->drm_use_current_mode = false;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
 
-	/* Use the pixman renderer by default when GBM/EGL support is
-	 * not enabled */
-#if defined(BUILD_DRM_GBM)
-	use_pixman_default = false;
-#else
-	use_pixman_default = true;
-#endif
-
-	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
-				       use_pixman_default);
+	weston_config_section_get_bool(section, "use-pixman", &force_pixman,
+				       false);
 
 	const struct weston_option options[] = {
 		{ WESTON_OPTION_STRING, "seat", 0, &config.seat_id },
 		{ WESTON_OPTION_STRING, "drm-device", 0, &config.specific_device },
 		{ WESTON_OPTION_BOOLEAN, "current-mode", 0, &wet->drm_use_current_mode },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
 		{ WESTON_OPTION_BOOLEAN, "continue-without-input", false, &without_input }
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
+
+	if (force_pixman)
+		config.renderer = WESTON_RENDERER_PIXMAN;
+	else
+		config.renderer = WESTON_RENDERER_AUTO;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
 	weston_config_section_get_string(section,

@@ -3201,16 +3201,30 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev_dev;
 	}
 
-	if (config->use_pixman) {
+	if (config->renderer == WESTON_RENDERER_AUTO) {
+#ifdef BUILD_DRM_GBM
+		config->renderer = WESTON_RENDERER_GL;
+#else
+		config->renderer = WESTON_RENDERER_PIXMAN;
+#endif
+	}
+
+	switch (config->renderer) {
+	case WESTON_RENDERER_PIXMAN:
 		if (init_pixman(b) < 0) {
 			weston_log("failed to initialize pixman renderer\n");
 			goto err_udev_dev;
 		}
-	} else {
+		break;
+	case WESTON_RENDERER_GL:
 		if (init_egl(b) < 0) {
 			weston_log("failed to initialize egl\n");
 			goto err_udev_dev;
 		}
+		break;
+	default:
+		weston_log("unsupported renderer for DRM backend\n");
+		goto err_udev_dev;
 	}
 
 	b->base.destroy = drm_destroy;
@@ -3376,6 +3390,7 @@ err_compositor:
 static void
 config_init_to_defaults(struct weston_drm_backend_config *config)
 {
+	config->renderer = WESTON_RENDERER_AUTO;
 	config->use_pixman_shadow = true;
 }
 
