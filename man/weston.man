@@ -148,21 +148,12 @@ to take screenshots of the outputs using weston-screenshooter application,
 which can lead to silently leaking the output contents.  This option should
 not be used in production.
 .TP
-\fB\-\^l\fIscope1,scope2\fR, \fB\-\-logger-scopes\fR=\fIscope1,scope2\fR
-Specify to which log scopes should subscribe to. When no scopes are supplied,
-the log "log" scope will be subscribed by default. Useful to control which
-streams to write data into the logger and can be helpful in diagnosing early
-start-up code.
-.TP
 \fB\-\^f\fIscope1,scope2\fR, \fB\-\-flight-rec-scopes\fR=\fIscope1,scope2\fR
 Specify to which scopes should subscribe to. Useful to control which streams to
 write data into the flight recorder. Flight recorder has limited space, once
 the flight recorder is full new data will overwrite the old data. Without any
 scopes specified, it subscribes to 'log' and 'drm-backend' scopes. Passing
 an empty value would disable the flight recorder entirely.
-.TP
-.BR \-\-version
-Print the program version.
 .TP
 .BR \-\^h ", " \-\-help
 Print a summary of command line options, and quit.
@@ -181,8 +172,11 @@ Append log messages to the file
 .I file.log
 instead of writing them to stderr.
 .TP
-\fB\-\-xwayland\fR
-Ask Weston to load the XWayland module.
+\fB\-\^l\fIscope1,scope2\fR, \fB\-\-logger-scopes\fR=\fIscope1,scope2\fR
+Specify to which log scopes should subscribe to. When no scopes are supplied,
+the log "log" scope will be subscribed by default. Useful to control which
+streams to write data into the logger and can be helpful in diagnosing early
+start-up code.
 .TP
 \fB\-\-modules\fR=\fImodule1.so,module2.so\fR
 Load the comma-separated list of modules. Only used by the test
@@ -196,6 +190,7 @@ Do not read
 for the compositor. Avoids e.g. loading compositor modules via the
 configuration file, which is useful for unit tests.
 .TP
+.TP
 \fB\-\^S\fR\fIname\fR, \fB\-\-socket\fR=\fIname\fR
 Weston will listen in the Wayland socket called
 .IR name .
@@ -203,13 +198,17 @@ Weston will export
 .B WAYLAND_DISPLAY
 with this value in the environment for all child processes to allow them to
 connect to the right server automatically.
-.TP
+.BR \-\-version
+Print the program version.
 \fB\-\-wait-for-debugger\fR
 Raises SIGSTOP before initializing the compositor. This allows the user to
 attach with a debugger and continue execution by sending SIGCONT. This is
 useful for debugging a crash on start-up when it would be inconvenient to
 launch weston directly from a debugger. There is also a
 .IR weston.ini " option to do the same."
+.TP
+\fB\-\-xwayland\fR
+Support X11 clients through the Xwayland server.
 .
 .SS DRM backend options:
 See
