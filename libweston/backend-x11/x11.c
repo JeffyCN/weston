@@ -1895,7 +1895,7 @@ x11_backend_create(struct weston_compositor *compositor,
 		config->fullscreen = 0;
 	}
 
-	if (config->use_pixman) {
+	if (config->renderer == WESTON_RENDERER_PIXMAN) {
 		if (pixman_renderer_init(compositor) < 0) {
 			weston_log("Failed to initialize pixman renderer for X11 backend\n");
 			goto err_xdisplay;
@@ -1904,7 +1904,8 @@ x11_backend_create(struct weston_compositor *compositor,
 	else if (init_gl_renderer(b) < 0) {
 		goto err_xdisplay;
 	}
-	weston_log("Using %s renderer\n", config->use_pixman ? "pixman" : "gl");
+	weston_log("Using %s renderer\n",
+		   (config->renderer == WESTON_RENDERER_PIXMAN) ? "pixman" : "gl");
 
 	b->base.destroy = x11_destroy;
 	b->base.create_output = x11_output_create;

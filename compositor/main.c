@@ -3274,6 +3274,7 @@ load_x11_backend(struct weston_compositor *c,
 	const struct weston_windowed_output_api *api;
 	struct weston_x11_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
+	bool force_pixman;
 	int ret = 0;
 	int option_count = 1;
 	int output_count = 0;
@@ -3285,7 +3286,7 @@ load_x11_backend(struct weston_compositor *c,
 		return -1;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
+	weston_config_section_get_bool(section, "use-pixman", &force_pixman,
 				       false);
 
 	const struct weston_option options[] = {
@@ -3295,13 +3296,18 @@ load_x11_backend(struct weston_compositor *c,
 	       { WESTON_OPTION_BOOLEAN, "fullscreen", 'f', &config.fullscreen },
 	       { WESTON_OPTION_INTEGER, "output-count", 0, &option_count },
 	       { WESTON_OPTION_BOOLEAN, "no-input", 0, &config.no_input },
-	       { WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
+	       { WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
 
 	config.base.struct_version = WESTON_X11_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_x11_backend_config);
+
+	if (force_pixman)
+		config.renderer = WESTON_RENDERER_PIXMAN;
+	else
+		config.renderer = WESTON_RENDERER_AUTO;
 
 	wet_set_simple_head_configurator(c, x11_backend_output_configure);
 
