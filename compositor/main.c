@@ -3481,30 +3481,32 @@ load_wayland_backend(struct weston_compositor *c,
 
 
 static int
-load_backend(struct weston_compositor *compositor, const char *backend,
+load_backend(struct weston_compositor *compositor, const char *name,
 	     int *argc, char **argv, struct weston_config *config)
 {
-	if (strcmp(backend, "headless") == 0 ||
-	    strstr(backend, "headless-backend.so"))
-		return load_headless_backend(compositor, argc, argv, config);
-	else if (strcmp(backend, "rdp") == 0 ||
-		 strstr(backend, "rdp-backend.so"))
-		return load_rdp_backend(compositor, argc, argv, config);
-	else if (strcmp(backend, "vnc") == 0 ||
-		 strstr(backend, "vnc-backend.so"))
-		return load_vnc_backend(compositor, argc, argv, config);
-	else if (strcmp(backend, "drm") == 0 ||
-		 strstr(backend, "drm-backend.so"))
-		return load_drm_backend(compositor, argc, argv, config);
-	else if (strcmp(backend, "x11") == 0 ||
-		 strstr(backend, "x11-backend.so"))
-		return load_x11_backend(compositor, argc, argv, config);
-	else if (strcmp(backend, "wayland") == 0 ||
-		 strstr(backend, "wayland-backend.so"))
-		return load_wayland_backend(compositor, argc, argv, config);
+	enum weston_compositor_backend backend;
 
-	weston_log("Error: unknown backend \"%s\"\n", backend);
-	return -1;
+	if (!get_backend_from_string(name, &backend)) {
+		weston_log("Error: unknown backend \"%s\"\n", name);
+		return -1;
+	}
+
+	switch (backend) {
+	case WESTON_BACKEND_DRM:
+		return load_drm_backend(compositor, argc, argv, config);
+	case WESTON_BACKEND_HEADLESS:
+		return load_headless_backend(compositor, argc, argv, config);
+	case WESTON_BACKEND_RDP:
+		return load_rdp_backend(compositor, argc, argv, config);
+	case WESTON_BACKEND_VNC:
+		return load_vnc_backend(compositor, argc, argv, config);
+	case WESTON_BACKEND_WAYLAND:
+		return load_wayland_backend(compositor, argc, argv, config);
+	case WESTON_BACKEND_X11:
+		return load_x11_backend(compositor, argc, argv, config);
+	default:
+		unreachable("unknown backend type in load_backend()");
+	}
 }
 
 static char *

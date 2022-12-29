@@ -2,6 +2,7 @@ srcs_weston = [
 	git_version_h,
 	'main.c',
 	'text-backend.c',
+	'config-helpers.c',
 	'weston-screenshooter.c',
 	text_input_unstable_v1_server_protocol_h,
 	text_input_unstable_v1_protocol_c,

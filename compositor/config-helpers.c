@@ -23,16 +23,42 @@
  * SOFTWARE.
  */
 
-#pragma once
+#include "config.h"
+
+#include <string.h>
 
 #include <libweston/libweston.h>
 #include <libweston/config-parser.h>
 
+#include "shared/helpers.h"
+#include "weston-private.h"
+
+struct {
+	char *short_name;
+	char *long_name;
+	enum weston_compositor_backend backend;
+} backend_name_map[] = {
+	{ "drm", "drm-backend.so", WESTON_BACKEND_DRM },
+	{ "headless", "headless-backend.so", WESTON_BACKEND_HEADLESS },
+	{ "rdp", "rdp-backend.so", WESTON_BACKEND_RDP },
+	{ "vnc", "vnc-backend.so", WESTON_BACKEND_VNC },
+	{ "wayland", "wayland-backend.so", WESTON_BACKEND_WAYLAND },
+	{ "x11", "x11-backend.so", WESTON_BACKEND_X11 },
+};
+
 bool
 get_backend_from_string(const char *name,
-			enum weston_compositor_backend *backend);
+			enum weston_compositor_backend *backend)
+{
+	size_t i;
 
-int
-wet_output_set_color_characteristics(struct weston_output *output,
-				     struct weston_config *wc,
-				     struct weston_config_section *section);
+	for (i = 0; i < ARRAY_LENGTH(backend_name_map); i++) {
+		if (strcmp(name, backend_name_map[i].short_name) == 0 ||
+		    strcmp(name, backend_name_map[i].long_name) == 0) {
+			*backend = backend_name_map[i].backend;
+			return true;
+		}
+	}
+
+	return false;
+}
