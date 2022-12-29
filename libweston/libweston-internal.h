@@ -46,12 +46,6 @@
 
 /* compositor <-> renderer interface */
 
-enum weston_renderer_type {
-	WESTON_RENDERER_NOOP,
-	WESTON_RENDERER_PIXMAN,
-	WESTON_RENDERER_GL,
-};
-
 struct weston_renderer {
 	int (*read_pixels)(struct weston_output *output,
 			   const struct pixel_format_info *format, void *pixels,

@@ -2065,6 +2065,12 @@ enum weston_compositor_backend {
 	WESTON_BACKEND_X11,
 };
 
+enum weston_renderer_type {
+	WESTON_RENDERER_NOOP = 1,
+	WESTON_RENDERER_PIXMAN = 2,
+	WESTON_RENDERER_GL = 3,
+};
+
 int
 weston_compositor_load_backend(struct weston_compositor *compositor,
 			       enum weston_compositor_backend backend,
