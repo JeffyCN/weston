@@ -3208,6 +3208,7 @@ weston_vnc_backend_config_init(struct weston_vnc_backend_config *config)
 	config->base.struct_version = WESTON_VNC_BACKEND_CONFIG_VERSION;
 	config->base.struct_size = sizeof(struct weston_vnc_backend_config);
 
+	config->renderer = WESTON_RENDERER_AUTO;
 	config->bind_address = NULL;
 	config->port = 5900;
 	config->refresh_rate = VNC_DEFAULT_FREQ;

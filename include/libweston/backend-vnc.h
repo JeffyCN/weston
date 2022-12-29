@@ -55,10 +55,11 @@ weston_vnc_output_get_api(struct weston_compositor *compositor)
 	return (const struct weston_vnc_output_api *)api;
 }
 
-#define WESTON_VNC_BACKEND_CONFIG_VERSION 1
+#define WESTON_VNC_BACKEND_CONFIG_VERSION 2
 
 struct weston_vnc_backend_config {
 	struct weston_backend_config base;
+	enum weston_renderer_type renderer;
 	char *bind_address;
 	int port;
 	int refresh_rate;

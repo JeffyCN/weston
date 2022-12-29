@@ -972,6 +972,16 @@ vnc_backend_create(struct weston_compositor *compositor,
 	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
 		goto err_compositor;
 
+	switch (config->renderer) {
+	case WESTON_RENDERER_AUTO:
+	case WESTON_RENDERER_PIXMAN:
+		weston_log("Using Pixman renderer\n");
+		break;
+	default:
+		weston_log("Unsupported renderer requested\n");
+		goto err_compositor;
+	}
+
 	if (pixman_renderer_init(compositor) < 0)
 		goto err_compositor;
 
