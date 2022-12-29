@@ -130,9 +130,9 @@ The argument can also be an absolute path starting with a
 If the path is not absolute, it will be searched in the normal config
 paths, see
 .BR weston.ini (5).
-If also
+This option is ignored if the
 .B --no-config
-is given, no configuration file will be read.
+option is passed.
 .TP
 .BR \-\-debug
 Enable debug protocol extension
