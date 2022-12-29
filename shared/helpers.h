@@ -179,6 +179,26 @@ u64_from_u32s(uint32_t hi, uint32_t lo)
 	return ((uint64_t)hi << 32) + lo;
 }
 
+#ifndef __has_builtin
+#  define __has_builtin(x) 0
+#endif
+
+#if defined(HAVE_UNREACHABLE) || __has_builtin(__builtin_unreachable)
+#define unreachable(str)    \
+do {                        \
+   assert(!str);            \
+   __builtin_unreachable(); \
+} while (0)
+#elif defined (_MSC_VER)
+#define unreachable(str)    \
+do {                        \
+   assert(!str);            \
+   __assume(0);             \
+} while (0)
+#else
+#define unreachable(str) assert(!str)
+#endif
+
 #ifdef  __cplusplus
 }
 #endif
