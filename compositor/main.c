@@ -670,7 +670,7 @@ usage(int error_code)
 #if defined(BUILD_X11_COMPOSITOR)
 			"\t\t\t\tx11\n"
 #endif
-		"  --shell=MODULE\tShell module, defaults to desktop-shell.so\n"
+		"  --shell=NAME\tShell to load, defaults to desktop\n"
 		"  -S, --socket=NAME\tName of socket to listen on\n"
 		"  -i, --idle-time=SECS\tIdle time in seconds\n"
 #if defined(BUILD_XWAYLAND)
@@ -922,12 +922,21 @@ wet_load_module(struct weston_compositor *compositor,
 
 static int
 wet_load_shell(struct weston_compositor *compositor,
-	       const char *name, int *argc, char *argv[])
+	       const char *_name, int *argc, char *argv[])
 {
+	char *name;
 	int (*shell_init)(struct weston_compositor *ec,
 			  int *argc, char *argv[]);
 
+	if (strstr(_name, "-shell.so"))
+		name = strdup(_name);
+	else
+		str_printf(&name, "%s-shell.so", _name);
+	assert(name);
+
 	shell_init = weston_load_module(name, "wet_shell_init", MODULEDIR);
+	free(name);
+
 	if (!shell_init)
 		return -1;
 	if (shell_init(compositor, argc, argv) < 0)
@@ -3893,7 +3902,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 
 	if (!shell)
 		weston_config_section_get_string(section, "shell", &shell,
-						 "desktop-shell.so");
+						 "desktop");
 
 	if (wet_load_shell(wet.compositor, shell, &argc, argv) < 0)
 		goto out;

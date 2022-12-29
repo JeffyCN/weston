@@ -96,7 +96,7 @@ The
 .B core
 section is used to select the startup compositor modules and general options.
 .TP 7
-.BI "shell=" desktop-shell.so
+.BI "shell=" desktop
 specifies a shell to load (string). This can be used to load your own
 implemented shell or one with Weston as default. Available shells
 in the
@@ -105,7 +105,7 @@ directory are:
 .PP
 .RS 10
 .nf
-.BR desktop-shell.so
+.BR desktop
 .fi
 .RE
 .TP 7
@@ -660,7 +660,7 @@ sets the path to the xserver to run (string).
 .SH "SCREEN-SHARE SECTION"
 .TP 7
 .BI "command=" "@weston_bindir@/weston --backend=rdp \
---shell=fullscreen-shell.so --no-clients-resize --no-config"
+--shell=fullscreen --no-clients-resize --no-config"
 sets the command to start a fullscreen-shell server for screen sharing (string).
 .TP 7
 .BI "start-on-startup=" "false"

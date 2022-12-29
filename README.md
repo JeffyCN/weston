@@ -68,6 +68,12 @@ from a text console, it will take over that console. When launched from inside
 an existing Wayland or X11 session, it will start a 'nested' instance of Weston
 inside a window in that session.
 
+By default, Weston will start with a skeletal desktop-like environment called
+`desktop-shell`. Other shells are available; for example, to load the `kiosk`
+shell designed for single-application environments, you can start with:
+
+    $ weston --shell=kiosk
+
 Help is available by running `weston --help`, or `man weston`, which will list
 the available configuration options and display backends. It can also be
 configured through a file on disk; more information on this can be found through

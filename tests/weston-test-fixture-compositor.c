@@ -248,10 +248,10 @@ static const char *
 shell_to_str(enum shell_type t)
 {
 	static const char * const names[] = {
-		[SHELL_TEST_DESKTOP] = "weston-test-desktop-shell.so",
-		[SHELL_DESKTOP] = "desktop-shell.so",
-		[SHELL_FULLSCREEN] = "fullscreen-shell.so",
-		[SHELL_IVI] = "ivi-shell.so",
+		[SHELL_TEST_DESKTOP] = "weston-test-desktop",
+		[SHELL_DESKTOP] = "desktop",
+		[SHELL_FULLSCREEN] = "fullscreen",
+		[SHELL_IVI] = "ivi",
 	};
 	assert(t >= 0 && t < ARRAY_LENGTH(names));
 	return names[t];

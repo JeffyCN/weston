@@ -188,6 +188,9 @@ Do not read
 for the compositor. Avoids e.g. loading compositor modules via the
 configuration file, which is useful for unit tests.
 .TP
+\fB\-\-shell\fR=\fIshell\fR
+Select which shell to load to provide Weston's user interface. See
+.BR ENVIRONMENT "."
 .TP
 \fB\-\^S\fR\fIname\fR, \fB\-\-socket\fR=\fIname\fR
 Weston will listen in the Wayland socket called
