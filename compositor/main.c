@@ -3384,6 +3384,7 @@ load_wayland_backend(struct weston_compositor *c,
 	const struct weston_windowed_output_api *api;
 	const char *section_name;
 	char *output_name = NULL;
+	bool force_pixman = false;
 	int count = 1;
 	int ret = 0;
 	int i;
@@ -3397,7 +3398,7 @@ load_wayland_backend(struct weston_compositor *c,
 	config.display_name = NULL;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
+	weston_config_section_get_bool(section, "use-pixman", &force_pixman,
 				       false);
 
 	const struct weston_option wayland_options[] = {
@@ -3405,7 +3406,7 @@ load_wayland_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
 		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
 		{ WESTON_OPTION_STRING, "display", 0, &config.display_name },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
 		{ WESTON_OPTION_INTEGER, "output-count", 0, &count },
 		{ WESTON_OPTION_BOOLEAN, "fullscreen", 0, &config.fullscreen },
 		{ WESTON_OPTION_BOOLEAN, "sprawl", 0, &config.sprawl },
@@ -3421,6 +3422,11 @@ load_wayland_backend(struct weston_compositor *c,
 
 	config.base.struct_size = sizeof(struct weston_wayland_backend_config);
 	config.base.struct_version = WESTON_WAYLAND_BACKEND_CONFIG_VERSION;
+
+	if (force_pixman)
+		config.renderer = WESTON_RENDERER_PIXMAN;
+	else
+		config.renderer = WESTON_RENDERER_AUTO;
 
 	/* load the actual wayland backend and configure it */
 	ret = weston_compositor_load_backend(c, WESTON_BACKEND_WAYLAND,
