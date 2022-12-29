@@ -28,11 +28,6 @@ A small suite of example or demo clients are also provided: though they can be
 useful in themselves, their main purpose is to be an example or test case for
 others building compositors or clients.
 
-If you are after a more mainline desktop experience, the
-[GNOME](https://www.gnome.org) and [KDE](https://www.kde.org) projects provide
-full-featured desktop environments built on the Wayland protocol. Many other
-projects also exist providing Wayland clients and desktop environments: you are
-not limited to just what you can find in Weston.
 
 Reporting issues and contributing
 =================================
