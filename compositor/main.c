@@ -2981,6 +2981,8 @@ load_headless_backend(struct weston_compositor *c,
 	const struct weston_windowed_output_api *api;
 	struct weston_headless_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
+	bool force_pixman;
+	bool force_gl;
 	bool no_outputs = false;
 	int ret = 0;
 	char *transform = NULL;
@@ -2990,9 +2992,9 @@ load_headless_backend(struct weston_compositor *c,
 		return -1;
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
-	weston_config_section_get_bool(section, "use-pixman", &config.use_pixman,
+	weston_config_section_get_bool(section, "use-pixman", &force_pixman,
 				       false);
-	weston_config_section_get_bool(section, "use-gl", &config.use_gl,
+	weston_config_section_get_bool(section, "use-gl", &force_gl,
 				       false);
 	weston_config_section_get_bool(section, "output-decorations", &config.decorate,
 				       false);
@@ -3001,13 +3003,24 @@ load_headless_backend(struct weston_compositor *c,
 		{ WESTON_OPTION_INTEGER, "width", 0, &parsed_options->width },
 		{ WESTON_OPTION_INTEGER, "height", 0, &parsed_options->height },
 		{ WESTON_OPTION_INTEGER, "scale", 0, &parsed_options->scale },
-		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &config.use_pixman },
-		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &config.use_gl },
+		{ WESTON_OPTION_BOOLEAN, "use-pixman", 0, &force_pixman },
+		{ WESTON_OPTION_BOOLEAN, "use-gl", 0, &force_gl },
 		{ WESTON_OPTION_STRING, "transform", 0, &transform },
 		{ WESTON_OPTION_BOOLEAN, "no-outputs", 0, &no_outputs },
 	};
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
+
+	if (force_pixman && force_gl) {
+		weston_log("Conflicting renderer specifications\n");
+		return -1;
+	} else if (force_pixman) {
+		config.renderer = WESTON_RENDERER_PIXMAN;
+	} else if (force_gl) {
+		config.renderer = WESTON_RENDERER_GL;
+	} else {
+		config.renderer = WESTON_RENDERER_AUTO;
+	}
 
 	if (transform) {
 		if (weston_parse_transform(transform, &parsed_options->transform) < 0) {

@@ -543,15 +543,6 @@ headless_backend_create(struct weston_compositor *compositor,
 	b->base.destroy = headless_destroy;
 	b->base.create_output = headless_output_create;
 
-	if (config->use_pixman && config->use_gl) {
-		weston_log("Error: cannot use both Pixman *and* GL renderers.\n");
-		goto err_free;
-	}
-
-	if (config->decorate && !config->use_gl) {
-		weston_log("Error: headless-backend decorations require GL renderer.\n");
-		goto err_free;
-	}
 	b->decorate = config->decorate;
 	if (b->decorate) {
 		b->theme = theme_create();
@@ -561,12 +552,29 @@ headless_backend_create(struct weston_compositor *compositor,
 		}
 	}
 
-	if (config->use_gl)
+	switch (config->renderer) {
+	case WESTON_RENDERER_GL:
 		ret = headless_gl_renderer_init(b);
-	else if (config->use_pixman)
+		break;
+	case WESTON_RENDERER_PIXMAN:
+		if (config->decorate) {
+			weston_log("Error: Pixman renderer does not support decorations.\n");
+			goto err_input;
+		}
 		ret = pixman_renderer_init(compositor);
-	else
+		break;
+	case WESTON_RENDERER_AUTO:
+	case WESTON_RENDERER_NOOP:
+		if (config->decorate) {
+			weston_log("Error: no-op renderer does not support decorations.\n");
+			goto err_input;
+		}
 		ret = noop_renderer_init(compositor);
+		break;
+	default:
+		weston_log("Error: unsupported renderer\n");
+		break;
+	}
 
 	if (ret < 0)
 		goto err_input;
