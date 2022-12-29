@@ -106,6 +106,9 @@ directory are:
 .RS 10
 .nf
 .BR desktop
+.BR fullscreen
+.BR ivi
+.BR kiosk
 .fi
 .RE
 .TP 7

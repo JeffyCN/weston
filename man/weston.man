@@ -55,34 +55,31 @@ if installed.
 .
 .\" ***************************************************************
 .SH SHELLS
-Each of these shells have its own public protocol interface for clients.
-This means that a client must be specifically written for a shell protocol,
-otherwise it will not work.
+Weston's user interface is implemented by individual 'shell' plugins.
+A number of shells are provided for different usecases.
 .TP
-Desktop shell
-Desktop shell is like a modern X desktop environment, concentrating
-on traditional keyboard and mouse user interfaces and the familiar
-desktop-like window management. Desktop shell consists of the
-shell plugin
-.I desktop-shell.so
-and the special client
-.B weston-desktop-shell
-which provides the wallpaper, panel, and screen locking dialog.
+.I desktop
+The desktop shell is Weston's default mode. It provides an example of a
+desktop-like environment, featuring a panel with launchers and a clock,
+a background, and an interactive task switcher. Whilst not intended to be
+a full-fledged desktop environment in and of itself, it is an example of
+how such an environment can be built.
 .TP
-Fullscreen shell
-Fullscreen shell is intended for a client that needs to take over
-whole outputs, often all outputs. This is primarily intended for
-running another compositor on Weston. The other compositor does not
-need to handle any platform-specifics like DRM/KMS or evdev/libinput.
-The shell consists only of the shell plugin
-.IR fullscreen-shell.so .
+.I kiosk
+The kiosk shell is intended for environments which want to run a single
+application at a time. Applications will be made full screen and
+activated as they are started.
 .TP
-IVI-shell
-In-vehicle infotainment shell is a special purpose shell that exposes
-a GENIVI Layer Manager compatible API to controller modules, and a very
-simple shell protocol towards clients. IVI-shell starts with loading
-.IR ivi-shell.so ,
-and then a controller module which may launch helper clients.
+.I fullscreen
+The fullscreen shell is a deprecated implementation of the ideas behind
+the kiosk shell. It requires specific client support for the
+.I zwp_fullscreen_shell_v1
+interface.
+.TP
+.I ivi
+The IVI shell is a special-purpose shell which exposes an API compatible
+with the GENIVI Layer Manager to user-provided HMI controller modules.
+It is intended for use in automotive environments.
 .
 .\" ***************************************************************
 .SH XWAYLAND
