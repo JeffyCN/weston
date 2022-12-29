@@ -218,6 +218,8 @@ headless_output_disable(struct weston_output *base)
 		break;
 	case WESTON_RENDERER_NOOP:
 		break;
+	case WESTON_RENDERER_AUTO:
+		unreachable("cannot have auto renderer at runtime");
 	}
 
 	return 0;
@@ -351,6 +353,8 @@ headless_output_enable(struct weston_output *base)
 		break;
 	case WESTON_RENDERER_NOOP:
 		break;
+	case WESTON_RENDERER_AUTO:
+		unreachable("cannot have auto renderer at runtime");
 	}
 
 	if (ret < 0) {

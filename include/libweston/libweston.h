@@ -2066,6 +2066,7 @@ enum weston_compositor_backend {
 };
 
 enum weston_renderer_type {
+	WESTON_RENDERER_AUTO = 0,
 	WESTON_RENDERER_NOOP = 1,
 	WESTON_RENDERER_PIXMAN = 2,
 	WESTON_RENDERER_GL = 3,
