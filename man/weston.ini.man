@@ -188,7 +188,25 @@ directory are:
 .fi
 .RE
 .TP 7
+.BI "renderer=" auto
+Selects a renderer to use for internal composition when required, or
+.BI auto
+to select the most appropriate renderer. Available renderers are:
+.PP
+.RS 10
+.nf
+.BR auto
+.BR gl
+.BR noop
+.BR pixman
+.fi
+.RE
+Not all backends support all renderers.
+.TP 7
 .BI "use-pixman=" true
+Deprecated in favour of the
+.BI "renderer="
+option.
 Enables pixman-based rendering for all outputs on backends that support it.
 Boolean, defaults to
 .BR false .

@@ -218,30 +218,15 @@ backend_to_str(enum weston_compositor_backend b)
 }
 
 static const char *
-renderer_to_arg(enum weston_compositor_backend b, enum renderer_type r)
+renderer_to_str(enum renderer_type t)
 {
-	static const char * const headless_names[] = {
-		[RENDERER_NOOP] = NULL,
-		[RENDERER_PIXMAN] = "--use-pixman",
-		[RENDERER_GL] = "--use-gl",
+	static const char * const names[] = {
+		[RENDERER_NOOP] = "noop",
+		[RENDERER_PIXMAN] = "pixman",
+		[RENDERER_GL] = "gl",
 	};
-	static const char * const drm_names[] = {
-		[RENDERER_PIXMAN] = "--use-pixman",
-		[RENDERER_GL] = NULL,
-	};
-
-	switch (b) {
-	case WESTON_BACKEND_HEADLESS:
-		assert(r >= RENDERER_NOOP && r <= RENDERER_GL);
-		return headless_names[r];
-	case WESTON_BACKEND_DRM:
-		assert(r >= RENDERER_PIXMAN && r <= RENDERER_GL);
-		return drm_names[r];
-	default:
-		assert(0 && "renderer_to_str() does not know the backend");
-	}
-
-	return NULL;
+	assert(t >= 0 && t <= ARRAY_LENGTH(names));
+	return names[t];
 }
 
 static const char *
@@ -291,7 +276,7 @@ execute_compositor(const struct compositor_setup *setup,
 	struct weston_testsuite_data test_data;
 	struct prog_args args;
 	char *tmp;
-	const char *ctmp, *drm_device;
+	const char *drm_device;
 	int lock_fd = -1;
 	int ret = RESULT_OK;
 
@@ -367,9 +352,8 @@ execute_compositor(const struct compositor_setup *setup,
 		prog_args_take(&args, strdup("--no-config"));
 	}
 
-	ctmp = renderer_to_arg(setup->backend, setup->renderer);
-	if (ctmp)
-		prog_args_take(&args, strdup(ctmp));
+	str_printf(&tmp, "--renderer=%s", renderer_to_str(setup->renderer));
+	prog_args_take(&args, strdup(tmp));
 
 	str_printf(&tmp, "--shell=%s", shell_to_str(setup->shell));
 	prog_args_take(&args, tmp);

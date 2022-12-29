@@ -185,6 +185,10 @@ Do not read
 for the compositor. Avoids e.g. loading compositor modules via the
 configuration file, which is useful for unit tests.
 .TP
+\fB\-\-renderer\fR=\fIrenderer\fR
+Select which renderer to use for Weston's internal composition. Defaults to
+automatic selection.
+.TP
 \fB\-\-shell\fR=\fIshell\fR
 Select which shell to load to provide Weston's user interface. See
 .BR ENVIRONMENT "."
@@ -236,7 +240,9 @@ Give all outputs a scale factor of
 .I N.
 .TP
 .B \-\-use\-pixman
-Use the pixman renderer.  By default, weston will try to use EGL and
+Deprecated in favour of the
+.BI \-\-renderer
+option.  Use the pixman renderer.  By default weston will try to use EGL and
 GLES2 for rendering and will fall back to the pixman-based renderer for
 software compositing if EGL cannot be used.  Passing this option will force
 weston to use the pixman renderer.
@@ -262,7 +268,9 @@ Give all outputs a scale factor of
 .I N.
 .TP
 .B \-\-use\-pixman
-Use the pixman renderer.  By default weston will try to use EGL and
+Deprecated in favour of the
+.BI \-\-renderer
+option.  Use the pixman renderer.  By default weston will try to use EGL and
 GLES2 for rendering.  Passing this option will make weston use the
 pixman library for software compsiting.
 .

@@ -62,3 +62,32 @@ get_backend_from_string(const char *name,
 
 	return false;
 }
+
+struct {
+	char *name;
+	enum weston_renderer_type renderer;
+} renderer_name_map[] = {
+	{ "auto", WESTON_RENDERER_AUTO },
+	{ "gl", WESTON_RENDERER_GL },
+	{ "noop", WESTON_RENDERER_NOOP },
+	{ "pixman", WESTON_RENDERER_PIXMAN },
+};
+
+bool
+get_renderer_from_string(const char *name,
+			 enum weston_renderer_type *renderer)
+{
+	size_t i;
+
+	if (!name)
+		name = "auto";
+
+	for (i = 0; i < ARRAY_LENGTH(renderer_name_map); i++) {
+		if (strcmp(name, renderer_name_map[i].name) == 0) {
+			*renderer = renderer_name_map[i].renderer;
+			return true;
+		}
+	}
+
+	return false;
+}

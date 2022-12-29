@@ -670,6 +670,13 @@ usage(int error_code)
 #if defined(BUILD_X11_COMPOSITOR)
 			"\t\t\t\tx11\n"
 #endif
+		"  --renderer=NAME\tRenderer to use, one of\n"
+			"\t\t\t\tauto\tAutomatic selection of one of the below renderers\n"
+#if defined(ENABLE_EGL)
+			"\t\t\t\tgl\tOpenGL ES\n"
+#endif
+			"\t\t\t\tnoop\tNo-op renderer for testing only\n"
+			"\t\t\t\tpixman\tPixman software renderer\n"
 		"  --shell=NAME\tShell to load, defaults to desktop\n"
 		"  -S, --socket=NAME\tName of socket to listen on\n"
 		"  -i, --idle-time=SECS\tIdle time in seconds\n"
@@ -695,7 +702,7 @@ usage(int error_code)
 		"Options for drm:\n\n"
 		"  --seat=SEAT\t\tThe seat that weston should run on, instead of the seat defined in XDG_SEAT\n"
 		"  --drm-device=CARD\tThe DRM device to use, e.g. \"card0\".\n"
-		"  --use-pixman\t\tUse the pixman (CPU) renderer\n"
+		"  --use-pixman\t\tUse the pixman (CPU) renderer (deprecated alias for --renderer=pixman)\n"
 		"  --current-mode\tPrefer current KMS mode over EDID preferred mode\n"
 		"  --continue-without-input\tAllow the compositor to start without input devices\n\n");
 #endif
@@ -708,8 +715,8 @@ usage(int error_code)
 		"  --scale=SCALE\t\tScale factor of output\n"
 		"  --transform=TR\tThe output transformation, TR is one of:\n"
 		"\tnormal 90 180 270 flipped flipped-90 flipped-180 flipped-270\n"
-		"  --use-pixman\t\tUse the pixman (CPU) renderer (default: no rendering)\n"
-		"  --use-gl\t\tUse the GL renderer (default: no rendering)\n"
+		"  --use-pixman\t\tUse the pixman (CPU) renderer (deprecated alias for --renderer=pixman)\n"
+		"  --use-gl\t\tUse the GL renderer (deprecated alias for --renderer=gl)\n"
 		"  --no-outputs\t\tDo not create any virtual outputs\n"
 		"\n");
 #endif
@@ -748,7 +755,7 @@ usage(int error_code)
 		"  --height=HEIGHT\tHeight of Wayland surface\n"
 		"  --scale=SCALE\t\tScale factor of output\n"
 		"  --fullscreen\t\tRun in fullscreen mode\n"
-		"  --use-pixman\t\tUse the pixman (CPU) renderer\n"
+		"  --use-pixman\t\tUse the pixman (CPU) renderer (deprecated alias for --renderer=pixman)\n"
 		"  --output-count=COUNT\tCreate multiple outputs\n"
 		"  --sprawl\t\tCreate one fullscreen output for every parent output\n"
 		"  --display=DISPLAY\tWayland display to connect to\n\n");
@@ -761,7 +768,7 @@ usage(int error_code)
 		"  --height=HEIGHT\tHeight of X window\n"
 		"  --scale=SCALE\t\tScale factor of output\n"
 		"  --fullscreen\t\tRun in fullscreen mode\n"
-		"  --use-pixman\t\tUse the pixman (CPU) renderer\n"
+		"  --use-pixman\t\tUse the pixman (CPU) renderer (deprecated alias for --renderer=pixman)\n"
 		"  --output-count=COUNT\tCreate multiple outputs\n"
 		"  --no-input\t\tDont create input devices\n\n");
 #endif
@@ -2885,8 +2892,8 @@ load_pipewire(struct weston_compositor *c, struct weston_config *wc)
 }
 
 static int
-load_drm_backend(struct weston_compositor *c,
-		 int *argc, char **argv, struct weston_config *wc)
+load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
+		 struct weston_config *wc, enum weston_renderer_type renderer)
 {
 	struct weston_drm_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
@@ -2912,10 +2919,14 @@ load_drm_backend(struct weston_compositor *c,
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
 
-	if (force_pixman)
+	if (force_pixman && renderer != WESTON_RENDERER_AUTO) {
+		weston_log("error: conflicting renderer specification\n");
+		return -1;
+	} else if (force_pixman) {
 		config.renderer = WESTON_RENDERER_PIXMAN;
-	else
-		config.renderer = WESTON_RENDERER_AUTO;
+	} else {
+		config.renderer = renderer;
+	}
 
 	section = weston_config_get_section(wc, "core", NULL, NULL);
 	weston_config_section_get_string(section,
@@ -2976,7 +2987,8 @@ headless_backend_output_configure(struct weston_output *output)
 
 static int
 load_headless_backend(struct weston_compositor *c,
-		      int *argc, char **argv, struct weston_config *wc)
+		      int *argc, char **argv, struct weston_config *wc,
+		      enum weston_renderer_type renderer)
 {
 	const struct weston_windowed_output_api *api;
 	struct weston_headless_backend_config config = {{ 0, }};
@@ -3011,7 +3023,8 @@ load_headless_backend(struct weston_compositor *c,
 
 	parse_options(options, ARRAY_LENGTH(options), argc, argv);
 
-	if (force_pixman && force_gl) {
+	if ((force_pixman && force_gl) ||
+	    (renderer != WESTON_RENDERER_AUTO && (force_pixman || force_gl))) {
 		weston_log("Conflicting renderer specifications\n");
 		return -1;
 	} else if (force_pixman) {
@@ -3019,7 +3032,7 @@ load_headless_backend(struct weston_compositor *c,
 	} else if (force_gl) {
 		config.renderer = WESTON_RENDERER_GL;
 	} else {
-		config.renderer = WESTON_RENDERER_AUTO;
+		config.renderer = renderer;
 	}
 
 	if (transform) {
@@ -3113,7 +3126,8 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 
 static int
 load_rdp_backend(struct weston_compositor *c,
-		int *argc, char *argv[], struct weston_config *wc)
+		int *argc, char *argv[], struct weston_config *wc,
+		enum weston_renderer_type renderer)
 {
 	struct weston_rdp_backend_config config  = {{ 0, }};
 	struct weston_config_section *section;
@@ -3143,6 +3157,7 @@ load_rdp_backend(struct weston_compositor *c,
 
 	parse_options(rdp_options, ARRAY_LENGTH(rdp_options), argc, argv);
 	config.remotefx_codec = !no_remotefx_codec;
+	config.renderer = renderer;
 
 	wet_set_simple_head_configurator(c, rdp_backend_output_configure);
 	section = weston_config_get_section(wc, "rdp", NULL, NULL);
@@ -3216,7 +3231,8 @@ weston_vnc_backend_config_init(struct weston_vnc_backend_config *config)
 
 static int
 load_vnc_backend(struct weston_compositor *c,
-		int *argc, char *argv[], struct weston_config *wc)
+		int *argc, char *argv[], struct weston_config *wc,
+		enum weston_renderer_type renderer)
 {
 	struct weston_vnc_backend_config config  = {{ 0, }};
 	struct weston_config_section *section;
@@ -3238,6 +3254,8 @@ load_vnc_backend(struct weston_compositor *c,
 	};
 
 	parse_options(vnc_options, ARRAY_LENGTH(vnc_options), argc, argv);
+
+	config.renderer = renderer;
 
 	wet_set_simple_head_configurator(c, vnc_backend_output_configure);
 	section = weston_config_get_section(wc, "vnc", NULL, NULL);
@@ -3270,7 +3288,8 @@ x11_backend_output_configure(struct weston_output *output)
 
 static int
 load_x11_backend(struct weston_compositor *c,
-		 int *argc, char **argv, struct weston_config *wc)
+		 int *argc, char **argv, struct weston_config *wc,
+		 enum weston_renderer_type renderer)
 {
 	char *default_output;
 	const struct weston_windowed_output_api *api;
@@ -3306,10 +3325,14 @@ load_x11_backend(struct weston_compositor *c,
 	config.base.struct_version = WESTON_X11_BACKEND_CONFIG_VERSION;
 	config.base.struct_size = sizeof(struct weston_x11_backend_config);
 
-	if (force_pixman)
+	if (force_pixman && renderer != WESTON_RENDERER_AUTO) {
+		weston_log("error: conflicting renderer specification\n");
+		return -1;
+	} else if (force_pixman) {
 		config.renderer = WESTON_RENDERER_PIXMAN;
-	else
+	} else {
 		config.renderer = WESTON_RENDERER_AUTO;
+	}
 
 	wet_set_simple_head_configurator(c, x11_backend_output_configure);
 
@@ -3385,7 +3408,8 @@ wayland_backend_output_configure(struct weston_output *output)
 
 static int
 load_wayland_backend(struct weston_compositor *c,
-		     int *argc, char **argv, struct weston_config *wc)
+		     int *argc, char **argv, struct weston_config *wc,
+		     enum weston_renderer_type renderer)
 {
 	struct weston_wayland_backend_config config = {{ 0, }};
 	struct weston_config_section *section;
@@ -3431,10 +3455,14 @@ load_wayland_backend(struct weston_compositor *c,
 	config.base.struct_size = sizeof(struct weston_wayland_backend_config);
 	config.base.struct_version = WESTON_WAYLAND_BACKEND_CONFIG_VERSION;
 
-	if (force_pixman)
+	if (force_pixman && renderer != WESTON_RENDERER_AUTO) {
+		weston_log("error: conflicting renderer specification\n");
+		return -1;
+	} else if (force_pixman) {
 		config.renderer = WESTON_RENDERER_PIXMAN;
-	else
-		config.renderer = WESTON_RENDERER_AUTO;
+	} else {
+		config.renderer = renderer;
+	}
 
 	/* load the actual wayland backend and configure it */
 	ret = weston_compositor_load_backend(c, WESTON_BACKEND_WAYLAND,
@@ -3506,28 +3534,41 @@ load_wayland_backend(struct weston_compositor *c,
 
 static int
 load_backend(struct weston_compositor *compositor, const char *name,
-	     int *argc, char **argv, struct weston_config *config)
+	     int *argc, char **argv, struct weston_config *config,
+	     const char *renderer_name)
 {
 	enum weston_compositor_backend backend;
+	enum weston_renderer_type renderer;
 
 	if (!get_backend_from_string(name, &backend)) {
 		weston_log("Error: unknown backend \"%s\"\n", name);
 		return -1;
 	}
 
+	if (!get_renderer_from_string(renderer_name, &renderer)) {
+		weston_log("Error: unknown renderer \"%s\"\n", renderer_name);
+		return -1;
+	}
+
 	switch (backend) {
 	case WESTON_BACKEND_DRM:
-		return load_drm_backend(compositor, argc, argv, config);
+		return load_drm_backend(compositor, argc, argv, config,
+					renderer);
 	case WESTON_BACKEND_HEADLESS:
-		return load_headless_backend(compositor, argc, argv, config);
+		return load_headless_backend(compositor, argc, argv, config,
+					     renderer);
 	case WESTON_BACKEND_RDP:
-		return load_rdp_backend(compositor, argc, argv, config);
+		return load_rdp_backend(compositor, argc, argv, config,
+					renderer);
 	case WESTON_BACKEND_VNC:
-		return load_vnc_backend(compositor, argc, argv, config);
+		return load_vnc_backend(compositor, argc, argv, config,
+					renderer);
 	case WESTON_BACKEND_WAYLAND:
-		return load_wayland_backend(compositor, argc, argv, config);
+		return load_wayland_backend(compositor, argc, argv, config,
+					    renderer);
 	case WESTON_BACKEND_X11:
-		return load_x11_backend(compositor, argc, argv, config);
+		return load_x11_backend(compositor, argc, argv, config,
+					renderer);
 	default:
 		unreachable("unknown backend type in load_backend()");
 	}
@@ -3670,6 +3711,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	struct wl_event_loop *loop;
 	int i, fd;
 	char *backend = NULL;
+	char *renderer = NULL;
 	char *shell = NULL;
 	bool xwayland = false;
 	char *modules = NULL;
@@ -3703,6 +3745,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 
 	const struct weston_option core_options[] = {
 		{ WESTON_OPTION_STRING, "backend", 'B', &backend },
+		{ WESTON_OPTION_STRING, "renderer", 0, &renderer },
 		{ WESTON_OPTION_STRING, "shell", 0, &shell },
 		{ WESTON_OPTION_STRING, "socket", 'S', &socket_name },
 		{ WESTON_OPTION_INTEGER, "idle-time", 'i', &idle_time },
@@ -3837,6 +3880,11 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		raise(SIGSTOP);
 	}
 
+	if (!renderer) {
+		weston_config_section_get_string(section, "renderer",
+						 &renderer, NULL);
+	}
+
 	if (!backend) {
 		weston_config_section_get_string(section, "backend", &backend,
 						 NULL);
@@ -3876,7 +3924,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	weston_config_section_get_bool(section, "require-input",
 				       &wet.compositor->require_input, true);
 
-	if (load_backend(wet.compositor, backend, &argc, argv, config) < 0) {
+	if (load_backend(wet.compositor, backend, &argc, argv, config,
+			 renderer) < 0) {
 		weston_log("fatal: failed to create compositor backend\n");
 		goto out;
 	}
