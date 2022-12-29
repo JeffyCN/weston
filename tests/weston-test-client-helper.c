@@ -740,7 +740,7 @@ static void
 output_handle_description(void *data, struct wl_output *wl_output, const char *desc)
 {
 	struct output *output = data;
-	output->name = strdup(desc);
+	output->desc = strdup(desc);
 }
 
 static void
