@@ -355,13 +355,12 @@ Wayland clients will automatically use this.
 .
 .\" ***************************************************************
 .SH BUGS
-Bugs should be reported to the freedesktop.org bugzilla at
-https://bugs.freedesktop.org with product "Wayland" and
-component "weston".
+Bugs should be reported to
+.BR https://gitlab.freedesktop.org/wayland/weston/ "."
 .
 .\" ***************************************************************
 .SH WWW
-http://wayland.freedesktop.org/
+https://wayland.freedesktop.org/
 .
 .\" ***************************************************************
 .SH EXAMPLES
