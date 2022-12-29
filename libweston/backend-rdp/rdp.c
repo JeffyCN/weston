@@ -1686,6 +1686,16 @@ rdp_backend_create(struct weston_compositor *compositor,
 			goto err_free_strings;
 	}
 
+	switch (config->renderer) {
+	case WESTON_RENDERER_PIXMAN:
+	case WESTON_RENDERER_AUTO:
+		weston_log("Using Pixman renderer\n");
+		break;
+	default:
+		weston_log("Unsupported renderer requested\n");
+		goto err_free_strings;
+	}
+
 	/* if we are listening for client connections on an external listener
 	 * fd, we don't need to enforce TLS or RDP security, since FreeRDP
 	 * will consider it to be a local connection */
@@ -1790,6 +1800,7 @@ err_free_strings:
 static void
 config_init_to_defaults(struct weston_rdp_backend_config *config)
 {
+	config->renderer = WESTON_RENDERER_AUTO;
 	config->bind_address = NULL;
 	config->port = 3389;
 	config->rdp_key = NULL;

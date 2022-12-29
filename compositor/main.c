@@ -3097,6 +3097,7 @@ weston_rdp_backend_config_init(struct weston_rdp_backend_config *config)
 	config->base.struct_version = WESTON_RDP_BACKEND_CONFIG_VERSION;
 	config->base.struct_size = sizeof(struct weston_rdp_backend_config);
 
+	config->renderer = WESTON_RENDERER_AUTO;
 	config->bind_address = NULL;
 	config->port = 3389;
 	config->rdp_key = NULL;

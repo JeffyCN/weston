@@ -55,7 +55,7 @@ weston_rdp_output_get_api(struct weston_compositor *compositor)
 	return (const struct weston_rdp_output_api *)api;
 }
 
-#define WESTON_RDP_BACKEND_CONFIG_VERSION 2
+#define WESTON_RDP_BACKEND_CONFIG_VERSION 3
 
 typedef void *(*rdp_audio_in_setup)(struct weston_compositor *c, void *vcm);
 typedef void (*rdp_audio_in_teardown)(void *audio_private);
@@ -64,6 +64,7 @@ typedef void (*rdp_audio_out_teardown)(void *audio_private);
 
 struct weston_rdp_backend_config {
 	struct weston_backend_config base;
+	enum weston_renderer_type renderer;
 	char *bind_address;
 	int port;
 	char *rdp_key;
