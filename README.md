@@ -43,7 +43,7 @@ Building Weston
 Weston is built using [Meson](https://mesonbuild.com/). Weston often depends
 on the current release versions of
 [Wayland](https://gitlab.freedesktop.org/wayland/wayland) and
-[wayland-protocols](https://cgit.freedesktop.org/wayland/wayland-protocols).
+[wayland-protocols](https://gitlab.freedesktop.org/wayland/wayland-protocols).
 
 If necessary, the latest Meson can be installed as a user with:
 
