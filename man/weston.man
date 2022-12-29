@@ -18,7 +18,7 @@ shell plugins. Two plugins are provided: the desktop shell, and the kiosk
 shell.
 
 Weston also supports X clients via
-.BR XWayland ", see below."
+.BR Xwayland ", see below."
 .
 .\" ***************************************************************
 .SH BACKENDS
@@ -86,18 +86,16 @@ and then a controller module which may launch helper clients.
 .
 .\" ***************************************************************
 .SH XWAYLAND
-XWayland requires a special X.org server to be installed. This X server will
-connect to a Wayland server as a Wayland client, and X clients will connect to
-the X server. XWayland provides backwards compatibility to X applications in a
-Wayland stack.
-
-XWayland is activated by instructing
-.BR weston " to load the XWayland module, see " EXAMPLES .
-Weston starts listening on a new X display socket, and exports it in the
-environment variable
-.BR DISPLAY .
-When the first X client connects, Weston launches a special X server as a
-Wayland client to handle the X client and all future X clients.
+Weston can support X11 clients running within a Weston session via an
+X server called
+.BR Xwayland "."
+Xwayland is built as a separate executable, provided by X.Org. Once built
+and installed, it can be activated with the
+.BR \-\-xwayland
+option. Weston will listen on a new X11 display socket and export it
+through the
+.BR DISPLAY
+environment variable.
 
 It has also its own X window manager where cursor themes and sizes can be
 chosen using
