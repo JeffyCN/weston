@@ -61,16 +61,16 @@ weston_matrix_multiply(struct weston_matrix *m, const struct weston_matrix *n)
 {
 	struct weston_matrix tmp;
 	const float *row, *column;
-	div_t d;
-	int i, j;
+	int i, j, k;
 
-	for (i = 0; i < 16; i++) {
-		tmp.d[i] = 0;
-		d = div(i, 4);
-		row = m->d + d.quot * 4;
-		column = n->d + d.rem;
-		for (j = 0; j < 4; j++)
-			tmp.d[i] += row[j] * column[j * 4];
+	for (i = 0; i < 4; i++) {
+		row = m->d + i * 4;
+		for (j = 0; j < 4; j++) {
+			tmp.d[4 * i + j] = 0;
+			column = n->d + j;
+			for (k = 0; k < 4; k++)
+				tmp.d[4 * i + j] += row[k] * column[k * 4];
+		}
 	}
 	tmp.type = m->type | n->type;
 	memcpy(m, &tmp, sizeof tmp);
