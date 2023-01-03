@@ -1166,8 +1166,6 @@ draw_paint_node(struct weston_paint_node *pnode,
 	if (ensure_surface_buffer_is_ready(gr, gs) < 0)
 		goto out;
 
-	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-
 	if (pnode->needs_filtering)
 		filter = GL_LINEAR;
 	else
@@ -1235,6 +1233,8 @@ repaint_views(struct weston_output *output, pixman_region32_t *damage)
 {
 	struct weston_compositor *compositor = output->compositor;
 	struct weston_paint_node *pnode;
+
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
