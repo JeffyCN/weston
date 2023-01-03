@@ -1699,6 +1699,9 @@ blit_shadow_to_output(struct weston_output *output,
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 	}
 
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(0);
+
 	glBindTexture(GL_TEXTURE_2D, 0);
 	pixman_region32_fini(&translated_damage);
 }
