@@ -910,11 +910,8 @@ repaint_region(struct gl_renderer *gr,
 
 	/* position: */
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof *v, &v[0]);
-	glEnableVertexAttribArray(0);
-
 	/* texcoord: */
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof *v, &v[2]);
-	glEnableVertexAttribArray(1);
 
 	if (!gl_renderer_use_program(gr, sconf)) {
 		gl_renderer_send_shader_error(pnode);
@@ -927,9 +924,6 @@ repaint_region(struct gl_renderer *gr,
 			triangle_fan_debug(gr, sconf, output, first, vtxcnt[i]);
 		first += vtxcnt[i];
 	}
-
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(0);
 
 	gr->vertices.size = 0;
 	gr->vtxcnt.size = 0;
@@ -1236,11 +1230,17 @@ repaint_views(struct weston_output *output, pixman_region32_t *damage)
 
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
 		if (pnode->view->plane == &compositor->primary_plane)
 			draw_paint_node(pnode, damage);
 	}
+
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(0);
 }
 
 static int
@@ -1373,13 +1373,7 @@ draw_output_border_texture(struct gl_renderer *gr,
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, texcoord);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
-
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(0);
 }
 
 static int
@@ -1471,6 +1465,8 @@ draw_output_borders(struct weston_output *output,
 			    2.0 / fb->width, -2.0 / fb->height, 1);
 
 	glActiveTexture(GL_TEXTURE0);
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
 
 	for (side = 0; side < 4; side++) {
 		struct weston_geometry g;
@@ -1482,6 +1478,9 @@ draw_output_borders(struct weston_output *output,
 		draw_output_border_texture(gr, go, &sconf, side,
 					   g.x, g.y, g.width, g.height);
 	}
+
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(0);
 }
 
 static void
@@ -1676,6 +1675,9 @@ blit_shadow_to_output(struct weston_output *output,
 	weston_region_global_to_output(&translated_damage, output,
 				       &translated_damage);
 
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
 	rects = pixman_region32_rectangles(&translated_damage, &n_rects);
 	for (i = 0; i < n_rects; i++) {
 
@@ -1689,12 +1691,10 @@ blit_shadow_to_output(struct weston_output *output,
 		verts[6] = rects[i].x1 / width;
 		verts[7] = (height - rects[i].y2) / height;
 
+		/* position: */
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, verts);
-		glEnableVertexAttribArray(0);
-
 		/* texcoord: */
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, verts);
-		glEnableVertexAttribArray(1);
 
 		glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 	}
