@@ -620,6 +620,8 @@ fs_output_apply_pending(struct fs_output *fsout)
 			      &fsout->surface_destroyed);
 		weston_layer_entry_insert(&fsout->shell->layer.view_list,
 			       &fsout->view->layer_link);
+
+		weston_view_geometry_dirty(fsout->view);
 	}
 
 	fs_output_clear_pending(fsout);
