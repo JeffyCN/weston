@@ -77,13 +77,14 @@ drm_output_check_plane_has_view_assigned(struct drm_plane *plane,
 }
 
 static struct drm_plane_state *
-drm_output_try_view_on_plane(struct drm_plane *plane,
-			     struct drm_output_state *output_state,
-			     struct weston_view *ev,
-			     enum drm_output_propose_state_mode mode,
-			     struct drm_fb *fb, uint64_t zpos)
+drm_output_try_paint_node_on_plane(struct drm_plane *plane,
+				   struct drm_output_state *output_state,
+				   struct weston_paint_node *node,
+				   enum drm_output_propose_state_mode mode,
+				   struct drm_fb *fb, uint64_t zpos)
 {
 	struct drm_output *output = output_state->output;
+	struct weston_view *ev = node->view;
 	struct weston_surface *surface = ev->surface;
 	struct drm_device *device = output->device;
 	struct drm_backend *b = device->backend;
@@ -607,8 +608,9 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 		if (plane->type == WDRM_PLANE_TYPE_CURSOR) {
 			ps = drm_output_prepare_cursor_paint_node(state, pnode, zpos);
 		} else {
-			ps = drm_output_try_view_on_plane(plane, state, ev,
-							  mode, fb, zpos);
+			ps = drm_output_try_paint_node_on_plane(plane, state,
+								pnode, mode,
+								fb, zpos);
 		}
 
 		if (ps) {
