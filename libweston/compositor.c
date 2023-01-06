@@ -105,11 +105,10 @@ weston_output_create_heads_string(struct weston_output *output);
 static void
 paint_node_update(struct weston_paint_node *pnode)
 {
-	struct weston_matrix tmp_matrix;
+	struct weston_matrix *mat = &pnode->buffer_to_output_matrix;
 
-	weston_view_buffer_to_output_matrix(pnode->view, pnode->output,
-					    &tmp_matrix);
-	pnode->needs_filtering = weston_matrix_needs_filtering(&tmp_matrix);
+	weston_view_buffer_to_output_matrix(pnode->view, pnode->output, mat);
+	pnode->needs_filtering = weston_matrix_needs_filtering(mat);
 }
 
 static struct weston_paint_node *

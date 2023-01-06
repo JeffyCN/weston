@@ -480,6 +480,7 @@ struct weston_paint_node {
 
 	/* Mutable members: */
 
+	struct weston_matrix buffer_to_output_matrix;
 	bool needs_filtering;
 
 	/* struct weston_output::paint_node_z_order_list */
