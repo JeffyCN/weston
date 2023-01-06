@@ -192,13 +192,15 @@ cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
 }
 
 static struct drm_plane_state *
-drm_output_prepare_cursor_view(struct drm_output_state *output_state,
-			       struct weston_view *ev, uint64_t zpos)
+drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
+				     struct weston_paint_node *node,
+				     uint64_t zpos)
 {
 	struct drm_output *output = output_state->output;
 	struct drm_device *device = output->device;
 	struct drm_backend *b = device->backend;
 	struct drm_plane *plane = output->cursor_plane;
+	struct weston_view *ev = node->view;
 	struct drm_plane_state *plane_state;
 	bool needs_update = false;
 	const char *p_name = drm_output_get_plane_type_name(plane);
@@ -280,8 +282,9 @@ err:
 }
 #else
 static struct drm_plane_state *
-drm_output_prepare_cursor_view(struct drm_output_state *output_state,
-			       struct weston_view *ev, uint64_t zpos)
+drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
+				     struct weston_paint_node *node,
+				     uint64_t zpos)
 {
 	return NULL;
 }
@@ -602,7 +605,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			     plane->plane_id, p_name);
 
 		if (plane->type == WDRM_PLANE_TYPE_CURSOR) {
-			ps = drm_output_prepare_cursor_view(state, ev, zpos);
+			ps = drm_output_prepare_cursor_paint_node(state, pnode, zpos);
 		} else {
 			ps = drm_output_try_view_on_plane(plane, state, ev,
 							  mode, fb, zpos);
@@ -1032,8 +1035,9 @@ drm_assign_planes(struct weston_output *output_base)
 	/* We rely on output->cursor_view being both an accurate reflection of
 	 * the cursor plane's state, but also being maintained across repaints
 	 * to avoid unnecessary damage uploads, per the comment in
-	 * drm_output_prepare_cursor_view. In the event that we go from having
-	 * a cursor view to not having a cursor view, we need to clear it. */
+	 * drm_output_prepare_cursor_paint_node. In the event that we go from
+	 * having a cursor view to not having a cursor view, we need to clear
+	 * it. */
 	if (output->cursor_view) {
 		plane_state =
 			drm_output_state_get_existing_plane(state,
@@ -1057,7 +1061,7 @@ drm_output_handle_cursor_view_destroy(struct wl_listener *listener, void *data)
  *
  * Ensure the stored value will be properly cleared if the view is destroyed.
  * The stored cursor view helps avoid unnecessary uploads of cursor data to
- * cursor plane buffer objects (see drm_output_prepare_cursor_view).
+ * cursor plane buffer objects (see drm_output_prepare_cursor_paint_node).
  */
 void
 drm_output_set_cursor_view(struct drm_output *output, struct weston_view *ev)
