@@ -527,12 +527,13 @@ drm_fb_handle_buffer_destroy(struct wl_listener *listener, void *data)
 }
 
 struct drm_fb *
-drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
-		     uint32_t *try_view_on_plane_failure_reasons)
+drm_fb_get_from_paint_node(struct drm_output_state *state,
+			   struct weston_paint_node *pnode)
 {
 	struct drm_output *output = state->output;
 	struct drm_backend *b = to_drm_backend(output->base.compositor);
 	struct drm_device *device = output->device;
+	struct weston_view *ev = pnode->view;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	struct drm_buffer_fb *buf_fb;
 	bool is_opaque = weston_view_is_opaque(ev, &ev->transform.boundingbox);
@@ -540,32 +541,32 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	struct drm_plane *plane;
 
 	if (ev->alpha != 1.0f) {
-		*try_view_on_plane_failure_reasons |=
+		pnode->try_view_on_plane_failure_reasons |=
 			FAILURE_REASONS_GLOBAL_ALPHA;
 		return NULL;
 	}
 
 	if (!drm_view_transform_supported(ev, &output->base)) {
-		*try_view_on_plane_failure_reasons |=
+		pnode->try_view_on_plane_failure_reasons |=
 			FAILURE_REASONS_INCOMPATIBLE_TRANSFORM;
 		return NULL;
 	}
 
 	if (ev->surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_ENFORCED &&
 	    ev->surface->desired_protection > output->base.current_protection) {
-		*try_view_on_plane_failure_reasons |=
+		pnode->try_view_on_plane_failure_reasons |=
 			FAILURE_REASONS_INADEQUATE_CONTENT_PROTECTION;
 		return NULL;
 	}
 
 	if (!buffer) {
-		*try_view_on_plane_failure_reasons |= FAILURE_REASONS_NO_BUFFER;
+		pnode->try_view_on_plane_failure_reasons |= FAILURE_REASONS_NO_BUFFER;
 		return NULL;
 	}
 
 	if (buffer->backend_private) {
 		buf_fb = buffer->backend_private;
-		*try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
+		pnode->try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
 		return buf_fb->fb ? drm_fb_ref(buf_fb->fb) : NULL;
 	}
 
@@ -576,7 +577,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 
 	/* GBM is used for dmabuf import as well as from client wl_buffer. */
 	if (!b->gbm) {
-		*try_view_on_plane_failure_reasons |= FAILURE_REASONS_NO_GBM;
+		pnode->try_view_on_plane_failure_reasons |= FAILURE_REASONS_NO_GBM;
 		goto unsuitable;
 	}
 
@@ -595,13 +596,13 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 
 		fb = drm_fb_get_from_bo(bo, device, is_opaque, BUFFER_CLIENT);
 		if (!fb) {
-			*try_view_on_plane_failure_reasons |=
+			pnode->try_view_on_plane_failure_reasons |=
 				(1 << FAILURE_REASONS_ADD_FB_FAILED);
 			gbm_bo_destroy(bo);
 			goto unsuitable;
 		}
 	} else {
-		*try_view_on_plane_failure_reasons |= FAILURE_REASONS_BUFFER_TYPE;
+		pnode->try_view_on_plane_failure_reasons |= FAILURE_REASONS_BUFFER_TYPE;
 		goto unsuitable;
 	}
 
@@ -629,7 +630,7 @@ drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
 	return fb;
 
 unsuitable:
-	*try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
+	pnode->try_view_on_plane_failure_reasons |= buf_fb->failure_reasons;
 	return NULL;
 }
 #endif

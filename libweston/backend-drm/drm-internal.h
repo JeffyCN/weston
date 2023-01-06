@@ -771,15 +771,16 @@ drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output);
 
 #ifdef BUILD_DRM_GBM
 extern struct drm_fb *
-drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
-		     uint32_t *try_view_on_plane_failure_reasons);
+drm_fb_get_from_paint_node(struct drm_output_state *state,
+			   struct weston_paint_node *pnode);
+
 extern bool
 drm_can_scanout_dmabuf(struct weston_compositor *ec,
 		       struct linux_dmabuf_buffer *dmabuf);
 #else
 static inline struct drm_fb *
-drm_fb_get_from_view(struct drm_output_state *state, struct weston_view *ev,
-		     uint32_t *try_view_on_plane_failure_reasons)
+drm_fb_get_from_paint_node(struct drm_output_state *state,
+			   struct weston_paint_node *pnode)
 {
 	return NULL;
 }

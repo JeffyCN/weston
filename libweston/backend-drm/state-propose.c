@@ -115,8 +115,9 @@ drm_output_try_view_on_plane(struct drm_plane *plane,
 	}
 
 	/* We hold one reference for the lifetime of this function; from
-	 * calling drm_fb_get_from_view() in drm_output_prepare_plane_view(),
-	 * so, we take another reference here to live within the state. */
+	 * calling drm_fb_get_from_paint_node() in
+	 * drm_output_prepare_plane_view(), so, we take another reference
+	 * here to live within the state. */
 	state->ev = ev;
 	state->fb = drm_fb_ref(fb);
 	state->in_fence_fd = ev->surface->acquire_fence_fd;
@@ -494,8 +495,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			return NULL;
 		}
 
-		fb = drm_fb_get_from_view(state, ev,
-					  &pnode->try_view_on_plane_failure_reasons);
+		fb = drm_fb_get_from_paint_node(state, pnode);
 		if (!fb) {
 			drm_debug(b, "\t\t\t[view] couldn't get FB for view: 0x%lx\n",
 				  (unsigned long) pnode->try_view_on_plane_failure_reasons);
