@@ -2639,7 +2639,7 @@ buffer_can_be_accessed_BANDAID_XXX(struct weston_buffer_reference buffer_ref)
 }
 
 static void
-surface_flush_damage(struct weston_surface *surface)
+surface_flush_damage(struct weston_surface *surface, struct weston_output *output)
 {
 	struct weston_buffer *buffer = surface->buffer_ref.buffer;
 
@@ -2648,8 +2648,8 @@ surface_flush_damage(struct weston_surface *surface)
 		surface->compositor->renderer->flush_damage(surface, buffer);
 
 	if (pixman_region32_not_empty(&surface->damage))
-		TL_POINT(surface->compositor, "core_flush_damage", TLP_SURFACE(surface),
-			 TLP_OUTPUT(surface->output), TLP_END);
+		TL_POINT(surface->compositor, "core_flush_damage",
+			 TLP_SURFACE(surface), TLP_OUTPUT(output), TLP_END);
 
 	pixman_region32_clear(&surface->damage);
 }
@@ -2728,7 +2728,7 @@ output_accumulate_damage(struct weston_output *output)
 			continue;
 		pnode->surface->touched = true;
 
-		surface_flush_damage(pnode->surface);
+		surface_flush_damage(pnode->surface, output);
 
 		/* Both the renderer and the backend have seen the buffer
 		 * by now. If renderer needs the buffer, it has its own
