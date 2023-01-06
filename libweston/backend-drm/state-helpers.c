@@ -204,10 +204,12 @@ drm_plane_state_put_back(struct drm_plane_state *state)
  * a given plane.
  */
 bool
-drm_plane_state_coords_for_view(struct drm_plane_state *state,
-				struct weston_view *ev, uint64_t zpos)
+drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
+				      struct weston_paint_node *node,
+				      uint64_t zpos)
 {
 	struct drm_output *output = state->output;
+	struct weston_view *ev = node->view;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
 	pixman_region32_t dest_rect, src_rect;
 	pixman_box32_t *box;

@@ -102,7 +102,7 @@ drm_output_try_paint_node_on_plane(struct drm_plane *plane,
 	assert(!state->fb);
 	state->output = output;
 
-	if (!drm_plane_state_coords_for_view(state, ev, zpos)) {
+	if (!drm_plane_state_coords_for_paint_node(state, node, zpos)) {
 		drm_debug(b, "\t\t\t\t[view] not placing view %p on plane: "
 			     "unsuitable transform\n", ev);
 		goto out;
@@ -220,7 +220,7 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	/* We can't scale with the legacy API, and we don't try to account for
 	 * simple cropping/translation in cursor_bo_update. */
 	plane_state->output = output;
-	if (!drm_plane_state_coords_for_view(plane_state, ev, zpos)) {
+	if (!drm_plane_state_coords_for_paint_node(plane_state, node, zpos)) {
 		drm_debug(b, "\t\t\t\t[%s] not placing view %p on %s: "
 			     "unsuitable transform\n", p_name, ev, p_name);
 		goto err;
