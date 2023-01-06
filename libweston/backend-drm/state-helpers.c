@@ -215,7 +215,7 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	pixman_box32_t *box;
 	float sxf1, syf1, sxf2, syf2;
 
-	if (!drm_view_transform_supported(ev, &output->base))
+	if (!drm_paint_node_transform_supported(node, &output->base))
 		return false;
 
 	/* Update the base weston_plane co-ordinates. */

@@ -546,7 +546,7 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 		return NULL;
 	}
 
-	if (!drm_view_transform_supported(ev, &output->base)) {
+	if (!drm_paint_node_transform_supported(pnode, &output->base)) {
 		pnode->try_view_on_plane_failure_reasons |=
 			FAILURE_REASONS_INCOMPATIBLE_TRANSFORM;
 		return NULL;

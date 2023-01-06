@@ -663,8 +663,9 @@ struct drm_head *
 drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id);
 
 static inline bool
-drm_view_transform_supported(struct weston_view *ev, struct weston_output *output)
+drm_paint_node_transform_supported(struct weston_paint_node *node, struct weston_output *output)
 {
+	struct weston_view *ev = node->view;
 	struct weston_matrix transform;
 	enum wl_output_transform wt;
 
