@@ -55,6 +55,7 @@ struct shared_output {
 	struct weston_output *output;
 	struct wl_listener output_destroyed;
 	struct wl_list seat_list;
+	struct wl_list output_link;	/** screen_share::output_list */
 
 	struct {
 		struct wl_display *display;
@@ -117,6 +118,7 @@ struct ss_shm_buffer {
 struct screen_share {
 	struct weston_compositor *compositor;
 	struct wl_listener compositor_destroy_listener;
+	struct wl_list output_list;
 	char *command;
 };
 
@@ -948,7 +950,7 @@ err_shared_output:
 }
 
 static struct shared_output *
-shared_output_create(struct weston_output *output, int parent_fd)
+shared_output_create(struct weston_output *output, struct screen_share *ss, int parent_fd)
 {
 	struct shared_output *so;
 	struct wl_event_loop *loop;
@@ -1037,6 +1039,8 @@ shared_output_create(struct weston_output *output, int parent_fd)
 	weston_output_disable_planes_incr(output);
 	weston_output_damage(output);
 
+	wl_list_insert(&ss->output_list, &so->output_link);
+
 	return so;
 
 err_display:
@@ -1054,6 +1058,7 @@ static void
 shared_output_destroy(struct shared_output *so)
 {
 	struct ss_shm_buffer *buffer, *bnext;
+	struct ss_seat *seat, *tmp;
 
 	weston_output_disable_planes_decr(so->output);
 
@@ -1061,6 +1066,9 @@ shared_output_destroy(struct shared_output *so)
 		ss_shm_buffer_destroy(buffer);
 	wl_list_for_each_safe(buffer, bnext, &so->shm.free_buffers, free_link)
 		ss_shm_buffer_destroy(buffer);
+
+	wl_list_for_each_safe(seat, tmp, &so->seat_list, link)
+		ss_seat_destroy(seat);
 
 	wl_display_disconnect(so->parent.display);
 	wl_event_source_remove(so->event_source);
@@ -1075,7 +1083,7 @@ shared_output_destroy(struct shared_output *so)
 }
 
 static struct shared_output *
-weston_output_share(struct weston_output *output, const char* command)
+weston_output_share(struct weston_output *output, struct screen_share *ss)
 {
 	int sv[2];
 	char str[32];
@@ -1084,7 +1092,7 @@ weston_output_share(struct weston_output *output, const char* command)
 	char *const argv[] = {
 	  "/bin/sh",
 	  "-c",
-	  (char*)command,
+	  (char*)ss->command,
 	  NULL
 	};
 
@@ -1133,7 +1141,7 @@ weston_output_share(struct weston_output *output, const char* command)
 		abort();
 	} else {
 		close(sv[1]);
-		return shared_output_create(output, sv[0]);
+		return shared_output_create(output, ss, sv[0]);
 	}
 
 	return NULL;
@@ -1176,14 +1184,18 @@ share_output_binding(struct weston_keyboard *keyboard,
 		return;
 	}
 
-	weston_output_share(output, ss->command);
+	weston_output_share(output, ss);
 }
 
 static void
 compositor_destroy_listener(struct wl_listener *listener, void *data)
 {
+	struct shared_output *so, *so_next;
 	struct screen_share *ss =
 		wl_container_of(listener, ss, compositor_destroy_listener);
+
+	wl_list_for_each_safe(so, so_next, &ss->output_list, output_link)
+		shared_output_destroy(so);
 
 	wl_list_remove(&ss->compositor_destroy_listener.link);
 
@@ -1207,6 +1219,7 @@ wet_module_init(struct weston_compositor *compositor,
 	ss->compositor = compositor;
 
 	wl_list_init(&ss->compositor_destroy_listener.link);
+	wl_list_init(&ss->output_list);
 
 	ss->compositor_destroy_listener.notify = compositor_destroy_listener;
 	wl_signal_add(&compositor->destroy_signal, &ss->compositor_destroy_listener);
@@ -1225,7 +1238,7 @@ wet_module_init(struct weston_compositor *compositor,
 				       &start_on_startup, false);
 	if (start_on_startup) {
 		wl_list_for_each(output, &compositor->output_list, link)
-			weston_output_share(output, ss->command);
+			weston_output_share(output, ss);
 	}
 
 	return 0;
