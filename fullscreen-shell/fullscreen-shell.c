@@ -42,10 +42,8 @@
 struct fullscreen_shell {
 	struct wl_client *client;
 	struct wl_listener client_destroyed;
+	struct wl_listener destroy_listener;
 	struct weston_compositor *compositor;
-	/* XXX: missing compositor destroy listener
-	 * https://gitlab.freedesktop.org/wayland/weston/issues/299
-	 */
 
 	struct weston_layer layer;
 	struct wl_list output_list;
@@ -846,6 +844,28 @@ bind_fullscreen_shell(struct wl_client *client, void *data, uint32_t version,
 			ZWP_FULLSCREEN_SHELL_V1_CAPABILITY_ARBITRARY_MODES);
 }
 
+static void
+fullscreen_shell_destroy(struct wl_listener *listener, void *data)
+{
+	struct fs_output *fs_output, *fs_output_next;
+	struct fs_client_surface *surf;
+	struct fullscreen_shell *shell =
+		container_of(listener, struct fullscreen_shell, destroy_listener);
+
+	/* remove the curtain(s) */
+	wl_list_for_each_safe(fs_output, fs_output_next, &shell->output_list, link)
+		fs_output_destroy(fs_output);
+
+	if (!wl_list_empty(&shell->default_surface_list)) {
+		surf = container_of(shell->default_surface_list.prev,
+				struct fs_client_surface, link);
+		remove_default_surface(surf);
+	}
+
+	weston_layer_fini(&shell->layer);
+	free(shell);
+}
+
 WL_EXPORT int
 wet_shell_init(struct weston_compositor *compositor,
 	       int *argc, char *argv[])
@@ -858,7 +878,16 @@ wet_shell_init(struct weston_compositor *compositor,
 	if (shell == NULL)
 		return -1;
 
+
 	shell->compositor = compositor;
+
+	if (!weston_compositor_add_destroy_listener_once(compositor,
+							 &shell->destroy_listener,
+							 fullscreen_shell_destroy)) {
+		free(shell);
+		return 0;
+	}
+
 	wl_list_init(&shell->default_surface_list);
 
 	shell->client_destroyed.notify = client_destroyed;
