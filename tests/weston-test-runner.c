@@ -662,6 +662,7 @@ main(int argc, char *argv[])
 		fi_end = fi + 1;
 	}
 
+	printf("TAP version 13\n");
 	tap_plan(&harness->data, fi_end - fi);
 	testlog("Iterating through %d fixtures.\n", fi_end - fi);
 
