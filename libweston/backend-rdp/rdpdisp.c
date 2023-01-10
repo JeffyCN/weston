@@ -132,7 +132,7 @@ match_heads(struct rdp_backend *rdp, rdpMonitor *config, uint32_t count,
 
 	wl_list_for_each(iter, &rdp->compositor->head_list, compositor_link) {
 		current = to_rdp_head(iter);
-		if (current->matched)
+		if (!current || current->matched)
 			continue;
 
 		for (i = 0; i < count; i++) {
@@ -165,6 +165,9 @@ disp_layout_change(freerdp_peer *client, rdpMonitor *config, UINT32 monitorCount
 	/* Prune heads that were never enabled, and flag heads as unmatched  */
 	wl_list_for_each_safe(iter, tmp, &b->compositor->head_list, compositor_link) {
 		current = to_rdp_head(iter);
+		if (!current)
+			continue;
+
 		if (!iter->output) {
 			rdp_head_destroy(iter);
 			continue;
@@ -192,6 +195,9 @@ disp_layout_change(freerdp_peer *client, rdpMonitor *config, UINT32 monitorCount
 	/* Destroy any heads we won't be using */
 	wl_list_for_each_safe(iter, tmp, &b->compositor->head_list, compositor_link) {
 		current = to_rdp_head(iter);
+		if (!current)
+			continue;
+
 		if (!current->matched)
 			rdp_head_destroy(iter);
 	}
@@ -330,7 +336,8 @@ to_weston_coordinate(RdpPeerContext *peerContext, int32_t *x, int32_t *y)
 	wl_list_for_each(head_iter, &b->compositor->head_list, compositor_link) {
 		struct rdp_head *head = to_rdp_head(head_iter);
 
-		assert(head);
+		if (!head)
+			continue;
 
 		if (rdp_head_contains(head, sx, sy)) {
 			struct weston_output *output = head->base.output;
