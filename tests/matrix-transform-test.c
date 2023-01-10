@@ -374,11 +374,60 @@ simple_weston_output_prepare(struct weston_output *output,
 	weston_output_update_matrix(output);
 }
 
+static struct weston_vector
+simple_transform_vector(struct weston_output *output, struct weston_vector in)
+{
+	struct weston_vector out = in;
+	int scale = output->current_scale;
+
+	switch (output->transform) {
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+		out.f[0] = (-output->x + in.f[0]) * scale;
+		out.f[1] = (-output->y + in.f[1]) * scale;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+		out.f[0] = (output->x + output->width - in.f[0]) * scale;
+		out.f[1] = (-output->y + in.f[1]) * scale;
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+		out.f[0] = (-output->y + in.f[1]) * scale;
+		out.f[1] = (output->x + output->width - in.f[0]) * scale;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		out.f[0] = (-output->y + in.f[1]) * scale;
+		out.f[1] = (-output->x + in.f[0]) * scale;
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		out.f[0] = (output->x + output->width - in.f[0]) * scale;
+		out.f[1] = (output->y + output->height - in.f[1]) * scale;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		out.f[0] = (-output->x + in.f[0]) * scale;
+		out.f[1] = (output->y + output->height - in.f[1]) * scale;
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		out.f[0] = (output->y + output->height - in.f[1]) * scale;
+		out.f[1] = (-output->x + in.f[0]) * scale;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		out.f[0] = (output->y + output->height - in.f[1]) * scale;
+		out.f[1] = (output->x + output->width - in.f[0]) * scale;
+		break;
+	}
+	out.f[2] = 0;
+	out.f[3] = 1;
+
+	return out;
+}
+
 static void
 output_test_all_transforms(struct weston_output *output,
 			   int x, int y, int width, int height, int scale)
 {
+	int i;
 	int transform;
+	struct weston_vector t = { { 7.0, 13.0, 0.0, 1.0 } };
+	struct weston_vector v, sv;
 
 	for (transform = WL_OUTPUT_TRANSFORM_NORMAL;
 	     transform <= WL_OUTPUT_TRANSFORM_FLIPPED_270; transform++) {
@@ -389,6 +438,12 @@ output_test_all_transforms(struct weston_output *output,
 		 * standard transform.
 		 */
 		transform_expect(&output->matrix, true, transform);
+
+		v = t;
+		weston_matrix_transform(&output->matrix, &v);
+		sv = simple_transform_vector(output, t);
+		for (i = 0; i < 4; i++)
+			assert (sv.f[i] == v.f[i]);
 	}
 }
 
