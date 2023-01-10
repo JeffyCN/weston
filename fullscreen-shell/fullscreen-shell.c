@@ -263,6 +263,7 @@ fs_output_destroy(struct fs_output *fsout)
 	fs_output_set_surface(fsout, NULL, 0, 0, 0);
 	fs_output_clear_pending(fsout);
 
+	weston_shell_utils_curtain_destroy(fsout->curtain);
 	wl_list_remove(&fsout->link);
 
 	if (fsout->output)
