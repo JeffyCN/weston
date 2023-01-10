@@ -505,6 +505,20 @@ window_get_transformed_ball(struct window *window, float *bx, float *by)
 static const struct wl_callback_listener frame_listener;
 
 static void
+set_opaque_region(struct window *window)
+{
+	struct wl_region *region;
+
+	region = wl_compositor_create_region(window->display->compositor);
+	wl_region_add(region, 0, 0, window->width, window->height);
+	wl_region_subtract(region, window->border, window->border,
+			   window->width - 2 * window->border,
+			   window->height - 2 * window->border);
+	wl_surface_set_opaque_region(window->surface, region);
+	wl_region_destroy(region);
+}
+
+static void
 redraw(void *data, struct wl_callback *callback, uint32_t time)
 {
 	struct window *window = data;
@@ -690,6 +704,8 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 
 	if (callback)
 		wl_callback_destroy(callback);
+
+	set_opaque_region(window);
 
 	window->callback = wl_surface_frame(window->surface);
 	wl_callback_add_listener(window->callback, &frame_listener, window);
