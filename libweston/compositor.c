@@ -108,6 +108,7 @@ paint_node_update(struct weston_paint_node *pnode)
 	struct weston_matrix *mat = &pnode->buffer_to_output_matrix;
 
 	weston_view_buffer_to_output_matrix(pnode->view, pnode->output, mat);
+	weston_matrix_invert(&pnode->output_to_buffer_matrix, mat);
 	pnode->needs_filtering = weston_matrix_needs_filtering(mat);
 }
 
