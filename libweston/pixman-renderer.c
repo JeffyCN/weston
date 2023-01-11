@@ -334,7 +334,6 @@ repaint_region(struct weston_paint_node *pnode,
 		(struct pixman_renderer *) output->compositor->renderer;
 	struct pixman_surface_state *ps = get_surface_state(ev->surface);
 	struct pixman_output_state *po = get_output_state(output);
-	struct weston_buffer_viewport *vp = &pnode->surface->buffer_viewport;
 	pixman_image_t *target_image;
 	pixman_transform_t transform;
 	pixman_filter_t filter;
@@ -351,7 +350,7 @@ repaint_region(struct weston_paint_node *pnode,
 
 	pixman_renderer_compute_transform(&transform, pnode);
 
-	if (ev->transform.enabled || output->current_scale != vp->buffer.scale)
+	if (pnode->needs_filtering)
 		filter = PIXMAN_FILTER_BILINEAR;
 	else
 		filter = PIXMAN_FILTER_NEAREST;
