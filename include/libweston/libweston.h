@@ -1439,7 +1439,6 @@ struct weston_compositor {
 	struct weston_renderer *renderer;
 	const struct pixel_format_info *read_format;
 
-	struct weston_backend *backend;
 	struct wl_list backend_list;
 
 	struct weston_launcher *launcher;
@@ -2331,7 +2330,7 @@ enum weston_renderer_type {
 	WESTON_RENDERER_GL = 3,
 };
 
-int
+struct weston_backend *
 weston_compositor_load_backend(struct weston_compositor *compositor,
 			       enum weston_compositor_backend backend,
 			       struct weston_backend_config *config_base);

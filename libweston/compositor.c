@@ -9537,35 +9537,35 @@ static const char * const backend_map[] = {
  * \param config_base A pointer to a backend-specific configuration
  * structure's 'base' member.
  *
- * \return 0 on success, or -1 on error.
+ * \return A new \c weston_backend on success, or NULL on error.
  *
  * \ingroup compositor
  */
-WL_EXPORT int
+WL_EXPORT struct weston_backend *
 weston_compositor_load_backend(struct weston_compositor *compositor,
 			       enum weston_compositor_backend backend,
 			       struct weston_backend_config *config_base)
 {
 	int (*backend_init)(struct weston_compositor *c,
 			    struct weston_backend_config *config_base);
+	struct weston_backend *b;
 
 	if (backend >= ARRAY_LENGTH(backend_map))
-		return -1;
+		return NULL;
 
 	backend_init = weston_load_module(backend_map[backend],
 					  "weston_backend_init",
 					  LIBWESTON_MODULEDIR);
 	if (!backend_init)
-		return -1;
+		return NULL;
 
 	if (backend_init(compositor, config_base) < 0)
-		return -1;
+		return NULL;
 
-	/* Point compositor->backend to the last loaded backend. */
-	compositor->backend = wl_container_of(compositor->backend_list.next,
-					      compositor->backend, link);
+	/* Return the last loaded backend. */
+	b = wl_container_of(compositor->backend_list.next, b, link);
 
-	return 0;
+	return b;
 }
 
 WL_EXPORT int

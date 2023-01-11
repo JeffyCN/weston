@@ -2971,7 +2971,6 @@ wet_compositor_load_backend(struct weston_compositor *compositor,
 {
 	struct wet_compositor *wet = to_wet_compositor(compositor);
 	struct wet_backend *wb;
-	int ret;
 
 	wb = xzalloc(sizeof *wb);
 
@@ -2983,19 +2982,14 @@ wet_compositor_load_backend(struct weston_compositor *compositor,
 							     &wb->heads_changed_listener);
 	}
 
-	ret = weston_compositor_load_backend(compositor, backend, config_base);
-
-	if (ret == 0) {
-		/*
-		 * At this point compositor->backend should point to the last
-		 * loaded backend.
-		 */
-		wb->backend = compositor->backend;
-		wl_list_insert(wet->backend_list.prev, &wb->compositor_link);
-	} else {
+	wb->backend = weston_compositor_load_backend(compositor, backend,
+						     config_base);
+	if (!wb->backend) {
 		free(wb);
 		return NULL;
 	}
+
+	wl_list_insert(wet->backend_list.prev, &wb->compositor_link);
 
 	return wb;
 }
