@@ -154,10 +154,11 @@ weston_matrix_to_pixman_transform(pixman_transform_t *pt,
 
 static void
 pixman_renderer_compute_transform(pixman_transform_t *transform_out,
-				  struct weston_view *ev,
-				  struct weston_output *output)
+				  struct weston_paint_node *pnode)
 {
 	struct weston_matrix matrix;
+	struct weston_output *output = pnode->output;
+	struct weston_view *ev = pnode->view;
 
 	/* Set up the source transformation based on the surface
 	   position, the output position/transform/scale and the client
@@ -315,24 +316,25 @@ composite_clipped(struct weston_output *output,
 
 /** Paint an intersected region
  *
- * \param ev The view to be painted.
- * \param output The output being painted.
+ * \param pnode The paint node to be painted.
  * \param repaint_output The region to be painted in output coordinates.
  * \param source_clip The region of the source image to use, in source image
  *                    coordinates. If NULL, use the whole source image.
  * \param pixman_op Compositing operator, either SRC or OVER.
  */
 static void
-repaint_region(struct weston_view *ev, struct weston_output *output,
+repaint_region(struct weston_paint_node *pnode,
 	       pixman_region32_t *repaint_output,
 	       pixman_region32_t *source_clip,
 	       pixman_op_t pixman_op)
 {
+	struct weston_output *output = pnode->output;
+	struct weston_view *ev = pnode->view;
 	struct pixman_renderer *pr =
 		(struct pixman_renderer *) output->compositor->renderer;
 	struct pixman_surface_state *ps = get_surface_state(ev->surface);
 	struct pixman_output_state *po = get_output_state(output);
-	struct weston_buffer_viewport *vp = &ev->surface->buffer_viewport;
+	struct weston_buffer_viewport *vp = &pnode->surface->buffer_viewport;
 	pixman_image_t *target_image;
 	pixman_transform_t transform;
 	pixman_filter_t filter;
@@ -347,7 +349,7 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
  	/* Clip rendering to the damaged output region */
 	pixman_image_set_clip_region32(target_image, repaint_output);
 
-	pixman_renderer_compute_transform(&transform, ev, output);
+	pixman_renderer_compute_transform(&transform, pnode);
 
 	if (ev->transform.enabled || output->current_scale != vp->buffer.scale)
 		filter = PIXMAN_FILTER_BILINEAR;
@@ -392,10 +394,13 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 }
 
 static void
-draw_view_translated(struct weston_view *view, struct weston_output *output,
+draw_node_translated(struct weston_paint_node *pnode,
 		     pixman_region32_t *repaint_global)
 {
-	struct weston_surface *surface = view->surface;
+	struct weston_output *output = pnode->output;
+	struct weston_surface *surface = pnode->surface;
+	struct weston_view *view = pnode->view;
+
 	/* non-opaque region in surface coordinates: */
 	pixman_region32_t surface_blend;
 	/* region to be painted in output coordinates: */
@@ -422,7 +427,7 @@ draw_view_translated(struct weston_view *view, struct weston_output *output,
 						       output,
 						       &repaint_output);
 
-			repaint_region(view, output, &repaint_output, NULL,
+			repaint_region(pnode, &repaint_output, NULL,
 				       PIXMAN_OP_SRC);
 		}
 	}
@@ -435,8 +440,7 @@ draw_view_translated(struct weston_view *view, struct weston_output *output,
 					       output,
 					       &repaint_output);
 
-		repaint_region(view, output, &repaint_output, NULL,
-			       PIXMAN_OP_OVER);
+		repaint_region(pnode, &repaint_output, NULL, PIXMAN_OP_OVER);
 	}
 
 	pixman_region32_fini(&surface_blend);
@@ -444,11 +448,12 @@ draw_view_translated(struct weston_view *view, struct weston_output *output,
 }
 
 static void
-draw_view_source_clipped(struct weston_view *view,
-			 struct weston_output *output,
+draw_node_source_clipped(struct weston_paint_node *pnode,
 			 pixman_region32_t *repaint_global)
 {
-	struct weston_surface *surface = view->surface;
+	struct weston_surface *surface = pnode->surface;
+	struct weston_output *output = pnode->output;
+	struct weston_view *view = pnode->view;
 	pixman_region32_t surf_region;
 	pixman_region32_t buffer_region;
 	pixman_region32_t repaint_output;
@@ -472,8 +477,7 @@ draw_view_source_clipped(struct weston_view *view,
 	weston_region_global_to_output(&repaint_output, output,
 				       &repaint_output);
 
-	repaint_region(view, output, &repaint_output, &buffer_region,
-		       PIXMAN_OP_OVER);
+	repaint_region(pnode, &repaint_output, &buffer_region, PIXMAN_OP_OVER);
 
 	pixman_region32_fini(&repaint_output);
 	pixman_region32_fini(&buffer_region);
@@ -526,7 +530,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 		 * Also the boundingbox is accurate rather than an
 		 * approximation.
 		 */
-		draw_view_translated(pnode->view, pnode->output, &repaint);
+		draw_node_translated(pnode, &repaint);
 	} else {
 		/* The complex case: the view transformation does not allow
 		 * converting opaque etc. regions into global coordinate space.
@@ -535,7 +539,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 		 * to be used whole. Source clipping does not work with
 		 * PIXMAN_OP_SRC.
 		 */
-		draw_view_source_clipped(pnode->view, pnode->output, &repaint);
+		draw_node_source_clipped(pnode, &repaint);
 	}
 
 out:
