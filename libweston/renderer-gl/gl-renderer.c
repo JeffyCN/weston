@@ -3605,7 +3605,7 @@ gl_renderer_resize_output(struct weston_output *output,
 }
 
 static int
-gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface);
+gl_renderer_setup(struct weston_compositor *ec);
 
 static EGLSurface
 gl_renderer_create_window_surface(struct gl_renderer *gr,
@@ -3736,8 +3736,8 @@ gl_renderer_output_destroy(struct weston_output *output)
 	if (shadow_exists(go))
 		gl_fbo_texture_fini(&go->shadow);
 
-	eglMakeCurrent(gr->egl_display,
-		       gr->dummy_surface, gr->dummy_surface, gr->egl_context);
+	eglMakeCurrent(gr->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+		       gr->egl_context);
 
 	weston_platform_destroy_egl_surface(gr->egl_display, go->egl_surface);
 
@@ -3801,10 +3801,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 
 	weston_drm_format_array_fini(&gr->supported_formats);
 
-	if (gr->dummy_surface != EGL_NO_SURFACE)
-		weston_platform_destroy_egl_surface(gr->egl_display,
-						    gr->dummy_surface);
-
 	eglTerminate(gr->egl_display);
 	eglReleaseThread();
 
@@ -3819,38 +3815,6 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	weston_log_scope_destroy(gr->shader_scope);
 	weston_log_scope_destroy(gr->renderer_scope);
 	free(gr);
-}
-
-static int
-gl_renderer_create_pbuffer_surface(struct gl_renderer *gr) {
-	EGLConfig pbuffer_config;
-	static const EGLint pbuffer_attribs[] = {
-		EGL_WIDTH, 10,
-		EGL_HEIGHT, 10,
-		EGL_NONE
-	};
-
-	pbuffer_config = gr->egl_config;
-	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
-		pbuffer_config =
-			gl_renderer_get_egl_config(gr, EGL_PBUFFER_BIT,
-						   NULL, 0);
-	}
-	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
-		weston_log("failed to choose EGL config for PbufferSurface\n");
-		return -1;
-	}
-
-	gr->dummy_surface = eglCreatePbufferSurface(gr->egl_display,
-						    pbuffer_config,
-						    pbuffer_attribs);
-
-	if (gr->dummy_surface == EGL_NO_SURFACE) {
-		weston_log("failed to create PbufferSurface\n");
-		return -1;
-	}
-
-	return 0;
 }
 
 static int
@@ -3934,6 +3898,9 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gl_renderer_setup_egl_extensions(ec) < 0)
 		goto fail_with_error;
 
+	if (!gr->has_surfaceless_context)
+		goto fail_terminate;
+
 	if (!gr->has_configless_context) {
 		EGLint egl_surface_type = options->egl_surface_type;
 
@@ -3977,21 +3944,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	}
 	wl_list_init(&gr->dmabuf_formats);
 
-	if (gr->has_surfaceless_context) {
-		gr->dummy_surface = EGL_NO_SURFACE;
-	} else {
-		if (gl_renderer_create_pbuffer_surface(gr) < 0)
-			goto fail_with_error;
-	}
-
 	wl_signal_init(&gr->destroy_signal);
 
-	if (gl_renderer_setup(ec, gr->dummy_surface) < 0) {
-		if (gr->dummy_surface != EGL_NO_SURFACE)
-			weston_platform_destroy_egl_surface(gr->egl_display,
-							    gr->dummy_surface);
+	if (gl_renderer_setup(ec) < 0)
 		goto fail_with_error;
-	}
 
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_RGB565);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
@@ -4087,7 +4043,7 @@ get_gl_version(void)
 }
 
 static int
-gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
+gl_renderer_setup(struct weston_compositor *ec)
 {
 	struct gl_renderer *gr = get_renderer(ec);
 	const char *extensions;
@@ -4149,8 +4105,8 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 		}
 	}
 
-	ret = eglMakeCurrent(gr->egl_display, egl_surface,
-			     egl_surface, gr->egl_context);
+	ret = eglMakeCurrent(gr->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
+			     gr->egl_context);
 	if (ret == EGL_FALSE) {
 		weston_log("Failed to make EGL context current.\n");
 		gl_renderer_print_egl_error_state();

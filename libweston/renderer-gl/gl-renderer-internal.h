@@ -132,8 +132,6 @@ struct gl_renderer {
 	EGLContext egl_context;
 	EGLConfig egl_config;
 
-	EGLSurface dummy_surface;
-
 	uint32_t gl_version;
 
 	struct wl_array vertices;
