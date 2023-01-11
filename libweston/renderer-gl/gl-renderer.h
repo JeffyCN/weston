@@ -94,17 +94,6 @@ struct gl_renderer_output_options {
 	unsigned formats_count;
 };
 
-struct gl_renderer_pbuffer_options {
-	/** Size of the framebuffer in pixels, including borders */
-	struct weston_size fb_size;
-	/** Area inside the framebuffer in pixels for composited content */
-	struct weston_geometry area;
-	/** Array of pixel formats acceptable for the pbuffer */
-	const struct pixel_format_info **formats;
-	/** The \c formats array length */
-	unsigned formats_count;
-};
-
 struct gl_renderer_fbo_options {
 	/** Size of the framebuffer in pixels, including borders */
 	struct weston_size fb_size;
@@ -170,27 +159,6 @@ struct gl_renderer_interface {
 	 */
 	int (*output_window_create)(struct weston_output *output,
 				    const struct gl_renderer_output_options *options);
-
-	/**
-	 * Attach GL-renderer to the output with internal pixel storage
-	 *
-	 * \param output The output to create a rendering surface for.
-	 * \param options The options struct describing the pbuffer
-	 * \return 0 on success, -1 on failure.
-	 *
-	 * This function creates the renderer data structures needed to repaint
-	 * the output. The repaint results will be kept internal and can only
-	 * be accessed through e.g. screen capture.
-	 *
-	 * The first format in formats that matches any EGLConfig
-	 * determines which EGLConfig is chosen. See \c display_create about
-	 * how the matching works and the possible limitations.
-	 *
-	 * This function should be used only if \c display_create was called
-	 * with \c EGL_PBUFFER_BIT in \c egl_surface_type.
-	 */
-	int (*output_pbuffer_create)(struct weston_output *output,
-				     const struct gl_renderer_pbuffer_options *options);
 
 	/**
 	 * Attach GL-renderer to the output with a frame buffer object

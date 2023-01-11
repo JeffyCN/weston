@@ -107,7 +107,6 @@ struct gl_output_state {
 	EGLSurface egl_surface;
 	struct gl_border_image borders[4];
 	enum gl_border_status border_status;
-	bool swap_behavior_is_preserved;
 
 	struct weston_matrix output_matrix;
 
@@ -1665,8 +1664,6 @@ output_get_buffer_age(struct weston_output *output)
 			weston_log("buffer age query failed.\n");
 			gl_renderer_print_egl_error_state();
 		}
-	} else if (go->swap_behavior_is_preserved) {
-		buffer_age = 1;
 	}
 
 	return buffer_age;
@@ -3722,61 +3719,6 @@ gl_renderer_output_window_create(struct weston_output *output,
 }
 
 static int
-gl_renderer_output_pbuffer_create(struct weston_output *output,
-				  const struct gl_renderer_pbuffer_options *options)
-{
-	struct gl_renderer *gr = get_renderer(output->compositor);
-	struct gl_output_state *go;
-	EGLConfig pbuffer_config;
-	EGLSurface egl_surface;
-	EGLint value = 0;
-	int ret;
-	EGLint pbuffer_attribs[] = {
-		EGL_WIDTH, options->fb_size.width,
-		EGL_HEIGHT, options->fb_size.height,
-		EGL_NONE
-	};
-
-	pbuffer_config = gl_renderer_get_egl_config(gr, EGL_PBUFFER_BIT,
-						    options->formats,
-						    options->formats_count);
-	if (pbuffer_config == EGL_NO_CONFIG_KHR) {
-		weston_log("failed to choose EGL config for PbufferSurface\n");
-		return -1;
-	}
-
-	log_egl_config_info(gr->egl_display, pbuffer_config);
-
-	egl_surface = eglCreatePbufferSurface(gr->egl_display, pbuffer_config,
-					      pbuffer_attribs);
-	if (egl_surface == EGL_NO_SURFACE) {
-		weston_log("failed to create egl surface\n");
-		gl_renderer_print_egl_error_state();
-		return -1;
-	}
-
-	eglSurfaceAttrib(gr->egl_display, egl_surface,
-			 EGL_SWAP_BEHAVIOR, EGL_BUFFER_PRESERVED);
-	if (!eglQuerySurface(gr->egl_display, egl_surface,
-			     EGL_SWAP_BEHAVIOR, &value) ||
-	    value != EGL_BUFFER_PRESERVED) {
-		weston_log("Error: pbuffer surface does not support EGL_BUFFER_PRESERVED, got 0x%x."
-			   " Continuing anyway.\n", value);
-	}
-
-	ret = gl_renderer_output_create(output, egl_surface,
-					&options->fb_size, &options->area);
-	if (ret < 0) {
-		eglDestroySurface(gr->egl_display, egl_surface);
-	} else {
-		go = get_output_state(output);
-		go->swap_behavior_is_preserved = true;
-	}
-
-	return ret;
-}
-
-static int
 gl_renderer_output_fbo_create(struct weston_output *output,
 			      const struct gl_renderer_fbo_options *options)
 {
@@ -4355,7 +4297,6 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.display_create = gl_renderer_display_create,
 	.output_window_create = gl_renderer_output_window_create,
-	.output_pbuffer_create = gl_renderer_output_pbuffer_create,
 	.output_fbo_create = gl_renderer_output_fbo_create,
 	.output_destroy = gl_renderer_output_destroy,
 	.output_set_border = gl_renderer_output_set_border,
