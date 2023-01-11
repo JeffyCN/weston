@@ -524,13 +524,14 @@ compress_bands(pixman_box32_t *inrects, int nrects, pixman_box32_t **outrects)
 }
 
 static int
-texture_region(struct weston_view *ev,
+texture_region(struct weston_paint_node *pnode,
 	       pixman_region32_t *region,
 	       pixman_region32_t *surf_region)
 {
-	struct gl_surface_state *gs = get_surface_state(ev->surface);
+	struct gl_surface_state *gs = get_surface_state(pnode->surface);
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
-	struct weston_compositor *ec = ev->surface->compositor;
+	struct weston_compositor *ec = pnode->surface->compositor;
+	struct weston_view *ev = pnode->view;
 	struct gl_renderer *gr = get_renderer(ec);
 	GLfloat *v, inv_width, inv_height;
 	unsigned int *vtxcnt, nvtx = 0;
@@ -808,9 +809,9 @@ gl_renderer_do_capture_tasks(struct gl_renderer *gr,
 }
 
 static void
-gl_renderer_send_shader_error(struct weston_view *view)
+gl_renderer_send_shader_error(struct weston_paint_node *pnode)
 {
-	struct wl_resource *resource = view->surface->resource;
+	struct wl_resource *resource = pnode->surface->resource;
 
 	if (!resource)
 		return;
@@ -884,12 +885,12 @@ triangle_fan_debug(struct gl_renderer *gr,
 
 static void
 repaint_region(struct gl_renderer *gr,
-	       struct weston_view *ev,
-	       struct weston_output *output,
+	       struct weston_paint_node *pnode,
 	       pixman_region32_t *region,
 	       pixman_region32_t *surf_region,
 	       const struct gl_shader_config *sconf)
 {
+	struct weston_output *output = pnode->output;
 	GLfloat *v;
 	unsigned int *vtxcnt;
 	int i, first, nfans;
@@ -902,7 +903,7 @@ repaint_region(struct gl_renderer *gr,
 	 * polygon for each pair, and store it as a triangle fan if
 	 * it has a non-zero area (at least 3 vertices, actually).
 	 */
-	nfans = texture_region(ev, region, surf_region);
+	nfans = texture_region(pnode, region, surf_region);
 
 	v = gr->vertices.data;
 	vtxcnt = gr->vtxcnt.data;
@@ -916,7 +917,7 @@ repaint_region(struct gl_renderer *gr,
 	glEnableVertexAttribArray(1);
 
 	if (!gl_renderer_use_program(gr, sconf)) {
-		gl_renderer_send_shader_error(ev);
+		gl_renderer_send_shader_error(pnode);
 		/* continue drawing with the fallback shader */
 	}
 
@@ -1057,17 +1058,18 @@ censor_override(struct gl_shader_config *sconf,
   */
 static void
 maybe_censor_override(struct gl_shader_config *sconf,
-		      struct weston_output *output,
-		      struct weston_view *ev)
+		      struct weston_paint_node *pnode)
 {
-	struct gl_surface_state *gs = get_surface_state(ev->surface);
+	struct weston_output *output = pnode->output;
+	struct weston_surface *surface = pnode->surface;
+	struct gl_surface_state *gs = get_surface_state(surface);
 	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	bool recording_censor =
 		(output->disable_planes > 0) &&
-		(ev->surface->desired_protection > WESTON_HDCP_DISABLE);
+		(surface->desired_protection > WESTON_HDCP_DISABLE);
 
 	bool unprotected_censor =
-		(ev->surface->desired_protection > output->current_protection);
+		(surface->desired_protection > output->current_protection);
 
 	if (buffer->direct_display) {
 		censor_override(sconf, output);
@@ -1076,7 +1078,7 @@ maybe_censor_override(struct gl_shader_config *sconf,
 
 	/* When not in enforced mode, the client is notified of the protection */
 	/* change, so content censoring is not required */
-	if (ev->surface->protection_mode !=
+	if (surface->protection_mode !=
 	    WESTON_SURFACE_PROTECTION_MODE_ENFORCED)
 		return;
 
@@ -1192,7 +1194,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 	else
 		pixman_region32_copy(&surface_opaque, &pnode->surface->opaque);
 
-	maybe_censor_override(&sconf, pnode->output, pnode->view);
+	maybe_censor_override(&sconf, pnode);
 
 	if (pixman_region32_not_empty(&surface_opaque)) {
 		struct gl_shader_config alt = sconf;
@@ -1211,15 +1213,13 @@ draw_paint_node(struct weston_paint_node *pnode,
 		else
 			glDisable(GL_BLEND);
 
-		repaint_region(gr, pnode->view, pnode->output,
-			       &repaint, &surface_opaque, &alt);
+		repaint_region(gr, pnode, &repaint, &surface_opaque, &alt);
 		gs->used_in_output_repaint = true;
 	}
 
 	if (pixman_region32_not_empty(&surface_blend)) {
 		glEnable(GL_BLEND);
-		repaint_region(gr, pnode->view, pnode->output,
-			       &repaint, &surface_blend, &sconf);
+		repaint_region(gr, pnode, &repaint, &surface_blend, &sconf);
 		gs->used_in_output_repaint = true;
 	}
 
