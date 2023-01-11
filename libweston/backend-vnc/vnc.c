@@ -600,6 +600,7 @@ finish_frame_handler(void *data)
 static int
 vnc_output_enable(struct weston_output *base)
 {
+	struct weston_renderer *renderer = base->compositor->renderer;
 	struct vnc_output *output = to_vnc_output(base);
 	struct vnc_backend *backend;
 	struct wl_event_loop *loop;
@@ -616,7 +617,7 @@ vnc_output_enable(struct weston_output *base)
 	backend = output->backend;
 	backend->output = output;
 
-	if (pixman_renderer_output_create(&output->base, &options) < 0)
+	if (renderer->pixman->output_create(&output->base, &options) < 0)
 		return -1;
 
 	loop = wl_display_get_event_loop(backend->compositor->wl_display);
@@ -647,6 +648,7 @@ vnc_output_enable(struct weston_output *base)
 static int
 vnc_output_disable(struct weston_output *base)
 {
+	struct weston_renderer *renderer = base->compositor->renderer;
 	struct vnc_output *output = to_vnc_output(base);
 	struct vnc_backend *backend;
 
@@ -657,7 +659,7 @@ vnc_output_disable(struct weston_output *base)
 	if (!output->base.enabled)
 		return 0;
 
-	pixman_renderer_output_destroy(&output->base);
+	renderer->pixman->output_destroy(&output->base);
 
 	nvnc_display_unref(output->display);
 	nvnc_fb_pool_unref(output->fb_pool);

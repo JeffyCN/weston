@@ -886,7 +886,7 @@ x11_output_disable(struct weston_output *base)
 	wl_event_source_remove(output->finish_frame_timer);
 
 	if (renderer->type == WESTON_RENDERER_PIXMAN) {
-		pixman_renderer_output_destroy(&output->base);
+		renderer->pixman->output_destroy(&output->base);
 		x11_output_deinit_shm(backend, output);
 	} else {
 		renderer->gl->output_destroy(&output->base);
@@ -1033,7 +1033,7 @@ x11_output_enable(struct weston_output *base)
 			weston_log("Failed to initialize SHM for the X11 output\n");
 			goto err;
 		}
-		if (pixman_renderer_output_create(&output->base, &options) < 0) {
+		if (renderer->pixman->output_create(&output->base, &options) < 0) {
 			weston_log("Failed to create pixman renderer for output\n");
 			x11_output_deinit_shm(b, output);
 			goto err;

@@ -1179,6 +1179,7 @@ make_connector_name(const drmModeConnector *con)
 static int
 drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 {
+	struct weston_renderer *renderer = output->base.compositor->renderer;
 	struct drm_device *device = output->device;
 	int w = output->base.current_mode->width;
 	int h = output->base.current_mode->height;
@@ -1216,7 +1217,7 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 			goto err;
 	}
 
-	if (pixman_renderer_output_create(&output->base, &options) < 0)
+	if (renderer->pixman->output_create(&output->base, &options) < 0)
  		goto err;
 
 	weston_log("DRM: output %s %s shadow framebuffer.\n", output->base.name,
@@ -1244,6 +1245,7 @@ err:
 static void
 drm_output_fini_pixman(struct drm_output *output)
 {
+	struct weston_renderer *renderer = output->base.compositor->renderer;
 	struct drm_backend *b = output->backend;
 	unsigned int i;
 
@@ -1255,7 +1257,7 @@ drm_output_fini_pixman(struct drm_output *output)
 		drm_plane_reset_state(output->scanout_plane);
 	}
 
-	pixman_renderer_output_destroy(&output->base);
+	renderer->pixman->output_destroy(&output->base);
 	pixman_region32_fini(&output->previous_damage);
 
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {

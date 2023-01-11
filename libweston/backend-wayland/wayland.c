@@ -671,7 +671,7 @@ wayland_output_disable(struct weston_output *base)
 		return 0;
 
 	if (renderer->type == WESTON_RENDERER_PIXMAN) {
-		pixman_renderer_output_destroy(&output->base);
+		renderer->pixman->output_destroy(&output->base);
 #ifdef ENABLE_EGL
 	} else {
 		weston_gl_borders_fini(&output->gl.borders, &output->base);
@@ -761,6 +761,7 @@ cleanup_window:
 static int
 wayland_output_init_pixman_renderer(struct wayland_output *output)
 {
+	struct weston_renderer *renderer = output->base.compositor->renderer;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
 		.fb_size = {
@@ -768,7 +769,7 @@ wayland_output_init_pixman_renderer(struct wayland_output *output)
 			.height = output->base.current_mode->height
 		},
 	};
-	return pixman_renderer_output_create(&output->base, &options);
+	return renderer->pixman->output_create(&output->base, &options);
 }
 
 static void
@@ -996,6 +997,7 @@ static int
 wayland_output_switch_mode(struct weston_output *output_base,
 			   struct weston_mode *mode)
 {
+	struct weston_renderer *renderer = output_base->compositor->renderer;
 	struct wayland_output *output;
 	struct wayland_backend *b;
 	struct wl_surface *old_surface;
@@ -1055,7 +1057,7 @@ wayland_output_switch_mode(struct weston_output *output_base,
 	output->base.current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
 
 	if (output_base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
-		pixman_renderer_output_destroy(output_base);
+		renderer->pixman->output_destroy(output_base);
 		if (wayland_output_init_pixman_renderer(output) < 0)
 			goto err_output;
 #ifdef ENABLE_EGL

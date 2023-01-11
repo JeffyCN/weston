@@ -457,6 +457,7 @@ rdp_head_get_monitor(struct weston_head *base,
 static int
 rdp_output_enable(struct weston_output *base)
 {
+	struct weston_renderer *renderer = base->compositor->renderer;
 	struct rdp_output *output = to_rdp_output(base);
 	struct rdp_backend *b;
 	struct wl_event_loop *loop;
@@ -481,7 +482,7 @@ rdp_output_enable(struct weston_output *base)
 		return -1;
 	}
 
-	if (pixman_renderer_output_create(&output->base, &options) < 0) {
+	if (renderer->pixman->output_create(&output->base, &options) < 0) {
 		pixman_image_unref(output->shadow_surface);
 		return -1;
 	}
@@ -495,6 +496,7 @@ rdp_output_enable(struct weston_output *base)
 static int
 rdp_output_disable(struct weston_output *base)
 {
+	struct weston_renderer *renderer = base->compositor->renderer;
 	struct rdp_output *output = to_rdp_output(base);
 
 	assert(output);
@@ -503,7 +505,7 @@ rdp_output_disable(struct weston_output *base)
 		return 0;
 
 	pixman_image_unref(output->shadow_surface);
-	pixman_renderer_output_destroy(&output->base);
+	renderer->pixman->output_destroy(&output->base);
 
 	wl_event_source_remove(output->finish_frame_timer);
 

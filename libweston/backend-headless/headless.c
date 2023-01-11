@@ -188,7 +188,9 @@ headless_output_disable_gl(struct headless_output *output)
 static void
 headless_output_disable_pixman(struct headless_output *output)
 {
-	pixman_renderer_output_destroy(&output->base);
+	struct weston_renderer *renderer = output->base.compositor->renderer;
+
+	renderer->pixman->output_destroy(&output->base);
 	pixman_image_unref(output->image);
 }
 
@@ -289,6 +291,7 @@ headless_output_enable_gl(struct headless_output *output)
 static int
 headless_output_enable_pixman(struct headless_output *output)
 {
+	const struct pixman_renderer_interface *pixman;
 	const struct pixel_format_info *pfmt;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
@@ -298,6 +301,7 @@ headless_output_enable_pixman(struct headless_output *output)
 		},
 	};
 
+	pixman = output->base.compositor->renderer->pixman;
 	pfmt = pixel_format_get_info(headless_formats[0]);
 
 	output->image =
@@ -308,7 +312,7 @@ headless_output_enable_pixman(struct headless_output *output)
 	if (!output->image)
 		return -1;
 
-	if (pixman_renderer_output_create(&output->base, &options) < 0)
+	if (pixman->output_create(&output->base, &options) < 0)
 		goto err_renderer;
 
 	pixman_renderer_output_set_buffer(&output->base, output->image);

@@ -964,6 +964,8 @@ debug_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 	}
 }
 
+static struct pixman_renderer_interface pixman_renderer_interface;
+
 WL_EXPORT int
 pixman_renderer_init(struct weston_compositor *ec)
 {
@@ -986,6 +988,7 @@ pixman_renderer_init(struct weston_compositor *ec)
 	renderer->base.surface_copy_content =
 		pixman_renderer_surface_copy_content;
 	renderer->base.type = WESTON_RENDERER_PIXMAN;
+	renderer->base.pixman = &pixman_renderer_interface;
 	ec->renderer = &renderer->base;
 	ec->capabilities |= WESTON_CAP_ROTATION_ANY;
 	ec->capabilities |= WESTON_CAP_VIEW_CLIP_MASK;
@@ -1060,7 +1063,7 @@ pixman_renderer_output_set_hw_extra_damage(struct weston_output *output,
 	po->hw_extra_damage = extra_damage;
 }
 
-WL_EXPORT int
+static int
 pixman_renderer_output_create(struct weston_output *output,
 			      const struct pixman_renderer_output_options *options)
 {
@@ -1090,7 +1093,7 @@ pixman_renderer_output_create(struct weston_output *output,
 	return 0;
 }
 
-WL_EXPORT void
+static void
 pixman_renderer_output_destroy(struct weston_output *output)
 {
 	struct pixman_output_state *po = get_output_state(output);
@@ -1106,3 +1109,8 @@ pixman_renderer_output_destroy(struct weston_output *output)
 
 	free(po);
 }
+
+static struct pixman_renderer_interface pixman_renderer_interface = {
+	.output_create = pixman_renderer_output_create,
+	.output_destroy = pixman_renderer_output_destroy,
+};
