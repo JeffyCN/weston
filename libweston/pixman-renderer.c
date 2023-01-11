@@ -152,31 +152,6 @@ weston_matrix_to_pixman_transform(pixman_transform_t *pt,
 	pt->matrix[2][2] = pixman_double_to_fixed(wm->d[15]);
 }
 
-static void
-pixman_renderer_compute_transform(pixman_transform_t *transform_out,
-				  struct weston_paint_node *pnode)
-{
-	struct weston_matrix matrix;
-	struct weston_output *output = pnode->output;
-	struct weston_view *ev = pnode->view;
-
-	/* Set up the source transformation based on the surface
-	   position, the output position/transform/scale and the client
-	   specified buffer transform/scale */
-	matrix = output->inverse_matrix;
-
-	if (ev->transform.enabled) {
-		weston_matrix_multiply(&matrix, &ev->transform.inverse);
-	} else {
-		weston_matrix_translate(&matrix,
-					-ev->geometry.x, -ev->geometry.y, 0);
-	}
-
-	weston_matrix_multiply(&matrix, &ev->surface->surface_to_buffer_matrix);
-
-	weston_matrix_to_pixman_transform(transform_out, &matrix);
-}
-
 static bool
 view_transformation_is_translation(struct weston_view *view)
 {
@@ -348,7 +323,8 @@ repaint_region(struct weston_paint_node *pnode,
  	/* Clip rendering to the damaged output region */
 	pixman_image_set_clip_region32(target_image, repaint_output);
 
-	pixman_renderer_compute_transform(&transform, pnode);
+	weston_matrix_to_pixman_transform(&transform,
+					  &pnode->output_to_buffer_matrix);
 
 	if (pnode->needs_filtering)
 		filter = PIXMAN_FILTER_BILINEAR;
