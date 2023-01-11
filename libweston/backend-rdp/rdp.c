@@ -45,6 +45,8 @@
 #include <libweston/backend-rdp.h>
 #include <libweston/pixel-formats.h>
 #include "pixman-renderer.h"
+#include "renderer-gl/gl-renderer.h"
+#include "shared/weston-egl-ext.h"
 
 /* These can be removed when we bump FreeRDP dependency past 3.0.0 in the future */
 #ifndef KBD_PERSIAN
@@ -424,6 +426,12 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 							      mode->width * 4);
 			break;
 		}
+		case WESTON_RENDERER_GL:
+			new_renderbuffer =
+				renderer->gl->create_fbo(output, b->formats[0],
+							 mode->width, mode->height,
+							 pixman_image_get_data(new_image));
+			break;
 		default:
 			unreachable("cannot have auto renderer at runtime");
 		}
@@ -527,6 +535,35 @@ rdp_output_enable(struct weston_output *base)
 		}
 		break;
 	}
+	case WESTON_RENDERER_GL: {
+		const struct gl_renderer_fbo_options options = {
+			.area = {
+				.width = output->base.current_mode->width,
+				.height = output->base.current_mode->height,
+			},
+			.fb_size = {
+				.width = output->base.current_mode->width,
+				.height = output->base.current_mode->height,
+			},
+		};
+
+		if (renderer->gl->output_fbo_create(&output->base, &options) < 0)
+			return -1;
+
+		output->renderbuffer =
+			renderer->gl->create_fbo(&output->base, b->formats[0],
+						 output->base.current_mode->width,
+						 output->base.current_mode->height,
+						 pixman_image_get_data(output->shadow_surface));
+		if (output->renderbuffer == NULL) {
+			weston_log("Failed to create surface for frame buffer.\n");
+			renderer->pixman->output_destroy(&output->base);
+			pixman_image_unref(output->shadow_surface);
+			output->shadow_surface = NULL;
+			return -1;
+		}
+		break;
+	}
 	default:
 		unreachable("cannot have auto renderer at runtime");
 	}
@@ -553,6 +590,9 @@ rdp_output_disable(struct weston_output *base)
 	switch (renderer->type) {
 	case WESTON_RENDERER_PIXMAN:
 		renderer->pixman->output_destroy(&output->base);
+		break;
+	case WESTON_RENDERER_GL:
+		renderer->gl->output_destroy(&output->base);
 		break;
 	default:
 		unreachable("cannot have auto renderer at runtime");
@@ -1914,6 +1954,19 @@ rdp_backend_create(struct weston_compositor *compositor,
 						    NULL) < 0)
 			goto err_compositor;
 		break;
+	case WESTON_RENDERER_GL: {
+		const struct gl_renderer_display_options options = {
+		        .egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+		        .formats = b->formats,
+		        .formats_count = b->formats_count,
+		};
+
+		if (weston_compositor_init_renderer(compositor,
+						    WESTON_RENDERER_GL,
+						    &options.base) < 0)
+				goto err_compositor;
+		break;
+	}
 	default:
 		weston_log("Unsupported renderer requested\n");
 		goto err_free_strings;
