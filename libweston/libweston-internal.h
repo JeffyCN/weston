@@ -48,6 +48,8 @@
 
 struct weston_renderbuffer {
 	pixman_image_t *image;
+	pixman_region32_t damage;
+	struct wl_list link;
 };
 
 struct weston_renderer_options {

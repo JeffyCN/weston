@@ -40,10 +40,6 @@ struct pixman_renderer_output_options {
 	struct weston_size fb_size;
 };
 
-void
-pixman_renderer_output_set_hw_extra_damage(struct weston_output *output,
-					   pixman_region32_t *extra_damage);
-
 struct pixman_renderer_interface {
 	int (*output_create)(struct weston_output *output,
 			     const struct pixman_renderer_output_options *options);

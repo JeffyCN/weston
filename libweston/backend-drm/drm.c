@@ -343,13 +343,8 @@ drm_output_render_pixman(struct drm_output_state *state,
 
 	output->current_image ^= 1;
 
-	pixman_renderer_output_set_hw_extra_damage(&output->base,
-						   &output->previous_damage);
-
 	ec->renderer->repaint_output(&output->base, damage,
 				     output->renderbuffer[output->current_image]);
-
-	pixman_region32_copy(&output->previous_damage, damage);
 
 	return drm_fb_ref(output->dumb[output->current_image]);
 }
@@ -1203,6 +1198,9 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 			return -1;
 	}
 
+	if (pixman->output_create(&output->base, &options) < 0)
+		goto err;
+
 	/* FIXME error checking */
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
 		output->dumb[i] = drm_fb_create_dumb(device, w, h, format);
@@ -1216,16 +1214,15 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 						      output->dumb[i]->strides[0]);
 		if (!output->renderbuffer[i])
 			goto err;
-	}
 
-	if (pixman->output_create(&output->base, &options) < 0)
- 		goto err;
+		pixman_region32_init_rect(&output->renderbuffer[i]->damage,
+					  output->base.x, output->base.y,
+					  output->base.width,
+					  output->base.height);
+	}
 
 	weston_log("DRM: output %s %s shadow framebuffer.\n", output->base.name,
 		   b->use_pixman_shadow ? "uses" : "does not use");
-
-	pixman_region32_init_rect(&output->previous_damage,
-				  output->base.x, output->base.y, output->base.width, output->base.height);
 
 	return 0;
 
@@ -1239,6 +1236,7 @@ err:
 		output->dumb[i] = NULL;
 		output->renderbuffer[i] = NULL;
 	}
+	pixman->output_destroy(&output->base);
 
 	return -1;
 }
@@ -1258,15 +1256,14 @@ drm_output_fini_pixman(struct drm_output *output)
 		drm_plane_reset_state(output->scanout_plane);
 	}
 
-	renderer->pixman->output_destroy(&output->base);
-	pixman_region32_fini(&output->previous_damage);
-
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
 		renderer->pixman->renderbuffer_destroy(output->renderbuffer[i]);
 		drm_fb_unref(output->dumb[i]);
 		output->dumb[i] = NULL;
 		output->renderbuffer[i] = NULL;
 	}
+
+	renderer->pixman->output_destroy(&output->base);
 }
 
 static void

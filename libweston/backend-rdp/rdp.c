@@ -481,6 +481,10 @@ rdp_output_enable(struct weston_output *base)
 
 	b = output->backend;
 
+	if (renderer->pixman->output_create(&output->base, &options) < 0) {
+		return -1;
+	}
+
 	output->renderbuffer =
 		pixman->create_image_from_ptr(&output->base, PIXMAN_x8r8g8b8,
 					      output->base.current_mode->width,
@@ -489,11 +493,7 @@ rdp_output_enable(struct weston_output *base)
 					      output->base.current_mode->width * 4);
 	if (output->renderbuffer == NULL) {
 		weston_log("Failed to create surface for frame buffer.\n");
-		return -1;
-	}
-
-	if (renderer->pixman->output_create(&output->base, &options) < 0) {
-		renderer->pixman->renderbuffer_destroy(output->renderbuffer);
+		renderer->pixman->output_destroy(&output->base);
 		return -1;
 	}
 

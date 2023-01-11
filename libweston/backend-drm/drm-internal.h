@@ -595,7 +595,6 @@ struct drm_output {
 	struct drm_fb *dumb[2];
 	struct weston_renderbuffer *renderbuffer[2];
 	int current_image;
-	pixman_region32_t previous_damage;
 
 	struct vaapi_recorder *recorder;
 	struct wl_listener recorder_frame_listener;

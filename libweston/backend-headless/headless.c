@@ -192,8 +192,8 @@ headless_output_disable_pixman(struct headless_output *output)
 {
 	struct weston_renderer *renderer = output->base.compositor->renderer;
 
-	renderer->pixman->output_destroy(&output->base);
 	renderer->pixman->renderbuffer_destroy(output->renderbuffer);
+	renderer->pixman->output_destroy(&output->base);
 }
 
 static int
@@ -306,15 +306,15 @@ headless_output_enable_pixman(struct headless_output *output)
 	pixman = output->base.compositor->renderer->pixman;
 	pfmt = pixel_format_get_info(headless_formats[0]);
 
+	if (pixman->output_create(&output->base, &options) < 0)
+		return -1;
+
 	output->renderbuffer =
 		pixman->create_image_no_clear(&output->base,
 					      pfmt->pixman_format,
 					      output->base.current_mode->width,
 					      output->base.current_mode->height);
 	if (!output->renderbuffer)
-		return -1;
-
-	if (pixman->output_create(&output->base, &options) < 0)
 		goto err_renderer;
 
 	weston_output_update_capture_info(&output->base,
@@ -326,7 +326,7 @@ headless_output_enable_pixman(struct headless_output *output)
 	return 0;
 
 err_renderer:
-	pixman->renderbuffer_destroy(output->renderbuffer);
+	pixman->output_destroy(&output->base);
 
 	return -1;
 }
