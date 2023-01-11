@@ -183,6 +183,8 @@ headless_output_disable_gl(struct headless_output *output)
 
 	weston_gl_borders_fini(&output->gl.borders, &output->base);
 
+	weston_renderbuffer_unref(output->renderbuffer);
+	output->renderbuffer = NULL;
 	renderer->gl->output_destroy(&output->base);
 
 	if (output->frame) {
@@ -252,10 +254,7 @@ headless_output_enable_gl(struct headless_output *output)
 	struct headless_backend *b = output->backend;
 	const struct weston_renderer *renderer = b->compositor->renderer;
 	const struct weston_mode *mode = output->base.current_mode;
-	struct gl_renderer_pbuffer_options options = {
-		.formats = b->formats,
-		.formats_count = b->formats_count,
-	};
+	struct gl_renderer_fbo_options options = { 0 };
 
 	if (b->decorate) {
 		/*
@@ -283,7 +282,7 @@ headless_output_enable_gl(struct headless_output *output)
 		options.fb_size.height = mode->height;
 	}
 
-	if (renderer->gl->output_pbuffer_create(&output->base, &options) < 0) {
+	if (renderer->gl->output_fbo_create(&output->base, &options) < 0) {
 		weston_log("failed to create gl renderer output state\n");
 		if (output->frame) {
 			frame_destroy(output->frame);
@@ -292,7 +291,19 @@ headless_output_enable_gl(struct headless_output *output)
 		return -1;
 	}
 
+	output->renderbuffer =
+		renderer->gl->create_fbo(&output->base, b->formats[0],
+					 options.fb_size.width,
+					 options.fb_size.height);
+	if (!output->renderbuffer)
+		goto err_renderbuffer;
+
 	return 0;
+
+err_renderbuffer:
+	renderer->gl->output_destroy(&output->base);
+
+	return -1;
 }
 
 static int
@@ -556,7 +567,6 @@ headless_backend_create(struct weston_compositor *compositor,
 		const struct gl_renderer_display_options options = {
 			.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
 			.egl_native_display = NULL,
-			.egl_surface_type = EGL_PBUFFER_BIT,
 			.formats = b->formats,
 			.formats_count = b->formats_count,
 		};
