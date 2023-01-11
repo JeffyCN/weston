@@ -296,7 +296,7 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 	struct drm_fb *ret;
 
 	output->base.compositor->renderer->repaint_output(&output->base,
-							  damage);
+							  damage, NULL);
 
 	bo = gbm_surface_lock_front_buffer(output->gbm_surface);
 	if (!bo) {

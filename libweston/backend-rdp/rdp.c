@@ -295,9 +295,8 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 
 	assert(output);
 
-	pixman_renderer_output_set_buffer(output_base,
-					  output->renderbuffer->image);
-	ec->renderer->repaint_output(&output->base, damage);
+	ec->renderer->repaint_output(&output->base, damage,
+				     output->renderbuffer);
 
 	if (pixman_region32_not_empty(damage)) {
 		pixman_region32_t transformed_damage;

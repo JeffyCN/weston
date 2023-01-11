@@ -515,7 +515,7 @@ wayland_output_repaint_gl(struct weston_output *output_base,
 
 	wayland_output_update_gl_border(output);
 
-	ec->renderer->repaint_output(&output->base, damage);
+	ec->renderer->repaint_output(&output->base, damage, NULL);
 
 	pixman_region32_subtract(&ec->primary_plane.damage,
 				 &ec->primary_plane.damage, damage);
@@ -630,8 +630,8 @@ wayland_output_repaint_pixman(struct weston_output *output_base,
 	sb = wayland_output_get_shm_buffer(output);
 
 	wayland_output_update_shm_border(sb);
-	pixman_renderer_output_set_buffer(output_base, sb->renderbuffer->image);
-	b->compositor->renderer->repaint_output(output_base, &sb->damage);
+	b->compositor->renderer->repaint_output(output_base, &sb->damage,
+						sb->renderbuffer);
 
 	wayland_shm_buffer_attach(sb);
 

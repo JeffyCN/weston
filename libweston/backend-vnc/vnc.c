@@ -527,10 +527,8 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 		wl_list_insert(&output->fb_side_data_list, &fb_side_data->link);
 	}
 
-	pixman_renderer_output_set_buffer(&output->base,
-					  fb_side_data->renderbuffer->image);
-
-	ec->renderer->repaint_output(&output->base, &fb_side_data->damage);
+	ec->renderer->repaint_output(&output->base, &fb_side_data->damage,
+				     fb_side_data->renderbuffer);
 
 	/* Convert to local coordinates before clearing accumulated damage */
 	pixman_region_init(&local_damage);

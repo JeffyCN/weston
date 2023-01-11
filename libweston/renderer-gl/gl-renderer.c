@@ -1716,7 +1716,8 @@ blit_shadow_to_output(struct weston_output *output,
  */
 static void
 gl_renderer_repaint_output(struct weston_output *output,
-			   pixman_region32_t *output_damage)
+			   pixman_region32_t *output_damage,
+			   struct weston_renderbuffer *renderbuffer)
 {
 	struct gl_output_state *go = get_output_state(output);
 	struct weston_compositor *compositor = output->compositor;

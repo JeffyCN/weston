@@ -618,11 +618,20 @@ pixman_renderer_do_capture_tasks(struct weston_output *output,
 }
 
 static void
+pixman_renderer_output_set_buffer(struct weston_output *output,
+				  pixman_image_t *buffer);
+
+static void
 pixman_renderer_repaint_output(struct weston_output *output,
-			       pixman_region32_t *output_damage)
+			       pixman_region32_t *output_damage,
+			       struct weston_renderbuffer *renderbuffer)
 {
 	struct pixman_output_state *po = get_output_state(output);
 	pixman_region32_t hw_damage;
+
+	assert(renderbuffer);
+
+	pixman_renderer_output_set_buffer(output, renderbuffer->image);
 
 	assert(output->from_blend_to_output_by_backend ||
 	       output->color_outcome->from_blend_to_output == NULL);
@@ -1018,7 +1027,7 @@ pixman_renderer_init(struct weston_compositor *ec)
 	return 0;
 }
 
-WL_EXPORT void
+static void
 pixman_renderer_output_set_buffer(struct weston_output *output,
 				  pixman_image_t *buffer)
 {

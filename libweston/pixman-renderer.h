@@ -41,10 +41,6 @@ struct pixman_renderer_output_options {
 };
 
 void
-pixman_renderer_output_set_buffer(struct weston_output *output,
-				  pixman_image_t *buffer);
-
-void
 pixman_renderer_output_set_hw_extra_damage(struct weston_output *output,
 					   pixman_region32_t *extra_damage);
 

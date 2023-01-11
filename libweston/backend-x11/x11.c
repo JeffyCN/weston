@@ -435,7 +435,7 @@ x11_output_repaint_gl(struct weston_output *output_base,
 
 	ec = output->base.compositor;
 
-	ec->renderer->repaint_output(output_base, damage);
+	ec->renderer->repaint_output(output_base, damage, NULL);
 
 	pixman_region32_subtract(&ec->primary_plane.damage,
 				 &ec->primary_plane.damage, damage);
@@ -512,8 +512,7 @@ x11_output_repaint_shm(struct weston_output *output_base,
 	ec = output->base.compositor;
 	b = output->backend;
 
-	pixman_renderer_output_set_buffer(output_base, image);
-	ec->renderer->repaint_output(output_base, damage);
+	ec->renderer->repaint_output(output_base, damage, output->renderbuffer);
 
 	pixman_region32_subtract(&ec->primary_plane.damage,
 				 &ec->primary_plane.damage, damage);

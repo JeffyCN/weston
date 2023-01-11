@@ -47,7 +47,8 @@ noop_renderer_read_pixels(struct weston_output *output,
 
 static void
 noop_renderer_repaint_output(struct weston_output *output,
-			     pixman_region32_t *output_damage)
+			     pixman_region32_t *output_damage,
+			     struct weston_renderbuffer *renderbuffer)
 {
 }
 

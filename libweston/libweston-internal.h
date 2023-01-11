@@ -59,7 +59,8 @@ struct weston_renderer {
 			   uint32_t x, uint32_t y,
 			   uint32_t width, uint32_t height);
 	void (*repaint_output)(struct weston_output *output,
-			       pixman_region32_t *output_damage);
+			       pixman_region32_t *output_damage,
+			       struct weston_renderbuffer *renderbuffer);
 
 	/** See weston_renderer_resize_output()
 	 *

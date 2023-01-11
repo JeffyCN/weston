@@ -47,6 +47,7 @@
 #include "shared/weston-egl-ext.h"
 #include "shared/cairo-util.h"
 #include "linux-dmabuf.h"
+#include "output-capture.h"
 #include "presentation-time-server-protocol.h"
 #include <libweston/windowed-output-api.h>
 
@@ -159,7 +160,8 @@ headless_output_repaint(struct weston_output *output_base,
 
 	headless_output_update_gl_border(output);
 
-	ec->renderer->repaint_output(&output->base, damage);
+	ec->renderer->repaint_output(&output->base, damage,
+				     output->renderbuffer);
 
 	pixman_region32_subtract(&ec->primary_plane.damage,
 				 &ec->primary_plane.damage, damage);
@@ -315,8 +317,11 @@ headless_output_enable_pixman(struct headless_output *output)
 	if (pixman->output_create(&output->base, &options) < 0)
 		goto err_renderer;
 
-	pixman_renderer_output_set_buffer(&output->base,
-					  output->renderbuffer->image);
+	weston_output_update_capture_info(&output->base,
+					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
+					  output->base.current_mode->width,
+					  output->base.current_mode->height,
+					  pfmt);
 
 	return 0;
 
