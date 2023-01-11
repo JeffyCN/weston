@@ -593,7 +593,7 @@ struct drm_output {
 	struct drm_output_state *state_last;
 
 	struct drm_fb *dumb[2];
-	pixman_image_t *image[2];
+	struct weston_renderbuffer *renderbuffer[2];
 	int current_image;
 	pixman_region32_t previous_damage;
 

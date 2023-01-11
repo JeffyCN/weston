@@ -136,7 +136,7 @@ struct x11_output {
 
 	xcb_gc_t		gc;
 	xcb_shm_seg_t		segment;
-	pixman_image_t	       *hw_surface;
+	struct weston_renderbuffer *renderbuffer;
 	int			shm_id;
 	void		       *buf;
 	uint8_t			depth;
@@ -501,6 +501,7 @@ x11_output_repaint_shm(struct weston_output *output_base,
 		       pixman_region32_t *damage)
 {
 	struct x11_output *output = to_x11_output(output_base);
+	pixman_image_t *image = output->renderbuffer->image;
 	struct weston_compositor *ec;
 	struct x11_backend *b;
 	xcb_void_cookie_t cookie;
@@ -511,18 +512,18 @@ x11_output_repaint_shm(struct weston_output *output_base,
 	ec = output->base.compositor;
 	b = output->backend;
 
-	pixman_renderer_output_set_buffer(output_base, output->hw_surface);
+	pixman_renderer_output_set_buffer(output_base, image);
 	ec->renderer->repaint_output(output_base, damage);
 
 	pixman_region32_subtract(&ec->primary_plane.damage,
 				 &ec->primary_plane.damage, damage);
 	set_clip_for_output(output_base, damage);
 	cookie = xcb_shm_put_image_checked(b->conn, output->window, output->gc,
-					pixman_image_get_width(output->hw_surface),
-					pixman_image_get_height(output->hw_surface),
+					pixman_image_get_width(image),
+					pixman_image_get_height(image),
 					0, 0,
-					pixman_image_get_width(output->hw_surface),
-					pixman_image_get_height(output->hw_surface),
+					pixman_image_get_width(image),
+					pixman_image_get_height(image),
 					0, 0, output->depth, XCB_IMAGE_FORMAT_Z_PIXMAP,
 					0, output->segment, 0);
 	err = xcb_request_check(b->conn, cookie);
@@ -550,12 +551,13 @@ finish_frame_handler(void *data)
 static void
 x11_output_deinit_shm(struct x11_backend *b, struct x11_output *output)
 {
+	const struct weston_renderer *renderer = b->compositor->renderer;
 	xcb_void_cookie_t cookie;
 	xcb_generic_error_t *err;
 	xcb_free_gc(b->conn, output->gc);
 
-	pixman_image_unref(output->hw_surface);
-	output->hw_surface = NULL;
+	renderer->pixman->renderbuffer_destroy(output->renderbuffer);
+	output->renderbuffer = NULL;
 	cookie = xcb_shm_detach_checked(b->conn, output->segment);
 	err = xcb_request_check(b->conn, cookie);
 	if (err) {
@@ -719,6 +721,7 @@ static int
 x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 	int width, int height)
 {
+	struct weston_renderer *renderer = output->base.compositor->renderer;
 	xcb_visualtype_t *visual_type;
 	xcb_screen_t *screen;
 	xcb_format_iterator_t fmt;
@@ -806,8 +809,11 @@ x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 	shmctl(output->shm_id, IPC_RMID, NULL);
 
 	/* Now create pixman image */
-	output->hw_surface = pixman_image_create_bits(pixman_format, width, height, output->buf,
-		width * (bitsperpixel / 8));
+	output->renderbuffer =
+		renderer->pixman->create_image_from_ptr(&output->base,
+							pixman_format, width,
+							height, output->buf,
+							width * (bitsperpixel / 8));
 
 	output->gc = xcb_generate_id(b->conn);
 	xcb_create_gc(b->conn, output->gc, output->window, 0, NULL);

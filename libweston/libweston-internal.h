@@ -46,6 +46,10 @@
 
 /* compositor <-> renderer interface */
 
+struct weston_renderbuffer {
+	pixman_image_t *image;
+};
+
 struct weston_renderer_options {
 };
 

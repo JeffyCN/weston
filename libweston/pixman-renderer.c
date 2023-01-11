@@ -1110,7 +1110,56 @@ pixman_renderer_output_destroy(struct weston_output *output)
 	free(po);
 }
 
+static struct weston_renderbuffer *
+pixman_renderer_create_image_from_ptr(struct weston_output *output,
+				      pixman_format_code_t format, int width,
+				      int height, uint32_t *ptr, int rowstride)
+{
+	struct weston_renderbuffer *renderbuffer;
+
+	renderbuffer = xzalloc(sizeof(*renderbuffer));
+
+	renderbuffer->image = pixman_image_create_bits(format, width, height,
+						       ptr, rowstride);
+	if (!renderbuffer->image) {
+		free(renderbuffer);
+		return NULL;
+	}
+
+	return renderbuffer;
+}
+
+static struct weston_renderbuffer *
+pixman_renderer_create_image_no_clear(struct weston_output *output,
+				      pixman_format_code_t format, int width,
+				      int height)
+{
+	struct weston_renderbuffer *renderbuffer;
+
+	renderbuffer = xzalloc(sizeof(*renderbuffer));
+
+	renderbuffer->image =
+		pixman_image_create_bits_no_clear(format, width, height,
+						  NULL, 0);
+	if (!renderbuffer->image) {
+		free(renderbuffer);
+		return NULL;
+	}
+
+	return renderbuffer;
+}
+
+static void
+pixman_renderer_renderbuffer_destroy(struct weston_renderbuffer *renderbuffer)
+{
+	pixman_image_unref(renderbuffer->image);
+	free(renderbuffer);
+}
+
 static struct pixman_renderer_interface pixman_renderer_interface = {
 	.output_create = pixman_renderer_output_create,
 	.output_destroy = pixman_renderer_output_destroy,
+	.create_image_from_ptr = pixman_renderer_create_image_from_ptr,
+	.create_image_no_clear = pixman_renderer_create_image_no_clear,
+	.renderbuffer_destroy = pixman_renderer_renderbuffer_destroy,
 };

@@ -344,7 +344,7 @@ drm_output_render_pixman(struct drm_output_state *state,
 	output->current_image ^= 1;
 
 	pixman_renderer_output_set_buffer(&output->base,
-					  output->image[output->current_image]);
+					  output->renderbuffer[output->current_image]->image);
 	pixman_renderer_output_set_hw_extra_damage(&output->base,
 						   &output->previous_damage);
 
@@ -1180,6 +1180,7 @@ static int
 drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 {
 	struct weston_renderer *renderer = output->base.compositor->renderer;
+	const struct pixman_renderer_interface *pixman = renderer->pixman;
 	struct drm_device *device = output->device;
 	int w = output->base.current_mode->width;
 	int h = output->base.current_mode->height;
@@ -1209,15 +1210,16 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 		if (!output->dumb[i])
 			goto err;
 
-		output->image[i] =
-			pixman_image_create_bits(pixman_format, w, h,
-						 output->dumb[i]->map,
-						 output->dumb[i]->strides[0]);
-		if (!output->image[i])
+		output->renderbuffer[i] =
+			pixman->create_image_from_ptr(&output->base,
+						      pixman_format, w, h,
+						      output->dumb[i]->map,
+						      output->dumb[i]->strides[0]);
+		if (!output->renderbuffer[i])
 			goto err;
 	}
 
-	if (renderer->pixman->output_create(&output->base, &options) < 0)
+	if (pixman->output_create(&output->base, &options) < 0)
  		goto err;
 
 	weston_log("DRM: output %s %s shadow framebuffer.\n", output->base.name,
@@ -1232,11 +1234,11 @@ err:
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
 		if (output->dumb[i])
 			drm_fb_unref(output->dumb[i]);
-		if (output->image[i])
-			pixman_image_unref(output->image[i]);
+		if (output->renderbuffer[i])
+			pixman->renderbuffer_destroy(output->renderbuffer[i]);
 
 		output->dumb[i] = NULL;
-		output->image[i] = NULL;
+		output->renderbuffer[i] = NULL;
 	}
 
 	return -1;
@@ -1261,10 +1263,10 @@ drm_output_fini_pixman(struct drm_output *output)
 	pixman_region32_fini(&output->previous_damage);
 
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
-		pixman_image_unref(output->image[i]);
+		renderer->pixman->renderbuffer_destroy(output->renderbuffer[i]);
 		drm_fb_unref(output->dumb[i]);
 		output->dumb[i] = NULL;
-		output->image[i] = NULL;
+		output->renderbuffer[i] = NULL;
 	}
 }
 

@@ -99,7 +99,8 @@ struct vnc_head {
 };
 
 struct fb_side_data {
-	pixman_image_t *pixman_image;
+	struct weston_renderer *renderer;
+	struct weston_renderbuffer *renderbuffer;
 	pixman_region32_t damage;
 	struct wl_list link;
 };
@@ -447,10 +448,11 @@ static void
 fb_side_data_destroy(void *userdata)
 {
 	struct fb_side_data *fb_side_data = userdata;
+	struct weston_renderer *renderer = fb_side_data->renderer;
 
 	wl_list_remove(&fb_side_data->link);
 	pixman_region32_fini(&fb_side_data->damage);
-	pixman_image_unref(fb_side_data->pixman_image);
+	renderer->pixman->renderbuffer_destroy(fb_side_data->renderbuffer);
 	free(fb_side_data);
 }
 
@@ -501,17 +503,21 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 
 	fb_side_data = nvnc_get_userdata(fb);
 	if (!fb_side_data) {
+		const struct pixman_renderer_interface *pixman;
 		const struct pixel_format_info *pfmt;
 
 		fb_side_data = xzalloc(sizeof(*fb_side_data));
 
+		pixman = ec->renderer->pixman;
 		pfmt = pixel_format_get_info(DRM_FORMAT_XRGB8888);
-		fb_side_data->pixman_image =
-			pixman_image_create_bits(pfmt->pixman_format,
-						 output->base.width,
-						 output->base.height,
-						 nvnc_fb_get_addr(fb),
-						 output->base.width * 4);
+		fb_side_data->renderer = ec->renderer;
+		fb_side_data->renderbuffer =
+			pixman->create_image_from_ptr(&output->base,
+						      pfmt->pixman_format,
+						      output->base.width,
+						      output->base.height,
+						      nvnc_fb_get_addr(fb),
+						      output->base.width * 4);
 
 		/* This is a new buffer, so the whole surface is damaged. */
 		pixman_region32_copy(&fb_side_data->damage,
@@ -522,7 +528,7 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 	}
 
 	pixman_renderer_output_set_buffer(&output->base,
-					  fb_side_data->pixman_image);
+					  fb_side_data->renderbuffer->image);
 
 	ec->renderer->repaint_output(&output->base, &fb_side_data->damage);
 

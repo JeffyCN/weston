@@ -182,6 +182,7 @@ struct wayland_shm_buffer {
 	pixman_region32_t damage;		/**< in global coords */
 	int frame_damaged;
 
+	struct weston_renderbuffer *renderbuffer;
 	pixman_image_t *pm_image;
 	cairo_surface_t *c_surface;
 };
@@ -257,7 +258,14 @@ static void
 wayland_shm_buffer_destroy(struct wayland_shm_buffer *buffer)
 {
 	cairo_surface_destroy(buffer->c_surface);
-	pixman_image_unref(buffer->pm_image);
+	if (buffer->pm_image)
+		pixman_image_unref(buffer->pm_image);
+	if (buffer->output) {
+		const struct pixman_renderer_interface *pixman;
+
+		pixman = buffer->output->base.compositor->renderer->pixman;
+		pixman->renderbuffer_destroy(buffer->renderbuffer);
+	}
 
 	wl_buffer_destroy(buffer->buffer);
 	munmap(buffer->data, buffer->size);
@@ -288,6 +296,8 @@ static const struct wl_buffer_listener buffer_listener = {
 static struct wayland_shm_buffer *
 wayland_output_get_shm_buffer(struct wayland_output *output)
 {
+	const struct weston_renderer *renderer;
+	const struct pixman_renderer_interface *pixman;
 	struct wayland_backend *b = output->backend;
 	struct wl_shm *shm = b->parent.shm;
 	struct wayland_shm_buffer *sb;
@@ -380,11 +390,23 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 		area.height = output->base.current_mode->height;
 	}
 
+	renderer = b->compositor->renderer;
+	pixman = renderer->pixman;
+
 	/* Address only the interior, excluding output decorations */
-	sb->pm_image =
-		pixman_image_create_bits(PIXMAN_a8r8g8b8, area.width, area.height,
-					 (uint32_t *)(data + area.y * stride) + area.x,
-					 stride);
+	if (renderer->type == WESTON_RENDERER_PIXMAN) {
+		sb->renderbuffer =
+			pixman->create_image_from_ptr(&output->base, PIXMAN_a8r8g8b8,
+						      area.width, area.height,
+						      (uint32_t *)(data + area.y * stride) + area.x,
+						      stride);
+	} else {
+		sb->pm_image =
+			pixman_image_create_bits(PIXMAN_a8r8g8b8,
+						 area.width, area.height,
+						 (uint32_t *)(data + area.y * stride) + area.x,
+						 stride);
+	}
 
 	return sb;
 }
@@ -608,7 +630,7 @@ wayland_output_repaint_pixman(struct weston_output *output_base,
 	sb = wayland_output_get_shm_buffer(output);
 
 	wayland_output_update_shm_border(sb);
-	pixman_renderer_output_set_buffer(output_base, sb->pm_image);
+	pixman_renderer_output_set_buffer(output_base, sb->renderbuffer->image);
 	b->compositor->renderer->repaint_output(output_base, &sb->damage);
 
 	wayland_shm_buffer_attach(sb);

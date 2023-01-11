@@ -28,6 +28,7 @@
 #include <libweston/libweston.h>
 #include "backend.h"
 #include "libweston-internal.h"
+#include "pixman.h"
 
 int
 pixman_renderer_init(struct weston_compositor *ec);
@@ -51,4 +52,16 @@ struct pixman_renderer_interface {
 	int (*output_create)(struct weston_output *output,
 			     const struct pixman_renderer_output_options *options);
 	void (*output_destroy)(struct weston_output *output);
+
+	struct weston_renderbuffer *(*create_image_from_ptr)(struct weston_output *output,
+							     pixman_format_code_t format,
+							     int width,
+							     int height,
+							     uint32_t *ptr,
+							     int stride);
+	struct weston_renderbuffer *(*create_image_no_clear)(struct weston_output *output,
+							     pixman_format_code_t format,
+							     int width,
+							     int height);
+	void (*renderbuffer_destroy)(struct weston_renderbuffer *renderbuffer);
 };

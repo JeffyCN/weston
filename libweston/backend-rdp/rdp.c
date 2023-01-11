@@ -249,11 +249,11 @@ rdp_peer_refresh_region(pixman_region32_t *region, freerdp_peer *peer)
 	rdpSettings *settings = peer->context->settings;
 
 	if (settings->RemoteFxCodec)
-		rdp_peer_refresh_rfx(region, output->shadow_surface, peer);
+		rdp_peer_refresh_rfx(region, output->renderbuffer->image, peer);
 	else if (settings->NSCodec)
-		rdp_peer_refresh_nsc(region, output->shadow_surface, peer);
+		rdp_peer_refresh_nsc(region, output->renderbuffer->image, peer);
 	else
-		rdp_peer_refresh_raw(region, output->shadow_surface, peer);
+		rdp_peer_refresh_raw(region, output->renderbuffer->image, peer);
 }
 
 static int
@@ -295,7 +295,8 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 
 	assert(output);
 
-	pixman_renderer_output_set_buffer(output_base, output->shadow_surface);
+	pixman_renderer_output_set_buffer(output_base,
+					  output->renderbuffer->image);
 	ec->renderer->repaint_output(&output->base, damage);
 
 	if (pixman_region32_not_empty(damage)) {
@@ -391,7 +392,7 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 	struct weston_output *output = base;
 	struct rdp_peers_item *rdpPeer;
 	rdpSettings *settings;
-	pixman_image_t *new_shadow_buffer;
+	struct weston_renderbuffer *new_renderbuffer;
 
 	mode->refresh = b->rdp_monitor_refresh_rate;
 	cur = ensure_single_mode(base, mode);
@@ -399,16 +400,24 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 	base->current_mode = cur;
 	base->native_mode = cur;
 	if (base->enabled) {
+		const struct pixman_renderer_interface *pixman;
 		weston_renderer_resize_output(output, &(struct weston_size){
 			.width = output->current_mode->width,
 			.height = output->current_mode->height }, NULL);
 
-		new_shadow_buffer = pixman_image_create_bits(PIXMAN_x8r8g8b8, mode->width,
-				mode->height, 0, mode->width * 4);
-		pixman_image_composite32(PIXMAN_OP_SRC, rdpOutput->shadow_surface, 0, new_shadow_buffer,
-				0, 0, 0, 0, 0, 0, mode->width, mode->height);
-		pixman_image_unref(rdpOutput->shadow_surface);
-		rdpOutput->shadow_surface = new_shadow_buffer;
+		pixman = b->compositor->renderer->pixman;
+
+		new_renderbuffer =
+			pixman->create_image_from_ptr(output, PIXMAN_x8r8g8b8,
+						      mode->width, mode->height,
+						      0, mode->width * 4);
+		pixman_image_composite32(PIXMAN_OP_SRC,
+					 rdpOutput->renderbuffer->image, 0,
+					 new_renderbuffer->image,
+					 0, 0, 0, 0, 0, 0,
+					 mode->width, mode->height);
+		pixman->renderbuffer_destroy(rdpOutput->renderbuffer);
+		rdpOutput->renderbuffer = new_renderbuffer;
 	}
 
 	/* Apparently settings->DesktopWidth is supposed to be primary only.
@@ -457,7 +466,8 @@ rdp_head_get_monitor(struct weston_head *base,
 static int
 rdp_output_enable(struct weston_output *base)
 {
-	struct weston_renderer *renderer = base->compositor->renderer;
+	const struct weston_renderer *renderer = base->compositor->renderer;
+	const struct pixman_renderer_interface *pixman = renderer->pixman;
 	struct rdp_output *output = to_rdp_output(base);
 	struct rdp_backend *b;
 	struct wl_event_loop *loop;
@@ -472,18 +482,19 @@ rdp_output_enable(struct weston_output *base)
 
 	b = output->backend;
 
-	output->shadow_surface = pixman_image_create_bits(PIXMAN_x8r8g8b8,
-							  output->base.current_mode->width,
-							  output->base.current_mode->height,
-							  NULL,
-							  output->base.current_mode->width * 4);
-	if (output->shadow_surface == NULL) {
+	output->renderbuffer =
+		pixman->create_image_from_ptr(&output->base, PIXMAN_x8r8g8b8,
+					      output->base.current_mode->width,
+					      output->base.current_mode->height,
+					      NULL,
+					      output->base.current_mode->width * 4);
+	if (output->renderbuffer == NULL) {
 		weston_log("Failed to create surface for frame buffer.\n");
 		return -1;
 	}
 
 	if (renderer->pixman->output_create(&output->base, &options) < 0) {
-		pixman_image_unref(output->shadow_surface);
+		renderer->pixman->renderbuffer_destroy(output->renderbuffer);
 		return -1;
 	}
 
@@ -504,7 +515,7 @@ rdp_output_disable(struct weston_output *base)
 	if (!output->base.enabled)
 		return 0;
 
-	pixman_image_unref(output->shadow_surface);
+	renderer->pixman->renderbuffer_destroy(output->renderbuffer);
 	renderer->pixman->output_destroy(&output->base);
 
 	wl_event_source_remove(output->finish_frame_timer);
