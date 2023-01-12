@@ -200,6 +200,16 @@ struct gl_renderer {
 	bool has_wait_sync;
 	PFNEGLWAITSYNCKHRPROC wait_sync;
 
+	bool has_disjoint_timer_query;
+	PFNGLGENQUERIESEXTPROC gen_queries;
+	PFNGLDELETEQUERIESEXTPROC delete_queries;
+	PFNGLBEGINQUERYEXTPROC begin_query;
+	PFNGLENDQUERYEXTPROC end_query;
+#if !defined(NDEBUG)
+	PFNGLGETQUERYOBJECTIVEXTPROC get_query_object_iv;
+#endif
+	PFNGLGETQUERYOBJECTUI64VEXTPROC get_query_object_ui64v;
+
 	bool gl_supports_color_transforms;
 
 	/** Shader program cache in most recently used order

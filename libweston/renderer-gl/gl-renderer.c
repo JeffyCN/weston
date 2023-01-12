@@ -104,7 +104,8 @@ struct gl_output_state {
 
 	struct weston_matrix output_matrix;
 
-	EGLSyncKHR begin_render_sync, end_render_sync;
+	EGLSyncKHR render_sync;
+	GLuint render_query;
 
 	/* struct timeline_render_point::link */
 	struct wl_list timeline_render_point_list;
@@ -188,16 +189,11 @@ struct gl_surface_state {
 	struct wl_listener renderer_destroy_listener;
 };
 
-enum timeline_render_point_type {
-	TIMELINE_RENDER_POINT_TYPE_BEGIN,
-	TIMELINE_RENDER_POINT_TYPE_END
-};
-
 struct timeline_render_point {
 	struct wl_list link; /* gl_output_state::timeline_render_point_list */
 
-	enum timeline_render_point_type type;
 	int fd;
+	GLuint query;
 	struct weston_output *output;
 	struct wl_event_source *event_source;
 };
@@ -316,6 +312,23 @@ struct yuv_format_descriptor yuv_formats[] = {
 	}
 };
 
+static void
+timeline_begin_render_query(struct gl_renderer *gr, GLuint query)
+{
+	if (weston_log_scope_is_enabled(gr->compositor->timeline) &&
+	    gr->has_native_fence_sync &&
+	    gr->has_disjoint_timer_query)
+		gr->begin_query(GL_TIME_ELAPSED_EXT, query);
+}
+
+static void
+timeline_end_render_query(struct gl_renderer *gr)
+{
+	if (weston_log_scope_is_enabled(gr->compositor->timeline) &&
+	    gr->has_native_fence_sync &&
+	    gr->has_disjoint_timer_query)
+		gr->end_query(GL_TIME_ELAPSED_EXT);
+}
 
 static void
 timeline_render_point_destroy(struct timeline_render_point *trp)
@@ -330,17 +343,33 @@ static int
 timeline_render_point_handler(int fd, uint32_t mask, void *data)
 {
 	struct timeline_render_point *trp = data;
-	const char *tp_name = trp->type == TIMELINE_RENDER_POINT_TYPE_BEGIN ?
-			      "renderer_gpu_begin" : "renderer_gpu_end";
+	struct timespec end;
 
-	if (mask & WL_EVENT_READABLE) {
-		struct timespec tspec = { 0 };
+	if ((mask & WL_EVENT_READABLE) &&
+	    (weston_linux_sync_file_read_timestamp(trp->fd, &end) == 0)) {
+		struct gl_renderer *gr = get_renderer(trp->output->compositor);
+		struct timespec begin;
+		GLuint64 elapsed;
+#if !defined(NDEBUG)
+		GLint result_available;
 
-		if (weston_linux_sync_file_read_timestamp(trp->fd,
-							  &tspec) == 0) {
-			TL_POINT(trp->output->compositor, tp_name, TLP_GPU(&tspec),
-				 TLP_OUTPUT(trp->output), TLP_END);
-		}
+		/* The elapsed time result must now be available since the
+		 * begin/end queries are meant to be queued prior to fence sync
+		 * creation. */
+		gr->get_query_object_iv(trp->query,
+					GL_QUERY_RESULT_AVAILABLE_EXT,
+					&result_available);
+		assert(result_available == GL_TRUE);
+#endif
+
+		gr->get_query_object_ui64v(trp->query, GL_QUERY_RESULT_EXT,
+					   &elapsed);
+		timespec_add_nsec(&begin, &end, -elapsed);
+
+		TL_POINT(trp->output->compositor, "renderer_gpu_begin",
+			 TLP_GPU(&begin), TLP_OUTPUT(trp->output), TLP_END);
+		TL_POINT(trp->output->compositor, "renderer_gpu_end",
+			 TLP_GPU(&end), TLP_OUTPUT(trp->output), TLP_END);
 	}
 
 	timeline_render_point_destroy(trp);
@@ -364,7 +393,7 @@ static void
 timeline_submit_render_sync(struct gl_renderer *gr,
 			    struct weston_output *output,
 			    EGLSyncKHR sync,
-			    enum timeline_render_point_type type)
+			    GLuint query)
 {
 	struct gl_output_state *go;
 	struct wl_event_loop *loop;
@@ -373,6 +402,7 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 
 	if (!weston_log_scope_is_enabled(gr->compositor->timeline) ||
 	    !gr->has_native_fence_sync ||
+	    !gr->has_disjoint_timer_query ||
 	    sync == EGL_NO_SYNC_KHR)
 		return;
 
@@ -389,8 +419,8 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 		return;
 	}
 
-	trp->type = type;
 	trp->fd = fd;
+	trp->query = query;
 	trp->output = output;
 	trp->event_source = wl_event_loop_add_fd(loop, fd,
 						 WL_EVENT_READABLE,
@@ -1756,12 +1786,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 		}
 	}
 
-	if (go->begin_render_sync != EGL_NO_SYNC_KHR)
-		gr->destroy_sync(gr->egl_display, go->begin_render_sync);
-	if (go->end_render_sync != EGL_NO_SYNC_KHR)
-		gr->destroy_sync(gr->egl_display, go->end_render_sync);
-
-	go->begin_render_sync = create_render_sync(gr);
+	timeline_begin_render_query(gr, go->render_query);
 
 	/* Calculate the global GL matrix */
 	go->output_matrix = output->matrix;
@@ -1853,7 +1878,11 @@ gl_renderer_repaint_output(struct weston_output *output,
 				     WESTON_OUTPUT_CAPTURE_SOURCE_FULL_FRAMEBUFFER);
 	wl_signal_emit(&output->frame_signal, output_damage);
 
-	go->end_render_sync = create_render_sync(gr);
+	timeline_end_render_query(gr);
+
+	if (go->render_sync != EGL_NO_SYNC_KHR)
+		gr->destroy_sync(gr->egl_display, go->render_sync);
+	go->render_sync = create_render_sync(gr);
 
 	if (gr->swap_buffers_with_damage && !gr->fan_debug) {
 		int n_egl_rects;
@@ -1883,10 +1912,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 	/* We have to submit the render sync objects after swap buffers, since
 	 * the objects get assigned a valid sync file fd only after a gl flush.
 	 */
-	timeline_submit_render_sync(gr, output, go->begin_render_sync,
-				    TIMELINE_RENDER_POINT_TYPE_BEGIN);
-	timeline_submit_render_sync(gr, output, go->end_render_sync,
-				    TIMELINE_RENDER_POINT_TYPE_END);
+	timeline_submit_render_sync(gr, output, go->render_sync,
+				    go->render_query);
 
 	update_buffer_release_fences(compositor, output);
 
@@ -3505,10 +3532,12 @@ gl_renderer_output_create(struct weston_output *output,
 	for (i = 0; i < BUFFER_DAMAGE_COUNT; i++)
 		pixman_region32_init(&go->buffer_damage[i]);
 
+	if (gr->has_disjoint_timer_query)
+		gr->gen_queries(1, &go->render_query);
+
 	wl_list_init(&go->timeline_render_point_list);
 
-	go->begin_render_sync = EGL_NO_SYNC_KHR;
-	go->end_render_sync = EGL_NO_SYNC_KHR;
+	go->render_sync = EGL_NO_SYNC_KHR;
 
 	if ((output->color_outcome->from_blend_to_output != NULL &&
 	     output->from_blend_to_output_by_backend == false) ||
@@ -3642,13 +3671,14 @@ gl_renderer_output_destroy(struct weston_output *output)
 		weston_log("warning: discarding pending timeline render"
 			   "objects at output destruction");
 
+	if (gr->has_disjoint_timer_query)
+		gr->delete_queries(1, &go->render_query);
+
 	wl_list_for_each_safe(trp, tmp, &go->timeline_render_point_list, link)
 		timeline_render_point_destroy(trp);
 
-	if (go->begin_render_sync != EGL_NO_SYNC_KHR)
-		gr->destroy_sync(gr->egl_display, go->begin_render_sync);
-	if (go->end_render_sync != EGL_NO_SYNC_KHR)
-		gr->destroy_sync(gr->egl_display, go->end_render_sync);
+	if (go->render_sync != EGL_NO_SYNC_KHR)
+		gr->destroy_sync(gr->egl_display, go->render_sync);
 
 	free(go);
 }
@@ -3660,10 +3690,10 @@ gl_renderer_create_fence_fd(struct weston_output *output)
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	int fd;
 
-	if (go->end_render_sync == EGL_NO_SYNC_KHR)
+	if (go->render_sync == EGL_NO_SYNC_KHR)
 		return -1;
 
-	fd = gr->dup_native_fence_fd(gr->egl_display, go->end_render_sync);
+	fd = gr->dup_native_fence_fd(gr->egl_display, go->render_sync);
 	if (fd == EGL_NO_NATIVE_FENCE_FD_ANDROID)
 		return -1;
 
@@ -4101,6 +4131,45 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 	    weston_check_egl_extension(extensions, "GL_EXT_color_buffer_half_float") &&
 		weston_check_egl_extension(extensions, "GL_OES_texture_3D")) {
 		gr->gl_supports_color_transforms = true;
+	}
+
+	if (weston_check_egl_extension(extensions, "GL_EXT_disjoint_timer_query")) {
+		PFNGLGETQUERYIVEXTPROC get_query_iv =
+			(void *) eglGetProcAddress("glGetQueryivEXT");
+		int elapsed_bits;
+
+		assert(get_query_iv);
+		get_query_iv(GL_TIME_ELAPSED_EXT, GL_QUERY_COUNTER_BITS_EXT,
+			     &elapsed_bits);
+		if (elapsed_bits != 0) {
+			gr->gen_queries =
+				(void *) eglGetProcAddress("glGenQueriesEXT");
+			gr->delete_queries =
+				(void *) eglGetProcAddress("glDeleteQueriesEXT");
+			gr->begin_query = (void *) eglGetProcAddress("glBeginQueryEXT");
+			gr->end_query = (void *) eglGetProcAddress("glEndQueryEXT");
+#if !defined(NDEBUG)
+			gr->get_query_object_iv =
+				(void *) eglGetProcAddress("glGetQueryObjectivEXT");
+#endif
+			gr->get_query_object_ui64v =
+				(void *) eglGetProcAddress("glGetQueryObjectui64vEXT");
+			assert(gr->gen_queries);
+			assert(gr->delete_queries);
+			assert(gr->begin_query);
+			assert(gr->end_query);
+			assert(gr->get_query_object_iv);
+			assert(gr->get_query_object_ui64v);
+			gr->has_disjoint_timer_query = true;
+		} else {
+			weston_log("warning: Disabling render GPU timeline due "
+				   "to lack of support for elapsed counters by "
+				   "the GL_EXT_disjoint_timer_query "
+				   "extension\n");
+		}
+	} else if (gr->has_native_fence_sync)  {
+		weston_log("warning: Disabling render GPU timeline due to "
+			   "missing GL_EXT_disjoint_timer_query extension\n");
 	}
 
 	glActiveTexture(GL_TEXTURE0);
