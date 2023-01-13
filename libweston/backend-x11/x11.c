@@ -501,7 +501,8 @@ x11_output_repaint_shm(struct weston_output *output_base,
 		       pixman_region32_t *damage)
 {
 	struct x11_output *output = to_x11_output(output_base);
-	pixman_image_t *image = output->renderbuffer->image;
+	const struct weston_renderer *renderer;
+	pixman_image_t *image;
 	struct weston_compositor *ec;
 	struct x11_backend *b;
 	xcb_void_cookie_t cookie;
@@ -510,7 +511,10 @@ x11_output_repaint_shm(struct weston_output *output_base,
 	assert(output);
 
 	ec = output->base.compositor;
+	renderer = ec->renderer;
 	b = output->backend;
+
+	image = renderer->pixman->renderbuffer_get_image(output->renderbuffer);
 
 	ec->renderer->repaint_output(output_base, damage, output->renderbuffer);
 

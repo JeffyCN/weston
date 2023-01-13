@@ -247,13 +247,18 @@ rdp_peer_refresh_region(pixman_region32_t *region, freerdp_peer *peer)
 	RdpPeerContext *context = (RdpPeerContext *)peer->context;
 	struct rdp_output *output = rdp_get_first_output(context->rdpBackend);
 	rdpSettings *settings = peer->context->settings;
+	const struct weston_renderer *renderer;
+	pixman_image_t *image;
+
+	renderer = output->base.compositor->renderer;
+	image = renderer->pixman->renderbuffer_get_image(output->renderbuffer);
 
 	if (settings->RemoteFxCodec)
-		rdp_peer_refresh_rfx(region, output->renderbuffer->image, peer);
+		rdp_peer_refresh_rfx(region, image, peer);
 	else if (settings->NSCodec)
-		rdp_peer_refresh_nsc(region, output->renderbuffer->image, peer);
+		rdp_peer_refresh_nsc(region, image, peer);
 	else
-		rdp_peer_refresh_raw(region, output->renderbuffer->image, peer);
+		rdp_peer_refresh_raw(region, image, peer);
 }
 
 static int
@@ -400,21 +405,24 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 	base->native_mode = cur;
 	if (base->enabled) {
 		const struct pixman_renderer_interface *pixman;
+		pixman_image_t *old_image, *new_image;
+
 		weston_renderer_resize_output(output, &(struct weston_size){
 			.width = output->current_mode->width,
 			.height = output->current_mode->height }, NULL);
 
 		pixman = b->compositor->renderer->pixman;
 
+		old_image =
+			pixman->renderbuffer_get_image(rdpOutput->renderbuffer);
 		new_renderbuffer =
 			pixman->create_image_from_ptr(output, PIXMAN_x8r8g8b8,
 						      mode->width, mode->height,
 						      0, mode->width * 4);
-		pixman_image_composite32(PIXMAN_OP_SRC,
-					 rdpOutput->renderbuffer->image, 0,
-					 new_renderbuffer->image,
-					 0, 0, 0, 0, 0, 0,
-					 mode->width, mode->height);
+		new_image = pixman->renderbuffer_get_image(new_renderbuffer);
+		pixman_image_composite32(PIXMAN_OP_SRC, old_image, 0, new_image,
+					 0, 0, 0, 0, 0, 0, mode->width,
+					 mode->height);
 		pixman->renderbuffer_destroy(rdpOutput->renderbuffer);
 		rdpOutput->renderbuffer = new_renderbuffer;
 	}
