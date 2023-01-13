@@ -84,7 +84,7 @@ static const uint32_t headless_formats[] = {
 };
 
 static void
-headless_destroy(struct weston_compositor *ec);
+headless_destroy(struct weston_backend *backend);
 
 static inline struct headless_head *
 to_headless_head(struct weston_head *base)
@@ -413,8 +413,10 @@ headless_output_set_size(struct weston_output *base,
 }
 
 static struct weston_output *
-headless_output_create(struct weston_compositor *compositor, const char *name)
+headless_output_create(struct weston_backend *backend, const char *name)
 {
+	struct headless_backend *b = container_of(backend, struct headless_backend, base);
+	struct weston_compositor *compositor = b->compositor;
 	struct headless_output *output;
 
 	/* name can't be NULL. */
@@ -480,9 +482,10 @@ headless_head_destroy(struct weston_head *base)
 }
 
 static void
-headless_destroy(struct weston_compositor *ec)
+headless_destroy(struct weston_backend *backend)
 {
-	struct headless_backend *b = to_headless_backend(ec);
+	struct headless_backend *b = container_of(backend, struct headless_backend, base);
+	struct weston_compositor *ec = b->compositor;
 	struct weston_head *base, *next;
 
 	weston_compositor_shutdown(ec);

@@ -152,7 +152,7 @@ struct window_delete_data {
 struct gl_renderer_interface *gl_renderer;
 
 static void
-x11_destroy(struct weston_compositor *ec);
+x11_destroy(struct weston_backend *backend);
 
 static inline struct x11_head *
 to_x11_head(struct weston_head *base)
@@ -1149,8 +1149,10 @@ x11_output_set_size(struct weston_output *base, int width, int height)
 }
 
 static struct weston_output *
-x11_output_create(struct weston_compositor *compositor, const char *name)
+x11_output_create(struct weston_backend *backend, const char *name)
 {
+	struct x11_backend *b = container_of(backend, struct x11_backend, base);
+	struct weston_compositor *compositor = b->compositor;
 	struct x11_output *output;
 
 	/* name can't be NULL. */
@@ -1808,19 +1810,20 @@ x11_backend_get_wm_info(struct x11_backend *c)
 }
 
 static void
-x11_destroy(struct weston_compositor *ec)
+x11_destroy(struct weston_backend *base)
 {
-	struct x11_backend *backend = to_x11_backend(ec);
-	struct weston_head *base, *next;
+	struct x11_backend *backend = container_of(base, struct x11_backend, base);
+	struct weston_compositor *ec = backend->compositor;
+	struct weston_head *head, *next;
 
 	wl_event_source_remove(backend->xcb_source);
 	x11_input_destroy(backend);
 
 	weston_compositor_shutdown(ec); /* destroys outputs, too */
 
-	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
-		if (to_x11_head(base))
-			x11_head_destroy(base);
+	wl_list_for_each_safe(head, next, &ec->head_list, compositor_link) {
+		if (to_x11_head(head))
+			x11_head_destroy(head);
 	}
 
 	XCloseDisplay(backend->dpy);

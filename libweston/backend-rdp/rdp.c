@@ -523,8 +523,10 @@ rdp_output_destroy(struct weston_output *base)
 }
 
 static struct weston_output *
-rdp_output_create(struct weston_compositor *compositor, const char *name)
+rdp_output_create(struct weston_backend *backend, const char *name)
 {
+	struct rdp_backend *b = container_of(backend, struct rdp_backend, base);
+	struct weston_compositor *compositor = b->compositor;
 	struct rdp_output *output;
 
 	output = xzalloc(sizeof *output);
@@ -594,9 +596,10 @@ rdp_head_destroy(struct weston_head *base)
 }
 
 void
-rdp_destroy(struct weston_compositor *ec)
+rdp_destroy(struct weston_backend *backend)
 {
-	struct rdp_backend *b = to_rdp_backend(ec);
+	struct rdp_backend *b = container_of(backend, struct rdp_backend, base);
+	struct weston_compositor *ec = b->compositor;
 	struct weston_head *base, *next;
 	struct rdp_peers_item *rdp_peer, *tmp;
 	int i;

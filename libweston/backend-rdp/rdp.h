@@ -253,7 +253,7 @@ void
 rdp_head_create(struct weston_compositor *compositor, rdpMonitor *config);
 
 void
-rdp_destroy(struct weston_compositor *ec);
+rdp_destroy(struct weston_backend *backend);
 
 void
 rdp_head_destroy(struct weston_head *base);

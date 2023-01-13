@@ -35,7 +35,7 @@
 struct weston_hdr_metadata_type1;
 
 struct weston_backend {
-	void (*destroy)(struct weston_compositor *compositor);
+	void (*destroy)(struct weston_backend *backend);
 
 	/** Begin a repaint sequence
 	 *
@@ -48,25 +48,25 @@ struct weston_backend {
 	 * Returns an opaque pointer, which the backend may use as private
 	 * data referring to the repaint cycle.
 	 */
-	void (*repaint_begin)(struct weston_compositor *compositor);
+	void (*repaint_begin)(struct weston_backend *backend);
 
 	/** Cancel a repaint sequence
 	 *
 	 * Cancels a repaint sequence, when an error has occurred during
 	 * one output's repaint; see repaint_begin.
 	 */
-	void (*repaint_cancel)(struct weston_compositor *compositor);
+	void (*repaint_cancel)(struct weston_backend *backend);
 
 	/** Conclude a repaint sequence
 	 *
 	 * Called on successful completion of a repaint sequence; see
 	 * repaint_begin.
 	 */
-	int (*repaint_flush)(struct weston_compositor *compositor);
+	int (*repaint_flush)(struct weston_backend *backend);
 
 	/** Allocate a new output
 	 *
-	 * @param compositor The compositor.
+	 * @param backend The backend.
 	 * @param name Name for the new output.
 	 *
 	 * Allocates a new output structure that embeds a weston_output,
@@ -76,12 +76,11 @@ struct weston_backend {
 	 * Must set weston_output members @c destroy, @c enable and @c disable.
 	 */
 	struct weston_output *
-	(*create_output)(struct weston_compositor *compositor,
-			 const char *name);
+	(*create_output)(struct weston_backend *backend, const char *name);
 
 	/** Notify of device addition/removal
 	 *
-	 * @param compositor The compositor.
+	 * @param backend The backend.
 	 * @param device The device that has changed.
 	 * @param added Where it was added (or removed)
 	 *
@@ -89,19 +88,19 @@ struct weston_backend {
 	 * The backend can decide what to do based on whether it is a
 	 * device that it is controlling or not.
 	 */
-	void (*device_changed)(struct weston_compositor *compositor,
+	void (*device_changed)(struct weston_backend *backend,
 			       dev_t device, bool added);
 
 	/** Verifies if the dmabuf can be used directly/scanned-out by the HW.
 	 *
-	 * @param compositor The compositor.
+	 * @param backend The backend.
 	 * @param buffer The dmabuf to verify.
 	 *
 	 * Determines if the buffer can be imported directly by the display
 	 * controller/HW. Back-ends can use this to check if the supplied
 	 * buffer can be scanned-out, as to void importing it into the GPU.
 	 */
-	bool (*can_scanout_dmabuf)(struct weston_compositor *compositor,
+	bool (*can_scanout_dmabuf)(struct weston_backend *backend,
 				   struct linux_dmabuf_buffer *buffer);
 };
 

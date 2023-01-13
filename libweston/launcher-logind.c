@@ -502,7 +502,7 @@ device_paused(struct launcher_logind *wl, DBusMessage *m)
 		launcher_logind_pause_device_complete(wl, major, minor);
 
 	if (wl->sync_drm && wl->compositor->backend->device_changed)
-		wl->compositor->backend->device_changed(wl->compositor,
+		wl->compositor->backend->device_changed(wl->compositor->backend,
 							makedev(major,minor),
 							false);
 }
@@ -529,7 +529,7 @@ device_resumed(struct launcher_logind *wl, DBusMessage *m)
 	 * notify the compositor to wake up. */
 
 	if (wl->sync_drm && wl->compositor->backend->device_changed)
-		wl->compositor->backend->device_changed(wl->compositor,
+		wl->compositor->backend->device_changed(wl->compositor->backend,
 							makedev(major,minor),
 							true);
 }

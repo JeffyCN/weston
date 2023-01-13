@@ -618,9 +618,9 @@ finish_frame:
  * output repaint functions until the repaint is flushed or cancelled.
  */
 static void
-drm_repaint_begin(struct weston_compositor *compositor)
+drm_repaint_begin(struct weston_backend *backend)
 {
-	struct drm_backend *b = to_drm_backend(compositor);
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
 	struct drm_device *device = b->drm;
 	struct drm_pending_state *pending_state;
 
@@ -628,7 +628,7 @@ drm_repaint_begin(struct weston_compositor *compositor)
 	device->repaint_data = pending_state;
 
 	if (weston_log_scope_is_enabled(b->debug)) {
-		char *dbg = weston_compositor_print_scene_graph(compositor);
+		char *dbg = weston_compositor_print_scene_graph(b->compositor);
 		drm_debug(b, "[repaint] Beginning repaint; pending_state %p\n",
 			  device->repaint_data);
 		drm_debug(b, "%s", dbg);
@@ -646,9 +646,9 @@ drm_repaint_begin(struct weston_compositor *compositor)
  * state will be freed.
  */
 static int
-drm_repaint_flush(struct weston_compositor *compositor)
+drm_repaint_flush(struct weston_backend *backend)
 {
-	struct drm_backend *b = to_drm_backend(compositor);
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
 	struct drm_device *device = b->drm;
 	struct drm_pending_state *pending_state = device->repaint_data;
 	int ret;
@@ -670,9 +670,9 @@ drm_repaint_flush(struct weston_compositor *compositor)
  * held across the repaint cycle should be discarded.
  */
 static void
-drm_repaint_cancel(struct weston_compositor *compositor)
+drm_repaint_cancel(struct weston_backend *backend)
 {
-	struct drm_backend *b = to_drm_backend(compositor);
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
 	struct drm_device *device = b->drm;
 	struct drm_pending_state *pending_state = device->repaint_data;
 
@@ -2329,14 +2329,14 @@ drm_head_destroy(struct weston_head *base)
  * Creating an output is usually followed by drm_output_attach_head()
  * and drm_output_enable() to make use of it.
  *
- * @param compositor The compositor instance.
+ * @param backend The backend instance.
  * @param name Name for the new output.
  * @returns The output, or NULL on failure.
  */
 static struct weston_output *
-drm_output_create(struct weston_compositor *compositor, const char *name)
+drm_output_create(struct weston_backend *backend, const char *name)
 {
-	struct drm_backend *b = to_drm_backend(compositor);
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
 	struct drm_device *device = b->drm;
 	struct drm_output *output;
 
@@ -2353,7 +2353,7 @@ drm_output_create(struct weston_compositor *compositor, const char *name)
 	output->gbm_bo_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 #endif
 
-	weston_output_init(&output->base, compositor, name);
+	weston_output_init(&output->base, b->compositor, name);
 
 	output->base.enable = drm_output_enable;
 	output->base.destroy = drm_output_destroy;
@@ -2693,9 +2693,10 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 }
 
 void
-drm_destroy(struct weston_compositor *ec)
+drm_destroy(struct weston_backend *backend)
 {
-	struct drm_backend *b = to_drm_backend(ec);
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
+	struct weston_compositor *ec = b->compositor;
 	struct drm_device *device = b->drm;
 	struct weston_head *base, *next;
 	struct drm_crtc *crtc, *crtc_tmp;
@@ -2783,15 +2784,16 @@ session_notify(struct wl_listener *listener, void *data)
  * If the device being added/removed is the KMS device, we activate/deactivate
  * the compositor session.
  *
- * @param compositor The compositor instance.
+ * @param backend The DRM backend instance.
  * @param devnum The device being added/removed.
  * @param added Whether the device is being added (or removed)
  */
 static void
-drm_device_changed(struct weston_compositor *compositor,
+drm_device_changed(struct weston_backend *backend,
 		dev_t devnum, bool added)
 {
-	struct drm_backend *b = to_drm_backend(compositor);
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
+	struct weston_compositor *compositor = b->compositor;
 	struct drm_device *device = b->drm;
 
 	if (device->drm.fd < 0 || device->drm.devnum != devnum ||

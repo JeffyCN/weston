@@ -452,11 +452,11 @@ drm_fb_unref(struct drm_fb *fb)
 
 #ifdef BUILD_DRM_GBM
 bool
-drm_can_scanout_dmabuf(struct weston_compositor *ec,
+drm_can_scanout_dmabuf(struct weston_backend *backend,
 		       struct linux_dmabuf_buffer *dmabuf)
 {
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
 	struct drm_fb *fb;
-	struct drm_backend *b = to_drm_backend(ec);
 	struct drm_device *device = b->drm;
 	bool ret = false;
 	uint32_t try_reason = 0x0;

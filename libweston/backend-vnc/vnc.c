@@ -124,7 +124,7 @@ static void
 vnc_head_destroy(struct weston_head *base);
 
 static void
-vnc_destroy(struct weston_compositor *ec);
+vnc_destroy(struct weston_backend *backend);
 
 static inline struct vnc_head *
 to_vnc_head(struct weston_head *base)
@@ -682,31 +682,33 @@ vnc_output_destroy(struct weston_output *base)
 }
 
 static struct weston_output *
-vnc_create_output(struct weston_compositor *compositor, const char *name)
+vnc_create_output(struct weston_backend *backend, const char *name)
 {
+	struct vnc_backend *b = container_of(backend, struct vnc_backend, base);
 	struct vnc_output *output;
 
 	output = zalloc(sizeof *output);
 	if (output == NULL)
 		return NULL;
 
-	weston_output_init(&output->base, compositor, name);
+	weston_output_init(&output->base, b->compositor, name);
 
 	output->base.destroy = vnc_output_destroy;
 	output->base.disable = vnc_output_disable;
 	output->base.enable = vnc_output_enable;
 	output->base.attach_head = NULL;
 
-	weston_compositor_add_pending_output(&output->base, compositor);
+	weston_compositor_add_pending_output(&output->base, b->compositor);
 
 	return &output->base;
 }
 
 static void
-vnc_destroy(struct weston_compositor *ec)
+vnc_destroy(struct weston_backend *base)
 {
-	struct weston_head *base, *next;
-	struct vnc_backend *backend = to_vnc_backend(ec);
+	struct vnc_backend *backend = container_of(base, struct vnc_backend, base);
+	struct weston_compositor *ec = backend->compositor;
+	struct weston_head *head, *next;
 
 	wl_list_remove(&backend->output_move_listener.link);
 
@@ -718,8 +720,8 @@ vnc_destroy(struct weston_compositor *ec)
 
 	aml_unref(backend->aml);
 
-	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link)
-		vnc_head_destroy(base);
+	wl_list_for_each_safe(head, next, &ec->head_list, compositor_link)
+		vnc_head_destroy(head);
 
 	xkb_keymap_unref(backend->xkb_keymap);
 

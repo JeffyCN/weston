@@ -3203,7 +3203,7 @@ output_repaint_timer_handler(void *data)
 	compositor->last_repaint_start = now;
 
 	if (compositor->backend->repaint_begin)
-		compositor->backend->repaint_begin(compositor);
+		compositor->backend->repaint_begin(compositor->backend);
 
 	wl_list_for_each(output, &compositor->output_list, link) {
 		ret = weston_output_maybe_repaint(output, &now);
@@ -3213,10 +3213,10 @@ output_repaint_timer_handler(void *data)
 
 	if (ret == 0) {
 		if (compositor->backend->repaint_flush)
-			ret = compositor->backend->repaint_flush(compositor);
+			ret = compositor->backend->repaint_flush(compositor->backend);
 	} else {
 		if (compositor->backend->repaint_cancel)
-			compositor->backend->repaint_cancel(compositor);
+			compositor->backend->repaint_cancel(compositor->backend);
 	}
 
 	if (ret != 0) {
@@ -7408,7 +7408,7 @@ weston_compositor_create_output(struct weston_compositor *compositor,
 		return NULL;
 	}
 
-	output = head->backend->create_output(compositor, name);
+	output = head->backend->create_output(head->backend, name);
 	if (!output)
 		return NULL;
 
@@ -8502,7 +8502,7 @@ weston_compositor_dmabuf_can_scanout(struct weston_compositor *compositor,
 	if (backend->can_scanout_dmabuf == NULL)
 		return false;
 
-	return backend->can_scanout_dmabuf(compositor, buffer);
+	return backend->can_scanout_dmabuf(backend, buffer);
 }
 
 WL_EXPORT void
@@ -8681,7 +8681,7 @@ weston_compositor_destroy(struct weston_compositor *compositor)
 	weston_compositor_xkb_destroy(compositor);
 
 	if (compositor->backend)
-		compositor->backend->destroy(compositor);
+		compositor->backend->destroy(compositor->backend);
 
 	/* The backend is responsible for destroying the heads. */
 	assert(wl_list_empty(&compositor->head_list));

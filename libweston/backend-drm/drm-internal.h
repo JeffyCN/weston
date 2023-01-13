@@ -610,7 +610,7 @@ struct drm_output {
 };
 
 void
-drm_destroy(struct weston_compositor *ec);
+drm_destroy(struct weston_backend *backend);
 
 static inline struct drm_head *
 to_drm_head(struct weston_head *base)
@@ -781,7 +781,7 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 			   struct weston_paint_node *pnode);
 
 extern bool
-drm_can_scanout_dmabuf(struct weston_compositor *ec,
+drm_can_scanout_dmabuf(struct weston_backend *backend,
 		       struct linux_dmabuf_buffer *dmabuf);
 #else
 static inline struct drm_fb *
@@ -791,7 +791,7 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 	return NULL;
 }
 static inline bool
-drm_can_scanout_dmabuf(struct weston_compositor *ec,
+drm_can_scanout_dmabuf(struct weston_backend *backend,
 		       struct linux_dmabuf_buffer *dmabuf)
 {
 	return false;
