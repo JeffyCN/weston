@@ -1244,7 +1244,7 @@ err:
 static void
 drm_output_fini_pixman(struct drm_output *output)
 {
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_backend *b = output->backend;
 	unsigned int i;
 
 	/* Destroying the Pixman surface will destroy all our buffers,
@@ -1293,7 +1293,8 @@ static int
 drm_output_attach_head(struct weston_output *output_base,
 		       struct weston_head *head_base)
 {
-	struct drm_backend *b = to_drm_backend(output_base->compositor);
+	struct drm_output *output = to_drm_output(output_base);
+	struct drm_backend *b = output->backend;
 	struct drm_device *device = b->drm;
 
 	if (wl_list_length(&output_base->head_list) >= MAX_CLONED_CONNECTORS)
@@ -1322,7 +1323,8 @@ static void
 drm_output_detach_head(struct weston_output *output_base,
 		       struct weston_head *head_base)
 {
-	struct drm_backend *b = to_drm_backend(output_base->compositor);
+	struct drm_output *output = to_drm_output(output_base);
+	struct drm_backend *b = output->backend;
 	struct drm_device *device = b->drm;
 
 	if (!output_base->enabled)
@@ -1409,7 +1411,7 @@ drm_output_set_seat(struct weston_output *base,
 		    const char *seat)
 {
 	struct drm_output *output = to_drm_output(base);
-	struct drm_backend *b = to_drm_backend(base->compositor);
+	struct drm_backend *b = output->backend;
 
 	setup_output_seat_constraint(b, &output->base,
 				     seat ? seat : "");
@@ -1704,7 +1706,7 @@ err:
 static int
 drm_output_init_planes(struct drm_output *output)
 {
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_backend *b = output->backend;
 	struct drm_device *device = output->device;
 
 	output->scanout_plane =
@@ -1742,7 +1744,7 @@ drm_output_init_planes(struct drm_output *output)
 static void
 drm_output_deinit_planes(struct drm_output *output)
 {
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_backend *b = output->backend;
 	struct drm_device *device = output->device;
 
 	/* If the compositor is already shutting down, the planes have already
@@ -1939,7 +1941,7 @@ static void
 drm_output_deinit(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
-	struct drm_backend *b = to_drm_backend(base->compositor);
+	struct drm_backend *b = output->backend;
 	struct drm_device *device = b->drm;
 	struct drm_pending_state *pending;
 
@@ -2360,6 +2362,8 @@ drm_output_create(struct weston_backend *backend, const char *name)
 	output->base.disable = drm_output_disable;
 	output->base.attach_head = drm_output_attach_head;
 	output->base.detach_head = drm_output_detach_head;
+
+	output->backend = b;
 
 	output->destroy_pending = false;
 	output->disable_pending = false;

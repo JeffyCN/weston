@@ -531,7 +531,7 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 			   struct weston_paint_node *pnode)
 {
 	struct drm_output *output = state->output;
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_backend *b = output->backend;
 	struct drm_device *device = output->device;
 	struct weston_view *ev = pnode->view;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;

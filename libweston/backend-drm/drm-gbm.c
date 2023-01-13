@@ -278,7 +278,7 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 void
 drm_output_fini_egl(struct drm_output *output)
 {
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
+	struct drm_backend *b = output->backend;
 
 	/* Destroying the GBM surface will destroy all our GBM buffers,
 	 * regardless of refcount. Ensure we destroy them here. */

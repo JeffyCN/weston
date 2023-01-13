@@ -553,6 +553,7 @@ struct drm_crtc {
 
 struct drm_output {
 	struct weston_output base;
+	struct drm_backend *backend;
 	struct drm_device *device;
 	struct drm_crtc *crtc;
 
