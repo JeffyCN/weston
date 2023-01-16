@@ -211,8 +211,9 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	struct drm_output *output = state->output;
 	struct weston_view *ev = node->view;
 	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
-	pixman_region32_t dest_rect, src_rect;
+	pixman_region32_t dest_rect;
 	pixman_box32_t *box;
+	struct weston_vector corners[2];
 	float sxf1, syf1, sxf2, syf2;
 
 	if (!drm_paint_node_transform_supported(node, &output->base))
@@ -237,19 +238,18 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	state->dest_y = box->y1;
 	state->dest_w = box->x2 - box->x1;
 	state->dest_h = box->y2 - box->y1;
-	pixman_region32_fini(&dest_rect);
 
-	/* Now calculate the source rectangle, by finding the extents of the
-	 * view, and working backwards to source co-ordinates. */
-	pixman_region32_init(&src_rect);
-	pixman_region32_intersect(&src_rect, &ev->transform.boundingbox,
-				  &output->base.region);
-	box = pixman_region32_extents(&src_rect);
-	weston_view_from_global_float(ev, box->x1, box->y1, &sxf1, &syf1);
-	weston_surface_to_buffer_float(ev->surface, sxf1, syf1, &sxf1, &syf1);
-	weston_view_from_global_float(ev, box->x2, box->y2, &sxf2, &syf2);
-	weston_surface_to_buffer_float(ev->surface, sxf2, syf2, &sxf2, &syf2);
-	pixman_region32_fini(&src_rect);
+	/* Now calculate the source rectangle, by transforming the destination
+	 * rectangle by the output to buffer matrix. */
+	corners[0] = (struct weston_vector){ { box->x1, box->y1, 0, 1 } };
+	corners[1] = (struct weston_vector){ { box->x2, box->y2, 0, 1 } };
+	weston_matrix_transform(&node->output_to_buffer_matrix, &corners[0]);
+	weston_matrix_transform(&node->output_to_buffer_matrix, &corners[1]);
+	sxf1 = corners[0].f[0] / corners[0].f[3];
+	syf1 = corners[0].f[1] / corners[0].f[3];
+	sxf2 = corners[1].f[0] / corners[1].f[3];
+	syf2 = corners[1].f[1] / corners[1].f[3];
+	pixman_region32_fini(&dest_rect);
 
 	/* We currently only support WL_OUTPUT_TRANSFORM_NORMAL, so it's
 	 * not possible for x2 to be left of x1 or y2 above y1.
