@@ -110,13 +110,56 @@ static void
 subsurface_committed(struct weston_surface *surface, int32_t dx, int32_t dy);
 
 static void
+weston_view_dirty_paint_nodes(struct weston_view *view)
+{
+	struct weston_paint_node *node;
+
+	wl_list_for_each(node, &view->paint_node_list, view_link) {
+		assert(node->surface == view->surface);
+
+		node->status |= PAINT_NODE_VIEW_DIRTY;
+	}
+}
+
+static void
+weston_surface_dirty_paint_nodes(struct weston_surface *surface)
+{
+	struct weston_paint_node *node;
+
+	wl_list_for_each(node, &surface->paint_node_list, surface_link) {
+		assert(node->surface == surface);
+
+		node->status |= PAINT_NODE_VIEW_DIRTY;
+	}
+}
+
+static void
+weston_output_dirty_paint_nodes(struct weston_output *output)
+{
+	struct weston_paint_node *node;
+
+	wl_list_for_each(node, &output->paint_node_list, view_link) {
+		assert(node->output == output);
+
+		node->status |= PAINT_NODE_OUTPUT_DIRTY;
+	}
+}
+
+static void
 paint_node_update(struct weston_paint_node *pnode)
 {
 	struct weston_matrix *mat = &pnode->buffer_to_output_matrix;
+	bool view_dirty = pnode->status & PAINT_NODE_VIEW_DIRTY;
+	bool output_dirty = pnode->status & PAINT_NODE_OUTPUT_DIRTY;
 
-	weston_view_buffer_to_output_matrix(pnode->view, pnode->output, mat);
-	weston_matrix_invert(&pnode->output_to_buffer_matrix, mat);
-	pnode->needs_filtering = weston_matrix_needs_filtering(mat);
+	if (view_dirty || output_dirty) {
+		weston_view_buffer_to_output_matrix(pnode->view,
+						    pnode->output, mat);
+		weston_matrix_invert(&pnode->output_to_buffer_matrix, mat);
+		pnode->needs_filtering = weston_matrix_needs_filtering(mat);
+	}
+
+	pnode->status = PAINT_NODE_CLEAN;
 }
 
 static struct weston_paint_node *
@@ -159,6 +202,7 @@ weston_paint_node_create(struct weston_surface *surface,
 
 	wl_list_init(&pnode->z_order_link);
 
+	pnode->status = PAINT_NODE_ALL_DIRTY;
 	paint_node_update(pnode);
 
 	return pnode;
@@ -1478,6 +1522,8 @@ weston_view_geometry_dirty(struct weston_view *view)
 	wl_list_for_each(child, &view->geometry.child_list,
 			 geometry.parent_link)
 		weston_view_geometry_dirty(child);
+
+	weston_view_dirty_paint_nodes(view);
 }
 
 /**
@@ -3955,6 +4001,14 @@ weston_surface_commit_state(struct weston_surface *surface,
 	weston_matrix_invert(&surface->buffer_to_surface_matrix,
 			     &surface->surface_to_buffer_matrix);
 
+	/* It's possible that this surface's buffer and transform changed
+	 * at the same time in such a way that its size remains the same.
+	 *
+	 * That means we can't depend on view_geometry_dirty() from a
+	 * size update to invalidate the paint node data in all relevant
+	 * cases, so just smash it here.
+	 */
+	weston_surface_dirty_paint_nodes(surface);
 	if (state->newly_attached || state->buffer_viewport.changed ||
 	    state->sx != 0 || state->sy != 0) {
 		weston_surface_update_size(surface);
@@ -6246,6 +6300,8 @@ weston_region_global_to_output(pixman_region32_t *dst,
 WESTON_EXPORT_FOR_TESTS void
 weston_output_update_matrix(struct weston_output *output)
 {
+	weston_output_dirty_paint_nodes(output);
+
 	weston_matrix_init_transform(&output->matrix, output->transform,
 				     output->x, output->y,
 				     output->width, output->height,
@@ -7128,13 +7184,13 @@ weston_output_enable(struct weston_output *output)
 	if (!weston_output_placement_ok(output))
 		return -1;
 
-	weston_output_update_matrix(output);
-	weston_output_damage(output);
-
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->feedback_list);
 	wl_list_init(&output->paint_node_list);
 	wl_list_init(&output->paint_node_z_order_list);
+
+	weston_output_update_matrix(output);
+	weston_output_damage(output);
 
 	weston_log("Output '%s' attempts EOTF mode: %s\n", output->name,
 		   weston_eotf_mode_to_str(output->eotf_mode));

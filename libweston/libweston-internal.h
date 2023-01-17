@@ -471,6 +471,14 @@ weston_drm_format_get_modifiers(const struct weston_drm_format *format,
 
 void
 weston_compositor_destroy_touch_calibrator(struct weston_compositor *compositor);
+
+enum paint_node_status {
+	PAINT_NODE_CLEAN = 0,
+	PAINT_NODE_OUTPUT_DIRTY = 1 << 1,
+	PAINT_NODE_VIEW_DIRTY = 1 << 2,
+	PAINT_NODE_ALL_DIRTY = 0xf,
+};
+
 /**
  * paint node
  *
@@ -493,6 +501,7 @@ struct weston_paint_node {
 
 	/* Mutable members: */
 
+	enum paint_node_status status;
 	struct weston_matrix buffer_to_output_matrix;
 	struct weston_matrix output_to_buffer_matrix;
 	bool needs_filtering;

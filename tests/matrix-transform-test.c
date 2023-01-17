@@ -371,6 +371,7 @@ simple_weston_output_prepare(struct weston_output *output,
 	output->height = height;
 	output->current_scale = scale;
 	output->transform = transform;
+	wl_list_init(&output->paint_node_list);
 	weston_output_update_matrix(output);
 }
 
