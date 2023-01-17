@@ -80,6 +80,7 @@
 #include "libweston-internal.h"
 #include "color.h"
 #include "output-capture.h"
+#include "pixman-renderer.h"
 #include "renderer-gl/gl-renderer.h"
 
 #include "weston-log-internal.h"
@@ -8769,6 +8770,9 @@ weston_compositor_init_renderer(struct weston_compositor *compositor,
 			return ret;
 
 		compositor->renderer->gl = gl_renderer;
+		break;
+	case WESTON_RENDERER_PIXMAN:
+		ret = pixman_renderer_init(compositor);
 		break;
 	default:
 		ret = -1;

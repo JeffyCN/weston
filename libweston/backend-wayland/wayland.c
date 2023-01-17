@@ -2844,7 +2844,9 @@ wayland_backend_create(struct weston_compositor *compositor,
 	}
 
 	if (renderer == WESTON_RENDERER_PIXMAN) {
-		if (pixman_renderer_init(compositor) < 0) {
+		if (weston_compositor_init_renderer(compositor,
+						    WESTON_RENDERER_PIXMAN,
+						    NULL) < 0) {
 			weston_log("Failed to initialize pixman renderer\n");
 			goto err_display;
 		}

@@ -564,7 +564,9 @@ headless_backend_create(struct weston_compositor *compositor,
 			weston_log("Error: Pixman renderer does not support decorations.\n");
 			goto err_input;
 		}
-		ret = pixman_renderer_init(compositor);
+		ret = weston_compositor_init_renderer(compositor,
+						      WESTON_RENDERER_PIXMAN,
+						      NULL);
 		break;
 	case WESTON_RENDERER_AUTO:
 	case WESTON_RENDERER_NOOP:

@@ -748,7 +748,8 @@ drm_output_apply_mode(struct drm_output *output)
 static int
 init_pixman(struct drm_backend *b)
 {
-	return pixman_renderer_init(b->compositor);
+	return weston_compositor_init_renderer(b->compositor,
+					       WESTON_RENDERER_PIXMAN, NULL);
 }
 
 /**
