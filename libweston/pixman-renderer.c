@@ -1106,6 +1106,11 @@ pixman_renderer_output_create(struct weston_output *output,
 
 	wl_list_init(&po->renderbuffer_list);
 
+	weston_output_update_capture_info(output,
+					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
+					  area.width, area.height,
+					  options->drm_format);
+
 	return 0;
 }
 

@@ -38,6 +38,8 @@ struct pixman_renderer_output_options {
 	bool use_shadow;
 	/** Initial framebuffer size */
 	struct weston_size fb_size;
+	/** Initial DRM pixel format */
+	uint32_t drm_format;
 };
 
 struct pixman_renderer_interface {

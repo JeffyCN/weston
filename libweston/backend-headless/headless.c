@@ -301,6 +301,7 @@ headless_output_enable_pixman(struct headless_output *output)
 			.width = output->base.current_mode->width,
 			.height = output->base.current_mode->height
 		},
+		.drm_format = headless_formats[0]
 	};
 
 	pixman = output->base.compositor->renderer->pixman;
@@ -316,12 +317,6 @@ headless_output_enable_pixman(struct headless_output *output)
 					      output->base.current_mode->height);
 	if (!output->renderbuffer)
 		goto err_renderer;
-
-	weston_output_update_capture_info(&output->base,
-					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
-					  output->base.current_mode->width,
-					  output->base.current_mode->height,
-					  pfmt->format);
 
 	return 0;
 
