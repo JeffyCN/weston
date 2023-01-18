@@ -506,6 +506,9 @@ struct weston_paint_node {
 	struct weston_matrix output_to_buffer_matrix;
 	bool needs_filtering;
 
+	bool valid_transform;
+	enum wl_output_transform transform;
+
 	/* struct weston_output::paint_node_z_order_list */
 	struct wl_list z_order_link;
 

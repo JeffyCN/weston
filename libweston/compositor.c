@@ -157,9 +157,13 @@ paint_node_update(struct weston_paint_node *pnode)
 						    pnode->output, mat);
 		weston_matrix_invert(&pnode->output_to_buffer_matrix, mat);
 		pnode->needs_filtering = weston_matrix_needs_filtering(mat);
+
+		pnode->valid_transform = weston_matrix_to_transform(mat,
+								    &pnode->transform);
 	}
 
 	pnode->status = PAINT_NODE_CLEAN;
+
 }
 
 static struct weston_paint_node *

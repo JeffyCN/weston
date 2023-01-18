@@ -677,14 +677,12 @@ drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id);
 static inline bool
 drm_paint_node_transform_supported(struct weston_paint_node *node, struct weston_output *output)
 {
-	enum wl_output_transform wt;
-
 	/* if false, the transform doesn't map to any of the standard
 	 * (ie: 90 degree) output transformations. */
-	if (!weston_matrix_to_transform(&node->buffer_to_output_matrix, &wt))
+	if (!node->valid_transform)
 		return false;
 
-	if (wt != WL_OUTPUT_TRANSFORM_NORMAL)
+	if (node->transform != WL_OUTPUT_TRANSFORM_NORMAL)
 		return false;
 
 	return true;
