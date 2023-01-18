@@ -321,7 +321,7 @@ headless_output_enable_pixman(struct headless_output *output)
 					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
 					  output->base.current_mode->width,
 					  output->base.current_mode->height,
-					  pfmt);
+					  pfmt->format);
 
 	return 0;
 

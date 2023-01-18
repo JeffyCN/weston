@@ -65,8 +65,7 @@ weston_output_capture_info_repaint_done(struct weston_output_capture_info *ci);
 void
 weston_output_update_capture_info(struct weston_output *output,
 				  enum weston_output_capture_source src,
-				  int width, int height,
-				  const struct pixel_format_info *format);
+				  int width, int height, uint32_t drm_format);
 
 bool
 weston_output_has_capture_tasks(struct weston_output *output);
