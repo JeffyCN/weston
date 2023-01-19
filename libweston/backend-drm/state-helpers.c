@@ -219,8 +219,11 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	struct weston_coord corners[2];
 	float sxf1, syf1, sxf2, syf2;
 
-	if (!drm_paint_node_transform_supported(node, &output->base))
+	if (!drm_paint_node_transform_supported(node, state->plane))
 		return false;
+
+	assert(node->valid_transform);
+	state->rotation = drm_rotation_from_output_transform(state->plane, node->transform);
 
 	/* Update the base weston_plane co-ordinates. */
 	box = pixman_region32_extents(&ev->transform.boundingbox);
@@ -256,11 +259,21 @@ drm_plane_state_coords_for_paint_node(struct drm_plane_state *state,
 	syf2 = corners[1].y;
 	pixman_region32_fini(&dest_rect);
 
-	/* We currently only support WL_OUTPUT_TRANSFORM_NORMAL, so it's
-	 * not possible for x2 to be left of x1 or y2 above y1.
+	/* Make sure that our post-transform coordinates are in the
+	 * right order.
 	 */
-	assert(sxf1 < sxf2);
-	assert(syf1 < syf2);
+	if (sxf1 > sxf2) {
+		float temp = sxf1;
+
+		sxf1 = sxf2;
+		sxf2 = temp;
+	}
+	if (syf1 > syf2) {
+		float temp = syf1;
+
+		syf1 = syf2;
+		syf2 = temp;
+	}
 
 	/* Shift from S23.8 wl_fixed to U16.16 KMS fixed-point encoding. */
 	state->src_x = wl_fixed_from_double(sxf1) << 8;

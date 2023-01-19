@@ -546,12 +546,6 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 		return NULL;
 	}
 
-	if (!drm_paint_node_transform_supported(pnode, &output->base)) {
-		pnode->try_view_on_plane_failure_reasons |=
-			FAILURE_REASONS_INCOMPATIBLE_TRANSFORM;
-		return NULL;
-	}
-
 	if (ev->surface->protection_mode == WESTON_SURFACE_PROTECTION_MODE_ENFORCED &&
 	    ev->surface->desired_protection > output->base.current_protection) {
 		pnode->try_view_on_plane_failure_reasons |=
@@ -612,8 +606,9 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 		/* only SHM buffers can go into cursor planes */
 		if (plane->type == WDRM_PLANE_TYPE_CURSOR)
 			continue;
+
 		if (drm_fb_compatible_with_plane(fb, plane))
-			fb->plane_mask |= (1 << plane->plane_idx);
+			fb->plane_mask |= 1 << (plane->plane_idx);
 	}
 	if (fb->plane_mask == 0) {
 		drm_fb_unref(fb);

@@ -499,6 +499,20 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			return NULL;
 		}
 
+		wl_list_for_each(plane, &device->plane_list, link) {
+			if (plane->type == WDRM_PLANE_TYPE_CURSOR)
+				continue;
+
+			if (drm_paint_node_transform_supported(pnode, plane))
+				possible_plane_mask |= 1 << plane->plane_idx;
+		}
+
+		if (!possible_plane_mask) {
+			pnode->try_view_on_plane_failure_reasons |=
+				FAILURE_REASONS_INCOMPATIBLE_TRANSFORM;
+			return NULL;
+		}
+
 		fb = drm_fb_get_from_paint_node(state, pnode);
 		if (!fb) {
 			drm_debug(b, "\t\t\t[view] couldn't get FB for view: 0x%lx\n",
@@ -506,7 +520,7 @@ drm_output_find_plane_for_view(struct drm_output_state *state,
 			return NULL;
 		}
 
-		possible_plane_mask = fb->plane_mask;
+		possible_plane_mask &= fb->plane_mask;
 	}
 
 	view_matches_entire_output =

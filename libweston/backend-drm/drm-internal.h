@@ -695,14 +695,14 @@ drm_rotation_from_output_transform(struct drm_plane *plane,
 				   enum wl_output_transform ot);
 
 static inline bool
-drm_paint_node_transform_supported(struct weston_paint_node *node, struct weston_output *output)
+drm_paint_node_transform_supported(struct weston_paint_node *node, struct drm_plane *plane)
 {
 	/* if false, the transform doesn't map to any of the standard
 	 * (ie: 90 degree) output transformations. */
 	if (!node->valid_transform)
 		return false;
 
-	if (node->transform != WL_OUTPUT_TRANSFORM_NORMAL)
+	if (drm_rotation_from_output_transform(plane, node->transform) == 0)
 		return false;
 
 	return true;
