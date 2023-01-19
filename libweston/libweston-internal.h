@@ -258,6 +258,10 @@ weston_output_disable_planes_incr(struct weston_output *output);
 void
 weston_output_disable_planes_decr(struct weston_output *output);
 
+void
+weston_output_set_single_mode(struct weston_output *output,
+			      struct weston_mode *target);
+
 /* weston_plane */
 
 void
