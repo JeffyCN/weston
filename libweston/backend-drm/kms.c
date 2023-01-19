@@ -58,6 +58,27 @@ struct drm_property_enum_info plane_type_enums[] = {
 	},
 };
 
+struct drm_property_enum_info plane_rotation_enums[] = {
+	[WDRM_PLANE_ROTATION_0] = {
+		.name = "rotate-0",
+	},
+	[WDRM_PLANE_ROTATION_90] = {
+		.name = "rotate-90",
+	},
+	[WDRM_PLANE_ROTATION_180] = {
+		.name = "rotate-180",
+	},
+	[WDRM_PLANE_ROTATION_270] = {
+		.name = "rotate-270",
+	},
+	[WDRM_PLANE_ROTATION_REFLECT_X] = {
+		.name = "reflect-x",
+	},
+	[WDRM_PLANE_ROTATION_REFLECT_Y] = {
+		.name = "reflect-y",
+	},
+};
+
 const struct drm_property_info plane_props[] = {
 	[WDRM_PLANE_TYPE] = {
 		.name = "type",
@@ -78,6 +99,11 @@ const struct drm_property_info plane_props[] = {
 	[WDRM_PLANE_IN_FENCE_FD] = { .name = "IN_FENCE_FD" },
 	[WDRM_PLANE_FB_DAMAGE_CLIPS] = { .name = "FB_DAMAGE_CLIPS" },
 	[WDRM_PLANE_ZPOS] = { .name = "zpos" },
+	[WDRM_PLANE_ROTATION] = {
+		.name = "rotation",
+		.enum_values = plane_rotation_enums,
+		.num_enum_values = WDRM_PLANE_ROTATION__COUNT,
+	 },
 };
 
 struct drm_property_enum_info dpms_state_enums[] = {
