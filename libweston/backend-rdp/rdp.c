@@ -338,72 +338,19 @@ finish_frame_handler(void *data)
 	return 1;
 }
 
-static struct weston_mode *
-rdp_insert_new_mode(struct weston_output *output, int width, int height, int rate)
-{
-	struct weston_mode *ret;
-	ret = xzalloc(sizeof *ret);
-	ret->width = width;
-	ret->height = height;
-	ret->refresh = rate;
-	ret->flags = WL_OUTPUT_MODE_PREFERRED;
-	wl_list_insert(&output->mode_list, &ret->link);
-	return ret;
-}
-
-/* It doesn't make sense for RDP to have more than one mode, so
- * we make sure that we have only one.
- */
-static struct weston_mode *
-ensure_single_mode(struct weston_output *output, struct weston_mode *target)
-{
-	struct rdp_output *rdpOutput = to_rdp_output(output);
-	struct rdp_backend *b = rdpOutput->backend;
-	struct weston_mode *iter, *local = NULL, *new_mode;
-
-	wl_list_for_each(iter, &output->mode_list, link) {
-		assert(!local);
-
-		if ((iter->width == target->width) &&
-		    (iter->height == target->height) &&
-		    (iter->refresh == target->refresh)) {
-			return iter;
-		} else {
-			local = iter;
-		}
-	}
-	/* Make sure we create the new one before freeing the old one
-	 * because some mode switch code uses pointer comparisons! If
-	 * we freed the old mode first, malloc could theoretically give
-	 * us back the same pointer.
-	 */
-	new_mode = rdp_insert_new_mode(output,
-				       target->width, target->height,
-				       b->rdp_monitor_refresh_rate);
-	if (local) {
-		wl_list_remove(&local->link);
-		free(local);
-	}
-
-	return new_mode;
-}
-
 static void
 rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 {
 	struct rdp_output *rdpOutput = container_of(base, struct rdp_output, base);
 	struct rdp_backend *b = rdpOutput->backend;
-	struct weston_mode *cur;
 	struct weston_output *output = base;
 	struct rdp_peers_item *rdpPeer;
 	rdpSettings *settings;
 	struct weston_renderbuffer *new_renderbuffer;
 
 	mode->refresh = b->rdp_monitor_refresh_rate;
-	cur = ensure_single_mode(base, mode);
+	weston_output_set_single_mode(base, mode);
 
-	base->current_mode = cur;
-	base->native_mode = cur;
 	if (base->enabled) {
 		const struct pixman_renderer_interface *pixman;
 		const struct pixel_format_info *pfmt;

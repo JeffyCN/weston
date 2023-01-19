@@ -7045,6 +7045,45 @@ weston_output_get_color_characteristics(struct weston_output *output)
 	return &output->color_characteristics;
 }
 
+WL_EXPORT void
+weston_output_set_single_mode(struct weston_output *output,
+			      struct weston_mode *target)
+{
+	struct weston_mode *iter, *local = NULL, *mode;
+
+	wl_list_for_each(iter, &output->mode_list, link) {
+		assert(!local);
+
+		if ((iter->width == target->width) &&
+		    (iter->height == target->height) &&
+		    (iter->refresh == target->refresh)) {
+			mode = iter;
+			goto out;
+		} else {
+			local = iter;
+		}
+	}
+	/* Make sure we create the new one before freeing the old one
+	 * because some mode switch code uses pointer comparisons! If
+	 * we freed the old mode first, malloc could theoretically give
+	 * us back the same pointer.
+	 */
+	mode = xzalloc(sizeof *mode);
+	mode->width = target->width;
+	mode->height = target->height;
+	mode->refresh = target->refresh;
+	mode->flags = WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED;
+	wl_list_insert(&output->mode_list, &mode->link);
+out:
+	output->current_mode = mode;
+	output->native_mode = mode;
+
+	if (local) {
+		wl_list_remove(&local->link);
+		free(local);
+	}
+}
+
 /** Initializes a weston_output object with enough data so
  ** an output can be configured.
  *
