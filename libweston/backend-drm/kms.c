@@ -381,9 +381,11 @@ drm_property_info_populate(struct drm_device *device,
 			continue;
 		}
 
-		if (!(prop->flags & DRM_MODE_PROP_ENUM)) {
-			weston_log("DRM: expected property %s to be an enum,"
-				   " but it is not; ignoring\n", prop->name);
+		if (!(prop->flags & DRM_MODE_PROP_ENUM) &&
+		    !(prop->flags & DRM_MODE_PROP_BITMASK)) {
+			weston_log("DRM: expected property %s to be an enum"
+				   " or bitmask, but it is not; ignoring\n",
+				   prop->name);
 			drmModeFreeProperty(prop);
 			info[j].prop_id = 0;
 			continue;
