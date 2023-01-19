@@ -300,6 +300,73 @@ drm_property_get_range_values(struct drm_property_info *info,
 	return NULL;
 }
 
+/* We use the fact that 0 is not a valid rotation here - if we return 0,
+ * the plane doesn't support the rotation requested. Otherwise the correct
+ * value to achieve the requested rotation on this plane is returned.
+ */
+uint64_t
+drm_rotation_from_output_transform(struct drm_plane *plane,
+				   enum wl_output_transform ot)
+{
+	struct drm_property_info *info = &plane->props[WDRM_PLANE_ROTATION];
+	enum wdrm_plane_rotation drm_rotation;
+	enum wdrm_plane_rotation drm_reflection = 0;
+	uint64_t out = 0;
+
+	if (info->prop_id == 0) {
+		if (ot == WL_OUTPUT_TRANSFORM_NORMAL)
+			return 1;
+
+		return 0;
+	}
+
+	switch (ot) {
+	case WL_OUTPUT_TRANSFORM_NORMAL:
+		drm_rotation = WDRM_PLANE_ROTATION_0;
+		break;
+	case WL_OUTPUT_TRANSFORM_90:
+		drm_rotation = WDRM_PLANE_ROTATION_90;
+		break;
+	case WL_OUTPUT_TRANSFORM_180:
+		drm_rotation = WDRM_PLANE_ROTATION_180;
+		break;
+	case WL_OUTPUT_TRANSFORM_270:
+		drm_rotation = WDRM_PLANE_ROTATION_270;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED:
+		drm_rotation = WDRM_PLANE_ROTATION_0;
+		drm_reflection = WDRM_PLANE_ROTATION_REFLECT_X;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+		drm_rotation = WDRM_PLANE_ROTATION_90;
+		drm_reflection = WDRM_PLANE_ROTATION_REFLECT_X;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+		drm_rotation = WDRM_PLANE_ROTATION_180;
+		drm_reflection = WDRM_PLANE_ROTATION_REFLECT_X;
+		break;
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		drm_rotation = WDRM_PLANE_ROTATION_270;
+		drm_reflection = WDRM_PLANE_ROTATION_REFLECT_X;
+		break;
+	default:
+		assert(0 && "bad output transform");
+	}
+
+	if (!info->enum_values[drm_rotation].valid)
+		return 0;
+
+	out |= 1 << info->enum_values[drm_rotation].value;
+
+	if (drm_reflection) {
+		if (!info->enum_values[drm_reflection].valid)
+			return 0;
+		out |= 1 << info->enum_values[drm_reflection].value;
+	}
+
+	return out;
+}
+
 /**
  * Cache DRM property values
  *
@@ -1200,6 +1267,10 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 					      WDRM_PLANE_IN_FENCE_FD,
 					      plane_state->in_fence_fd);
 		}
+
+		if (plane->props[WDRM_PLANE_ROTATION].prop_id != 0)
+			ret |= plane_add_prop(req, plane, WDRM_PLANE_ROTATION,
+					      plane_state->rotation);
 
 		/* do note, that 'invented' zpos values are set as immutable */
 		if (plane_state->zpos != DRM_PLANE_ZPOS_INVALID_PLANE &&

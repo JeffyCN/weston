@@ -48,6 +48,9 @@ drm_plane_state_alloc(struct drm_output_state *state_output,
 	state->output_state = state_output;
 	state->plane = plane;
 	state->in_fence_fd = -1;
+	state->rotation = drm_rotation_from_output_transform(plane,
+							     WL_OUTPUT_TRANSFORM_NORMAL);
+	assert(state->rotation);
 	state->zpos = DRM_PLANE_ZPOS_INVALID_PLANE;
 
 	/* Here we only add the plane state to the desired link, and not

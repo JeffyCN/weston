@@ -469,6 +469,8 @@ struct drm_plane_state {
 	int32_t dest_x, dest_y;
 	uint32_t dest_w, dest_h;
 
+	uint32_t rotation;
+
 	uint64_t zpos;
 
 	bool complete;
@@ -687,6 +689,10 @@ drm_crtc_find(struct drm_device *device, uint32_t crtc_id);
 
 struct drm_head *
 drm_head_find_by_connector(struct drm_backend *backend, uint32_t connector_id);
+
+uint64_t
+drm_rotation_from_output_transform(struct drm_plane *plane,
+				   enum wl_output_transform ot);
 
 static inline bool
 drm_paint_node_transform_supported(struct weston_paint_node *node, struct weston_output *output)
