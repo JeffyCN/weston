@@ -42,6 +42,7 @@
 #include <unistd.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon.h>
+#define AML_UNSTABLE_API 1
 #include <aml.h>
 #include <neatvnc.h>
 #include <drm_fourcc.h>

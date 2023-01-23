@@ -3,12 +3,12 @@ if not get_option('backend-vnc')
 endif
 
 config_h.set('BUILD_VNC_COMPOSITOR', '1')
-dep_neatvnc = dependency('neatvnc', version: ['>= 0.5.0', '< 0.6.0'], required: false)
+dep_neatvnc = dependency('neatvnc', version: ['>= 0.6.0', '< 0.7.0'], required: false)
 if not dep_neatvnc.found()
 	error('VNC backend requires neatvnc which was not found. Or, you can use \'-Dbackend-vnc=false\'.')
 endif
 
-dep_aml = dependency('aml', version: ['>= 0.1.0', '< 0.3.0'], required: false)
+dep_aml = dependency('aml', version: ['>= 0.3.0', '< 0.4.0'], required: false)
 if not dep_aml.found()
 	error('VNC backend requires libaml which was not found. Or, you can use \'-Dbackend-vnc=false\'.')
 endif
