@@ -83,6 +83,19 @@ do { \
 #endif
 
 /**
+ * Clips the value to the maximum to the first item provided.
+ *
+ * @param c the first item to compare.
+ * @param x the second item to compare.
+ * @param y the third item to compare.
+ * @return the value that evaluates to lesser than the maximum of
+ * the two other parameters.
+ */
+#ifndef CLIP
+#define CLIP(c, x, y) MIN(MAX(c, x), y)
+#endif
+
+/**
  * Returns a pointer to the containing struct of a given member item.
  *
  * To demonstrate, the following example retrieves a pointer to

@@ -279,10 +279,6 @@ clip_polygon_bottom(struct clip_context *ctx, const struct polygon8 *src,
 	return ctx->vertices.x - dst_x;
 }
 
-#define max(a, b) (((a) > (b)) ? (a) : (b))
-#define min(a, b) (((a) > (b)) ? (b) : (a))
-#define clip(x, a, b)  min(max(x, a), b)
-
 WESTON_EXPORT_FOR_TESTS int
 clip_simple(struct clip_context *ctx,
 	    struct polygon8 *surf,
@@ -291,8 +287,8 @@ clip_simple(struct clip_context *ctx,
 {
 	int i;
 	for (i = 0; i < surf->n; i++) {
-		ex[i] = clip(surf->x[i], ctx->clip.x1, ctx->clip.x2);
-		ey[i] = clip(surf->y[i], ctx->clip.y1, ctx->clip.y2);
+		ex[i] = CLIP(surf->x[i], ctx->clip.x1, ctx->clip.x2);
+		ey[i] = CLIP(surf->y[i], ctx->clip.y1, ctx->clip.y2);
 	}
 	return surf->n;
 }
