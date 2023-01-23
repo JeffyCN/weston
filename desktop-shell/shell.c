@@ -2051,8 +2051,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = shsurf->view;
 	struct desktop_shell *shell = data;
-	bool was_fullscreen;
-	bool was_maximized;
+	bool was_fullscreen, should_set_fullscreen;
+	bool was_maximized, should_set_maximized;
 
 	if (surface->width == 0)
 		return;
@@ -2064,6 +2064,12 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_fullscreen(desktop_surface);
 	shsurf->state.maximized =
 		weston_desktop_surface_get_maximized(desktop_surface);
+
+	should_set_fullscreen = shsurf->state.fullscreen &&
+				(!was_fullscreen || shsurf->output !=
+						    shsurf->fullscreen_output);
+	should_set_maximized = shsurf->state.maximized &&
+			       !was_maximized;
 
 	if (!weston_surface_is_mapped(surface)) {
 		map(shell, shsurf);
@@ -2086,12 +2092,13 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	    was_maximized == shsurf->state.maximized)
 	    return;
 
-	if (was_fullscreen)
+	if (was_fullscreen && (!shsurf->state.fullscreen ||
+			       shsurf->output != shsurf->fullscreen_output))
 		unset_fullscreen(shsurf);
-	if (was_maximized)
+	if (was_maximized && !shsurf->state.maximized)
 		unset_maximized(shsurf);
 
-	if ((shsurf->state.fullscreen || shsurf->state.maximized) &&
+	if ((should_set_fullscreen || should_set_maximized) &&
 	    !shsurf->saved_position_valid) {
 		shsurf->saved_x = shsurf->view->geometry.x;
 		shsurf->saved_y = shsurf->view->geometry.y;
@@ -2107,9 +2114,9 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	weston_view_update_transform(shsurf->view);
 
-	if (shsurf->state.fullscreen) {
+	if (should_set_fullscreen) {
 		shell_configure_fullscreen(shsurf);
-	} else if (shsurf->state.maximized) {
+	} else if (should_set_maximized) {
 		set_maximized_position(shell, shsurf);
 		surface->output = shsurf->output;
 	} else {
