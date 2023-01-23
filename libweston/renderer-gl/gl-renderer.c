@@ -400,9 +400,6 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 	wl_list_insert(&go->timeline_render_point_list, &trp->link);
 }
 
-#define max(a, b) (((a) > (b)) ? (a) : (b))
-#define min(a, b) (((a) > (b)) ? (b) : (a))
-
 /*
  * Compute the boundary vertices of the intersection of the global coordinate
  * aligned rectangle 'rect', and an arbitrary quadrilateral produced from
@@ -441,10 +438,10 @@ calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 	min_y = max_y = surf.y[0];
 
 	for (i = 1; i < surf.n; i++) {
-		min_x = min(min_x, surf.x[i]);
-		max_x = max(max_x, surf.x[i]);
-		min_y = min(min_y, surf.y[i]);
-		max_y = max(max_y, surf.y[i]);
+		min_x = MIN(min_x, surf.x[i]);
+		max_x = MAX(max_x, surf.x[i]);
+		min_y = MIN(min_y, surf.y[i]);
+		max_y = MAX(max_y, surf.y[i]);
 	}
 
 	/* First, simple bounding box check to discard early transformed
