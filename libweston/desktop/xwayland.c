@@ -170,6 +170,16 @@ weston_desktop_xwayland_surface_committed(struct weston_desktop_surface *dsurfac
 	if (surface->added)
 		weston_desktop_api_committed(surface->desktop, surface->surface,
 					     sx, sy);
+
+	/* If we're an override redirect window, the shell has no knowledge of
+	 * our existence, so it won't assign us an output.
+	 *
+	 * We should already have dirty geometry if we're a new view, so just
+	 * update the transform to get us an output assigned, or we won't
+	 * cause a repaint.
+	 */
+	if (surface->state == XWAYLAND)
+		weston_view_update_transform(surface->view);
 }
 
 static void
