@@ -423,7 +423,7 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 		pixman_image_composite32(PIXMAN_OP_SRC, old_image, 0, new_image,
 					 0, 0, 0, 0, 0, 0, mode->width,
 					 mode->height);
-		pixman->renderbuffer_destroy(rdpOutput->renderbuffer);
+		weston_renderbuffer_unref(rdpOutput->renderbuffer);
 		rdpOutput->renderbuffer = new_renderbuffer;
 	}
 
@@ -522,7 +522,8 @@ rdp_output_disable(struct weston_output *base)
 	if (!output->base.enabled)
 		return 0;
 
-	renderer->pixman->renderbuffer_destroy(output->renderbuffer);
+	weston_renderbuffer_unref(output->renderbuffer);
+	output->renderbuffer = NULL;
 	renderer->pixman->output_destroy(&output->base);
 
 	wl_event_source_remove(output->finish_frame_timer);

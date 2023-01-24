@@ -1133,6 +1133,9 @@ pixman_renderer_output_destroy(struct weston_output *output)
 	free(po);
 }
 
+static void
+pixman_renderer_renderbuffer_destroy(struct weston_renderbuffer *renderbuffer);
+
 static struct weston_renderbuffer *
 pixman_renderer_create_image_from_ptr(struct weston_output *output,
 				      pixman_format_code_t format, int width,
@@ -1153,6 +1156,8 @@ pixman_renderer_create_image_from_ptr(struct weston_output *output,
 	}
 
 	pixman_region32_init(&renderbuffer->base.damage);
+	renderbuffer->base.refcount = 1;
+	renderbuffer->base.destroy = pixman_renderer_renderbuffer_destroy;
 	wl_list_insert(&po->renderbuffer_list, &renderbuffer->link);
 
 	return &renderbuffer->base;
@@ -1178,6 +1183,8 @@ pixman_renderer_create_image(struct weston_output *output,
 	}
 
 	pixman_region32_init(&renderbuffer->base.damage);
+	renderbuffer->base.refcount = 1;
+	renderbuffer->base.destroy = pixman_renderer_renderbuffer_destroy;
 	wl_list_insert(&po->renderbuffer_list, &renderbuffer->link);
 
 	return &renderbuffer->base;
@@ -1200,6 +1207,5 @@ static struct pixman_renderer_interface pixman_renderer_interface = {
 	.output_destroy = pixman_renderer_output_destroy,
 	.create_image_from_ptr = pixman_renderer_create_image_from_ptr,
 	.create_image = pixman_renderer_create_image,
-	.renderbuffer_destroy = pixman_renderer_renderbuffer_destroy,
 	.renderbuffer_get_image = pixman_renderer_renderbuffer_get_image,
 };

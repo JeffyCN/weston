@@ -56,6 +56,5 @@ struct pixman_renderer_interface {
 	struct weston_renderbuffer *(*create_image)(struct weston_output *output,
 						    pixman_format_code_t format,
 						    int width, int height);
-	void (*renderbuffer_destroy)(struct weston_renderbuffer *renderbuffer);
 	pixman_image_t *(*renderbuffer_get_image)(struct weston_renderbuffer *renderbuffer);
 };

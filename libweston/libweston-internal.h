@@ -48,7 +48,16 @@
 
 struct weston_renderbuffer {
 	pixman_region32_t damage;
+	int refcount;
+
+	void (*destroy)(struct weston_renderbuffer *renderbuffer);
 };
+
+struct weston_renderbuffer *
+weston_renderbuffer_ref(struct weston_renderbuffer *renderbuffer);
+
+void
+weston_renderbuffer_unref(struct weston_renderbuffer *renderbuffer);
 
 struct weston_renderer_options {
 };

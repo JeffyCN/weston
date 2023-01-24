@@ -449,11 +449,10 @@ static void
 fb_side_data_destroy(void *userdata)
 {
 	struct fb_side_data *fb_side_data = userdata;
-	struct weston_renderer *renderer = fb_side_data->renderer;
 
 	wl_list_remove(&fb_side_data->link);
 	pixman_region32_fini(&fb_side_data->damage);
-	renderer->pixman->renderbuffer_destroy(fb_side_data->renderbuffer);
+	weston_renderbuffer_unref(fb_side_data->renderbuffer);
 	free(fb_side_data);
 }
 

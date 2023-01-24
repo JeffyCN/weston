@@ -192,7 +192,8 @@ headless_output_disable_pixman(struct headless_output *output)
 {
 	struct weston_renderer *renderer = output->base.compositor->renderer;
 
-	renderer->pixman->renderbuffer_destroy(output->renderbuffer);
+	weston_renderbuffer_unref(output->renderbuffer);
+	output->renderbuffer = NULL;
 	renderer->pixman->output_destroy(&output->base);
 }
 

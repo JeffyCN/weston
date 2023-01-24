@@ -8899,6 +8899,25 @@ weston_output_disable_planes_decr(struct weston_output *output)
 
 }
 
+WL_EXPORT struct weston_renderbuffer *
+weston_renderbuffer_ref(struct weston_renderbuffer *renderbuffer)
+{
+	renderbuffer->refcount++;
+
+	return renderbuffer;
+}
+
+WL_EXPORT void
+weston_renderbuffer_unref(struct weston_renderbuffer *renderbuffer)
+{
+	assert(renderbuffer->refcount > 0);
+
+	if (--renderbuffer->refcount > 0)
+		return;
+
+	renderbuffer->destroy(renderbuffer);
+}
+
 /** Tell the renderer that the target framebuffer size has changed
  *
  * \param output The output that was resized.

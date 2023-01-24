@@ -554,12 +554,11 @@ finish_frame_handler(void *data)
 static void
 x11_output_deinit_shm(struct x11_backend *b, struct x11_output *output)
 {
-	const struct weston_renderer *renderer = b->compositor->renderer;
 	xcb_void_cookie_t cookie;
 	xcb_generic_error_t *err;
 	xcb_free_gc(b->conn, output->gc);
 
-	renderer->pixman->renderbuffer_destroy(output->renderbuffer);
+	weston_renderbuffer_unref(output->renderbuffer);
 	output->renderbuffer = NULL;
 	cookie = xcb_shm_detach_checked(b->conn, output->segment);
 	err = xcb_request_check(b->conn, cookie);

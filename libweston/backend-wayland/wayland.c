@@ -257,12 +257,8 @@ static void
 wayland_shm_buffer_destroy(struct wayland_shm_buffer *buffer)
 {
 	cairo_surface_destroy(buffer->c_surface);
-	if (buffer->output) {
-		const struct pixman_renderer_interface *pixman;
-
-		pixman = buffer->output->base.compositor->renderer->pixman;
-		pixman->renderbuffer_destroy(buffer->renderbuffer);
-	}
+	if (buffer->output)
+		weston_renderbuffer_unref(buffer->renderbuffer);
 
 	wl_buffer_destroy(buffer->buffer);
 	munmap(buffer->data, buffer->size);
