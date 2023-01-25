@@ -1,5 +1,5 @@
 dep_scanner = dependency('wayland-scanner', native: true)
-prog_scanner = find_program(dep_scanner.get_pkgconfig_variable('wayland_scanner'))
+prog_scanner = find_program(dep_scanner.get_variable(pkgconfig: 'wayland_scanner'))
 
 dep_wp = dependency('wayland-protocols', version: '>= 1.26',
 	fallback: ['wayland-protocols', 'wayland_protocols'])

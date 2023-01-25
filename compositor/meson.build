@@ -57,7 +57,6 @@ pkgconfig.generate(
 	description: 'Header files for Weston plugin development',
 	requires_private: [ lib_weston ],
 	variables: [
-		'libexecdir=' + join_paths('${prefix}', get_option('libexecdir')),
 		'pkglibexecdir=${libexecdir}/weston'
 	],
 	subdirs: 'weston'

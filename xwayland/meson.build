@@ -4,7 +4,7 @@ endif
 
 xwayland_dep = dependency('xwayland', required: false)
 if xwayland_dep.found()
-	if xwayland_dep.get_pkgconfig_variable('have_listenfd') == 'true'
+	if xwayland_dep.get_variable(pkgconfig: 'have_listenfd') == 'true'
 		config_h.set('HAVE_XWAYLAND_LISTENFD', '1')
 	endif
 endif
