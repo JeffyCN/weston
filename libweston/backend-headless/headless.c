@@ -311,10 +311,9 @@ headless_output_enable_pixman(struct headless_output *output)
 		return -1;
 
 	output->renderbuffer =
-		pixman->create_image_no_clear(&output->base,
-					      pfmt->pixman_format,
-					      output->base.current_mode->width,
-					      output->base.current_mode->height);
+		pixman->create_image(&output->base, pfmt->pixman_format,
+				     output->base.current_mode->width,
+				     output->base.current_mode->height);
 	if (!output->renderbuffer)
 		goto err_renderer;
 

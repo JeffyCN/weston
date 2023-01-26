@@ -1159,9 +1159,8 @@ pixman_renderer_create_image_from_ptr(struct weston_output *output,
 }
 
 static struct weston_renderbuffer *
-pixman_renderer_create_image_no_clear(struct weston_output *output,
-				      pixman_format_code_t format, int width,
-				      int height)
+pixman_renderer_create_image(struct weston_output *output,
+			     pixman_format_code_t format, int width, int height)
 {
 	struct pixman_output_state *po = get_output_state(output);
 	struct pixman_renderbuffer *renderbuffer;
@@ -1200,7 +1199,7 @@ static struct pixman_renderer_interface pixman_renderer_interface = {
 	.output_create = pixman_renderer_output_create,
 	.output_destroy = pixman_renderer_output_destroy,
 	.create_image_from_ptr = pixman_renderer_create_image_from_ptr,
-	.create_image_no_clear = pixman_renderer_create_image_no_clear,
+	.create_image = pixman_renderer_create_image,
 	.renderbuffer_destroy = pixman_renderer_renderbuffer_destroy,
 	.renderbuffer_get_image = pixman_renderer_renderbuffer_get_image,
 };

@@ -53,10 +53,9 @@ struct pixman_renderer_interface {
 							     int height,
 							     uint32_t *ptr,
 							     int stride);
-	struct weston_renderbuffer *(*create_image_no_clear)(struct weston_output *output,
-							     pixman_format_code_t format,
-							     int width,
-							     int height);
+	struct weston_renderbuffer *(*create_image)(struct weston_output *output,
+						    pixman_format_code_t format,
+						    int width, int height);
 	void (*renderbuffer_destroy)(struct weston_renderbuffer *renderbuffer);
 	pixman_image_t *(*renderbuffer_get_image)(struct weston_renderbuffer *renderbuffer);
 };
