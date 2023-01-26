@@ -183,7 +183,6 @@ struct wayland_shm_buffer {
 	int frame_damaged;
 
 	struct weston_renderbuffer *renderbuffer;
-	pixman_image_t *pm_image;
 	cairo_surface_t *c_surface;
 };
 
@@ -258,8 +257,6 @@ static void
 wayland_shm_buffer_destroy(struct wayland_shm_buffer *buffer)
 {
 	cairo_surface_destroy(buffer->c_surface);
-	if (buffer->pm_image)
-		pixman_image_unref(buffer->pm_image);
 	if (buffer->output) {
 		const struct pixman_renderer_interface *pixman;
 
@@ -400,12 +397,6 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 						      area.width, area.height,
 						      (uint32_t *)(data + area.y * stride) + area.x,
 						      stride);
-	} else {
-		sb->pm_image =
-			pixman_image_create_bits(PIXMAN_a8r8g8b8,
-						 area.width, area.height,
-						 (uint32_t *)(data + area.y * stride) + area.x,
-						 stride);
 	}
 
 	return sb;
