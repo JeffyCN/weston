@@ -46,6 +46,7 @@
 #include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
 #include "shared/cairo-util.h"
+#include "shared/xalloc.h"
 #include "linux-dmabuf.h"
 #include "output-capture.h"
 #include "presentation-time-server-protocol.h"
@@ -59,6 +60,9 @@ struct headless_backend {
 
 	bool decorate;
 	struct theme *theme;
+
+	const struct pixel_format_info **formats;
+	unsigned int formats_count;
 };
 
 struct headless_head {
@@ -249,8 +253,8 @@ headless_output_enable_gl(struct headless_output *output)
 	const struct weston_renderer *renderer = b->compositor->renderer;
 	const struct weston_mode *mode = output->base.current_mode;
 	struct gl_renderer_pbuffer_options options = {
-		.drm_formats = headless_formats,
-		.drm_formats_count = ARRAY_LENGTH(headless_formats),
+		.formats = b->formats,
+		.formats_count = b->formats_count,
 	};
 
 	if (b->decorate) {
@@ -501,6 +505,7 @@ headless_destroy(struct weston_backend *backend)
 	if (b->theme)
 		theme_destroy(b->theme);
 
+	free(b->formats);
 	free(b);
 }
 
@@ -538,14 +543,17 @@ headless_backend_create(struct weston_compositor *compositor,
 		}
 	}
 
+	b->formats_count = ARRAY_LENGTH(headless_formats);
+	b->formats = pixel_format_get_array(headless_formats, b->formats_count);
+
 	switch (config->renderer) {
 	case WESTON_RENDERER_GL: {
 		const struct gl_renderer_display_options options = {
 			.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
 			.egl_native_display = NULL,
 			.egl_surface_type = EGL_PBUFFER_BIT,
-			.drm_formats = headless_formats,
-			.drm_formats_count = ARRAY_LENGTH(headless_formats),
+			.formats = b->formats,
+			.formats_count = b->formats_count,
 		};
 		ret = weston_compositor_init_renderer(compositor,
 						      WESTON_RENDERER_GL,

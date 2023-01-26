@@ -59,6 +59,7 @@
 #include "renderer-gl/gl-renderer.h"
 #include "shared/weston-drm-fourcc.h"
 #include "shared/weston-egl-ext.h"
+#include "shared/xalloc.h"
 #include "pixman-renderer.h"
 #include "presentation-time-server-protocol.h"
 #include "linux-dmabuf.h"
@@ -120,6 +121,9 @@ struct x11_backend {
 		xcb_atom_t		 xkb_names;
 	} atom;
 	xcb_generic_event_t *prev_event;
+
+	const struct pixel_format_info **formats;
+	unsigned int formats_count;
 };
 
 struct x11_head {
@@ -1056,8 +1060,8 @@ x11_output_enable(struct weston_output *base)
 		const struct gl_renderer_output_options options = {
 			.window_for_legacy = (EGLNativeWindowType) (uintptr_t) output->window,
 			.window_for_platform = &xid,
-			.drm_formats = x11_formats,
-			.drm_formats_count = ARRAY_LENGTH(x11_formats),
+			.formats = b->formats,
+			.formats_count = b->formats_count,
 			.area.x = 0,
 			.area.y = 0,
 			.area.width = mode->width,
@@ -1836,6 +1840,7 @@ x11_destroy(struct weston_backend *base)
 	}
 
 	XCloseDisplay(backend->dpy);
+	free(backend->formats);
 	free(backend);
 }
 
@@ -1887,6 +1892,9 @@ x11_backend_create(struct weston_compositor *compositor,
 		config->fullscreen = 0;
 	}
 
+	b->formats_count = ARRAY_LENGTH(x11_formats);
+	b->formats = pixel_format_get_array(x11_formats, b->formats_count);
+
 	if (config->renderer == WESTON_RENDERER_PIXMAN) {
 		if (weston_compositor_init_renderer(compositor,
 						    WESTON_RENDERER_PIXMAN,
@@ -1900,8 +1908,8 @@ x11_backend_create(struct weston_compositor *compositor,
 			.egl_platform = EGL_PLATFORM_X11_KHR,
 			.egl_native_display = b->dpy,
 			.egl_surface_type = EGL_WINDOW_BIT,
-			.drm_formats = x11_formats,
-			.drm_formats_count = ARRAY_LENGTH(x11_formats),
+			.formats = b->formats,
+			.formats_count = b->formats_count,
 		};
 		if (weston_compositor_init_renderer(compositor,
 						    WESTON_RENDERER_GL,
@@ -1956,6 +1964,7 @@ err_renderer:
 err_xdisplay:
 	XCloseDisplay(b->dpy);
 err_free:
+	free(b->formats);
 	free(b);
 	return NULL;
 }

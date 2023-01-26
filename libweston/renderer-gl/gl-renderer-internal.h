@@ -229,8 +229,8 @@ log_egl_config_info(EGLDisplay egldpy, EGLConfig eglconfig);
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   EGLint egl_surface_type,
-			   const uint32_t *drm_formats,
-			   unsigned drm_formats_count);
+			   const struct pixel_format_info *const *formats,
+			   unsigned formats_count);
 
 int
 gl_renderer_setup_egl_display(struct gl_renderer *gr, void *native_display);

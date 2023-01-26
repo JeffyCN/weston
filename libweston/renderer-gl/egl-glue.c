@@ -392,12 +392,10 @@ explain_egl_config_criteria(EGLint egl_surface_type,
 EGLConfig
 gl_renderer_get_egl_config(struct gl_renderer *gr,
 			   EGLint egl_surface_type,
-			   const uint32_t *drm_formats,
-			   unsigned drm_formats_count)
+			   const struct pixel_format_info *const *formats,
+			   unsigned formats_count)
 {
 	EGLConfig egl_config;
-	const struct pixel_format_info *pinfo[16];
-	unsigned pinfo_count;
 	unsigned i;
 	char *what;
 	EGLint config_attribs[] = {
@@ -409,27 +407,17 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 		EGL_NONE
 	};
 
-	assert(drm_formats_count < ARRAY_LENGTH(pinfo));
-	drm_formats_count = MIN(drm_formats_count, ARRAY_LENGTH(pinfo));
-
-	for (pinfo_count = 0, i = 0; i < drm_formats_count; i++) {
-		pinfo[pinfo_count] = pixel_format_get_info(drm_formats[i]);
-		if (!pinfo[pinfo_count]) {
-			weston_log("Bad/unknown DRM format code 0x%08x.\n",
-				   drm_formats[i]);
-			continue;
-		}
-		pinfo_count++;
-	}
+	for (i = 0; i < formats_count; i++)
+		assert(formats[i]);
 
 	if (egl_config_is_compatible(gr, gr->egl_config, egl_surface_type,
-				     pinfo, pinfo_count))
+				     formats, formats_count))
 		return gr->egl_config;
 
-	if (egl_choose_config(gr, config_attribs, pinfo, pinfo_count,
+	if (egl_choose_config(gr, config_attribs, formats, formats_count,
 			      &egl_config) < 0) {
 		what = explain_egl_config_criteria(egl_surface_type,
-						   pinfo, pinfo_count);
+						   formats, formats_count);
 		weston_log("No EGLConfig matches %s.\n", what);
 		free(what);
 		log_all_egl_configs(gr->egl_display);
@@ -444,7 +432,7 @@ gl_renderer_get_egl_config(struct gl_renderer *gr,
 	if (gr->egl_config != EGL_NO_CONFIG_KHR &&
 	    egl_config != gr->egl_config) {
 		what = explain_egl_config_criteria(egl_surface_type,
-						   pinfo, pinfo_count);
+						   formats, formats_count);
 		weston_log("Found an EGLConfig matching %s but it is not usable"
 			   " because neither EGL_KHR_no_config_context nor "
 			   "EGL_MESA_configless_context are supported by EGL.\n",

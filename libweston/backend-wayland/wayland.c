@@ -57,6 +57,7 @@
 #include "shared/os-compatibility.h"
 #include "shared/cairo-util.h"
 #include "shared/timespec-util.h"
+#include "shared/xalloc.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 #include "presentation-time-server-protocol.h"
@@ -100,6 +101,9 @@ struct wayland_backend {
 	/* These struct wayland_input objects are waiting for the outer
 	 * compositor to provide a name and initial capabilities. */
 	struct wl_list pending_input_list;
+
+	const struct pixel_format_info **formats;
+	unsigned int formats_count;
 };
 
 struct wayland_output {
@@ -727,10 +731,11 @@ static int
 wayland_output_init_gl_renderer(struct wayland_output *output)
 {
 	const struct weston_mode *mode = output->base.current_mode;
+	struct wayland_backend *b = output->backend;
 	const struct weston_renderer *renderer;
 	struct gl_renderer_output_options options = {
-		.drm_formats = wayland_formats,
-		.drm_formats_count = ARRAY_LENGTH(wayland_formats),
+		.formats = b->formats,
+		.formats_count = b->formats_count,
 	};
 
 	if (output->frame) {
@@ -2811,14 +2816,17 @@ wayland_backend_create(struct weston_compositor *compositor,
 
 	create_cursor(b, new_config);
 
+	b->formats_count = ARRAY_LENGTH(wayland_formats);
+	b->formats = pixel_format_get_array(wayland_formats, b->formats_count);
+
 	if (renderer == WESTON_RENDERER_AUTO ||
 	    renderer == WESTON_RENDERER_GL) {
 		const struct gl_renderer_display_options options = {
 			.egl_platform = EGL_PLATFORM_WAYLAND_KHR,
 			.egl_native_display = b->parent.wl_display,
 			.egl_surface_type = EGL_WINDOW_BIT,
-			.drm_formats = wayland_formats,
-			.drm_formats_count = ARRAY_LENGTH(wayland_formats),
+			.formats = b->formats,
+			.formats_count = b->formats_count,
 		};
 
 		if (weston_compositor_init_renderer(compositor,
@@ -2868,6 +2876,7 @@ err_display:
 	wl_display_disconnect(b->parent.wl_display);
 err_compositor:
 	weston_compositor_shutdown(compositor);
+	free(b->formats);
 	free(b);
 	return NULL;
 }
@@ -2884,6 +2893,7 @@ wayland_backend_destroy(struct wayland_backend *b)
 	wl_cursor_theme_destroy(b->cursor_theme);
 
 	weston_compositor_shutdown(b->compositor);
+	free(b->formats);
 	free(b);
 }
 

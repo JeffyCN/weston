@@ -64,43 +64,36 @@ create_gbm_device(int fd)
 /* When initializing EGL, if the preferred buffer format isn't available
  * we may be able to substitute an ARGB format for an XRGB one.
  *
- * This returns 0 if substitution isn't possible, but 0 might be a
- * legitimate format for other EGL platforms, so the caller is
- * responsible for checking for 0 before calling gl_renderer->create().
+ * This returns NULL if substitution isn't possible. The caller is responsible
+ * for checking for NULL before calling gl_renderer->create().
  *
  * This works around https://bugs.freedesktop.org/show_bug.cgi?id=89689
  * but it's entirely possible we'll see this again on other implementations.
  */
-static uint32_t
+static const struct pixel_format_info *
 fallback_format_for(uint32_t format)
 {
-	const struct pixel_format_info *pf;
-
-	pf = pixel_format_get_info_by_opaque_substitute(format);
-	if (!pf)
-		return 0;
-
-	return pf->format;
+	return pixel_format_get_info_by_opaque_substitute(format);
 }
 
 static int
 drm_backend_create_gl_renderer(struct drm_backend *b)
 {
-	uint32_t format[3] = {
-		b->gbm_format,
+	const struct pixel_format_info *format[3] = {
+		pixel_format_get_info(b->gbm_format),
 		fallback_format_for(b->gbm_format),
-		0,
+		NULL,
 	};
 	struct gl_renderer_display_options options = {
 		.egl_platform = EGL_PLATFORM_GBM_KHR,
 		.egl_native_display = b->gbm,
 		.egl_surface_type = EGL_WINDOW_BIT,
-		.drm_formats = format,
-		.drm_formats_count = 2,
+		.formats = format,
+		.formats_count = 2,
 	};
 
 	if (format[1])
-		options.drm_formats_count = 3;
+		options.formats_count = 3;
 
 	return weston_compositor_init_renderer(b->compositor,
 					       WESTON_RENDERER_GL,
@@ -229,13 +222,13 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 {
 	const struct weston_renderer *renderer = b->compositor->renderer;
 	const struct weston_mode *mode = output->base.current_mode;
-	uint32_t format[2] = {
-		output->gbm_format,
+	const struct pixel_format_info *format[2] = {
+		pixel_format_get_info(output->gbm_format),
 		fallback_format_for(output->gbm_format),
 	};
 	struct gl_renderer_output_options options = {
-		.drm_formats = format,
-		.drm_formats_count = 1,
+		.formats = format,
+		.formats_count = 1,
 		.area.x = 0,
 		.area.y = 0,
 		.area.width = mode->width,
@@ -251,8 +244,8 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 		return -1;
 	}
 
-	if (options.drm_formats[1])
-		options.drm_formats_count = 2;
+	if (options.formats[1])
+		options.formats_count = 2;
 	options.window_for_legacy = (EGLNativeWindowType) output->gbm_surface;
 	options.window_for_platform = output->gbm_surface;
 	if (renderer->gl->output_window_create(&output->base, &options) < 0) {
