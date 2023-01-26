@@ -3413,7 +3413,6 @@ gl_renderer_resize_output(struct weston_output *output,
 {
 	struct gl_output_state *go = get_output_state(output);
 	const struct pixel_format_info *shfmt = go->shadow_format;
-	uint32_t drm_format = output->compositor->read_format->format;
 	bool ret;
 
 	check_compositing_area(fb_size, area);
@@ -3424,12 +3423,12 @@ gl_renderer_resize_output(struct weston_output *output,
 	weston_output_update_capture_info(output,
 					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
 					  area->width, area->height,
-					  drm_format);
+					  output->compositor->read_format);
 
 	weston_output_update_capture_info(output,
 					  WESTON_OUTPUT_CAPTURE_SOURCE_FULL_FRAMEBUFFER,
 					  fb_size->width, fb_size->height,
-					  drm_format);
+					  output->compositor->read_format);
 
 	if (!shfmt)
 		return true;

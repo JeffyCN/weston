@@ -943,7 +943,7 @@ pixman_renderer_resize_output(struct weston_output *output,
 						  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
 						  po->fb_size.width,
 						  po->fb_size.height,
-						  po->hw_format->format);
+						  po->hw_format);
 	}
 
 	if (!po->shadow_format)
@@ -961,7 +961,7 @@ pixman_renderer_resize_output(struct weston_output *output,
 					  WESTON_OUTPUT_CAPTURE_SOURCE_BLENDING,
 					  po->fb_size.width,
 					  po->fb_size.height,
-					  po->shadow_format->format);
+					  po->shadow_format);
 
 	return !!po->shadow_image;
 }
@@ -1074,7 +1074,7 @@ pixman_renderer_output_set_buffer(struct weston_output *output,
 					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
 					  po->fb_size.width,
 					  po->fb_size.height,
-					  po->hw_format->format);
+					  po->hw_format);
 }
 
 static int
@@ -1109,7 +1109,7 @@ pixman_renderer_output_create(struct weston_output *output,
 	weston_output_update_capture_info(output,
 					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
 					  area.width, area.height,
-					  options->format->format);
+					  options->format);
 
 	return 0;
 }

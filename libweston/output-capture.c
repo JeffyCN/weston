@@ -240,7 +240,7 @@ capture_info_get_csi(struct weston_output_capture_info *ci,
  * \param src The source type on the output.
  * \param width The new buffer width.
  * \param height The new buffer height.
- * \param drm_format The new pixel format.
+ * \param format The new pixel format.
  *
  * If any one of width, height or format is zero/NULL, the source becomes
  * unavailable to clients. Otherwise the source becomes available.
@@ -250,7 +250,8 @@ capture_info_get_csi(struct weston_output_capture_info *ci,
 WL_EXPORT void
 weston_output_update_capture_info(struct weston_output *output,
 				  enum weston_output_capture_source src,
-				  int width, int height, uint32_t drm_format)
+				  int width, int height,
+				  const struct pixel_format_info *format)
 {
 	struct weston_output_capture_info *ci = output->capture_info;
 	struct weston_output_capture_source_info *csi;
@@ -259,12 +260,12 @@ weston_output_update_capture_info(struct weston_output *output,
 
 	if (csi->width == width &&
 	    csi->height == height &&
-	    csi->drm_format == drm_format)
+	    csi->drm_format == format->format)
 		return;
 
 	csi->width = width;
 	csi->height = height;
-	csi->drm_format = drm_format;
+	csi->drm_format = format->format;
 
 	if (source_info_is_available(csi)) {
 		capture_info_send_source_info(ci, csi);
