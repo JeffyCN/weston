@@ -38,8 +38,8 @@ struct pixman_renderer_output_options {
 	bool use_shadow;
 	/** Initial framebuffer size */
 	struct weston_size fb_size;
-	/** Initial DRM pixel format */
-	uint32_t drm_format;
+	/** Initial pixel format */
+	const struct pixel_format_info *format;
 };
 
 struct pixman_renderer_interface {
@@ -48,13 +48,13 @@ struct pixman_renderer_interface {
 	void (*output_destroy)(struct weston_output *output);
 
 	struct weston_renderbuffer *(*create_image_from_ptr)(struct weston_output *output,
-							     pixman_format_code_t format,
+							     const struct pixel_format_info *format,
 							     int width,
 							     int height,
 							     uint32_t *ptr,
 							     int stride);
 	struct weston_renderbuffer *(*create_image)(struct weston_output *output,
-						    pixman_format_code_t format,
+						    const struct pixel_format_info *format,
 						    int width, int height);
 	pixman_image_t *(*renderbuffer_get_image)(struct weston_renderbuffer *renderbuffer);
 };

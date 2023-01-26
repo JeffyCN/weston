@@ -63,6 +63,7 @@
 #include "presentation-time-server-protocol.h"
 #include "linux-dmabuf.h"
 #include "linux-explicit-synchronization.h"
+#include <libweston/pixel-formats.h>
 #include <libweston/windowed-output-api.h>
 
 #define DEFAULT_AXIS_STEP_DISTANCE 10
@@ -731,7 +732,7 @@ x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 	xcb_generic_error_t *err;
 	const xcb_query_extension_reply_t *ext;
 	int bitsperpixel = 0;
-	pixman_format_code_t pixman_format;
+	const struct pixel_format_info *pfmt;
 
 	/* Check if SHM is available */
 	ext = xcb_get_extension_data(b->conn, &xcb_shm_id);
@@ -773,13 +774,13 @@ x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 	     visual_type->green_mask == 0x00ff00 &&
 	     visual_type->blue_mask == 0x0000ff) {
 		weston_log("Will use x8r8g8b8 format for SHM surfaces\n");
-		pixman_format = PIXMAN_x8r8g8b8;
+		pfmt = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8);
 	} else if (bitsperpixel == 16 &&
 	           visual_type->red_mask == 0x00f800 &&
 	           visual_type->green_mask == 0x0007e0 &&
 	           visual_type->blue_mask == 0x00001f) {
 		weston_log("Will use r5g6b5 format for SHM surfaces\n");
-		pixman_format = PIXMAN_r5g6b5;
+		pfmt = pixel_format_get_info_by_pixman(PIXMAN_r5g6b5);
 	} else {
 		weston_log("Can't find appropriate format for SHM pixmap\n");
 		errno = ENOTSUP;
@@ -813,8 +814,8 @@ x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 	/* Now create pixman image */
 	output->renderbuffer =
 		renderer->pixman->create_image_from_ptr(&output->base,
-							pixman_format, width,
-							height, output->buf,
+							pfmt, width, height,
+							output->buf,
 							width * (bitsperpixel / 8));
 
 	output->gc = xcb_generate_id(b->conn);

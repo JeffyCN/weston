@@ -61,6 +61,7 @@
 #include "xdg-shell-client-protocol.h"
 #include "presentation-time-server-protocol.h"
 #include "linux-dmabuf.h"
+#include <libweston/pixel-formats.h>
 #include <libweston/windowed-output-api.h>
 
 #define WINDOW_TITLE "Weston Compositor"
@@ -388,8 +389,11 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 
 	/* Address only the interior, excluding output decorations */
 	if (renderer->type == WESTON_RENDERER_PIXMAN) {
+		const struct pixel_format_info *pfmt;
+
+		pfmt = pixel_format_get_info_by_pixman(PIXMAN_a8r8g8b8);
 		sb->renderbuffer =
-			pixman->create_image_from_ptr(&output->base, PIXMAN_a8r8g8b8,
+			pixman->create_image_from_ptr(&output->base, pfmt,
 						      area.width, area.height,
 						      (uint32_t *)(data + area.y * stride) + area.x,
 						      stride);

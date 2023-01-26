@@ -1180,19 +1180,16 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 	int w = output->base.current_mode->width;
 	int h = output->base.current_mode->height;
 	uint32_t format = output->gbm_format;
-	uint32_t pixman_format;
 	unsigned int i;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = b->use_pixman_shadow,
 		.fb_size = { .width = w, .height = h },
+		.format = pixel_format_get_info(format)
 	};
 
 	switch (format) {
 		case DRM_FORMAT_XRGB8888:
-			pixman_format = PIXMAN_x8r8g8b8;
-			break;
 		case DRM_FORMAT_RGB565:
-			pixman_format = PIXMAN_r5g6b5;
 			break;
 		default:
 			weston_log("Unsupported pixman format 0x%x\n", format);
@@ -1210,7 +1207,7 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 
 		output->renderbuffer[i] =
 			pixman->create_image_from_ptr(&output->base,
-						      pixman_format, w, h,
+						      options.format, w, h,
 						      output->dumb[i]->map,
 						      output->dumb[i]->strides[0]);
 		if (!output->renderbuffer[i])

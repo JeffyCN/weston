@@ -512,8 +512,7 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 		pfmt = pixel_format_get_info(DRM_FORMAT_XRGB8888);
 		fb_side_data->renderer = ec->renderer;
 		fb_side_data->renderbuffer =
-			pixman->create_image_from_ptr(&output->base,
-						      pfmt->pixman_format,
+			pixman->create_image_from_ptr(&output->base, pfmt,
 						      output->base.width,
 						      output->base.height,
 						      nvnc_fb_get_addr(fb),
@@ -614,6 +613,7 @@ vnc_output_enable(struct weston_output *base)
 			.width = output->base.width,
 			.height = output->base.height,
 		},
+		.format = pixel_format_get_info(DRM_FORMAT_XRGB8888),
 	};
 
 	assert(output);
@@ -631,7 +631,7 @@ vnc_output_enable(struct weston_output *base)
 
 	output->fb_pool = nvnc_fb_pool_new(output->base.width,
 					   output->base.height,
-					   DRM_FORMAT_XRGB8888,
+					   options.format->format,
 					   output->base.width);
 
 	output->display = nvnc_display_new(0, 0);

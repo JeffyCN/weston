@@ -1109,7 +1109,7 @@ pixman_renderer_output_create(struct weston_output *output,
 	weston_output_update_capture_info(output,
 					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
 					  area.width, area.height,
-					  options->drm_format);
+					  options->format->format);
 
 	return 0;
 }
@@ -1138,8 +1138,9 @@ pixman_renderer_renderbuffer_destroy(struct weston_renderbuffer *renderbuffer);
 
 static struct weston_renderbuffer *
 pixman_renderer_create_image_from_ptr(struct weston_output *output,
-				      pixman_format_code_t format, int width,
-				      int height, uint32_t *ptr, int rowstride)
+				      const struct pixel_format_info *format,
+				      int width, int height, uint32_t *ptr,
+				      int rowstride)
 {
 	struct pixman_output_state *po = get_output_state(output);
 	struct pixman_renderbuffer *renderbuffer;
@@ -1148,8 +1149,9 @@ pixman_renderer_create_image_from_ptr(struct weston_output *output,
 
 	renderbuffer = xzalloc(sizeof(*renderbuffer));
 
-	renderbuffer->image = pixman_image_create_bits(format, width, height,
-						       ptr, rowstride);
+	renderbuffer->image = pixman_image_create_bits(format->pixman_format,
+						       width, height, ptr,
+						       rowstride);
 	if (!renderbuffer->image) {
 		free(renderbuffer);
 		return NULL;
@@ -1165,7 +1167,8 @@ pixman_renderer_create_image_from_ptr(struct weston_output *output,
 
 static struct weston_renderbuffer *
 pixman_renderer_create_image(struct weston_output *output,
-			     pixman_format_code_t format, int width, int height)
+			     const struct pixel_format_info *format, int width,
+			     int height)
 {
 	struct pixman_output_state *po = get_output_state(output);
 	struct pixman_renderbuffer *renderbuffer;
@@ -1175,8 +1178,8 @@ pixman_renderer_create_image(struct weston_output *output,
 	renderbuffer = xzalloc(sizeof(*renderbuffer));
 
 	renderbuffer->image =
-		pixman_image_create_bits_no_clear(format, width, height,
-						  NULL, 0);
+		pixman_image_create_bits_no_clear(format->pixman_format, width,
+						  height, NULL, 0);
 	if (!renderbuffer->image) {
 		free(renderbuffer);
 		return NULL;

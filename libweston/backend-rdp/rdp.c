@@ -42,6 +42,7 @@
 #include "shared/xalloc.h"
 #include <libweston/libweston.h>
 #include <libweston/backend-rdp.h>
+#include <libweston/pixel-formats.h>
 #include "pixman-renderer.h"
 
 /* These can be removed when we bump FreeRDP dependency past 3.0.0 in the future */
@@ -405,6 +406,7 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 	base->native_mode = cur;
 	if (base->enabled) {
 		const struct pixman_renderer_interface *pixman;
+		const struct pixel_format_info *pfmt;
 		pixman_image_t *old_image, *new_image;
 
 		weston_renderer_resize_output(output, &(struct weston_size){
@@ -415,8 +417,9 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 
 		old_image =
 			pixman->renderbuffer_get_image(rdpOutput->renderbuffer);
+		pfmt = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8);
 		new_renderbuffer =
-			pixman->create_image_from_ptr(output, PIXMAN_x8r8g8b8,
+			pixman->create_image_from_ptr(output, pfmt,
 						      mode->width, mode->height,
 						      0, mode->width * 4);
 		new_image = pixman->renderbuffer_get_image(new_renderbuffer);
@@ -483,6 +486,7 @@ rdp_output_enable(struct weston_output *base)
 			.width = output->base.current_mode->width,
 			.height = output->base.current_mode->height
 		},
+		.format = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8)
 	};
 
 	assert(output);
@@ -494,7 +498,7 @@ rdp_output_enable(struct weston_output *base)
 	}
 
 	output->renderbuffer =
-		pixman->create_image_from_ptr(&output->base, PIXMAN_x8r8g8b8,
+		pixman->create_image_from_ptr(&output->base, options.format,
 					      output->base.current_mode->width,
 					      output->base.current_mode->height,
 					      NULL,

@@ -295,24 +295,22 @@ static int
 headless_output_enable_pixman(struct headless_output *output)
 {
 	const struct pixman_renderer_interface *pixman;
-	const struct pixel_format_info *pfmt;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
 		.fb_size = {
 			.width = output->base.current_mode->width,
 			.height = output->base.current_mode->height
 		},
-		.drm_format = headless_formats[0]
+		.format = pixel_format_get_info(headless_formats[0])
 	};
 
 	pixman = output->base.compositor->renderer->pixman;
-	pfmt = pixel_format_get_info(headless_formats[0]);
 
 	if (pixman->output_create(&output->base, &options) < 0)
 		return -1;
 
 	output->renderbuffer =
-		pixman->create_image(&output->base, pfmt->pixman_format,
+		pixman->create_image(&output->base, options.format,
 				     output->base.current_mode->width,
 				     output->base.current_mode->height);
 	if (!output->renderbuffer)
