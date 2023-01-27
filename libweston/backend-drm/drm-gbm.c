@@ -71,17 +71,17 @@ create_gbm_device(int fd)
  * but it's entirely possible we'll see this again on other implementations.
  */
 static const struct pixel_format_info *
-fallback_format_for(uint32_t format)
+fallback_format_for(const struct pixel_format_info *format)
 {
-	return pixel_format_get_info_by_opaque_substitute(format);
+	return pixel_format_get_info_by_opaque_substitute(format->format);
 }
 
 static int
 drm_backend_create_gl_renderer(struct drm_backend *b)
 {
 	const struct pixel_format_info *format[3] = {
-		pixel_format_get_info(b->gbm_format),
-		fallback_format_for(b->gbm_format),
+		b->format,
+		fallback_format_for(b->format),
 		NULL,
 	};
 	struct gl_renderer_display_options options = {
@@ -170,23 +170,16 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 {
 	struct weston_mode *mode = output->base.current_mode;
 	struct drm_plane *plane = output->scanout_plane;
-	const struct pixel_format_info *pixel_format;
 	struct weston_drm_format *fmt;
 	const uint64_t *modifiers;
 	unsigned int num_modifiers;
 
 	fmt = weston_drm_format_array_find_format(&plane->formats,
-						  output->gbm_format);
+						  output->format->format);
 	if (!fmt) {
-		pixel_format = pixel_format_get_info(output->gbm_format);
-		if (pixel_format)
-			weston_log("format %s not supported by output %s\n",
-				   pixel_format->drm_format_name,
-				   output->base.name);
-		else
-			weston_log("format 0x%x not supported by output %s\n",
-				   output->gbm_format,
-				   output->base.name);
+		weston_log("format %s not supported by output %s\n",
+			   output->format->drm_format_name,
+			   output->base.name);
 		return;
 	}
 
@@ -196,7 +189,7 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 		output->gbm_surface =
 			gbm_surface_create_with_modifiers(gbm,
 							  mode->width, mode->height,
-							  output->gbm_format,
+							  output->format->format,
 							  modifiers, num_modifiers);
 	}
 #endif
@@ -212,7 +205,7 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 	if (!output->gbm_surface)
 		output->gbm_surface = gbm_surface_create(gbm,
 							 mode->width, mode->height,
-							 output->gbm_format,
+							 output->format->format,
 							 output->gbm_bo_flags);
 }
 
@@ -223,8 +216,8 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 	const struct weston_renderer *renderer = b->compositor->renderer;
 	const struct weston_mode *mode = output->base.current_mode;
 	const struct pixel_format_info *format[2] = {
-		pixel_format_get_info(output->gbm_format),
-		fallback_format_for(output->gbm_format),
+		output->format,
+		fallback_format_for(output->format),
 	};
 	struct gl_renderer_output_options options = {
 		.formats = format,

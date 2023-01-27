@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include "drm-internal.h"
+#include "pixel-formats.h"
 #include "renderer-gl/gl-renderer.h"
 
 #define POISON_PTR ((void *)8)
@@ -109,7 +110,8 @@ drm_virtual_plane_create(struct drm_device *device, struct drm_output *output)
 	plane->state_cur->complete = true;
 
 	weston_drm_format_array_init(&plane->formats);
-	fmt = weston_drm_format_array_add_format(&plane->formats, output->gbm_format);
+	fmt = weston_drm_format_array_add_format(&plane->formats,
+						 output->format->format);
 	if (!fmt)
 		goto err;
 
@@ -372,10 +374,10 @@ drm_virtual_output_set_gbm_format(struct weston_output *base,
 	struct drm_device *device = output->device;
 	struct drm_backend *b = device->backend;
 
-	if (parse_gbm_format(gbm_format, b->gbm_format, &output->gbm_format) == -1)
-		output->gbm_format = b->gbm_format;
+	if (parse_gbm_format(gbm_format, b->format, &output->format) == -1)
+		output->format = b->format;
 
-	return output->gbm_format;
+	return output->format->format;
 }
 
 static void

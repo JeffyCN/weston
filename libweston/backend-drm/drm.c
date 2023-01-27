@@ -1179,12 +1179,12 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 	struct drm_device *device = output->device;
 	int w = output->base.current_mode->width;
 	int h = output->base.current_mode->height;
-	uint32_t format = output->gbm_format;
+	uint32_t format = output->format->format;
 	unsigned int i;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = b->use_pixman_shadow,
 		.fb_size = { .width = w, .height = h },
-		.format = pixel_format_get_info(format)
+		.format = output->format
 	};
 
 	switch (format) {
@@ -1337,25 +1337,22 @@ drm_output_detach_head(struct weston_output *output_base,
 }
 
 int
-parse_gbm_format(const char *s, uint32_t default_value, uint32_t *gbm_format)
+parse_gbm_format(const char *s, const struct pixel_format_info *default_format,
+		 const struct pixel_format_info **format)
 {
-	const struct pixel_format_info *pinfo;
-
 	if (s == NULL) {
-		*gbm_format = default_value;
+		*format = default_format;
 
 		return 0;
 	}
 
-	pinfo = pixel_format_get_info_by_drm_name(s);
-	if (!pinfo) {
+	/* GBM formats and DRM formats are identical. */
+	*format = pixel_format_get_info_by_drm_name(s);
+	if (!*format) {
 		weston_log("fatal: unrecognized pixel format: %s\n", s);
 
 		return -1;
 	}
-
-	/* GBM formats and DRM formats are identical. */
-	*gbm_format = pinfo->format;
 
 	return 0;
 }
@@ -1399,9 +1396,8 @@ drm_output_set_gbm_format(struct weston_output *base,
 {
 	struct drm_output *output = to_drm_output(base);
 
-	if (parse_gbm_format(gbm_format,
-			     DRM_FORMAT_INVALID, &output->gbm_format) == -1)
-		output->gbm_format = DRM_FORMAT_INVALID;
+	if (parse_gbm_format(gbm_format, NULL, &output->format) == -1)
+		output->format = NULL;
 }
 
 static void
@@ -1882,11 +1878,12 @@ drm_output_enable(struct weston_output *base)
 	assert(output);
 	assert(!output->virtual);
 
-	if (output->gbm_format == DRM_FORMAT_INVALID) {
+	if (!output->format) {
 		if (output->base.eotf_mode != WESTON_EOTF_MODE_SDR)
-			output->gbm_format = DRM_FORMAT_XRGB2101010;
+			output->format =
+				pixel_format_get_info(DRM_FORMAT_XRGB2101010);
 		else
-			output->gbm_format = b->gbm_format;
+			output->format = b->format;
 	}
 
 	ret = drm_output_attach_crtc(output);
@@ -2348,7 +2345,6 @@ drm_output_create(struct weston_backend *backend, const char *name)
 	output->crtc = NULL;
 
 	output->max_bpc = 16;
-	output->gbm_format = DRM_FORMAT_INVALID;
 #ifdef BUILD_DRM_GBM
 	output->gbm_bo_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 #endif
@@ -3077,7 +3073,8 @@ recorder_binding(struct weston_keyboard *keyboard, const struct timespec *time,
 	}
 
 	if (!output->recorder) {
-		if (output->gbm_format != DRM_FORMAT_XRGB8888) {
+		if (!output->format ||
+		    output->format->format != DRM_FORMAT_XRGB8888) {
 			weston_log("failed to start vaapi recorder: "
 				   "output format not supported\n");
 			return;
@@ -3170,7 +3167,9 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	compositor->backend = &b->base;
 
-	if (parse_gbm_format(config->gbm_format, DRM_FORMAT_XRGB8888, &b->gbm_format) < 0)
+	if (parse_gbm_format(config->gbm_format,
+			     pixel_format_get_info(DRM_FORMAT_XRGB8888),
+			     &b->format) < 0)
 		goto err_compositor;
 
 	/* Check if we run drm-backend using a compatible launcher */

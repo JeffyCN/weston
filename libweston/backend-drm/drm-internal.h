@@ -331,7 +331,7 @@ struct drm_backend {
 	struct drm_device *drm;
 	struct gbm_device *gbm;
 	struct wl_listener session_listener;
-	uint32_t gbm_format;
+	const struct pixel_format_info *format;
 
 	bool use_pixman_shadow;
 
@@ -572,7 +572,7 @@ struct drm_output {
 	int current_cursor;
 
 	struct gbm_surface *gbm_surface;
-	uint32_t gbm_format;
+	const struct pixel_format_info *format;
 	uint32_t gbm_bo_flags;
 
 	uint32_t hdr_output_metadata_blob_id;
@@ -860,7 +860,8 @@ void
 drm_output_render(struct drm_output_state *state, pixman_region32_t *damage);
 
 int
-parse_gbm_format(const char *s, uint32_t default_value, uint32_t *gbm_format);
+parse_gbm_format(const char *s, const struct pixel_format_info *default_format,
+		 const struct pixel_format_info **format);
 
 #ifdef BUILD_DRM_VIRTUAL
 extern int
