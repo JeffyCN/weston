@@ -1179,7 +1179,6 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 	struct drm_device *device = output->device;
 	int w = output->base.current_mode->width;
 	int h = output->base.current_mode->height;
-	uint32_t format = output->format->format;
 	unsigned int i;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = b->use_pixman_shadow,
@@ -1187,13 +1186,12 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 		.format = output->format
 	};
 
-	switch (format) {
-		case DRM_FORMAT_XRGB8888:
-		case DRM_FORMAT_RGB565:
-			break;
-		default:
-			weston_log("Unsupported pixman format 0x%x\n", format);
-			return -1;
+	assert(options.format);
+
+	if (!options.format->pixman_format) {
+		weston_log("Unsupported pixel format %s\n",
+			   options.format->drm_format_name);
+		return -1;
 	}
 
 	if (pixman->output_create(&output->base, &options) < 0)
@@ -1201,7 +1199,8 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 
 	/* FIXME error checking */
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
-		output->dumb[i] = drm_fb_create_dumb(device, w, h, format);
+		output->dumb[i] = drm_fb_create_dumb(device, w, h,
+						     options.format->format);
 		if (!output->dumb[i])
 			goto err;
 

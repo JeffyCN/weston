@@ -54,8 +54,9 @@ the kernel DRM subsystem in
 .B drm_fourcc.h
 header without the DRM_FORMAT_ prefix.
 The actually supported pixel formats depend on the DRM driver and hardware,
-and the renderer used. Using Pixman-renderer, DRM-backend supports only
-.BR xrgb8888 " and " rgb565 .
+and the renderer used. Using Pixman-renderer, DRM-backend supports
+.BR xrgb8888 ", " xrgb2101010 ", " rgb565
+and some of their permutations.
 The formats supported with GL-renderer depend on the EGL and OpenGL ES 2 or 3
 implementations. The names are case-insensitive. This setting applies only to
 .RB "outputs in SDR mode, see " eotf-mode " in " weston.ini (5).
