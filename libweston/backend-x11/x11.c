@@ -1040,6 +1040,7 @@ x11_output_enable(struct weston_output *base)
 				.width = mode->width,
 				.height = mode->height
 			},
+			.format = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8)
 		};
 		if (x11_output_init_shm(b, output,
 					mode->width, mode->height) < 0) {
