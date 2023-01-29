@@ -899,8 +899,8 @@ x11_output_disable(struct weston_output *base)
 	wl_event_source_remove(output->finish_frame_timer);
 
 	if (renderer->type == WESTON_RENDERER_PIXMAN) {
-		renderer->pixman->output_destroy(&output->base);
 		x11_output_deinit_shm(backend, output);
+		renderer->pixman->output_destroy(&output->base);
 	} else {
 		renderer->gl->output_destroy(&output->base);
 	}
@@ -1042,14 +1042,14 @@ x11_output_enable(struct weston_output *base)
 			},
 			.format = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8)
 		};
+		if (renderer->pixman->output_create(&output->base, &options) < 0) {
+			weston_log("Failed to create pixman renderer for output\n");
+			goto err;
+		}
 		if (x11_output_init_shm(b, output,
 					mode->width, mode->height) < 0) {
 			weston_log("Failed to initialize SHM for the X11 output\n");
-			goto err;
-		}
-		if (renderer->pixman->output_create(&output->base, &options) < 0) {
-			weston_log("Failed to create pixman renderer for output\n");
-			x11_output_deinit_shm(b, output);
+			renderer->pixman->output_destroy(&output->base);
 			goto err;
 		}
 
