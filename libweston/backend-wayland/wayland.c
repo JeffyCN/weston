@@ -786,6 +786,7 @@ wayland_output_init_pixman_renderer(struct wayland_output *output)
 			.width = output->base.current_mode->width,
 			.height = output->base.current_mode->height
 		},
+		.format = pixel_format_get_info_by_pixman(PIXMAN_a8r8g8b8)
 	};
 	return renderer->pixman->output_create(&output->base, &options);
 }
