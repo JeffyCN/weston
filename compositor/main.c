@@ -3379,7 +3379,7 @@ load_x11_backend(struct weston_compositor *c,
 	} else if (force_pixman) {
 		config.renderer = WESTON_RENDERER_PIXMAN;
 	} else {
-		config.renderer = WESTON_RENDERER_AUTO;
+		config.renderer = renderer;
 	}
 
 	wet_set_simple_head_configurator(c, x11_backend_output_configure);
