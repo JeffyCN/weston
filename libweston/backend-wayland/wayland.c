@@ -687,6 +687,8 @@ wayland_output_disable(struct weston_output *base)
 	if (!output->base.enabled)
 		return 0;
 
+	wayland_output_destroy_shm_buffers(output);
+
 	if (renderer->type == WESTON_RENDERER_PIXMAN) {
 		renderer->pixman->output_destroy(&output->base);
 #ifdef ENABLE_EGL
@@ -697,8 +699,6 @@ wayland_output_disable(struct weston_output *base)
 		wl_egl_window_destroy(output->gl.egl_window);
 #endif
 	}
-
-	wayland_output_destroy_shm_buffers(output);
 
 	wayland_backend_destroy_output_surface(output);
 
