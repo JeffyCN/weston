@@ -354,3 +354,17 @@ pixel_format_get_modifier(uint64_t modifier);
  */
 uint32_t
 pixel_format_get_shm_format(const struct pixel_format_info *info);
+
+/**
+ * Get pixel format array for an array of DRM format codes
+ *
+ * Given an array of DRM format codes, return an array of corresponding pixel
+ * format info pointers.
+ *
+ * @param formats Array of DRM format codes to get info for
+ * @param formats_count Number of entries in formats.
+ * @returns An array of pixel format info pointers, or NULL if any format could
+ *          not be found. Must be freed by the caller.
+ */
+const struct pixel_format_info **
+pixel_format_get_array(const uint32_t *formats, unsigned int formats_count);

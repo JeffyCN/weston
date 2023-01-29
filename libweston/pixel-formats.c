@@ -40,6 +40,7 @@
 #include "shared/helpers.h"
 #include "shared/string-helpers.h"
 #include "shared/weston-drm-fourcc.h"
+#include "shared/xalloc.h"
 #include "wayland-util.h"
 #include "pixel-formats.h"
 
@@ -775,4 +776,22 @@ pixel_format_get_shm_format(const struct pixel_format_info *info)
 	}
 
 	return info->format;
+}
+
+WL_EXPORT const struct pixel_format_info **
+pixel_format_get_array(const uint32_t *drm_formats, unsigned int formats_count)
+{
+	const struct pixel_format_info **formats;
+	unsigned int i;
+
+	formats = xcalloc(formats_count, sizeof(*formats));
+	for (i = 0; i < formats_count; i++) {
+		formats[i] = pixel_format_get_info(drm_formats[i]);
+		if (!formats[i]) {
+			free(formats);
+			return NULL;
+		}
+	}
+
+	return formats;
 }
