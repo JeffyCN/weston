@@ -1764,8 +1764,7 @@ struct weston_surface_state {
 	struct weston_buffer *buffer;
 	struct wl_listener buffer_destroy_listener;
 
-	int32_t sx;
-	int32_t sy;
+	struct weston_coord_surface buf_offset;
 
 	/* wl_surface.damage */
 	pixman_region32_t damage_surface;

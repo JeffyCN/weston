@@ -748,14 +748,14 @@ surface_state_handle_buffer_destroy(struct wl_listener *listener, void *data)
 }
 
 static void
-weston_surface_state_init(struct weston_surface_state *state)
+weston_surface_state_init(struct weston_surface *surface,
+			  struct weston_surface_state *state)
 {
 	state->status = WESTON_SURFACE_CLEAN;
 	state->buffer = NULL;
 	state->buffer_destroy_listener.notify =
 		surface_state_handle_buffer_destroy;
-	state->sx = 0;
-	state->sy = 0;
+	state->buf_offset = weston_coord_surface(0, 0, surface);
 
 	pixman_region32_init(&state->damage_surface);
 	pixman_region32_init(&state->damage_buffer);
@@ -836,7 +836,7 @@ weston_surface_create(struct weston_compositor *compositor)
 	surface->buffer_viewport.buffer.src_width = wl_fixed_from_int(-1);
 	surface->buffer_viewport.surface.width = -1;
 
-	weston_surface_state_init(&surface->pending);
+	weston_surface_state_init(surface, &surface->pending);
 
 	pixman_region32_init(&surface->damage);
 	pixman_region32_init(&surface->opaque);
@@ -4014,8 +4014,8 @@ surface_attach(struct wl_client *client,
 		}
 	} else {
 		surface->pending.status |= WESTON_SURFACE_DIRTY_POS;
-		surface->pending.sx = sx;
-		surface->pending.sy = sy;
+		surface->pending.buf_offset = weston_coord_surface(sx, sy,
+								   surface);
 	}
 
 	/* Attach, attach, without commit in between does not send
@@ -4388,17 +4388,10 @@ weston_surface_commit_state(struct weston_surface *surface,
 
 	if ((status & (WESTON_SURFACE_DIRTY_BUFFER | WESTON_SURFACE_DIRTY_SIZE |
 		       WESTON_SURFACE_DIRTY_POS)) &&
-	     surface->committed) {
-		struct weston_coord_surface new_origin;
+	     surface->committed)
+		surface->committed(surface, state->buf_offset);
 
-		new_origin = weston_coord_surface(state->sx,
-						  state->sy,
-						  surface);
-		surface->committed(surface, new_origin);
-	}
-
-	state->sx = 0;
-	state->sy = 0;
+	state->buf_offset = weston_coord_surface(0, 0, surface);
 
 	/* wl_surface.damage and wl_surface.damage_buffer; only valid
 	 * in the same cycle as wl_surface.commit */
@@ -4620,8 +4613,7 @@ surface_offset(struct wl_client *client,
 	struct weston_surface *surface = wl_resource_get_user_data(resource);
 
 	surface->pending.status |= WESTON_SURFACE_DIRTY_POS;
-	surface->pending.sx = sx;
-	surface->pending.sy = sy;
+	surface->pending.buf_offset = weston_coord_surface(sx, sy, surface);
 }
 
 static const struct wl_surface_interface surface_interface = {
@@ -4772,9 +4764,9 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 	 */
 	if (surface->pending.status & WESTON_SURFACE_DIRTY_POS) {
 		pixman_region32_translate(&sub->cached.damage_surface,
-				  	  -surface->pending.sx, -surface->pending.sy);
+					  -surface->pending.buf_offset.c.x,
+					  -surface->pending.buf_offset.c.y);
 	}
-
 	pixman_region32_union(&sub->cached.damage_surface,
 			      &sub->cached.damage_surface,
 			      &surface->pending.damage_surface);
@@ -4807,8 +4799,8 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 	sub->cached.protection_mode = surface->pending.protection_mode;
 	assert(surface->pending.acquire_fence_fd == -1);
 	assert(surface->pending.buffer_release_ref.buffer_release == NULL);
-	sub->cached.sx += surface->pending.sx;
-	sub->cached.sy += surface->pending.sy;
+	sub->cached.buf_offset.c = weston_coord_add(sub->cached.buf_offset.c,
+						    surface->pending.buf_offset.c);
 
 	sub->cached.buffer_viewport.buffer =
 		surface->pending.buffer_viewport.buffer;
@@ -4817,8 +4809,7 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 
 	weston_surface_state_set_buffer(&surface->pending, NULL);
 
-	surface->pending.sx = 0;
-	surface->pending.sy = 0;
+	surface->pending.buf_offset = weston_coord_surface(0, 0, surface);
 
 	pixman_region32_copy(&sub->cached.opaque, &surface->pending.opaque);
 
@@ -5462,7 +5453,7 @@ weston_subsurface_create(uint32_t id, struct weston_surface *surface,
 				       sub, subsurface_resource_destroy);
 	weston_subsurface_link_surface(sub, surface);
 	weston_subsurface_link_parent(sub, parent);
-	weston_surface_state_init(&sub->cached);
+	weston_surface_state_init(surface, &sub->cached);
 	sub->cached_buffer_ref.buffer = NULL;
 	sub->synchronized = 1;
 
