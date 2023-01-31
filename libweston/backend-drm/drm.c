@@ -408,6 +408,8 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	scanout_state->dest_w = output->base.current_mode->width;
 	scanout_state->dest_h = output->base.current_mode->height;
 
+	scanout_state->zpos = scanout_plane->zpos_min;
+
 	pixman_region32_subtract(&c->primary_plane.damage,
 				 &c->primary_plane.damage, damage);
 
