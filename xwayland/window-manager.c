@@ -1927,8 +1927,14 @@ weston_wm_window_handle_iconic_state(struct weston_wm_window *window,
 	iconic_state = client_message->data.data32[0];
 
 	if (iconic_state == ICCCM_ICONIC_STATE) {
-		window->saved_height = window->height;
-		window->saved_width = window->width;
+		/* If window is currently in maximized or fullscreen state,
+		 * don't override saved size.
+		 */
+		if (!weston_wm_window_is_maximized(window) &&
+		    !window->fullscreen) {
+			window->saved_height = window->height;
+			window->saved_width = window->width;
+		}
 		xwayland_interface->set_minimized(window->shsurf);
 	}
 }
@@ -2297,8 +2303,14 @@ weston_wm_handle_button(struct weston_wm *wm, xcb_generic_event_t *event)
 	}
 
 	if (frame_status(window->frame) & FRAME_STATUS_MINIMIZE) {
-		window->saved_width = window->width;
-		window->saved_height = window->height;
+		/* If window is currently in maximized or fullscreen state,
+		 * don't override saved size.
+		 */
+		if (!weston_wm_window_is_maximized(window) &&
+		    !window->fullscreen) {
+			window->saved_width = window->width;
+			window->saved_height = window->height;
+		}
 		xwayland_interface->set_minimized(window->shsurf);
 		frame_status_clear(window->frame, FRAME_STATUS_MINIMIZE);
 	}
