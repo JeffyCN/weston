@@ -663,10 +663,10 @@ vnc_output_disable(struct weston_output *base)
 	if (!output->base.enabled)
 		return 0;
 
-	renderer->pixman->output_destroy(&output->base);
-
 	nvnc_display_unref(output->display);
 	nvnc_fb_pool_unref(output->fb_pool);
+
+	renderer->pixman->output_destroy(&output->base);
 
 	wl_event_source_remove(output->finish_frame_timer);
 	backend->output = NULL;
