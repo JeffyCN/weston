@@ -512,6 +512,16 @@ lookup_remoted_output(struct weston_output *output)
 	struct weston_remoting *remoting = weston_remoting_get(c);
 	struct remoted_output *remoted_output;
 
+	/* XXX: This could happen on the compositor shutdown path with our
+	 * destroy listener being removed, and remoting_output_destroy() being
+	 * called as a virtual destructor.
+	 *
+	 * See https://gitlab.freedesktop.org/wayland/weston/-/issues/591 for
+	 * an alternative to the shutdown sequence.
+	 */
+	if (!remoting)
+		return NULL;
+
 	wl_list_for_each(remoted_output, &remoting->output_list, link) {
 		if (remoted_output->output == output)
 			return remoted_output;
@@ -635,6 +645,9 @@ remoting_output_destroy(struct weston_output *output)
 {
 	struct remoted_output *remoted_output = lookup_remoted_output(output);
 	struct weston_mode *mode, *next;
+
+	if (!remoted_output)
+		return;
 
 	weston_head_release(remoted_output->head);
 
