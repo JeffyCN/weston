@@ -583,7 +583,6 @@ vnc_output_enable(struct weston_output *base)
 	struct vnc_backend *backend;
 	struct wl_event_loop *loop;
 	const struct pixman_renderer_output_options options = {
-		.use_shadow = true,
 		.fb_size = {
 			.width = output->base.width,
 			.height = output->base.height,
