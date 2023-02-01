@@ -1806,6 +1806,18 @@ weston_surface_is_mapped(struct weston_surface *surface)
 	return surface->is_mapped;
 }
 
+/** Check if the weston_surface is emitting an unmapping commit
+ *
+ * @param surface The weston_surface.
+ *
+ * Returns true if the surface is emitting an unmapping commit.
+ */
+WL_EXPORT bool
+weston_surface_is_unmapping(struct weston_surface *surface)
+{
+	return surface->is_unmapping;
+}
+
 static void
 surface_set_size(struct weston_surface *surface, int32_t width, int32_t height)
 {
@@ -2570,8 +2582,11 @@ weston_surface_attach(struct weston_surface *surface,
 					 BUFFER_WILL_NOT_BE_ACCESSED);
 
 	if (!buffer) {
-		if (weston_surface_is_mapped(surface))
+		if (weston_surface_is_mapped(surface)) {
 			weston_surface_unmap(surface);
+			/* This is the unmapping commit */
+			surface->is_unmapping = true;
+		}
 	}
 
 	surface->compositor->renderer->attach(surface, buffer);
@@ -4007,6 +4022,9 @@ weston_surface_commit_state(struct weston_surface *surface,
 	weston_surface_set_desired_protection(surface, state->desired_protection);
 
 	wl_signal_emit(&surface->commit_signal, surface);
+
+	/* Surface is fully unmapped now */
+	surface->is_unmapping = false;
 }
 
 static void
