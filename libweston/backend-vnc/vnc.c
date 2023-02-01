@@ -85,7 +85,6 @@ struct vnc_output {
 	pixman_region32_t damage;
 
 	struct wl_list peers;
-	struct wl_list fb_side_data_list;
 };
 
 struct vnc_peer {
@@ -99,13 +98,6 @@ struct vnc_peer {
 
 struct vnc_head {
 	struct weston_head base;
-};
-
-struct fb_side_data {
-	struct weston_renderer *renderer;
-	struct weston_renderbuffer *renderbuffer;
-	pixman_region32_t damage;
-	struct wl_list link;
 };
 
 static inline struct vnc_backend *
@@ -446,18 +438,6 @@ vnc_client_cleanup(struct nvnc_client *client)
 	weston_log("VNC Client disconnected\n");
 }
 
-static void
-fb_side_data_destroy(void *userdata)
-{
-	struct fb_side_data *fb_side_data = userdata;
-
-	wl_list_remove(&fb_side_data->link);
-	pixman_region32_fini(&fb_side_data->damage);
-	weston_renderbuffer_unref(fb_side_data->renderbuffer);
-	free(fb_side_data);
-}
-
-
 /*
  * Convert damage rectangles from 32-bit global coordinates to 16-bit local
  * coordinates. The output transformation has to be a pure translation.
@@ -495,29 +475,22 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 	struct vnc_backend *backend = nvnc_get_userdata(server);
 	struct vnc_output *output = backend->output;
 	struct weston_compositor *ec = output->base.compositor;
-	struct fb_side_data *fb_side_data;
+	struct weston_renderbuffer *renderbuffer;
 	pixman_region16_t local_damage;
 	struct nvnc_fb *fb;
-
-	/* Accumulate damage in all buffers */
-	wl_list_for_each(fb_side_data, &output->fb_side_data_list, link)
-		pixman_region32_union(&fb_side_data->damage,
-				      &fb_side_data->damage, damage);
 
 	fb = nvnc_fb_pool_acquire(output->fb_pool);
 	assert(fb);
 
-	fb_side_data = nvnc_get_userdata(fb);
-	if (!fb_side_data) {
+	renderbuffer = nvnc_get_userdata(fb);
+	if (!renderbuffer) {
 		const struct pixman_renderer_interface *pixman;
 		const struct pixel_format_info *pfmt;
 
-		fb_side_data = xzalloc(sizeof(*fb_side_data));
-
 		pixman = ec->renderer->pixman;
 		pfmt = pixel_format_get_info(DRM_FORMAT_XRGB8888);
-		fb_side_data->renderer = ec->renderer;
-		fb_side_data->renderbuffer =
+
+		renderbuffer =
 			pixman->create_image_from_ptr(&output->base, pfmt,
 						      output->base.width,
 						      output->base.height,
@@ -525,23 +498,19 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 						      output->base.width * 4);
 
 		/* This is a new buffer, so the whole surface is damaged. */
-		pixman_region32_copy(&fb_side_data->damage,
+		pixman_region32_copy(&renderbuffer->damage,
 				     &output->base.region);
 
-		nvnc_set_userdata(fb, fb_side_data, fb_side_data_destroy);
-		wl_list_insert(&output->fb_side_data_list, &fb_side_data->link);
+		nvnc_set_userdata(fb, renderbuffer,
+				  (nvnc_cleanup_fn)weston_renderbuffer_unref);
 	}
 
-	ec->renderer->repaint_output(&output->base, &fb_side_data->damage,
-				     fb_side_data->renderbuffer);
+	ec->renderer->repaint_output(&output->base, damage, renderbuffer);
 
 	/* Convert to local coordinates */
 	pixman_region_init(&local_damage);
 	vnc_convert_damage(&local_damage, damage,
 					  output->base.x, output->base.y);
-
-	/* Clear accumulated damage after repaint */
-	pixman_region32_clear(&fb_side_data->damage);
 
 	nvnc_display_feed_buffer(output->display, fb, &local_damage);
 	nvnc_fb_unref(fb);
@@ -644,7 +613,6 @@ vnc_output_enable(struct weston_output *base)
 
 	pixman_region32_init_rect(&output->damage, base->x, base->y,
 				  base->width, base->height);
-	wl_list_init(&output->fb_side_data_list);
 
 	nvnc_add_display(backend->server, output->display);
 
@@ -943,15 +911,11 @@ vnc_handle_output_move(struct wl_listener *listener, void *data)
 {
 	struct weston_output *base = data;
 	struct vnc_output *output = to_vnc_output(base);
-	struct fb_side_data *fb_side_data;
 
 	if (!output)
 		return;
 
 	/* Move accumulated damage with output */
-	wl_list_for_each(fb_side_data, &output->fb_side_data_list, link)
-		pixman_region32_translate(&fb_side_data->damage, base->move_x,
-					  base->move_y);
 	pixman_region32_translate(&output->damage, base->move_x, base->move_y);
 }
 
