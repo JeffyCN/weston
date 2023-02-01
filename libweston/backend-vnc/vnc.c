@@ -83,6 +83,7 @@ struct vnc_backend {
 struct vnc_output {
 	struct weston_output base;
 	struct weston_plane cursor_plane;
+	struct weston_plane scanout_plane;
 	struct weston_surface *cursor_surface;
 	struct vnc_backend *backend;
 	struct wl_event_source *finish_frame_timer;
@@ -742,6 +743,7 @@ vnc_output_enable(struct weston_output *base)
 	backend->output = output;
 
 	weston_plane_init(&output->cursor_plane, backend->compositor);
+	weston_plane_init(&output->scanout_plane, backend->compositor);
 
 	switch (renderer->type) {
 	case WESTON_RENDERER_PIXMAN: {
@@ -823,6 +825,7 @@ vnc_output_disable(struct weston_output *base)
 	wl_event_source_remove(output->finish_frame_timer);
 	backend->output = NULL;
 
+	weston_plane_release(&output->scanout_plane);
 	weston_plane_release(&output->cursor_plane);
 
 	return 0;
@@ -990,10 +993,44 @@ vnc_clients_support_cursor(struct vnc_output *output)
 	return true;
 }
 
+static struct nvnc_fb *
+vnc_fb_get_from_view(struct weston_view *view)
+{
+	struct weston_buffer *buffer = view->surface->buffer_ref.buffer;
+	int32_t stride;
+
+	if (view->alpha != 1.0f)
+		return NULL;
+
+	if (!weston_view_is_opaque(view, &view->transform.boundingbox))
+		return NULL;
+
+	if (!buffer)
+		return NULL;
+
+	if (buffer->type != WESTON_BUFFER_SHM || !buffer->shm_buffer)
+		return NULL;
+
+	if (buffer->pixel_format->format != DRM_FORMAT_ARGB8888 &&
+	    buffer->pixel_format->format != DRM_FORMAT_XRGB8888)
+		return NULL;
+
+	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+	if (stride % 4)
+		return NULL;
+
+	return nvnc_fb_from_buffer(wl_shm_buffer_get_data(buffer->shm_buffer),
+				   buffer->width, buffer->height,
+				   DRM_FORMAT_XRGB8888, stride / 4);
+}
+
 static void
 vnc_output_assign_planes(struct weston_output *base)
 {
+	struct weston_plane *primary = &base->compositor->primary_plane;
 	struct vnc_output *output = to_vnc_output(base);
+	struct weston_paint_node *pnode;
+	bool topmost = true;
 
 	assert(output);
 
@@ -1003,6 +1040,56 @@ vnc_output_assign_planes(struct weston_output *base)
 	/* Update VNC cursor and move cursor view to plane */
 	if (vnc_clients_support_cursor(output))
 		vnc_output_update_cursor(output);
+
+	wl_list_for_each(pnode, &output->base.paint_node_z_order_list, z_order_link) {
+		struct weston_view *view = pnode->view;
+		struct nvnc_fb *fb = NULL;
+
+		/* If this view doesn't touch our output at all, there's no
+		 * reason to do anything with it. */
+		/* TODO: turn this into assert once z_order_list is pruned. */
+		if (!(view->output_mask & (1u << output->base.id)))
+			continue;
+
+		/* Skip cursor view */
+		if (view->plane == &output->cursor_plane)
+			continue;
+
+		if (topmost &&
+		    pixman_region32_equal(&view->transform.boundingbox,
+					  &output->base.region) &&
+		    (fb = vnc_fb_get_from_view(view))) {
+			struct weston_buffer *buffer;
+			pixman_region32_t local_damage;
+			pixman_region16_t nvnc_damage;
+
+			weston_view_move_to_plane(view, &output->scanout_plane);
+
+			/* Convert to local coordinates */
+			pixman_region32_init(&local_damage);
+			weston_region_global_to_output(&local_damage, &output->base,
+						       &output->base.region);
+
+			/* Convert to 16-bit */
+			pixman_region_init(&nvnc_damage);
+			vnc_region32_to_region16(&nvnc_damage, &local_damage);
+
+			buffer = view->surface->buffer_ref.buffer;
+			wl_shm_buffer_begin_access(buffer->shm_buffer);
+			nvnc_display_feed_buffer(output->display, fb,
+						 &nvnc_damage);
+			wl_shm_buffer_end_access(buffer->shm_buffer);
+
+			pixman_region32_fini(&local_damage);
+			pixman_region_fini(&nvnc_damage);
+
+			nvnc_fb_unref(fb);
+		} else {
+			weston_view_move_to_plane(view, primary);
+		}
+
+		topmost = false;
+	}
 }
 
 static struct weston_mode *
