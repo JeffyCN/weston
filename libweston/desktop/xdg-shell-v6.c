@@ -649,8 +649,13 @@ weston_desktop_xdg_toplevel_committed(struct weston_desktop_xdg_toplevel *toplev
 		weston_desktop_xdg_toplevel_ensure_added(toplevel);
 		return;
 	}
-	if (!weston_surface_has_content(wsurface))
+
+	if (!weston_surface_has_content(wsurface)) {
+		if (weston_surface_is_unmapping(wsurface))
+			weston_desktop_api_committed(toplevel->base.desktop,
+				toplevel->base.desktop_surface, sx, sy);
 		return;
+	}
 
 	struct weston_geometry geometry =
 		weston_desktop_surface_get_geometry(toplevel->base.desktop_surface);

@@ -2064,8 +2064,16 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	bool was_fullscreen, should_set_fullscreen;
 	bool was_maximized, should_set_maximized;
 
-	if (surface->width == 0)
+	if (!weston_surface_has_content(surface) &&
+	    weston_surface_is_unmapping(surface) &&
+	    shsurf->state.fullscreen) {
+		unset_fullscreen(shsurf);
 		return;
+	}
+
+	if (surface->width == 0) {
+		return;
+	}
 
 	was_fullscreen = shsurf->state.fullscreen;
 	was_maximized = shsurf->state.maximized;
