@@ -81,6 +81,8 @@ struct vnc_output {
 	struct nvnc_display *display;
 
 	struct nvnc_fb_pool *fb_pool;
+	/* damage accumulated while not repainting */
+	pixman_region32_t damage;
 
 	struct wl_list peers;
 	struct wl_list fb_side_data_list;
@@ -497,6 +499,11 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 	pixman_region16_t local_damage;
 	struct nvnc_fb *fb;
 
+	/* Accumulate damage in all buffers */
+	wl_list_for_each(fb_side_data, &output->fb_side_data_list, link)
+		pixman_region32_union(&fb_side_data->damage,
+				      &fb_side_data->damage, damage);
+
 	fb = nvnc_fb_pool_acquire(output->fb_pool);
 	assert(fb);
 
@@ -635,6 +642,7 @@ vnc_output_enable(struct weston_output *base)
 
 	output->display = nvnc_display_new(0, 0);
 
+	pixman_region32_init(&output->damage);
 	wl_list_init(&output->fb_side_data_list);
 
 	nvnc_add_display(backend->server, output->display);
@@ -661,6 +669,8 @@ vnc_output_disable(struct weston_output *base)
 
 	if (!output->base.enabled)
 		return 0;
+
+	pixman_region32_fini(&output->damage);
 
 	nvnc_display_unref(output->display);
 	nvnc_fb_pool_unref(output->fb_pool);
@@ -791,16 +801,15 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 	assert(output);
 
 	if (pixman_region32_not_empty(damage)) {
-		struct fb_side_data *fb_side_data;
-
-		/* Accumulate damage in all buffers */
-		wl_list_for_each(fb_side_data, &output->fb_side_data_list, link)
-			pixman_region32_union(&fb_side_data->damage,
-					      &fb_side_data->damage, damage);
+		/* Accumulate damage for the next repaint */
+		pixman_region32_union(&output->damage,
+				      &output->damage, damage);
 
 		/* Only repaint when a client is connected */
-		if (!wl_list_empty(&output->peers))
-			vnc_update_buffer(output->display, damage);
+		if (!wl_list_empty(&output->peers)) {
+			vnc_update_buffer(output->display, &output->damage);
+			pixman_region32_clear(&output->damage);
+		}
 
 		pixman_region32_subtract(&ec->primary_plane.damage,
 					 &ec->primary_plane.damage, damage);
@@ -942,6 +951,7 @@ vnc_handle_output_move(struct wl_listener *listener, void *data)
 	wl_list_for_each(fb_side_data, &output->fb_side_data_list, link)
 		pixman_region32_translate(&fb_side_data->damage, base->move_x,
 					  base->move_y);
+	pixman_region32_translate(&output->damage, base->move_x, base->move_y);
 }
 
 static int
