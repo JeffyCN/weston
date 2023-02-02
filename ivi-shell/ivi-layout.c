@@ -1824,6 +1824,16 @@ ivi_layout_commit_changes(void)
 }
 
 static int32_t
+ivi_layout_commit_current(void)
+{
+	struct ivi_layout *layout = get_instance();
+	build_view_list(layout);
+	commit_changes(layout);
+	send_prop(layout);
+	return IVI_SUCCEEDED;
+}
+
+static int32_t
 ivi_layout_layer_set_transition(struct ivi_layout_layer *ivilayer,
 				enum ivi_layout_transition_type type,
 				uint32_t duration)
@@ -1983,6 +1993,7 @@ ivi_layout_desktop_surface_configure(struct ivi_layout_surface *ivisurf,
 				 int32_t width, int32_t height)
 {
 	struct ivi_layout *layout = get_instance();
+	ivisurf->prop.event_mask |= IVI_NOTIFICATION_CONFIGURE;
 
 	/* emit callback which is set by ivi-layout api user */
 	wl_signal_emit(&layout->surface_notification.configure_desktop_changed,
@@ -2009,6 +2020,7 @@ ivi_layout_surface_configure(struct ivi_layout_surface *ivisurf,
 			     int32_t width, int32_t height)
 {
 	struct ivi_layout *layout = get_instance();
+	ivisurf->prop.event_mask |= IVI_NOTIFICATION_CONFIGURE;
 
 	/* emit callback which is set by ivi-layout api user */
 	wl_signal_emit(&layout->surface_notification.configure_changed,
@@ -2107,6 +2119,7 @@ static struct ivi_layout_interface ivi_layout_interface = {
 	 * commit all changes
 	 */
 	.commit_changes = ivi_layout_commit_changes,
+	.commit_current = ivi_layout_commit_current,
 
 	/**
 	 * surface controller interfaces

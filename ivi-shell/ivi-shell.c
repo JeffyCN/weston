@@ -121,8 +121,10 @@ ivi_shell_surface_committed(struct weston_surface *surface,
 {
 	struct ivi_shell_surface *ivisurf = get_ivi_shell_surface(surface);
 
-	if (surface->width == 0 || surface->height == 0)
-		return;
+	if (surface->width == 0 || surface->height == 0) {
+		if (!weston_surface_is_unmapping(surface))
+			return;
+	}
 
 	if (ivisurf->width != surface->width ||
 	    ivisurf->height != surface->height) {
@@ -574,8 +576,10 @@ desktop_surface_committed(struct weston_desktop_surface *surface,
 	if(!ivisurf)
 		return;
 
-	if (weston_surf->width == 0 || weston_surf->height == 0)
-		return;
+	if (weston_surf->width == 0 || weston_surf->height == 0) {
+		if (!weston_surface_is_unmapping(weston_surf))
+			return;
+	}
 
 	if (ivisurf->width != weston_surf->width ||
 	    ivisurf->height != weston_surf->height) {

@@ -153,6 +153,14 @@ struct ivi_layout_interface {
 	int32_t (*commit_changes)(void);
 
 	/**
+	 * \brief Rebuild view list without applying any new changes
+	 *
+	 * \return IVI_SUCCEEDED if the method call was successful
+	 * \return IVI_FAILED if the method call was failed
+	 */
+	int32_t (*commit_current)(void);
+
+	/**
 	 * surface controller interface
 	 */
 
