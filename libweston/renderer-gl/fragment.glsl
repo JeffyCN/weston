@@ -119,7 +119,7 @@ uniform samplerExternalOES tex;
 uniform sampler2D tex;
 #endif
 
-varying vec2 v_texcoord;
+varying HIGHPRECISION vec2 v_texcoord;
 uniform sampler2D tex1;
 uniform sampler2D tex2;
 uniform float view_alpha;

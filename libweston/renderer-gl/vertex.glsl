@@ -25,10 +25,21 @@
  * SOFTWARE.
  */
 
+/* Always use high-precision for vertex calculations */
+precision highp float;
+
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+#define FRAG_PRECISION highp
+#else
+#define FRAG_PRECISION mediump
+#endif
+
 uniform mat4 proj;
 attribute vec2 position;
 attribute vec2 texcoord;
-varying vec2 v_texcoord;
+
+/* Match the varying precision to the fragment shader */
+varying FRAG_PRECISION vec2 v_texcoord;
 
 void main()
 {
