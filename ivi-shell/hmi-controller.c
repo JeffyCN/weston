@@ -605,6 +605,8 @@ set_notification_configure_surface(struct wl_listener *listener, void *data)
 	 */
 	surface = hmi_ctrl->interface->surface_get_weston_surface(ivisurf);
 	if (surface) {
+		if (!weston_surface_has_content(surface))
+			return;
 		hmi_ctrl->interface->surface_set_source_rectangle(
 			ivisurf, 0, 0, surface->width,
 			surface->height);
@@ -664,6 +666,8 @@ set_notification_configure_desktop_surface(struct wl_listener *listener, void *d
 	 */
 	surface = hmi_ctrl->interface->surface_get_weston_surface(ivisurf);
 	if (surface) {
+		if (!weston_surface_has_content(surface))
+			return;
 		hmi_ctrl->interface->surface_set_source_rectangle(ivisurf, 0,
 				0, surface->width, surface->height);
 	}
