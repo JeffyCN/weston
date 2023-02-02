@@ -69,6 +69,7 @@ struct ivi_layout_surface;
 enum ivi_layout_surface_type {
 	IVI_LAYOUT_SURFACE_TYPE_IVI,
 	IVI_LAYOUT_SURFACE_TYPE_DESKTOP,
+	IVI_LAYOUT_SURFACE_TYPE_INPUT_PANEL,
 };
 
 struct ivi_layout_surface_properties
@@ -113,6 +114,14 @@ struct ivi_layout_layer_properties
 	double end_alpha;
 	uint32_t is_fade_in;
 	uint32_t event_mask;
+};
+
+struct ivi_layout_text_input_state
+{
+	bool overlay_panel;
+	struct ivi_layout_surface *surface;
+	struct ivi_layout_surface *input_panel;
+	pixman_box32_t cursor_rectangle;
 };
 
 enum ivi_layout_notification_mask {
@@ -613,8 +622,63 @@ struct ivi_layout_interface {
 	 * \return IVI_SUCCEEDED if the method call was successful
 	 * \return IVI_FAILED if the method call was failed
 	 */
-	int32_t (*shell_add_destroy_listener_once)(struct wl_listener *listener, 
+	int32_t (*shell_add_destroy_listener_once)(struct wl_listener *listener,
 				wl_notify_func_t destroy_handler);
+
+	/**
+	 * \brief add a listener for notification when input_panel_surface is
+	 * configured
+	 *
+	 * When an input_panel_surface is configured, a signal is emitted
+	 * to the listening controller plugins.
+	 * The pointer of the configured input_panel_surface is sent as the void
+	 * *data argument to the wl_listener::notify callback function of the
+	 * listener.
+	 */
+	void (*add_listener_configure_input_panel_surface)(struct wl_listener *listener);
+
+	/**
+	 * \brief add a listener for notification when an input_panel_surface
+	 * should be shown.
+	 *
+	 * When a client requests input panels, this signal is emitted for all
+	 * available input panels.
+	 * A pointer to a struct ivi_layout_text_input_state is sent as the void
+	 * *data argument to the wl_listener::notify callback function of the
+	 * listener.
+	 * It contains the surface that requested the input panel, the
+	 * input_panel_surface that should be shown and whether the input panel
+	 * is a toplevel o overlay panel.
+	 * For overlay panels, the relevant cursor_rectangle is filled with
+	 * coordinates relative to the client surface.
+	 */
+	void (*add_listener_show_input_panel)(struct wl_listener *listener);
+
+	/**
+	 * \brief add a listener for notification when an input_panel_surface
+	 * should be hidden.
+	 *
+	 * When a client requests that input panels are hidden, this signal is
+	 * emitted for all available input panels.
+	 * The pointer of the configured input_panel_surface is sent as the void
+	 * *data argument to the wl_listener::notify callback function of the
+	 * listener.
+	 */
+	void (*add_listener_hide_input_panel)(struct wl_listener *listener);
+
+	/**
+	 * \brief add a listener for notification when an input_panel_surface
+	 * should be updated.
+	 *
+	 * When the input panels need to be updated in some way, this signal is
+	 * called for available input panels.
+	 * This happens for example when the cursor_rectangle changes.
+	 * A pointer to a struct ivi_layout_text_input_state is sent as the void
+	 * *data argument to the wl_listener::notify callback function of the
+	 * listener.
+	 * See add_listener_show_input_panel for more details.
+	 */
+	void (*add_listener_update_input_panel)(struct wl_listener *listener);
 };
 
 static inline const struct ivi_layout_interface *

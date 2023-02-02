@@ -28,7 +28,7 @@
  * not updated until ivi_layout_commit_changes is called. An overview from
  * calling API for updating properties of ivi_surface/ivi_layer to asking
  * compositor to compose them by using weston_view_schedule_repaint,
- * 0/ initialize this library by ivi_layout_init_with_compositor
+ * 0/ initialize this library by ivi_layout_init
  *    with (struct weston_compositor *ec) from ivi-shell.
  * 1/ When an API for updating properties of ivi_surface/ivi_layer, it updates
  *    pending prop of ivi_surface/ivi_layer/ivi_screen which are structure to
@@ -321,7 +321,7 @@ output_created_event(struct wl_listener *listener, void *data)
 
 /**
  * Internal API to initialize ivi_screens found from output_list of weston_compositor.
- * Called by ivi_layout_init_with_compositor.
+ * Called by ivi_layout_init.
  */
 static void
 create_screen(struct weston_compositor *ec)
@@ -1578,13 +1578,20 @@ void
 ivi_layout_surface_set_size(struct ivi_layout_surface *ivisurf,
 			    int32_t width, int32_t height)
 {
-	if (weston_surface_is_desktop_surface(ivisurf->surface)) {
+	switch (ivisurf->prop.surface_type) {
+	case IVI_LAYOUT_SURFACE_TYPE_DESKTOP:
 		weston_desktop_surface_set_size(ivisurf->weston_desktop_surface,
 						width, height);
-	} else {
+		return;
+	case IVI_LAYOUT_SURFACE_TYPE_IVI:
 		shell_surface_send_configure(ivisurf->surface,
 					     width, height);
+		return;
+	case IVI_LAYOUT_SURFACE_TYPE_INPUT_PANEL:
+		return;
 	}
+	/* there should be no other surface type */
+	assert(0);
 }
 
 static int32_t
@@ -2018,6 +2025,127 @@ ivi_layout_desktop_surface_create(struct weston_surface *wl_surface,
 	return ivisurf;
 }
 
+struct ivi_layout_surface*
+ivi_layout_input_panel_surface_create(struct weston_surface *wl_surface)
+{
+	struct ivi_layout *layout = get_instance();
+	struct ivi_layout_surface *ivisurf;
+
+	ivisurf = surface_create(wl_surface, IVI_INVALID_ID,
+				 IVI_LAYOUT_SURFACE_TYPE_INPUT_PANEL);
+
+	weston_signal_emit_mutable(&layout->surface_notification.created,
+				   ivisurf);
+
+	return ivisurf;
+}
+
+void
+ivi_layout_input_panel_surface_configure(struct ivi_layout_surface *ivisurf,
+					 int32_t width, int32_t height)
+{
+	struct ivi_layout *layout = get_instance();
+
+	weston_signal_emit_mutable(&layout->input_panel_notification.configure_changed,
+				   ivisurf);
+}
+
+void
+ivi_layout_update_text_input_cursor(pixman_box32_t *cursor_rectangle)
+{
+	struct ivi_layout *layout = get_instance();
+
+	memcpy(&layout->text_input.cursor_rectangle, cursor_rectangle,
+	       sizeof(pixman_box32_t));
+}
+
+void
+ivi_layout_show_input_panel(struct ivi_layout_surface *ivisurf,
+			    struct ivi_layout_surface *target_ivisurf,
+			    bool overlay_panel)
+{
+	struct ivi_layout *layout = get_instance();
+	struct ivi_layout_text_input_state state = {
+		.overlay_panel = overlay_panel,
+		.input_panel = ivisurf,
+		.surface = target_ivisurf,
+		.cursor_rectangle = layout->text_input.cursor_rectangle
+	};
+	layout->text_input.ivisurf = target_ivisurf;
+
+	weston_signal_emit_mutable(&layout->input_panel_notification.show,
+				   &state);
+}
+
+void
+ivi_layout_hide_input_panel(struct ivi_layout_surface *ivisurf)
+{
+	struct ivi_layout *layout = get_instance();
+
+	weston_signal_emit_mutable(&layout->input_panel_notification.hide,
+				   ivisurf);
+}
+
+void
+ivi_layout_update_input_panel(struct ivi_layout_surface *ivisurf,
+			      bool overlay_panel)
+{
+	struct ivi_layout *layout = get_instance();
+	struct ivi_layout_text_input_state state = {
+		.overlay_panel = overlay_panel,
+		.input_panel = ivisurf,
+		.surface =layout->text_input.ivisurf,
+		.cursor_rectangle = layout->text_input.cursor_rectangle
+	};
+
+	weston_signal_emit_mutable(&layout->input_panel_notification.update,
+				   &state);
+}
+
+static void
+ivi_layout_add_listener_configure_input_panel_surface(struct wl_listener *listener)
+{
+	struct ivi_layout *layout = get_instance();
+
+	assert(listener);
+
+	wl_signal_add(&layout->input_panel_notification.configure_changed, listener);
+	shell_ensure_text_input(layout->shell);
+}
+
+static void
+ivi_layout_add_listener_show_input_panel(struct wl_listener *listener)
+{
+	struct ivi_layout *layout = get_instance();
+
+	assert(listener);
+
+	wl_signal_add(&layout->input_panel_notification.show, listener);
+	shell_ensure_text_input(layout->shell);
+}
+
+static void
+ivi_layout_add_listener_hide_input_panel(struct wl_listener *listener)
+{
+	struct ivi_layout *layout = get_instance();
+
+	assert(listener);
+
+	wl_signal_add(&layout->input_panel_notification.hide, listener);
+	shell_ensure_text_input(layout->shell);
+}
+
+static void
+ivi_layout_add_listener_update_input_panel(struct wl_listener *listener)
+{
+	struct ivi_layout *layout = get_instance();
+
+	assert(listener);
+
+	wl_signal_add(&layout->input_panel_notification.update, listener);
+	shell_ensure_text_input(layout->shell);
+}
+
 void
 ivi_layout_surface_configure(struct ivi_layout_surface *ivisurf,
 			     int32_t width, int32_t height)
@@ -2064,11 +2192,11 @@ ivi_layout_ivi_shell_destroy(void)
 static struct ivi_layout_interface ivi_layout_interface;
 
 void
-ivi_layout_init_with_compositor(struct weston_compositor *ec)
+ivi_layout_init(struct weston_compositor *ec, struct ivi_shell *shell)
 {
 	struct ivi_layout *layout = get_instance();
 
-	layout->compositor = ec;
+	layout->shell = shell;
 
 	wl_list_init(&layout->surface_list);
 	wl_list_init(&layout->layer_list);
@@ -2082,6 +2210,11 @@ ivi_layout_init_with_compositor(struct weston_compositor *ec)
 	wl_signal_init(&layout->surface_notification.removed);
 	wl_signal_init(&layout->surface_notification.configure_changed);
 	wl_signal_init(&layout->surface_notification.configure_desktop_changed);
+
+	wl_signal_init(&layout->input_panel_notification.configure_changed);
+	wl_signal_init(&layout->input_panel_notification.show);
+	wl_signal_init(&layout->input_panel_notification.hide);
+	wl_signal_init(&layout->input_panel_notification.update);
 
 	wl_signal_init(&layout->shell_notification.destroy_signal);
 
@@ -2195,4 +2328,12 @@ static struct ivi_layout_interface ivi_layout_interface = {
 	 * shell interfaces
 	 */
 	.shell_add_destroy_listener_once = ivi_layout_shell_add_destroy_listener_once,
+
+	/**
+	 * input panel
+	 */
+	.add_listener_configure_input_panel_surface	= ivi_layout_add_listener_configure_input_panel_surface,
+	.add_listener_show_input_panel			= ivi_layout_add_listener_show_input_panel,
+	.add_listener_hide_input_panel			= ivi_layout_add_listener_hide_input_panel,
+	.add_listener_update_input_panel		= ivi_layout_add_listener_update_input_panel,
 };

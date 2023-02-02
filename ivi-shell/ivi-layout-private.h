@@ -92,7 +92,7 @@ struct ivi_layout_layer {
 };
 
 struct ivi_layout {
-	struct weston_compositor *compositor;
+	struct ivi_shell *shell;
 
 	struct wl_list surface_list;	/* ivi_layout_surface::link */
 	struct wl_list layer_list;	/* ivi_layout_layer::link */
@@ -115,6 +115,13 @@ struct ivi_layout {
 		struct wl_signal configure_desktop_changed;
 	} surface_notification;
 
+	struct {
+		struct wl_signal configure_changed;
+		struct wl_signal show;
+		struct wl_signal hide;
+		struct wl_signal update;
+	} input_panel_notification;
+
 	struct weston_layer layout_layer;
 
 	struct ivi_layout_transition_set *transitions;
@@ -122,6 +129,11 @@ struct ivi_layout {
 
 	struct wl_listener output_created;
 	struct wl_listener output_destroyed;
+
+	struct {
+		struct ivi_layout_surface *ivisurf;
+		pixman_box32_t cursor_rectangle;
+	} text_input;
 };
 
 struct ivi_layout *get_instance(void);

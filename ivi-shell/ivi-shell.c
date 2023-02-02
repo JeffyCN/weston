@@ -42,10 +42,12 @@
 #include <assert.h>
 #include <linux/input.h>
 
+#include "input-method-unstable-v1-server-protocol.h"
 #include "ivi-shell.h"
 #include "ivi-application-server-protocol.h"
 #include "ivi-layout-private.h"
 #include "ivi-layout-shell.h"
+#include "libweston/libweston.h"
 #include "shared/helpers.h"
 #include "shared/xalloc.h"
 #include "compositor/weston.h"
@@ -67,6 +69,28 @@ struct ivi_shell_surface
 
 	struct wl_list children_list;
 	struct wl_list children_link;
+
+	struct wl_list link;
+};
+
+struct ivi_input_panel_surface
+{
+	struct wl_resource* resource;
+	struct ivi_shell *shell;
+	struct ivi_layout_surface *layout_surface;
+
+	struct weston_surface *surface;
+	struct wl_listener surface_destroy_listener;
+
+	int32_t width;
+	int32_t height;
+
+	struct weston_output *output;
+	enum {
+		INPUT_PANEL_NONE,
+		INPUT_PANEL_TOPLEVEL,
+		INPUT_PANEL_OVERLAY,
+	} type;
 
 	struct wl_list link;
 };
@@ -333,6 +357,9 @@ bind_ivi_application(struct wl_client *client,
 				       shell, NULL);
 }
 
+void
+input_panel_destroy(struct ivi_shell *shell);
+
 /*
  * Called through the compositor's destroy signal.
  */
@@ -348,6 +375,10 @@ shell_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->destroy_listener.link);
 	wl_list_remove(&shell->wake_listener.link);
 
+	if (shell->text_backend) {
+		text_backend_destroy(shell->text_backend);
+		input_panel_destroy(shell);
+	}
 
 	wl_list_for_each_safe(ivisurf, next, &shell->ivi_surface_list, link) {
 		if (ivisurf->layout_surface != NULL)
@@ -678,6 +709,330 @@ static const struct weston_desktop_api shell_desktop_api = {
  */
 
 /*
+ * input panel
+ */
+
+static void
+maybe_show_input_panel(struct ivi_input_panel_surface *ipsurf,
+		       struct ivi_shell_surface *target_ivisurf)
+{
+	if (ipsurf->surface->width == 0)
+		return;
+
+	if (ipsurf->type == INPUT_PANEL_NONE)
+		return;
+
+	ivi_layout_show_input_panel(ipsurf->layout_surface,
+				    target_ivisurf->layout_surface,
+				    ipsurf->type == INPUT_PANEL_OVERLAY);
+}
+
+static void
+show_input_panels(struct wl_listener *listener, void *data)
+{
+	struct ivi_shell *shell = container_of(listener, struct ivi_shell,
+					       show_input_panel_listener);
+	struct ivi_shell_surface *target_ivisurf;
+	struct ivi_input_panel_surface *ipsurf;
+
+	target_ivisurf = get_ivi_shell_surface(data);
+	if (!target_ivisurf)
+		return;
+
+	if (shell->text_input_surface)
+		return;
+
+	shell->text_input_surface = target_ivisurf;
+
+	wl_list_for_each(ipsurf, &shell->input_panel.surfaces, link)
+		maybe_show_input_panel(ipsurf, target_ivisurf);
+}
+
+static void
+hide_input_panels(struct wl_listener *listener, void *data)
+{
+	struct ivi_shell *shell = container_of(listener, struct ivi_shell,
+					       hide_input_panel_listener);
+	struct ivi_input_panel_surface *ipsurf;
+
+	if (!shell->text_input_surface)
+		return;
+
+	shell->text_input_surface = NULL;
+
+	wl_list_for_each(ipsurf, &shell->input_panel.surfaces, link)
+		ivi_layout_hide_input_panel(ipsurf->layout_surface);
+}
+
+static void
+update_input_panels(struct wl_listener *listener, void *data)
+{
+	ivi_layout_update_text_input_cursor(data);
+}
+
+static int
+input_panel_get_label(struct weston_surface *surface, char *buf, size_t len)
+{
+	return snprintf(buf, len, "input panel");
+}
+
+static void
+input_panel_committed(struct weston_surface *surface,
+		      struct weston_coord_surface new_origin)
+{
+	struct ivi_input_panel_surface *ipsurf = surface->committed_private;
+	struct ivi_shell *shell = ipsurf->shell;
+
+	if (surface->width == 0 || surface->height == 0)
+		return;
+
+	if (ipsurf->width != surface->width ||
+	    ipsurf->height != surface->height) {
+		ipsurf->width  = surface->width;
+		ipsurf->height = surface->height;
+		ivi_layout_input_panel_surface_configure(ipsurf->layout_surface,
+							 surface->width,
+							 surface->height);
+	}
+
+	if (shell->text_input_surface)
+		maybe_show_input_panel(ipsurf, shell->text_input_surface);
+}
+
+bool
+shell_is_input_panel_surface(struct weston_surface *surface)
+{
+	return surface->committed == input_panel_committed;
+}
+
+static struct ivi_input_panel_surface *
+get_input_panel_surface(struct weston_surface *surface)
+{
+	if (shell_is_input_panel_surface(surface))
+		return surface->committed_private;
+	else
+		return NULL;
+}
+
+static void
+input_panel_handle_surface_destroy(struct wl_listener *listener, void *data)
+{
+	struct ivi_input_panel_surface *ipsurf =
+		container_of(listener, struct ivi_input_panel_surface,
+			     surface_destroy_listener);
+
+	wl_resource_destroy(ipsurf->resource);
+}
+
+static struct ivi_input_panel_surface *
+create_input_panel_surface(struct ivi_shell *shell,
+			   struct weston_surface *surface)
+{
+	struct ivi_input_panel_surface *ipsurf;
+	struct ivi_layout_surface *layout_surface;
+
+	layout_surface = ivi_layout_input_panel_surface_create(surface);
+
+	ipsurf = xzalloc(sizeof *ipsurf);
+
+	surface->committed = input_panel_committed;
+	surface->committed_private = ipsurf;
+	weston_surface_set_label_func(surface, input_panel_get_label);
+
+	wl_list_init(&ipsurf->link);
+	wl_list_insert(&shell->input_panel.surfaces, &ipsurf->link);
+
+	ipsurf->shell = shell;
+
+	ipsurf->width = 0;
+	ipsurf->height = 0;
+	ipsurf->layout_surface = layout_surface;
+	ipsurf->surface = surface;
+
+	if (surface->width && surface->height) {
+		ipsurf->width  = surface->width;
+		ipsurf->height = surface->height;
+		ivi_layout_input_panel_surface_configure(ipsurf->layout_surface,
+							 surface->width,
+							 surface->height);
+	}
+
+	ipsurf->surface_destroy_listener.notify = input_panel_handle_surface_destroy;
+	wl_signal_add(&surface->destroy_signal,
+		      &ipsurf->surface_destroy_listener);
+
+	return ipsurf;
+}
+
+static void
+input_panel_surface_set_toplevel(struct wl_client *client,
+				 struct wl_resource *resource,
+				 struct wl_resource *output_resource,
+				 uint32_t position)
+{
+	struct ivi_input_panel_surface *ipsurf =
+		wl_resource_get_user_data(resource);
+	struct weston_head *head;
+
+	head = weston_head_from_resource(output_resource);
+
+	ipsurf->type = INPUT_PANEL_TOPLEVEL;
+	ipsurf->output = head->output;
+}
+
+static void
+input_panel_surface_set_overlay_panel(struct wl_client *client,
+				      struct wl_resource *resource)
+{
+	struct ivi_input_panel_surface *ipsurf =
+		wl_resource_get_user_data(resource);
+
+	ipsurf->type = INPUT_PANEL_OVERLAY;
+}
+
+static const struct zwp_input_panel_surface_v1_interface input_panel_surface_implementation = {
+	input_panel_surface_set_toplevel,
+	input_panel_surface_set_overlay_panel
+};
+
+static void
+destroy_input_panel_surface_resource(struct wl_resource *resource)
+{
+	struct ivi_input_panel_surface *ipsurf =
+		wl_resource_get_user_data(resource);
+
+	assert(ipsurf->resource == resource);
+
+	ivi_layout_surface_destroy(ipsurf->layout_surface);
+	ipsurf->layout_surface = NULL;
+
+	ipsurf->surface->committed = NULL;
+	ipsurf->surface->committed_private = NULL;
+	weston_surface_set_label_func(ipsurf->surface, NULL);
+	ipsurf->surface = NULL;
+
+	wl_list_remove(&ipsurf->surface_destroy_listener.link);
+	wl_list_remove(&ipsurf->link);
+
+	free(ipsurf);
+}
+
+static void
+input_panel_get_input_panel_surface(struct wl_client *client,
+				    struct wl_resource *resource,
+				    uint32_t id,
+				    struct wl_resource *surface_resource)
+{
+	struct weston_surface *surface =
+		wl_resource_get_user_data(surface_resource);
+	struct ivi_shell *shell = wl_resource_get_user_data(resource);
+	struct ivi_input_panel_surface *ipsurf;
+
+	if (get_input_panel_surface(surface)) {
+		wl_resource_post_error(surface_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "wl_input_panel::get_input_panel_surface already requested");
+		return;
+	}
+
+	ipsurf = create_input_panel_surface(shell, surface);
+	if (!ipsurf) {
+		wl_resource_post_error(surface_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "surface->committed already set");
+		return;
+	}
+
+	ipsurf->resource =
+		wl_resource_create(client,
+				   &zwp_input_panel_surface_v1_interface,
+				   1,
+				   id);
+	wl_resource_set_implementation(ipsurf->resource,
+				       &input_panel_surface_implementation,
+				       ipsurf,
+				       destroy_input_panel_surface_resource);
+}
+
+static const struct zwp_input_panel_v1_interface input_panel_implementation = {
+	input_panel_get_input_panel_surface
+};
+
+static void
+unbind_input_panel(struct wl_resource *resource)
+{
+	struct ivi_shell *shell = wl_resource_get_user_data(resource);
+
+	shell->input_panel.binding = NULL;
+}
+
+static void
+bind_input_panel(struct wl_client *client,
+	      void *data, uint32_t version, uint32_t id)
+{
+	struct ivi_shell *shell = data;
+	struct wl_resource *resource;
+
+	resource = wl_resource_create(client,
+				      &zwp_input_panel_v1_interface, 1, id);
+
+	if (shell->input_panel.binding == NULL) {
+		wl_resource_set_implementation(resource,
+					       &input_panel_implementation,
+					       shell, unbind_input_panel);
+		shell->input_panel.binding = resource;
+		return;
+	}
+
+	wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
+			       "interface object already bound");
+}
+
+void
+input_panel_destroy(struct ivi_shell *shell)
+{
+	wl_list_remove(&shell->show_input_panel_listener.link);
+	wl_list_remove(&shell->hide_input_panel_listener.link);
+	wl_list_remove(&shell->update_input_panel_listener.link);
+}
+
+static void
+input_panel_setup(struct ivi_shell *shell)
+{
+	struct weston_compositor *ec = shell->compositor;
+
+	shell->show_input_panel_listener.notify = show_input_panels;
+	wl_signal_add(&ec->show_input_panel_signal,
+		      &shell->show_input_panel_listener);
+	shell->hide_input_panel_listener.notify = hide_input_panels;
+	wl_signal_add(&ec->hide_input_panel_signal,
+		      &shell->hide_input_panel_listener);
+	shell->update_input_panel_listener.notify = update_input_panels;
+	wl_signal_add(&ec->update_input_panel_signal,
+		      &shell->update_input_panel_listener);
+
+	wl_list_init(&shell->input_panel.surfaces);
+
+	abort_oom_if_null(wl_global_create(shell->compositor->wl_display,
+					   &zwp_input_panel_v1_interface, 1,
+					   shell, bind_input_panel));
+}
+
+void
+shell_ensure_text_input(struct ivi_shell *shell)
+{
+	if (shell->text_backend)
+		return;
+
+	shell->text_backend = text_backend_init(shell->compositor);
+	input_panel_setup(shell);
+}
+
+/*
+ * end of input panel
+ */
+
+/*
  * Initialization of ivi-shell.
  */
 WL_EXPORT int
@@ -709,7 +1064,7 @@ wet_shell_init(struct weston_compositor *compositor,
 			     shell, bind_ivi_application) == NULL)
 		goto err_desktop;
 
-	ivi_layout_init_with_compositor(compositor);
+	ivi_layout_init(compositor, shell);
 
 	screenshooter_create(compositor);
 
