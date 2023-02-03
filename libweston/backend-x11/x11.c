@@ -724,19 +724,15 @@ get_depth_of_visual(xcb_screen_t *screen,
 	return 0;
 }
 
-static int
-x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
-	int width, int height)
+static const struct pixel_format_info *
+x11_output_get_shm_pixel_format(struct x11_output *output)
 {
-	struct weston_renderer *renderer = output->base.compositor->renderer;
+	struct x11_backend *b = output->backend;
 	xcb_visualtype_t *visual_type;
 	xcb_screen_t *screen;
 	xcb_format_iterator_t fmt;
-	xcb_void_cookie_t cookie;
-	xcb_generic_error_t *err;
 	const xcb_query_extension_reply_t *ext;
 	int bitsperpixel = 0;
-	const struct pixel_format_info *pfmt;
 
 	/* Check if SHM is available */
 	ext = xcb_get_extension_data(b->conn, &xcb_shm_id);
@@ -744,7 +740,7 @@ x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 		/* SHM is missing */
 		weston_log("SHM extension is not available\n");
 		errno = ENOENT;
-		return -1;
+		return NULL;
 	}
 
 	screen = x11_compositor_get_default_screen(b);
@@ -752,7 +748,7 @@ x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 	if (!visual_type) {
 		weston_log("Failed to lookup visual for root window\n");
 		errno = ENOENT;
-		return -1;
+		return NULL;
 	}
 	weston_log("Found visual, bits per value: %d, red_mask: %.8x, green_mask: %.8x, blue_mask: %.8x\n",
 		visual_type->bits_per_rgb_value,
@@ -778,19 +774,28 @@ x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
 	     visual_type->green_mask == 0x00ff00 &&
 	     visual_type->blue_mask == 0x0000ff) {
 		weston_log("Will use x8r8g8b8 format for SHM surfaces\n");
-		pfmt = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8);
+		return pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8);
 	} else if (bitsperpixel == 16 &&
 	           visual_type->red_mask == 0x00f800 &&
 	           visual_type->green_mask == 0x0007e0 &&
 	           visual_type->blue_mask == 0x00001f) {
 		weston_log("Will use r5g6b5 format for SHM surfaces\n");
-		pfmt = pixel_format_get_info_by_pixman(PIXMAN_r5g6b5);
+		return pixel_format_get_info_by_pixman(PIXMAN_r5g6b5);
 	} else {
 		weston_log("Can't find appropriate format for SHM pixmap\n");
 		errno = ENOTSUP;
-		return -1;
+		return NULL;
 	}
+}
 
+static int
+x11_output_init_shm(struct x11_backend *b, struct x11_output *output,
+		    const struct pixel_format_info *pfmt, int width, int height)
+{
+	struct weston_renderer *renderer = output->base.compositor->renderer;
+	int bitsperpixel = pfmt->bpp;
+	xcb_void_cookie_t cookie;
+	xcb_generic_error_t *err;
 
 	/* Create SHM segment and attach it */
 	output->shm_id = shmget(IPC_PRIVATE, width * height * (bitsperpixel / 8), IPC_CREAT | S_IRWXU);
@@ -868,8 +873,12 @@ x11_output_switch_mode(struct weston_output *base, struct weston_mode *mode)
 	weston_renderer_resize_output(&output->base, &fb_size, NULL);
 
 	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
+		const struct pixel_format_info *pfmt;
 		x11_output_deinit_shm(b, output);
-		if (x11_output_init_shm(b, output,
+		pfmt = x11_output_get_shm_pixel_format(output);
+		if (!pfmt)
+			return -1;
+		if (x11_output_init_shm(b, output, pfmt,
 					fb_size.width, fb_size.height) < 0) {
 			weston_log("Failed to initialize SHM for the X11 output\n");
 			return -1;
@@ -1040,13 +1049,15 @@ x11_output_enable(struct weston_output *base)
 				.width = mode->width,
 				.height = mode->height
 			},
-			.format = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8)
+			.format = x11_output_get_shm_pixel_format(output)
 		};
+		if (!options.format)
+			goto err;
 		if (renderer->pixman->output_create(&output->base, &options) < 0) {
 			weston_log("Failed to create pixman renderer for output\n");
 			goto err;
 		}
-		if (x11_output_init_shm(b, output,
+		if (x11_output_init_shm(b, output, options.format,
 					mode->width, mode->height) < 0) {
 			weston_log("Failed to initialize SHM for the X11 output\n");
 			renderer->pixman->output_destroy(&output->base);
