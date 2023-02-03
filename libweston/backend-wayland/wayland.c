@@ -297,6 +297,8 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 	const struct weston_renderer *renderer;
 	const struct pixman_renderer_interface *pixman;
 	struct wayland_backend *b = output->backend;
+	const struct pixel_format_info *pfmt = b->formats[0];
+	uint32_t shm_format = pixel_format_get_shm_format(pfmt);
 	struct wl_shm *shm = b->parent.shm;
 	struct wayland_shm_buffer *sb;
 
@@ -367,7 +369,7 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 	sb->buffer = wl_shm_pool_create_buffer(pool, 0,
 					       width, height,
 					       stride,
-					       WL_SHM_FORMAT_ARGB8888);
+					       shm_format);
 	wl_buffer_add_listener(sb->buffer, &buffer_listener, sb);
 	wl_shm_pool_destroy(pool);
 	close(fd);
@@ -393,9 +395,6 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 
 	/* Address only the interior, excluding output decorations */
 	if (renderer->type == WESTON_RENDERER_PIXMAN) {
-		const struct pixel_format_info *pfmt;
-
-		pfmt = pixel_format_get_info_by_pixman(PIXMAN_a8r8g8b8);
 		sb->renderbuffer =
 			pixman->create_image_from_ptr(&output->base, pfmt,
 						      area.width, area.height,
@@ -786,7 +785,7 @@ wayland_output_init_pixman_renderer(struct wayland_output *output)
 			.width = output->base.current_mode->width,
 			.height = output->base.current_mode->height
 		},
-		.format = pixel_format_get_info_by_pixman(PIXMAN_a8r8g8b8)
+		.format = output->backend->formats[0]
 	};
 	return renderer->pixman->output_create(&output->base, &options);
 }
