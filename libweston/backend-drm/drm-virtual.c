@@ -82,6 +82,20 @@ drm_virtual_crtc_destroy(struct drm_crtc *crtc)
 	free(crtc);
 }
 
+static uint32_t
+get_drm_plane_index_maximum(struct drm_device *device)
+{
+	uint32_t max = 0;
+	struct drm_plane *p;
+
+	wl_list_for_each(p, &device->plane_list, link) {
+		if (p->plane_idx > max)
+			max = p->plane_idx;
+	}
+
+	return max;
+}
+
 /**
  * Create a drm_plane for virtual output
  *
@@ -127,6 +141,8 @@ drm_virtual_plane_create(struct drm_device *device, struct drm_output *output)
 		goto err;
 
 	weston_plane_init(&plane->base, b->compositor);
+
+	plane->plane_idx = get_drm_plane_index_maximum(device) + 1;
 	wl_list_insert(&device->plane_list, &plane->link);
 
 	return plane;
