@@ -306,25 +306,23 @@ static void unbind_resource(struct wl_resource *resource)
 	wl_list_remove(wl_resource_get_link(resource));
 }
 
-WL_EXPORT void
+WL_EXPORT struct weston_coord_global
 weston_pointer_motion_to_abs(struct weston_pointer *pointer,
-			     struct weston_pointer_motion_event *event,
-			     wl_fixed_t *x, wl_fixed_t *y)
+			     struct weston_pointer_motion_event *event)
 {
-	if (event->mask & WESTON_POINTER_MOTION_ABS) {
-		*x = wl_fixed_from_double(event->abs.c.x);
-		*y = wl_fixed_from_double(event->abs.c.y);
-	} else if (event->mask & WESTON_POINTER_MOTION_REL) {
-		struct weston_coord pos;
+	struct weston_coord_global pos;
 
-		pos = weston_coord_from_fixed(pointer->x, pointer->y);
-		pos = weston_coord_add(pos, event->rel);
-		*x = wl_fixed_from_double(pos.x);
-		*y = wl_fixed_from_double(pos.y);
-	} else {
-		assert(!"invalid motion event");
-		*x = *y = 0;
+	if (event->mask & WESTON_POINTER_MOTION_ABS) {
+		return event->abs;
+	} else if (event->mask & WESTON_POINTER_MOTION_REL) {
+		pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
+		pos.c = weston_coord_add(pos.c, event->rel);
+		return pos;
 	}
+
+	assert(!"invalid motion event");
+	pos.c = weston_coord(0, 0);
+	return pos;
 }
 
 static bool
@@ -537,23 +535,20 @@ weston_pointer_send_motion(struct weston_pointer *pointer,
 			   const struct timespec *time,
 			   struct weston_pointer_motion_event *event)
 {
-	wl_fixed_t x, y;
 	wl_fixed_t old_sx;
 	wl_fixed_t old_sy;
 	struct weston_view *old_focus = pointer->focus;
 
 	if (pointer->focus) {
-		struct weston_coord_global tmp_g;
+		struct weston_coord_global pos;
 		struct weston_coord_surface surf_pos;
 
-		weston_pointer_motion_to_abs(pointer, event, &x, &y);
+		pos = weston_pointer_motion_to_abs(pointer, event);
 		old_sx = pointer->sx;
 		old_sy = pointer->sy;
 		weston_view_update_transform(pointer->focus);
 
-		tmp_g.c = weston_coord_from_fixed(x, y);
-		surf_pos = weston_coord_global_to_surface(pointer->focus,
-							  tmp_g);
+		surf_pos = weston_coord_global_to_surface(pointer->focus, pos);
 		pointer->sx = wl_fixed_from_double(surf_pos.c.x);
 		pointer->sy = wl_fixed_from_double(surf_pos.c.y);
 	}
@@ -1762,10 +1757,12 @@ WL_EXPORT void
 weston_pointer_move(struct weston_pointer *pointer,
 		    struct weston_pointer_motion_event *event)
 {
-	wl_fixed_t x, y;
+	struct weston_coord_global pos;
 
-	weston_pointer_motion_to_abs(pointer, event, &x, &y);
-	weston_pointer_move_to(pointer, x, y);
+	pos = weston_pointer_motion_to_abs(pointer, event);
+	weston_pointer_move_to(pointer,
+			       wl_fixed_from_double(pos.c.x),
+			       wl_fixed_from_double(pos.c.y));
 }
 
 /** Verify if the pointer is in a valid position and move it if it isn't.
@@ -4621,22 +4618,21 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 				     wl_fixed_t *clamped_x,
 				     wl_fixed_t *clamped_y)
 {
-	wl_fixed_t x, y;
 	wl_fixed_t old_sx = pointer->sx;
 	wl_fixed_t old_sy = pointer->sy;
 	struct wl_array borders;
 	struct line motion;
 	struct border *closest_border;
 	uint32_t directions;
+	struct weston_coord_global pos;
 	struct weston_coord_surface motion_coord;
-	struct weston_coord_global cg, clamped;
-	struct weston_coord_surface cs;
+	struct weston_coord_global clamped;
+	struct weston_coord_surface surf_pos;
 
 	assert(pointer->focus);
 
-	weston_pointer_motion_to_abs(pointer, event, &x, &y);
-	cg.c = weston_coord_from_fixed(x, y);
-	cs = weston_coord_global_to_surface(pointer->focus, cg);
+	pos = weston_pointer_motion_to_abs(pointer, event);
+	surf_pos = weston_coord_global_to_surface(pointer->focus, pos);
 
 	wl_array_init(&borders);
 
@@ -4654,10 +4650,7 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 			.x = wl_fixed_to_double(old_sx),
 			.y = wl_fixed_to_double(old_sy),
 		},
-		.b = (struct weston_coord) {
-			.x = cs.c.x,
-			.y = cs.c.y,
-		},
+		.b = surf_pos.c,
 	};
 	directions = get_motion_directions(&motion);
 

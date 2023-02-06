@@ -833,10 +833,9 @@ struct weston_touch {
 	struct wl_list timestamps_list;
 };
 
-void
+struct weston_coord_global
 weston_pointer_motion_to_abs(struct weston_pointer *pointer,
-			     struct weston_pointer_motion_event *event,
-			     wl_fixed_t *x, wl_fixed_t *y);
+			     struct weston_pointer_motion_event *event);
 
 void
 weston_pointer_send_motion(struct weston_pointer *pointer,

@@ -1572,9 +1572,11 @@ pointer_move_grab_motion(struct weston_pointer_grab *grab,
 	struct hmi_controller *hmi_ctrl =
 			wl_resource_get_user_data(pnt_move_grab->base.resource);
 	wl_fixed_t pointer_pos[2];
+	struct weston_coord_global pos;
 
-	weston_pointer_motion_to_abs(grab->pointer, event,
-				     &pointer_pos[0], &pointer_pos[1]);
+	pos = weston_pointer_motion_to_abs(grab->pointer, event);
+	pointer_pos[0] = wl_fixed_from_double(pos.c.x);
+	pointer_pos[1] = wl_fixed_from_double(pos.c.y);
 	move_grab_update(&pnt_move_grab->move, pointer_pos);
 	layer_set_pos(hmi_ctrl, pnt_move_grab->base.layer,
 		      pnt_move_grab->move.pos[0], pnt_move_grab->move.pos[1]);
