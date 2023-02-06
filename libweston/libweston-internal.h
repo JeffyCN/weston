@@ -383,7 +383,8 @@ weston_view_matches_output_entirely(struct weston_view *ev,
 				    struct weston_output *output);
 
 bool
-weston_view_takes_input_at_point(struct weston_view *view, int x, int y);
+weston_view_takes_input_at_point(struct weston_view *view,
+				 struct weston_coord_surface surf_pos);
 
 void
 weston_view_move_to_plane(struct weston_view *view,

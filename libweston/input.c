@@ -1464,18 +1464,14 @@ weston_pointer_set_focus(struct weston_pointer *pointer,
 	if (view) {
 		struct weston_coord_global tmp_g;
 		struct weston_coord_surface surf_pos;
-		int ix;
-		int iy;
 
 		tmp_g.c = weston_coord_from_fixed(pointer->x, pointer->y);
 		surf_pos = weston_coord_global_to_surface(view, tmp_g);
 		sx = wl_fixed_from_double(surf_pos.c.x);
 		sy = wl_fixed_from_double(surf_pos.c.y);
-		ix = wl_fixed_to_int(sx);
-		iy = wl_fixed_to_int(sy);
-		if (!weston_view_takes_input_at_point(view, ix, iy))
+		if (!weston_view_takes_input_at_point(view, surf_pos))
 			weston_log("View focused with external coordinate %d, %d\n",
-				   ix, iy);
+				   (int)surf_pos.c.x, (int)surf_pos.c.y);
 	}
 
 	if ((!pointer->focus && view) ||

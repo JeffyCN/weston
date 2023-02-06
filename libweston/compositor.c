@@ -1981,15 +1981,18 @@ weston_compositor_get_time(struct timespec *time)
 }
 
 bool
-weston_view_takes_input_at_point(struct weston_view *view, int x, int y)
+weston_view_takes_input_at_point(struct weston_view *view,
+				 struct weston_coord_surface pos)
 {
+	assert(pos.coordinate_space_id == view->surface);
+
 	if (!pixman_region32_contains_point(&view->surface->input,
-					    x, y, NULL))
+					    pos.c.x, pos.c.y, NULL))
 		return false;
 
 	if (view->geometry.scissor_enabled &&
 	    !pixman_region32_contains_point(&view->geometry.scissor,
-					    x, y, NULL))
+					    pos.c.x, pos.c.y, NULL))
 		return false;
 
 	return true;
@@ -2015,7 +2018,7 @@ weston_compositor_pick_view(struct weston_compositor *compositor,
 			continue;
 
 		surf_pos = weston_coord_global_to_surface(view, pos);
-		if (!weston_view_takes_input_at_point(view, surf_pos.c.x, surf_pos.c.y))
+		if (!weston_view_takes_input_at_point(view, surf_pos))
 			continue;
 
 		return view;
