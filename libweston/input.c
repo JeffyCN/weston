@@ -941,6 +941,8 @@ weston_touch_send_motion(struct weston_touch *touch,
 	if (!weston_touch_has_focus_resource(touch))
 		return;
 
+	weston_view_update_transform(touch->focus);
+
 	tmp_g.c = weston_coord_from_fixed(x, y);
 	surf_pos = weston_coord_global_to_surface(touch->focus, tmp_g);
 
