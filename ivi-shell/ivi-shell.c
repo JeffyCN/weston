@@ -47,6 +47,7 @@
 #include "ivi-layout-private.h"
 #include "ivi-layout-shell.h"
 #include "shared/helpers.h"
+#include "shared/xalloc.h"
 #include "compositor/weston.h"
 
 /* Representation of ivi_surface protocol object. */
@@ -267,11 +268,7 @@ application_surface_create(struct wl_client *client,
 
 	layout_surface->weston_desktop_surface = NULL;
 
-	ivisurf = zalloc(sizeof *ivisurf);
-	if (ivisurf == NULL) {
-		wl_resource_post_no_memory(resource);
-		return;
-	}
+	ivisurf = xzalloc(sizeof *ivisurf);
 
 	wl_list_init(&ivisurf->link);
 	wl_list_insert(&shell->ivi_surface_list, &ivisurf->link);
@@ -526,10 +523,7 @@ desktop_surface_added(struct weston_desktop_surface *surface,
 		return;
 	}
 
-	ivisurf = zalloc(sizeof *ivisurf);
-	if (!ivisurf) {
-		return;
-	}
+	ivisurf = xzalloc(sizeof *ivisurf);
 
 	ivisurf->shell = shell;
 	ivisurf->id_surface = IVI_INVALID_ID;
@@ -696,9 +690,7 @@ wet_shell_init(struct weston_compositor *compositor,
 {
 	struct ivi_shell *shell;
 
-	shell = zalloc(sizeof *shell);
-	if (shell == NULL)
-		return -1;
+	shell = xzalloc(sizeof *shell);
 
 	if (!weston_compositor_add_destroy_listener_once(compositor,
 							 &shell->destroy_listener,

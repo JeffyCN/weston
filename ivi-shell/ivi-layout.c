@@ -71,6 +71,7 @@
 #include "shared/helpers.h"
 #include "shared/os-compatibility.h"
 #include "shared/signal.h"
+#include "shared/xalloc.h"
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
@@ -167,11 +168,7 @@ ivi_view_create(struct ivi_layout_layer *ivilayer,
 {
 	struct ivi_layout_view *ivi_view;
 
-	ivi_view = calloc(1, sizeof *ivi_view);
-	if (ivi_view == NULL) {
-		weston_log("fails to allocate memory\n");
-		return NULL;
-	}
+	ivi_view = xzalloc(sizeof *ivi_view);
 
 	if (weston_surface_is_desktop_surface(ivisurf->surface)) {
 		ivi_view->view = weston_desktop_surface_create_view(
@@ -305,11 +302,7 @@ add_screen(struct weston_output *output)
 	struct ivi_layout *layout = get_instance();
 	struct ivi_layout_screen *iviscrn = NULL;
 
-	iviscrn = calloc(1, sizeof *iviscrn);
-	if (iviscrn == NULL) {
-		weston_log("fails to allocate memory\n");
-		return;
-	}
+	iviscrn = xzalloc(sizeof *iviscrn);
 
 	iviscrn->layout = layout;
 	iviscrn->output = output;
@@ -1137,11 +1130,7 @@ ivi_layout_get_screens_under_layer(struct ivi_layout_layer *ivilayer,
 
 	if (length != 0) {
 		/* the Array must be free by module which called this function */
-		*ppArray = calloc(length, sizeof(struct weston_output *));
-		if (*ppArray == NULL) {
-			weston_log("fails to allocate memory\n");
-			return IVI_FAILED;
-		}
+		*ppArray = xcalloc(length, sizeof(struct weston_output *));
 
 		(*ppArray)[n++] = ivilayer->on_screen->output;
 	}
@@ -1168,11 +1157,7 @@ ivi_layout_get_layers(int32_t *pLength, struct ivi_layout_layer ***ppArray)
 
 	if (length != 0) {
 		/* the Array must be freed by module which called this function */
-		*ppArray = calloc(length, sizeof(struct ivi_layout_layer *));
-		if (*ppArray == NULL) {
-			weston_log("fails to allocate memory\n");
-			return IVI_FAILED;
-		}
+		*ppArray = xcalloc(length, sizeof(struct ivi_layout_layer *));
 
 		wl_list_for_each(ivilayer, &layout->layer_list, link) {
 			(*ppArray)[n++] = ivilayer;
@@ -1204,11 +1189,7 @@ ivi_layout_get_layers_on_screen(struct weston_output *output,
 
 	if (length != 0) {
 		/* the Array must be freed by module which called this function */
-		*ppArray = calloc(length, sizeof(struct ivi_layout_layer *));
-		if (*ppArray == NULL) {
-			weston_log("fails to allocate memory\n");
-			return IVI_FAILED;
-		}
+		*ppArray = xcalloc(length, sizeof(struct ivi_layout_layer *));
 
 		wl_list_for_each(ivilayer, &iviscrn->order.layer_list, order.link) {
 			(*ppArray)[n++] = ivilayer;
@@ -1237,11 +1218,7 @@ ivi_layout_get_layers_under_surface(struct ivi_layout_surface *ivisurf,
 	if (!wl_list_empty(&ivisurf->view_list)) {
 		/* the Array must be free by module which called this function */
 		length = wl_list_length(&ivisurf->view_list);
-		*ppArray = calloc(length, sizeof(struct ivi_layout_layer *));
-		if (*ppArray == NULL) {
-			weston_log("fails to allocate memory\n");
-			return IVI_FAILED;
-		}
+		*ppArray = xcalloc(length, sizeof(struct ivi_layout_layer *));
 
 		wl_list_for_each_reverse(ivi_view, &ivisurf->view_list, surf_link) {
 			if (ivi_view_is_rendered(ivi_view))
@@ -1278,11 +1255,7 @@ ivi_layout_get_surfaces(int32_t *pLength, struct ivi_layout_surface ***ppArray)
 
 	if (length != 0) {
 		/* the Array must be freed by module which called this function */
-		*ppArray = calloc(length, sizeof(struct ivi_layout_surface *));
-		if (*ppArray == NULL) {
-			weston_log("fails to allocate memory\n");
-			return IVI_FAILED;
-		}
+		*ppArray = xcalloc(length, sizeof(struct ivi_layout_surface *));
 
 		wl_list_for_each(ivisurf, &layout->surface_list, link) {
 			(*ppArray)[n++] = ivisurf;
@@ -1312,11 +1285,7 @@ ivi_layout_get_surfaces_on_layer(struct ivi_layout_layer *ivilayer,
 
 	if (length != 0) {
 		/* the Array must be freed by module which called this function */
-		*ppArray = calloc(length, sizeof(struct ivi_layout_surface *));
-		if (*ppArray == NULL) {
-			weston_log("fails to allocate memory\n");
-			return IVI_FAILED;
-		}
+		*ppArray = xcalloc(length, sizeof(struct ivi_layout_surface *));
 
 		wl_list_for_each(ivi_view, &ivilayer->order.view_list, order_link) {
 			(*ppArray)[n++] = ivi_view->ivisurf;
@@ -1342,11 +1311,7 @@ ivi_layout_layer_create_with_dimension(uint32_t id_layer,
 		return ivilayer;
 	}
 
-	ivilayer = calloc(1, sizeof *ivilayer);
-	if (ivilayer == NULL) {
-		weston_log("fails to allocate memory\n");
-		return NULL;
-	}
+	ivilayer = xzalloc(sizeof *ivilayer);
 
 	ivilayer->ref_count = 1;
 	wl_signal_init(&ivilayer->property_changed);
@@ -1996,11 +1961,7 @@ surface_create(struct weston_surface *wl_surface, uint32_t id_surface)
 		return NULL;
 	}
 
-	ivisurf = calloc(1, sizeof *ivisurf);
-	if (ivisurf == NULL) {
-		weston_log("fails to allocate memory\n");
-		return NULL;
-	}
+	ivisurf = xzalloc(sizeof *ivisurf);
 
 	wl_signal_init(&ivisurf->property_changed);
 	ivisurf->id_surface = id_surface;
