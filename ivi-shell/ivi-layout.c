@@ -1956,11 +1956,6 @@ surface_create(struct weston_surface *wl_surface, uint32_t id_surface)
 	struct ivi_layout *layout = get_instance();
 	struct ivi_layout_surface *ivisurf = NULL;
 
-	if (wl_surface == NULL) {
-		weston_log("ivi_layout_surface_create: invalid argument\n");
-		return NULL;
-	}
-
 	ivisurf = xzalloc(sizeof *ivisurf);
 
 	wl_signal_init(&ivisurf->property_changed);
@@ -2003,10 +1998,8 @@ ivi_layout_desktop_surface_create(struct weston_surface *wl_surface,
 
 	ivisurf =  surface_create(wl_surface, IVI_INVALID_ID);
 
-	if (ivisurf) {
-		ivisurf->weston_desktop_surface = surface;
-		wl_signal_emit(&layout->surface_notification.created, ivisurf);
-	}
+	ivisurf->weston_desktop_surface = surface;
+	wl_signal_emit(&layout->surface_notification.created, ivisurf);
 
 	return ivisurf;
 }

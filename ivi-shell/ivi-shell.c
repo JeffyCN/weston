@@ -519,9 +519,6 @@ desktop_surface_added(struct weston_desktop_surface *surface,
 			weston_desktop_surface_get_surface(surface);
 
 	layout_surface = ivi_layout_desktop_surface_create(weston_surf, surface);
-	if (!layout_surface) {
-		return;
-	}
 
 	ivisurf = xzalloc(sizeof *ivisurf);
 
