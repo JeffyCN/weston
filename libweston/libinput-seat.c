@@ -122,10 +122,14 @@ device_added(struct udev_input *input, struct libinput_device *libinput_device)
 	wl_list_insert(udev_seat->devices_list.prev, &device->link);
 
 	pointer = weston_seat_get_pointer(seat);
-	if (seat->output && pointer)
-		weston_pointer_clamp(pointer,
-				     &pointer->x,
-				     &pointer->y);
+	if (seat->output && pointer) {
+		struct weston_coord_global pos;
+
+		pos.c = weston_coord_from_fixed(pointer->x, pointer->y);
+		pos = weston_pointer_clamp(pointer, pos);
+		pointer->x = wl_fixed_from_double(pos.c.x);
+		pointer->y = wl_fixed_from_double(pos.c.y);
+	}
 
 	output_name = libinput_device_get_output_name(libinput_device);
 	if (output_name) {

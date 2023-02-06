@@ -1678,44 +1678,41 @@ weston_touch_cancel_grab(struct weston_touch *touch)
 	touch->grab->interface->cancel(touch->grab);
 }
 
-static void
+static struct weston_coord_global
 weston_pointer_clamp_for_output(struct weston_pointer *pointer,
 				struct weston_output *output,
-				wl_fixed_t *fx, wl_fixed_t *fy)
+				struct weston_coord_global pos)
 {
-	int x, y;
-
-	x = wl_fixed_to_int(*fx);
-	y = wl_fixed_to_int(*fy);
+	struct weston_coord_global out = pos;
+	int x = pos.c.x;
+	int y = pos.c.y;
 
 	if (x < output->x)
-		*fx = wl_fixed_from_int(output->x);
+		out.c.x = output->x;
 	else if (x >= output->x + output->width)
-		*fx = wl_fixed_from_int(output->x +
-					output->width - 1);
+		out.c.x = output->x + output->width - 1;
 	if (y < output->y)
-		*fy = wl_fixed_from_int(output->y);
+		out.c.y = output->y;
 	else if (y >= output->y + output->height)
-		*fy = wl_fixed_from_int(output->y +
-					output->height - 1);
+		out.c.y = output->y + output->height - 1;
+
+	return out;
 }
 
-WL_EXPORT void
-weston_pointer_clamp(struct weston_pointer *pointer, wl_fixed_t *fx, wl_fixed_t *fy)
+WL_EXPORT struct weston_coord_global
+weston_pointer_clamp(struct weston_pointer *pointer, struct weston_coord_global pos)
 {
 	struct weston_compositor *ec = pointer->seat->compositor;
 	struct weston_output *output, *prev = NULL;
-	int x, y, old_x, old_y, valid = 0;
+	int old_x, old_y, valid = 0;
 
-	x = wl_fixed_to_int(*fx);
-	y = wl_fixed_to_int(*fy);
 	old_x = wl_fixed_to_int(pointer->x);
 	old_y = wl_fixed_to_int(pointer->y);
 
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (pointer->seat->output && pointer->seat->output != output)
 			continue;
-		if (weston_output_contains_point(output, x, y))
+		if (weston_output_contains_point(output, pos.c.x, pos.c.y))
 			valid = 1;
 		if (weston_output_contains_point(output, old_x, old_y))
 			prev = output;
@@ -1725,16 +1722,22 @@ weston_pointer_clamp(struct weston_pointer *pointer, wl_fixed_t *fx, wl_fixed_t 
 		prev = pointer->seat->output;
 
 	if (prev && !valid)
-		weston_pointer_clamp_for_output(pointer, prev, fx, fy);
+		pos = weston_pointer_clamp_for_output(pointer, prev, pos);
+
+	return pos;
 }
 
 static void
 weston_pointer_move_to(struct weston_pointer *pointer,
 		       wl_fixed_t x, wl_fixed_t y)
 {
+	struct weston_coord_global pos;
 	int32_t ix, iy;
 
-	weston_pointer_clamp (pointer, &x, &y);
+	pos.c = weston_coord_from_fixed(x, y);
+	pos = weston_pointer_clamp(pointer, pos);
+	x = wl_fixed_from_double(pos.c.x);
+	y = wl_fixed_from_double(pos.c.y);
 
 	pointer->x = x;
 	pointer->y = y;
@@ -1774,6 +1777,7 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 	struct weston_compositor *ec;
 	struct weston_output *output, *closest = NULL;
 	int x, y, distance, min = INT_MAX;
+	struct weston_coord_global pos;
 	wl_fixed_t fx, fy;
 
 	pointer = container_of(listener, struct weston_pointer,
@@ -1804,7 +1808,11 @@ weston_pointer_handle_output_destroy(struct wl_listener *listener, void *data)
 	fx = pointer->x;
 	fy = pointer->y;
 
-	weston_pointer_clamp_for_output(pointer, closest, &fx, &fy);
+	pos.c = weston_coord_from_fixed(fx, fy);
+	pos = weston_pointer_clamp_for_output(pointer, closest, pos);
+	fx = wl_fixed_from_double(pos.c.x);
+	fy = wl_fixed_from_double(pos.c.y);
+
 	weston_pointer_move_to(pointer, fx, fy);
 }
 
@@ -4611,12 +4619,10 @@ get_motion_directions(struct line *motion)
 	return directions;
 }
 
-static void
+static struct weston_coord_global
 weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 				     struct weston_pointer_motion_event *event,
-				     pixman_region32_t *region,
-				     wl_fixed_t *clamped_x,
-				     wl_fixed_t *clamped_y)
+				     pixman_region32_t *region)
 {
 	wl_fixed_t old_sx = pointer->sx;
 	wl_fixed_t old_sy = pointer->sy;
@@ -4625,8 +4631,8 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 	struct border *closest_border;
 	uint32_t directions;
 	struct weston_coord_global pos;
-	struct weston_coord_surface motion_coord;
-	struct weston_coord_global clamped;
+	struct weston_coord_global clamped_pos;
+	struct weston_coord_surface clamped_surf_pos;
 	struct weston_coord_surface surf_pos;
 
 	assert(pointer->focus);
@@ -4663,14 +4669,14 @@ weston_pointer_clamp_event_to_region(struct weston_pointer *pointer,
 		else
 			break;
 	}
-	motion_coord = weston_coord_surface(motion.b.x, motion.b.y,
-					    pointer->focus->surface);
-	clamped = weston_coord_surface_to_global(pointer->focus,
-						 motion_coord);
-	*clamped_x = wl_fixed_from_double(clamped.c.x);
-	*clamped_y = wl_fixed_from_double(clamped.c.y);
+
+	clamped_surf_pos = weston_coord_surface(motion.b.x, motion.b.y,
+						pointer->focus->surface);
+	clamped_pos = weston_coord_surface_to_global(pointer->focus,
+						     clamped_surf_pos);
 
 	wl_array_release(&borders);
+	return clamped_pos;
 }
 
 static double
@@ -4803,8 +4809,8 @@ confined_pointer_grab_pointer_motion(struct weston_pointer_grab *grab,
 	wl_fixed_t old_sx = pointer->sx;
 	wl_fixed_t old_sy = pointer->sy;
 	pixman_region32_t confine_region;
-	struct weston_coord_global c;
-	struct weston_coord_surface tmp;
+	struct weston_coord_global pos;
+	struct weston_coord_surface surf_pos;
 
 	assert(pointer->focus);
 	assert(pointer->focus->surface == constraint->surface);
@@ -4817,15 +4823,17 @@ confined_pointer_grab_pointer_motion(struct weston_pointer_grab *grab,
 	pixman_region32_intersect(&confine_region,
 				  &surface->input,
 				  &constraint->region);
-	weston_pointer_clamp_event_to_region(pointer, event,
-					     &confine_region, &x, &y);
+	pos = weston_pointer_clamp_event_to_region(pointer, event,
+						   &confine_region);
+	x = wl_fixed_from_double(pos.c.x);
+	y = wl_fixed_from_double(pos.c.y);
+
 	weston_pointer_move_to(pointer, x, y);
 	pixman_region32_fini(&confine_region);
 
-	c.c = weston_coord_from_fixed(x, y);
-	tmp = weston_coord_global_to_surface(pointer->focus, c);
-	pointer->sx = wl_fixed_from_double(tmp.c.x);
-	pointer->sy = wl_fixed_from_double(tmp.c.y);
+	surf_pos = weston_coord_global_to_surface(pointer->focus, pos);
+	pointer->sx = wl_fixed_from_double(surf_pos.c.x);
+	pointer->sy = wl_fixed_from_double(surf_pos.c.y);
 
 	if (old_sx != pointer->sx || old_sy != pointer->sy) {
 		pointer_send_motion(pointer, time,

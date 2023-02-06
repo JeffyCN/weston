@@ -308,9 +308,10 @@ wl_data_device_set_keyboard_focus(struct weston_seat *seat);
 
 /* weston_pointer */
 
-void
+struct weston_coord_global
 weston_pointer_clamp(struct weston_pointer *pointer,
-		     wl_fixed_t *fx, wl_fixed_t *fy);
+		     struct weston_coord_global pos);
+
 void
 weston_pointer_set_default_grab(struct weston_pointer *pointer,
 			        const struct weston_pointer_grab_interface *interface);
