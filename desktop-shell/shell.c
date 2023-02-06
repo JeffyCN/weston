@@ -1219,6 +1219,7 @@ resize_grab_button(struct weston_pointer_grab *grab,
 				resize->base.shsurf->desktop_surface;
 			weston_desktop_surface_set_resizing(desktop_surface,
 							    false);
+			weston_desktop_surface_set_size(desktop_surface, 0, 0);
 		}
 
 		shell_grab_end(&resize->base);
@@ -1235,6 +1236,7 @@ resize_grab_cancel(struct weston_pointer_grab *grab)
 		struct weston_desktop_surface *desktop_surface =
 			resize->base.shsurf->desktop_surface;
 		weston_desktop_surface_set_resizing(desktop_surface, false);
+		weston_desktop_surface_set_size(desktop_surface, 0, 0);
 	}
 
 	shell_grab_end(&resize->base);
