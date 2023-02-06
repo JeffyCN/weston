@@ -908,14 +908,14 @@ weston_touch_end_grab(struct weston_touch *touch);
 
 void
 weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
-		       int touch_id, wl_fixed_t x, wl_fixed_t y);
+		       int touch_id, struct weston_coord_global pos);
 void
 weston_touch_send_up(struct weston_touch *touch, const struct timespec *time,
 		     int touch_id);
 void
 weston_touch_send_motion(struct weston_touch *touch,
 			 const struct timespec *time, int touch_id,
-			 wl_fixed_t x, wl_fixed_t y);
+			 struct weston_coord_global pos);
 void
 weston_touch_send_frame(struct weston_touch *touch);
 

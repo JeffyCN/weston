@@ -814,8 +814,7 @@ weston_touch_has_focus_resource(struct weston_touch *touch)
  * \param touch The touch where the down events originates from.
  * \param time The timestamp of the event
  * \param touch_id The touch_id value of the event
- * \param x The x value of the event
- * \param y The y value of the event
+ * \param pos The global coordinate of the event
  *
  * For every resource that is currently in focus, send a wl_touch.down event
  * with the passed parameters. The focused resources are the wl_touch
@@ -823,13 +822,12 @@ weston_touch_has_focus_resource(struct weston_touch *touch)
  */
 WL_EXPORT void
 weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
-		       int touch_id, wl_fixed_t x, wl_fixed_t y)
+		       int touch_id, struct weston_coord_global pos)
 {
 	struct wl_display *display = touch->seat->compositor->wl_display;
 	uint32_t serial;
 	struct wl_resource *resource;
 	struct wl_list *resource_list;
-	struct weston_coord_global tmp_g;
 	struct weston_coord_surface surf_pos;
 	uint32_t msecs;
 
@@ -838,8 +836,7 @@ weston_touch_send_down(struct weston_touch *touch, const struct timespec *time,
 
 	weston_view_update_transform(touch->focus);
 
-	tmp_g.c = weston_coord_from_fixed(x, y);
-	surf_pos = weston_coord_global_to_surface(touch->focus, tmp_g);
+	surf_pos = weston_coord_global_to_surface(touch->focus, pos);
 
 	resource_list = &touch->focus_resource_list;
 	serial = wl_display_next_serial(display);
@@ -861,7 +858,10 @@ default_grab_touch_down(struct weston_touch_grab *grab,
 			const struct timespec *time, int touch_id,
 			wl_fixed_t x, wl_fixed_t y)
 {
-	weston_touch_send_down(grab->touch, time, touch_id, x, y);
+	struct weston_coord_global pos;
+
+	pos.c = weston_coord_from_fixed(x, y);
+	weston_touch_send_down(grab->touch, time, touch_id, pos);
 }
 
 /** Send wl_touch.up events to focused resources.
@@ -910,8 +910,7 @@ default_grab_touch_up(struct weston_touch_grab *grab,
  * \param touch The touch where the motion events originates from.
  * \param time The timestamp of the event
  * \param touch_id The touch_id value of the event
- * \param x The x value of the event
- * \param y The y value of the event
+ * \param pos The global coordinate of the event
  *
  * For every resource that is currently in focus, send a wl_touch.motion event
  * with the passed parameters. The focused resources are the wl_touch
@@ -920,12 +919,11 @@ default_grab_touch_up(struct weston_touch_grab *grab,
 WL_EXPORT void
 weston_touch_send_motion(struct weston_touch *touch,
 			 const struct timespec *time, int touch_id,
-			 wl_fixed_t x, wl_fixed_t y)
+			 struct weston_coord_global pos)
 {
 	struct wl_resource *resource;
 	struct wl_list *resource_list;
 	uint32_t msecs;
-	struct weston_coord_global tmp_g;
 	struct weston_coord_surface surf_pos;
 
 	if (!weston_touch_has_focus_resource(touch))
@@ -933,8 +931,7 @@ weston_touch_send_motion(struct weston_touch *touch,
 
 	weston_view_update_transform(touch->focus);
 
-	tmp_g.c = weston_coord_from_fixed(x, y);
-	surf_pos = weston_coord_global_to_surface(touch->focus, tmp_g);
+	surf_pos = weston_coord_global_to_surface(touch->focus, pos);
 
 	resource_list = &touch->focus_resource_list;
 	msecs = timespec_to_msec(time);
@@ -953,7 +950,10 @@ default_grab_touch_motion(struct weston_touch_grab *grab,
 			  const struct timespec *time, int touch_id,
 			  wl_fixed_t x, wl_fixed_t y)
 {
-	weston_touch_send_motion(grab->touch, time, touch_id, x, y);
+	struct weston_coord_global pos;
+
+	pos.c = weston_coord_from_fixed(x, y);
+	weston_touch_send_motion(grab->touch, time, touch_id, pos);
 }
 
 

@@ -191,7 +191,10 @@ weston_desktop_seat_popup_grab_touch_down(struct weston_touch_grab *grab,
 					  int touch_id,
 					  wl_fixed_t sx, wl_fixed_t sy)
 {
-	weston_touch_send_down(grab->touch, time, touch_id, sx, sy);
+	struct weston_coord_global pos;
+
+	pos.c = weston_coord_from_fixed(sx, sy);
+	weston_touch_send_down(grab->touch, time, touch_id, pos);
 }
 
 static void
@@ -208,7 +211,10 @@ weston_desktop_seat_popup_grab_touch_motion(struct weston_touch_grab *grab,
 					    int touch_id,
 					    wl_fixed_t sx, wl_fixed_t sy)
 {
-	weston_touch_send_motion(grab->touch, time, touch_id, sx, sy);
+	struct weston_coord_global pos;
+
+	pos.c = weston_coord_from_fixed(sx, sy);
+	weston_touch_send_motion(grab->touch, time, touch_id, pos);
 }
 
 static void
