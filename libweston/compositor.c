@@ -138,7 +138,7 @@ weston_output_dirty_paint_nodes(struct weston_output *output)
 {
 	struct weston_paint_node *node;
 
-	wl_list_for_each(node, &output->paint_node_list, view_link) {
+	wl_list_for_each(node, &output->paint_node_list, output_link) {
 		assert(node->output == output);
 
 		node->status |= PAINT_NODE_OUTPUT_DIRTY;
