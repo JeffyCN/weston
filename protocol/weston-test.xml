@@ -34,6 +34,12 @@
 
       These requests may allow clients to do very bad things.
     </description>
+
+    <enum name="error">
+      <entry name="touch_up_with_coordinate" value="0"
+        summary="invalid coordinate"/>
+    </enum>
+
     <request name="move_surface">
       <arg name="surface" type="object" interface="wl_surface"/>
       <arg name="x" type="int"/>

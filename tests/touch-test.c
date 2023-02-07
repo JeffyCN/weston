@@ -59,15 +59,48 @@ create_touch_test_client(void)
 }
 
 static void
-send_touch(struct client *client, const struct timespec *time,
-	   uint32_t touch_type)
+send_broken_touch(struct client *client, const struct timespec *time)
 {
 	uint32_t tv_sec_hi, tv_sec_lo, tv_nsec;
 
 	timespec_to_proto(time, &tv_sec_hi, &tv_sec_lo, &tv_nsec);
+
 	weston_test_send_touch(client->test->weston_test, tv_sec_hi, tv_sec_lo,
-			       tv_nsec, 1, 1, 1, touch_type);
+			       tv_nsec, 1, 1, 1, WL_TOUCH_UP);
+
+	expect_protocol_error(client, &weston_test_interface,
+			      WESTON_TEST_ERROR_TOUCH_UP_WITH_COORDINATE);
+}
+
+static void
+send_touch(struct client *client, const struct timespec *time,
+	   uint32_t touch_type)
+{
+	uint32_t tv_sec_hi, tv_sec_lo, tv_nsec;
+	wl_fixed_t x = 0, y = 0;
+
+	timespec_to_proto(time, &tv_sec_hi, &tv_sec_lo, &tv_nsec);
+	if (touch_type != WL_TOUCH_UP) {
+		x = 1;
+		y = 1;
+	}
+
+	weston_test_send_touch(client->test->weston_test, tv_sec_hi, tv_sec_lo,
+			       tv_nsec, 1, x, y, touch_type);
 	client_roundtrip(client);
+}
+
+TEST(broken_touch_event)
+{
+	struct client *client = create_touch_test_client();
+	struct input_timestamps *input_ts =
+		input_timestamps_create_for_touch(client);
+
+	send_broken_touch(client, &t1);
+
+	input_timestamps_destroy(input_ts);
+
+	client_destroy(client);
 }
 
 TEST(touch_events)

@@ -426,8 +426,18 @@ send_touch(struct wl_client *client, struct wl_resource *resource,
 
 	timespec_from_proto(&time, tv_sec_hi, tv_sec_lo, tv_nsec);
 
-	notify_touch(device, &time, touch_id, wl_fixed_to_double(x),
-		     wl_fixed_to_double(y), touch_type);
+	if (touch_type == WL_TOUCH_UP) {
+		if (x != 0 || y != 0) {
+			wl_resource_post_error(resource,
+					       WESTON_TEST_ERROR_TOUCH_UP_WITH_COORDINATE,
+					       "Test protocol sent valid "
+					       "coordinates with WL_TOUCH_UP");
+
+			return;
+		}
+	}
+
+	notify_touch(device, &time, touch_id, x, y, touch_type);
 }
 
 static const struct weston_test_interface test_implementation = {
