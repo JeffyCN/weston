@@ -272,7 +272,13 @@ demo_clients = [
 		'basename': 'cliptest',
 		'dep_objs': [ dep_vertex_clipping, dep_matrix_c ]
 	},
-	{ 'basename': 'confine' },
+	{
+		'basename': 'constraints',
+		'add_sources': [
+			xdg_shell_client_protocol_h,
+			xdg_shell_protocol_c,
+		],
+	},
 	{
 		'basename': 'content_protection',
 		'add_sources': [
