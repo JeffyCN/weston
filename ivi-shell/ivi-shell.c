@@ -86,7 +86,10 @@ get_ivi_shell_surface(struct weston_surface *surface)
 	if (desktop_surface)
 		return weston_desktop_surface_get_user_data(desktop_surface);
 
-	return surface->committed_private;
+	if (surface->committed == ivi_shell_surface_committed)
+		return surface->committed_private;
+
+	return NULL;
 }
 
 struct ivi_layout_surface *
@@ -108,8 +111,7 @@ shell_surface_send_configure(struct weston_surface *surface,
 	struct ivi_shell_surface *shsurf;
 
 	shsurf = get_ivi_shell_surface(surface);
-	if (!shsurf)
-		return;
+	assert(shsurf);
 
 	if (shsurf->resource)
 		ivi_surface_send_configure(shsurf->resource, width, height);
