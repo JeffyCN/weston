@@ -2063,8 +2063,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_surface(desktop_surface);
 	struct weston_view *view = shsurf->view;
 	struct desktop_shell *shell = data;
-	bool was_fullscreen, should_set_fullscreen;
-	bool was_maximized, should_set_maximized;
+	bool was_fullscreen;
+	bool was_maximized;
 
 	if (!weston_surface_has_content(surface) &&
 	    weston_surface_is_unmapping(surface) &&
@@ -2084,12 +2084,6 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_fullscreen(desktop_surface);
 	shsurf->state.maximized =
 		weston_desktop_surface_get_maximized(desktop_surface);
-
-	should_set_fullscreen = shsurf->state.fullscreen &&
-				(!was_fullscreen || shsurf->output !=
-						    shsurf->fullscreen_output);
-	should_set_maximized = shsurf->state.maximized &&
-			       !was_maximized;
 
 	if (!weston_surface_is_mapped(surface)) {
 		map(shell, shsurf);
@@ -2112,13 +2106,12 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	    was_maximized == shsurf->state.maximized)
 	    return;
 
-	if (was_fullscreen && (!shsurf->state.fullscreen ||
-			       shsurf->output != shsurf->fullscreen_output))
+	if (was_fullscreen)
 		unset_fullscreen(shsurf);
-	if (was_maximized && !shsurf->state.maximized)
+	if (was_maximized)
 		unset_maximized(shsurf);
 
-	if ((should_set_fullscreen || should_set_maximized) &&
+	if ((shsurf->state.fullscreen || shsurf->state.maximized) &&
 	    !shsurf->saved_position_valid) {
 		shsurf->saved_x = shsurf->view->geometry.x;
 		shsurf->saved_y = shsurf->view->geometry.y;
@@ -2134,9 +2127,9 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	weston_view_update_transform(shsurf->view);
 
-	if (should_set_fullscreen) {
+	if (shsurf->state.fullscreen) {
 		shell_configure_fullscreen(shsurf);
-	} else if (should_set_maximized) {
+	} else if (shsurf->state.maximized) {
 		set_maximized_position(shell, shsurf);
 		surface->output = shsurf->output;
 	} else {
