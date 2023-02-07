@@ -66,6 +66,11 @@ extern "C" {
 struct ivi_layout_layer;
 struct ivi_layout_surface;
 
+enum ivi_layout_surface_type {
+	IVI_LAYOUT_SURFACE_TYPE_IVI,
+	IVI_LAYOUT_SURFACE_TYPE_DESKTOP,
+};
+
 struct ivi_layout_surface_properties
 {
 	wl_fixed_t opacity;
@@ -86,6 +91,7 @@ struct ivi_layout_surface_properties
 	int32_t transition_type;
 	uint32_t transition_duration;
 	uint32_t event_mask;
+	enum ivi_layout_surface_type surface_type;
 };
 
 struct ivi_layout_layer_properties

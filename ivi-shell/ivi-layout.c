@@ -1961,7 +1961,8 @@ ivi_layout_surface_dump(struct weston_surface *surface,
  */
 
 static struct ivi_layout_surface*
-surface_create(struct weston_surface *wl_surface, uint32_t id_surface)
+surface_create(struct weston_surface *wl_surface, uint32_t id_surface,
+	       enum ivi_layout_surface_type surface_type)
 {
 	struct ivi_layout *layout = get_instance();
 	struct ivi_layout_surface *ivisurf = NULL;
@@ -1978,6 +1979,7 @@ surface_create(struct weston_surface *wl_surface, uint32_t id_surface)
 	ivisurf->surface->height_from_buffer = 0;
 
 	init_surface_properties(&ivisurf->prop);
+	ivisurf->prop.surface_type = surface_type;
 
 	ivisurf->pending.prop = ivisurf->prop;
 
@@ -2007,7 +2009,8 @@ ivi_layout_desktop_surface_create(struct weston_surface *wl_surface,
 	struct ivi_layout *layout = get_instance();
 	struct ivi_layout_surface *ivisurf;
 
-	ivisurf =  surface_create(wl_surface, IVI_INVALID_ID);
+	ivisurf =  surface_create(wl_surface, IVI_INVALID_ID,
+				  IVI_LAYOUT_SURFACE_TYPE_DESKTOP);
 
 	ivisurf->weston_desktop_surface = surface;
 	wl_signal_emit(&layout->surface_notification.created, ivisurf);
@@ -2040,7 +2043,8 @@ ivi_layout_surface_create(struct weston_surface *wl_surface,
 		return NULL;
 	}
 
-	ivisurf = surface_create(wl_surface, id_surface);
+	ivisurf = surface_create(wl_surface, id_surface,
+				 IVI_LAYOUT_SURFACE_TYPE_IVI);
 
 	if (ivisurf)
 		wl_signal_emit(&layout->surface_notification.created, ivisurf);
