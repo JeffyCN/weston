@@ -150,14 +150,15 @@ ss_seat_handle_motion(void *data, struct wl_pointer *pointer,
 {
 	struct ss_seat *seat = data;
 	struct timespec ts;
+	struct weston_coord_global pos;
 
 	timespec_from_msec(&ts, time);
 
 	/* No transformation of input position is required here because we are
 	 * always receiving the input in the same coordinates as the output. */
 
-	notify_motion_absolute(&seat->base, &ts,
-			       wl_fixed_to_double(x), wl_fixed_to_double(y));
+	pos.c = weston_coord_from_fixed(x, y);
+	notify_motion_absolute(&seat->base, &ts, pos);
 	notify_pointer_frame(&seat->base);
 }
 

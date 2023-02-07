@@ -1480,7 +1480,7 @@ x11_backend_deliver_enter_event(struct x11_backend *b,
 						    enter_notify->event_y,
 						    &output->base);
 
-	notify_pointer_focus(&b->core_seat, &output->base, pos.c.x, pos.c.y);
+	notify_pointer_focus(&b->core_seat, &output->base, pos);
 
 	b->prev_x = pos.c.x;
 	b->prev_y = pos.c.y;

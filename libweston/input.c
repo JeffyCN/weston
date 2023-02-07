@@ -1870,7 +1870,7 @@ run_modifier_bindings(struct weston_seat *seat, uint32_t old, uint32_t new)
 
 WL_EXPORT void
 notify_motion_absolute(struct weston_seat *seat, const struct timespec *time,
-		       double x, double y)
+		       struct weston_coord_global pos)
 {
 	struct weston_compositor *ec = seat->compositor;
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
@@ -1880,10 +1880,9 @@ notify_motion_absolute(struct weston_seat *seat, const struct timespec *time,
 
 	event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_ABS,
-		.x = x,
-		.y = y,
+		.x = pos.c.x,
+		.y = pos.c.y,
 	};
-
 	pointer->grab->interface->motion(pointer->grab, time, &event);
 }
 
@@ -2292,15 +2291,15 @@ clear_pointer_focus(struct weston_seat *seat)
 
 WL_EXPORT void
 notify_pointer_focus(struct weston_seat *seat, struct weston_output *output,
-		     double x, double y)
+		     struct weston_coord_global pos)
 {
 	struct weston_pointer *pointer = weston_seat_get_pointer(seat);
 
 	assert(output);
 
 	weston_pointer_move_to(pointer,
-			       wl_fixed_from_double(x),
-			       wl_fixed_from_double(y));
+			       wl_fixed_from_double(pos.c.x),
+			       wl_fixed_from_double(pos.c.y));
 }
 
 static void
@@ -2424,14 +2423,21 @@ weston_touch_set_focus(struct weston_touch *touch, struct weston_view *view)
 static void
 process_touch_normal(struct weston_touch_device *device,
 		     const struct timespec *time, int touch_id,
-		     double double_x, double double_y, int touch_type)
+		     const struct weston_coord_global *pos, int touch_type)
 {
 	struct weston_touch *touch = device->aggregate;
 	struct weston_touch_grab *grab = device->aggregate->grab;
 	struct weston_compositor *ec = device->aggregate->seat->compositor;
 	struct weston_view *ev;
-	wl_fixed_t x = wl_fixed_from_double(double_x);
-	wl_fixed_t y = wl_fixed_from_double(double_y);
+	wl_fixed_t x, y;
+
+	if (pos) {
+		assert(touch_type != WL_TOUCH_UP);
+		x = wl_fixed_from_double(pos->c.x);
+		y = wl_fixed_from_double(pos->c.y);
+	} else {
+		assert(touch_type == WL_TOUCH_UP);
+	}
 
 	/* Update grab's global coordinates. */
 	if (touch_id == touch->grab_touch_id && touch_type != WL_TOUCH_UP) {
@@ -2592,8 +2598,7 @@ weston_compositor_set_touch_mode_calib(struct weston_compositor *compositor)
  * \param device The physical device that generated the event.
  * \param time The event timestamp.
  * \param touch_id ID for the touch point of this event (multi-touch).
- * \param x X coordinate in compositor global space.
- * \param y Y coordinate in compositor global space.
+ * \param pos X,Y coordinate in compositor global space, or NULL for WL_TOUCH_UP.
  * \param norm Normalized device X, Y coordinates in calibration space, or NULL.
  * \param touch_type Either WL_TOUCH_DOWN, WL_TOUCH_UP, or WL_TOUCH_MOTION.
  *
@@ -2611,7 +2616,7 @@ WL_EXPORT void
 notify_touch_normalized(struct weston_touch_device *device,
 			const struct timespec *time,
 			int touch_id,
-			double x, double y,
+			const struct weston_coord_global *pos,
 			const struct weston_point2d_device_normalized *norm,
 			int touch_type)
 {
@@ -2619,10 +2624,14 @@ notify_touch_normalized(struct weston_touch_device *device,
 	struct weston_touch *touch = device->aggregate;
 
 	if (touch_type != WL_TOUCH_UP) {
+		assert(pos);
+
 		if (weston_touch_device_can_calibrate(device))
 			assert(norm != NULL);
 		else
 			assert(norm == NULL);
+	} else {
+		assert(!pos);
 	}
 
 	/* Update touchpoints count regardless of the current mode. */
@@ -2654,7 +2663,7 @@ notify_touch_normalized(struct weston_touch_device *device,
 	switch (weston_touch_device_get_mode(device)) {
 	case WESTON_TOUCH_MODE_NORMAL:
 	case WESTON_TOUCH_MODE_PREP_CALIB:
-		process_touch_normal(device, time, touch_id, x, y, touch_type);
+		process_touch_normal(device, time, touch_id, pos, touch_type);
 		break;
 	case WESTON_TOUCH_MODE_CALIB:
 	case WESTON_TOUCH_MODE_PREP_NORMAL:

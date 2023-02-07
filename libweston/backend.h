@@ -205,7 +205,7 @@ notify_motion(struct weston_seat *seat, const struct timespec *time,
 	      struct weston_pointer_motion_event *event);
 void
 notify_motion_absolute(struct weston_seat *seat, const struct timespec *time,
-		       double x, double y);
+		       struct weston_coord_global pos);
 void
 notify_modifiers(struct weston_seat *seat, uint32_t serial);
 
@@ -214,7 +214,7 @@ notify_pointer_frame(struct weston_seat *seat);
 
 void
 notify_pointer_focus(struct weston_seat *seat, struct weston_output *output,
-		     double x, double y);
+		     struct weston_coord_global pos);
 
 void
 clear_pointer_focus(struct weston_seat *seat);
@@ -225,7 +225,7 @@ void
 notify_touch_normalized(struct weston_touch_device *device,
 			const struct timespec *time,
 			int touch_id,
-			double x, double y,
+			const struct weston_coord_global *pos,
 			const struct weston_point2d_device_normalized *norm,
 			int touch_type);
 
@@ -235,9 +235,9 @@ notify_touch_normalized(struct weston_touch_device *device,
  */
 static inline void
 notify_touch(struct weston_touch_device *device, const struct timespec *time,
-	     int touch_id, double x, double y, int touch_type)
+	     int touch_id, const struct weston_coord_global *pos, int touch_type)
 {
-	notify_touch_normalized(device, time, touch_id, x, y, NULL, touch_type);
+	notify_touch_normalized(device, time, touch_id, pos, NULL, touch_type);
 }
 
 void

@@ -162,7 +162,7 @@ handle_pointer_motion_absolute(
 	y = libinput_event_pointer_get_absolute_y_transformed(pointer_event,
 							      height);
 	pos = weston_coord_global_from_output_point(x, y, output);
-	notify_motion_absolute(device->seat, &time, pos.c.x, pos.c.y);
+	notify_motion_absolute(device->seat, &time, pos);
 
 	return true;
 }
@@ -465,10 +465,10 @@ handle_touch_with_coords(struct libinput_device *libinput_device,
 		norm.x = libinput_event_touch_get_x_transformed(touch_event, 1);
 		norm.y = libinput_event_touch_get_y_transformed(touch_event, 1);
 		notify_touch_normalized(device->touch_device, &time, slot,
-					pos.c.x, pos.c.y, &norm, touch_type);
+					&pos, &norm, touch_type);
 	} else {
 		notify_touch(device->touch_device, &time, slot,
-			     pos.c.x, pos.c.y, touch_type);
+			     &pos, touch_type);
 	}
 }
 
@@ -498,7 +498,7 @@ handle_touch_up(struct libinput_device *libinput_device,
 	timespec_from_usec(&time,
 			   libinput_event_touch_get_time_usec(touch_event));
 
-	notify_touch(device->touch_device, &time, slot, 0, 0, WL_TOUCH_UP);
+	notify_touch(device->touch_device, &time, slot, NULL, WL_TOUCH_UP);
 }
 
 static void

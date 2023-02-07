@@ -421,6 +421,7 @@ send_touch(struct wl_client *client, struct wl_resource *resource,
 	struct weston_test *test = wl_resource_get_user_data(resource);
 	struct weston_touch_device *device = test->touch_device[0];
 	struct timespec time;
+	struct weston_coord_global pos;
 
 	assert(device);
 
@@ -435,9 +436,12 @@ send_touch(struct wl_client *client, struct wl_resource *resource,
 
 			return;
 		}
-	}
 
-	notify_touch(device, &time, touch_id, x, y, touch_type);
+		notify_touch(device, &time, touch_id, NULL, touch_type);
+	} else {
+		pos.c = weston_coord_from_fixed(x, y);
+		notify_touch(device, &time, touch_id, &pos, touch_type);
+	}
 }
 
 static const struct weston_test_interface test_implementation = {
