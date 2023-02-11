@@ -48,16 +48,16 @@ foreach proto: generated_protocols
 	proto_name = proto[0]
 	if proto[1] == 'internal'
 		base_file = proto_name
-		xml_path = '@0@.xml'.format(proto_name)
+		xml_path = proto_name + '.xml'
 	elif proto[1] == 'stable'
 		base_file = proto_name
-		xml_path = '@0@/stable/@1@/@1@.xml'.format(dir_wp_base, base_file)
+		xml_path = dir_wp_base / 'stable' / base_file / (base_file + '.xml')
 	elif proto[1] == 'unstable'
 		base_file = '@0@-unstable-@1@'.format(proto_name, proto[2])
-		xml_path = '@0@/unstable/@1@/@2@.xml'.format(dir_wp_base, proto_name, base_file)
+		xml_path = dir_wp_base / 'unstable' / proto_name / (base_file + '.xml')
 	elif proto[1] == 'staging'
 		base_file = '@0@-@1@'.format(proto_name, proto[2])
-		xml_path = '@0@/staging/@1@/@2@.xml'.format(dir_wp_base, proto_name, base_file)
+		xml_path = dir_wp_base / 'staging' / proto_name / (base_file + '.xml')
 	endif
 
 	foreach output_type: [ 'client-header', 'server-header', 'private-code' ]
