@@ -32,6 +32,12 @@ struct polygon8 {
 	int n;
 };
 
+struct gl_quad {
+	struct polygon8 vertices;
+	struct { float x1, y1, x2, y2; } bbox;
+	bool axis_aligned;
+};
+
 struct clip_context {
 	struct {
 		float x;

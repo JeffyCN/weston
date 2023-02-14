@@ -23,9 +23,9 @@
  */
 
 /* cliptest:
- *	For debugging calculate_edges() function. An arbitrary quad (red) is
- *	transformed from global coordinate space to surface coordinate space and
- *	clipped to an axis-aligned rect (blue).
+ *	For debugging the rect_to_quad() and clip_quad() functions. An arbitrary
+ *	quad (red) is transformed from global coordinate space to surface
+ *	coordinate space and clipped to an axis-aligned rect (blue).
  *
  * controls:
  *	surface rect position:  mouse left drag,  keys: w a s d
@@ -108,65 +108,69 @@ weston_coord_global_to_surface(struct weston_view *view, struct weston_coord_glo
 /* ---------------------- copied begins -----------------------*/
 /* Keep this in sync with what is in gl-renderer.c! */
 
-/*
- * Compute the boundary vertices of the intersection of the surface coordinate
- * aligned rectangle 'surf_rect' and an arbitrary quadrilateral produced from
- * 'rect' when transformed from global coordinates into surface coordinates. The
- * vertices are written to 'e', and the return value is the number of vertices.
- * Vertices are produced in clockwise winding order. Guarantees to produce
- * either zero vertices, or 3-8 vertices with non-zero polygon area.
- */
-static int
-calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
-		pixman_box32_t *surf_rect, struct weston_coord *e)
+static void
+rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
+	     struct gl_quad *quad)
 {
-
-	struct clip_context ctx;
-	int i, n;
-	GLfloat min_x, max_x, min_y, max_y;
 	struct weston_coord_global tmp[4] = {
 		{ .c = weston_coord(rect->x1, rect->y1) },
 		{ .c = weston_coord(rect->x2, rect->y1) },
 		{ .c = weston_coord(rect->x2, rect->y2) },
 		{ .c = weston_coord(rect->x1, rect->y2) },
 	};
-	struct polygon8 quad;
+	int i;
 
-	quad.n = 4;
+	/* Transform rect to surface space. */
+	quad->vertices.n = 4;
+	for (i = 0; i < quad->vertices.n; i++)
+		quad->vertices.pos[i] =
+			weston_coord_global_to_surface(ev, tmp[i]).c;
 
-	ctx.clip.x1 = surf_rect->x1;
-	ctx.clip.y1 = surf_rect->y1;
-	ctx.clip.x2 = surf_rect->x2;
-	ctx.clip.y2 = surf_rect->y2;
-
-	/* transform rect to surface space: */
-	for (i = 0; i < quad.n; i++)
-		quad.pos[i] = weston_coord_global_to_surface(ev, tmp[i]).c;
-
-	/* find bounding box: */
-	min_x = max_x = quad.pos[0].x;
-	min_y = max_y = quad.pos[0].y;
-
-	for (i = 1; i < quad.n; i++) {
-		min_x = MIN(min_x, quad.pos[i].x);
-		max_x = MAX(max_x, quad.pos[i].x);
-		min_y = MIN(min_y, quad.pos[i].y);
-		max_y = MAX(max_y, quad.pos[i].y);
+	/* Find axis-aligned bounding box. */
+	quad->bbox.x1 = quad->bbox.x2 = quad->vertices.pos[0].x;
+	quad->bbox.y1 = quad->bbox.y2 = quad->vertices.pos[0].y;
+	for (i = 1; i < quad->vertices.n; i++) {
+		quad->bbox.x1 = MIN(quad->bbox.x1, quad->vertices.pos[i].x);
+		quad->bbox.x2 = MAX(quad->bbox.x2, quad->vertices.pos[i].x);
+		quad->bbox.y1 = MIN(quad->bbox.y1, quad->vertices.pos[i].y);
+		quad->bbox.y2 = MAX(quad->bbox.y2, quad->vertices.pos[i].y);
 	}
 
+	quad->axis_aligned = !ev->transform.enabled;
+}
+
+/*
+ * Compute the boundary vertices of the intersection of an arbitrary
+ * quadrilateral 'quad' and the axis-aligned rectangle 'surf_rect'. The vertices
+ * are written to 'e', and the return value is the number of vertices. Vertices
+ * are produced in clockwise winding order. Guarantees to produce either zero
+ * vertices, or 3-8 vertices with non-zero polygon area.
+ */
+static int
+clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
+	  struct weston_coord *e)
+{
+	struct clip_context ctx = {
+		.clip.x1 = surf_rect->x1,
+		.clip.y1 = surf_rect->y1,
+		.clip.x2 = surf_rect->x2,
+		.clip.y2 = surf_rect->y2,
+	};
+	int n;
+
 	/* First, simple bounding box check to discard early a quad that does
-	 * not intersect with the surface rect:
+	 * not intersect with the rect:
 	 */
-	if ((min_x >= ctx.clip.x2) || (max_x <= ctx.clip.x1) ||
-	    (min_y >= ctx.clip.y2) || (max_y <= ctx.clip.y1))
+	if ((quad->bbox.x1 >= ctx.clip.x2) || (quad->bbox.x2 <= ctx.clip.x1) ||
+	    (quad->bbox.y1 >= ctx.clip.y2) || (quad->bbox.y2 <= ctx.clip.y1))
 		return 0;
 
 	/* Simple case, quad edges are parallel to surface rect edges, there
 	 * will be only four edges. We just need to clip the quad to the surface
 	 * rect bounds:
 	 */
-	if (!ev->transform.enabled)
-		return clip_simple(&ctx, &quad, e);
+	if (quad->axis_aligned)
+		return clip_simple(&ctx, &quad->vertices, e);
 
 	/* Transformed case: use a general polygon clipping algorithm to
 	 * clip the quad with each side of the surface rect.
@@ -174,7 +178,7 @@ calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 	 * http://www.codeguru.com/cpp/misc/misc/graphics/article.php/c8965/Polygon-Clipping.htm
 	 * but without looking at any of that code.
 	 */
-	n = clip_transformed(&ctx, &quad, e);
+	n = clip_transformed(&ctx, &quad->vertices, e);
 
 	if (n < 3)
 		return 0;
@@ -326,10 +330,12 @@ redraw_handler(struct widget *widget, void *data)
 	struct rectangle allocation;
 	cairo_t *cr;
 	cairo_surface_t *surface;
+	struct gl_quad quad;
 	struct weston_coord e[8];
 	int n;
 
-	n = calculate_edges(&cliptest->view, &g->quad, &g->surf, e);
+	rect_to_quad(&g->quad, &cliptest->view, &quad);
+	n = clip_quad(&quad, &g->surf, e);
 
 	widget_get_allocation(cliptest->widget, &allocation);
 
@@ -589,6 +595,7 @@ benchmark(void)
 	struct weston_surface surface;
 	struct weston_view view;
 	struct geometry geom;
+	struct gl_quad quad;
 	struct weston_coord e[8];
 	int i;
 	double t;
@@ -613,7 +620,8 @@ benchmark(void)
 	reset_timer();
 	for (i = 0; i < N; i++) {
 		geometry_set_phi(&geom, (float)i / 360.0f);
-		calculate_edges(&view, &geom.quad, &geom.surf, e);
+		rect_to_quad(&geom.quad, &view, &quad);
+		clip_quad(&quad, &geom.surf, e);
 	}
 	t = read_timer();
 
