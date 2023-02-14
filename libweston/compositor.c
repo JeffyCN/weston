@@ -3639,20 +3639,22 @@ surface_attach(struct wl_client *client,
 		}
 	}
 
-	if (wl_resource_get_version(resource) >= WL_SURFACE_OFFSET_SINCE_VERSION &&
-	    (sx != 0 || sy != 0)) {
-		wl_resource_post_error(resource,
-				       WL_SURFACE_ERROR_INVALID_OFFSET,
-				       "Can't attach with an offset");
-		return;
+	if (wl_resource_get_version(resource) >= WL_SURFACE_OFFSET_SINCE_VERSION) {
+		if (sx != 0 || sy != 0) {
+			wl_resource_post_error(resource,
+					       WL_SURFACE_ERROR_INVALID_OFFSET,
+					       "Can't attach with an offset");
+			return;
+		}
+	} else {
+		surface->pending.sx = sx;
+		surface->pending.sy = sy;
 	}
 
 	/* Attach, attach, without commit in between does not send
 	 * wl_buffer.release. */
 	weston_surface_state_set_buffer(&surface->pending, buffer);
 
-	surface->pending.sx = sx;
-	surface->pending.sy = sy;
 	surface->pending.newly_attached = 1;
 }
 
