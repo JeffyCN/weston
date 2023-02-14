@@ -446,7 +446,26 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 }
 
 static uint32_t
-drm_connector_get_possible_crtcs_mask(struct drm_connector *connector);
+drm_connector_get_possible_crtcs_mask(struct drm_connector *connector)
+{
+	struct drm_device *device = connector->device;
+	uint32_t possible_crtcs = 0;
+	drmModeConnector *conn = connector->conn;
+	drmModeEncoder *encoder;
+	int i;
+
+	for (i = 0; i < conn->count_encoders; i++) {
+		encoder = drmModeGetEncoder(device->drm.fd,
+					    conn->encoders[i]);
+		if (!encoder)
+			continue;
+
+		possible_crtcs |= encoder->possible_crtcs;
+		drmModeFreeEncoder(encoder);
+	}
+
+	return possible_crtcs;
+}
 
 static struct drm_writeback *
 drm_output_find_compatible_writeback(struct drm_output *output)
@@ -1663,28 +1682,6 @@ drm_output_init_gamma_size(struct drm_output *output)
 	drmModeFreeCrtc(crtc);
 
 	return 0;
-}
-
-static uint32_t
-drm_connector_get_possible_crtcs_mask(struct drm_connector *connector)
-{
-	struct drm_device *device = connector->device;
-	uint32_t possible_crtcs = 0;
-	drmModeConnector *conn = connector->conn;
-	drmModeEncoder *encoder;
-	int i;
-
-	for (i = 0; i < conn->count_encoders; i++) {
-		encoder = drmModeGetEncoder(device->drm.fd,
-					    conn->encoders[i]);
-		if (!encoder)
-			continue;
-
-		possible_crtcs |= encoder->possible_crtcs;
-		drmModeFreeEncoder(encoder);
-	}
-
-	return possible_crtcs;
 }
 
 enum writeback_screenshot_state
