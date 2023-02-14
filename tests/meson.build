@@ -156,6 +156,7 @@ tests = [
 		'dep_objs': dep_libdrm_headers,
 	},
 	{	'name': 'drm-smoke', 'run_exclusive': true },
+	{	'name': 'drm-writeback-screenshot', 'run_exclusive': true },
 	{	'name': 'event', },
 	{	'name': 'internal-screenshot', },
 	{
