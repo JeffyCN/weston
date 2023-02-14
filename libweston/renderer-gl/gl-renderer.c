@@ -439,13 +439,12 @@ timeline_submit_render_sync(struct gl_renderer *gr,
 }
 
 /*
- * Compute the boundary vertices of the intersection of the global coordinate
- * aligned rectangle 'rect', and an arbitrary quadrilateral produced from
- * 'surf_rect' when transformed from surface coordinates into global coordinates.
- * The vertices are written to 'ex' and 'ey', and the return value is the
- * number of vertices. Vertices are produced in clockwise winding order.
- * Guarantees to produce either zero vertices, or 3-8 vertices with non-zero
- * polygon area.
+ * Compute the boundary vertices of the intersection of the surface coordinate
+ * aligned rectangle 'surf_rect' and an arbitrary quadrilateral produced from
+ * 'rect' when transformed from global coordinates into surface coordinates. The
+ * vertices are written to 'e', and the return value is the number of vertices.
+ * Vertices are produced in clockwise winding order. Guarantees to produce
+ * either zero vertices, or 3-8 vertices with non-zero polygon area.
  */
 static int
 calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
@@ -455,58 +454,57 @@ calculate_edges(struct weston_view *ev, pixman_box32_t *rect,
 	struct clip_context ctx;
 	int i, n;
 	GLfloat min_x, max_x, min_y, max_y;
-	struct weston_surface *es = ev->surface;
-	struct weston_coord_surface tmp[4] = {
-		weston_coord_surface(surf_rect->x1, surf_rect->y1, es),
-		weston_coord_surface(surf_rect->x2, surf_rect->y1, es),
-		weston_coord_surface(surf_rect->x2, surf_rect->y2, es),
-		weston_coord_surface(surf_rect->x1, surf_rect->y2, es),
+	struct weston_coord_global tmp[4] = {
+		{ .c = weston_coord(rect->x1, rect->y1) },
+		{ .c = weston_coord(rect->x2, rect->y1) },
+		{ .c = weston_coord(rect->x2, rect->y2) },
+		{ .c = weston_coord(rect->x1, rect->y2) },
 	};
-	struct polygon8 surf;
+	struct polygon8 quad;
 
-	surf.n = 4;
+	quad.n = 4;
 
-	ctx.clip.x1 = rect->x1;
-	ctx.clip.y1 = rect->y1;
-	ctx.clip.x2 = rect->x2;
-	ctx.clip.y2 = rect->y2;
+	ctx.clip.x1 = surf_rect->x1;
+	ctx.clip.y1 = surf_rect->y1;
+	ctx.clip.x2 = surf_rect->x2;
+	ctx.clip.y2 = surf_rect->y2;
 
-	/* transform surface to screen space: */
-	for (i = 0; i < surf.n; i++)
-		surf.pos[i] = weston_coord_surface_to_global(ev, tmp[i]).c;
+	/* transform rect to surface space: */
+	for (i = 0; i < quad.n; i++)
+		quad.pos[i] = weston_coord_global_to_surface(ev, tmp[i]).c;
 
 	/* find bounding box: */
-	min_x = max_x = surf.pos[0].x;
-	min_y = max_y = surf.pos[0].y;
+	min_x = max_x = quad.pos[0].x;
+	min_y = max_y = quad.pos[0].y;
 
-	for (i = 1; i < surf.n; i++) {
-		min_x = MIN(min_x, surf.pos[i].x);
-		max_x = MAX(max_x, surf.pos[i].x);
-		min_y = MIN(min_y, surf.pos[i].y);
-		max_y = MAX(max_y, surf.pos[i].y);
+	for (i = 1; i < quad.n; i++) {
+		min_x = MIN(min_x, quad.pos[i].x);
+		max_x = MAX(max_x, quad.pos[i].x);
+		min_y = MIN(min_y, quad.pos[i].y);
+		max_y = MAX(max_y, quad.pos[i].y);
 	}
 
-	/* First, simple bounding box check to discard early transformed
-	 * surface rects that do not intersect with the clip region:
+	/* First, simple bounding box check to discard early a quad that does
+	 * not intersect with the surface rect:
 	 */
 	if ((min_x >= ctx.clip.x2) || (max_x <= ctx.clip.x1) ||
 	    (min_y >= ctx.clip.y2) || (max_y <= ctx.clip.y1))
 		return 0;
 
-	/* Simple case, bounding box edges are parallel to surface edges,
-	 * there will be only four edges.  We just need to clip the surface
-	 * vertices to the clip rect bounds:
+	/* Simple case, quad edges are parallel to surface rect edges, there
+	 * will be only four edges. We just need to clip the quad to the surface
+	 * rect bounds:
 	 */
 	if (!ev->transform.enabled)
-		return clip_simple(&ctx, &surf, e);
+		return clip_simple(&ctx, &quad, e);
 
 	/* Transformed case: use a general polygon clipping algorithm to
-	 * clip the surface rectangle with each side of 'rect'.
+	 * clip the quad with each side of the surface rect.
 	 * The algorithm is Sutherland-Hodgman, as explained in
 	 * http://www.codeguru.com/cpp/misc/misc/graphics/article.php/c8965/Polygon-Clipping.htm
 	 * but without looking at any of that code.
 	 */
-	n = clip_transformed(&ctx, &surf, e);
+	n = clip_transformed(&ctx, &quad, e);
 
 	if (n < 3)
 		return 0;
@@ -602,22 +600,21 @@ texture_region(struct weston_paint_node *pnode,
 		pixman_box32_t *rect = &rects[i];
 		for (j = 0; j < nsurf; j++) {
 			pixman_box32_t *surf_rect = &surf_rects[j];
-			struct weston_coord e[8];      /* edge points in screen space */
+			struct weston_coord e[8];
 			int n;
 
-			/* The transformed surface, after clipping to the clip region,
-			 * can have as many as eight sides, emitted as a triangle-fan.
-			 * The first vertex in the triangle fan can be chosen arbitrarily,
+			/* The transformed quad, after clipping to the surface rect, can
+			 * have as many as eight sides, emitted as a triangle-fan. The
+			 * first vertex in the triangle fan can be chosen arbitrarily,
 			 * since the area is guaranteed to be convex.
 			 *
-			 * If a corner of the transformed surface falls outside of the
-			 * clip region, instead of emitting one vertex for the corner
-			 * of the surface, up to two are emitted for two corresponding
-			 * intersection point(s) between the surface and the clip region.
+			 * If a corner of the transformed quad falls outside of the
+			 * surface rect, instead of emitting one vertex, up to two are
+			 * emitted for two corresponding intersection point(s) between the
+			 * edges.
 			 *
-			 * To do this, we first calculate the (up to eight) points that
-			 * form the intersection of the clip rect and the transformed
-			 * surface.
+			 * To do this, we first calculate the (up to eight) points at the
+			 * intersection of the edges of the quad and the surface rect.
 			 */
 			n = calculate_edges(ev, rect, surf_rect, e);
 			if (n < 3)
@@ -625,18 +622,15 @@ texture_region(struct weston_paint_node *pnode,
 
 			/* emit edge points: */
 			for (k = 0; k < n; k++) {
-				struct weston_coord_global pos_g;
 				struct weston_coord_surface pos_s;
 				struct weston_coord_buffer pos_b;
 
-				pos_g.c = e[k];
-
 				/* position: */
-				*(v++) = pos_g.c.x;
-				*(v++) = pos_g.c.y;
+				*(v++) = e[k].x;
+				*(v++) = e[k].y;
 
 				/* texcoord: */
-				pos_s = weston_coord_global_to_surface(ev, pos_g);
+				pos_s = weston_coord_surface(e[k].x, e[k].y, ev->surface);
 				pos_b = weston_coord_surface_to_buffer(ev->surface, pos_s);
 
 				*(v++) = pos_b.c.x * inv_width;
@@ -1270,10 +1264,12 @@ gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
 		return false;
 
 	*sconf = (struct gl_shader_config) {
-		.projection = go->output_matrix,
+		.projection = pnode->view->transform.matrix,
 		.view_alpha = pnode->view->alpha,
 		.input_tex_filter = filter,
 	};
+
+	weston_matrix_multiply(&sconf->projection, &go->output_matrix);
 
 	gl_shader_config_set_input_textures(sconf, gs);
 
