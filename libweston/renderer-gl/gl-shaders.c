@@ -56,6 +56,7 @@ struct gl_shader {
 	GLuint program;
 	GLuint vertex_shader, fragment_shader;
 	GLint proj_uniform;
+	GLint surface_to_buffer_uniform;
 	GLint tex_uniforms[3];
 	GLint view_alpha_uniform;
 	GLint color_uniform;
@@ -73,6 +74,19 @@ struct gl_shader {
 	struct wl_list link; /* gl_renderer::shader_list */
 	struct timespec last_used;
 };
+
+static const char *
+gl_shader_texcoord_input_to_string(enum gl_shader_texcoord_input kind)
+{
+	switch (kind) {
+#define CASERET(x) case x: return #x;
+	CASERET(SHADER_TEXCOORD_INPUT_SURFACE)
+	CASERET(SHADER_TEXCOORD_INPUT_ATTRIB)
+#undef CASERET
+	}
+
+	return "!?!?"; /* never reached */
+}
 
 static const char *
 gl_shader_texture_variant_to_string(enum gl_shader_texture_variant v)
@@ -186,7 +200,8 @@ create_shader_description_string(const struct gl_shader_requirements *req)
 	int size;
 	char *str;
 
-	size = asprintf(&str, "%s %s %s %s %cinput_is_premult %cgreen",
+	size = asprintf(&str, "%s %s %s %s %s %cinput_is_premult %cgreen",
+			gl_shader_texcoord_input_to_string(req->variant),
 			gl_shader_texture_variant_to_string(req->variant),
 			gl_shader_color_curve_to_string(req->color_pre_curve),
 			gl_shader_color_mapping_to_string(req->color_mapping),
@@ -199,7 +214,21 @@ create_shader_description_string(const struct gl_shader_requirements *req)
 }
 
 static char *
-create_shader_config_string(const struct gl_shader_requirements *req)
+create_vertex_shader_config_string(const struct gl_shader_requirements *req)
+{
+	int size;
+	char *str;
+
+	size = asprintf(&str,
+			"#define DEF_TEXCOORD_INPUT %s\n",
+			gl_shader_texcoord_input_to_string(req->texcoord_input));
+	if (size < 0)
+		return NULL;
+	return str;
+}
+
+static char *
+create_fragment_shader_config_string(const struct gl_shader_requirements *req)
 {
 	int size;
 	char *str;
@@ -252,12 +281,18 @@ gl_shader_create(struct gl_renderer *gr,
 		free(desc);
 	}
 
-	sources[0] = vertex_shader;
-	shader->vertex_shader = compile_shader(GL_VERTEX_SHADER, 1, sources);
+	conf = create_vertex_shader_config_string(&shader->key);
+	if (!conf)
+		goto error_vertex;
+
+	sources[0] = conf;
+	sources[1] = vertex_shader;
+	shader->vertex_shader = compile_shader(GL_VERTEX_SHADER, 2, sources);
 	if (shader->vertex_shader == GL_NONE)
 		goto error_vertex;
 
-	conf = create_shader_config_string(&shader->key);
+	free(conf);
+	conf = create_fragment_shader_config_string(&shader->key);
 	if (!conf)
 		goto error_fragment;
 
@@ -273,7 +308,8 @@ gl_shader_create(struct gl_renderer *gr,
 	glAttachShader(shader->program, shader->vertex_shader);
 	glAttachShader(shader->program, shader->fragment_shader);
 	glBindAttribLocation(shader->program, 0, "position");
-	glBindAttribLocation(shader->program, 1, "texcoord");
+	if (requirements->texcoord_input == SHADER_TEXCOORD_INPUT_ATTRIB)
+		glBindAttribLocation(shader->program, 1, "texcoord");
 
 	glLinkProgram(shader->program);
 	glGetProgramiv(shader->program, GL_LINK_STATUS, &status);
@@ -287,6 +323,8 @@ gl_shader_create(struct gl_renderer *gr,
 	glDeleteShader(shader->fragment_shader);
 
 	shader->proj_uniform = glGetUniformLocation(shader->program, "proj");
+	shader->surface_to_buffer_uniform =
+		glGetUniformLocation(shader->program, "surface_to_buffer");
 	shader->tex_uniforms[0] = glGetUniformLocation(shader->program, "tex");
 	shader->tex_uniforms[1] = glGetUniformLocation(shader->program, "tex1");
 	shader->tex_uniforms[2] = glGetUniformLocation(shader->program, "tex2");
@@ -539,6 +577,10 @@ gl_shader_load_config(struct gl_shader *shader,
 
 	glUniformMatrix4fv(shader->proj_uniform,
 			   1, GL_FALSE, sconf->projection.d);
+
+	if (shader->surface_to_buffer_uniform != -1)
+		glUniformMatrix4fv(shader->surface_to_buffer_uniform,
+			           1, GL_FALSE, sconf->surface_to_buffer.d);
 
 	if (shader->color_uniform != -1)
 		glUniform4fv(shader->color_uniform, 1, sconf->unicolor);

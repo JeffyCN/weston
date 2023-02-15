@@ -38,6 +38,12 @@
 #include "shared/weston-egl-ext.h"  /* for PFN* stuff */
 #include "shared/helpers.h"
 
+/* Keep the following in sync with vertex.glsl. */
+enum gl_shader_texcoord_input {
+	SHADER_TEXCOORD_INPUT_ATTRIB = 0,
+	SHADER_TEXCOORD_INPUT_SURFACE,
+};
+
 enum gl_shader_texture_variant {
 	SHADER_VARIANT_NONE = 0,
 /* Keep the following in sync with fragment.glsl. */
@@ -75,6 +81,8 @@ enum gl_shader_color_mapping {
  */
 struct gl_shader_requirements
 {
+	unsigned texcoord_input:1; /* enum gl_shader_texcoord_input */
+
 	unsigned variant:4; /* enum gl_shader_texture_variant */
 	bool input_is_premult:1;
 	bool green_tint:1;
@@ -86,7 +94,7 @@ struct gl_shader_requirements
 	 * The total size of all bitfields plus pad_bits_ must fill up exactly
 	 * how many bytes the compiler allocates for them together.
 	 */
-	unsigned pad_bits_:22;
+	unsigned pad_bits_:21;
 };
 static_assert(sizeof(struct gl_shader_requirements) ==
 	      4 /* total bitfield size in bytes */,
@@ -100,6 +108,7 @@ struct gl_shader_config {
 	struct gl_shader_requirements req;
 
 	struct weston_matrix projection;
+	struct weston_matrix surface_to_buffer;
 	float view_alpha;
 	GLfloat unicolor[4];
 	GLint input_tex_filter; /* GL_NEAREST or GL_LINEAR */

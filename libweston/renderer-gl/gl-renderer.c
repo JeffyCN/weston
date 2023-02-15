@@ -569,12 +569,10 @@ texture_region(struct weston_paint_node *pnode,
 	       pixman_region32_t *region,
 	       pixman_region32_t *surf_region)
 {
-	struct gl_surface_state *gs = get_surface_state(pnode->surface);
-	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 	struct weston_compositor *ec = pnode->surface->compositor;
 	struct weston_view *ev = pnode->view;
 	struct gl_renderer *gr = get_renderer(ec);
-	GLfloat *v, inv_width, inv_height;
+	GLfloat *v;
 	unsigned int *vtxcnt, nvtx = 0;
 	pixman_box32_t *rects, *surf_rects;
 	pixman_box32_t *raw_rects;
@@ -596,11 +594,8 @@ texture_region(struct weston_paint_node *pnode,
 	/* worst case we can have 8 vertices per rect (ie. clipped into
 	 * an octagon):
 	 */
-	v = wl_array_add(&gr->vertices, nrects * nsurf * 8 * 4 * sizeof *v);
+	v = wl_array_add(&gr->vertices, nrects * nsurf * 8 * 2 * sizeof *v);
 	vtxcnt = wl_array_add(&gr->vtxcnt, nrects * nsurf * sizeof *vtxcnt);
-
-	inv_width = 1.0 / buffer->width;
-	inv_height = 1.0 / buffer->height;
 
 	for (i = 0; i < nrects; i++) {
 		rect_to_quad(&rects[i], ev, &quad);
@@ -627,23 +622,8 @@ texture_region(struct weston_paint_node *pnode,
 
 			/* emit edge points: */
 			for (k = 0; k < n; k++) {
-				struct weston_coord_surface pos_s;
-				struct weston_coord_buffer pos_b;
-
-				/* position: */
 				*(v++) = e[k].x;
 				*(v++) = e[k].y;
-
-				/* texcoord: */
-				pos_s = weston_coord_surface(e[k].x, e[k].y, ev->surface);
-				pos_b = weston_coord_surface_to_buffer(ev->surface, pos_s);
-
-				*(v++) = pos_b.c.x * inv_width;
-				if (buffer->buffer_origin == ORIGIN_TOP_LEFT) {
-					*(v++) = pos_b.c.y * inv_height;
-				} else {
-					*(v++) = (buffer->height - pos_b.c.y) * inv_height;
-				}
 			}
 
 			vtxcnt[nvtx++] = n;
@@ -1065,9 +1045,7 @@ repaint_region(struct gl_renderer *gr,
 	vtxcnt = gr->vtxcnt.data;
 
 	/* position: */
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof *v, &v[0]);
-	/* texcoord: */
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof *v, &v[2]);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof *v, v);
 
 	if (!gl_renderer_use_program(gr, sconf)) {
 		gl_renderer_send_shader_error(pnode);
@@ -1264,17 +1242,32 @@ gl_shader_config_init_for_paint_node(struct gl_shader_config *sconf,
 {
 	struct gl_surface_state *gs = get_surface_state(pnode->surface);
 	struct gl_output_state *go = get_output_state(pnode->output);
+	struct weston_buffer *buffer = gs->buffer_ref.buffer;
 
 	if (!pnode->surf_xform_valid)
 		return false;
 
 	*sconf = (struct gl_shader_config) {
+		.req.texcoord_input = SHADER_TEXCOORD_INPUT_SURFACE,
 		.projection = pnode->view->transform.matrix,
+		.surface_to_buffer =
+			pnode->view->surface->surface_to_buffer_matrix,
 		.view_alpha = pnode->view->alpha,
 		.input_tex_filter = filter,
 	};
 
 	weston_matrix_multiply(&sconf->projection, &go->output_matrix);
+
+	if (buffer->buffer_origin == ORIGIN_TOP_LEFT) {
+		weston_matrix_scale(&sconf->surface_to_buffer,
+				    1.0f / buffer->width,
+				    1.0f / buffer->height, 1);
+	} else {
+		weston_matrix_scale(&sconf->surface_to_buffer,
+				    1.0f / buffer->width,
+				    -1.0f / buffer->height, 1);
+		weston_matrix_translate(&sconf->surface_to_buffer, 0, 1, 0);
+	}
 
 	gl_shader_config_set_input_textures(sconf, gs);
 
@@ -1387,9 +1380,7 @@ repaint_views(struct weston_output *output, pixman_region32_t *damage)
 	struct weston_paint_node *pnode;
 
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-
 	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
 
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
@@ -1397,7 +1388,6 @@ repaint_views(struct weston_output *output, pixman_region32_t *damage)
 			draw_paint_node(pnode, damage);
 	}
 
-	glDisableVertexAttribArray(1);
 	glDisableVertexAttribArray(0);
 }
 
