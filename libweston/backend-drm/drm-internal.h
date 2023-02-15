@@ -567,6 +567,12 @@ enum writeback_screenshot_state {
 	 * commit is handled by DRM it will give us a sync fd that gets
 	 * signalled when the writeback is done. */
 	DRM_OUTPUT_WB_SCREENSHOT_CHECK_FENCE,
+	/* The atomic commit completed and we received the sync fd from the
+	 * kernel. We've polled to check if the writeback was over, but it
+	 * wasn't. Now we must stop the repaint loop and wait until the
+	 * writeback is complete, because we can't commit with KMS objects
+	 * (CRTC, planes, etc) that are in used by the writeback job. */
+	DRM_OUTPUT_WB_SCREENSHOT_WAITING_SIGNAL,
 };
 
 struct drm_writeback_state {
@@ -578,6 +584,7 @@ struct drm_writeback_state {
 
 	struct drm_fb *fb;
 	int32_t out_fence_fd;
+	struct wl_event_source *wb_source;
 
 	/* Reference to fb's being used by the writeback job. These are all the
 	 * framebuffers in every drm_plane_state of the output state that we've
@@ -699,7 +706,7 @@ void
 drm_writeback_reference_planes(struct drm_writeback_state *state,
 			       struct wl_list *plane_state_list);
 bool
-drm_writeback_has_finished(struct drm_writeback_state *state);
+drm_writeback_should_wait_completion(struct drm_writeback_state *state);
 void
 drm_writeback_fail_screenshot(struct drm_writeback_state *state,
 			      const char *err_msg);

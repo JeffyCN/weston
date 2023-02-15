@@ -1750,6 +1750,7 @@ on_drm_input(int fd, uint32_t mask, void *data)
 	struct drm_device *device = data;
 	struct drm_writeback_state *state;
 	struct drm_crtc *crtc;
+	bool wait_wb_completion = false;
 	drmEventContext evctx;
 
 	/* If we have a pending writeback job for this output, we can't continue
@@ -1758,9 +1759,11 @@ on_drm_input(int fd, uint32_t mask, void *data)
 	 * uses the KMS objects (CRTC, planes, etc) in use by the writeback. */
 	wl_list_for_each(crtc, &device->crtc_list, link) {
 		state = crtc->output ? crtc->output->wb_state : NULL;
-		if (state && !drm_writeback_has_finished(state))
-			drm_writeback_fail_screenshot(state, "drm: out fence not signalled yet");
+		if (state && drm_writeback_should_wait_completion(state))
+			wait_wb_completion = true;
 	}
+	if (wait_wb_completion)
+		return 1;
 
 	memset(&evctx, 0, sizeof evctx);
 	evctx.version = 3;

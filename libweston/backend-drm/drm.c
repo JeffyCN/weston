@@ -2670,7 +2670,20 @@ drm_writeback_fail_screenshot(struct drm_writeback_state *state,
 	output->wb_state = NULL;
 }
 
-bool
+static int
+drm_writeback_save_callback(int fd, uint32_t mask, void *data)
+{
+	struct drm_writeback_state *state = data;
+
+	wl_event_source_remove(state->wb_source);
+	close(fd);
+
+	drm_writeback_success_screenshot(state);
+
+	return 0;
+}
+
+static bool
 drm_writeback_has_finished(struct drm_writeback_state *state)
 {
 	struct pollfd pollfd;
@@ -2692,6 +2705,40 @@ drm_writeback_has_finished(struct drm_writeback_state *state)
 	}
 
 	/* poll() returned 0, what means that out fence was not signalled yet */
+	return false;
+}
+
+bool
+drm_writeback_should_wait_completion(struct drm_writeback_state *state)
+{
+	struct weston_compositor *ec = state->output->base.compositor;
+	struct wl_event_loop *event_loop;
+
+	if (state->state == DRM_OUTPUT_WB_SCREENSHOT_WAITING_SIGNAL)
+		return true;
+
+	if (state->state == DRM_OUTPUT_WB_SCREENSHOT_CHECK_FENCE) {
+		if (drm_writeback_has_finished(state))
+			return false;
+
+		/* The writeback has not finished yet. So add callback that gets
+		 * called when the sync fd of the writeback job gets signalled.
+		 * We need to wait for that to resume the repaint loop. */
+		event_loop = wl_display_get_event_loop(ec->wl_display);
+		state->wb_source =
+			wl_event_loop_add_fd(event_loop, state->out_fence_fd,
+					     WL_EVENT_READABLE,
+					     drm_writeback_save_callback, state);
+		if (!state->wb_source) {
+			drm_writeback_fail_screenshot(state, "drm: out of memory");
+			return false;
+		}
+
+		state->state = DRM_OUTPUT_WB_SCREENSHOT_WAITING_SIGNAL;
+
+		return true;
+	}
+
 	return false;
 }
 
