@@ -165,6 +165,7 @@ const struct drm_property_info connector_props[] = {
 		.num_enum_values = WDRM_DPMS_STATE__COUNT,
 	},
 	[WDRM_CONNECTOR_CRTC_ID] = { .name = "CRTC_ID", },
+	[WDRM_CONNECTOR_WRITEBACK_PIXEL_FORMATS] = { .name = "WRITEBACK_PIXEL_FORMATS", },
 	[WDRM_CONNECTOR_NON_DESKTOP] = { .name = "non-desktop", },
 	[WDRM_CONNECTOR_CONTENT_PROTECTION] = {
 		.name = "Content Protection",

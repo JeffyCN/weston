@@ -196,6 +196,7 @@ enum wdrm_connector_property {
 	WDRM_CONNECTOR_EDID = 0,
 	WDRM_CONNECTOR_DPMS,
 	WDRM_CONNECTOR_CRTC_ID,
+	WDRM_CONNECTOR_WRITEBACK_PIXEL_FORMATS,
 	WDRM_CONNECTOR_NON_DESKTOP,
 	WDRM_CONNECTOR_CONTENT_PROTECTION,
 	WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
@@ -558,6 +559,8 @@ struct drm_writeback {
 
 	struct drm_device *device;
 	struct drm_connector connector;
+
+	struct weston_drm_format_array formats;
 };
 
 struct drm_head {

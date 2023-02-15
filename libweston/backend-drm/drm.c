@@ -2441,6 +2441,40 @@ drm_output_create(struct weston_backend *backend, const char *name)
 	return &output->base;
 }
 
+
+static int
+drm_writeback_populate_formats(struct drm_writeback *wb)
+{
+	struct drm_property_info *info = wb->connector.props;
+	drmModeObjectProperties *props = wb->connector.props_drm;
+	uint64_t blob_id;
+	drmModePropertyBlobPtr blob;
+	uint32_t *blob_formats;
+	unsigned int i;
+
+	blob_id = drm_property_get_value(&info[WDRM_CONNECTOR_WRITEBACK_PIXEL_FORMATS],
+					 props, 0);
+	if (blob_id == 0)
+		return -1;
+
+	blob = drmModeGetPropertyBlob(wb->device->drm.fd, blob_id);
+	if (!blob)
+		return -1;
+
+	blob_formats = blob->data;
+
+	for (i = 0; i < blob->length / sizeof(uint32_t); i++)
+		if (!weston_drm_format_array_add_format(&wb->formats,
+							blob_formats[i]))
+			goto err;
+
+	return 0;
+
+err:
+	drmModeFreePropertyBlob(blob);
+	return -1;
+}
+
 /**
  * Create a Weston writeback for a writeback connector
  *
@@ -2470,9 +2504,16 @@ drm_writeback_create(struct drm_device *device, drmModeConnector *conn)
 	if (ret < 0)
 		goto err;
 
+	weston_drm_format_array_init(&writeback->formats);
+	ret = drm_writeback_populate_formats(writeback);
+	if (ret < 0)
+		goto err_formats;
+
 	wl_list_insert(&device->writeback_connector_list, &writeback->link);
 	return 0;
 
+err_formats:
+	weston_drm_format_array_fini(&writeback->formats);
 err:
 	drm_connector_fini(&writeback->connector);
 	free(writeback);
@@ -2483,6 +2524,7 @@ static void
 drm_writeback_destroy(struct drm_writeback *writeback)
 {
 	drm_connector_fini(&writeback->connector);
+	weston_drm_format_array_fini(&writeback->formats);
 	wl_list_remove(&writeback->link);
 
 	free(writeback);
