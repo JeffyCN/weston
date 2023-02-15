@@ -444,6 +444,26 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	pixman_region32_fini(&scanout_damage);
 }
 
+static void
+drm_output_pick_writeback_capture_task(struct drm_output *output)
+{
+	struct weston_capture_task *ct;
+	const char *msg = "drm: writeback screenshot not supported yet";
+	int32_t width = output->base.current_mode->width;
+	int32_t height = output->base.current_mode->height;
+	uint32_t format = output->format->format;
+
+	ct = weston_output_pull_capture_task(&output->base,
+					     WESTON_OUTPUT_CAPTURE_SOURCE_WRITEBACK,
+					     width, height, pixel_format_get_info(format));
+	if (!ct)
+		return;
+
+	assert(output->device->atomic_modeset);
+
+	weston_capture_task_retire_failed(ct, msg);
+}
+
 static int
 drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 {
@@ -481,6 +501,8 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 
 	if (drm_output_ensure_hdr_output_metadata_blob(output) < 0)
 		goto err;
+
+	drm_output_pick_writeback_capture_task(output);
 
 	drm_output_render(state, damage);
 	scanout_state = drm_output_state_get_plane(state,
@@ -791,6 +813,13 @@ drm_output_apply_mode(struct drm_output *output)
 			return -1;
 		}
 	}
+
+	if (device->atomic_modeset && !output->base.disable_planes)
+		weston_output_update_capture_info(&output->base,
+						  WESTON_OUTPUT_CAPTURE_SOURCE_WRITEBACK,
+						  output->base.current_mode->width,
+						  output->base.current_mode->height,
+						  pixel_format_get_info(output->format->format));
 
 	return 0;
 }
@@ -1966,6 +1995,12 @@ drm_output_enable(struct weston_output *base)
 	output->base.set_dpms = drm_set_dpms;
 	output->base.switch_mode = drm_output_switch_mode;
 	output->base.set_gamma = drm_output_set_gamma;
+
+	if (device->atomic_modeset && !base->disable_planes)
+		weston_output_update_capture_info(base, WESTON_OUTPUT_CAPTURE_SOURCE_WRITEBACK,
+						  base->current_mode->width,
+						  base->current_mode->height,
+						  pixel_format_get_info(output->format->format));
 
 	weston_log("Output %s (crtc %d) video modes:\n",
 		   output->base.name, output->crtc->crtc_id);
