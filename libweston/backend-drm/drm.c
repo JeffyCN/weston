@@ -41,6 +41,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <time.h>
+#include <poll.h>
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
@@ -444,11 +445,91 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	pixman_region32_fini(&scanout_damage);
 }
 
+static uint32_t
+drm_connector_get_possible_crtcs_mask(struct drm_connector *connector);
+
+static struct drm_writeback *
+drm_output_find_compatible_writeback(struct drm_output *output)
+{
+	struct drm_crtc *crtc;
+	struct drm_writeback *wb;
+	bool in_use;
+	uint32_t possible_crtcs;
+
+	wl_list_for_each(wb, &output->device->writeback_connector_list, link) {
+		/* Another output may be using the writeback connector. */
+		in_use = false;
+		wl_list_for_each(crtc, &output->device->crtc_list, link) {
+			if (crtc->output && crtc->output->wb_state &&
+			    crtc->output->wb_state->wb == wb) {
+				in_use = true;
+				break;
+			}
+		}
+		if (in_use)
+			continue;
+
+		/* Is the writeback connector compatible with the CRTC? */
+		possible_crtcs =
+			drm_connector_get_possible_crtcs_mask(&wb->connector);
+		if (!(possible_crtcs & (1 << output->crtc->pipe)))
+			continue;
+
+		/* Does the writeback connector support the output gbm format? */
+		if (!weston_drm_format_array_find_format(&wb->formats,
+							 output->format->format))
+			continue;
+
+		return wb;
+	}
+
+	return NULL;
+}
+
+static struct drm_writeback_state *
+drm_writeback_state_alloc(void)
+{
+	struct drm_writeback_state *state;
+
+	state = zalloc(sizeof *state);
+	if (!state)
+		return NULL;
+
+	state->state = DRM_OUTPUT_WB_SCREENSHOT_OFF;
+	state->out_fence_fd = -1;
+	wl_array_init(&state->referenced_fbs);
+
+	return state;
+}
+
+static void
+drm_writeback_state_free(struct drm_writeback_state *state)
+{
+	struct drm_fb *fb;
+
+	if (state->out_fence_fd >= 0)
+		close(state->out_fence_fd);
+
+	/* Unref framebuffer that was given to save the content of the writeback */
+	if (state->fb)
+		drm_fb_unref(state->fb);
+
+	/* Unref framebuffers that were in use in the same commit of the one with
+	 * the writeback setup */
+	wl_array_for_each(fb, &state->referenced_fbs)
+		drm_fb_unref(fb);
+	wl_array_release(&state->referenced_fbs);
+
+	free(state);
+}
+
 static void
 drm_output_pick_writeback_capture_task(struct drm_output *output)
 {
 	struct weston_capture_task *ct;
-	const char *msg = "drm: writeback screenshot not supported yet";
+	struct weston_buffer *buffer;
+	struct drm_writeback *wb;
+	const char *msg;
 	int32_t width = output->base.current_mode->width;
 	int32_t height = output->base.current_mode->height;
 	uint32_t format = output->format->format;
@@ -461,6 +542,40 @@ drm_output_pick_writeback_capture_task(struct drm_output *output)
 
 	assert(output->device->atomic_modeset);
 
+	wb = drm_output_find_compatible_writeback(output);
+	if (!wb) {
+		msg = "drm: could not find writeback connector for output";
+		goto err;
+	}
+
+	buffer = weston_capture_task_get_buffer(ct);
+	assert(buffer->width == width);
+	assert(buffer->height == height);
+	assert(buffer->pixel_format->format == output->format->format);
+
+	output->wb_state = drm_writeback_state_alloc();
+	if (!output->wb_state) {
+		msg = "drm: failed to allocate memory for writeback state";
+		goto err;
+	}
+
+	output->wb_state->fb = drm_fb_create_dumb(output->device, width, height, format);
+	if (!output->wb_state->fb) {
+		msg = "drm: failed to create dumb buffer for writeback state";
+		goto err_fb;
+	}
+
+	output->wb_state->output = output;
+	output->wb_state->wb = wb;
+	output->wb_state->state = DRM_OUTPUT_WB_SCREENSHOT_PREPARE_COMMIT;
+	output->wb_state->ct = ct;
+
+	return;
+
+err_fb:
+	drm_writeback_state_free(output->wb_state);
+	output->wb_state = NULL;
+err:
 	weston_capture_task_retire_failed(ct, msg);
 }
 
@@ -1572,6 +1687,15 @@ drm_connector_get_possible_crtcs_mask(struct drm_connector *connector)
 	return possible_crtcs;
 }
 
+enum writeback_screenshot_state
+drm_output_get_writeback_state(struct drm_output *output)
+{
+	if (!output->wb_state)
+		return DRM_OUTPUT_WB_SCREENSHOT_OFF;
+
+	return output->wb_state->state;
+}
+
 /** Pick a CRTC that might be able to drive all attached connectors
  *
  * @param output The output whose attached heads to include.
@@ -2476,6 +2600,115 @@ drm_output_create(struct weston_backend *backend, const char *name)
 	return &output->base;
 }
 
+static void
+pixman_copy_screenshot(uint32_t *dst, uint32_t *src, int dst_stride,
+		       int src_stride, int pixman_format, int width, int height)
+{
+	pixman_image_t *pixman_dst;
+	pixman_image_t *pixman_src;
+
+	pixman_src = pixman_image_create_bits(pixman_format,
+					      width, height,
+					      src, src_stride);
+	pixman_dst = pixman_image_create_bits(pixman_format,
+					      width, height,
+					      dst, dst_stride);
+	assert(pixman_src);
+	assert(pixman_dst);
+
+	pixman_image_composite32(PIXMAN_OP_SRC,
+				 pixman_src,     /* src */
+				 NULL,           /* mask */
+				 pixman_dst,     /* dst */
+				 0, 0,           /* src_x, src_y */
+				 0, 0,           /* mask_x, mask_y */
+				 0, 0,           /* dst_x, dst_y */
+				 width, height); /* width, height */
+
+	pixman_image_unref(pixman_src);
+	pixman_image_unref(pixman_dst);
+}
+
+static void
+drm_writeback_success_screenshot(struct drm_writeback_state *state)
+{
+	struct drm_output *output = state->output;
+	struct weston_buffer *buffer =
+		weston_capture_task_get_buffer(state->ct);
+	int width, height;
+	int dst_stride, src_stride;
+	uint32_t *src, *dst;
+
+	src = state->fb->map;
+	src_stride = state->fb->strides[0];
+
+	dst = wl_shm_buffer_get_data(buffer->shm_buffer);
+	dst_stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+
+	width = state->fb->width;
+	height = state->fb->height;
+
+	wl_shm_buffer_begin_access(buffer->shm_buffer);
+	pixman_copy_screenshot(dst, src, dst_stride, src_stride,
+			       buffer->pixel_format->pixman_format,
+			       width, height);
+	wl_shm_buffer_end_access(buffer->shm_buffer);
+
+	weston_capture_task_retire_complete(state->ct);
+	drm_writeback_state_free(state);
+	output->wb_state = NULL;
+}
+
+void
+drm_writeback_fail_screenshot(struct drm_writeback_state *state,
+			      const char *err_msg)
+{
+	struct drm_output *output = state->output;
+
+	weston_capture_task_retire_failed(state->ct, err_msg);
+	drm_writeback_state_free(state);
+	output->wb_state = NULL;
+}
+
+bool
+drm_writeback_has_finished(struct drm_writeback_state *state)
+{
+	struct pollfd pollfd;
+	int ret;
+
+	pollfd.fd = state->out_fence_fd;
+	pollfd.events = POLLIN;
+
+	while ((ret = poll(&pollfd, 1, 0)) == -1 && errno == EINTR)
+		continue;
+
+	if (ret < 0) {
+		drm_writeback_fail_screenshot(state, "drm: polling wb fence failed");
+		return true;
+	} else if (ret > 0) {
+		/* fence already signaled, simply save the screenshot */
+		drm_writeback_success_screenshot(state);
+		return true;
+	}
+
+	/* poll() returned 0, what means that out fence was not signalled yet */
+	return false;
+}
+
+void
+drm_writeback_reference_planes(struct drm_writeback_state *state,
+			       struct wl_list *plane_state_list)
+{
+	struct drm_plane_state *plane_state;
+	struct drm_fb **fb;
+
+	wl_list_for_each(plane_state, plane_state_list, link) {
+		if (!plane_state->fb)
+			continue;
+		fb = wl_array_add(&state->referenced_fbs, sizeof(*fb));
+		*fb = drm_fb_ref(plane_state->fb);
+	}
+}
 
 static int
 drm_writeback_populate_formats(struct drm_writeback *wb)

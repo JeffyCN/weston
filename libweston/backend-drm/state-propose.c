@@ -960,6 +960,7 @@ drm_assign_planes(struct weston_output *output_base)
 	struct drm_pending_state *pending_state = device->repaint_data;
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *plane_state;
+	struct drm_writeback_state *wb_state = output->wb_state;
 	struct weston_paint_node *pnode;
 	struct weston_plane *primary = &output_base->compositor->primary_plane;
 	enum drm_output_propose_state_mode mode = DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY;
@@ -980,18 +981,29 @@ drm_assign_planes(struct weston_output *output_base)
 							 pending_state,
 							 mode);
 		}
-		if (!state) {
-			drm_debug(b, "\t[repaint] could not build mixed-mode "
-				     "state, trying renderer-only\n");
-		}
 	} else {
 		drm_debug(b, "\t[state] no overlay plane support\n");
 	}
 
+	/* We can enter this block in two situations:
+	 * 1. If we didn't enter the last block (for some reason we can't use planes)
+	 * 2. If we entered but both the planes-only and the mixed modes didn't work */
 	if (!state) {
+		drm_debug(b, "\t[repaint] could not build state with planes, "
+			     "trying renderer-only\n");
 		mode = DRM_OUTPUT_PROPOSE_STATE_RENDERER_ONLY;
 		state = drm_output_propose_state(output_base, pending_state,
 						 mode);
+		/* If renderer only mode failed and we are in a writeback
+		 * screenshot, let's abort the writeback screenshot and try
+		 * again. */
+		if (!state && drm_output_get_writeback_state(output) != DRM_OUTPUT_WB_SCREENSHOT_OFF) {
+			drm_debug(b, "\t[repaint] could not build renderer-only "
+				     "state, trying without writeback setup\n");
+			drm_writeback_fail_screenshot(wb_state, "drm: failed to propose state");
+			state = drm_output_propose_state(output_base, pending_state,
+							 mode);
+		}
 	}
 
 	assert(state);
@@ -1079,6 +1091,9 @@ drm_assign_planes(struct weston_output *output_base)
 		if (!plane_state || !plane_state->fb)
 			drm_output_set_cursor_view(output, NULL);
 	}
+
+	if (drm_output_get_writeback_state(output) == DRM_OUTPUT_WB_SCREENSHOT_PREPARE_COMMIT)
+		drm_writeback_reference_planes(wb_state, &state->plane_list);
 }
 
 static void

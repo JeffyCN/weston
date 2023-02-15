@@ -54,6 +54,7 @@
 #include <libweston/libweston.h>
 #include <libweston/backend-drm.h>
 #include <libweston/weston-log.h>
+#include "output-capture.h"
 #include "shared/helpers.h"
 #include "shared/weston-drm-fourcc.h"
 #include "libinput-seat.h"
@@ -197,6 +198,8 @@ enum wdrm_connector_property {
 	WDRM_CONNECTOR_DPMS,
 	WDRM_CONNECTOR_CRTC_ID,
 	WDRM_CONNECTOR_WRITEBACK_PIXEL_FORMATS,
+	WDRM_CONNECTOR_WRITEBACK_FB_ID,
+	WDRM_CONNECTOR_WRITEBACK_OUT_FENCE_PTR,
 	WDRM_CONNECTOR_NON_DESKTOP,
 	WDRM_CONNECTOR_CONTENT_PROTECTION,
 	WDRM_CONNECTOR_HDCP_CONTENT_TYPE,
@@ -553,6 +556,35 @@ struct drm_connector {
 	struct drm_property_info props[WDRM_CONNECTOR__COUNT];
 };
 
+enum writeback_screenshot_state {
+	/* No writeback connector screenshot ongoing. */
+	DRM_OUTPUT_WB_SCREENSHOT_OFF,
+	/* Screenshot client just triggered a writeback connector screenshot.
+         * Now we need to prepare an atomic commit that will make DRM perform
+         * the writeback operation. */
+	DRM_OUTPUT_WB_SCREENSHOT_PREPARE_COMMIT,
+	/* The atomic commit with writeback setup has been committed. After the
+	 * commit is handled by DRM it will give us a sync fd that gets
+	 * signalled when the writeback is done. */
+	DRM_OUTPUT_WB_SCREENSHOT_CHECK_FENCE,
+};
+
+struct drm_writeback_state {
+	struct drm_writeback *wb;
+	struct drm_output *output;
+
+	enum writeback_screenshot_state state;
+	struct weston_capture_task *ct;
+
+	struct drm_fb *fb;
+	int32_t out_fence_fd;
+
+	/* Reference to fb's being used by the writeback job. These are all the
+	 * framebuffers in every drm_plane_state of the output state that we've
+	 * used to request the writeback job */
+	struct wl_array referenced_fbs;
+};
+
 struct drm_writeback {
 	/* drm_device::writeback_connector_list */
 	struct wl_list link;
@@ -632,6 +664,9 @@ struct drm_output {
 	 * yet acknowledged completion of state_cur. */
 	struct drm_output_state *state_last;
 
+	/* only set when a writeback screenshot is ongoing */
+	struct drm_writeback_state *wb_state;
+
 	struct drm_fb *dumb[2];
 	struct weston_renderbuffer *renderbuffer[2];
 	int current_image;
@@ -659,6 +694,17 @@ to_drm_head(struct weston_head *base)
 		return NULL;
 	return container_of(base, struct drm_head, base);
 }
+
+void
+drm_writeback_reference_planes(struct drm_writeback_state *state,
+			       struct wl_list *plane_state_list);
+bool
+drm_writeback_has_finished(struct drm_writeback_state *state);
+void
+drm_writeback_fail_screenshot(struct drm_writeback_state *state,
+			      const char *err_msg);
+enum writeback_screenshot_state
+drm_output_get_writeback_state(struct drm_output *output);
 
 void
 drm_output_destroy(struct weston_output *output_base);

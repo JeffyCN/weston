@@ -166,6 +166,8 @@ const struct drm_property_info connector_props[] = {
 	},
 	[WDRM_CONNECTOR_CRTC_ID] = { .name = "CRTC_ID", },
 	[WDRM_CONNECTOR_WRITEBACK_PIXEL_FORMATS] = { .name = "WRITEBACK_PIXEL_FORMATS", },
+	[WDRM_CONNECTOR_WRITEBACK_FB_ID] = { .name = "WRITEBACK_FB_ID", },
+	[WDRM_CONNECTOR_WRITEBACK_OUT_FENCE_PTR] = { .name = "WRITEBACK_OUT_FENCE_PTR", },
 	[WDRM_CONNECTOR_NON_DESKTOP] = { .name = "non-desktop", },
 	[WDRM_CONNECTOR_CONTENT_PROTECTION] = {
 		.name = "Content Protection",
@@ -1160,6 +1162,9 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 	struct drm_plane_state *plane_state;
 	struct drm_mode *current_mode = to_drm_mode(output->base.current_mode);
 	struct drm_head *head;
+	struct drm_writeback_state *wb_state = output->wb_state;
+	enum writeback_screenshot_state wb_screenshot_state =
+		drm_output_get_writeback_state(output);
 	int ret = 0;
 
 	drm_debug(b, "\t\t[atomic] %s output %lu (%s) state\n",
@@ -1168,6 +1173,11 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 
 	if (state->dpms != output->state_cur->dpms) {
 		drm_debug(b, "\t\t\t[atomic] DPMS state differs, modeset OK\n");
+		*flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+	}
+
+	if (wb_screenshot_state == DRM_OUTPUT_WB_SCREENSHOT_PREPARE_COMMIT) {
+		drm_debug(b, "\t\t\t[atomic] Writeback connector screenshot requested, modeset OK\n");
 		*flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
 	}
 
@@ -1196,9 +1206,28 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 						  WDRM_CONNECTOR_CRTC_ID,
 						  crtc->crtc_id);
 		}
+
+		if (wb_screenshot_state == DRM_OUTPUT_WB_SCREENSHOT_PREPARE_COMMIT) {
+			ret |= connector_add_prop(req, &wb_state->wb->connector,
+						  WDRM_CONNECTOR_CRTC_ID,
+						  crtc->crtc_id);
+			ret |= connector_add_prop(req, &wb_state->wb->connector,
+						  WDRM_CONNECTOR_WRITEBACK_FB_ID,
+						  wb_state->fb->fb_id);
+			ret |= connector_add_prop(req, &wb_state->wb->connector,
+						  WDRM_CONNECTOR_WRITEBACK_OUT_FENCE_PTR,
+						  (uintptr_t)&wb_state->out_fence_fd);
+			if (!(*flags & DRM_MODE_ATOMIC_TEST_ONLY))
+				wb_state->state = DRM_OUTPUT_WB_SCREENSHOT_CHECK_FENCE;
+		}
 	} else {
 		ret |= crtc_add_prop(req, crtc, WDRM_CRTC_MODE_ID, 0);
 		ret |= crtc_add_prop(req, crtc, WDRM_CRTC_ACTIVE, 0);
+
+		if (wb_screenshot_state == DRM_OUTPUT_WB_SCREENSHOT_PREPARE_COMMIT) {
+			drm_debug(b, "\t\t\t[atomic] Writeback connector screenshot requested but CRTC is off\n");
+			drm_writeback_fail_screenshot(wb_state, "drm: CRTC is off");
+		}
 
 		/* No need for the DPMS property, since it is implicit in
 		 * routing and CRTC activity. */
@@ -1457,6 +1486,10 @@ drm_pending_state_apply_atomic(struct drm_pending_state *pending_state,
 	}
 
 	if (ret != 0) {
+		wl_list_for_each(output_state, &pending_state->output_list, link)
+			if (drm_output_get_writeback_state(output_state->output) != DRM_OUTPUT_WB_SCREENSHOT_OFF)
+				drm_writeback_fail_screenshot(output_state->output->wb_state,
+							      "drm: atomic commit failed");
 		weston_log("atomic: couldn't commit new state: %s\n",
 			   strerror(errno));
 		goto out;
@@ -1715,7 +1748,19 @@ int
 on_drm_input(int fd, uint32_t mask, void *data)
 {
 	struct drm_device *device = data;
+	struct drm_writeback_state *state;
+	struct drm_crtc *crtc;
 	drmEventContext evctx;
+
+	/* If we have a pending writeback job for this output, we can't continue
+	 * with the repaint loop. The KMS UAPI docs says that we need to wait
+	 * until the writeback is over before we send a new atomic commit that
+	 * uses the KMS objects (CRTC, planes, etc) in use by the writeback. */
+	wl_list_for_each(crtc, &device->crtc_list, link) {
+		state = crtc->output ? crtc->output->wb_state : NULL;
+		if (state && !drm_writeback_has_finished(state))
+			drm_writeback_fail_screenshot(state, "drm: out fence not signalled yet");
+	}
 
 	memset(&evctx, 0, sizeof evctx);
 	evctx.version = 3;
