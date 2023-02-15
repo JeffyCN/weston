@@ -67,6 +67,12 @@
 
 #define WINDOW_TITLE "Weston Compositor"
 
+#define WINDOW_MIN_WIDTH 128
+#define WINDOW_MIN_HEIGHT 128
+
+#define WINDOW_MAX_WIDTH 8192
+#define WINDOW_MAX_HEIGHT 8192
+
 static const uint32_t wayland_formats[] = {
 	DRM_FORMAT_ARGB8888,
 };
@@ -139,6 +145,7 @@ struct wayland_output {
 	} shm;
 
 	struct weston_mode mode;
+	struct weston_mode native_mode;
 
 	struct wl_callback *frame_cb;
 };
@@ -1090,6 +1097,34 @@ wayland_output_switch_mode_fshell(struct wayland_output *output,
 }
 
 static int
+wayland_output_switch_mode_xdg(struct wayland_output *output,
+			       struct weston_mode *mode)
+{
+	if (output->backend->sprawl_across_outputs)
+		return -1;
+
+	assert (&output->mode == output->base.current_mode);
+
+	output->mode.width = mode->width;
+	output->mode.height = mode->height;
+
+	if (mode->width < WINDOW_MIN_WIDTH)
+		output->mode.width = WINDOW_MIN_WIDTH;
+	if (mode->width > WINDOW_MAX_WIDTH)
+		output->mode.width = WINDOW_MAX_WIDTH;
+
+	if (mode->height < WINDOW_MIN_HEIGHT)
+		output->mode.height = WINDOW_MIN_HEIGHT;
+	if (mode->height > WINDOW_MAX_HEIGHT)
+		output->mode.height = WINDOW_MAX_HEIGHT;
+
+	/* Blow the old buffers because we changed size/surfaces */
+	wayland_output_resize_surface(output);
+
+	return wayland_output_switch_mode_finish(output);
+}
+
+static int
 wayland_output_switch_mode(struct weston_output *output_base,
 			   struct weston_mode *mode)
 {
@@ -1103,7 +1138,7 @@ wayland_output_switch_mode(struct weston_output *output_base,
 	}
 
 	if (output->parent.xdg_surface)
-		return -1;
+		return wayland_output_switch_mode_xdg(output, mode);
 	if (output->backend->parent.fshell)
 		return wayland_output_switch_mode_fshell(output, mode);
 
@@ -1132,7 +1167,26 @@ handle_xdg_toplevel_configure(void *data, struct xdg_toplevel *toplevel,
 	output->parent.configure_height = height;
 
 	output->parent.wait_for_configure = false;
-	/* FIXME: implement resizing */
+
+	if (width > 0 && height > 0) {
+		if (output->frame) {
+			int32_t top, bottom, left, right;
+			frame_border_sizes(output->frame, &top, &bottom,
+					   &left, &right);
+			width -= left + right;
+			height -= top + bottom;
+		}
+		output->native_mode.width = width;
+		output->native_mode.height = height;
+
+		if (weston_output_mode_set_native(&output->base,
+						  &output->native_mode,
+						  output->base.current_scale) < 0) {
+			output->native_mode.width = output->mode.width;
+			output->native_mode.height = output->mode.height;
+			weston_log("Mode switch failed\n");
+		}
+	}
 }
 
 static void
@@ -1766,6 +1820,13 @@ input_handle_button(void *data, struct wl_pointer *pointer,
 				weston_compositor_exit(input->backend->compositor);
 
 			return;
+		}
+		if (frame_status(input->output->frame) & FRAME_STATUS_RESIZE) {
+			xdg_toplevel_resize(input->output->parent.xdg_toplevel,
+					    input->parent.seat, serial,
+					    location);
+			frame_status_clear(input->output->frame,
+					   FRAME_STATUS_RESIZE);
 		}
 
 		if (frame_status(input->output->frame) & FRAME_STATUS_REPAINT)
