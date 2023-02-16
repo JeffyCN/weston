@@ -636,6 +636,8 @@ remoting_output_destroy(struct weston_output *output)
 	struct remoted_output *remoted_output = lookup_remoted_output(output);
 	struct weston_mode *mode, *next;
 
+	weston_head_release(remoted_output->head);
+
 	wl_list_for_each_safe(mode, next, &output->mode_list, link) {
 		wl_list_remove(&mode->link);
 		free(mode);
@@ -650,7 +652,6 @@ remoting_output_destroy(struct weston_output *output)
 		free(remoted_output->gst_pipeline);
 
 	wl_list_remove(&remoted_output->link);
-	weston_head_release(remoted_output->head);
 	free(remoted_output->head);
 	free(remoted_output);
 }
