@@ -310,6 +310,8 @@ pipewire_output_destroy(struct weston_output *base_output)
 	struct pipewire_output *output = lookup_pipewire_output(base_output);
 	struct weston_mode *mode, *next;
 
+	weston_head_release(output->head);
+
 	wl_list_for_each_safe(mode, next, &base_output->mode_list, link) {
 		wl_list_remove(&mode->link);
 		free(mode);
@@ -318,7 +320,6 @@ pipewire_output_destroy(struct weston_output *base_output)
 	pw_stream_destroy(output->stream);
 
 	wl_list_remove(&output->link);
-	weston_head_release(output->head);
 	free(output->head);
 	free(output);
 }
