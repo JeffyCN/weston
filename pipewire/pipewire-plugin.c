@@ -149,6 +149,16 @@ lookup_pipewire_output(struct weston_output *base_output)
 	struct weston_pipewire *pipewire = weston_pipewire_get(c);
 	struct pipewire_output *output;
 
+	/* XXX: This could happen on the compositor shutdown path with our
+	 * destroy listener being removed, and pipewire_output_destroy() being
+	 * called as a virtual destructor.
+	 *
+	 * See https://gitlab.freedesktop.org/wayland/weston/-/issues/591 for
+	 * an alternative to the shutdown sequence.
+	 */
+	if (!pipewire)
+		return NULL;
+
 	wl_list_for_each(output, &pipewire->output_list, link) {
 		if (output->output == base_output)
 			return output;
@@ -309,6 +319,9 @@ pipewire_output_destroy(struct weston_output *base_output)
 {
 	struct pipewire_output *output = lookup_pipewire_output(base_output);
 	struct weston_mode *mode, *next;
+
+	if (!output)
+		return;
 
 	weston_head_release(output->head);
 
