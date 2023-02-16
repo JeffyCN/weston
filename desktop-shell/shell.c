@@ -1157,7 +1157,7 @@ resize_grab_motion(struct weston_pointer_grab *grab,
 
 	weston_pointer_move(pointer, event);
 
-	if (!shsurf)
+	if (!shsurf || !shsurf->desktop_surface)
 		return;
 
 	weston_view_update_transform(shsurf->view);
@@ -1211,7 +1211,7 @@ resize_grab_button(struct weston_pointer_grab *grab,
 
 	if (pointer->button_count == 0 &&
 	    state == WL_POINTER_BUTTON_STATE_RELEASED) {
-		if (resize->base.shsurf != NULL) {
+		if (resize->base.shsurf && resize->base.shsurf->desktop_surface) {
 			struct weston_desktop_surface *desktop_surface =
 				resize->base.shsurf->desktop_surface;
 			weston_desktop_surface_set_resizing(desktop_surface,
@@ -1229,7 +1229,7 @@ resize_grab_cancel(struct weston_pointer_grab *grab)
 {
 	struct weston_resize_grab *resize = (struct weston_resize_grab *) grab;
 
-	if (resize->base.shsurf != NULL) {
+	if (resize->base.shsurf && resize->base.shsurf->desktop_surface) {
 		struct weston_desktop_surface *desktop_surface =
 			resize->base.shsurf->desktop_surface;
 		weston_desktop_surface_set_resizing(desktop_surface, false);
