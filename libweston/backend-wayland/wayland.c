@@ -1012,33 +1012,38 @@ wayland_output_fullscreen_shell_mode_feedback(struct wayland_output *output,
 }
 
 static int
-wayland_output_switch_mode(struct weston_output *output_base,
-			   struct weston_mode *mode)
+wayland_output_switch_mode_finish(struct wayland_output *output)
 {
-	struct weston_renderer *renderer = output_base->compositor->renderer;
-	struct wayland_output *output;
+	struct weston_renderer *renderer = output->base.compositor->renderer;
+
+	if (renderer->type == WESTON_RENDERER_PIXMAN) {
+		renderer->pixman->output_destroy(&output->base);
+		if (wayland_output_init_pixman_renderer(output) < 0)
+			return -1;
+#ifdef ENABLE_EGL
+	} else {
+		renderer->gl->output_destroy(&output->base);
+		wl_egl_window_destroy(output->gl.egl_window);
+		if (wayland_output_init_gl_renderer(output) < 0)
+			return -1;
+#endif
+	}
+
+	weston_output_schedule_repaint(&output->base);
+
+	return 0;
+}
+
+static int
+wayland_output_switch_mode_fshell(struct wayland_output *output,
+				  struct weston_mode *mode)
+{
 	struct wayland_backend *b;
 	struct wl_surface *old_surface;
 	struct weston_mode *old_mode;
 	enum mode_status mode_status;
 
-	if (output_base == NULL) {
-		weston_log("output is NULL.\n");
-		return -1;
-	}
-
-	output = to_wayland_output(output_base);
-	assert(output);
-
-	if (mode == NULL) {
-		weston_log("mode is NULL.\n");
-		return -1;
-	}
-
 	b = output->backend;
-
-	if (output->parent.xdg_surface || !b->parent.fshell)
-		return -1;
 
 	mode = wayland_output_choose_mode(output, mode);
 	if (mode == NULL)
@@ -1074,29 +1079,29 @@ wayland_output_switch_mode(struct weston_output *output_base,
 	old_mode->flags &= ~WL_OUTPUT_MODE_CURRENT;
 	output->base.current_mode->flags |= WL_OUTPUT_MODE_CURRENT;
 
-	if (output_base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
-		renderer->pixman->output_destroy(output_base);
-		if (wayland_output_init_pixman_renderer(output) < 0)
-			goto err_output;
-#ifdef ENABLE_EGL
-	} else {
-		struct weston_compositor *compositor = output_base->compositor;
-		const struct weston_renderer *renderer = compositor->renderer;
-
-		renderer->gl->output_destroy(output_base);
-		wl_egl_window_destroy(output->gl.egl_window);
-		if (wayland_output_init_gl_renderer(output) < 0)
-			goto err_output;
-#endif
-	}
 	wl_surface_destroy(old_surface);
 
-	weston_output_schedule_repaint(&output->base);
+	return wayland_output_switch_mode_finish(output);
+}
 
-	return 0;
+static int
+wayland_output_switch_mode(struct weston_output *output_base,
+			   struct weston_mode *mode)
+{
+	struct wayland_output *output = to_wayland_output(output_base);
 
-err_output:
-	/* XXX */
+	assert(output);
+
+	if (mode == NULL) {
+		weston_log("mode is NULL.\n");
+		return -1;
+	}
+
+	if (output->parent.xdg_surface)
+		return -1;
+	if (output->backend->parent.fshell)
+		return wayland_output_switch_mode_fshell(output, mode);
+
 	return -1;
 }
 
