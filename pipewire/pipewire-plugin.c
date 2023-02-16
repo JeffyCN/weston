@@ -631,9 +631,13 @@ weston_pipewire_destroy(struct wl_listener *l, void *data)
 {
 	struct weston_pipewire *pipewire =
 		wl_container_of(l, pipewire, destroy_listener);
+	struct pipewire_output *p_output, *p_output_next;
 
 	weston_log_scope_destroy(pipewire->debug);
 	pipewire->debug = NULL;
+
+	wl_list_for_each_safe(p_output, p_output_next, &pipewire->output_list, link)
+		pipewire_output_destroy(p_output->output);
 
 	wl_event_source_remove(pipewire->loop_source);
 	pw_loop_leave(pipewire->loop);
