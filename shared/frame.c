@@ -493,8 +493,8 @@ frame_resize(struct frame *frame, int32_t width, int32_t height)
 }
 
 void
-frame_decoration_sizes(struct frame *frame, int32_t *top, int32_t *bottom,
-		       int32_t *left, int32_t *right)
+frame_border_sizes(struct frame *frame, int32_t *top, int32_t *bottom,
+		   int32_t *left, int32_t *right)
 {
 	struct theme *t = frame->theme;
 
@@ -508,6 +508,14 @@ frame_decoration_sizes(struct frame *frame, int32_t *top, int32_t *bottom,
 	*bottom = t->width;
 	*right = t->width;
 	*left = t->width;
+}
+void
+frame_decoration_sizes(struct frame *frame, int32_t *top, int32_t *bottom,
+		       int32_t *left, int32_t *right)
+{
+	struct theme *t = frame->theme;
+
+	frame_border_sizes(frame, top, bottom, left, right);
 
 	if (frame->flags & FRAME_FLAG_MAXIMIZED)
 		return;
