@@ -191,7 +191,6 @@ struct wayland_shm_buffer {
 	size_t size;
 	int width;
 	int height;
-	pixman_region32_t damage;		/**< in global coords */
 	int frame_damaged;
 
 	struct weston_renderbuffer *renderbuffer;
@@ -274,8 +273,6 @@ wayland_shm_buffer_destroy(struct wayland_shm_buffer *buffer)
 
 	wl_buffer_destroy(buffer->buffer);
 	munmap(buffer->data, buffer->size);
-
-	pixman_region32_fini(&buffer->damage);
 
 	wl_list_remove(&buffer->link);
 	wl_list_remove(&buffer->free_link);
@@ -362,8 +359,6 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 	wl_list_init(&sb->free_link);
 	wl_list_insert(&output->shm.buffers, &sb->link);
 
-	pixman_region32_init(&sb->damage);
-	pixman_region32_copy(&sb->damage, &output->base.region);
 	sb->frame_damaged = 1;
 
 	sb->data = data;
@@ -407,6 +402,8 @@ wayland_output_get_shm_buffer(struct wayland_output *output)
 						      area.width, area.height,
 						      (uint32_t *)(data + area.y * stride) + area.x,
 						      stride);
+		pixman_region32_copy(&sb->renderbuffer->damage,
+				     &output->base.region);
 	}
 
 	return sb;
@@ -565,7 +562,8 @@ wayland_output_update_shm_border(struct wayland_shm_buffer *buffer)
 }
 
 static void
-wayland_shm_buffer_attach(struct wayland_shm_buffer *sb)
+wayland_shm_buffer_attach(struct wayland_shm_buffer *sb,
+			  pixman_region32_t *repaint_damage)
 {
 	pixman_region32_t damage;
 	pixman_box32_t *rects;
@@ -573,7 +571,8 @@ wayland_shm_buffer_attach(struct wayland_shm_buffer *sb)
 	int i, n;
 
 	pixman_region32_init(&damage);
-	weston_region_global_to_output(&damage, &sb->output->base, &sb->damage);
+	weston_region_global_to_output(&damage, &sb->output->base,
+				       repaint_damage);
 
 	if (sb->output->frame) {
 		frame_interior(sb->output->frame, &ix, &iy, &iwidth, &iheight);
@@ -624,24 +623,19 @@ wayland_output_repaint_pixman(struct weston_output *output_base,
 				sb->frame_damaged = 1;
 	}
 
-	wl_list_for_each(sb, &output->shm.buffers, link)
-		pixman_region32_union(&sb->damage, &sb->damage, damage);
-
 	sb = wayland_output_get_shm_buffer(output);
 
 	wayland_output_update_shm_border(sb);
-	b->compositor->renderer->repaint_output(output_base, &sb->damage,
+	b->compositor->renderer->repaint_output(output_base, damage,
 						sb->renderbuffer);
 
-	wayland_shm_buffer_attach(sb);
+	wayland_shm_buffer_attach(sb, damage);
 
 	output->frame_cb = wl_surface_frame(output->parent.surface);
 	wl_callback_add_listener(output->frame_cb, &frame_listener, output);
 	wl_surface_commit(output->parent.surface);
 	wl_display_flush(b->parent.wl_display);
 
-	pixman_region32_fini(&sb->damage);
-	pixman_region32_init(&sb->damage);
 	sb->frame_damaged = 0;
 
 	pixman_region32_subtract(&b->compositor->primary_plane.damage,
