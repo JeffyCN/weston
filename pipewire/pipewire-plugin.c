@@ -638,6 +638,8 @@ weston_pipewire_destroy(struct wl_listener *l, void *data)
 	wl_event_source_remove(pipewire->loop_source);
 	pw_loop_leave(pipewire->loop);
 	pw_loop_destroy(pipewire->loop);
+
+	free(pipewire);
 }
 
 static struct weston_pipewire *
