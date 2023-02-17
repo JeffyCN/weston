@@ -44,6 +44,7 @@
 
 struct desktest_shell {
 	struct wl_listener compositor_destroy_listener;
+	struct weston_compositor *compositor;
 	struct weston_desktop *desktop;
 	struct weston_layer background_layer;
 	struct weston_curtain *background;
@@ -186,6 +187,28 @@ shell_destroy(struct wl_listener *listener, void *data)
 	free(dts);
 }
 
+static void
+desktest_shell_click_to_activate_binding(struct weston_pointer *pointer,
+					 const struct timespec *time,
+					 uint32_t button, void *data)
+{
+	if (pointer->grab != &pointer->default_grab)
+		return;
+	if (pointer->focus == NULL)
+		return;
+
+	weston_view_activate_input(pointer->focus, pointer->seat,
+				   WESTON_ACTIVATE_FLAG_CLICKED);
+}
+
+static void
+desktest_shell_add_bindings(struct desktest_shell *dts)
+{
+	weston_compositor_add_button_binding(dts->compositor, BTN_LEFT, 0,
+					     desktest_shell_click_to_activate_binding,
+					     dts);
+}
+
 WL_EXPORT int
 wet_shell_init(struct weston_compositor *ec,
 	       int *argc, char *argv[])
@@ -211,6 +234,8 @@ wet_shell_init(struct weston_compositor *ec,
 		free(dts);
 		return 0;
 	}
+
+	dts->compositor = ec;
 
 	weston_layer_init(&dts->layer, ec);
 	weston_layer_init(&dts->background_layer, ec);
@@ -238,6 +263,8 @@ wet_shell_init(struct weston_compositor *ec,
 		goto out_view;
 
 	screenshooter_create(ec);
+
+	desktest_shell_add_bindings(dts);
 
 	return 0;
 
