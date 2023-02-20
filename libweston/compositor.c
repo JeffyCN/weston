@@ -5366,11 +5366,16 @@ bind_output(struct wl_client *client,
 		return;
 	}
 
+	if (!output) {
+		wl_resource_set_implementation(resource, &output_interface,
+					       NULL, NULL);
+		return;
+	}
+
 	wl_list_insert(&head->resource_list, wl_resource_get_link(resource));
 	wl_resource_set_implementation(resource, &output_interface, head,
 				       unbind_resource);
 
-	assert(output);
 	wl_output_send_geometry(resource,
 				output->x,
 				output->y,
@@ -5409,6 +5414,64 @@ weston_head_add_global(struct weston_head *head)
 					head, bind_output);
 }
 
+struct weston_destroy_global_data {
+	struct wl_global *global;
+	struct wl_event_source *event_source;
+	struct wl_listener destroy_listener;
+};
+
+static void
+weston_destroy_global(struct weston_destroy_global_data *data)
+{
+	wl_list_remove(&data->destroy_listener.link);
+	wl_global_destroy(data->global);
+	wl_event_source_remove(data->event_source);
+	free(data);
+}
+
+static void
+global_compositor_destroy_handler(struct wl_listener *listener, void *_data)
+{
+	struct weston_destroy_global_data *data =
+		wl_container_of(listener, data, destroy_listener);
+
+	weston_destroy_global(data);
+}
+
+static int
+weston_global_handle_timer_event(void *data)
+{
+	weston_destroy_global(data);
+	return 0;
+}
+
+static void
+weston_global_destroy_save(struct weston_compositor *compositor,
+			   struct wl_global *global)
+{
+	struct weston_destroy_global_data *data;
+	struct wl_event_loop *loop;
+
+	if (compositor->state == WESTON_COMPOSITOR_OFFSCREEN) {
+		wl_global_destroy(global);
+		return;
+	}
+
+	wl_global_remove(global);
+
+	data = xzalloc(sizeof *data);
+	data->global = global;
+
+	loop = wl_display_get_event_loop(compositor->wl_display);
+	data->event_source =
+		wl_event_loop_add_timer(loop, weston_global_handle_timer_event,
+					data);
+	wl_event_source_timer_update(data->event_source, 5000);
+
+	data->destroy_listener.notify = global_compositor_destroy_handler;
+	wl_signal_add(&compositor->destroy_signal, &data->destroy_listener);
+}
+
 /** Remove the global wl_output protocol object
  *
  * \param head The head whose global to remove.
@@ -5421,7 +5484,7 @@ weston_head_remove_global(struct weston_head *head)
 	struct wl_resource *resource, *tmp;
 
 	if (head->global)
-		wl_global_destroy(head->global);
+		weston_global_destroy_save(head->compositor, head->global);
 	head->global = NULL;
 
 	wl_resource_for_each_safe(resource, tmp, &head->resource_list) {
