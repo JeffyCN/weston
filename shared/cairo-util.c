@@ -694,7 +694,9 @@ cleanup_after_cairo(void)
 	/* some clients, particular weston-editor, still creates indirectly a
 	 * new font map; this makes sure we untie that up and avoid an assert
 	 * from cairo */
+#ifdef HAVE_PANGO
 	pango_cairo_font_map_set_default(NULL);
+#endif
 	cairo_debug_reset_static_data();
 #ifdef HAVE_PANGO
 	FcFini();
