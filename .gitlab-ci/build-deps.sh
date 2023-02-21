@@ -13,7 +13,7 @@ export NINJAFLAGS="-j${FDO_CI_CONCURRENT:-4}"
 
 # Build and install Meson. Generally we want to keep this in sync with what
 # we require inside meson.build.
-pip3 install --user git+https://github.com/mesonbuild/meson.git@0.63.0
+pip3 install --user git+https://github.com/mesonbuild/meson.git@1.0.0
 export PATH=$HOME/.local/bin:$PATH
 
 # Our docs are built using Sphinx (top-level organisation and final HTML/CSS
