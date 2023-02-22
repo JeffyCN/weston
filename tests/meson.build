@@ -149,6 +149,13 @@ tests = [
 		'dep_objs': dep_libexec_weston,
 	},
 	{	'name': 'color-manager', },
+	{
+		'name': 'constraints',
+		'sources': [
+			'constraints-test.c',
+			pointer_constraints_unstable_v1_protocol_c,
+		],
+	},
         {       'name': 'custom-env', },
 	{	'name': 'devices', },
 	{
