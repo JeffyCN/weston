@@ -535,9 +535,9 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 	ec->renderer->repaint_output(&output->base, &fb_side_data->damage,
 				     fb_side_data->renderbuffer);
 
-	/* Convert to local coordinates before clearing accumulated damage */
+	/* Convert to local coordinates */
 	pixman_region_init(&local_damage);
-	vnc_convert_damage(&local_damage, &fb_side_data->damage,
+	vnc_convert_damage(&local_damage, damage,
 					  output->base.x, output->base.y);
 
 	/* Clear accumulated damage after repaint */
@@ -642,7 +642,8 @@ vnc_output_enable(struct weston_output *base)
 
 	output->display = nvnc_display_new(0, 0);
 
-	pixman_region32_init(&output->damage);
+	pixman_region32_init_rect(&output->damage, base->x, base->y,
+				  base->width, base->height);
 	wl_list_init(&output->fb_side_data_list);
 
 	nvnc_add_display(backend->server, output->display);
@@ -651,7 +652,7 @@ vnc_output_enable(struct weston_output *base)
 	 * Neat VNC warns when a client connects before a display buffer has
 	 * been set. Repaint once to create an initial buffer.
 	 */
-	vnc_update_buffer(output->display, &output->base.region);
+	vnc_update_buffer(output->display, &output->damage);
 
 	return 0;
 }
