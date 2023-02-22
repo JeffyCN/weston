@@ -52,6 +52,7 @@
 #include "shared/timespec-util.h"
 #include <libweston/libweston.h>
 #include <libweston/backend-vnc.h>
+#include <libweston/weston-log.h>
 #include "pixel-formats.h"
 #include "pixman-renderer.h"
 
@@ -62,6 +63,7 @@ struct vnc_output;
 struct vnc_backend {
 	struct weston_backend base;
 	struct weston_compositor *compositor;
+	struct weston_log_scope *debug;
 	struct vnc_output *output;
 	struct wl_listener output_move_listener;
 
@@ -469,6 +471,48 @@ vnc_convert_damage(struct pixman_region16 *dst, struct pixman_region32 *src,
 }
 
 static void
+vnc_log_scope_print_region(struct weston_log_scope *log, pixman_region32_t *region)
+{
+	struct pixman_box32 *rects;
+	int n_rects = 0;
+	int i;
+
+	rects = pixman_region32_rectangles(region, &n_rects);
+	if (!n_rects) {
+		weston_log_scope_printf(log, " empty");
+		return;
+	}
+
+	for (i = 0; i < n_rects; i++) {
+		int width = rects[i].x2 - rects[i].x1;
+		int height = rects[i].y2 - rects[i].y1;
+
+		weston_log_scope_printf(log, " %dx%d(%d,%d)", width, height,
+					rects[i].x1, rects[i].y1);
+	}
+}
+
+static void
+vnc_log_damage(struct vnc_backend *backend, pixman_region32_t *buffer_damage,
+	       pixman_region32_t *update_damage)
+{
+	char timestr[128];
+
+	if (!weston_log_scope_is_enabled(backend->debug))
+		return;
+
+	weston_log_scope_timestamp(backend->debug, timestr, sizeof timestr);
+
+	weston_log_scope_printf(backend->debug, "%s buffer damage:", timestr);
+	vnc_log_scope_print_region(backend->debug, buffer_damage);
+	weston_log_scope_printf(backend->debug, "\n");
+
+	weston_log_scope_printf(backend->debug, "%s update damage:", timestr);
+	vnc_log_scope_print_region(backend->debug, update_damage);
+	weston_log_scope_printf(backend->debug, "\n\n");
+}
+
+static void
 vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 {
 	struct nvnc *server = nvnc_display_get_server(display);
@@ -504,6 +548,8 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 		nvnc_set_userdata(fb, renderbuffer,
 				  (nvnc_cleanup_fn)weston_renderbuffer_unref);
 	}
+
+	vnc_log_damage(backend, &renderbuffer->damage, damage);
 
 	ec->renderer->repaint_output(&output->base, damage, renderbuffer);
 
@@ -710,6 +756,9 @@ vnc_destroy(struct weston_backend *base)
 		vnc_head_destroy(head);
 
 	xkb_keymap_unref(backend->xkb_keymap);
+
+	if (backend->debug)
+		weston_log_scope_destroy(backend->debug);
 
 	free(backend);
 }
@@ -947,6 +996,11 @@ vnc_backend_create(struct weston_compositor *compositor,
 	backend->base.destroy = vnc_destroy;
 	backend->base.create_output = vnc_create_output;
 	backend->vnc_monitor_refresh_rate = config->refresh_rate * 1000;
+
+	backend->debug = weston_compositor_add_log_scope(compositor,
+							 "vnc-backend",
+							 "Debug messages from VNC backend\n",
+							 NULL, NULL, NULL);
 
 	compositor->backend = &backend->base;
 
