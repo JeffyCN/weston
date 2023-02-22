@@ -448,8 +448,9 @@ vnc_client_cleanup(struct nvnc_client *client)
  * coordinates. The output transformation has to be a pure translation.
  */
 static void
-vnc_convert_damage(struct pixman_region16 *dst, struct pixman_region32 *src,
-		   int x, int y)
+vnc_region_global_to_output(pixman_region16_t *dst,
+			    struct weston_output *output,
+			    pixman_region32_t *src)
 {
 	struct pixman_box32 *src_rects;
 	struct pixman_box16 *dest_rects;
@@ -463,10 +464,10 @@ vnc_convert_damage(struct pixman_region16 *dst, struct pixman_region32 *src,
 	dest_rects = xcalloc(n_rects, sizeof(*dest_rects));
 
 	for (i = 0; i < n_rects; i++) {
-		dest_rects[i].x1 = src_rects[i].x1 - x;
-		dest_rects[i].y1 = src_rects[i].y1 - y;
-		dest_rects[i].x2 = src_rects[i].x2 - x;
-		dest_rects[i].y2 = src_rects[i].y2 - y;
+		dest_rects[i].x1 = src_rects[i].x1 - output->x;
+		dest_rects[i].y1 = src_rects[i].y1 - output->y;
+		dest_rects[i].x2 = src_rects[i].x2 - output->x;
+		dest_rects[i].y2 = src_rects[i].y2 - output->y;
 	}
 
 	pixman_region_init_rects(dst, dest_rects, n_rects);
@@ -558,8 +559,7 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 
 	/* Convert to local coordinates */
 	pixman_region_init(&local_damage);
-	vnc_convert_damage(&local_damage, damage,
-					  output->base.x, output->base.y);
+	vnc_region_global_to_output(&local_damage, &output->base, damage);
 
 	nvnc_display_feed_buffer(output->display, fb, &local_damage);
 	nvnc_fb_unref(fb);
