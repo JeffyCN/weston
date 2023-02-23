@@ -87,6 +87,9 @@ struct vnc_output {
 	pixman_region32_t damage;
 
 	struct wl_list peers;
+
+	/* used to trigger initial repaint */
+	bool fb_pool_empty;
 };
 
 struct vnc_peer {
@@ -656,8 +659,7 @@ vnc_output_enable(struct weston_output *base)
 
 	output->display = nvnc_display_new(0, 0);
 
-	pixman_region32_init_rect(&output->damage, base->x, base->y,
-				  base->width, base->height);
+	pixman_region32_init(&output->damage);
 
 	nvnc_add_display(backend->server, output->display);
 
@@ -665,7 +667,7 @@ vnc_output_enable(struct weston_output *base)
 	 * Neat VNC warns when a client connects before a display buffer has
 	 * been set. Repaint once to create an initial buffer.
 	 */
-	vnc_update_buffer(output->display, &output->damage);
+	output->fb_pool_empty = true;
 
 	return 0;
 }
@@ -823,9 +825,10 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 				      &output->damage, damage);
 
 		/* Only repaint when a client is connected */
-		if (!wl_list_empty(&output->peers)) {
+		if (!wl_list_empty(&output->peers) || output->fb_pool_empty) {
 			vnc_update_buffer(output->display, &output->damage);
 			pixman_region32_clear(&output->damage);
+			output->fb_pool_empty = false;
 		}
 
 		pixman_region32_subtract(&ec->primary_plane.damage,
