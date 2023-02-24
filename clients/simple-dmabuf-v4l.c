@@ -203,7 +203,6 @@ static unsigned int
 set_format(struct display *display, uint32_t format)
 {
 	struct v4l2_format fmt;
-	char buf[4];
 
 	CLEAR(fmt);
 
@@ -214,30 +213,33 @@ set_format(struct display *display, uint32_t format)
 		return 0;
 	}
 
+	/* NOTE: pix and pix_mp are in a union, pixelformat member maps between them. */
+	const int format_matches = fmt.fmt.pix.pixelformat == format;
+
 	/* No need to set the format if it already is the one we want */
 	if (display->format.type == V4L2_BUF_TYPE_VIDEO_CAPTURE &&
-	    fmt.fmt.pix.pixelformat == format)
+            format_matches)
 		return 1;
 	if (display->format.type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
-	    fmt.fmt.pix_mp.pixelformat == format)
+            format_matches)
 		return fmt.fmt.pix_mp.num_planes;
 
-	if (display->format.type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-		fmt.fmt.pix.pixelformat = format;
-	else
-		fmt.fmt.pix_mp.pixelformat = format;
+	fmt.fmt.pix.pixelformat = format;
 
 	if (xioctl(display->v4l_fd, VIDIOC_S_FMT, &fmt) == -1) {
 		perror("VIDIOC_S_FMT");
 		return 0;
 	}
 
-	if ((display->format.type == V4L2_BUF_TYPE_VIDEO_CAPTURE &&
-	     fmt.fmt.pix.pixelformat != format) ||
-	    (display->format.type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
-	     fmt.fmt.pix_mp.pixelformat != format)) {
-		fprintf(stderr, "Failed to set format to %.4s\n",
-		        dump_format(format, buf));
+	const int format_was_set = fmt.fmt.pix.pixelformat == format;
+	if (!format_was_set) {
+		char want_name[4];
+		char have_name[4];
+
+		dump_format(format, want_name);
+		dump_format(fmt.fmt.pix.pixelformat, have_name);
+		fprintf(stderr, "Tried to set format: %.4s but have: %.4s\n",
+				 want_name, have_name);
 		return 0;
 	}
 
@@ -379,7 +381,7 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer)
 	struct zwp_linux_buffer_params_v1 *params;
 	uint64_t modifier;
 	uint32_t flags;
-	unsigned i;
+	int i;
 
 	modifier = 0;
 	flags = 0;
@@ -399,7 +401,13 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer)
 		}
 	}
 
-	for (i = 0; i < display->format.num_planes; ++i)
+	const int num_planes = (int) display->format.num_planes;
+
+	for (i = 0; i < num_planes; ++i) {
+		fprintf(stderr, "buffer %d, plane %d has dma fd %d and stride "
+				"%d and modifier %" PRIu64 "\n",
+				buffer->index, i, buffer->dmabuf_fds[i],
+				display->format.strides[i], modifier);
 		zwp_linux_buffer_params_v1_add(params,
 		                               buffer->dmabuf_fds[i],
 		                               i, /* plane_idx */
@@ -407,8 +415,124 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer)
 		                               display->format.strides[i],
 		                               modifier >> 32,
 		                               modifier & 0xffffffff);
-	zwp_linux_buffer_params_v1_add_listener(params, &params_listener,
-	                                        buffer);
+	}
+
+	/* Some v4l2 devices can output NV12, but will do so without the MPLANE
+	 * api. Instead, it outputs both the luminance and chrominance planes
+	 * in the same dma buffer. Here we account for that, and add an extra
+	 * plane from the same buffer if necessary. If it needs an extra plane,
+	 * set the stride of the chrominance plane. NOTE: Also handles cases
+	 * where 3 planes are expected in 1 dma buffer (untested)
+	 */
+	enum plane_layout_t {
+		DISJOINT = 0,
+		CONTIGUOUS,
+	};
+	enum chrom_packing_t {
+		CHROM_SEPARATE = 0, /* Cr/Cb are in their own planes. */
+		CHROM_COMBINED,     /* Cr/Cb are interleaved. */
+	};
+
+	/* This table contains some planar formats we could fix-up and support. */
+	const struct planar_layout_t {
+		/* Format identification. */
+		uint32_t v4l_fourcc;
+		/* Disjoint or contigious planes? */
+		enum plane_layout_t plane_layout;
+		/* Zero if Cb/Cr in separate planes. */
+		enum chrom_packing_t chrom_packing;
+		/* Expected plane count. */
+		int num_planes;
+		/* Horizontal sub-sampling for chroma. */
+		int chroma_subsample_hori;
+		/* Vertical sub-sampling for chroma. */
+		int chroma_subsample_vert;
+	} planar_layouts[] = {
+		{ V4L2_PIX_FMT_NV12M,	DISJOINT,	CHROM_COMBINED,	2, 2,2 },
+		{ V4L2_PIX_FMT_NV21M,	DISJOINT,	CHROM_COMBINED,	2, 2,2 },
+		{ V4L2_PIX_FMT_NV16M,	DISJOINT,	CHROM_COMBINED,	2, 2,1 },
+		{ V4L2_PIX_FMT_NV61M,	DISJOINT,	CHROM_COMBINED,	2, 2,1 },
+		{ V4L2_PIX_FMT_NV12,	CONTIGUOUS,	CHROM_COMBINED,	2, 2,2 },
+		{ V4L2_PIX_FMT_NV21,	CONTIGUOUS,	CHROM_COMBINED,	2, 2,2 },
+		{ V4L2_PIX_FMT_NV16,	CONTIGUOUS,	CHROM_COMBINED,	2, 2,1 },
+		{ V4L2_PIX_FMT_NV61,	CONTIGUOUS,	CHROM_COMBINED,	2, 2,1 },
+		{ V4L2_PIX_FMT_NV24,	CONTIGUOUS,	CHROM_COMBINED,	2, 1,1 },
+		{ V4L2_PIX_FMT_NV42,	CONTIGUOUS,	CHROM_COMBINED,	2, 1,1 },
+		{ V4L2_PIX_FMT_YUV420,	CONTIGUOUS,	CHROM_SEPARATE,	3, 2,2 },
+		{ V4L2_PIX_FMT_YVU420,	CONTIGUOUS,    	CHROM_SEPARATE,	3, 2,2 },
+		{ V4L2_PIX_FMT_YUV420M,	DISJOINT,	CHROM_SEPARATE,	3, 2,2 },
+		{ V4L2_PIX_FMT_YVU420M,	DISJOINT,	CHROM_SEPARATE,	3, 2,2 },
+		{ 0, 0, 0, 0, 0 },
+	};
+
+	int layoutnr = 0;
+	int num_missing_planes = 0;	/* Non-zero if format needs more planes in dma buf. */
+	int stride_extra_plane = 0;
+	int vrtres_extra_plane = 0;
+	const uint32_t stride0 = display->format.strides[0];
+
+	/* Search the table. */
+	while (planar_layouts[layoutnr].v4l_fourcc) {
+		const struct planar_layout_t *layout =
+			planar_layouts + layoutnr;
+
+		if (layout->v4l_fourcc == display->format.format) {
+			/* If disjoint planes are missing, there is nothing to
+			 * salvage. */
+			if (layout->plane_layout == DISJOINT)
+				assert(num_planes == layout->num_planes);
+
+			/* Is this a case where we need to add 1 or 2 missing
+			 * planes? */
+			num_missing_planes = layout->num_planes - num_planes;
+			if (num_missing_planes > 0) {
+				/* With this knowledge:
+				 * - Stride for Y
+				 * - Packing of chrominance
+				 * - Horizontal subsampling ...we can compute
+				 *   the stride for Cr and Cb.
+				 */
+				const uint32_t num_chrom_parts =
+                                        layout->chrom_packing == CHROM_COMBINED ? 2 : 1;
+				stride_extra_plane =
+					stride0 * num_chrom_parts /
+					layout->chroma_subsample_hori;
+				vrtres_extra_plane =
+                                        display->format.height /
+					layout->chroma_subsample_vert;
+				break;
+			}
+		}
+		layoutnr += 1;
+	}
+	/* If we determined we need additional planes, add them. */
+	int offset_in_buffer = buffer->data_offsets[0] +
+			       display->format.height * stride0;
+
+	for (i = 0; i < num_missing_planes; ++i) {
+		/* Add same dma buffer, but with offset for chromimance plane. */
+		fprintf(stderr,"Adding additional chrominance plane.\n");
+		zwp_linux_buffer_params_v1_add(params,
+					       buffer->dmabuf_fds[0],
+					       1 + i, /* plane_idx */
+					       offset_in_buffer,
+					       stride_extra_plane,
+					       modifier >> 32,
+					       modifier & 0xffffffff);
+		offset_in_buffer += vrtres_extra_plane * stride_extra_plane;
+	}
+
+	zwp_linux_buffer_params_v1_add_listener(params, &params_listener, buffer);
+
+	fprintf(stderr,"creating buffer of size %dx%d format %c%c%c%c flags %d\n",
+		display->format.width,
+		display->format.height,
+		(display->drm_format >>  0) & 0xff,
+		(display->drm_format >>  8) & 0xff,
+		(display->drm_format >> 16) & 0xff,
+		(display->drm_format >> 24) & 0xff,
+		flags
+	);
 	zwp_linux_buffer_params_v1_create(params,
 	                                  display->format.width,
 	                                  display->format.height,
@@ -900,8 +1024,10 @@ create_display(uint32_t requested_format, uint32_t opt_flags)
 	wl_display_roundtrip(display->display);
 
 	if (!display->requested_format_found) {
-		fprintf(stderr, "0x%lx requested DRM format not available\n",
-				(unsigned long) requested_format);
+		char want_name[4];
+
+		dump_format(requested_format, want_name);
+		fprintf(stderr, "Requested DRM format %4s not available\n", want_name);
 		exit(1);
 	}
 
