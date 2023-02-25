@@ -42,6 +42,8 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#include "fractional-scale-v1-client-protocol.h"
+#include "viewporter-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 #include "tearing-control-v1-client-protocol.h"
 
@@ -71,6 +73,8 @@ struct display {
 	struct wl_cursor *default_cursor;
 	struct wl_surface *cursor_surface;
 	struct wp_tearing_control_manager_v1 *tearing_manager;
+	struct wp_viewporter *viewporter;
+	struct wp_fractional_scale_manager_v1 *fractional_scale_manager;
 	struct {
 		EGLDisplay dpy;
 		EGLContext ctx;
@@ -93,6 +97,7 @@ struct window {
 	struct geometry logical_size;
 	struct geometry buffer_size;
 	int32_t buffer_scale;
+	double fractional_buffer_scale;
 	enum wl_output_transform buffer_transform;
 	bool needs_buffer_geometry_update;
 
@@ -112,6 +117,8 @@ struct window {
 	EGLSurface egl_surface;
 	int fullscreen, maximized, opaque, buffer_bpp, frame_sync, delay;
 	struct wp_tearing_control_v1 *tear_control;
+	struct wp_viewport *viewport;
+	struct wp_fractional_scale_v1 *fractional_scale_obj;
 	bool tearing, toggled_tearing, tear_enabled;
 	bool vertical_bar;
 	bool fullscreen_ratio;
@@ -326,21 +333,14 @@ static void
 update_buffer_geometry(struct window *window)
 {
 	enum wl_output_transform new_buffer_transform;
-	int32_t new_buffer_scale;
 	struct geometry new_buffer_size;
+	struct geometry new_viewport_dest_size;
 
 	new_buffer_transform = compute_buffer_transform(window);
 	if (window->buffer_transform != new_buffer_transform) {
 		window->buffer_transform = new_buffer_transform;
 		wl_surface_set_buffer_transform(window->surface,
 						window->buffer_transform);
-	}
-
-	new_buffer_scale = compute_buffer_scale(window);
-	if (window->buffer_scale != new_buffer_scale) {
-		window->buffer_scale = new_buffer_scale;
-		wl_surface_set_buffer_scale(window->surface,
-					    window->buffer_scale);
 	}
 
 	switch (window->buffer_transform) {
@@ -360,14 +360,47 @@ update_buffer_geometry(struct window *window)
 		break;
 	}
 
-	new_buffer_size.width *= window->buffer_scale;
-	new_buffer_size.height *= window->buffer_scale;
+	if (window->fractional_buffer_scale > 0.0) {
+		if (window->buffer_scale > 1) {
+			window->buffer_scale = 1;
+			wl_surface_set_buffer_scale(window->surface,
+						    window->buffer_scale);
+		}
+
+		new_buffer_size.width = ceil(new_buffer_size.width *
+					     window->fractional_buffer_scale);
+		new_buffer_size.height = ceil(new_buffer_size.height *
+					      window->fractional_buffer_scale);
+	} else {
+		int32_t new_buffer_scale;
+
+		new_buffer_scale = compute_buffer_scale(window);
+		if (window->buffer_scale != new_buffer_scale) {
+			window->buffer_scale = new_buffer_scale;
+			wl_surface_set_buffer_scale(window->surface,
+						    window->buffer_scale);
+		}
+
+		new_buffer_size.width *= window->buffer_scale;
+		new_buffer_size.height *= window->buffer_scale;
+	}
 
 	if (window->fullscreen && window->fullscreen_ratio) {
-		int new_buffer_size_min = MIN(new_buffer_size.width,
-					      new_buffer_size.height);
+		int new_buffer_size_min;
+		int new_viewport_dest_size_min;
+
+		new_buffer_size_min = MIN(new_buffer_size.width,
+					  new_buffer_size.height);
 		new_buffer_size.width = new_buffer_size_min;
 		new_buffer_size.height = new_buffer_size_min;
+
+		new_viewport_dest_size_min = MIN(window->logical_size.width,
+						 window->logical_size.height);
+		new_viewport_dest_size.width = new_viewport_dest_size_min;
+		new_viewport_dest_size.height = new_viewport_dest_size_min;
+	} else {
+		new_viewport_dest_size.width = window->logical_size.width;
+		new_viewport_dest_size.height = window->logical_size.height;
 	}
 
 	if (window->buffer_size.width != new_buffer_size.width ||
@@ -379,9 +412,13 @@ update_buffer_geometry(struct window *window)
 					     window->buffer_size.height, 0, 0);
 	}
 
+	if (window->fractional_buffer_scale > 0.0)
+		wp_viewport_set_destination(window->viewport,
+					    new_viewport_dest_size.width,
+					    new_viewport_dest_size.height);
+
 	window->needs_buffer_geometry_update = false;
 }
-
 
 static void
 init_gl(struct window *window)
@@ -686,6 +723,19 @@ static const struct wl_surface_listener surface_listener = {
 	surface_leave
 };
 
+static void fractional_scale_handle_preferred_scale(void *data,
+						    struct wp_fractional_scale_v1 *info,
+						    uint32_t wire_scale) {
+	struct window *window = data;
+
+	window->fractional_buffer_scale = wire_scale / 120.0;
+	window->needs_buffer_geometry_update = true;
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_scale_listener = {
+	.preferred_scale = fractional_scale_handle_preferred_scale,
+};
+
 static void
 create_surface(struct window *window)
 {
@@ -720,6 +770,17 @@ create_surface(struct window *window)
 	else if (window->maximized)
 		xdg_toplevel_set_maximized(window->xdg_toplevel);
 
+	if (display->viewporter && display->fractional_scale_manager) {
+		window->viewport = wp_viewporter_get_viewport(display->viewporter,
+							      window->surface);
+		window->fractional_scale_obj =
+			wp_fractional_scale_manager_v1_get_fractional_scale(display->fractional_scale_manager,
+									    window->surface);
+		wp_fractional_scale_v1_add_listener(window->fractional_scale_obj,
+						    &fractional_scale_listener,
+						    window);
+	}
+
 	window->wait_for_configure = true;
 	wl_surface_commit(window->surface);
 }
@@ -740,6 +801,10 @@ destroy_surface(struct window *window)
 		xdg_toplevel_destroy(window->xdg_toplevel);
 	if (window->xdg_surface)
 		xdg_surface_destroy(window->xdg_surface);
+	if (window->viewport)
+		wp_viewport_destroy(window->viewport);
+	if (window->fractional_scale_obj)
+		wp_fractional_scale_v1_destroy(window->fractional_scale_obj);
 	wl_surface_destroy(window->surface);
 }
 
@@ -1178,6 +1243,15 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->tearing_manager = wl_registry_bind(registry, name,
 						      &wp_tearing_control_manager_v1_interface,
 						      1);
+	} else if (strcmp(interface, wp_viewporter_interface.name) == 0) {
+		d->viewporter = wl_registry_bind(registry, name,
+						 &wp_viewporter_interface,
+						 1);
+	} else if (strcmp(interface, wp_fractional_scale_manager_v1_interface.name) == 0) {
+		d->fractional_scale_manager =
+			wl_registry_bind(registry, name,
+					 &wp_fractional_scale_manager_v1_interface,
+					 1);
 	}
 }
 
@@ -1351,6 +1425,12 @@ out_no_xdg_shell:
 
 	if (display.compositor)
 		wl_compositor_destroy(display.compositor);
+
+	if (display.viewporter)
+		wp_viewporter_destroy(display.viewporter);
+
+	if (display.fractional_scale_manager)
+		wp_fractional_scale_manager_v1_destroy(display.fractional_scale_manager);
 
 	wl_registry_destroy(display.registry);
 	wl_display_flush(display.display);
