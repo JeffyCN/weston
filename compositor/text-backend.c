@@ -39,6 +39,7 @@
 #include "input-method-unstable-v1-server-protocol.h"
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
+#include "shared/xalloc.h"
 
 struct text_input_manager;
 struct input_method;
@@ -412,9 +413,7 @@ static void text_input_manager_create_text_input(struct wl_client *client,
 		wl_resource_get_user_data(resource);
 	struct text_input *text_input;
 
-	text_input = zalloc(sizeof *text_input);
-	if (text_input == NULL)
-		return;
+	text_input = xzalloc(sizeof *text_input);
 
 	text_input->resource =
 		wl_resource_create(client, &zwp_text_input_v1_interface, 1, id);
@@ -472,9 +471,7 @@ text_input_manager_create(struct weston_compositor *ec)
 {
 	struct text_input_manager *text_input_manager;
 
-	text_input_manager = zalloc(sizeof *text_input_manager);
-	if (text_input_manager == NULL)
-		return;
+	text_input_manager = xzalloc(sizeof *text_input_manager);
 
 	text_input_manager->ec = ec;
 
@@ -814,9 +811,7 @@ input_method_context_create(struct text_input *input,
 	if (!input_method->input_method_binding)
 		return;
 
-	context = zalloc(sizeof *context);
-	if (context == NULL)
-		return;
+	context = xzalloc(sizeof *context);
 
 	binding = input_method->input_method_binding;
 	context->resource =
@@ -1032,9 +1027,7 @@ text_backend_seat_created(struct text_backend *text_backend,
 	struct input_method *input_method;
 	struct weston_compositor *ec = seat->compositor;
 
-	input_method = zalloc(sizeof *input_method);
-	if (input_method == NULL)
-		return;
+	input_method = xzalloc(sizeof *input_method);
 
 	input_method->seat = seat;
 	input_method->input = NULL;
@@ -1105,9 +1098,7 @@ text_backend_init(struct weston_compositor *ec)
 	struct weston_seat *seat;
 	struct wl_event_loop *loop;
 
-	text_backend = zalloc(sizeof(*text_backend));
-	if (text_backend == NULL)
-		return NULL;
+	text_backend = xzalloc(sizeof(*text_backend));
 
 	text_backend->compositor = ec;
 

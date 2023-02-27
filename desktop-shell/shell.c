@@ -4713,8 +4713,6 @@ wet_shell_init(struct weston_compositor *ec,
 		return -1;
 
 	shell->text_backend = text_backend_init(ec);
-	if (!shell->text_backend)
-		return -1;
 
 	shell_configuration(shell);
 
