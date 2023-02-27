@@ -191,14 +191,14 @@ int32_t
 ivi_layout_commit_changes(void);
 uint32_t
 ivi_layout_get_id_of_surface(struct ivi_layout_surface *ivisurf);
-int32_t
+void
 ivi_layout_surface_set_destination_rectangle(struct ivi_layout_surface *ivisurf,
 					     int32_t x, int32_t y,
 					     int32_t width, int32_t height);
 int32_t
 ivi_layout_surface_set_opacity(struct ivi_layout_surface *ivisurf,
 			       wl_fixed_t opacity);
-int32_t
+void
 ivi_layout_surface_set_visibility(struct ivi_layout_surface *ivisurf,
 				  bool newVisibility);
 void
@@ -209,14 +209,14 @@ ivi_layout_get_surface_from_id(uint32_t id_surface);
 int32_t
 ivi_layout_layer_set_opacity(struct ivi_layout_layer *ivilayer,
 			     wl_fixed_t opacity);
-int32_t
+void
 ivi_layout_layer_set_visibility(struct ivi_layout_layer *ivilayer,
 				bool newVisibility);
-int32_t
+void
 ivi_layout_layer_set_destination_rectangle(struct ivi_layout_layer *ivilayer,
 					   int32_t x, int32_t y,
 					   int32_t width, int32_t height);
-int32_t
+void
 ivi_layout_layer_set_render_order(struct ivi_layout_layer *ivilayer,
 				  struct ivi_layout_surface **pSurface,
 				  int32_t number);
