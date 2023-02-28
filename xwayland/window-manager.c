@@ -2809,6 +2809,8 @@ send_configure(struct weston_surface *surface, int32_t width, int32_t height)
 	struct theme *t;
 	int new_width, new_height;
 	int vborder, hborder;
+	bool use_saved_dimensions = false;
+	bool use_current_dimensions = false;
 
 	if (!window || !window->wm)
 		return;
@@ -2823,19 +2825,45 @@ send_configure(struct weston_surface *surface, int32_t width, int32_t height)
 		vborder = 0;
 	}
 
-	if (width > hborder)
-		new_width = width - hborder;
-	else
-		new_width = 1;
+	/* A config event with width == 0 or height == 0 is a hint to the client
+	 * to choose its own dimensions. Since X11 clients don't support such
+	 * hints we make a best guess here by trying to use the last saved
+	 * dimensions or, as a fallback, the current dimensions. */
+	if (width == 0 || height == 0) {
+		use_saved_dimensions = window->saved_width > 0 &&
+				       window->saved_height > 0;
+		use_current_dimensions = !use_saved_dimensions &&
+					 window->width > 0 &&
+					 window->height > 0;
+	}
 
-	if (height > vborder)
-		new_height = height - vborder;
-	else
-		new_height = 1;
+	/* The saved or current dimensions are the plain window content
+	 * dimensions without the borders, so we can use them directly for
+	 * new_width and new_height below. */
+	if (use_current_dimensions) {
+		new_width = window->width;
+		new_height = window->height;
+	} else if (use_saved_dimensions) {
+		new_width = window->saved_width;
+		new_height = window->saved_height;
+	} else {
+		new_width = (width > hborder) ? (width - hborder) : 1;
+		new_height = (height > vborder) ? (height - vborder) : 1;
+	}
 
 	if (window->width != new_width || window->height != new_height) {
 		window->width = new_width;
 		window->height = new_height;
+
+		/* Save the toplevel size so that we can pick up a reasonable
+		 * value when the compositor tell us to choose a size. We are
+		 * already saving the size before going fullscreen/maximized,
+		 * but this covers the case in which our size is changed but we
+		 * continue on a normal state. */
+		if (!weston_wm_window_is_maximized(window) && !window->fullscreen) {
+			window->saved_width = new_width;
+			window->saved_height = new_height;
+		}
 
 		if (window->frame) {
 			if (weston_wm_window_is_maximized(window))
