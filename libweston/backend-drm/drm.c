@@ -1527,9 +1527,13 @@ drm_output_attach_head(struct weston_output *output_base,
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_backend *b = output->backend;
 	struct drm_device *device = b->drm;
+	struct drm_head *head = to_drm_head(head_base);
 
 	if (wl_list_length(&output_base->head_list) >= MAX_CLONED_CONNECTORS)
 		return -1;
+
+	wl_list_remove(&head->disable_head_link);
+	wl_list_init(&head->disable_head_link);
 
 	if (!output_base->enabled)
 		return 0;
@@ -1555,18 +1559,13 @@ drm_output_detach_head(struct weston_output *output_base,
 		       struct weston_head *head_base)
 {
 	struct drm_output *output = to_drm_output(output_base);
-	struct drm_backend *b = output->backend;
-	struct drm_device *device = b->drm;
+	struct drm_head *head = to_drm_head(head_base);
 
 	if (!output_base->enabled)
 		return;
 
-	/* Need to go through modeset to drop connectors that should no longer
-	 * be driven. */
-	/* XXX: Ideally we'd do this per-output, not globally. */
-	device->state_invalid = true;
-
-	weston_output_schedule_repaint(output_base);
+	/* Drop connectors that should no longer be driven on next repaint. */
+	wl_list_insert(&output->disable_head, &head->disable_head_link);
 }
 
 int
@@ -2497,6 +2496,8 @@ drm_head_create(struct drm_device *device, drmModeConnector *conn,
 
 	head->base.backend = &backend->base;
 
+	wl_list_init(&head->disable_head_link);
+
 	ret = drm_head_update_info(head, conn);
 	if (ret < 0)
 		goto err_update;
@@ -2593,6 +2594,8 @@ drm_output_create(struct weston_backend *backend, const char *name)
 
 	output->device = device;
 	output->crtc = NULL;
+
+	wl_list_init(&output->disable_head);
 
 	output->max_bpc = 16;
 #ifdef BUILD_DRM_GBM

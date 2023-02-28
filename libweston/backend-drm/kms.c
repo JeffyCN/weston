@@ -1163,6 +1163,7 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 	struct drm_plane_state *plane_state;
 	struct drm_mode *current_mode = to_drm_mode(output->base.current_mode);
 	struct drm_head *head;
+	struct drm_head *tmp;
 	struct drm_writeback_state *wb_state = output->wb_state;
 	enum writeback_screenshot_state wb_screenshot_state =
 		drm_output_get_writeback_state(output);
@@ -1235,6 +1236,14 @@ drm_output_apply_state_atomic(struct drm_output_state *state,
 		wl_list_for_each(head, &output->base.head_list, base.output_link)
 			ret |= connector_add_prop(req, &head->connector,
 						  WDRM_CONNECTOR_CRTC_ID, 0);
+
+		wl_list_for_each_safe(head, tmp, &output->disable_head,
+				      disable_head_link) {
+			ret |= connector_add_prop(req, &head->connector,
+						  WDRM_CONNECTOR_CRTC_ID, 0);
+			wl_list_remove(&head->disable_head_link);
+			wl_list_init(&head->disable_head_link);
+		}
 	}
 
 	wl_list_for_each(head, &output->base.head_list, base.output_link) {
