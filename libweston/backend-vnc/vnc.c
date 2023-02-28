@@ -85,13 +85,8 @@ struct vnc_output {
 	struct nvnc_display *display;
 
 	struct nvnc_fb_pool *fb_pool;
-	/* damage accumulated while not repainting */
-	pixman_region32_t damage;
 
 	struct wl_list peers;
-
-	/* used to trigger initial repaint */
-	bool fb_pool_empty;
 };
 
 struct vnc_peer {
@@ -436,6 +431,7 @@ static void
 vnc_client_cleanup(struct nvnc_client *client)
 {
 	struct vnc_peer *peer = nvnc_get_userdata(client);
+	struct vnc_output *output = peer->backend->output;
 
 	wl_list_remove(&peer->link);
 	weston_seat_release_keyboard(peer->seat);
@@ -443,6 +439,9 @@ vnc_client_cleanup(struct nvnc_client *client)
 	weston_seat_release(peer->seat);
 	free(peer);
 	weston_log("VNC Client disconnected\n");
+
+	if (wl_list_empty(&output->peers))
+		weston_output_power_off(&output->base);
 }
 
 static struct weston_pointer *
@@ -668,6 +667,9 @@ vnc_new_client(struct nvnc_client *client)
 	weston_seat_init_pointer(peer->seat);
 	weston_seat_init_keyboard(peer->seat, backend->xkb_keymap);
 
+	if (wl_list_empty(&output->peers))
+		weston_output_power_on(&output->base);
+
 	wl_list_insert(&output->peers, &peer->link);
 
 	nvnc_set_userdata(client, peer, NULL);
@@ -743,15 +745,7 @@ vnc_output_enable(struct weston_output *base)
 
 	output->display = nvnc_display_new(0, 0);
 
-	pixman_region32_init(&output->damage);
-
 	nvnc_add_display(backend->server, output->display);
-
-	/*
-	 * Neat VNC warns when a client connects before a display buffer has
-	 * been set. Repaint once to create an initial buffer.
-	 */
-	output->fb_pool_empty = true;
 
 	return 0;
 }
@@ -769,8 +763,6 @@ vnc_output_disable(struct weston_output *base)
 
 	if (!output->base.enabled)
 		return 0;
-
-	pixman_region32_fini(&output->damage);
 
 	nvnc_display_unref(output->display);
 	nvnc_fb_pool_unref(output->fb_pool);
@@ -905,18 +897,11 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 
 	assert(output);
 
+	if (wl_list_empty(&output->peers))
+		weston_output_power_off(base);
+
 	if (pixman_region32_not_empty(damage)) {
-		/* Accumulate damage for the next repaint */
-		pixman_region32_union(&output->damage,
-				      &output->damage, damage);
-
-		/* Only repaint when a client is connected */
-		if (!wl_list_empty(&output->peers) || output->fb_pool_empty) {
-			vnc_update_buffer(output->display, &output->damage);
-			pixman_region32_clear(&output->damage);
-			output->fb_pool_empty = false;
-		}
-
+		vnc_update_buffer(output->display, damage);
 		pixman_region32_subtract(&ec->primary_plane.damage,
 					 &ec->primary_plane.damage, damage);
 	}
@@ -1071,19 +1056,6 @@ static const struct weston_vnc_output_api api = {
 	vnc_output_set_size,
 };
 
-static void
-vnc_handle_output_move(struct wl_listener *listener, void *data)
-{
-	struct weston_output *base = data;
-	struct vnc_output *output = to_vnc_output(base);
-
-	if (!output)
-		return;
-
-	/* Move accumulated damage with output */
-	pixman_region32_translate(&output->damage, base->move_x, base->move_y);
-}
-
 static int
 vnc_aml_dispatch(int fd, uint32_t mask, void *data)
 {
@@ -1201,10 +1173,6 @@ vnc_backend_create(struct weston_compositor *compositor,
 	}
 
 	weston_log("TLS support activated\n");
-
-	backend->output_move_listener.notify = vnc_handle_output_move;
-	wl_signal_add(&compositor->output_moved_signal,
-		      &backend->output_move_listener);
 
 	ret = weston_plugin_api_register(compositor, WESTON_VNC_OUTPUT_API_NAME,
 					 &api, sizeof(api));
