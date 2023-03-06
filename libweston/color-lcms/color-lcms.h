@@ -36,6 +36,7 @@
 
 struct weston_color_manager_lcms {
 	struct weston_color_manager base;
+	struct weston_log_scope *profiles_scope;
 	struct weston_log_scope *transforms_scope;
 	cmsContext lcms_ctx;
 
@@ -221,6 +222,9 @@ cmlcms_create_stock_profile(struct weston_color_manager_lcms *cm);
 
 void
 cmlcms_color_profile_destroy(struct cmlcms_color_profile *cprof);
+
+char *
+cmlcms_color_profile_print(const struct cmlcms_color_profile *cprof);
 
 bool
 retrieve_eotf_and_output_inv_eotf(cmsContext lcms_ctx,

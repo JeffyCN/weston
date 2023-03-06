@@ -35,6 +35,7 @@
 #include "color-lcms.h"
 #include "shared/helpers.h"
 #include "shared/string-helpers.h"
+#include "shared/xalloc.h"
 
 struct xyz_arr_flt {
 	float v[3];
@@ -298,6 +299,17 @@ cmlcms_find_color_profile_by_md5(const struct weston_color_manager_lcms *cm,
 	return NULL;
 }
 
+char *
+cmlcms_color_profile_print(const struct cmlcms_color_profile *cprof)
+{
+	char *str;
+
+	str_printf(&str, "  description: %s\n", cprof->base.description);
+	abort_oom_if_null(str);
+
+	return str;
+}
+
 static struct cmlcms_color_profile *
 cmlcms_color_profile_create(struct weston_color_manager_lcms *cm,
 			    cmsHPROFILE profile,
@@ -305,6 +317,7 @@ cmlcms_color_profile_create(struct weston_color_manager_lcms *cm,
 			    char **errmsg)
 {
 	struct cmlcms_color_profile *cprof;
+	char *str;
 
 	cprof = zalloc(sizeof *cprof);
 	if (!cprof)
@@ -316,17 +329,30 @@ cmlcms_color_profile_create(struct weston_color_manager_lcms *cm,
 	cmsGetHeaderProfileID(profile, cprof->md5sum.bytes);
 	wl_list_insert(&cm->color_profile_list, &cprof->link);
 
+	weston_log_scope_printf(cm->profiles_scope,
+				"New color profile: %p\n", cprof);
+
+	str = cmlcms_color_profile_print(cprof);
+	weston_log_scope_printf(cm->profiles_scope, "%s", str);
+	free(str);
+
 	return cprof;
 }
 
 void
 cmlcms_color_profile_destroy(struct cmlcms_color_profile *cprof)
 {
+	struct weston_color_manager_lcms *cm = get_cmlcms(cprof->base.cm);
+
 	wl_list_remove(&cprof->link);
 	cmsFreeToneCurveTriple(cprof->vcgt);
 	cmsFreeToneCurveTriple(cprof->eotf);
 	cmsFreeToneCurveTriple(cprof->output_inv_eotf_vcgt);
 	cmsCloseProfile(cprof->profile);
+
+	weston_log_scope_printf(cm->profiles_scope, "Destroyed color profile %p. " \
+				"Description: %s\n", cprof, cprof->base.description);
+
 	free(cprof->base.description);
 	free(cprof);
 }
