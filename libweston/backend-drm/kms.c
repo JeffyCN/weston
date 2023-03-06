@@ -1522,6 +1522,11 @@ drm_pending_state_apply(struct drm_pending_state *pending_state)
 	struct drm_output_state *output_state, *tmp;
 	struct drm_crtc *crtc;
 
+	if (wl_list_empty(&pending_state->output_list)) {
+		drm_pending_state_free(pending_state);
+		return 0;
+	}
+
 	if (device->atomic_modeset)
 		return drm_pending_state_apply_atomic(pending_state,
 						      DRM_STATE_APPLY_ASYNC);
