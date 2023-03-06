@@ -29,12 +29,14 @@
 
 #include <lcms2.h>
 #include <libweston/libweston.h>
+#include <libweston/weston-log.h>
 
 #include "color.h"
 #include "shared/helpers.h"
 
 struct weston_color_manager_lcms {
 	struct weston_color_manager base;
+	struct weston_log_scope *transforms_scope;
 	cmsContext lcms_ctx;
 
 	struct wl_list color_transform_list; /* cmlcms_color_transform::link */
@@ -204,6 +206,9 @@ cmlcms_color_transform_get(struct weston_color_manager_lcms *cm,
 
 void
 cmlcms_color_transform_destroy(struct cmlcms_color_transform *xform);
+
+char *
+cmlcms_color_transform_search_param_string(const struct cmlcms_color_transform_search_param *search_key);
 
 struct cmlcms_color_profile *
 ref_cprof(struct cmlcms_color_profile *cprof);

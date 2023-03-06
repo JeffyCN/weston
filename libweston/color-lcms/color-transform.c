@@ -33,6 +33,7 @@
 #include "color.h"
 #include "color-lcms.h"
 #include "shared/helpers.h"
+#include "shared/string-helpers.h"
 #include "shared/xalloc.h"
 
 /**
@@ -163,6 +164,8 @@ cmlcms_fill_in_3dlut(struct weston_color_transform *xform_base,
 void
 cmlcms_color_transform_destroy(struct cmlcms_color_transform *xform)
 {
+	struct weston_color_manager_lcms *cm = get_cmlcms(xform->base.cm);
+
 	wl_list_remove(&xform->link);
 
 	cmsFreeToneCurveTriple(xform->pre_curve);
@@ -177,6 +180,10 @@ cmlcms_color_transform_destroy(struct cmlcms_color_transform *xform)
 
 	unref_cprof(xform->search_key.input_profile);
 	unref_cprof(xform->search_key.output_profile);
+
+	weston_log_scope_printf(cm->transforms_scope,
+				"Destroyed color transformation %p.\n", xform);
+
 	free(xform);
 }
 
@@ -791,11 +798,39 @@ failed:
 	return false;
 }
 
+char *
+cmlcms_color_transform_search_param_string(const struct cmlcms_color_transform_search_param *search_key)
+{
+	const char *input_prof_desc = "none", *output_prof_desc = "none";
+	char *str;
+
+	if (search_key->input_profile)
+		input_prof_desc = search_key->input_profile->base.description;
+
+	if (search_key->output_profile)
+		output_prof_desc = search_key->output_profile->base.description;
+
+	str_printf(&str, "  catergory: %s\n" \
+			 "  input profile: %s\n" \
+			 "  output profile: %s\n" \
+			 "  selected intent from output profile: %u\n",
+			 cmlcms_category_name(search_key->category),
+			 input_prof_desc,
+			 output_prof_desc,
+			 search_key->intent_output);
+
+	abort_oom_if_null(str);
+
+	return str;
+}
+
 static struct cmlcms_color_transform *
 cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 			      const struct cmlcms_color_transform_search_param *search_param)
 {
 	struct cmlcms_color_transform *xform;
+	const char *err_msg;
+	char *str;
 
 	xform = xzalloc(sizeof *xform);
 	weston_color_transform_init(&xform->base, &cm->base);
@@ -804,6 +839,12 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 	xform->search_key.input_profile = ref_cprof(search_param->input_profile);
 	xform->search_key.output_profile = ref_cprof(search_param->output_profile);
 
+	weston_log_scope_printf(cm->transforms_scope,
+				"New color transformation: %p\n", xform);
+	str = cmlcms_color_transform_search_param_string(&xform->search_key);
+	weston_log_scope_printf(cm->transforms_scope, "%s", str);
+	free(str);
+
 	/* Ensure the linearization etc. have been extracted. */
 	if (!search_param->output_profile->eotf[0]) {
 		if (!retrieve_eotf_and_output_inv_eotf(cm->lcms_ctx,
@@ -811,8 +852,10 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 						       search_param->output_profile->eotf,
 						       search_param->output_profile->output_inv_eotf_vcgt,
 						       search_param->output_profile->vcgt,
-						       cmlcms_reasonable_1D_points()))
+						       cmlcms_reasonable_1D_points())) {
+			err_msg = "retrieve_eotf_and_output_inv_eotf failed";
 			goto error;
+		}
 	}
 
 	/*
@@ -823,8 +866,10 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 	switch (search_param->category) {
 	case CMLCMS_CATEGORY_INPUT_TO_BLEND:
 	case CMLCMS_CATEGORY_INPUT_TO_OUTPUT:
-		if (!xform_realize_chain(xform))
+		if (!xform_realize_chain(xform)) {
+			err_msg = "xform_realize_chain failed";
 			goto error;
+		}
 		break;
 	case CMLCMS_CATEGORY_BLEND_TO_OUTPUT:
 		xform->base.pre_curve.type = WESTON_COLOR_CURVE_TYPE_LUT_3x1D;
@@ -837,11 +882,17 @@ cmlcms_color_transform_create(struct weston_color_manager_lcms *cm,
 
 	wl_list_insert(&cm->color_transform_list, &xform->link);
 	assert(xform->status != CMLCMS_TRANSFORM_FAILED);
+
+	str = weston_color_transform_string(&xform->base);
+	weston_log_scope_printf(cm->transforms_scope, "  %s", str);
+	free(str);
+
 	return xform;
 
 error:
+	weston_log_scope_printf(cm->transforms_scope,
+				"	%s\n", err_msg);
 	cmlcms_color_transform_destroy(xform);
-	weston_log("CM cmlcms_color_transform_create failed\n");
 	return NULL;
 }
 
