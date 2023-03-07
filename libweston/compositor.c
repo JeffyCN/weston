@@ -4513,13 +4513,14 @@ weston_subsurface_parent_commit(struct weston_subsurface *sub,
 				int parent_is_synchronized)
 {
 	struct weston_view *view;
-	if (sub->position.set) {
+
+	if (sub->position.changed) {
 		wl_list_for_each(view, &sub->surface->views, surface_link)
 			weston_view_set_rel_position(view,
 						     sub->position.offset.c.x,
 						     sub->position.offset.c.y);
 
-		sub->position.set = 0;
+		sub->position.changed = false;
 	}
 
 	if (parent_is_synchronized || sub->synchronized)
@@ -4774,7 +4775,7 @@ subsurface_set_position(struct wl_client *client,
 		return;
 
 	sub->position.offset = weston_coord_surface(x, y, sub->surface);
-	sub->position.set = 1;
+	sub->position.changed = true;
 }
 
 static struct weston_subsurface *

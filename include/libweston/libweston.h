@@ -1763,7 +1763,7 @@ struct weston_subsurface {
 
 	struct {
 		struct weston_coord_surface offset;
-		int set;
+		bool changed;
 	} position;
 
 	int has_cached_data;
