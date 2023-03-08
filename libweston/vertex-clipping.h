@@ -38,7 +38,7 @@ struct polygon8 {
 
 struct gl_quad {
 	struct polygon8 vertices;
-	struct { float x1, y1, x2, y2; } bbox;
+	struct { float x1, y1, x2, y2; } bbox; /* Valid if !axis_aligned. */
 	bool axis_aligned;
 };
 
