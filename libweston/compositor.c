@@ -474,6 +474,7 @@ weston_view_create(struct weston_surface *surface)
 	wl_list_insert(&surface->views, &view->surface_link);
 
 	wl_signal_init(&view->destroy_signal);
+	wl_signal_init(&view->unmap_signal);
 	wl_list_init(&view->link);
 	wl_list_init(&view->layer_link.link);
 	wl_list_init(&view->paint_node_list);
@@ -2056,22 +2057,22 @@ weston_view_unmap(struct weston_view *view)
 	view->output_mask = 0;
 	weston_surface_assign_output(view->surface);
 
-	if (weston_surface_is_mapped(view->surface))
-		return;
+	if (!weston_surface_is_mapped(view->surface)) {
+		wl_list_for_each(seat, &view->surface->compositor->seat_list, link) {
+			struct weston_touch *touch = weston_seat_get_touch(seat);
+			struct weston_pointer *pointer = weston_seat_get_pointer(seat);
+			struct weston_keyboard *keyboard =
+				weston_seat_get_keyboard(seat);
 
-	wl_list_for_each(seat, &view->surface->compositor->seat_list, link) {
-		struct weston_touch *touch = weston_seat_get_touch(seat);
-		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-		struct weston_keyboard *keyboard =
-			weston_seat_get_keyboard(seat);
-
-		if (keyboard && keyboard->focus == view->surface)
-			weston_keyboard_set_focus(keyboard, NULL);
-		if (pointer && pointer->focus == view)
-			weston_pointer_clear_focus(pointer);
-		if (touch && touch->focus == view)
-			weston_touch_set_focus(touch, NULL);
+			if (keyboard && keyboard->focus == view->surface)
+				weston_keyboard_set_focus(keyboard, NULL);
+			if (pointer && pointer->focus == view)
+				weston_pointer_clear_focus(pointer);
+			if (touch && touch->focus == view)
+				weston_touch_set_focus(touch, NULL);
+		}
 	}
+	weston_signal_emit_mutable(&view->unmap_signal, view);
 }
 
 WL_EXPORT void

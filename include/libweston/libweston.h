@@ -1476,6 +1476,7 @@ struct weston_view {
 	struct weston_surface *surface;
 	struct wl_list surface_link;
 	struct wl_signal destroy_signal;
+	struct wl_signal unmap_signal;
 
 	/* struct weston_paint_node::view_link */
 	struct wl_list paint_node_list;
@@ -1635,6 +1636,7 @@ struct weston_pointer_constraint {
 	bool hint_is_pending;
 
 	struct wl_listener pointer_destroy_listener;
+	struct wl_listener view_unmap_listener;
 	struct wl_listener surface_commit_listener;
 	struct wl_listener surface_activate_listener;
 };
