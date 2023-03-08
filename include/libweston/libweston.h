@@ -1635,7 +1635,6 @@ struct weston_pointer_constraint {
 	bool hint_is_pending;
 
 	struct wl_listener pointer_destroy_listener;
-	struct wl_listener surface_destroy_listener;
 	struct wl_listener surface_commit_listener;
 	struct wl_listener surface_activate_listener;
 };
