@@ -469,7 +469,8 @@ rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
 		quad->bbox.y2 = MAX(quad->bbox.y2, quad->vertices.pos[i].y);
 	}
 
-	quad->axis_aligned = !ev->transform.enabled;
+	quad->axis_aligned = !ev->transform.enabled ||
+		(ev->transform.matrix.type < WESTON_MATRIX_TRANSFORM_ROTATE);
 }
 
 /*

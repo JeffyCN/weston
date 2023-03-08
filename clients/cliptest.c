@@ -78,6 +78,7 @@ struct weston_view {
 	struct weston_surface *surface;
 	struct {
 		int enabled;
+		struct weston_matrix matrix;
 	} transform;
 
 	struct geometry *geometry;
@@ -140,7 +141,8 @@ rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
 		quad->bbox.y2 = MAX(quad->bbox.y2, quad->vertices.pos[i].y);
 	}
 
-	quad->axis_aligned = !ev->transform.enabled;
+	quad->axis_aligned = !ev->transform.enabled ||
+		(ev->transform.matrix.type < WESTON_MATRIX_TRANSFORM_ROTATE);
 }
 
 /*
@@ -453,6 +455,7 @@ axis_handler(struct widget *widget, struct input *input, uint32_t time,
 	geometry_set_phi(geom, geom->phi +
 				(M_PI / 12.0) * wl_fixed_to_double(value));
 	cliptest->view.transform.enabled = 1;
+	cliptest->view.transform.matrix.type = WESTON_MATRIX_TRANSFORM_ROTATE;
 
 	widget_schedule_redraw(cliptest->widget);
 }
@@ -503,14 +506,19 @@ key_handler(struct window *window, struct input *input, uint32_t time,
 	case XKB_KEY_n:
 		geometry_set_phi(g, g->phi + (M_PI / 24.0));
 		cliptest->view.transform.enabled = 1;
+		cliptest->view.transform.matrix.type =
+			WESTON_MATRIX_TRANSFORM_ROTATE;
 		break;
 	case XKB_KEY_m:
 		geometry_set_phi(g, g->phi - (M_PI / 24.0));
 		cliptest->view.transform.enabled = 1;
+		cliptest->view.transform.matrix.type =
+			WESTON_MATRIX_TRANSFORM_ROTATE;
 		break;
 	case XKB_KEY_r:
 		geometry_set_phi(g, 0.0);
 		cliptest->view.transform.enabled = 0;
+		cliptest->view.transform.matrix.type = 0;
 		break;
 	default:
 		return;
@@ -546,6 +554,7 @@ cliptest_create(struct display *display)
 	cliptest->view.surface = &cliptest->surface;
 	cliptest->view.geometry = &cliptest->geometry;
 	cliptest->view.transform.enabled = 0;
+	cliptest->view.transform.matrix.type = 0;
 	geometry_init(&cliptest->geometry);
 	geometry_init(&cliptest->ui.geometry);
 
@@ -619,6 +628,7 @@ benchmark(void)
 
 	view.surface = &surface;
 	view.transform.enabled = 1;
+	view.transform.matrix.type = WESTON_MATRIX_TRANSFORM_ROTATE;
 	view.geometry = &geom;
 
 	reset_timer();
