@@ -442,19 +442,22 @@ static void
 rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
 	     struct gl_quad *quad)
 {
-	struct weston_coord_global tmp[4] = {
+	struct weston_coord_global rect_g[4] = {
 		{ .c = weston_coord(rect->x1, rect->y1) },
 		{ .c = weston_coord(rect->x2, rect->y1) },
 		{ .c = weston_coord(rect->x2, rect->y2) },
 		{ .c = weston_coord(rect->x1, rect->y2) },
 	};
+	struct weston_coord rect_s;
 	int i;
 
 	/* Transform rect to surface space. */
 	quad->vertices.n = 4;
-	for (i = 0; i < quad->vertices.n; i++)
-		quad->vertices.pos[i] =
-			weston_coord_global_to_surface(ev, tmp[i]).c;
+	for (i = 0; i < quad->vertices.n; i++) {
+		rect_s = weston_coord_global_to_surface(ev, rect_g[i]).c;
+		quad->vertices.pos[i].x = (float)rect_s.x;
+		quad->vertices.pos[i].y = (float)rect_s.y;
+	}
 
 	/* Find axis-aligned bounding box. */
 	quad->bbox.x1 = quad->bbox.x2 = quad->vertices.pos[0].x;
@@ -472,13 +475,13 @@ rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
 /*
  * Compute the boundary vertices of the intersection of an arbitrary
  * quadrilateral 'quad' and the axis-aligned rectangle 'surf_rect'. The vertices
- * are written to 'e', and the return value is the number of vertices. Vertices
- * are produced in clockwise winding order. Guarantees to produce either zero
- * vertices, or 3-8 vertices with non-zero polygon area.
+ * are written to 'vertices', and the return value is the number of vertices.
+ * Vertices are produced in clockwise winding order. Guarantees to produce
+ * either zero vertices, or 3-8 vertices with non-zero polygon area.
  */
 static int
 clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
-	  struct weston_coord *e)
+	  struct clip_vertex *vertices)
 {
 	struct clip_context ctx = {
 		.clip.x1 = surf_rect->x1,
@@ -500,7 +503,7 @@ clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
 	 * rect bounds:
 	 */
 	if (quad->axis_aligned)
-		return clip_simple(&ctx, &quad->vertices, e);
+		return clip_simple(&ctx, &quad->vertices, vertices);
 
 	/* Transformed case: use a general polygon clipping algorithm to
 	 * clip the quad with each side of the surface rect.
@@ -508,7 +511,7 @@ clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
 	 * http://www.codeguru.com/cpp/misc/misc/graphics/article.php/c8965/Polygon-Clipping.htm
 	 * but without looking at any of that code.
 	 */
-	n = clip_transformed(&ctx, &quad->vertices, e);
+	n = clip_transformed(&ctx, &quad->vertices, vertices);
 
 	if (n < 3)
 		return 0;
@@ -572,11 +575,11 @@ texture_region(struct weston_paint_node *pnode,
 	struct weston_compositor *ec = pnode->surface->compositor;
 	struct weston_view *ev = pnode->view;
 	struct gl_renderer *gr = get_renderer(ec);
-	GLfloat *v;
+	struct clip_vertex *v;
 	unsigned int *vtxcnt, nvtx = 0;
 	pixman_box32_t *rects, *surf_rects;
 	pixman_box32_t *raw_rects;
-	int i, j, k, nrects, nsurf, raw_nrects;
+	int i, j, nrects, nsurf, raw_nrects;
 	bool used_band_compression;
 	struct gl_quad quad;
 
@@ -594,13 +597,12 @@ texture_region(struct weston_paint_node *pnode,
 	/* worst case we can have 8 vertices per rect (ie. clipped into
 	 * an octagon):
 	 */
-	v = wl_array_add(&gr->vertices, nrects * nsurf * 8 * 2 * sizeof *v);
+	v = wl_array_add(&gr->vertices, nrects * nsurf * 8 * sizeof *v);
 	vtxcnt = wl_array_add(&gr->vtxcnt, nrects * nsurf * sizeof *vtxcnt);
 
 	for (i = 0; i < nrects; i++) {
 		rect_to_quad(&rects[i], ev, &quad);
 		for (j = 0; j < nsurf; j++) {
-			struct weston_coord e[8];
 			int n;
 
 			/* The transformed quad, after clipping to the surface rect, can
@@ -616,17 +618,11 @@ texture_region(struct weston_paint_node *pnode,
 			 * To do this, we first calculate the (up to eight) points at the
 			 * intersection of the edges of the quad and the surface rect.
 			 */
-			n = clip_quad(&quad, &surf_rects[j], e);
-			if (n < 3)
-				continue;
-
-			/* emit edge points: */
-			for (k = 0; k < n; k++) {
-				*(v++) = e[k].x;
-				*(v++) = e[k].y;
+			n = clip_quad(&quad, &surf_rects[j], v);
+			if (n >= 3) {
+				v += n;
+				vtxcnt[nvtx++] = n;
 			}
-
-			vtxcnt[nvtx++] = n;
 		}
 	}
 

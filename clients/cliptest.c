@@ -54,6 +54,7 @@
 #include <linux/input.h>
 #include <wayland-client.h>
 
+#include "libweston/matrix.h"
 #include "libweston/vertex-clipping.h"
 #include "shared/helpers.h"
 #include "shared/xalloc.h"
@@ -83,8 +84,8 @@ struct weston_view {
 };
 
 static void
-weston_view_from_global_double(struct weston_view *view,
-			       double x, double y, double *sx, double *sy)
+weston_view_from_global_float(struct weston_view *view,
+			      float x, float y, float *sx, float *sy)
 {
 	struct geometry *g = view->geometry;
 
@@ -96,10 +97,10 @@ weston_view_from_global_double(struct weston_view *view,
 static struct weston_coord_surface
 weston_coord_global_to_surface(struct weston_view *view, struct weston_coord_global g_pos)
 {
-	double sx, sy;
+	float sx, sy;
 	struct weston_coord_surface pos;
 
-	weston_view_from_global_double(view, g_pos.c.x, g_pos.c.y, &sx, &sy);
+	weston_view_from_global_float(view, g_pos.c.x, g_pos.c.y, &sx, &sy);
 	pos.c = weston_coord(sx, sy);
 
 	return pos;
@@ -112,19 +113,22 @@ static void
 rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
 	     struct gl_quad *quad)
 {
-	struct weston_coord_global tmp[4] = {
+	struct weston_coord_global rect_g[4] = {
 		{ .c = weston_coord(rect->x1, rect->y1) },
 		{ .c = weston_coord(rect->x2, rect->y1) },
 		{ .c = weston_coord(rect->x2, rect->y2) },
 		{ .c = weston_coord(rect->x1, rect->y2) },
 	};
+	struct weston_coord rect_s;
 	int i;
 
 	/* Transform rect to surface space. */
 	quad->vertices.n = 4;
-	for (i = 0; i < quad->vertices.n; i++)
-		quad->vertices.pos[i] =
-			weston_coord_global_to_surface(ev, tmp[i]).c;
+	for (i = 0; i < quad->vertices.n; i++) {
+		rect_s = weston_coord_global_to_surface(ev, rect_g[i]).c;
+		quad->vertices.pos[i].x = (float)rect_s.x;
+		quad->vertices.pos[i].y = (float)rect_s.y;
+	}
 
 	/* Find axis-aligned bounding box. */
 	quad->bbox.x1 = quad->bbox.x2 = quad->vertices.pos[0].x;
@@ -142,13 +146,13 @@ rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
 /*
  * Compute the boundary vertices of the intersection of an arbitrary
  * quadrilateral 'quad' and the axis-aligned rectangle 'surf_rect'. The vertices
- * are written to 'e', and the return value is the number of vertices. Vertices
- * are produced in clockwise winding order. Guarantees to produce either zero
- * vertices, or 3-8 vertices with non-zero polygon area.
+ * are written to 'vertices', and the return value is the number of vertices.
+ * Vertices are produced in clockwise winding order. Guarantees to produce
+ * either zero vertices, or 3-8 vertices with non-zero polygon area.
  */
 static int
 clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
-	  struct weston_coord *e)
+	  struct clip_vertex *vertices)
 {
 	struct clip_context ctx = {
 		.clip.x1 = surf_rect->x1,
@@ -170,7 +174,7 @@ clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
 	 * rect bounds:
 	 */
 	if (quad->axis_aligned)
-		return clip_simple(&ctx, &quad->vertices, e);
+		return clip_simple(&ctx, &quad->vertices, vertices);
 
 	/* Transformed case: use a general polygon clipping algorithm to
 	 * clip the quad with each side of the surface rect.
@@ -178,7 +182,7 @@ clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
 	 * http://www.codeguru.com/cpp/misc/misc/graphics/article.php/c8965/Polygon-Clipping.htm
 	 * but without looking at any of that code.
 	 */
-	n = clip_transformed(&ctx, &quad->vertices, e);
+	n = clip_transformed(&ctx, &quad->vertices, vertices);
 
 	if (n < 3)
 		return 0;
@@ -234,7 +238,7 @@ struct cliptest {
 };
 
 static void
-draw_polygon_closed(cairo_t *cr, struct weston_coord *pos, int n)
+draw_polygon_closed(cairo_t *cr, struct clip_vertex *pos, int n)
 {
 	int i;
 
@@ -245,7 +249,7 @@ draw_polygon_closed(cairo_t *cr, struct weston_coord *pos, int n)
 }
 
 static void
-draw_polygon_labels(cairo_t *cr, struct weston_coord *pos, int n)
+draw_polygon_labels(cairo_t *cr, struct clip_vertex *pos, int n)
 {
 	char str[16];
 	int i;
@@ -258,7 +262,7 @@ draw_polygon_labels(cairo_t *cr, struct weston_coord *pos, int n)
 }
 
 static void
-draw_coordinates(cairo_t *cr, double ox, double oy, struct weston_coord *pos, int n)
+draw_coordinates(cairo_t *cr, double ox, double oy, struct clip_vertex *pos, int n)
 {
 	char str[64];
 	int i;
@@ -275,18 +279,18 @@ draw_coordinates(cairo_t *cr, double ox, double oy, struct weston_coord *pos, in
 static void
 draw_box(cairo_t *cr, pixman_box32_t *box, struct weston_view *view)
 {
-	struct weston_coord pos[4];
+	struct clip_vertex pos[4];
 
 	if (view) {
-		weston_view_from_global_double(view, box->x1, box->y1, &pos[0].x, &pos[0].y);
-		weston_view_from_global_double(view, box->x2, box->y1, &pos[1].x, &pos[1].y);
-		weston_view_from_global_double(view, box->x2, box->y2, &pos[2].x, &pos[2].y);
-		weston_view_from_global_double(view, box->x1, box->y2, &pos[3].x, &pos[3].y);
+		weston_view_from_global_float(view, box->x1, box->y1, &pos[0].x, &pos[0].y);
+		weston_view_from_global_float(view, box->x2, box->y1, &pos[1].x, &pos[1].y);
+		weston_view_from_global_float(view, box->x2, box->y2, &pos[2].x, &pos[2].y);
+		weston_view_from_global_float(view, box->x1, box->y2, &pos[3].x, &pos[3].y);
 	} else {
-		pos[0] = weston_coord(box->x1, box->y1);
-		pos[1] = weston_coord(box->x2, box->y1);
-		pos[2] = weston_coord(box->x2, box->y2);
-		pos[3] = weston_coord(box->x1, box->y2);
+		pos[0].x = box->x1; pos[0].y = box->y1;
+		pos[1].x = box->x2; pos[1].y = box->y1;
+		pos[2].x = box->x2; pos[2].y = box->y2;
+		pos[3].x = box->x1; pos[3].y = box->y2;
 	}
 
 	draw_polygon_closed(cr, pos, 4);
@@ -294,15 +298,15 @@ draw_box(cairo_t *cr, pixman_box32_t *box, struct weston_view *view)
 
 static void
 draw_geometry(cairo_t *cr, struct weston_view *view,
-	      struct weston_coord *e, int n)
+	      struct clip_vertex *v, int n)
 {
 	struct geometry *g = view->geometry;
-	double cx, cy;
+	float cx, cy;
 
 	draw_box(cr, &g->quad, view);
 	cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.4);
 	cairo_fill(cr);
-	weston_view_from_global_double(view, g->quad.x1 - 4, g->quad.y1 - 4, &cx, &cy);
+	weston_view_from_global_float(view, g->quad.x1 - 4, g->quad.y1 - 4, &cx, &cy);
 	cairo_arc(cr, cx, cy, 1.5, 0.0, 2.0 * M_PI);
 	if (view->transform.enabled == 0)
 		cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.8);
@@ -313,12 +317,12 @@ draw_geometry(cairo_t *cr, struct weston_view *view,
 	cairo_fill(cr);
 
 	if (n) {
-		draw_polygon_closed(cr, e, n);
+		draw_polygon_closed(cr, v, n);
 		cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
 		cairo_stroke(cr);
 
 		cairo_set_source_rgba(cr, 0.0, 1.0, 0.0, 0.5);
-		draw_polygon_labels(cr, e, n);
+		draw_polygon_labels(cr, v, n);
 	}
 }
 
@@ -331,11 +335,11 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_t *cr;
 	cairo_surface_t *surface;
 	struct gl_quad quad;
-	struct weston_coord e[8];
+	struct clip_vertex v[8];
 	int n;
 
 	rect_to_quad(&g->quad, &cliptest->view, &quad);
-	n = clip_quad(&quad, &g->surf, e);
+	n = clip_quad(&quad, &g->surf, v);
 
 	widget_get_allocation(cliptest->widget, &allocation);
 
@@ -369,7 +373,7 @@ redraw_handler(struct widget *widget, void *data)
 		cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL,
 				       CAIRO_FONT_WEIGHT_BOLD);
 		cairo_set_font_size(cr, 5.0);
-		draw_geometry(cr, &cliptest->view, e, n);
+		draw_geometry(cr, &cliptest->view, v, n);
 	cairo_pop_group_to_source(cr);
 	cairo_paint(cr);
 
@@ -377,7 +381,7 @@ redraw_handler(struct widget *widget, void *data)
 	cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL,
 			       CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 12.0);
-	draw_coordinates(cr, 10.0, 10.0, e, n);
+	draw_coordinates(cr, 10.0, 10.0, v, n);
 
 	cairo_destroy(cr);
 
@@ -596,7 +600,7 @@ benchmark(void)
 	struct weston_view view;
 	struct geometry geom;
 	struct gl_quad quad;
-	struct weston_coord e[8];
+	struct clip_vertex v[8];
 	int i;
 	double t;
 	const int N = 1000000;
@@ -621,7 +625,7 @@ benchmark(void)
 	for (i = 0; i < N; i++) {
 		geometry_set_phi(&geom, (float)i / 360.0f);
 		rect_to_quad(&geom.quad, &view, &quad);
-		clip_quad(&quad, &geom.surf, e);
+		clip_quad(&quad, &geom.surf, v);
 	}
 	t = read_timer();
 

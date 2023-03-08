@@ -103,7 +103,8 @@ enum path_transition {
 static void
 clip_append_vertex(struct clip_context *ctx, float x, float y)
 {
-	*ctx->vertices = weston_coord(x, y);
+	ctx->vertices->x = x;
+	ctx->vertices->y = y;
 	ctx->vertices++;
 }
 
@@ -195,7 +196,7 @@ clip_polygon_topbottom(struct clip_context *ctx,
 
 static void
 clip_context_prepare(struct clip_context *ctx, const struct polygon8 *src,
-		     struct weston_coord *dst)
+		     struct clip_vertex *dst)
 {
 	ctx->prev.x = src->pos[src->n - 1].x;
 	ctx->prev.y = src->pos[src->n - 1].y;
@@ -204,7 +205,7 @@ clip_context_prepare(struct clip_context *ctx, const struct polygon8 *src,
 
 static int
 clip_polygon_left(struct clip_context *ctx, const struct polygon8 *src,
-		  struct weston_coord *dst)
+		  struct clip_vertex *dst)
 {
 	enum path_transition trans;
 	int i;
@@ -223,7 +224,7 @@ clip_polygon_left(struct clip_context *ctx, const struct polygon8 *src,
 
 static int
 clip_polygon_right(struct clip_context *ctx, const struct polygon8 *src,
-		   struct weston_coord *dst)
+		   struct clip_vertex *dst)
 {
 	enum path_transition trans;
 	int i;
@@ -242,7 +243,7 @@ clip_polygon_right(struct clip_context *ctx, const struct polygon8 *src,
 
 static int
 clip_polygon_top(struct clip_context *ctx, const struct polygon8 *src,
-		 struct weston_coord *dst)
+		 struct clip_vertex *dst)
 {
 	enum path_transition trans;
 	int i;
@@ -261,7 +262,7 @@ clip_polygon_top(struct clip_context *ctx, const struct polygon8 *src,
 
 static int
 clip_polygon_bottom(struct clip_context *ctx, const struct polygon8 *src,
-		    struct weston_coord *dst)
+		    struct clip_vertex *dst)
 {
 	enum path_transition trans;
 	int i;
@@ -281,12 +282,12 @@ clip_polygon_bottom(struct clip_context *ctx, const struct polygon8 *src,
 WESTON_EXPORT_FOR_TESTS int
 clip_simple(struct clip_context *ctx,
 	    struct polygon8 *surf,
-	    struct weston_coord *e)
+	    struct clip_vertex *restrict vertices)
 {
 	int i;
 	for (i = 0; i < surf->n; i++) {
-		e[i].x = CLIP(surf->pos[i].x, ctx->clip.x1, ctx->clip.x2);
-		e[i].y = CLIP(surf->pos[i].y, ctx->clip.y1, ctx->clip.y2);
+		vertices[i].x = CLIP(surf->pos[i].x, ctx->clip.x1, ctx->clip.x2);
+		vertices[i].y = CLIP(surf->pos[i].y, ctx->clip.y1, ctx->clip.y2);
 	}
 	return surf->n;
 }
@@ -294,7 +295,7 @@ clip_simple(struct clip_context *ctx,
 WESTON_EXPORT_FOR_TESTS int
 clip_transformed(struct clip_context *ctx,
 		 struct polygon8 *surf,
-		 struct weston_coord *e)
+		 struct clip_vertex *restrict vertices)
 {
 	struct polygon8 polygon;
 	int i, n;
@@ -305,17 +306,17 @@ clip_transformed(struct clip_context *ctx,
 	surf->n = clip_polygon_bottom(ctx, &polygon, surf->pos);
 
 	/* Get rid of duplicate vertices */
-	e[0] = surf->pos[0];
+	vertices[0] = surf->pos[0];
 	n = 1;
 	for (i = 1; i < surf->n; i++) {
-		if (float_difference(e[n - 1].x, surf->pos[i].x) == 0.0f &&
-		    float_difference(e[n - 1].y, surf->pos[i].y) == 0.0f)
+		if (float_difference(vertices[n - 1].x, surf->pos[i].x) == 0.0f &&
+		    float_difference(vertices[n - 1].y, surf->pos[i].y) == 0.0f)
 			continue;
-		e[n] = surf->pos[i];
+		vertices[n] = surf->pos[i];
 		n++;
 	}
-	if (float_difference(e[n - 1].x, surf->pos[0].x) == 0.0f &&
-	    float_difference(e[n - 1].y, surf->pos[0].y) == 0.0f)
+	if (float_difference(vertices[n - 1].x, surf->pos[0].x) == 0.0f &&
+	    float_difference(vertices[n - 1].y, surf->pos[0].y) == 0.0f)
 		n--;
 
 	return n;
