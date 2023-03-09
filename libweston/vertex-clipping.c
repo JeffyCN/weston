@@ -32,7 +32,7 @@
 WESTON_EXPORT_FOR_TESTS float
 float_difference(float a, float b)
 {
-	/* http://www.altdevblogaday.com/2012/02/22/comparing-floating-point-numbers-2012-edition/ */
+	/* https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/ */
 	static const float max_diff = 4.0f * FLT_MIN;
 	static const float max_rel_diff = 4.0e-5;
 	float diff = a - b;

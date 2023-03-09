@@ -193,7 +193,7 @@ clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
 	/* Then, use a general polygon clipping algorithm to clip the quad with
 	 * each side of the surface rect. The algorithm is Sutherland-Hodgman,
 	 * as explained in
-	 * http://www.codeguru.com/cpp/misc/misc/graphics/article.php/c8965/Polygon-Clipping.htm
+	 * https://www.codeguru.com/cplusplus/polygon-clipping/
 	 * but without looking at any of that code.
 	 */
 	n = clip_transformed(&ctx, &quad->vertices, vertices);
