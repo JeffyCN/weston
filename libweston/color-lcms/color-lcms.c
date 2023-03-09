@@ -389,6 +389,7 @@ cmlcms_destroy(struct weston_color_manager *cm_base)
 	cmsDeleteContext(cm->lcms_ctx);
 
 	weston_log_scope_destroy(cm->transforms_scope);
+	weston_log_scope_destroy(cm->optimizer_scope);
 	weston_log_scope_destroy(cm->profiles_scope);
 
 	free(cm);
@@ -465,18 +466,24 @@ weston_color_manager_create(struct weston_compositor *compositor)
 		weston_compositor_add_log_scope(compositor, "color-lcms-transformations",
 						"Color transformation creation and destruction.\n",
 						transforms_scope_new_sub, NULL, cm);
+	cm->optimizer_scope =
+		weston_compositor_add_log_scope(compositor, "color-lcms-optimizer",
+						"Color transformation pipeline optimizer. It's best " \
+						"used together with the color-lcms-transformations " \
+						"log scope.\n", NULL, NULL, NULL);
 	cm->profiles_scope =
 		weston_compositor_add_log_scope(compositor, "color-lcms-profiles",
 						"Color profile creation and destruction.\n",
 						profiles_scope_new_sub, NULL, cm);
 
-	if (!cm->profiles_scope || !cm->transforms_scope)
+	if (!cm->profiles_scope || !cm->transforms_scope || !cm->optimizer_scope)
 		goto err;
 
 	return &cm->base;
 
 err:
 	weston_log_scope_destroy(cm->transforms_scope);
+	weston_log_scope_destroy(cm->optimizer_scope);
 	weston_log_scope_destroy(cm->profiles_scope);
 	free(cm);
 	return NULL;

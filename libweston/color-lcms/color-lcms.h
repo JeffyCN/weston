@@ -38,6 +38,7 @@ struct weston_color_manager_lcms {
 	struct weston_color_manager base;
 	struct weston_log_scope *profiles_scope;
 	struct weston_log_scope *transforms_scope;
+	struct weston_log_scope *optimizer_scope;
 	cmsContext lcms_ctx;
 
 	struct wl_list color_transform_list; /* cmlcms_color_transform::link */

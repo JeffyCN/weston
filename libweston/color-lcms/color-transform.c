@@ -598,6 +598,118 @@ optimize_float_pipeline(cmsPipeline **lut, cmsContext context_id,
 	return FALSE;
 }
 
+static const char *
+cmlcms_stage_type_to_str(cmsStage *stage)
+{
+	/* This table is based on cmsStageSignature enum type from the
+	 * LittleCMS API. */
+	switch (cmsStageType(stage))
+	{
+	case cmsSigCurveSetElemType:
+		return "CurveSet";
+	case cmsSigMatrixElemType:
+		return "Matrix";
+	case cmsSigCLutElemType:
+		return "CLut";
+	case cmsSigBAcsElemType:
+		return "BAcs";
+	case cmsSigEAcsElemType:
+		return "EAcs";
+	case cmsSigXYZ2LabElemType:
+		return "XYZ2Lab";
+	case cmsSigLab2XYZElemType:
+		return "Lab2XYz";
+	case cmsSigNamedColorElemType:
+		return "NamedColor";
+	case cmsSigLabV2toV4:
+		return "LabV2toV4";
+	case cmsSigLabV4toV2:
+		return "LabV4toV2";
+	case cmsSigIdentityElemType:
+		return "Identity";
+	case cmsSigLab2FloatPCS:
+		return "Lab2FloatPCS";
+	case cmsSigFloatPCS2Lab:
+		return "FloatPCS2Lab";
+	case cmsSigXYZ2FloatPCS:
+		return "XYZ2FloatPCS";
+	case cmsSigFloatPCS2XYZ:
+		return "FloatPCS2XYZ";
+	case cmsSigClipNegativesElemType:
+		return "ClipNegatives";
+	}
+
+	return NULL;
+}
+
+static void
+matrix_print(cmsStage *stage, struct weston_log_scope *scope)
+{
+	const _cmsStageMatrixData *data;
+	const unsigned int SIZE = 3;
+	unsigned int row, col;
+	double elem;
+	const char *sep;
+
+	if (!weston_log_scope_is_enabled(scope))
+		return;
+
+	assert(cmsStageType(stage) == cmsSigMatrixElemType);
+	data = cmsStageData(stage);
+
+	for (row = 0; row < SIZE; row++) {
+		weston_log_scope_printf(scope, "      ");
+
+		for (col = 0, sep = ""; col < SIZE; col++) {
+			elem = data->Double[row * SIZE + col];
+			weston_log_scope_printf(scope, "%s% .4f", sep, elem);
+			sep = " ";
+		}
+
+		/* We print offset after the last column of the matrix. */
+		if (data->Offset)
+			weston_log_scope_printf(scope, "% .4f", data->Offset[row]);
+
+		weston_log_scope_printf(scope, "\n");
+	}
+}
+
+static void
+pipeline_print(cmsPipeline **lut, cmsContext context_id,
+	       struct weston_log_scope *scope)
+{
+	cmsStage *stage = cmsPipelineGetPtrToFirstStage(*lut);
+	const char *type_str;
+
+	if (!weston_log_scope_is_enabled(scope))
+		return;
+
+	if (!stage) {
+		weston_log_scope_printf(scope, "no elements\n");
+		return;
+	}
+
+	while (stage != NULL) {
+		type_str = cmlcms_stage_type_to_str(stage);
+		/* Unknown type, just print the hex */
+		if (!type_str)
+			weston_log_scope_printf(scope, "    unknown type 0x%x\n",
+						cmsStageType(stage));
+		else
+			weston_log_scope_printf(scope, "    %s\n", type_str);
+
+		switch(cmsStageType(stage)) {
+		case cmsSigMatrixElemType:
+			matrix_print(stage, scope);
+			break;
+		default:
+			break;
+		}
+
+		stage = cmsStageNext(stage);
+	}
+}
+
 /** LittleCMS transform plugin entry point
  *
  * This function is called by LittleCMS when it is creating a new
@@ -647,8 +759,10 @@ transform_factory(_cmsTransform2Fn *xform_fn,
 		  cmsUInt32Number *output_format,
 		  cmsUInt32Number *flags)
 {
+	struct weston_color_manager_lcms *cm;
 	struct cmlcms_color_transform *xform;
 	cmsContext context_id;
+	bool ret;
 
 	if (T_CHANNELS(*input_format) != 3) {
 		weston_log("color-lcms debug: input format is not 3-channel.");
@@ -671,7 +785,22 @@ transform_factory(_cmsTransform2Fn *xform_fn,
 	xform = cmsGetContextUserData(context_id);
 	assert(xform);
 
-	return optimize_float_pipeline(lut, context_id, xform);
+	cm = get_cmlcms(xform->base.cm);
+
+	/* Print pipeline before optimization */
+	weston_log_scope_printf(cm->optimizer_scope,
+				"  transform pipeline before optimization:\n");
+	pipeline_print(lut, context_id, cm->optimizer_scope);
+
+	/* Optimize pipeline */
+	ret = optimize_float_pipeline(lut, context_id, xform);
+
+	/* Print pipeline after optimization */
+	weston_log_scope_printf(cm->optimizer_scope,
+				"  transform pipeline after optimization:\n");
+	pipeline_print(lut, context_id, cm->optimizer_scope);
+
+	return ret;
 }
 
 static cmsPluginTransform transform_plugin = {
