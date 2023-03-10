@@ -364,7 +364,7 @@ make_icc_file_description(cmsHPROFILE profile,
 			 "%02x", md5sum->bytes[i]);
 	}
 
-	str_printf(&desc, "ICCv%f %s %s", cmsGetProfileVersion(profile),
+	str_printf(&desc, "ICCv%.1f %s %s", cmsGetProfileVersion(profile),
 		   name_part, md5sum_str);
 
 	return desc;
