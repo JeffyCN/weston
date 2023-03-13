@@ -458,8 +458,10 @@ activate_binding(struct weston_seat *seat,
 		 uint32_t flags)
 {
 	struct ivi_shell_surface *ivisurf, *ivisurf_child;
+	struct weston_surface *main_surface;
 
-	ivisurf = get_ivi_shell_surface(focus_view->surface);
+	main_surface = weston_surface_get_main_surface(focus_view->surface);
+	ivisurf = get_ivi_shell_surface(main_surface);
 	if (ivisurf == NULL)
 		return;
 
