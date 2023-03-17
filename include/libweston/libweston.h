@@ -1563,6 +1563,7 @@ struct weston_view {
 	uint32_t psf_flags;
 
 	bool is_mapped;
+	struct weston_log_pacer subsurface_parent_log_pacer;
 };
 
 struct weston_surface_state {

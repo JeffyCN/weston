@@ -4543,6 +4543,13 @@ subsurface_committed(struct weston_surface *surface,
 	wl_list_for_each(view, &surface->views, surface_link) {
 		struct weston_coord_surface tmp = new_origin;
 
+		if (!view->geometry.parent) {
+			weston_log_paced(&view->subsurface_parent_log_pacer,
+					 1, 0, "Client attempted to commit on a "
+					 "subsurface without a parent surface\n");
+			continue;
+		}
+
 		tmp.c = weston_coord_add(tmp.c,
 					 view->geometry.pos_offset);
 		weston_view_set_rel_position(view, tmp.c.x, tmp.c.y);
