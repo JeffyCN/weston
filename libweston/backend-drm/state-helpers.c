@@ -127,6 +127,10 @@ drm_plane_state_duplicate(struct drm_output_state *state_output,
 	 */
 	dst->damage_blob_id = 0;
 	wl_list_init(&dst->link);
+	/* Don't copy the fence, it may no longer be valid and waiting for it
+	 * again is not necessary
+	 */
+	dst->in_fence_fd = -1;
 
 	wl_list_for_each_safe(old, tmp, &state_output->plane_list, link) {
 		/* Duplicating a plane state into the same output state, so
