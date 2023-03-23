@@ -4730,7 +4730,7 @@ maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 		pixman_region32_intersect(&confine_region,
 					  &constraint->view->surface->input,
 					  &constraint->region);
-		assert(!pixman_region32_selfcheck(&confine_region));
+		assert(pixman_region32_not_empty(&confine_region));
 		region_to_outline(&confine_region, &borders);
 		pixman_region32_fini(&confine_region);
 
