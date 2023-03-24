@@ -4652,6 +4652,10 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 		}
 	}
 
+	shsurf = get_shell_surface(view->surface);
+	if (!shsurf)
+		return;
+
 	if (!visible) {
 		first_output = container_of(ec->output_list.next,
 					    struct weston_output, link);
@@ -4662,12 +4666,12 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 		weston_view_set_position(view, x, y);
 	} else {
 		weston_view_geometry_dirty(view);
+
+		if (shsurf->state.maximized ||
+		    shsurf->state.fullscreen)
+			return;
 	}
 
-
-	shsurf = get_shell_surface(view->surface);
-	if (!shsurf)
-		return;
 
 	shsurf->saved_position_valid = false;
 	set_maximized(shsurf, false);
