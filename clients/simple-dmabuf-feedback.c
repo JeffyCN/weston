@@ -119,6 +119,9 @@ struct output {
 	int width, height;
 	int scale;
 	bool initialized;
+	struct {
+		int width, height;
+	} configure;
 };
 
 struct egl {
@@ -778,6 +781,15 @@ xdg_surface_handle_configure(void *data, struct xdg_surface *surface,
 			     uint32_t serial)
 {
 	struct window *window = data;
+	struct output *output = &window->display->output;
+
+	if (output->configure.width != output->width ||
+	    output->configure.height != output->height) {
+		output->width = output->configure.width;
+		output->height = output->configure.height;
+
+		window_buffers_invalidate (window);
+	}
 
 	xdg_surface_ack_configure(surface, serial);
 	window->wait_for_configure = false;
@@ -792,6 +804,11 @@ xdg_toplevel_handle_configure(void *data, struct xdg_toplevel *toplevel,
 			      int32_t width, int32_t height,
 			      struct wl_array *states)
 {
+	struct window *window = data;
+	struct output *output = &window->display->output;
+
+	output->configure.width = width;
+	output->configure.height = height;
 }
 
 static void
@@ -1368,12 +1385,6 @@ static void
 output_handle_mode(void *data, struct wl_output *wl_output, uint32_t flags,
 		   int width, int height, int refresh)
 {
-	struct output *output = data;
-
-	if (flags & WL_OUTPUT_MODE_CURRENT) {
-		output->width = width;
-		output->height = height;
-	}
 }
 
 static void
