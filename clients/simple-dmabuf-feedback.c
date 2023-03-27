@@ -150,6 +150,8 @@ struct display {
 };
 
 struct buffer {
+	bool created;
+	bool valid;
 	struct window *window;
 	struct wl_buffer *buffer;
 	enum {
@@ -157,7 +159,6 @@ struct buffer {
 		IN_USE,
 		AVAILABLE
 	} status;
-	bool recreate;
 	int dmabuf_fds[4];
 	struct gbm_bo *bo;
 	EGLImageKHR egl_image;
@@ -460,6 +461,8 @@ buffer_free(struct buffer *buf)
 
 	for (i = 0; i < buf->num_planes; i++)
 		close(buf->dmabuf_fds[i]);
+
+	buf->created = false;
 }
 
 static void
@@ -468,18 +471,20 @@ create_dmabuf_buffer(struct window *window, struct buffer *buf, uint32_t width,
 		     uint64_t *modifiers, uint32_t bo_flags);
 
 static void
-buffer_recreate(struct buffer *buf)
+buffer_recreate(struct buffer *buf, struct window *window)
 {
-	struct window *window = buf->window;
-	uint32_t width = buf->width;
-	uint32_t height = buf->height;
+	uint32_t width = window->display->output.width;
+	uint32_t height = window->display->output.height;
 
-	buffer_free(buf);
+	if (buf->created)
+		buffer_free(buf);
+
 	create_dmabuf_buffer(window, buf, width, height,
 			     window->format.format,
 			     window->format.modifiers.size / sizeof(uint64_t),
 			     window->format.modifiers.data, window->bo_flags);
-	buf->recreate = false;
+	buf->created = true;
+	buf->valid = true;
 }
 
 static void
@@ -488,9 +493,6 @@ buffer_release(void *data, struct wl_buffer *buffer)
 	struct buffer *buf = data;
 
 	buf->status = AVAILABLE;
-
-	if (buf->recreate)
-		buffer_recreate(buf);
 }
 
 static const struct wl_buffer_listener buffer_listener = {
@@ -600,22 +602,29 @@ window_next_buffer(struct window *window)
 {
 	unsigned int i;
 
-	for (i = 0; i < NUM_BUFFERS; i++)
-		if (window->buffers[i].status == AVAILABLE)
-			return &window->buffers[i];
-
-	/* In this client, we sometimes have to recreate the buffers. As we are
-	* not using the create_immed request from zwp_linux_dmabuf_v1, we need
-	* to wait an event from the server (what leads to create_succeeded()
-	* being called in this client). So if all buffers are busy, it may be
-	* the case in which all the buffers were recreated but the server still
-	* didn't send the events. This is very unlikely to happen, but a
-	* roundtrip() guarantees that we receive and process the events. */
-	wl_display_roundtrip(window->display->display);
+	for (i = 0; i < NUM_BUFFERS; i++) {
+		if (!window->buffers[i].created ||
+		    (!window->buffers[i].valid &&
+		     window->buffers[i].status == AVAILABLE))
+			buffer_recreate(&window->buffers[i], window);
+	}
 
 	for (i = 0; i < NUM_BUFFERS; i++)
 		if (window->buffers[i].status == AVAILABLE)
 			return &window->buffers[i];
+
+	while (true) {
+		/* In this client, we create buffers lazily and also sometimes
+		* have to recreate the buffers. As we are not using the
+		* create_immed request from zwp_linux_dmabuf_v1, we need to wait
+		* for an event from the server (what leads to create_succeeded()
+		* being called in this client). */
+		wl_display_roundtrip(window->display->display);
+
+		for (i = 0; i < NUM_BUFFERS; i++)
+			if (window->buffers[i].status == AVAILABLE)
+				return &window->buffers[i];
+	}
 
 	return NULL;
 }
@@ -753,6 +762,16 @@ static const struct wp_presentation_feedback_listener presentation_feedback_list
 	.presented = presentation_feedback_handle_presented,
 	.discarded = presentation_feedback_handle_discarded,
 };
+
+
+static void
+window_buffers_invalidate(struct window *window)
+{
+	unsigned int i;
+
+	for (i = 0; i < NUM_BUFFERS; i++)
+		window->buffers[i].valid = false;
+}
 
 static void
 xdg_surface_handle_configure(void *data, struct xdg_surface *surface,
@@ -920,9 +939,6 @@ static struct window *
 create_window(struct display *display)
 {
 	struct window *window;
-	uint32_t width = display->output.width;
-	uint32_t height	= display->output.height;
-	unsigned int i;
 
 	window = zalloc(sizeof *window);
 	assert(window && "error: failed to allocate memory for window");
@@ -950,12 +966,6 @@ create_window(struct display *display)
 	gbm_setup(window);
 	egl_setup(window);
 	gl_setup(window);
-
-	for (i = 0; i < NUM_BUFFERS; i++)
-		create_dmabuf_buffer(window, &window->buffers[i], width, height,
-				     window->format.format,
-				     window->format.modifiers.size / sizeof(uint64_t),
-				     window->format.modifiers.data, window->bo_flags);
 
 
 	window->xdg_surface = xdg_wm_base_get_xdg_surface(display->wm_base,
@@ -1298,7 +1308,6 @@ dmabuf_feedback_done(void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_fee
 	struct window *window = data;
 	struct dmabuf_feedback_tranche *tranche;
 	bool got_scanout_tranche = false;
-	unsigned int i;
 
 	fprintf(stderr, L_LAST " end of dma-buf feedback\n\n");
 
@@ -1313,8 +1322,7 @@ dmabuf_feedback_done(void *data, struct zwp_linux_dmabuf_feedback_v1 *dmabuf_fee
 		if (tranche->is_scanout_tranche) {
 			got_scanout_tranche = true;
 			if (pick_format_from_scanout_tranche(window, tranche)) {
-				for (i = 0; i < NUM_BUFFERS; i++)
-					window->buffers[i].recreate = true;
+				window_buffers_invalidate(window);
 				break;
 			}
 		}
