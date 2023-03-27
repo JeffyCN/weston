@@ -95,6 +95,13 @@ struct ivi_input_panel_surface
 	struct wl_list link;
 };
 
+struct ivi_shell_seat {
+	struct weston_seat *seat;
+	struct wl_listener seat_destroy_listener;
+
+	struct wl_list link;	/** ivi_shell::seat_list */
+};
+
 /*
  * Implementation of ivi_surface
  */
@@ -357,6 +364,44 @@ bind_ivi_application(struct wl_client *client,
 				       shell, NULL);
 }
 
+/*
+ * ivi_shell_seat
+ */
+static void
+ivi_shell_seat_destroy(struct ivi_shell_seat *shseat)
+{
+	wl_list_remove(&shseat->seat_destroy_listener.link);
+	wl_list_remove(&shseat->link);
+	free(shseat);
+}
+
+static void
+ivi_shell_seat_handle_destroy(struct wl_listener *listener, void *data)
+{
+	struct ivi_shell_seat *shseat = container_of(listener,
+						     struct ivi_shell_seat,
+						     seat_destroy_listener);
+
+	ivi_shell_seat_destroy(shseat);
+}
+
+static struct ivi_shell_seat *
+ivi_shell_seat_create(struct ivi_shell *shell, struct weston_seat *seat)
+{
+	struct ivi_shell_seat *shseat;
+
+	shseat = xzalloc(sizeof *shseat);
+
+	shseat->seat = seat;
+
+	shseat->seat_destroy_listener.notify = ivi_shell_seat_handle_destroy;
+	wl_signal_add(&seat->destroy_signal, &shseat->seat_destroy_listener);
+
+	wl_list_insert(&shell->seat_list, &shseat->link);
+
+	return shseat;
+}
+
 void
 input_panel_destroy(struct ivi_shell *shell);
 
@@ -369,11 +414,13 @@ shell_destroy(struct wl_listener *listener, void *data)
 	struct ivi_shell *shell =
 		container_of(listener, struct ivi_shell, destroy_listener);
 	struct ivi_shell_surface *ivisurf, *next;
+	struct ivi_shell_seat *shseat, *shseat_next;
 
 	ivi_layout_ivi_shell_destroy();
 
 	wl_list_remove(&shell->destroy_listener.link);
 	wl_list_remove(&shell->wake_listener.link);
+	wl_list_remove(&shell->seat_created_listener.link);
 
 	if (shell->text_backend) {
 		text_backend_destroy(shell->text_backend);
@@ -386,6 +433,9 @@ shell_destroy(struct wl_listener *listener, void *data)
 		wl_list_remove(&ivisurf->link);
 		free(ivisurf);
 	}
+
+	wl_list_for_each_safe(shseat, shseat_next, &shell->seat_list, link)
+		ivi_shell_seat_destroy(shseat);
 
 	ivi_layout_fini();
 
@@ -705,6 +755,16 @@ static const struct weston_desktop_api shell_desktop_api = {
 	.minimized_requested = desktop_surface_minimized_requested,
 	.set_xwayland_position = desktop_surface_set_xwayland_position,
 };
+
+static void
+ivi_shell_handle_seat_created(struct wl_listener *listener, void *data)
+{
+	struct weston_seat *seat = data;
+	struct ivi_shell *shell =
+		container_of(listener, struct ivi_shell, seat_created_listener);
+
+	ivi_shell_seat_create(shell, seat);
+}
 
 /*
  * end of libweston-desktop
@@ -1044,6 +1104,7 @@ wet_shell_init(struct weston_compositor *compositor,
 	       int *argc, char *argv[])
 {
 	struct ivi_shell *shell;
+	struct weston_seat *seat;
 
 	shell = xzalloc(sizeof *shell);
 
@@ -1067,6 +1128,13 @@ wet_shell_init(struct weston_compositor *compositor,
 			     &ivi_application_interface, 1,
 			     shell, bind_ivi_application) == NULL)
 		goto err_desktop;
+
+	wl_list_init(&shell->seat_list);
+	wl_list_for_each(seat, &compositor->seat_list, link)
+		ivi_shell_seat_create(shell, seat);
+	shell->seat_created_listener.notify = ivi_shell_handle_seat_created;
+	wl_signal_add(&compositor->seat_created_signal,
+		      &shell->seat_created_listener);
 
 	ivi_layout_init(compositor, shell);
 

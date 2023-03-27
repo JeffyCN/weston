@@ -39,6 +39,7 @@ struct ivi_shell
 	struct wl_listener show_input_panel_listener;
 	struct wl_listener hide_input_panel_listener;
 	struct wl_listener update_input_panel_listener;
+	struct wl_listener seat_created_listener;
 
 	struct weston_compositor *compositor;
 
@@ -52,6 +53,8 @@ struct ivi_shell
 		struct wl_resource *binding;
 		struct wl_list surfaces;
 	} input_panel;
+
+	struct wl_list seat_list;
 };
 
 void
