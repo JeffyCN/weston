@@ -682,8 +682,10 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	window->callback = wl_surface_frame(window->surface);
 	wl_callback_add_listener(window->callback, &frame_listener, window);
 
-	if (window->presentation_feedback)
+	if (window->presentation_feedback) {
 		wp_presentation_feedback_destroy(window->presentation_feedback);
+		window->presentation_feedback = NULL;
+	}
 	if (window->display->presentation) {
 		window->presentation_feedback =
 			wp_presentation_feedback(window->display->presentation,
@@ -735,12 +737,15 @@ static void presentation_feedback_handle_presented(void *data,
 
 	window->presented_zero_copy = zero_copy;
 	wp_presentation_feedback_destroy(feedback);
+	window->presentation_feedback = NULL;
 }
 
 static void presentation_feedback_handle_discarded(void *data,
 						   struct wp_presentation_feedback *feedback)
 {
+	struct window *window = data;
 	wp_presentation_feedback_destroy(feedback);
+	window->presentation_feedback = NULL;
 }
 
 static const struct wp_presentation_feedback_listener presentation_feedback_listener = {
