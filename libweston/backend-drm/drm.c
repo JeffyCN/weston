@@ -384,7 +384,7 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 	 */
 	if (!pixman_region32_not_empty(damage) &&
 	    wl_list_empty(&output->base.frame_signal.listener_list) &&
-	    !weston_output_has_capture_tasks(&output->base) &&
+	    !weston_output_has_renderer_capture_tasks(&output->base) &&
 	    scanout_plane->state_cur->fb &&
 	    (scanout_plane->state_cur->fb->type == BUFFER_GBM_SURFACE ||
 	     scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB)) {

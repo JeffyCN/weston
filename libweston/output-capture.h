@@ -69,7 +69,7 @@ weston_output_update_capture_info(struct weston_output *output,
 				  const struct pixel_format_info *format);
 
 bool
-weston_output_has_capture_tasks(struct weston_output *output);
+weston_output_has_renderer_capture_tasks(struct weston_output *output);
 
 struct weston_capture_task;
 
