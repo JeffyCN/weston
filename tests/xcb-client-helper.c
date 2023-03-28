@@ -45,7 +45,7 @@
 #include <libweston/zalloc.h>
 #include "xcb-client-helper.h"
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define printfd(fmt, args...) do {	\

@@ -56,7 +56,7 @@ fixture_setup(struct weston_test_harness *harness)
 	compositor_setup_defaults(&setup);
 	setup.shell = SHELL_TEST_DESKTOP;
 	setup.xwayland = true;
-	/* setup.logging_scopes = "xwm-wm-x11"; */
+	setup.logging_scopes = "xwm-wm-x11";
 
 	return weston_test_harness_execute_as_client(harness, &setup);
 }
