@@ -2354,8 +2354,9 @@ weston_view_activate_input(struct weston_view *view,
 	inc_activate_serial(compositor);
 
 	activation_data = (struct weston_surface_activation_data) {
-		.surface = view->surface,
+		.view = view,
 		.seat = seat,
+		.flags = flags
 	};
 	wl_signal_emit(&compositor->activate_signal, &activation_data);
 }
@@ -4823,7 +4824,7 @@ pointer_constraint_surface_activate(struct wl_listener *listener, void *data)
 {
 	struct weston_surface_activation_data *activation = data;
 	struct weston_pointer *pointer;
-	struct weston_surface *focus = activation->surface;
+	struct weston_surface *focus = activation->view->surface;
 	struct weston_pointer_constraint *constraint =
 		container_of(listener, struct weston_pointer_constraint,
 			     surface_activate_listener);

@@ -984,7 +984,7 @@ static void
 weston_wm_window_activate(struct wl_listener *listener, void *data)
 {
 	struct weston_surface_activation_data *activation_data = data;
-	struct weston_surface *surface = activation_data->surface;
+	struct weston_surface *surface = activation_data->view->surface;
 	struct weston_wm_window *window = NULL;
 	struct weston_wm *wm =
 		container_of(listener, struct weston_wm, activate_listener);
