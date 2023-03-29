@@ -2342,6 +2342,7 @@ weston_view_activate_input(struct weston_view *view,
 		     uint32_t flags)
 {
 	struct weston_compositor *compositor = seat->compositor;
+	struct weston_surface_activation_data activation_data;
 
 	if (flags & WESTON_ACTIVATE_FLAG_CLICKED) {
 		view->click_to_activate_serial =
@@ -2349,6 +2350,14 @@ weston_view_activate_input(struct weston_view *view,
 	}
 
 	weston_seat_set_keyboard_focus(seat, view->surface);
+
+	inc_activate_serial(compositor);
+
+	activation_data = (struct weston_surface_activation_data) {
+		.surface = view->surface,
+		.seat = seat,
+	};
+	wl_signal_emit(&compositor->activate_signal, &activation_data);
 }
 
 WL_EXPORT void
@@ -4609,22 +4618,12 @@ WL_EXPORT void
 weston_seat_set_keyboard_focus(struct weston_seat *seat,
 			       struct weston_surface *surface)
 {
-	struct weston_compositor *compositor = seat->compositor;
 	struct weston_keyboard *keyboard = weston_seat_get_keyboard(seat);
-	struct weston_surface_activation_data activation_data;
 
 	if (keyboard && keyboard->focus != surface) {
 		weston_keyboard_set_focus(keyboard, surface);
 		wl_data_device_set_keyboard_focus(seat);
 	}
-
-	inc_activate_serial(compositor);
-
-	activation_data = (struct weston_surface_activation_data) {
-		.surface = surface,
-		.seat = seat,
-	};
-	wl_signal_emit(&compositor->activate_signal, &activation_data);
 }
 
 static void
