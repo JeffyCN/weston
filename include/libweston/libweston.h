@@ -855,14 +855,15 @@ weston_pointer_has_focus_resource(struct weston_pointer *pointer);
 void
 weston_pointer_send_button(struct weston_pointer *pointer,
 			   const struct timespec *time,
-			   uint32_t button, uint32_t state_w);
+			   uint32_t button,
+			   enum wl_pointer_button_state state);
 void
 weston_pointer_send_axis(struct weston_pointer *pointer,
 			 const struct timespec *time,
 			 struct weston_pointer_axis_event *event);
 void
 weston_pointer_send_axis_source(struct weston_pointer *pointer,
-				uint32_t source);
+				enum wl_pointer_axis_source source);
 void
 weston_pointer_send_frame(struct weston_pointer *pointer);
 

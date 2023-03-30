@@ -67,7 +67,8 @@ weston_compositor_add_binding(struct weston_compositor *compositor,
 
 WL_EXPORT struct weston_binding *
 weston_compositor_add_key_binding(struct weston_compositor *compositor,
-				  uint32_t key, uint32_t modifier,
+				  uint32_t key,
+				  enum weston_keyboard_modifier modifier,
 				  weston_key_binding_handler_t handler,
 				  void *data)
 {
@@ -85,7 +86,7 @@ weston_compositor_add_key_binding(struct weston_compositor *compositor,
 
 WL_EXPORT struct weston_binding *
 weston_compositor_add_modifier_binding(struct weston_compositor *compositor,
-				       uint32_t modifier,
+				       enum weston_keyboard_modifier modifier,
 				       weston_modifier_binding_handler_t handler,
 				       void *data)
 {
@@ -103,7 +104,8 @@ weston_compositor_add_modifier_binding(struct weston_compositor *compositor,
 
 WL_EXPORT struct weston_binding *
 weston_compositor_add_button_binding(struct weston_compositor *compositor,
-				     uint32_t button, uint32_t modifier,
+				     uint32_t button,
+				     enum weston_keyboard_modifier modifier,
 				     weston_button_binding_handler_t handler,
 				     void *data)
 {
@@ -121,7 +123,7 @@ weston_compositor_add_button_binding(struct weston_compositor *compositor,
 
 WL_EXPORT struct weston_binding *
 weston_compositor_add_touch_binding(struct weston_compositor *compositor,
-				    uint32_t modifier,
+				    enum weston_keyboard_modifier modifier,
 				    weston_touch_binding_handler_t handler,
 				    void *data)
 {
@@ -139,7 +141,8 @@ weston_compositor_add_touch_binding(struct weston_compositor *compositor,
 
 WL_EXPORT struct weston_binding *
 weston_compositor_add_axis_binding(struct weston_compositor *compositor,
-				   uint32_t axis, uint32_t modifier,
+				   uint32_t axis,
+				   enum weston_keyboard_modifier modifier,
 				   weston_axis_binding_handler_t handler,
 				   void *data)
 {
