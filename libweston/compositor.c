@@ -6559,7 +6559,6 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 	wl_list_remove(&output->link);
 	wl_list_insert(compositor->output_list.prev, &output->link);
 	output->enabled = true;
-	output->power_state = WESTON_OUTPUT_POWER_NORMAL;
 
 	wl_list_for_each(head, &output->head_list, output_link)
 		weston_head_add_global(head);
@@ -7076,6 +7075,7 @@ weston_output_init(struct weston_output *output,
 	output->eotf_mode = WESTON_EOTF_MODE_SDR;
 	output->desired_protection = WESTON_HDCP_DISABLE;
 	output->allow_protection = true;
+	output->power_state = WESTON_OUTPUT_POWER_NORMAL;
 
 	wl_list_init(&output->head_list);
 
