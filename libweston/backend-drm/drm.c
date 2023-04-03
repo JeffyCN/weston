@@ -524,7 +524,7 @@ drm_writeback_state_alloc(void)
 static void
 drm_writeback_state_free(struct drm_writeback_state *state)
 {
-	struct drm_fb *fb;
+	struct drm_fb **fb;
 
 	if (state->out_fence_fd >= 0)
 		close(state->out_fence_fd);
@@ -536,7 +536,7 @@ drm_writeback_state_free(struct drm_writeback_state *state)
 	/* Unref framebuffers that were in use in the same commit of the one with
 	 * the writeback setup */
 	wl_array_for_each(fb, &state->referenced_fbs)
-		drm_fb_unref(fb);
+		drm_fb_unref(*fb);
 	wl_array_release(&state->referenced_fbs);
 
 	free(state);
