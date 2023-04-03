@@ -7625,7 +7625,7 @@ weston_output_force_power(struct weston_output *output,
 	    output->compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
 		return;
 
-	if (!output->set_dpms)
+	if (!output->set_dpms || !output->enabled)
 		return;
 
 	dpms = (power == WESTON_OUTPUT_POWER_NORMAL) ? WESTON_DPMS_ON : WESTON_DPMS_OFF;
