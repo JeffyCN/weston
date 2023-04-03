@@ -35,6 +35,8 @@
 #include <signal.h>
 #include <errno.h>
 
+#include <linux/input.h>
+
 #include <wayland-client.h>
 #include "shared/os-compatibility.h"
 #include <libweston/zalloc.h>
@@ -49,6 +51,8 @@ struct display {
 	struct wl_compositor *compositor;
 	struct xdg_wm_base *wm_base;
 	struct zwp_fullscreen_shell_v1 *fshell;
+	struct wl_seat *seat;
+	struct wl_keyboard *keyboard;
 	struct wl_shm *shm;
 	bool has_xrgb;
 };
@@ -190,6 +194,71 @@ create_shm_buffer(struct window *window, struct buffer *buffer, uint32_t format)
 
 	return 0;
 }
+
+static void
+keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
+		       uint32_t format, int fd, uint32_t size)
+{
+	/* Just so we don’t leak the keymap fd */
+	close(fd);
+}
+
+static void
+keyboard_handle_enter(void *data, struct wl_keyboard *keyboard,
+		      uint32_t serial, struct wl_surface *surface,
+		      struct wl_array *keys)
+{
+}
+
+static void
+keyboard_handle_leave(void *data, struct wl_keyboard *keyboard,
+		      uint32_t serial, struct wl_surface *surface)
+{
+}
+
+static void
+keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
+		    uint32_t serial, uint32_t time, uint32_t key,
+		    uint32_t state)
+{
+	if (key == KEY_ESC && state)
+		running = 0;
+}
+
+static void
+keyboard_handle_modifiers(void *data, struct wl_keyboard *keyboard,
+			  uint32_t serial, uint32_t mods_depressed,
+			  uint32_t mods_latched, uint32_t mods_locked,
+			  uint32_t group)
+{
+}
+
+static const struct wl_keyboard_listener keyboard_listener = {
+	keyboard_handle_keymap,
+	keyboard_handle_enter,
+	keyboard_handle_leave,
+	keyboard_handle_key,
+	keyboard_handle_modifiers,
+};
+
+static void
+seat_handle_capabilities(void *data, struct wl_seat *seat,
+			 enum wl_seat_capability caps)
+{
+	struct display *d = data;
+
+	if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !d->keyboard) {
+		d->keyboard = wl_seat_get_keyboard(seat);
+		wl_keyboard_add_listener(d->keyboard, &keyboard_listener, d);
+	} else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && d->keyboard) {
+		wl_keyboard_destroy(d->keyboard);
+		d->keyboard = NULL;
+	}
+}
+
+static const struct wl_seat_listener seat_listener = {
+	seat_handle_capabilities,
+};
 
 static void
 handle_xdg_surface_configure(void *data, struct xdg_surface *surface,
@@ -487,6 +556,10 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->wm_base = wl_registry_bind(registry,
 					      id, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(d->wm_base, &xdg_wm_base_listener, d);
+	} else if (strcmp(interface, "wl_seat") == 0) {
+		d->seat = wl_registry_bind(registry, id,
+					   &wl_seat_interface, 1);
+		wl_seat_add_listener(d->seat, &seat_listener, d);
 	} else if (strcmp(interface, "zwp_fullscreen_shell_v1") == 0) {
 		d->fshell = wl_registry_bind(registry,
 					     id, &zwp_fullscreen_shell_v1_interface, 1);
