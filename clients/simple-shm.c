@@ -66,6 +66,7 @@ struct buffer {
 struct window {
 	struct display *display;
 	int width, height;
+	int init_width, init_height;
 	struct wl_surface *surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
@@ -73,6 +74,9 @@ struct window {
 	struct buffer *prev_buffer;
 	struct wl_callback *callback;
 	bool wait_for_configure;
+	bool maximized;
+	bool fullscreen;
+	bool needs_update_buffer;
 };
 
 static int running = 1;
@@ -208,8 +212,39 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 static void
 handle_xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 			      int32_t width, int32_t height,
-			      struct wl_array *state)
+			      struct wl_array *states)
 {
+	struct window *window = data;
+	uint32_t *p;
+
+	window->fullscreen = false;
+	window->maximized = false;
+
+	wl_array_for_each(p, states) {
+		uint32_t state = *p;
+		switch (state) {
+		case XDG_TOPLEVEL_STATE_FULLSCREEN:
+			window->fullscreen = true;
+			break;
+		case XDG_TOPLEVEL_STATE_MAXIMIZED:
+			window->maximized = true;
+			break;
+		}
+	}
+
+	if (width > 0 && height > 0) {
+		if (!window->fullscreen && !window->maximized) {
+			window->init_width = width;
+			window->init_height = height;
+		}
+		window->width = width;
+		window->height = height;
+	} else if (!window->fullscreen && !window->maximized) {
+		window->width = window->init_width;
+		window->height = window->init_height;
+	}
+
+	window->needs_update_buffer = true;
 }
 
 static void
@@ -237,7 +272,10 @@ create_window(struct display *display, int width, int height)
 	window->display = display;
 	window->width = width;
 	window->height = height;
+	window->init_width = width;
+	window->init_height = height;
 	window->surface = wl_compositor_create_surface(display->compositor);
+	window->needs_update_buffer = false;
 	wl_list_init(&window->buffer_list);
 
 	if (display->wm_base) {
@@ -300,6 +338,15 @@ window_next_buffer(struct window *window)
 {
 	struct buffer *buffer = NULL;
 	int ret = 0;
+
+	if (window->needs_update_buffer) {
+		int i;
+
+		for (i = 0; i < MAX_BUFFER_ALLOC; i++)
+			alloc_buffer(window, window->width, window->height);
+
+		window->needs_update_buffer = false;
+	}
 
 	buffer = pick_free_buffer(window);
 
