@@ -7267,7 +7267,6 @@ weston_output_enable(struct weston_output *output)
 	wl_list_init(&output->paint_node_z_order_list);
 
 	weston_output_update_matrix(output);
-	weston_output_damage(output);
 
 	weston_log("Output '%s' attempts EOTF mode: %s\n", output->name,
 		   weston_eotf_mode_to_str(output->eotf_mode));
@@ -7290,6 +7289,7 @@ weston_output_enable(struct weston_output *output)
 	}
 
 	weston_compositor_add_output(output->compositor, output);
+	weston_output_damage(output);
 
 	head_names = weston_output_create_heads_string(output);
 	weston_log("Output '%s' enabled with head(s) %s\n",
