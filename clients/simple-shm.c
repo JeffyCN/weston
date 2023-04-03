@@ -41,6 +41,8 @@
 #include "xdg-shell-client-protocol.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 
+#define MAX_BUFFER_ALLOC	2
+
 struct display {
 	struct wl_display *display;
 	struct wl_registry *registry;
@@ -52,9 +54,13 @@ struct display {
 };
 
 struct buffer {
+	struct window *window;
 	struct wl_buffer *buffer;
 	void *shm_data;
 	int busy;
+	int width, height;
+	size_t size;	/* width * 4 * height */
+	struct wl_list buffer_link; /** window::buffer_list */
 };
 
 struct window {
@@ -63,7 +69,7 @@ struct window {
 	struct wl_surface *surface;
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
-	struct buffer buffers[2];
+	struct wl_list buffer_list;
 	struct buffer *prev_buffer;
 	struct wl_callback *callback;
 	bool wait_for_configure;
@@ -73,6 +79,58 @@ static int running = 1;
 
 static void
 redraw(void *data, struct wl_callback *callback, uint32_t time);
+
+static struct buffer *
+alloc_buffer(struct window *window, int width, int height)
+{
+	struct buffer *buffer = calloc(1, sizeof(*buffer));
+
+	buffer->width = width;
+	buffer->height = height;
+	wl_list_insert(&window->buffer_list, &buffer->buffer_link);
+
+	return buffer;
+}
+
+static void
+destroy_buffer(struct buffer *buffer)
+{
+	if (buffer->buffer)
+		wl_buffer_destroy(buffer->buffer);
+
+	munmap(buffer->shm_data, buffer->size);
+	wl_list_remove(&buffer->buffer_link);
+	free(buffer);
+}
+
+static struct buffer *
+pick_free_buffer(struct window *window)
+{
+	struct buffer *b;
+	struct buffer *buffer = NULL;
+
+	wl_list_for_each(b, &window->buffer_list, buffer_link) {
+		if (!b->busy) {
+			buffer = b;
+			break;
+		}
+	}
+
+	return buffer;
+}
+
+static void
+prune_old_released_buffers(struct window *window)
+{
+	struct buffer *b, *b_next;
+
+	wl_list_for_each_safe(b, b_next,
+			      &window->buffer_list, buffer_link) {
+		if (!b->busy && (b->width != window->width ||
+		    b->height != window->height))
+			destroy_buffer(b);
+	}
+}
 
 static void
 buffer_release(void *data, struct wl_buffer *buffer)
@@ -87,15 +145,19 @@ static const struct wl_buffer_listener buffer_listener = {
 };
 
 static int
-create_shm_buffer(struct display *display, struct buffer *buffer,
-		  int width, int height, uint32_t format)
+create_shm_buffer(struct window *window, struct buffer *buffer, uint32_t format)
 {
 	struct wl_shm_pool *pool;
 	int fd, size, stride;
 	void *data;
+	int width, height;
+	struct display *display;
 
+	width = window->width;
+	height = window->height;
 	stride = width * 4;
 	size = stride * height;
+	display = window->display;
 
 	fd = os_create_anonymous_file(size);
 	if (fd < 0) {
@@ -119,6 +181,7 @@ create_shm_buffer(struct display *display, struct buffer *buffer,
 	wl_shm_pool_destroy(pool);
 	close(fd);
 
+	buffer->size = size;
 	buffer->shm_data = data;
 
 	return 0;
@@ -164,6 +227,7 @@ static struct window *
 create_window(struct display *display, int width, int height)
 {
 	struct window *window;
+	int i;
 
 	window = zalloc(sizeof *window);
 	if (!window)
@@ -174,6 +238,7 @@ create_window(struct display *display, int width, int height)
 	window->width = width;
 	window->height = height;
 	window->surface = wl_compositor_create_surface(display->compositor);
+	wl_list_init(&window->buffer_list);
 
 	if (display->wm_base) {
 		window->xdg_surface =
@@ -204,19 +269,23 @@ create_window(struct display *display, int width, int height)
 		assert(0);
 	}
 
+	for (i = 0; i < MAX_BUFFER_ALLOC; i++)
+		alloc_buffer(window, window->width, window->height);
+
 	return window;
 }
 
 static void
 destroy_window(struct window *window)
 {
+	struct buffer *buffer, *buffer_next;
+
 	if (window->callback)
 		wl_callback_destroy(window->callback);
 
-	if (window->buffers[0].buffer)
-		wl_buffer_destroy(window->buffers[0].buffer);
-	if (window->buffers[1].buffer)
-		wl_buffer_destroy(window->buffers[1].buffer);
+	wl_list_for_each_safe(buffer, buffer_next,
+			      &window->buffer_list, buffer_link)
+		destroy_buffer(buffer);
 
 	if (window->xdg_toplevel)
 		xdg_toplevel_destroy(window->xdg_toplevel);
@@ -229,20 +298,16 @@ destroy_window(struct window *window)
 static struct buffer *
 window_next_buffer(struct window *window)
 {
-	struct buffer *buffer;
+	struct buffer *buffer = NULL;
 	int ret = 0;
 
-	if (!window->buffers[0].busy)
-		buffer = &window->buffers[0];
-	else if (!window->buffers[1].busy)
-		buffer = &window->buffers[1];
-	else
+	buffer = pick_free_buffer(window);
+
+	if (!buffer)
 		return NULL;
 
 	if (!buffer->buffer) {
-		ret = create_shm_buffer(window->display, buffer,
-					window->width, window->height,
-					WL_SHM_FORMAT_XRGB8888);
+		ret = create_shm_buffer(window, buffer, WL_SHM_FORMAT_XRGB8888);
 
 		if (ret < 0)
 			return NULL;
@@ -308,6 +373,8 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 {
 	struct window *window = data;
 	struct buffer *buffer;
+
+	prune_old_released_buffers(window);
 
 	buffer = window_next_buffer(window);
 	if (!buffer) {
