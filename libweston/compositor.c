@@ -6478,6 +6478,7 @@ weston_output_set_position(struct weston_output *output,
 		return;
 
 	weston_output_init_geometry(output, pos);
+	weston_output_damage(output);
 
 	weston_output_update_matrix(output);
 
