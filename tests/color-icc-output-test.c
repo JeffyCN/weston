@@ -443,6 +443,7 @@ fixture_setup(struct weston_test_harness *harness, const struct setup_args *arg)
 	setup.width = WINDOW_WIDTH;
 	setup.height = WINDOW_HEIGHT;
 	setup.shell = SHELL_TEST_DESKTOP;
+	setup.logging_scopes = "log,color-lcms-profiles,color-lcms-transformations,color-lcms-optimizer";
 
 	file_name = build_output_icc_profile(arg);
 	if (!file_name)
