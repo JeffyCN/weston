@@ -8626,6 +8626,7 @@ weston_compositor_shutdown(struct weston_compositor *ec)
 	weston_binding_list_destroy_all(&ec->touch_binding_list);
 	weston_binding_list_destroy_all(&ec->axis_binding_list);
 	weston_binding_list_destroy_all(&ec->debug_binding_list);
+	weston_binding_list_destroy_all(&ec->tablet_tool_binding_list);
 
 	weston_plane_release(&ec->primary_plane);
 
