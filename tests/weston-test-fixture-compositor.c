@@ -366,10 +366,6 @@ execute_compositor(const struct compositor_setup *setup,
 	if (setup->xwayland)
 		prog_args_take(&args, strdup("--xwayland"));
 
-	test_data.test_quirks = setup->test_quirks;
-	test_data.test_private_data = data;
-	prog_args_save(&args);
-
 	if (setenv("WESTON_MODULE_MAP", WESTON_MODULE_MAP, 0) < 0 ||
 	    setenv("WESTON_DATA_DIR", WESTON_DATA_DIR, 0) < 0) {
 		fprintf(stderr, "Error: environment setup failed.\n");
@@ -410,6 +406,10 @@ execute_compositor(const struct compositor_setup *setup,
 		ret = RESULT_SKIP;
 	}
 #endif
+
+	test_data.test_quirks = setup->test_quirks;
+	test_data.test_private_data = data;
+	prog_args_save(&args);
 
 	if (ret == RESULT_OK)
 		ret = wet_main(args.argc, args.argv, &test_data);
