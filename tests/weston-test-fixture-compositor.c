@@ -289,31 +289,6 @@ execute_compositor(const struct compositor_setup *setup,
 	str_printf(&tmp, "--backend=%s", backend_to_str(setup->backend));
 	prog_args_take(&args, tmp);
 
-	if (setup->backend == WESTON_BACKEND_DRM) {
-
-		drm_device = getenv("WESTON_TEST_SUITE_DRM_DEVICE");
-		if (!drm_device) {
-			fprintf(stderr, "Skipping DRM-backend tests because " \
-				"WESTON_TEST_SUITE_DRM_DEVICE is not set. " \
-				"See test suite documentation to learn how " \
-				"to run them.\n");
-			ret = RESULT_SKIP;
-			goto out;
-		}
-		str_printf(&tmp, "--drm-device=%s", drm_device);
-		prog_args_take(&args, tmp);
-
-		prog_args_take(&args, strdup("--seat=weston-test-seat"));
-
-		prog_args_take(&args, strdup("--continue-without-input"));
-
-		lock_fd = wait_for_lock();
-		if (lock_fd == -1) {
-			ret = RESULT_FAIL;
-			goto out;
-		}
-	}
-
 	/* Test suite needs the debug protocol to be able to take screenshots */
 	prog_args_take(&args, strdup("--debug"));
 
@@ -372,12 +347,32 @@ execute_compositor(const struct compositor_setup *setup,
 		ret = RESULT_HARD_ERROR;
 	}
 
-#ifndef BUILD_DRM_COMPOSITOR
 	if (setup->backend == WESTON_BACKEND_DRM) {
+#ifndef BUILD_DRM_COMPOSITOR
 		fprintf(stderr, "DRM-backend required but not built, skipping.\n");
 		ret = RESULT_SKIP;
-	}
+#else
+		drm_device = getenv("WESTON_TEST_SUITE_DRM_DEVICE");
+		if (!drm_device) {
+			fprintf(stderr, "Skipping DRM-backend tests because " \
+				"WESTON_TEST_SUITE_DRM_DEVICE is not set. " \
+				"See test suite documentation to learn how " \
+				"to run them.\n");
+			ret = RESULT_SKIP;
+		}
+
+		str_printf(&tmp, "--drm-device=%s", drm_device);
+		prog_args_take(&args, tmp);
+
+		prog_args_take(&args, strdup("--seat=weston-test-seat"));
+
+		prog_args_take(&args, strdup("--continue-without-input"));
+
+		lock_fd = wait_for_lock();
+		if (lock_fd == -1)
+			ret = RESULT_FAIL;
 #endif
+	}
 
 #ifndef BUILD_RDP_COMPOSITOR
 	if (setup->backend == WESTON_BACKEND_RDP) {
@@ -414,7 +409,6 @@ execute_compositor(const struct compositor_setup *setup,
 	if (ret == RESULT_OK)
 		ret = wet_main(args.argc, args.argv, &test_data);
 
-out:
 	prog_args_fini(&args);
 
 	/* We acquired a lock (if this is a DRM-backend test) and now we can
