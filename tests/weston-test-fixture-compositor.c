@@ -353,7 +353,7 @@ execute_compositor(const struct compositor_setup *setup,
 	}
 
 	str_printf(&tmp, "--renderer=%s", renderer_to_str(setup->renderer));
-	prog_args_take(&args, strdup(tmp));
+	prog_args_take(&args, tmp);
 
 	str_printf(&tmp, "--shell=%s", shell_to_str(setup->shell));
 	prog_args_take(&args, tmp);
