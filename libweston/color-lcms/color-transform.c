@@ -376,7 +376,7 @@ join_curvesets(cmsContext context_id, const cmsStage *prev,
 
 	ret = cmsStageAllocToneCurves(context_id, ARRAY_LENGTH(arr), arr);
 	abort_oom_if_null(ret);
-
+	cmsFreeToneCurveTriple(arr);
 	return ret;
 }
 
