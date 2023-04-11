@@ -142,7 +142,8 @@ weston_compositor_add_touch_binding(struct weston_compositor *compositor,
 
 WL_EXPORT struct weston_binding *
 weston_compositor_add_tablet_tool_binding(struct weston_compositor *compositor,
-					  uint32_t button, uint32_t modifier,
+					  uint32_t button,
+					  enum weston_keyboard_modifier modifier,
 					  weston_tablet_tool_binding_handler_t handler,
 					  void *data)
 {
