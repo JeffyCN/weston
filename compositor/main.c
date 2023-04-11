@@ -4119,6 +4119,7 @@ out_display:
 		weston_config_destroy(config);
 	free(config_file);
 	free(backend);
+	free(renderer);
 	free(shell);
 	free(socket_name);
 	free(option_modules);
