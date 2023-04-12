@@ -507,6 +507,8 @@ headless_destroy(struct weston_backend *backend)
 
 	free(b->formats);
 	free(b);
+
+	cleanup_after_cairo();
 }
 
 static const struct weston_windowed_output_api api = {
