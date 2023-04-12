@@ -2794,6 +2794,8 @@ wayland_destroy(struct weston_backend *backend)
 	wl_display_flush(b->parent.wl_display);
 	wl_display_disconnect(b->parent.wl_display);
 
+	cleanup_after_cairo();
+
 	free(b);
 }
 
@@ -2970,6 +2972,7 @@ wayland_backend_destroy(struct wayland_backend *b)
 	wl_cursor_theme_destroy(b->cursor_theme);
 
 	weston_compositor_shutdown(b->compositor);
+	cleanup_after_cairo();
 	free(b->formats);
 	free(b);
 }
