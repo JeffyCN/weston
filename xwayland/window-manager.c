@@ -2949,6 +2949,14 @@ weston_wm_destroy(struct weston_wm *wm)
 	wl_list_remove(&wm->kill_listener.link);
 	wl_list_remove(&wm->create_surface_listener.link);
 
+	/*
+	 * No, you cannot call cleanup_after_cairo() here, because Weston
+	 * on wayland-backend would crash in an assert inside Cairo.
+	 * Just rely on headless and wayland backends calling it.
+	 *
+	 * XXX: fix this for other backends.
+	 */
+
 	free(wm);
 }
 
