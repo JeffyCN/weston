@@ -65,7 +65,6 @@ struct vnc_backend {
 	struct weston_compositor *compositor;
 	struct weston_log_scope *debug;
 	struct vnc_output *output;
-	struct wl_listener output_move_listener;
 
 	struct xkb_rule_names xkb_rule_name;
 	struct xkb_keymap *xkb_keymap;
@@ -821,8 +820,6 @@ vnc_destroy(struct weston_backend *base)
 	struct vnc_backend *backend = container_of(base, struct vnc_backend, base);
 	struct weston_compositor *ec = backend->compositor;
 	struct weston_head *head, *next;
-
-	wl_list_remove(&backend->output_move_listener.link);
 
 	nvnc_close(backend->server);
 
