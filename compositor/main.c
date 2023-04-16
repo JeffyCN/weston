@@ -3064,7 +3064,7 @@ load_headless_backend(struct weston_compositor *c,
 			return -1;
 		}
 
-		if (api->create_head(c, "headless") < 0)
+		if (api->create_head(c->backend, "headless") < 0)
 			return -1;
 	}
 
@@ -3418,7 +3418,7 @@ load_x11_backend(struct weston_compositor *c,
 			continue;
 		}
 
-		if (api->create_head(c, output_name) < 0) {
+		if (api->create_head(c->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -3434,7 +3434,7 @@ load_x11_backend(struct weston_compositor *c,
 			return -1;
 		}
 
-		if (api->create_head(c, default_output) < 0) {
+		if (api->create_head(c->backend, default_output) < 0) {
 			free(default_output);
 			return -1;
 		}
@@ -3559,7 +3559,7 @@ load_wayland_backend(struct weston_compositor *c,
 			continue;
 		}
 
-		if (api->create_head(c, output_name) < 0) {
+		if (api->create_head(c->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}
@@ -3572,7 +3572,7 @@ load_wayland_backend(struct weston_compositor *c,
 		if (asprintf(&output_name, "wayland%d", i) < 0)
 			return -1;
 
-		if (api->create_head(c, output_name) < 0) {
+		if (api->create_head(c->backend, output_name) < 0) {
 			free(output_name);
 			return -1;
 		}

@@ -111,9 +111,9 @@ to_headless_output(struct weston_output *base)
 }
 
 static inline struct headless_backend *
-to_headless_backend(struct weston_compositor *base)
+to_headless_backend(struct weston_backend *base)
 {
-	return container_of(base->backend, struct headless_backend, base);
+	return container_of(base, struct headless_backend, base);
 }
 
 static int
@@ -446,10 +446,10 @@ headless_output_create(struct weston_backend *backend, const char *name)
 }
 
 static int
-headless_head_create(struct weston_compositor *compositor,
+headless_head_create(struct weston_backend *base,
 		     const char *name)
 {
-	struct headless_backend *backend = to_headless_backend(compositor);
+	struct headless_backend *backend = to_headless_backend(base);
 	struct headless_head *head;
 
 	/* name can't be NULL. */
@@ -472,7 +472,7 @@ headless_head_create(struct weston_compositor *compositor,
 	 * We do not have those until set_size() time through.
 	 */
 
-	weston_compositor_add_head(compositor, &head->base);
+	weston_compositor_add_head(backend->compositor, &head->base);
 
 	return 0;
 }

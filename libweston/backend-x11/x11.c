@@ -177,9 +177,9 @@ to_x11_output(struct weston_output *base)
 }
 
 static inline struct x11_backend *
-to_x11_backend(struct weston_compositor *base)
+to_x11_backend(struct weston_backend *backend)
 {
-	return container_of(base->backend, struct x11_backend, base);
+	return container_of(backend, struct x11_backend, base);
 }
 
 static xcb_screen_t *
@@ -1199,9 +1199,9 @@ x11_output_create(struct weston_backend *backend, const char *name)
 }
 
 static int
-x11_head_create(struct weston_compositor *compositor, const char *name)
+x11_head_create(struct weston_backend *base, const char *name)
 {
-	struct x11_backend *backend = to_x11_backend(compositor);
+	struct x11_backend *backend = to_x11_backend(base);
 	struct x11_head *head;
 
 	assert(name);
@@ -1215,7 +1215,7 @@ x11_head_create(struct weston_compositor *compositor, const char *name)
 	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
-	weston_compositor_add_head(compositor, &head->base);
+	weston_compositor_add_head(backend->compositor, &head->base);
 
 	return 0;
 }

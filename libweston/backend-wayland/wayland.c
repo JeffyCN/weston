@@ -260,9 +260,9 @@ to_wayland_output(struct weston_output *base)
 }
 
 static inline struct wayland_backend *
-to_wayland_backend(struct weston_compositor *base)
+to_wayland_backend(struct weston_backend *base)
 {
-	return container_of(base->backend, struct wayland_backend, base);
+	return container_of(base, struct wayland_backend, base);
 }
 
 static void
@@ -1423,9 +1423,9 @@ wayland_output_create(struct weston_backend *backend, const char *name)
 }
 
 static struct wayland_head *
-wayland_head_create(struct weston_compositor *compositor, const char *name)
+wayland_head_create(struct wayland_backend *backend, const char *name)
 {
-	struct wayland_backend *backend = to_wayland_backend(compositor);
+	struct weston_compositor *compositor = backend->compositor;
 	struct wayland_head *head;
 
 	assert(name);
@@ -1445,17 +1445,19 @@ wayland_head_create(struct weston_compositor *compositor, const char *name)
 }
 
 static int
-wayland_head_create_windowed(struct weston_compositor *compositor,
+wayland_head_create_windowed(struct weston_backend *base,
 			     const char *name)
 {
-	 if (!wayland_head_create(compositor, name))
+	struct wayland_backend *backend = to_wayland_backend(base);
+
+	if (!wayland_head_create(backend, name))
 		return -1;
 
 	return 0;
 }
 
 static int
-wayland_head_create_for_parent_output(struct weston_compositor *compositor,
+wayland_head_create_for_parent_output(struct wayland_backend *backend,
 				      struct wayland_parent_output *poutput)
 {
 	struct wayland_head *head;
@@ -1466,7 +1468,7 @@ wayland_head_create_for_parent_output(struct weston_compositor *compositor,
 	if (ret < 1 || (unsigned)ret >= sizeof(name))
 		return -1;
 
-	head = wayland_head_create(compositor, name);
+	head = wayland_head_create(backend, name);
 	if (!head)
 		return -1;
 
@@ -2590,7 +2592,7 @@ output_sync_callback(void *data, struct wl_callback *callback, uint32_t unused)
 
 	assert(output->backend->sprawl_across_outputs);
 
-	wayland_head_create_for_parent_output(output->backend->compositor, output);
+	wayland_head_create_for_parent_output(output->backend, output);
 }
 
 static const struct wl_callback_listener output_sync_listener = {
@@ -3016,13 +3018,13 @@ weston_backend_init(struct weston_compositor *compositor,
 		wl_display_roundtrip(b->parent.wl_display);
 
 		wl_list_for_each(poutput, &b->parent.output_list, link)
-			wayland_head_create_for_parent_output(compositor, poutput);
+			wayland_head_create_for_parent_output(b, poutput);
 
 		return 0;
 	}
 
 	if (new_config.fullscreen) {
-		if (!wayland_head_create(compositor, "wayland-fullscreen")) {
+		if (!wayland_head_create(b, "wayland-fullscreen")) {
 			weston_log("Unable to create a fullscreen head.\n");
 			goto err_outputs;
 		}
