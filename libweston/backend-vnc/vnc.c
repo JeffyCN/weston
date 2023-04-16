@@ -101,12 +101,6 @@ struct vnc_head {
 	struct weston_head base;
 };
 
-static inline struct vnc_backend *
-to_vnc_backend(struct weston_compositor *base)
-{
-	return container_of(base->backend, struct vnc_backend, base);
-}
-
 static void
 vnc_output_destroy(struct weston_output *base);
 
@@ -841,9 +835,8 @@ vnc_destroy(struct weston_backend *base)
 }
 
 static void
-vnc_head_create(struct weston_compositor *compositor, const char *name)
+vnc_head_create(struct vnc_backend *backend, const char *name)
 {
-	struct vnc_backend *backend = to_vnc_backend(compositor);
 	struct vnc_head *head;
 
 	head = xzalloc(sizeof *head);
@@ -855,7 +848,7 @@ vnc_head_create(struct weston_compositor *compositor, const char *name)
 	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
-	weston_compositor_add_head(compositor, &head->base);
+	weston_compositor_add_head(backend->compositor, &head->base);
 }
 
 static void
@@ -1107,7 +1100,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 					    NULL) < 0)
 		goto err_compositor;
 
-	vnc_head_create(compositor, "vnc");
+	vnc_head_create(backend, "vnc");
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
 
