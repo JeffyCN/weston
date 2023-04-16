@@ -251,7 +251,7 @@ rdp_clipboard_destroy(RdpPeerContext *peerCtx);
 
 /* rdp.c */
 void
-rdp_head_create(struct weston_compositor *compositor, rdpMonitor *config);
+rdp_head_create(struct rdp_backend *backend, rdpMonitor *config);
 
 void
 rdp_destroy(struct weston_backend *backend);
@@ -276,12 +276,6 @@ to_rdp_output(struct weston_output *base)
 	if (base->destroy != rdp_output_destroy)
 		return NULL;
 	return container_of(base, struct rdp_output, base);
-}
-
-static inline struct rdp_backend *
-to_rdp_backend(struct weston_compositor *base)
-{
-	return container_of(base->backend, struct rdp_backend, base);
 }
 
 #endif

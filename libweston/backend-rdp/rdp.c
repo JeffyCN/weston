@@ -575,9 +575,8 @@ rdp_output_create(struct weston_backend *backend, const char *name)
 }
 
 void
-rdp_head_create(struct weston_compositor *compositor, rdpMonitor *config)
+rdp_head_create(struct rdp_backend *backend, rdpMonitor *config)
 {
-	struct rdp_backend *backend = to_rdp_backend(compositor);
 	struct rdp_head *head;
 	char name[13] = {}; /* "rdp-" + 8 chars for hex uint32_t + NULL. */
 
@@ -609,7 +608,7 @@ rdp_head_create(struct weston_compositor *compositor, rdpMonitor *config)
 	head->base.backend = &backend->base;
 
 	weston_head_set_connection_status(&head->base, true);
-	weston_compositor_add_head(compositor, &head->base);
+	weston_compositor_add_head(backend->compositor, &head->base);
 }
 
 void
@@ -1884,7 +1883,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 					    NULL) < 0)
 		goto err_compositor;
 
-	rdp_head_create(compositor, NULL);
+	rdp_head_create(b, NULL);
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
 

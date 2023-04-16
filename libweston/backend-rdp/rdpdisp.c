@@ -213,7 +213,7 @@ disp_layout_change(freerdp_peer *client, rdpMonitor *config, UINT32 monitorCount
 
 		/* Create new heads for any without matches */
 		if (!(done & (1 << i)))
-			rdp_head_create(b->compositor, &config[i]);
+			rdp_head_create(b, &config[i]);
 	}
 	peerCtx->desktop_left = desktop.extents.x1;
 	peerCtx->desktop_top = desktop.extents.y1;
