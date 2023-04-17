@@ -3206,7 +3206,8 @@ static void
 session_notify(struct wl_listener *listener, void *data)
 {
 	struct weston_compositor *compositor = data;
-	struct drm_backend *b = to_drm_backend(compositor);
+	struct drm_backend *b =
+		container_of(listener, struct drm_backend, session_listener);
 	struct drm_device *device = b->drm;
 	struct weston_output *output;
 
