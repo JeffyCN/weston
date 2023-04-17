@@ -331,6 +331,18 @@ struct ivi_layout_interface {
 				  uint32_t id_surface);
 
 	/**
+	 * \brief activate ivi_layout_surface
+	 *
+	 * The surface must be added to a layer before it can be activated.
+	 */
+	void (*surface_activate)(struct ivi_layout_surface *ivisurf);
+
+	/**
+	 * \brief check if ivi_layout_surface is active
+	 */
+	bool (*surface_is_active)(struct ivi_layout_surface *ivisurf);
+
+	/**
 	 * layer controller interface
 	 */
 

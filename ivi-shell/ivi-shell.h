@@ -66,6 +66,13 @@ struct ivi_layout_surface;
 struct ivi_layout_surface *
 shell_get_ivi_layout_surface(struct weston_surface *surface);
 
+struct ivi_layout_surface *
+shell_get_focused_ivi_layout_surface(struct weston_seat *seat);
+
+void
+shell_set_focused_ivi_layout_surface(struct ivi_layout_surface *ivisurface,
+				     struct weston_seat *seat);
+
 void
 shell_ensure_text_input(struct ivi_shell *shell);
 bool

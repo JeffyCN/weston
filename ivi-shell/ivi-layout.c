@@ -1777,6 +1777,67 @@ ivi_layout_surface_set_id(struct ivi_layout_surface *ivisurf,
 }
 
 static void
+deactivate_current_surface(struct weston_seat *seat)
+{
+	struct ivi_layout_surface *ivisurf =
+		shell_get_focused_ivi_layout_surface(seat);
+	struct weston_desktop_surface *desktop_surface;
+
+	if (!ivisurf)
+		return;
+
+	shell_set_focused_ivi_layout_surface(NULL, seat);
+	desktop_surface = ivisurf->weston_desktop_surface;
+	if (--ivisurf->focus_count == 0 && desktop_surface)
+		weston_desktop_surface_set_activated(desktop_surface, false);
+}
+
+static void
+surface_activate(struct ivi_layout_surface *ivisurf, struct weston_seat *seat)
+{
+	struct weston_desktop_surface *dsurf = ivisurf->weston_desktop_surface;
+
+	deactivate_current_surface(seat);
+
+	shell_set_focused_ivi_layout_surface(ivisurf, seat);
+	if (ivisurf->focus_count++ == 0 && dsurf)
+		weston_desktop_surface_set_activated(dsurf, true);
+}
+
+static void
+ivi_layout_surface_activate(struct ivi_layout_surface *ivisurf)
+{
+	struct weston_seat *seat;
+
+	assert(ivisurf->ivi_view);
+
+	wl_list_for_each(seat, &ivisurf->surface->compositor->seat_list, link) {
+		weston_view_activate_input(ivisurf->ivi_view->view, seat,
+					   WESTON_ACTIVATE_FLAG_NONE);
+		surface_activate(ivisurf, seat);
+	}
+}
+
+static bool
+ivi_layout_surface_is_active(struct ivi_layout_surface *ivisurf)
+{
+	assert(ivisurf);
+
+	return (ivisurf->focus_count > 0);
+}
+
+void
+ivi_layout_surface_activate_with_seat(struct ivi_layout_surface *ivisurf,
+				      struct weston_seat *seat,
+				      uint32_t activate_flags)
+{
+	weston_view_activate_input(ivisurf->ivi_view->view,
+				   seat, activate_flags);
+
+	surface_activate(ivisurf, seat);
+}
+
+static void
 ivi_layout_surface_set_transition(struct ivi_layout_surface *ivisurf,
 				  enum ivi_layout_transition_type type,
 				  uint32_t duration)
@@ -2123,6 +2184,8 @@ static struct ivi_layout_interface ivi_layout_interface = {
 	.surface_set_transition			= ivi_layout_surface_set_transition,
 	.surface_set_transition_duration	= ivi_layout_surface_set_transition_duration,
 	.surface_set_id				= ivi_layout_surface_set_id,
+	.surface_activate			= ivi_layout_surface_activate,
+	.surface_is_active			= ivi_layout_surface_is_active,
 
 	/**
 	 * layer controller interfaces

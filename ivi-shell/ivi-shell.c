@@ -98,6 +98,7 @@ struct ivi_input_panel_surface
 struct ivi_shell_seat {
 	struct weston_seat *seat;
 	struct wl_listener seat_destroy_listener;
+	struct ivi_layout_surface *focused_ivisurf;
 
 	struct wl_list link;	/** ivi_shell::seat_list */
 };
@@ -133,6 +134,43 @@ shell_get_ivi_layout_surface(struct weston_surface *surface)
 		return NULL;
 
 	return shsurf->layout_surface;
+}
+
+static void
+ivi_shell_seat_handle_destroy(struct wl_listener *listener, void *data);
+
+static struct ivi_shell_seat *
+get_ivi_shell_seat(struct weston_seat *seat)
+{
+	struct wl_listener *listener;
+
+	if (!seat)
+		return NULL;
+
+	listener = wl_signal_get(&seat->destroy_signal,
+				 ivi_shell_seat_handle_destroy);
+	if (!listener)
+		return NULL;
+
+	return container_of(listener, struct ivi_shell_seat,
+			    seat_destroy_listener);
+}
+
+struct ivi_layout_surface *
+shell_get_focused_ivi_layout_surface(struct weston_seat *seat)
+{
+	struct ivi_shell_seat *shseat = get_ivi_shell_seat(seat);
+
+	return shseat->focused_ivisurf;
+}
+
+void
+shell_set_focused_ivi_layout_surface(struct ivi_layout_surface *ivisurf,
+				     struct weston_seat *seat)
+{
+	struct ivi_shell_seat *shseat = get_ivi_shell_seat(seat);
+
+	shseat->focused_ivisurf = ivisurf;
 }
 
 void
@@ -523,9 +561,8 @@ activate_binding(struct weston_seat *seat,
 		return;
 	}
 
-	/* FIXME: need to activate the surface like
-	   kiosk_shell_surface_activate() */
-	weston_view_activate_input(focus_view, seat, flags);
+	ivi_layout_surface_activate_with_seat(ivisurf->layout_surface, seat,
+					      flags);
 }
 
 static void
