@@ -60,10 +60,6 @@ weston_client_launch(struct weston_compositor *compositor,
 struct wl_client *
 weston_client_start(struct weston_compositor *compositor, const char *path);
 
-void
-wet_watch_process(struct weston_compositor *compositor,
-		  struct wet_process *process);
-
 struct weston_config *
 wet_get_config(struct weston_compositor *compositor);
 

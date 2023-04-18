@@ -396,6 +396,7 @@ weston_client_launch(struct weston_compositor *compositor,
 		     size_t num_no_cloexec_fds,
 		     wet_process_cleanup_func_t cleanup)
 {
+	struct wet_compositor *wet = to_wet_compositor(compositor);
 	const char *fail_cloexec = "Couldn't unset CLOEXEC on child FDs";
 	const char *fail_seteuid = "Couldn't call seteuid";
 	char *fail_exec;
@@ -445,7 +446,7 @@ weston_client_launch(struct weston_compositor *compositor,
 		proc->pid = pid;
 		proc->cleanup = cleanup;
 		proc->path = strdup(argp[0]);
-		wet_watch_process(compositor, proc);
+		wl_list_insert(&wet->child_process_list, &proc->link);
 		ret = true;
 		break;
 
@@ -460,14 +461,6 @@ weston_client_launch(struct weston_compositor *compositor,
 	custom_env_fini(child_env);
 	free(fail_exec);
 	return ret;
-}
-
-WL_EXPORT void
-wet_watch_process(struct weston_compositor *compositor,
-		  struct wet_process *process)
-{
-	struct wet_compositor *wet = to_wet_compositor(compositor);
-	wl_list_insert(&wet->child_process_list, &process->link);
 }
 
 static void
