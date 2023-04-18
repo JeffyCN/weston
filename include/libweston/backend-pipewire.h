@@ -33,7 +33,7 @@ extern "C" {
 #include <libweston/libweston.h>
 #include <libweston/plugin-registry.h>
 
-#define WESTON_PIPEWIRE_OUTPUT_API_NAME "weston_pipewire_output_api_v1"
+#define WESTON_PIPEWIRE_OUTPUT_API_NAME "weston_pipewire_output_api_v2"
 
 struct pipewire_config {
 	int32_t width;
@@ -44,13 +44,13 @@ struct pipewire_config {
 struct weston_pipewire_output_api {
 	/** Create a new PipeWire head.
 	 *
-	 * \param compositor The compositor instance.
+	 * \param backend    The backend.
 	 * \param name       Desired name for the new head
 	 * \param config     The pipewire_config of the new head.
 	 *
 	 * Returns 0 on success, -1 on failure.
 	 */
-	void (*head_create)(struct weston_compositor *compositor,
+	void (*head_create)(struct weston_backend *backend,
 			    const char *name,
 			    const struct pipewire_config *config);
 

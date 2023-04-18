@@ -150,9 +150,9 @@ pipewire_output_debug(struct pipewire_output *output, const char *fmt, ...)
 }
 
 static inline struct pipewire_backend *
-to_pipewire_backend(struct weston_compositor *base)
+to_pipewire_backend(struct weston_backend *base)
 {
-	return container_of(base->backend, struct pipewire_backend, base);
+	return container_of(base, struct pipewire_backend, base);
 }
 
 static void
@@ -535,10 +535,10 @@ pipewire_destroy(struct weston_backend *base)
 }
 
 static void
-pipewire_head_create(struct weston_compositor *compositor, const char *name,
+pipewire_head_create(struct weston_backend *backend, const char *name,
 		     const struct pipewire_config *config)
 {
-	struct pipewire_backend *b = to_pipewire_backend(compositor);
+	struct pipewire_backend *b = to_pipewire_backend(backend);
 	struct pipewire_head *head;
 	struct weston_head *base;
 
@@ -554,7 +554,7 @@ pipewire_head_create(struct weston_compositor *compositor, const char *name,
 	base->backend = &b->base;
 
 	weston_head_set_connection_status(base, true);
-	weston_compositor_add_head(compositor, base);
+	weston_compositor_add_head(b->compositor, base);
 }
 
 static void
@@ -885,7 +885,7 @@ err_loop:
 }
 
 static void
-pipewire_backend_create_outputs(struct weston_compositor *compositor,
+pipewire_backend_create_outputs(struct pipewire_backend *backend,
 				int num_outputs)
 {
 	char name[32] = "pipewire";
@@ -894,7 +894,7 @@ pipewire_backend_create_outputs(struct weston_compositor *compositor,
 	for (i = 0; i < num_outputs; i++) {
 		if (num_outputs > 1)
 			snprintf(name, sizeof name, "pipewire-%u", i);
-		pipewire_head_create(compositor, name, &default_config);
+		pipewire_head_create(&backend->base, name, &default_config);
 	}
 }
 
@@ -951,7 +951,7 @@ pipewire_backend_create(struct weston_compositor *compositor,
 			 pixel_format_get_info(DRM_FORMAT_XRGB8888),
 			 &backend->pixel_format);
 
-	pipewire_backend_create_outputs(compositor, config->num_outputs);
+	pipewire_backend_create_outputs(backend, config->num_outputs);
 
 	return backend;
 
