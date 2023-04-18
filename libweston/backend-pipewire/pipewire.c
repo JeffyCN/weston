@@ -217,7 +217,6 @@ pipewire_output_connect(struct pipewire_output *output)
 		SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video),
 		SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
 		SPA_FORMAT_VIDEO_format, SPA_POD_Id(format),
-		SPA_FORMAT_VIDEO_modifier, SPA_POD_Long(DRM_FORMAT_MOD_LINEAR),
 		SPA_FORMAT_VIDEO_size, SPA_POD_Rectangle(&SPA_RECTANGLE(width, height)),
 		SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION (0, 1)),
 		SPA_FORMAT_VIDEO_maxFramerate,
