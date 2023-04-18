@@ -54,7 +54,7 @@ struct wet_xwayland {
 	struct wl_event_source *display_fd_source;
 	struct wl_client *client;
 	int wm_fd;
-	struct weston_process process;
+	struct wet_process process;
 };
 
 static int
@@ -92,7 +92,7 @@ out:
 }
 
 static void
-xserver_cleanup(struct weston_process *process, int status)
+xserver_cleanup(struct wet_process *process, int status)
 {
 	struct wet_xwayland *wxw =
 		container_of(process, struct wet_xwayland, process);

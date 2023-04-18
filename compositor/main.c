@@ -337,7 +337,7 @@ to_wet_compositor(struct weston_compositor *compositor)
 static int
 sigchld_handler(int signal_number, void *data)
 {
-	struct weston_process *p;
+	struct wet_process *p;
 	struct wet_compositor *wet = data;
 	int status;
 	pid_t pid;
@@ -390,11 +390,11 @@ cleanup_for_child_process() {
 
 WL_EXPORT bool
 weston_client_launch(struct weston_compositor *compositor,
-		     struct weston_process *proc,
+		     struct wet_process *proc,
 		     struct custom_env *child_env,
 		     int *no_cloexec_fds,
 		     size_t num_no_cloexec_fds,
-		     weston_process_cleanup_func_t cleanup)
+		     wet_process_cleanup_func_t cleanup)
 {
 	const char *fail_cloexec = "Couldn't unset CLOEXEC on child FDs";
 	const char *fail_seteuid = "Couldn't call seteuid";
@@ -464,14 +464,14 @@ weston_client_launch(struct weston_compositor *compositor,
 
 WL_EXPORT void
 wet_watch_process(struct weston_compositor *compositor,
-		  struct weston_process *process)
+		  struct wet_process *process)
 {
 	struct wet_compositor *wet = to_wet_compositor(compositor);
 	wl_list_insert(&wet->child_process_list, &process->link);
 }
 
 static void
-process_handle_sigchld(struct weston_process *process, int status)
+process_handle_sigchld(struct wet_process *process, int status)
 {
 	/*
 	 * There are no guarantees whether this runs before or after
@@ -494,7 +494,7 @@ process_handle_sigchld(struct weston_process *process, int status)
 WL_EXPORT struct wl_client *
 weston_client_start(struct weston_compositor *compositor, const char *path)
 {
-	struct weston_process *proc;
+	struct wet_process *proc;
 	struct wl_client *client;
 	struct custom_env child_env;
 	struct fdstr wayland_socket = FDSTR_INIT;

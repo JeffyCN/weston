@@ -36,14 +36,14 @@ extern "C" {
 void
 screenshooter_create(struct weston_compositor *ec);
 
-struct weston_process;
-typedef void (*weston_process_cleanup_func_t)(struct weston_process *process,
-					    int status);
+struct wet_process;
+typedef void (*wet_process_cleanup_func_t)(struct wet_process *process,
+					   int status);
 
-struct weston_process {
+struct wet_process {
 	pid_t pid;
 	char *path;
-	weston_process_cleanup_func_t cleanup;
+	wet_process_cleanup_func_t cleanup;
 	struct wl_list link;
 };
 
@@ -51,18 +51,18 @@ struct custom_env;
 
 bool
 weston_client_launch(struct weston_compositor *compositor,
-		     struct weston_process *proc,
+		     struct wet_process *proc,
 		     struct custom_env *custom_env,
 		     int *fds_no_cloexec,
 		     size_t num_fds_no_cloexec,
-		     weston_process_cleanup_func_t cleanup);
+		     wet_process_cleanup_func_t cleanup);
 
 struct wl_client *
 weston_client_start(struct weston_compositor *compositor, const char *path);
 
 void
 wet_watch_process(struct weston_compositor *compositor,
-				  struct weston_process *process);
+		  struct wet_process *process);
 
 struct weston_config *
 wet_get_config(struct weston_compositor *compositor);
