@@ -396,7 +396,7 @@ weston_client_launch(struct weston_compositor *compositor,
 {
 	struct wl_client *client = NULL;
 	struct custom_env child_env;
-	struct fdstr wayland_socket;
+	struct fdstr wayland_socket = FDSTR_INIT;
 	const char *fail_cloexec = "Couldn't unset CLOEXEC on client socket";
 	const char *fail_seteuid = "Couldn't call seteuid";
 	char *fail_exec;

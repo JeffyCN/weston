@@ -96,11 +96,11 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 {
 	struct wet_xwayland *wxw = user_data;
 	pid_t pid;
-	struct fdstr wayland_socket;
-	struct fdstr x11_abstract_socket;
-	struct fdstr x11_unix_socket;
-	struct fdstr x11_wm_socket;
-	struct fdstr display_pipe;
+	struct fdstr wayland_socket = FDSTR_INIT;
+	struct fdstr x11_abstract_socket = FDSTR_INIT;
+	struct fdstr x11_unix_socket = FDSTR_INIT;
+	struct fdstr x11_wm_socket = FDSTR_INIT;
+	struct fdstr display_pipe = FDSTR_INIT;
 	char *xserver = NULL;
 	struct weston_config *config = wet_get_config(wxw->compositor);
 	struct weston_config_section *section;

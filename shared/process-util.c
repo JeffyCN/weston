@@ -68,7 +68,8 @@ fdstr_close_all(struct fdstr *s)
 	unsigned i;
 
 	for (i = 0; i < ARRAY_LENGTH(s->fds); i++) {
-		close(s->fds[i]);
+		if (s->fds[i] >= 0)
+			close(s->fds[i]);
 		s->fds[i] = -1;
 	}
 }

@@ -59,6 +59,7 @@ fdstr_clear_cloexec_fd1(struct fdstr *s);
 void
 fdstr_close_all(struct fdstr *s);
 
+#define FDSTR_INIT ((struct fdstr){ { 0 }, { -1, -1 }})
 
 /**
  * A container for environment variables and/or process arguments, designed to
