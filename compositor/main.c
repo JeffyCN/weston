@@ -470,16 +470,9 @@ wet_watch_process(struct weston_compositor *compositor,
 	wl_list_insert(&wet->child_process_list, &process->link);
 }
 
-struct process_info {
-	struct weston_process proc;
-};
-
 static void
 process_handle_sigchld(struct weston_process *process, int status)
 {
-	struct process_info *pinfo =
-		container_of(process, struct process_info, proc);
-
 	/*
 	 * There are no guarantees whether this runs before or after
 	 * the wl_client destructor.
@@ -495,13 +488,13 @@ process_handle_sigchld(struct weston_process *process, int status)
 		weston_log("%s disappeared\n", process->path);
 	}
 
-	free(pinfo);
+	free(process);
 }
 
 WL_EXPORT struct wl_client *
 weston_client_start(struct weston_compositor *compositor, const char *path)
 {
-	struct process_info *pinfo;
+	struct weston_process *proc;
 	struct wl_client *client;
 	struct custom_env child_env;
 	struct fdstr wayland_socket = FDSTR_INIT;
@@ -509,8 +502,8 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 	size_t num_no_cloexec_fds = 0;
 	bool ret;
 
-	pinfo = zalloc(sizeof *pinfo);
-	if (!pinfo)
+	proc = zalloc(sizeof *proc);
+	if (!proc)
 		return NULL;
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
@@ -531,7 +524,7 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 
 	assert(num_no_cloexec_fds <= ARRAY_LENGTH(no_cloexec_fds));
 
-	ret = weston_client_launch(compositor, &pinfo->proc, &child_env,
+	ret = weston_client_launch(compositor, proc, &child_env,
 				   no_cloexec_fds, num_no_cloexec_fds,
 				   process_handle_sigchld);
 	if (!ret)
@@ -553,7 +546,7 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 	return client;
 
 err:
-	free(pinfo);
+	free(proc);
 out_sock:
 	fdstr_close_all(&wayland_socket);
 
