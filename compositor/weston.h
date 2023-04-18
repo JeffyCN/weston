@@ -42,6 +42,7 @@ typedef void (*weston_process_cleanup_func_t)(struct weston_process *process,
 
 struct weston_process {
 	pid_t pid;
+	char *path;
 	weston_process_cleanup_func_t cleanup;
 	struct wl_list link;
 };

@@ -361,6 +361,7 @@ sigchld_handler(int signal_number, void *data)
 
 		wl_list_remove(&p->link);
 		wl_list_init(&p->link);
+		free(p->path);
 		p->cleanup(p, status);
 	}
 
@@ -443,6 +444,7 @@ weston_client_launch(struct weston_compositor *compositor,
 	default:
 		proc->pid = pid;
 		proc->cleanup = cleanup;
+		proc->path = strdup(argp[0]);
 		wet_watch_process(compositor, proc);
 		ret = true;
 		break;
@@ -470,7 +472,6 @@ wet_watch_process(struct weston_compositor *compositor,
 
 struct process_info {
 	struct weston_process proc;
-	char *path;
 };
 
 static void
@@ -485,16 +486,15 @@ process_handle_sigchld(struct weston_process *process, int status)
 	 */
 
 	if (WIFEXITED(status)) {
-		weston_log("%s exited with status %d\n", pinfo->path,
+		weston_log("%s exited with status %d\n", process->path,
 			   WEXITSTATUS(status));
 	} else if (WIFSIGNALED(status)) {
-		weston_log("%s died on signal %d\n", pinfo->path,
+		weston_log("%s died on signal %d\n", process->path,
 			   WTERMSIG(status));
 	} else {
-		weston_log("%s disappeared\n", pinfo->path);
+		weston_log("%s disappeared\n", process->path);
 	}
 
-	free(pinfo->path);
 	free(pinfo);
 }
 
@@ -513,16 +513,12 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 	if (!pinfo)
 		return NULL;
 
-	pinfo->path = strdup(path);
-	if (!pinfo->path)
-		goto out_free;
-
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
 				  wayland_socket.fds) < 0) {
 		weston_log("weston_client_start: "
 			   "socketpair failed while launching '%s': %s\n",
 			   path, strerror(errno));
-		goto out_path;
+		goto err;
 	}
 
 	custom_env_init_from_environ(&child_env);
@@ -539,7 +535,7 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 				   no_cloexec_fds, num_no_cloexec_fds,
 				   process_handle_sigchld);
 	if (!ret)
-		goto out_path;
+		goto err;
 
 	client = wl_client_create(compositor->wl_display,
 				  wayland_socket.fds[0]);
@@ -556,9 +552,7 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 
 	return client;
 
-out_path:
-	free(pinfo->path);
-out_free:
+err:
 	free(pinfo);
 out_sock:
 	fdstr_close_all(&wayland_socket);
