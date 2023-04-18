@@ -104,6 +104,7 @@ get_wm_name(struct window_x11 *window)
 
 	xcb_window_t wm_id = *(xcb_window_t *) xcb_get_property_value(reply);
 	wm_name = get_x11_window_name(window, wm_id);
+	free(reply);
 
 	free(error);
 	return wm_name;
