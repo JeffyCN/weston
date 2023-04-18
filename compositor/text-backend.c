@@ -1006,8 +1006,8 @@ launch_input_method(void *data)
 		setenv("WESTON_KEYBOARD_SURFACE_TYPE", "overlay", 1);
 
 	text_backend->input_method.client =
-		weston_client_start(text_backend->compositor,
-				    text_backend->input_method.path);
+		wet_client_start(text_backend->compositor,
+				 text_backend->input_method.path);
 
 	if (!text_backend->input_method.client) {
 		weston_log("not able to start %s\n",

@@ -485,7 +485,7 @@ process_handle_sigchld(struct wet_process *process, int status)
 }
 
 WL_EXPORT struct wl_client *
-weston_client_start(struct weston_compositor *compositor, const char *path)
+wet_client_start(struct weston_compositor *compositor, const char *path)
 {
 	struct wet_process *proc;
 	struct wl_client *client;
@@ -501,7 +501,7 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
 				  wayland_socket.fds) < 0) {
-		weston_log("weston_client_start: "
+		weston_log("wet_client_start: "
 			   "socketpair failed while launching '%s': %s\n",
 			   path, strerror(errno));
 		goto err;
@@ -526,9 +526,9 @@ weston_client_start(struct weston_compositor *compositor, const char *path)
 	client = wl_client_create(compositor->wl_display,
 				  wayland_socket.fds[0]);
 	if (!client) {
-		weston_log("weston_client_start: "
-			"wl_client_create failed while launching '%s'.\n",
-			path);
+		weston_log("wet_client_start: "
+			   "wl_client_create failed while launching '%s'.\n",
+			   path);
 		/* We have no way of killing the process, so leave it hanging */
 		goto out_sock;
 	}

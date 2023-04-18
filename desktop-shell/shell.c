@@ -4370,8 +4370,8 @@ launch_desktop_shell_process(void *data)
 {
 	struct desktop_shell *shell = data;
 
-	shell->child.client = weston_client_start(shell->compositor,
-						  shell->client);
+	shell->child.client = wet_client_start(shell->compositor,
+					       shell->client);
 
 	if (!shell->child.client) {
 		weston_log("not able to start %s\n", shell->client);

@@ -69,8 +69,7 @@ screenshooter_binding(struct weston_keyboard *keyboard,
 		return;
 	}
 
-	shooter->client = weston_client_start(shooter->ec,
-					      screenshooter_exe);
+	shooter->client = wet_client_start(shooter->ec, screenshooter_exe);
 	free(screenshooter_exe);
 
 	if (!shooter->client)

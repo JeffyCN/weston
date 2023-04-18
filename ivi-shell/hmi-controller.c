@@ -2101,8 +2101,8 @@ launch_hmi_client_process(void *data)
 		(struct hmi_controller *)data;
 
 	hmi_ctrl->user_interface =
-		weston_client_start(hmi_ctrl->compositor,
-				    hmi_ctrl->hmi_setting->ivi_homescreen);
+		wet_client_start(hmi_ctrl->compositor,
+				 hmi_ctrl->hmi_setting->ivi_homescreen);
 
 	free(hmi_ctrl->hmi_setting->ivi_homescreen);
 }
