@@ -628,6 +628,8 @@ pipewire_destroy(struct weston_backend *base)
 	weston_log_scope_destroy(b->debug);
 	b->debug = NULL;
 
+	wl_list_remove(&b->base.link);
+
 	pw_loop_leave(b->loop);
 	pw_loop_destroy(b->loop);
 	wl_event_source_remove(b->loop_source);
@@ -996,7 +998,7 @@ pipewire_backend_create(struct weston_compositor *compositor,
 	backend->base.destroy = pipewire_destroy;
 	backend->base.create_output = pipewire_create_output;
 
-	compositor->backend = &backend->base;
+	wl_list_insert(&compositor->backend_list, &backend->base.link);
 
 	backend->formats_count = ARRAY_LENGTH(pipewire_formats);
 	backend->formats = pixel_format_get_array(pipewire_formats,
@@ -1005,31 +1007,33 @@ pipewire_backend_create(struct weston_compositor *compositor,
 	backend->base.supported_presentation_clocks =
 			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
 
-	switch (config->renderer) {
-	case WESTON_RENDERER_AUTO:
-	case WESTON_RENDERER_PIXMAN:
-		ret = weston_compositor_init_renderer(compositor,
-						      WESTON_RENDERER_PIXMAN,
-						      NULL);
-		break;
-	case WESTON_RENDERER_GL: {
-		const struct gl_renderer_display_options options = {
-			.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
-			.formats = backend->formats,
-			.formats_count = backend->formats_count,
-		};
-		ret = weston_compositor_init_renderer(compositor,
-						      WESTON_RENDERER_GL,
-						      &options.base);
-		break;
-	}
-	default:
-		weston_log("Unsupported renderer requested\n");
-		goto err_compositor;
-	}
+	if (!compositor->renderer) {
+		switch (config->renderer) {
+		case WESTON_RENDERER_AUTO:
+		case WESTON_RENDERER_PIXMAN:
+			ret = weston_compositor_init_renderer(compositor,
+							      WESTON_RENDERER_PIXMAN,
+							      NULL);
+			break;
+		case WESTON_RENDERER_GL: {
+			const struct gl_renderer_display_options options = {
+				.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+				.formats = backend->formats,
+				.formats_count = backend->formats_count,
+			};
+			ret = weston_compositor_init_renderer(compositor,
+							      WESTON_RENDERER_GL,
+							      &options.base);
+			break;
+		}
+		default:
+			weston_log("Unsupported renderer requested\n");
+			goto err_compositor;
+		}
 
-	if (ret < 0)
-		goto err_compositor;
+		if (ret < 0)
+			goto err_compositor;
+	}
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
 
@@ -1055,6 +1059,7 @@ pipewire_backend_create(struct weston_compositor *compositor,
 	return backend;
 
 err_compositor:
+	wl_list_remove(&backend->base.link);
 	free(backend);
 	return NULL;
 }
@@ -1080,6 +1085,17 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_size > sizeof(struct weston_pipewire_backend_config)) {
 		weston_log("PipeWire backend config structure is invalid\n");
 		return -1;
+	}
+
+	if (compositor->renderer) {
+		switch (compositor->renderer->type) {
+		case WESTON_RENDERER_PIXMAN:
+		case WESTON_RENDERER_GL:
+			break;
+		default:
+			weston_log("Renderer not supported by PipeWire backend\n");
+			return -1;
+		}
 	}
 
 	config_init_to_defaults(&config);
