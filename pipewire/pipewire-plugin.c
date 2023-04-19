@@ -192,7 +192,10 @@ pipewire_output_handle_frame(struct pipewire_output *output, int fd,
 
 	if ((h = spa_buffer_find_meta_data(spa_buffer, SPA_META_Header,
 				     sizeof(struct spa_meta_header)))) {
-		h->pts = -1;
+		struct timespec ts;
+
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		h->pts = SPA_TIMESPEC_TO_NSEC(&ts);
 		h->flags = 0;
 		h->seq = output->seq++;
 		h->dts_offset = 0;
