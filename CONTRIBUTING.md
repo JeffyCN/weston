@@ -1,6 +1,31 @@
 Contributing to Weston
 =======================
 
+Sending patches
+---------------
+
+Patches should be sent via
+[GitLab merge requests](https://docs.gitlab.com/ce/gitlab-basics/add-merge-request.html).
+Weston is
+[hosted on freedesktop.org's GitLab](https://gitlab.freedesktop.org/wayland/weston/):
+in order to submit code, you should create an account on this GitLab instance,
+fork the core Weston repository, push your changes to a branch in your new
+repository, and then submit these patches for review through a merge request.
+
+### Forking & Permissions for new users
+
+Due to huge amounts of spam, freedesktop.org has disabled forking of existing
+projects for new users. Please head to
+[How can I contribute](https://gitlab.freedesktop.org/freedesktop/freedesktop/-/wikis/home#how-can-i-contribute-to-an-existing-project-or-create-a-new-one)
+and verify whether you need to perform additional steps.
+
+### Do not send patches over email
+
+Weston formerly accepted patches via `git-send-email`, sent to
+**wayland-devel\@lists.freedesktop.org**; these were
+[tracked using Patchwork](https://patchwork.freedesktop.org/projects/wayland/).
+New email patches are no longer accepted.
+
 Finding something to work on
 ----------------------------
 
@@ -23,23 +48,6 @@ Many developers also use IRC through [OFTC](https://www.oftc.net/)'s
 IRC, which requires keeping your client connected. If you cannot stay for a
 long time (potentially some hours due to timezone differences), then you
 may want to send your question to the list or issue tracker instead.
-
-
-Sending patches
----------------
-
-Patches should be sent via
-[GitLab merge requests](https://docs.gitlab.com/ce/gitlab-basics/add-merge-request.html).
-Weston is
-[hosted on freedesktop.org's GitLab](https://gitlab.freedesktop.org/wayland/weston/):
-in order to submit code, you should create an account on this GitLab instance,
-fork the core Weston repository, push your changes to a branch in your new
-repository, and then submit these patches for review through a merge request.
-
-Weston formerly accepted patches via `git-send-email`, sent to
-**wayland-devel\@lists.freedesktop.org**; these were
-[tracked using Patchwork](https://patchwork.freedesktop.org/projects/wayland/).
-New email patches are no longer accepted.
 
 
 Formatting and separating commits
