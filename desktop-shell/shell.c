@@ -365,6 +365,8 @@ get_output_panel_size(struct desktop_shell *shell,
 
 	wl_list_for_each(view, &shell->panel_layer.view_list.link, layer_link.link) {
 		if (view->surface->output == output) {
+			weston_view_update_transform(view);
+
 			get_panel_size(shell, view, width, height);
 			return;
 		}
