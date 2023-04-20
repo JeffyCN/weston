@@ -23,7 +23,7 @@ and verify whether you need to perform additional steps.
 
 Weston formerly accepted patches via `git-send-email`, sent to
 **wayland-devel\@lists.freedesktop.org**; these were
-[tracked using Patchwork](https://patchwork.freedesktop.org/projects/wayland/).
+[tracked using Patchwork](https://patchwork.freedesktop.org/project/wayland/).
 New email patches are no longer accepted.
 
 Finding something to work on
