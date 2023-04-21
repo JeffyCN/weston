@@ -161,15 +161,25 @@ struct setup_args {
 
 	/** Two-norm error limit for cLUT DToB->BToD roundtrip */
 	float clut_roundtrip_tolerance;
+
+	/**
+	 * VCGT tag exponents for each channel. If any is zeroed, we ignore
+	 * the VCGT tag.
+	 */
+	double vcgt_exponents[COLOR_CHAN_NUM];
 };
 
 static const struct setup_args my_setup_args[] = {
-	/* name,               ref img, pipeline,     tolerance, dim, profile type, clut tolerance */
-	{ { "sRGB->sRGB MAT" },      0, &pipeline_sRGB,     0.0,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->adobeRGB MAT" },  1, &pipeline_adobeRGB, 1.4,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->BT2020 MAT" },    2, &pipeline_BT2020,   4.5,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->sRGB CLUT" },     0, &pipeline_sRGB,     0.0, 17, PTYPE_CLUT,         0.0005 },
-	{ { "sRGB->adobeRGB CLUT" }, 1, &pipeline_adobeRGB, 1.8, 17, PTYPE_CLUT,         0.0065 },
+	/* name,                    ref img, pipeline,     tolerance, dim, profile type, clut tolerance, vcgt_exponents */
+	{ { "sRGB->sRGB MAT" },           0, &pipeline_sRGB,     0.0,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->sRGB MAT VCGT" },      3, &pipeline_sRGB,     0.8,  0, PTYPE_MATRIX_SHAPER, 0.0000,   {1.1, 1.2, 1.3} },
+	{ { "sRGB->adobeRGB MAT" },       1, &pipeline_adobeRGB, 1.4,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->adobeRGB MAT VCGT" },  4, &pipeline_adobeRGB, 1.0,  0, PTYPE_MATRIX_SHAPER, 0.0000,   {1.1, 1.2, 1.3} },
+	{ { "sRGB->BT2020 MAT" },         2, &pipeline_BT2020,   4.5,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->sRGB CLUT" },          0, &pipeline_sRGB,     0.0, 17, PTYPE_CLUT,          0.0005 },
+	{ { "sRGB->sRGB CLUT VCGT" },     3, &pipeline_sRGB,     0.9, 17, PTYPE_CLUT,          0.0005,   {1.1, 1.2, 1.3} },
+	{ { "sRGB->adobeRGB CLUT" },      1, &pipeline_adobeRGB, 1.8, 17, PTYPE_CLUT,          0.0065 },
+	{ { "sRGB->adobeRGB CLUT VCGT" }, 4, &pipeline_adobeRGB, 1.1, 17, PTYPE_CLUT,          0.0065,   {1.1, 1.2, 1.3} },
 };
 
 static void
@@ -245,6 +255,24 @@ create_cLUT_from_matrix(cmsContext context_id, const struct lcmsMAT3 *mat, int d
 	cmsStageSampleCLutFloat(cLUT_stage, sampler_matrix, (void *)mat, 0);
 
 	return cLUT_stage;
+}
+
+static void
+vcgt_tag_add_to_profile(cmsContext context_id, cmsHPROFILE profile,
+			const double vcgt_exponents[COLOR_CHAN_NUM])
+{
+	cmsToneCurve *vcgt_tag_curves[COLOR_CHAN_NUM];
+	unsigned int i;
+
+	if (!should_include_vcgt(vcgt_exponents))
+		return;
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		vcgt_tag_curves[i] = cmsBuildGamma(context_id, vcgt_exponents[i]);
+
+	assert(cmsWriteTag(profile, cmsSigVcgtTag, vcgt_tag_curves));
+
+	cmsFreeToneCurveTriple(vcgt_tag_curves);
 }
 
 /*
@@ -332,6 +360,8 @@ build_lcms_clut_profile_output(cmsContext context_id,
 	cmsLinkTag(hRGB, cmsSigDToB2Tag, cmsSigDToB0Tag);
 	cmsLinkTag(hRGB, cmsSigDToB3Tag, cmsSigDToB0Tag);
 
+	vcgt_tag_add_to_profile(context_id, hRGB, arg->vcgt_exponents);
+
 	roundtrip_verification(DToB0, BToD0, arg->clut_roundtrip_tolerance);
 
 	cmsPipelineFree(BToD0);
@@ -344,14 +374,14 @@ build_lcms_clut_profile_output(cmsContext context_id,
 
 static cmsHPROFILE
 build_lcms_matrix_shaper_profile_output(cmsContext context_id,
-					const struct lcms_pipeline *pipeline)
+					const struct setup_args *arg)
 {
 	cmsToneCurve *arr_curves[3];
 	cmsHPROFILE hRGB;
 	int type_inverse_tone_curve;
 	double inverse_tone_curve_param[5];
 
-	assert(find_tone_curve_type(pipeline->post_fn, &type_inverse_tone_curve,
+	assert(find_tone_curve_type(arg->pipeline->post_fn, &type_inverse_tone_curve,
 				    inverse_tone_curve_param));
 
 	/*
@@ -371,8 +401,10 @@ build_lcms_matrix_shaper_profile_output(cmsContext context_id,
 
 	assert(arr_curves[0]);
 	hRGB = cmsCreateRGBProfileTHR(context_id, &wp_d65,
-				      &pipeline->prim_output, arr_curves);
+				      &arg->pipeline->prim_output, arr_curves);
 	assert(hRGB);
+
+	vcgt_tag_add_to_profile(context_id, hRGB, arg->vcgt_exponents);
 
 	cmsFreeToneCurve(arr_curves[0]);
 	return hRGB;
@@ -383,8 +415,7 @@ build_lcms_profile_output(cmsContext context_id, const struct setup_args *arg)
 {
 	switch (arg->type) {
 	case PTYPE_MATRIX_SHAPER:
-		return build_lcms_matrix_shaper_profile_output(context_id,
-							       arg->pipeline);
+		return build_lcms_matrix_shaper_profile_output(context_id, arg);
 	case PTYPE_CLUT:
 		return build_lcms_clut_profile_output(context_id, arg);
 	}
@@ -561,6 +592,7 @@ process_pipeline_comparison(const struct buffer *src_buf,
 			process_pixel_using_pipeline(arg->pipeline->pre_fn,
 						     &arg->pipeline->mat,
 						     arg->pipeline->post_fn,
+						     arg->vcgt_exponents,
 						     &pix_src, &pix_src_pipeline);
 
 			rgb_diff_stat_update(&diffstat,
@@ -646,6 +678,7 @@ convert_to_blending_space(const struct lcms_pipeline *pip,
 
 static void
 compare_blend(const struct lcms_pipeline *pip,
+	      const double vcgt_exponents[COLOR_CHAN_NUM],
 	      struct color_float bg,
 	      struct color_float fg,
 	      const struct color_float *shot,
@@ -667,6 +700,10 @@ compare_blend(const struct lcms_pipeline *pip,
 
 	/* non-linear encoding for output */
 	ref = color_float_apply_curve(pip->post_fn, ref);
+
+	if (should_include_vcgt(vcgt_exponents))
+		for (i = 0; i < COLOR_CHAN_NUM; i++)
+			ref.rgb[i] = pow(ref.rgb[i], vcgt_exponents[i]);
 
 	rgb_diff_stat_update(diffstat, &ref, shot, &fg);
 }
@@ -714,7 +751,7 @@ check_blend_pattern(struct buffer *bg_buf,
 		struct color_float fg = a8r8g8b8_to_float(fg_row[x]);
 		struct color_float shot = a8r8g8b8_to_float(shot_row[x]);
 
-		compare_blend(arg->pipeline, bg, fg, &shot, &diffstat);
+		compare_blend(arg->pipeline, arg->vcgt_exponents, bg, fg, &shot, &diffstat);
 	}
 
 	rgb_diff_stat_print(&diffstat, "Blending", 8);

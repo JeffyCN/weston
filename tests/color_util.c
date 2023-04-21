@@ -321,18 +321,38 @@ color_float_apply_matrix(const struct lcmsMAT3 *mat, struct color_float c)
 	return result;
 }
 
+bool
+should_include_vcgt(const double vcgt_exponents[COLOR_CHAN_NUM])
+{
+	unsigned int i;
+
+	for (i = 0; i < COLOR_CHAN_NUM; i++)
+		if (vcgt_exponents[i] == 0.0)
+			return false;
+
+	return true;
+}
+
 void
 process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     const struct lcmsMAT3 *mat,
 			     enum transfer_fn post_curve,
+			     const double vcgt_exponents[COLOR_CHAN_NUM],
 			     const struct color_float *in,
 			     struct color_float *out)
 {
 	struct color_float cf;
+	unsigned i;
 
 	cf = color_float_apply_curve(pre_curve, *in);
 	cf = color_float_apply_matrix(mat, cf);
-	*out = color_float_apply_curve(post_curve, cf);
+	cf = color_float_apply_curve(post_curve, cf);
+
+	if (should_include_vcgt(vcgt_exponents))
+		for (i = 0; i < COLOR_CHAN_NUM; i++)
+			cf.rgb[i] = pow(cf.rgb[i], vcgt_exponents[i]);
+
+	*out = cf;
 }
 
 static void

@@ -101,10 +101,14 @@ find_tone_curve_type(enum transfer_fn fn, int *type, double params[5]);
 float
 apply_tone_curve(enum transfer_fn fn, float r);
 
+bool
+should_include_vcgt(const double vcgt_exponents[COLOR_CHAN_NUM]);
+
 void
 process_pixel_using_pipeline(enum transfer_fn pre_curve,
 			     const struct lcmsMAT3 *mat,
 			     enum transfer_fn post_curve,
+			     const double vcgt_exponents[COLOR_CHAN_NUM],
 			     const struct color_float *in,
 			     struct color_float *out);
 
