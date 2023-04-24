@@ -506,7 +506,7 @@ delete_before_cursor(struct virtual_keyboard *keyboard)
 	end = keyboard->surrounding_text + keyboard->surrounding_cursor;
 
 	zwp_input_method_context_v1_delete_surrounding_text(keyboard->context,
-							    (start - keyboard->surrounding_text) - keyboard->surrounding_cursor,
+							    start - keyboard->surrounding_text,
 							    end - start);
 	zwp_input_method_context_v1_commit_string(keyboard->context,
 						  keyboard->serial,
