@@ -239,6 +239,8 @@ create_cLUT_from_matrix(cmsContext context_id, const struct lcmsMAT3 *mat, int d
 {
 	cmsStage *cLUT_stage;
 
+	assert(dim_size);
+
 	cLUT_stage = cmsStageAllocCLutFloat(context_id, dim_size, 3, 3, NULL);
 	cmsStageSampleCLutFloat(cLUT_stage, sampler_matrix, (void *)mat, 0);
 
