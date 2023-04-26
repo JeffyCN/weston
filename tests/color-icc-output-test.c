@@ -164,12 +164,12 @@ struct setup_args {
 };
 
 static const struct setup_args my_setup_args[] = {
-	/* name,          ref img, pipeline,     tolerance, dim, profile type, clut tolerance */
-	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0.0,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1.4,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->BT2020" },   2, &pipeline_BT2020,   4.5,  0, PTYPE_MATRIX_SHAPER },
-	{ { "sRGB->sRGB" },     0, &pipeline_sRGB,     0.0, 17, PTYPE_CLUT,         0.0005 },
-	{ { "sRGB->adobeRGB" }, 1, &pipeline_adobeRGB, 1.8, 17, PTYPE_CLUT,         0.0065 },
+	/* name,               ref img, pipeline,     tolerance, dim, profile type, clut tolerance */
+	{ { "sRGB->sRGB MAT" },      0, &pipeline_sRGB,     0.0,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->adobeRGB MAT" },  1, &pipeline_adobeRGB, 1.4,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->BT2020 MAT" },    2, &pipeline_BT2020,   4.5,  0, PTYPE_MATRIX_SHAPER },
+	{ { "sRGB->sRGB CLUT" },     0, &pipeline_sRGB,     0.0, 17, PTYPE_CLUT,         0.0005 },
+	{ { "sRGB->adobeRGB CLUT" }, 1, &pipeline_adobeRGB, 1.8, 17, PTYPE_CLUT,         0.0065 },
 };
 
 static void
