@@ -616,8 +616,6 @@ struct drm_head {
 	struct weston_head base;
 	struct drm_connector connector;
 
-	struct drm_edid edid;
-
 	struct backlight *backlight;
 
 	drmModeModeInfo inherited_mode;	/**< Original mode on the connector */

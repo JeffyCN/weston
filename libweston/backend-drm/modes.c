@@ -34,6 +34,27 @@
 
 #include "drm-internal.h"
 #include "shared/weston-drm-fourcc.h"
+#include "shared/xalloc.h"
+
+struct drm_head_info {
+	char *make; /* The monitor make (PNP ID or company name). */
+	char *model; /* The monitor model (product name). */
+	char *serial_number;
+
+	/* The monitor supported EOTF modes, combination of
+ 	 * enum weston_eotf_mode bits.
+	 */
+	uint32_t eotf_mask;
+};
+
+static void
+drm_head_info_fini(struct drm_head_info *dhi)
+{
+	free(dhi->make);
+	free(dhi->model);
+	free(dhi->serial_number);
+	*dhi = (struct drm_head_info){};
+}
 
 static const char *const aspect_ratio_as_string[] = {
 	[WESTON_MODE_PIC_AR_NONE] = "",
@@ -302,27 +323,18 @@ edid_parse(struct drm_edid *edid, const uint8_t *data, size_t length)
  *
  * \param head The head whose \c drm_edid to fill in.
  * \param props The DRM connector properties to get the EDID from.
- * \param[out] make The monitor make (PNP ID).
- * \param[out] model The monitor model (name).
- * \param[out] serial_number The monitor serial number.
- * \param[out] eotf_mask The monitor supported EOTF modes, combination of
- * enum weston_eotf_mode bits.
+ * \param[out] dhi Receives information from EDID.
  *
- * Each of \c *make, \c *model and \c *serial_number are set only if the
- * information is found in the EDID. The pointers they are set to must not
- * be free()'d explicitly, instead they get implicitly freed when the
- * \c drm_head is destroyed.
+ * \c *dhi must be drm_head_info_fini()'d by the caller.
  */
 static void
 find_and_parse_output_edid(struct drm_head *head,
 			   drmModeObjectPropertiesPtr props,
-			   const char **make,
-			   const char **model,
-			   const char **serial_number,
-			   uint32_t *eotf_mask)
+			   struct drm_head_info *dhi)
 {
 	struct drm_device *device = head->connector.device;
 	drmModePropertyBlobPtr edid_blob = NULL;
+	struct drm_edid edid = {};
 	uint32_t blob_id;
 	int rc;
 
@@ -337,21 +349,19 @@ find_and_parse_output_edid(struct drm_head *head,
 	if (!edid_blob)
 		return;
 
-	rc = edid_parse(&head->edid,
-			edid_blob->data,
-			edid_blob->length);
-	if (!rc) {
-		if (head->edid.pnp_id[0] != '\0')
-			*make = head->edid.pnp_id;
-		if (head->edid.monitor_name[0] != '\0')
-			*model = head->edid.monitor_name;
-		if (head->edid.serial_number[0] != '\0')
-			*serial_number = head->edid.serial_number;
+	rc = edid_parse(&edid, edid_blob->data, edid_blob->length);
+	if (rc == 0) {
+		if (edid.pnp_id[0] != '\0')
+			dhi->make = xstrdup(edid.pnp_id);
+		if (edid.monitor_name[0] != '\0')
+			dhi->model = xstrdup(edid.monitor_name);
+		if (edid.serial_number[0] != '\0')
+			dhi->serial_number = xstrdup(edid.serial_number);
 	}
 	drmModeFreePropertyBlob(edid_blob);
 
 	/* TODO: parse this from EDID */
-	*eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
+	dhi->eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
 }
 
 static void
@@ -532,15 +542,16 @@ update_head_from_connector(struct drm_head *head)
 	struct drm_connector *connector = &head->connector;
 	drmModeObjectProperties *props = connector->props_drm;
 	drmModeConnector *conn = connector->conn;
-	const char *make = "unknown";
-	const char *model = "unknown";
-	const char *serial_number = "unknown";
-	uint32_t eotf_mask = WESTON_EOTF_MODE_SDR;
+	struct drm_head_info dhi = { .eotf_mask = WESTON_EOTF_MODE_SDR };
 
-	find_and_parse_output_edid(head, props, &make, &model, &serial_number, &eotf_mask);
-	weston_head_set_monitor_strings(&head->base, make, model, serial_number);
-	prune_eotf_modes_by_kms_support(head, &eotf_mask);
-	weston_head_set_supported_eotf_mask(&head->base, eotf_mask);
+	find_and_parse_output_edid(head, props, &dhi);
+
+	weston_head_set_monitor_strings(&head->base, dhi.make ?: "unknown",
+					dhi.model ?: "unknown",
+					dhi.serial_number ?: "unknown");
+
+	prune_eotf_modes_by_kms_support(head, &dhi.eotf_mask);
+	weston_head_set_supported_eotf_mask(&head->base, dhi.eotf_mask);
 	weston_head_set_non_desktop(&head->base,
 				    check_non_desktop(connector, props));
 	weston_head_set_subpixel(&head->base,
@@ -554,6 +565,8 @@ update_head_from_connector(struct drm_head *head)
 	/* Unknown connection status is assumed disconnected. */
 	weston_head_set_connection_status(&head->base,
 				conn->connection == DRM_MODE_CONNECTED);
+
+	drm_head_info_fini(&dhi);
 }
 
 /**
