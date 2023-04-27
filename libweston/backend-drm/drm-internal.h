@@ -433,13 +433,6 @@ struct drm_fb_private {
 	struct wl_listener buffer_destroy_listener;
 };
 
-struct drm_edid {
-	char eisa_id[13];
-	char monitor_name[13];
-	char pnp_id[5];
-	char serial_number[13];
-};
-
 /**
  * Pending state holds one or more drm_output_state structures, collected from
  * performing repaint. This pending state is transient, and only lives between

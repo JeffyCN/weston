@@ -221,6 +221,13 @@ parse_modeline(const char *s, drmModeModeInfo *mode)
 	return 0;
 }
 
+struct drm_edid {
+	char eisa_id[13];
+	char monitor_name[13];
+	char pnp_id[5];
+	char serial_number[13];
+};
+
 static void
 edid_parse_string(const uint8_t *data, char text[])
 {
