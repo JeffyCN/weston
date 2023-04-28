@@ -378,8 +378,8 @@ drm_head_info_from_edid(struct drm_head_info *dhi,
 			dhi->serial_number = xstrdup(edid.serial_number);
 	}
 
-	/* TODO: parse this from EDID */
-	dhi->eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
+	/* This ad hoc code will never parse HDR data. */
+	dhi->eotf_mask = WESTON_EOTF_MODE_SDR;
 }
 
 #endif /* HAVE_LIBDISPLAY_INFO else */

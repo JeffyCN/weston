@@ -1401,6 +1401,10 @@ wet_output_set_eotf_mode(struct weston_output *output,
 	if ((weston_output_get_supported_eotf_modes(output) & eotf_mode) == 0) {
 		weston_log("Error: output '%s' does not support EOTF mode %s.\n",
 			   output->name, str);
+#if !HAVE_LIBDISPLAY_INFO
+		weston_log_continue(STAMP_SPACE "Weston was built without libdisplay-info, "
+				    "so HDR capabilities cannot be detected.\n");
+#endif
 		free(str);
 		return -1;
 	}
