@@ -326,6 +326,28 @@ edid_parse(struct drm_edid *edid, const uint8_t *data, size_t length)
 	return 0;
 }
 
+static void
+drm_head_info_from_edid(struct drm_head_info *dhi,
+			const uint8_t *data,
+			size_t length)
+{
+	struct drm_edid edid = {};
+	int rc;
+
+	rc = edid_parse(&edid, data, length);
+	if (rc == 0) {
+		if (edid.pnp_id[0] != '\0')
+			dhi->make = xstrdup(edid.pnp_id);
+		if (edid.monitor_name[0] != '\0')
+			dhi->model = xstrdup(edid.monitor_name);
+		if (edid.serial_number[0] != '\0')
+			dhi->serial_number = xstrdup(edid.serial_number);
+	}
+
+	/* TODO: parse this from EDID */
+	dhi->eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
+}
+
 /** Parse monitor make, model and serial from EDID
  *
  * \param head The head whose \c drm_edid to fill in.
@@ -341,9 +363,7 @@ find_and_parse_output_edid(struct drm_head *head,
 {
 	struct drm_device *device = head->connector.device;
 	drmModePropertyBlobPtr edid_blob = NULL;
-	struct drm_edid edid = {};
 	uint32_t blob_id;
-	int rc;
 
 	blob_id =
 		drm_property_get_value(
@@ -356,19 +376,9 @@ find_and_parse_output_edid(struct drm_head *head,
 	if (!edid_blob)
 		return;
 
-	rc = edid_parse(&edid, edid_blob->data, edid_blob->length);
-	if (rc == 0) {
-		if (edid.pnp_id[0] != '\0')
-			dhi->make = xstrdup(edid.pnp_id);
-		if (edid.monitor_name[0] != '\0')
-			dhi->model = xstrdup(edid.monitor_name);
-		if (edid.serial_number[0] != '\0')
-			dhi->serial_number = xstrdup(edid.serial_number);
-	}
-	drmModeFreePropertyBlob(edid_blob);
+	drm_head_info_from_edid(dhi, edid_blob->data, edid_blob->length);
 
-	/* TODO: parse this from EDID */
-	dhi->eotf_mask = WESTON_EOTF_MODE_ALL_MASK;
+	drmModeFreePropertyBlob(edid_blob);
 }
 
 static void
