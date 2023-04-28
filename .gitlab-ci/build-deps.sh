@@ -97,7 +97,7 @@ git clone --branch 1.20.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayla
 cd wayland
 git show -s HEAD
 mkdir build
-meson build -Ddocumentation=false
+meson build --wrap-mode=nofallback -Ddocumentation=false
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf wayland
@@ -108,7 +108,7 @@ rm -rf wayland
 git clone --branch 1.31 --depth=1 https://gitlab.freedesktop.org/wayland/wayland-protocols
 cd wayland-protocols
 git show -s HEAD
-meson build
+meson build --wrap-mode=nofallback
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf wayland-protocols
@@ -122,7 +122,7 @@ rm -rf wayland-protocols
 # be manually inspected for correctness.
 git clone --branch 21.3 --depth=1 https://gitlab.freedesktop.org/mesa/mesa.git
 cd mesa
-meson build -Dauto_features=disabled \
+meson build --wrap-mode=nofallback -Dauto_features=disabled \
 	-Dgallium-drivers=swrast -Dvulkan-drivers= -Ddri-drivers=
 ninja ${NINJAFLAGS} -C build install
 cd ..
@@ -133,7 +133,7 @@ rm -rf mesa
 # building and installing libdrm as soon as we move to Debian 12.
 git clone --branch libdrm-2.4.108 --depth=1 https://gitlab.freedesktop.org/mesa/drm.git
 cd drm
-meson build -Dauto_features=disabled \
+meson build --wrap-mode=nofallback -Dauto_features=disabled \
 	-Dvc4=false -Dfreedreno=false -Detnaviv=false
 ninja ${NINJAFLAGS} -C build install
 cd ..
@@ -147,7 +147,7 @@ rm -rf drm
 git clone --single-branch --branch master https://gitlab.freedesktop.org/pipewire/pipewire.git pipewire-src
 cd pipewire-src
 git checkout -b snapshot bf112940d0bf8f526dd6229a619c1283835b49c2
-meson build
+meson build --wrap-mode=nofallback
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf pipewire-src
@@ -156,7 +156,7 @@ rm -rf pipewire-src
 # We use this for our tests using the DRM backend.
 git clone --depth=1 --branch 0.6.1 https://git.sr.ht/~kennylevinsen/seatd
 cd seatd
-meson build -Dauto_features=disabled \
+meson build --wrap-mode=nofallback -Dauto_features=disabled \
 	-Dlibseat-seatd=enabled -Dlibseat-logind=systemd -Dserver=enabled
 ninja ${NINJAFLAGS} -C build install
 cd ..
@@ -165,13 +165,13 @@ rm -rf seatd
 # Build and install aml and neatvnc, which are required for the VNC backend
 git clone --branch v0.3.0 --depth=1 https://github.com/any1/aml.git
 cd aml
-meson build
+meson build --wrap-mode=nofallback
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf aml
 git clone --branch v0.6.0 --depth=1 https://github.com/any1/neatvnc.git
 cd neatvnc
-meson build -Dauto_features=disabled
+meson build --wrap-mode=nofallback -Dauto_features=disabled
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf neatvnc

@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2023-03-03-bump-wayland-protocols-to-1.31'
+  FDO_DISTRIBUTION_TAG: '2023-04-28-wrapmode-nofallback'
 
 
 include:
@@ -182,7 +182,7 @@ aarch64-debian-container_prep:
   - .ci-rules
   script:
   - cd "$BUILDDIR"
-  - meson --prefix="$PREFIX" -Db_sanitize=address ${MESON_OPTIONS} ${MESON_TOOLCHAIN_OPTIONS} ..
+  - meson --prefix="$PREFIX" --wrap-mode=nofallback -Db_sanitize=address ${MESON_OPTIONS} ${MESON_TOOLCHAIN_OPTIONS} ..
   - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
   - ninja install
   - test -n "${QEMU_SMP}" || QEMU_SMP=${FDO_CI_CONCURRENT:-4}
@@ -210,7 +210,7 @@ aarch64-debian-container_prep:
   - .ci-rules
   script:
   - cd "$BUILDDIR"
-  - meson --prefix="$PREFIX" ${MESON_OPTIONS} ..
+  - meson --prefix="$PREFIX" --wrap-mode=nofallback ${MESON_OPTIONS} ..
   - ninja -k0 -j${FDO_CI_CONCURRENT:-4}
   - ninja install
   - ninja clean
