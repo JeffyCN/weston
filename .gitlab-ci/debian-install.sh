@@ -1,5 +1,5 @@
 #!/bin/bash
-# 
+#
 # Constructs the base container image used to build Weston within CI. Per the
 # comment at the top of .gitlab-ci.yml, any changes in this file must bump the
 # $FDO_DISTRIBUTION_TAG variable so we know the container has to be rebuilt.
@@ -43,6 +43,7 @@ apt-get -y --no-install-recommends install \
 	freerdp2-dev \
 	gcovr \
 	git \
+	hwdata \
 	lcov \
 	libasound2-dev \
 	libbluetooth-dev \
