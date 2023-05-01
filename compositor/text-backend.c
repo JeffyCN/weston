@@ -988,7 +988,9 @@ input_method_client_notifier(struct wl_listener *listener, void *data)
 				    client_listener);
 
 	text_backend->input_method.client = NULL;
-	respawn_input_method_process(text_backend);
+
+	if (!text_backend->compositor->shutting_down)
+		respawn_input_method_process(text_backend);
 }
 
 static void
