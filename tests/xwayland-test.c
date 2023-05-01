@@ -53,6 +53,8 @@ fixture_setup(struct weston_test_harness *harness)
 {
 	struct compositor_setup setup;
 
+	unsetenv("DISPLAY");
+
 	compositor_setup_defaults(&setup);
 	setup.shell = SHELL_TEST_DESKTOP;
 	setup.xwayland = true;
@@ -121,6 +123,8 @@ TEST(xwayland_client_test)
 	struct atom_x11 *atoms;
 
 	color_rgb888(&bg_color, 255, 0, 0);
+
+	assert(getenv("DISPLAY"));
 
 	conn = create_x11_connection();
 	assert(conn);
