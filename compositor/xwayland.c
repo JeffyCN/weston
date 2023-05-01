@@ -54,7 +54,7 @@ struct wet_xwayland {
 	struct wl_event_source *display_fd_source;
 	struct wl_client *client;
 	int wm_fd;
-	struct wet_process process;
+	struct wet_process *process;
 };
 
 static int
@@ -96,8 +96,14 @@ xserver_cleanup(struct wet_process *process, int status, void *data)
 {
 	struct wet_xwayland *wxw = data;
 
+	/* We only have one Xwayland process active, so make sure it's the
+	 * right one */
+	assert(process == wxw->process);
+
 	wxw->api->xserver_exited(wxw->xwayland, status);
 	wxw->client = NULL;
+	wxw->process = NULL;
+	free(process);
 }
 
 static pid_t
@@ -118,6 +124,12 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	size_t num_no_cloexec_fds = 0;
 	int ret;
 	size_t written __attribute__ ((unused));
+
+	wxw->process = zalloc(sizeof(*wxw->process));
+	if (!wxw->process) {
+		weston_log("couldn't allocate wet_process for Xwayland\n");
+		goto err;
+	}
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, wayland_socket.fds) < 0) {
 		weston_log("wl connection socketpair failed\n");
@@ -167,7 +179,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	custom_env_add_arg(&child_env, x11_wm_socket.str1);
 	custom_env_add_arg(&child_env, "-terminate");
 
-	ret = weston_client_launch(wxw->compositor, &wxw->process, &child_env,
+	ret = weston_client_launch(wxw->compositor, wxw->process, &child_env,
 				   no_cloexec_fds, num_no_cloexec_fds,
 				   xserver_cleanup, wxw);
 	if (!ret) {
@@ -179,7 +191,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 				       wayland_socket.fds[0]);
 	if (!wxw->client) {
 		weston_log("Couldn't create client for Xwayland\n");
-		goto err;
+		goto err_proc;
 	}
 
 	wxw->wm_fd = x11_wm_socket.fds[0];
@@ -201,13 +213,17 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 
 	free(xserver);
 
-	return wxw->process.pid;
+	return wxw->process->pid;
 
+
+err_proc:
+	wl_list_remove(&wxw->process->link);
 err:
 	free(xserver);
 	fdstr_close_all(&display_pipe);
 	fdstr_close_all(&x11_wm_socket);
 	fdstr_close_all(&wayland_socket);
+	free(wxw->process);
 	return -1;
 }
 
@@ -221,10 +237,12 @@ wxw_compositor_destroy(struct wl_listener *listener, void *data)
 
 	/* Don't call xserver_exited because Xwayland's own destroy handler
 	 * already does this for us ... */
-	if (wxw->client)
-		kill(wxw->process.pid, SIGTERM);
+	if (wxw->process) {
+		kill(wxw->process->pid, SIGTERM);
+		wl_list_remove(&wxw->process->link);
+		free(wxw->process);
+	}
 
-	wl_list_remove(&wxw->process.link);
 	free(wxw);
 }
 
@@ -257,8 +275,6 @@ wet_load_xwayland(struct weston_compositor *comp)
 	wxw->compositor = comp;
 	wxw->api = api;
 	wxw->xwayland = xwayland;
-	wl_list_init(&wxw->process.link);
-	wxw->process.cleanup = xserver_cleanup;
 	wxw->compositor_destroy_listener.notify = wxw_compositor_destroy;
 	if (api->listen(xwayland, wxw, spawn_xserver) < 0)
 		return -1;
