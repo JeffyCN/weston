@@ -3882,6 +3882,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	struct weston_log_context *log_ctx = NULL;
 	struct weston_log_subscriber *logger = NULL;
 	struct weston_log_subscriber *flight_rec = NULL;
+	struct wet_process *process, *process_tmp;
 	void *wet_xwl = NULL;
 	sigset_t mask;
 	struct sigaction action;
@@ -4197,6 +4198,9 @@ out:
 	wet_compositor_destroy_layout(&wet);
 	weston_log_scope_destroy(protocol_scope);
 	protocol_scope = NULL;
+
+	wl_list_for_each_safe(process, process_tmp, &wet.child_process_list, link)
+		wet_process_destroy(process, 0, false);
 
 out_signals:
 	for (i = ARRAY_LENGTH(signals) - 1; i >= 0; i--)
