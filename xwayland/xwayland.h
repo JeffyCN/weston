@@ -43,7 +43,6 @@ struct weston_xserver {
 	int unix_fd;
 	struct wl_event_source *unix_source;
 	int display;
-	pid_t pid;
 	struct wl_client *client;
 	struct weston_compositor *compositor;
 	struct weston_wm *wm;

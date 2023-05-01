@@ -49,13 +49,12 @@ weston_xserver_handle_event(int listen_fd, uint32_t mask, void *data)
 
 	snprintf(display, sizeof display, ":%d", wxs->display);
 
-	wxs->pid = wxs->spawn_func(wxs->user_data, display, wxs->abstract_fd, wxs->unix_fd);
-	if (wxs->pid == -1) {
+	wxs->client = wxs->spawn_func(wxs->user_data, display, wxs->abstract_fd, wxs->unix_fd);
+	if (wxs->client == NULL) {
 		weston_log("Failed to spawn the Xwayland server\n");
 		return 1;
 	}
 
-	weston_log("Spawned Xwayland server, pid %d\n", wxs->pid);
 	wl_event_source_remove(wxs->abstract_source);
 	wl_event_source_remove(wxs->unix_source);
 
@@ -71,7 +70,7 @@ weston_xserver_shutdown(struct weston_xserver *wxs)
 	unlink(path);
 	snprintf(path, sizeof path, "/tmp/.X11-unix/X%d", wxs->display);
 	unlink(path);
-	if (wxs->pid == 0) {
+	if (wxs->client == NULL) {
 		wl_event_source_remove(wxs->abstract_source);
 		wl_event_source_remove(wxs->unix_source);
 	}
@@ -305,12 +304,10 @@ retry:
 }
 
 static void
-weston_xwayland_xserver_loaded(struct weston_xwayland *xwayland,
-			       struct wl_client *client, int wm_fd)
+weston_xwayland_xserver_loaded(struct weston_xwayland *xwayland, int wm_fd)
 {
 	struct weston_xserver *wxs = (struct weston_xserver *)xwayland;
 	wxs->wm = weston_wm_create(wxs, wm_fd);
-	wxs->client = client;
 }
 
 static void
@@ -319,7 +316,6 @@ weston_xwayland_xserver_exited(struct weston_xwayland *xwayland,
 {
 	struct weston_xserver *wxs = (struct weston_xserver *)xwayland;
 
-	wxs->pid = 0;
 	wxs->client = NULL;
 
 	wxs->abstract_source =

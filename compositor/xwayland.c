@@ -52,7 +52,6 @@ struct wet_xwayland {
 	const struct weston_xwayland_api *api;
 	struct weston_xwayland *xwayland;
 	struct wl_event_source *display_fd_source;
-	struct wl_client *client;
 	int wm_fd;
 	struct wet_process *process;
 };
@@ -82,7 +81,7 @@ handle_display_fd(int fd, uint32_t mask, void *data)
 	if (n <= 0 || (n > 0 && buf[n - 1] != '\n'))
 		return 1;
 
-	wxw->api->xserver_loaded(wxw->xwayland, wxw->client, wxw->wm_fd);
+	wxw->api->xserver_loaded(wxw->xwayland, wxw->wm_fd);
 
 out:
 	wl_event_source_remove(wxw->display_fd_source);
@@ -101,11 +100,10 @@ xserver_cleanup(struct wet_process *process, int status, void *data)
 	assert(process == wxw->process);
 
 	wxw->api->xserver_exited(wxw->xwayland, status);
-	wxw->client = NULL;
 	wxw->process = NULL;
 }
 
-static pid_t
+static struct wl_client *
 spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd)
 {
 	struct wet_xwayland *wxw = user_data;
@@ -117,6 +115,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	char *xserver = NULL;
 	struct weston_config *config = wet_get_config(wxw->compositor);
 	struct weston_config_section *section;
+	struct wl_client *client;
 	struct wl_event_loop *loop;
 	struct custom_env child_env;
 	int no_cloexec_fds[5];
@@ -180,9 +179,9 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 		goto err;
 	}
 
-	wxw->client = wl_client_create(wxw->compositor->wl_display,
-				       wayland_socket.fds[0]);
-	if (!wxw->client) {
+	client = wl_client_create(wxw->compositor->wl_display,
+				  wayland_socket.fds[0]);
+	if (!client) {
 		weston_log("Couldn't create client for Xwayland\n");
 		goto err_proc;
 	}
@@ -206,7 +205,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 
 	free(xserver);
 
-	return wxw->process->pid;
+	return client;
 
 
 err_proc:
@@ -217,7 +216,7 @@ err:
 	fdstr_close_all(&x11_wm_socket);
 	fdstr_close_all(&wayland_socket);
 	free(wxw->process);
-	return -1;
+	return NULL;
 }
 
 static void
