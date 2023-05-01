@@ -335,6 +335,16 @@ to_wet_compositor(struct weston_compositor *compositor)
 	return weston_compositor_get_user_data(compositor);
 }
 
+WL_EXPORT void
+wet_process_destroy(struct wet_process *process, int status, bool call_cleanup)
+{
+	wl_list_remove(&process->link);
+	if (call_cleanup && process->cleanup)
+		process->cleanup(process, status, process->cleanup_data);
+	free(process->path);
+	free(process);
+}
+
 static int
 sigchld_handler(int signal_number, void *data)
 {
@@ -370,11 +380,7 @@ sigchld_handler(int signal_number, void *data)
 			weston_log("%s disappeared\n", p->path);
 		}
 
-		wl_list_remove(&p->link);
-		if (p->cleanup)
-			p->cleanup(p, status, p->cleanup_data);
-		free(p->path);
-		free(p);
+		wet_process_destroy(p, status, true);
 	}
 
 	if (pid < 0 && errno != ECHILD)

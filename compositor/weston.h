@@ -62,6 +62,9 @@ wet_client_launch(struct weston_compositor *compositor,
 struct wl_client *
 wet_client_start(struct weston_compositor *compositor, const char *path);
 
+void
+wet_process_destroy(struct wet_process *process, int status, bool call_cleanup);
+
 struct weston_config *
 wet_get_config(struct weston_compositor *compositor);
 
