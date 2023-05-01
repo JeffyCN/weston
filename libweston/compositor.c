@@ -8638,6 +8638,8 @@ weston_compositor_shutdown(struct weston_compositor *ec)
 {
 	struct weston_output *output, *next;
 
+	ec->shutting_down = true;
+
 	wl_event_source_remove(ec->idle_source);
 	wl_event_source_remove(ec->repaint_timer);
 

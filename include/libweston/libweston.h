@@ -1366,6 +1366,7 @@ struct weston_renderer;
  */
 struct weston_compositor {
 	struct wl_signal destroy_signal;
+	bool shutting_down;
 
 	struct wl_display *wl_display;
 	struct weston_desktop_xwayland *xwayland;
