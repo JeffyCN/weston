@@ -91,6 +91,9 @@ wet_get_bindir_path(const char *name);
 void *
 wet_load_xwayland(struct weston_compositor *comp);
 
+void
+wet_xwayland_destroy(struct weston_compositor *comp, void *data);
+
 struct text_backend;
 
 struct text_backend *

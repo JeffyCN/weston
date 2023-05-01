@@ -4190,6 +4190,9 @@ out:
 	if (protologger)
 		wl_protocol_logger_destroy(protologger);
 
+	if (wet_xwl)
+		wet_xwayland_destroy(wet.compositor, wet_xwl);
+
 	weston_compositor_destroy(wet.compositor);
 	wet_compositor_destroy_layout(&wet);
 	weston_log_scope_destroy(protocol_scope);
