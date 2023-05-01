@@ -37,7 +37,7 @@ extern "C" {
 struct weston_compositor;
 struct weston_xwayland;
 
-#define WESTON_XWAYLAND_API_NAME "weston_xwayland_v2"
+#define WESTON_XWAYLAND_API_NAME "weston_xwayland_v3"
 #define WESTON_XWAYLAND_SURFACE_API_NAME "weston_xwayland_surface_v1"
 
 typedef struct wl_client *
@@ -102,10 +102,9 @@ struct weston_xwayland_api {
 	 * socket, and may call the spawn function again.
 	 *
 	 * \param xwayland The Xwayland context object.
-	 * \param exit_status The exit status of the Xwayland server process.
 	 */
 	void
-	(*xserver_exited)(struct weston_xwayland *xwayland, int exit_status);
+	(*xserver_exited)(struct weston_xwayland *xwayland);
 };
 
 /** Retrieve the API object for the libweston Xwayland module.

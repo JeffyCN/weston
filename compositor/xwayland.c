@@ -99,7 +99,7 @@ xserver_cleanup(struct wet_process *process, int status, void *data)
 	 * right one */
 	assert(process == wxw->process);
 
-	wxw->api->xserver_exited(wxw->xwayland, status);
+	wxw->api->xserver_exited(wxw->xwayland);
 	wxw->process = NULL;
 }
 

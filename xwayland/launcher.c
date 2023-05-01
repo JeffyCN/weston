@@ -311,8 +311,7 @@ weston_xwayland_xserver_loaded(struct weston_xwayland *xwayland, int wm_fd)
 }
 
 static void
-weston_xwayland_xserver_exited(struct weston_xwayland *xwayland,
-			       int exit_status)
+weston_xwayland_xserver_exited(struct weston_xwayland *xwayland)
 {
 	struct weston_xserver *wxs = (struct weston_xserver *)xwayland;
 
@@ -328,14 +327,14 @@ weston_xwayland_xserver_exited(struct weston_xwayland *xwayland,
 				     weston_xserver_handle_event, wxs);
 
 	if (wxs->wm) {
-		weston_log("xserver exited, code %d\n", exit_status);
+		weston_log("xserver exited, will restart on demand\n");
 		weston_wm_destroy(wxs->wm);
 		wxs->wm = NULL;
 	} else {
 		/* If the X server crashes before it binds to the
 		 * xserver interface, shut down and don't try
 		 * again. */
-		weston_log("xserver crashing too fast: %d\n", exit_status);
+		weston_log("xserver crashing too fast, not restarting\n");
 		weston_xserver_shutdown(wxs);
 	}
 }
