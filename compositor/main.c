@@ -362,7 +362,8 @@ sigchld_handler(int signal_number, void *data)
 		wl_list_remove(&p->link);
 		wl_list_init(&p->link);
 		free(p->path);
-		p->cleanup(p, status, p->cleanup_data);
+		if (p->cleanup)
+			p->cleanup(p, status, p->cleanup_data);
 	}
 
 	if (pid < 0 && errno != ECHILD)
