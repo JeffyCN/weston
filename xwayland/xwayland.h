@@ -46,7 +46,7 @@ struct weston_xserver {
 	struct wl_client *client;
 	struct weston_compositor *compositor;
 	struct weston_wm *wm;
-	struct wl_listener destroy_listener;
+	struct wl_listener compositor_destroy_listener;
 	weston_xwayland_spawn_xserver_func_t spawn_func;
 	void *user_data;
 

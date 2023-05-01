@@ -221,9 +221,9 @@ static void
 weston_xserver_destroy(struct wl_listener *l, void *data)
 {
 	struct weston_xserver *wxs =
-		container_of(l, struct weston_xserver, destroy_listener);
+		container_of(l, struct weston_xserver, compositor_destroy_listener);
 
-	wl_list_remove(&wxs->destroy_listener.link);
+	wl_list_remove(&wxs->compositor_destroy_listener.link);
 
 	if (wxs->loop)
 		weston_xserver_shutdown(wxs);
@@ -244,7 +244,7 @@ weston_xwayland_get(struct weston_compositor *compositor)
 	if (!listener)
 		return NULL;
 
-	wxs = wl_container_of(listener, wxs, destroy_listener);
+	wxs = wl_container_of(listener, wxs, compositor_destroy_listener);
 	return (struct weston_xwayland *)wxs;
 }
 
@@ -362,7 +362,7 @@ weston_module_init(struct weston_compositor *compositor)
 	wxs->compositor = compositor;
 
 	if (!weston_compositor_add_destroy_listener_once(compositor,
-							 &wxs->destroy_listener,
+							 &wxs->compositor_destroy_listener,
 							 weston_xserver_destroy)) {
 		free(wxs);
 		return 0;
@@ -397,7 +397,7 @@ weston_module_init(struct weston_compositor *compositor)
 	return 0;
 
 out_free:
-	wl_list_remove(&wxs->destroy_listener.link);
+	wl_list_remove(&wxs->compositor_destroy_listener.link);
 	free(wxs);
 	return -1;
 }
