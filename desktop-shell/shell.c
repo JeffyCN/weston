@@ -4359,8 +4359,10 @@ desktop_shell_client_destroy(struct wl_listener *listener, void *data)
 	 * returning.
 	 */
 
-	if (!check_desktop_shell_crash_too_early(shell))
+	if (!shell->compositor->shutting_down &&
+	    !check_desktop_shell_crash_too_early(shell)) {
 		respawn_desktop_shell_process(shell);
+	}
 
 	shell_fade_startup(shell);
 }
