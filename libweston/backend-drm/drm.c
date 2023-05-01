@@ -1490,7 +1490,7 @@ drm_output_fini_pixman(struct drm_output *output)
 
 	/* Destroying the Pixman surface will destroy all our buffers,
 	 * regardless of refcount. Ensure we destroy them here. */
-	if (!b->shutting_down &&
+	if (!b->compositor->shutting_down &&
 	    output->scanout_plane->state_cur->fb &&
 	    output->scanout_plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB) {
 		drm_plane_reset_state(output->scanout_plane);
@@ -1970,7 +1970,7 @@ drm_output_deinit_planes(struct drm_output *output)
 
 	/* If the compositor is already shutting down, the planes have already
 	 * been destroyed. */
-	if (!b->shutting_down) {
+	if (!b->compositor->shutting_down) {
 		wl_list_remove(&output->scanout_plane->base.link);
 		wl_list_init(&output->scanout_plane->base.link);
 
@@ -2173,7 +2173,7 @@ drm_output_deinit(struct weston_output *base)
 	struct drm_device *device = b->drm;
 	struct drm_pending_state *pending;
 
-	if (!b->shutting_down) {
+	if (!b->compositor->shutting_down) {
 		pending = drm_pending_state_alloc(device);
 		drm_output_get_disable_state(pending, output);
 		drm_pending_state_apply_sync(pending);
@@ -3173,8 +3173,6 @@ drm_destroy(struct weston_backend *backend)
 
 	wl_event_source_remove(b->udev_drm_source);
 	wl_event_source_remove(b->drm_source);
-
-	b->shutting_down = true;
 
 	destroy_sprites(b->drm);
 

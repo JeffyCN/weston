@@ -374,8 +374,6 @@ struct drm_backend {
 
 	uint32_t pageflip_timeout;
 
-	bool shutting_down;
-
 	struct weston_log_scope *debug;
 };
 
