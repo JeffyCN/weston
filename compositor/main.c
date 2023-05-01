@@ -3740,10 +3740,10 @@ copy_command_line(int argc, char * const argv[])
 }
 
 #if !defined(BUILD_XWAYLAND)
-int
+void *
 wet_load_xwayland(struct weston_compositor *comp)
 {
-	return -1;
+	return NULL;
 }
 #endif
 
@@ -3882,6 +3882,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	struct weston_log_context *log_ctx = NULL;
 	struct weston_log_subscriber *logger = NULL;
 	struct weston_log_subscriber *flight_rec = NULL;
+	void *wet_xwl = NULL;
 	sigset_t mask;
 	struct sigaction action;
 
@@ -4136,7 +4137,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 					       false);
 	}
 	if (xwayland) {
-		if (wet_load_xwayland(wet.compositor) < 0)
+		wet_xwl = wet_load_xwayland(wet.compositor);
+		if (!wet_xwl)
 			goto out;
 	}
 

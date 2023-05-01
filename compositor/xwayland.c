@@ -238,7 +238,7 @@ wxw_compositor_destroy(struct wl_listener *listener, void *data)
 	free(wxw);
 }
 
-int
+void *
 wet_load_xwayland(struct weston_compositor *comp)
 {
 	const struct weston_xwayland_api *api;
@@ -246,32 +246,32 @@ wet_load_xwayland(struct weston_compositor *comp)
 	struct wet_xwayland *wxw;
 
 	if (weston_compositor_load_xwayland(comp) < 0)
-		return -1;
+		return NULL;
 
 	api = weston_xwayland_get_api(comp);
 	if (!api) {
 		weston_log("Failed to get the xwayland module API.\n");
-		return -1;
+		return NULL;
 	}
 
 	xwayland = api->get(comp);
 	if (!xwayland) {
 		weston_log("Failed to get the xwayland object.\n");
-		return -1;
+		return NULL;
 	}
 
 	wxw = zalloc(sizeof *wxw);
 	if (!wxw)
-		return -1;
+		return NULL;
 
 	wxw->compositor = comp;
 	wxw->api = api;
 	wxw->xwayland = xwayland;
 	wxw->compositor_destroy_listener.notify = wxw_compositor_destroy;
 	if (api->listen(xwayland, wxw, spawn_xserver) < 0)
-		return -1;
+		return NULL;
 
 	wl_signal_add(&comp->destroy_signal, &wxw->compositor_destroy_listener);
 
-	return 0;
+	return wxw;
 }
