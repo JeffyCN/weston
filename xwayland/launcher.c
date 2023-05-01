@@ -41,6 +41,15 @@
 #include "shared/helpers.h"
 #include "shared/string-helpers.h"
 
+static void
+weston_xserver_client_destroyed(struct wl_listener *listener, void *data)
+{
+	struct weston_xserver *wxs =
+		container_of(listener, struct weston_xserver, client_destroy_listener);
+
+	wxs->client = NULL;
+}
+
 static int
 weston_xserver_handle_event(int listen_fd, uint32_t mask, void *data)
 {
@@ -54,6 +63,9 @@ weston_xserver_handle_event(int listen_fd, uint32_t mask, void *data)
 		weston_log("Failed to spawn the Xwayland server\n");
 		return 1;
 	}
+	wxs->client_destroy_listener.notify = weston_xserver_client_destroyed;
+	wl_client_add_destroy_late_listener(wxs->client,
+					    &wxs->client_destroy_listener);
 
 	wl_event_source_remove(wxs->abstract_source);
 	wl_event_source_remove(wxs->unix_source);
@@ -70,7 +82,10 @@ weston_xserver_shutdown(struct weston_xserver *wxs)
 	unlink(path);
 	snprintf(path, sizeof path, "/tmp/.X11-unix/X%d", wxs->display);
 	unlink(path);
-	if (wxs->client == NULL) {
+	if (wxs->client) {
+		wl_client_destroy(wxs->client);
+		wxs->client = NULL;
+	} else {
 		wl_event_source_remove(wxs->abstract_source);
 		wl_event_source_remove(wxs->unix_source);
 	}
@@ -315,6 +330,8 @@ weston_xwayland_xserver_exited(struct weston_xwayland *xwayland)
 {
 	struct weston_xserver *wxs = (struct weston_xserver *)xwayland;
 
+	if (wxs->client)
+		wl_client_destroy(wxs->client);
 	wxs->client = NULL;
 
 	wxs->abstract_source =
