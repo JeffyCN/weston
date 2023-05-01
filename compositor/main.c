@@ -360,6 +360,16 @@ sigchld_handler(int signal_number, void *data)
 		if (&p->link == &wet->child_process_list)
 			continue;
 
+		if (WIFEXITED(status)) {
+			weston_log("%s exited with status %d\n", p->path,
+				   WEXITSTATUS(status));
+		} else if (WIFSIGNALED(status)) {
+			weston_log("%s died on signal %d\n", p->path,
+				   WTERMSIG(status));
+		} else {
+			weston_log("%s disappeared\n", p->path);
+		}
+
 		wl_list_remove(&p->link);
 		if (p->cleanup)
 			p->cleanup(p, status, p->cleanup_data);
@@ -465,25 +475,6 @@ wet_client_launch(struct weston_compositor *compositor,
 	return proc;
 }
 
-static void
-process_handle_sigchld(struct wet_process *process, int status, void *data)
-{
-	/*
-	 * There are no guarantees whether this runs before or after
-	 * the wl_client destructor.
-	 */
-
-	if (WIFEXITED(status)) {
-		weston_log("%s exited with status %d\n", process->path,
-			   WEXITSTATUS(status));
-	} else if (WIFSIGNALED(status)) {
-		weston_log("%s died on signal %d\n", process->path,
-			   WTERMSIG(status));
-	} else {
-		weston_log("%s disappeared\n", process->path);
-	}
-}
-
 WL_EXPORT struct wl_client *
 wet_client_start(struct weston_compositor *compositor, const char *path)
 {
@@ -514,7 +505,7 @@ wet_client_start(struct weston_compositor *compositor, const char *path)
 
 	proc = wet_client_launch(compositor, &child_env,
 				 no_cloexec_fds, num_no_cloexec_fds,
-				 process_handle_sigchld, NULL);
+				 NULL, NULL);
 	if (!proc)
 		return NULL;
 
