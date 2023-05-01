@@ -38,12 +38,14 @@ screenshooter_create(struct weston_compositor *ec);
 
 struct wet_process;
 typedef void (*wet_process_cleanup_func_t)(struct wet_process *process,
-					   int status);
+					   int status,
+					   void *data);
 
 struct wet_process {
 	pid_t pid;
 	char *path;
 	wet_process_cleanup_func_t cleanup;
+	void *cleanup_data;
 	struct wl_list link;
 };
 
@@ -55,7 +57,8 @@ weston_client_launch(struct weston_compositor *compositor,
 		     struct custom_env *custom_env,
 		     int *fds_no_cloexec,
 		     size_t num_fds_no_cloexec,
-		     wet_process_cleanup_func_t cleanup);
+		     wet_process_cleanup_func_t cleanup,
+		     void *cleanup_data);
 
 struct wl_client *
 wet_client_start(struct weston_compositor *compositor, const char *path);

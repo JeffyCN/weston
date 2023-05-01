@@ -362,7 +362,7 @@ sigchld_handler(int signal_number, void *data)
 		wl_list_remove(&p->link);
 		wl_list_init(&p->link);
 		free(p->path);
-		p->cleanup(p, status);
+		p->cleanup(p, status, p->cleanup_data);
 	}
 
 	if (pid < 0 && errno != ECHILD)
@@ -394,7 +394,8 @@ weston_client_launch(struct weston_compositor *compositor,
 		     struct custom_env *child_env,
 		     int *no_cloexec_fds,
 		     size_t num_no_cloexec_fds,
-		     wet_process_cleanup_func_t cleanup)
+		     wet_process_cleanup_func_t cleanup,
+		     void *cleanup_data)
 {
 	struct wet_compositor *wet = to_wet_compositor(compositor);
 	const char *fail_cloexec = "Couldn't unset CLOEXEC on child FDs";
@@ -445,6 +446,7 @@ weston_client_launch(struct weston_compositor *compositor,
 	default:
 		proc->pid = pid;
 		proc->cleanup = cleanup;
+		proc->cleanup_data = cleanup_data;
 		proc->path = strdup(argp[0]);
 		wl_list_insert(&wet->child_process_list, &proc->link);
 		ret = true;
@@ -464,7 +466,7 @@ weston_client_launch(struct weston_compositor *compositor,
 }
 
 static void
-process_handle_sigchld(struct wet_process *process, int status)
+process_handle_sigchld(struct wet_process *process, int status, void *data)
 {
 	/*
 	 * There are no guarantees whether this runs before or after
@@ -519,7 +521,7 @@ wet_client_start(struct weston_compositor *compositor, const char *path)
 
 	ret = weston_client_launch(compositor, proc, &child_env,
 				   no_cloexec_fds, num_no_cloexec_fds,
-				   process_handle_sigchld);
+				   process_handle_sigchld, NULL);
 	if (!ret)
 		goto err;
 

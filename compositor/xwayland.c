@@ -92,10 +92,9 @@ out:
 }
 
 static void
-xserver_cleanup(struct wet_process *process, int status)
+xserver_cleanup(struct wet_process *process, int status, void *data)
 {
-	struct wet_xwayland *wxw =
-		container_of(process, struct wet_xwayland, process);
+	struct wet_xwayland *wxw = data;
 
 	wxw->api->xserver_exited(wxw->xwayland, status);
 	wxw->client = NULL;
@@ -170,7 +169,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 
 	ret = weston_client_launch(wxw->compositor, &wxw->process, &child_env,
 				   no_cloexec_fds, num_no_cloexec_fds,
-				   xserver_cleanup);
+				   xserver_cleanup, wxw);
 	if (!ret) {
 		weston_log("Couldn't start Xwayland\n");
 		goto err;
