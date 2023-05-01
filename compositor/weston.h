@@ -51,14 +51,13 @@ struct wet_process {
 
 struct custom_env;
 
-bool
-weston_client_launch(struct weston_compositor *compositor,
-		     struct wet_process *proc,
-		     struct custom_env *custom_env,
-		     int *fds_no_cloexec,
-		     size_t num_fds_no_cloexec,
-		     wet_process_cleanup_func_t cleanup,
-		     void *cleanup_data);
+struct wet_process *
+wet_client_launch(struct weston_compositor *compositor,
+		  struct custom_env *custom_env,
+		  int *fds_no_cloexec,
+		  size_t num_fds_no_cloexec,
+		  wet_process_cleanup_func_t cleanup,
+		  void *cleanup_data);
 
 struct wl_client *
 wet_client_start(struct weston_compositor *compositor, const char *path);

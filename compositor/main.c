@@ -53,6 +53,7 @@
 #include "shared/helpers.h"
 #include "shared/process-util.h"
 #include "shared/string-helpers.h"
+#include "shared/xalloc.h"
 #include "git-version.h"
 #include <libweston/version.h>
 #include "weston.h"
@@ -360,10 +361,10 @@ sigchld_handler(int signal_number, void *data)
 			continue;
 
 		wl_list_remove(&p->link);
-		wl_list_init(&p->link);
-		free(p->path);
 		if (p->cleanup)
 			p->cleanup(p, status, p->cleanup_data);
+		free(p->path);
+		free(p);
 	}
 
 	if (pid < 0 && errno != ECHILD)
@@ -389,16 +390,16 @@ cleanup_for_child_process() {
 	sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
 }
 
-WL_EXPORT bool
-weston_client_launch(struct weston_compositor *compositor,
-		     struct wet_process *proc,
-		     struct custom_env *child_env,
-		     int *no_cloexec_fds,
-		     size_t num_no_cloexec_fds,
-		     wet_process_cleanup_func_t cleanup,
-		     void *cleanup_data)
+WL_EXPORT struct wet_process *
+wet_client_launch(struct weston_compositor *compositor,
+		  struct custom_env *child_env,
+		  int *no_cloexec_fds,
+		  size_t num_no_cloexec_fds,
+		  wet_process_cleanup_func_t cleanup,
+		  void *cleanup_data)
 {
 	struct wet_compositor *wet = to_wet_compositor(compositor);
+	struct wet_process *proc = NULL;
 	const char *fail_cloexec = "Couldn't unset CLOEXEC on child FDs";
 	const char *fail_seteuid = "Couldn't call seteuid";
 	char *fail_exec;
@@ -406,7 +407,6 @@ weston_client_launch(struct weston_compositor *compositor,
 	char * const *envp;
 	pid_t pid;
 	int err;
-	bool ret;
 	size_t i;
 	size_t written __attribute__((unused));
 
@@ -445,25 +445,24 @@ weston_client_launch(struct weston_compositor *compositor,
 		_exit(EXIT_FAILURE);
 
 	default:
+		proc = xzalloc(sizeof(*proc));
 		proc->pid = pid;
 		proc->cleanup = cleanup;
 		proc->cleanup_data = cleanup_data;
 		proc->path = strdup(argp[0]);
 		wl_list_insert(&wet->child_process_list, &proc->link);
-		ret = true;
 		break;
 
 	case -1:
 		weston_log("weston_client_launch: "
 			   "fork failed while launching '%s': %s\n", argp[0],
 			   strerror(errno));
-		ret = false;
 		break;
 	}
 
 	custom_env_fini(child_env);
 	free(fail_exec);
-	return ret;
+	return proc;
 }
 
 static void
@@ -483,8 +482,6 @@ process_handle_sigchld(struct wet_process *process, int status, void *data)
 	} else {
 		weston_log("%s disappeared\n", process->path);
 	}
-
-	free(process);
 }
 
 WL_EXPORT struct wl_client *
@@ -496,18 +493,13 @@ wet_client_start(struct weston_compositor *compositor, const char *path)
 	struct fdstr wayland_socket = FDSTR_INIT;
 	int no_cloexec_fds[1];
 	size_t num_no_cloexec_fds = 0;
-	bool ret;
-
-	proc = zalloc(sizeof *proc);
-	if (!proc)
-		return NULL;
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0,
 				  wayland_socket.fds) < 0) {
 		weston_log("wet_client_start: "
 			   "socketpair failed while launching '%s': %s\n",
 			   path, strerror(errno));
-		goto err;
+		return NULL;
 	}
 
 	custom_env_init_from_environ(&child_env);
@@ -520,11 +512,11 @@ wet_client_start(struct weston_compositor *compositor, const char *path)
 
 	assert(num_no_cloexec_fds <= ARRAY_LENGTH(no_cloexec_fds));
 
-	ret = weston_client_launch(compositor, proc, &child_env,
-				   no_cloexec_fds, num_no_cloexec_fds,
-				   process_handle_sigchld, NULL);
-	if (!ret)
-		goto err;
+	proc = wet_client_launch(compositor, &child_env,
+				 no_cloexec_fds, num_no_cloexec_fds,
+				 process_handle_sigchld, NULL);
+	if (!proc)
+		return NULL;
 
 	client = wl_client_create(compositor->wl_display,
 				  wayland_socket.fds[0]);
@@ -539,10 +531,10 @@ wet_client_start(struct weston_compositor *compositor, const char *path)
 	/* Close the child end of our socket which we no longer need */
 	close(wayland_socket.fds[1]);
 
+	/* proc is now owned by the compositor's process list */
+
 	return client;
 
-err:
-	free(proc);
 out_sock:
 	fdstr_close_all(&wayland_socket);
 

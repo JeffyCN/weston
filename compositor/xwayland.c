@@ -103,7 +103,6 @@ xserver_cleanup(struct wet_process *process, int status, void *data)
 	wxw->api->xserver_exited(wxw->xwayland, status);
 	wxw->client = NULL;
 	wxw->process = NULL;
-	free(process);
 }
 
 static pid_t
@@ -122,14 +121,7 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	struct custom_env child_env;
 	int no_cloexec_fds[5];
 	size_t num_no_cloexec_fds = 0;
-	int ret;
 	size_t written __attribute__ ((unused));
-
-	wxw->process = zalloc(sizeof(*wxw->process));
-	if (!wxw->process) {
-		weston_log("couldn't allocate wet_process for Xwayland\n");
-		goto err;
-	}
 
 	if (os_socketpair_cloexec(AF_UNIX, SOCK_STREAM, 0, wayland_socket.fds) < 0) {
 		weston_log("wl connection socketpair failed\n");
@@ -179,10 +171,11 @@ spawn_xserver(void *user_data, const char *display, int abstract_fd, int unix_fd
 	custom_env_add_arg(&child_env, x11_wm_socket.str1);
 	custom_env_add_arg(&child_env, "-terminate");
 
-	ret = weston_client_launch(wxw->compositor, wxw->process, &child_env,
-				   no_cloexec_fds, num_no_cloexec_fds,
-				   xserver_cleanup, wxw);
-	if (!ret) {
+	wxw->process =
+		wet_client_launch(wxw->compositor, &child_env,
+				  no_cloexec_fds, num_no_cloexec_fds,
+				  xserver_cleanup, wxw);
+	if (!wxw->process) {
 		weston_log("Couldn't start Xwayland\n");
 		goto err;
 	}
