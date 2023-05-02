@@ -3692,7 +3692,8 @@ lower_fullscreen_layer(struct desktop_shell *shell,
 
 		/* We can have a non-fullscreen popup for a fullscreen surface
 		 * in the fullscreen layer. */
-		if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface)) {
+		if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface) &&
+		    shsurf->fullscreen.black_view) {
 			/* Hide the black view */
 			weston_layer_entry_remove(&shsurf->fullscreen.black_view->view->layer_link);
 			wl_list_init(&shsurf->fullscreen.black_view->view->layer_link.link);
