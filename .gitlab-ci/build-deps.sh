@@ -105,7 +105,7 @@ fi
 
 # Build and install Wayland; keep this version in sync with our dependency
 # in meson.build.
-git clone --branch 1.20.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayland
+git clone --branch 1.22.0 --depth=1 https://gitlab.freedesktop.org/wayland/wayland
 cd wayland
 git show -s HEAD
 mkdir build

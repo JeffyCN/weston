@@ -136,8 +136,8 @@ if dep_xkbcommon.version().version_compare('>= 0.5.0')
 	config_h.set('HAVE_XKBCOMMON_COMPOSE', '1')
 endif
 
-dep_wayland_server = dependency('wayland-server', version: '>= 1.20.0')
-dep_wayland_client = dependency('wayland-client', version: '>= 1.20.0')
+dep_wayland_server = dependency('wayland-server', version: '>= 1.22.0')
+dep_wayland_client = dependency('wayland-client', version: '>= 1.22.0')
 dep_pixman = dependency('pixman-1', version: '>= 0.25.2')
 dep_libinput = dependency('libinput', version: '>= 1.2.0')
 dep_libevdev = dependency('libevdev')

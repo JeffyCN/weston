@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS-$FDO_DISTRIBUTION_VERSION/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2023-06-12-kernel-mesa-upgrade-2'
+  FDO_DISTRIBUTION_TAG: '2023-07-19-bump-wayland-to-1.22'
 
 
 include:
