@@ -317,6 +317,11 @@ main(int argc, char *argv[])
 	display_set_user_data(box.display, &box);
 	display_set_global_handler(box.display, global_handler);
 
+	if (box.mode != MODE_NO_VIEWPORT && !box.viewport) {
+		fprintf(stderr, "compositor doesn't support viewporter\n");
+		return -1;
+	}
+
 	display_run(d);
 
 	widget_destroy(box.widget);
