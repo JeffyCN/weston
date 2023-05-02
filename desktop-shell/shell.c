@@ -2362,7 +2362,9 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 	if (!shell->locked) {
 		wl_list_for_each(seat, &compositor->seat_list, link)
 			activate(shell, shsurf->view, seat,
-				 WESTON_ACTIVATE_FLAG_CONFIGURE);
+				 WESTON_ACTIVATE_FLAG_CONFIGURE |
+				 (shsurf->state.fullscreen ?
+				 WESTON_ACTIVATE_FLAG_FULLSCREEN : 0));
 	}
 
 	if (!shsurf->state.fullscreen && !shsurf->state.maximized) {
@@ -2458,7 +2460,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 		wl_list_for_each(seat, &surface->compositor->seat_list,link) {
 			activate(shell, shsurf->view, seat,
-				 WESTON_ACTIVATE_FLAG_CONFIGURE);
+				 WESTON_ACTIVATE_FLAG_CONFIGURE |
+				 WESTON_ACTIVATE_FLAG_FULLSCREEN);
 		}
 	} else if (shsurf->state.maximized) {
 		set_maximized_position(shell, shsurf);

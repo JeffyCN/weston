@@ -4838,8 +4838,17 @@ pointer_constraint_surface_activate(struct wl_listener *listener, void *data)
 		get_pointer_constraint_for_pointer(focus, pointer) == constraint;
 
 	if (is_constraint_surface &&
-	    !is_pointer_constraint_enabled(constraint))
-		maybe_enable_pointer_constraint(constraint);
+	    !is_pointer_constraint_enabled(constraint)) {
+		if (activation->flags & WESTON_ACTIVATE_FLAG_FULLSCREEN) {
+			weston_view_update_transform(activation->view);
+			weston_pointer_set_focus(pointer, activation->view);
+			enable_pointer_constraint(constraint, activation->view);
+			maybe_warp_confined_pointer(constraint);
+		}
+		else {
+			maybe_enable_pointer_constraint(constraint);
+		}
+	}
 	else if (!is_constraint_surface &&
 		 is_pointer_constraint_enabled(constraint))
 		disable_pointer_constraint(constraint);
