@@ -2796,6 +2796,7 @@ drm_writeback_populate_formats(struct drm_writeback *wb)
 	drmModePropertyBlobPtr blob;
 	uint32_t *blob_formats;
 	unsigned int i;
+	int ret = 0;
 
 	blob_id = drm_property_get_value(&info[WDRM_CONNECTOR_WRITEBACK_PIXEL_FORMATS],
 					 props, 0);
@@ -2808,16 +2809,17 @@ drm_writeback_populate_formats(struct drm_writeback *wb)
 
 	blob_formats = blob->data;
 
-	for (i = 0; i < blob->length / sizeof(uint32_t); i++)
+	for (i = 0; i < blob->length / sizeof(uint32_t); i++) {
 		if (!weston_drm_format_array_add_format(&wb->formats,
-							blob_formats[i]))
-			goto err;
+							blob_formats[i])) {
+			ret = -1;
+			break;
+		}
+	}
 
-	return 0;
-
-err:
 	drmModeFreePropertyBlob(blob);
-	return -1;
+
+	return ret;
 }
 
 /**
