@@ -407,7 +407,6 @@ pipewire_output_stream_param_changed(void *data, uint32_t id,
 	stride = width * output->pixel_format->bpp / 8;
 	size = height * stride;
 
-
 	params[0] = spa_pod_builder_add_object(&builder,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_size, SPA_POD_Int(size),
