@@ -94,8 +94,6 @@ struct pipewire_head {
 };
 
 struct pipewire_frame_data {
-	struct pipewire_output *output;
-	struct pw_buffer *buffer;
 	struct weston_renderbuffer *renderbuffer;
 };
 
