@@ -270,13 +270,9 @@ finish_frame_handler(void *data)
 }
 
 static int
-pipewire_output_enable(struct weston_output *base)
+pipewire_output_enable_pixman(struct pipewire_output *output)
 {
-	struct weston_renderer *renderer = base->compositor->renderer;
-	struct pipewire_output *output = to_pipewire_output(base);
-	struct pipewire_backend *backend;
-	struct wl_event_loop *loop;
-	int ret;
+	struct weston_renderer *renderer = output->base.compositor->renderer;
 	const struct pixman_renderer_output_options options = {
 		.use_shadow = true,
 		.fb_size = {
@@ -286,9 +282,28 @@ pipewire_output_enable(struct weston_output *base)
 		.format = output->pixel_format,
 	};
 
+	return renderer->pixman->output_create(&output->base, &options);
+}
+
+static void
+pipewire_output_disable_pixman(struct pipewire_output *output)
+{
+	struct weston_renderer *renderer = output->base.compositor->renderer;
+
+	renderer->pixman->output_destroy(&output->base);
+}
+
+static int
+pipewire_output_enable(struct weston_output *base)
+{
+	struct pipewire_output *output = to_pipewire_output(base);
+	struct pipewire_backend *backend;
+	struct wl_event_loop *loop;
+	int ret = -1;
+
 	backend = output->backend;
 
-	ret = renderer->pixman->output_create(&output->base, &options);
+	ret = pipewire_output_enable_pixman(output);
 	if (ret < 0)
 		return ret;
 
@@ -303,7 +318,7 @@ pipewire_output_enable(struct weston_output *base)
 
 	return 0;
 err:
-	renderer->pixman->output_destroy(&output->base);
+	pipewire_output_disable_pixman(output);
 
 	wl_event_source_remove(output->finish_frame_timer);
 
@@ -313,7 +328,6 @@ err:
 static int
 pipewire_output_disable(struct weston_output *base)
 {
-	struct weston_renderer *renderer = base->compositor->renderer;
 	struct pipewire_output *output = to_pipewire_output(base);
 
 	if (!output->base.enabled)
@@ -321,7 +335,7 @@ pipewire_output_disable(struct weston_output *base)
 
 	pw_stream_disconnect(output->stream);
 
-	renderer->pixman->output_destroy(&output->base);
+	pipewire_output_disable_pixman(output);
 
 	wl_event_source_remove(output->finish_frame_timer);
 
