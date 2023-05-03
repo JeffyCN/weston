@@ -85,7 +85,7 @@ TEST(drm_writeback_screenshot) {
 	pixman_image_t *diffimg = NULL;
 	struct wl_surface *surface;
 	struct rectangle clip;
-	const char *fname;
+	char *fname;
 	bool match;
 	int frame;
 
@@ -113,6 +113,7 @@ TEST(drm_writeback_screenshot) {
 	screenshot = client_capture_output(client, client->output,
                                            WESTON_CAPTURE_V1_SOURCE_WRITEBACK);
 	assert(screenshot);
+	buffer_destroy(screenshot);
 
 	/* take another screenshot; this is important to ensure the
 	 * writeback state machine is working correctly */
@@ -126,6 +127,7 @@ TEST(drm_writeback_screenshot) {
 	testlog("Loading good reference image %s\n", fname);
 	reference = load_image_from_png(fname);
 	assert(reference);
+	free(fname);
 
 	/* check if they match - only the colored square matters, so the
 	 * clip is used to ignore the background */
@@ -140,10 +142,12 @@ TEST(drm_writeback_screenshot) {
 		fname = screenshot_output_filename("drm-writeback-screenshot-error", 0);
 		write_image_as_png(diffimg, fname);
 		pixman_image_unref(diffimg);
+		free(fname);
 	}
 
 	pixman_image_unref(reference);
 	buffer_destroy(screenshot);
+	buffer_destroy(buffer);
 	client_destroy(client);
 
 	assert(match);
