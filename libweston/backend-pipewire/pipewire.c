@@ -433,23 +433,17 @@ pipewire_output_stream_param_changed(void *data, uint32_t id,
 	pw_stream_update_params(output->stream, params, 2);
 }
 
-static void
-pipewire_output_stream_add_buffer(void *data, struct pw_buffer *buffer)
+static struct weston_renderbuffer *
+pipewire_output_stream_add_buffer_pixman(struct pipewire_output *output,
+					 struct pw_buffer *buffer)
 {
-	struct pipewire_output *output = data;
 	struct weston_compositor *ec = output->base.compositor;
-	const struct pixman_renderer_interface *pixman = ec->renderer->pixman;
-	struct pipewire_frame_data *frame_data;
+	const struct weston_renderer *renderer = ec->renderer;
 	const struct pixel_format_info *format;
 	unsigned int width;
 	unsigned int height;
 	unsigned int stride;
 	void *ptr;
-
-	pipewire_output_debug(output, "add buffer: %p", buffer);
-
-	frame_data = xzalloc(sizeof *frame_data);
-	buffer->user_data = frame_data;
 
 	format = output->pixel_format;
 	width = output->base.width;
@@ -457,10 +451,23 @@ pipewire_output_stream_add_buffer(void *data, struct pw_buffer *buffer)
 	stride = width * format->bpp / 8;
 	ptr = buffer->buffer->datas[0].data;
 
-	frame_data->renderbuffer = pixman->create_image_from_ptr(&output->base,
-								 format, width,
-								 height, ptr,
-								 stride);
+	return renderer->pixman->create_image_from_ptr(&output->base,
+						       format, width, height,
+						       ptr, stride);
+}
+
+static void
+pipewire_output_stream_add_buffer(void *data, struct pw_buffer *buffer)
+{
+	struct pipewire_output *output = data;
+	struct pipewire_frame_data *frame_data;
+
+	pipewire_output_debug(output, "add buffer: %p", buffer);
+
+	frame_data = xzalloc(sizeof *frame_data);
+	buffer->user_data = frame_data;
+
+	frame_data->renderbuffer = pipewire_output_stream_add_buffer_pixman(output, buffer);
 }
 
 static void
