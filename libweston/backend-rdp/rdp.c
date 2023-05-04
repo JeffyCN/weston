@@ -1851,7 +1851,6 @@ rdp_backend_create(struct weston_compositor *compositor,
 	switch (config->renderer) {
 	case WESTON_RENDERER_PIXMAN:
 	case WESTON_RENDERER_AUTO:
-		weston_log("Using Pixman renderer\n");
 		break;
 	default:
 		weston_log("Unsupported renderer requested\n");

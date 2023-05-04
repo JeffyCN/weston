@@ -9113,9 +9113,13 @@ weston_compositor_init_renderer(struct weston_compositor *compositor,
 			return ret;
 
 		compositor->renderer->gl = gl_renderer;
+		weston_log("Using GL renderer\n");
 		break;
 	case WESTON_RENDERER_PIXMAN:
 		ret = pixman_renderer_init(compositor);
+		if (ret < 0)
+			return ret;
+		weston_log("Using Pixman renderer\n");
 		break;
 	default:
 		ret = -1;

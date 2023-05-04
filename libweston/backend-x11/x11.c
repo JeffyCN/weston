@@ -1922,8 +1922,6 @@ x11_backend_create(struct weston_compositor *compositor,
 						    &options.base) < 0)
 			goto err_xdisplay;
 	}
-	weston_log("Using %s renderer\n",
-		   (config->renderer == WESTON_RENDERER_PIXMAN) ? "pixman" : "gl");
 
 	b->base.destroy = x11_destroy;
 	b->base.create_output = x11_output_create;
