@@ -457,6 +457,9 @@ struct ivi_layout_interface {
 
 	/**
 	 * \brief Add a ivi_surface to a ivi_layer which is currently managed by the service
+	 *
+	 * The surface buffer must be committed before the ivi-controller adds
+	 * the ivi_surface to a ivi_layer
 	 */
 	void (*layer_add_surface)(struct ivi_layout_layer *ivilayer,
 				     struct ivi_layout_surface *addsurf);
