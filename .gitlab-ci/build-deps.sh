@@ -11,18 +11,30 @@ set -o xtrace -o errexit
 export MAKEFLAGS="-j${FDO_CI_CONCURRENT:-4}"
 export NINJAFLAGS="-j${FDO_CI_CONCURRENT:-4}"
 
+# When calling pip in newer versions, we're required to pass
+# --break-system-packages so it knows that we did really want to call pip and
+# aren't just doing it by accident.
+PIP_ARGS="--user"
+case "$FDO_DISTRIBUTION_VERSION" in
+  bullseye)
+    ;;
+  *)
+    PIP_ARGS="$PIP_ARGS --break-system-packages"
+    ;;
+esac
+
 # Build and install Meson. Generally we want to keep this in sync with what
 # we require inside meson.build.
-pip3 install --user git+https://github.com/mesonbuild/meson.git@1.0.0
+pip3 install $PIP_ARGS git+https://github.com/mesonbuild/meson.git@1.0.0
 export PATH=$HOME/.local/bin:$PATH
 
 # Our docs are built using Sphinx (top-level organisation and final HTML/CSS
 # generation), Doxygen (parse structures/functions/comments from source code),
 # Breathe (a bridge between Doxygen and Sphinx), and we use the Read the Docs
 # theme for the final presentation.
-pip3 install sphinx==4.2.0 --user
-pip3 install breathe==4.31.0 --user
-pip3 install sphinx_rtd_theme==1.0.0 --user
+pip3 install $PIP_ARGS sphinx==4.2.0
+pip3 install $PIP_ARGS breathe==4.31.0
+pip3 install $PIP_ARGS sphinx_rtd_theme==1.0.0
 
 # Build a Linux kernel for use in testing. We enable the VKMS module so we can
 # predictably test the DRM backend in the absence of real hardware. We lock the
