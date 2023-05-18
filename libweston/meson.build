@@ -112,11 +112,6 @@ lib_weston = shared_library(
 	dependencies: deps_libweston
 )
 
-deps_for_libweston_users = [
-	dep_wayland_server,
-	dep_pixman,
-	dep_xkbcommon,
-]
 
 # For external users, like Weston.
 dep_libweston_public = declare_dependency(
@@ -255,6 +250,7 @@ lib_gl_borders = static_library(
 	dependencies: [
 		dep_lib_cairo_shared,
 		dep_egl, # for gl-renderer.h
+		deps_for_libweston_users,
 	],
 	build_by_default: false,
 	install: false
