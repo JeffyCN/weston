@@ -323,7 +323,8 @@ if get_option('xwayland')
 		include_directories: common_inc,
 		dependencies: [
 			dep_pixman, dep_xcb_xwayland,
-			xcb_dep, xcb_cursor_dep
+			xcb_dep, xcb_cursor_dep,
+			dep_wayland_client,
 		],
 		install: false,
 	)
