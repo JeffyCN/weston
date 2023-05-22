@@ -6,6 +6,9 @@ if not dep_lcms2.found()
 	error('color-lcms plugin requires lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
 endif
 
+config_h.set10('HAVE_CMS_GET_TONE_CURVE_SEGMENT',
+	       cc.has_function('cmsGetToneCurveSegment', dependencies : dep_lcms2))
+
 srcs_color_lcms = [
 	'color-lcms.c',
 	'color-profile.c',
