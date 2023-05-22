@@ -2089,7 +2089,8 @@ drm_backend_output_configure(struct weston_output *output,
 	free(s);
 
 	if (api->set_mode(output, mode, modeline) < 0) {
-		weston_log("Cannot configure an output using weston_drm_output_api.\n");
+		weston_log("Cannot configure output \"%s\" using weston_drm_output_api.\n",
+			   output->name);
 		free(modeline);
 		return -1;
 	}
