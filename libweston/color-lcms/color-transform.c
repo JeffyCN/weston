@@ -651,9 +651,6 @@ matrix_print(cmsStage *stage, struct weston_log_scope *scope)
 	double elem;
 	const char *sep;
 
-	if (!weston_log_scope_is_enabled(scope))
-		return;
-
 	assert(cmsStageType(stage) == cmsSigMatrixElemType);
 	data = cmsStageData(stage);
 
