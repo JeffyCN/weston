@@ -479,59 +479,6 @@ rect_to_quad(pixman_box32_t *rect, struct weston_view *ev,
 	}
 }
 
-/*
- * Compute the boundary vertices of the intersection of an arbitrary
- * quadrilateral 'quad' and the axis-aligned rectangle 'surf_rect'. The vertices
- * are written to 'vertices', and the return value is the number of vertices.
- * Vertices are produced in clockwise winding order. Guarantees to produce
- * either zero vertices, or 3-8 vertices with non-zero polygon area.
- */
-static int
-clip_quad(struct gl_quad *quad, pixman_box32_t *surf_rect,
-	  struct clip_vertex *vertices)
-{
-	struct clip_context ctx = {
-		.clip.x1 = surf_rect->x1,
-		.clip.y1 = surf_rect->y1,
-		.clip.x2 = surf_rect->x2,
-		.clip.y2 = surf_rect->y2,
-	};
-	int n;
-
-	/* Simple case: quad edges are parallel to surface rect edges, there
-	 * will be either four or zero edges. We just need to clip the quad to
-	 * the surface rect bounds and test for non-zero area:
-	 */
-	if (quad->axis_aligned) {
-		clip_simple(&ctx, &quad->vertices, vertices);
-		if ((vertices[0].x != vertices[1].x) &&
-		    (vertices[0].y != vertices[2].y))
-			return 4;
-		else
-			return 0;
-	}
-
-	/* Transformed case: first, simple bounding box check to discard early a
-	 * quad that does not intersect with the rect:
-	 */
-	if ((quad->bbox.x1 >= ctx.clip.x2) || (quad->bbox.x2 <= ctx.clip.x1) ||
-	    (quad->bbox.y1 >= ctx.clip.y2) || (quad->bbox.y2 <= ctx.clip.y1))
-		return 0;
-
-	/* Then, use a general polygon clipping algorithm to clip the quad with
-	 * each side of the surface rect. The algorithm is Sutherland-Hodgman,
-	 * as explained in
-	 * https://www.codeguru.com/cplusplus/polygon-clipping/
-	 * but without looking at any of that code.
-	 */
-	n = clip_transformed(&ctx, &quad->vertices, vertices);
-
-	if (n < 3)
-		return 0;
-
-	return n;
-}
-
 static bool
 merge_down(pixman_box32_t *a, pixman_box32_t *b, pixman_box32_t *merge)
 {

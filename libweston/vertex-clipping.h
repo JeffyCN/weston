@@ -26,6 +26,7 @@
 #define _WESTON_VERTEX_CLIPPING_H
 
 #include <stdbool.h>
+#include <pixman.h>
 
 struct clip_vertex {
 	float x, y;
@@ -65,5 +66,17 @@ int
 clip_transformed(struct clip_context *ctx,
 		 struct polygon8 *surf,
 		 struct clip_vertex *restrict vertices);
+
+/*
+ * Compute the boundary vertices of the intersection of an arbitrary
+ * quadrilateral 'quad' and the axis-aligned rectangle 'surf_rect'. The vertices
+ * are written to 'vertices', and the return value is the number of vertices.
+ * Vertices are produced in clockwise winding order. Guarantees to produce
+ * either zero vertices, or 3-8 vertices with non-zero polygon area.
+ */
+int
+clip_quad(struct gl_quad *quad,
+	  pixman_box32_t *surf_rect,
+	  struct clip_vertex *vertices);
 
 #endif
