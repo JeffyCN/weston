@@ -305,6 +305,7 @@ static void
 kiosk_shell_surface_destroy(struct kiosk_shell_surface *shsurf)
 {
 	wl_signal_emit(&shsurf->destroy_signal, shsurf);
+	wl_list_remove(&shsurf->surface_tree_link);
 
 	weston_desktop_surface_set_user_data(shsurf->desktop_surface, NULL);
 	shsurf->desktop_surface = NULL;
@@ -359,6 +360,11 @@ kiosk_shell_surface_create(struct kiosk_shell *shell,
 	weston_desktop_surface_set_user_data(desktop_surface, shsurf);
 
 	wl_signal_init(&shsurf->destroy_signal);
+
+	/* start life inserting itself as root of its own surface tree list */
+	wl_list_init(&shsurf->surface_tree_list);
+	wl_list_init(&shsurf->surface_tree_link);
+	wl_list_insert(&shsurf->surface_tree_list, &shsurf->surface_tree_link);
 
 	return shsurf;
 }

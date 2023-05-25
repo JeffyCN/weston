@@ -63,6 +63,9 @@ struct kiosk_shell_surface {
 	struct wl_listener parent_destroy_listener;
 	struct kiosk_shell_surface *parent;
 
+	struct wl_list surface_tree_list;
+	struct wl_list surface_tree_link;
+
 	int focus_count;
 
 	int32_t last_width, last_height;
