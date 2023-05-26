@@ -121,6 +121,12 @@ kiosk_shell_surface_set_output(struct kiosk_shell_surface *shsurf,
 static void
 kiosk_shell_surface_set_parent(struct kiosk_shell_surface *shsurf,
 			       struct kiosk_shell_surface *parent);
+static void
+kiosk_shell_output_set_active_surface_tree(struct kiosk_shell_output *shoutput,
+					   struct kiosk_shell_surface *shroot);
+static struct kiosk_shell_output *
+kiosk_shell_find_shell_output(struct kiosk_shell *shell,
+			      struct weston_output *output);
 
 static void
 kiosk_shell_surface_notify_parent_destroy(struct wl_listener *listener, void *data)
@@ -257,10 +263,58 @@ kiosk_shell_surface_set_normal(struct kiosk_shell_surface *shsurf)
 	weston_desktop_surface_set_size(shsurf->desktop_surface, 0, 0);
 }
 
+static bool
+kiosk_shell_surface_is_surface_in_tree(struct kiosk_shell_surface *shsurf,
+				       struct kiosk_shell_surface *shroot)
+{
+	struct kiosk_shell_surface *s;
+
+	wl_list_for_each(s, &shroot->surface_tree_list, surface_tree_link) {
+		if (s == shsurf)
+			return true;
+	}
+
+	return false;
+}
+
+static bool
+kiosk_shell_surface_is_descendant_of(struct kiosk_shell_surface *shsurf,
+				     struct kiosk_shell_surface *ancestor)
+{
+	while (shsurf) {
+		if (shsurf == ancestor)
+			return true;
+		shsurf = shsurf->parent;
+	}
+
+	return false;
+}
+
+static void
+active_surface_tree_move_element_to_top(struct wl_list *active_surface_tree,
+					struct wl_list *element)
+{
+	wl_list_remove(element);
+	wl_list_insert(active_surface_tree, element);
+}
+
 static void
 kiosk_shell_surface_set_parent(struct kiosk_shell_surface *shsurf,
 			       struct kiosk_shell_surface *parent)
 {
+	struct kiosk_shell_output *shoutput =
+		kiosk_shell_find_shell_output(shsurf->shell,
+					      shsurf->output);
+	struct kiosk_shell_surface *shroot = parent ?
+		kiosk_shell_surface_get_parent_root(parent) :
+		kiosk_shell_surface_get_parent_root(shsurf);
+
+	/* There are cases where xdg clients call .set_parent(nil) on a surface
+	 * that does not have a parent. The protocol states that this is
+	 * effectively a no-op. */
+	if (!parent && shsurf == shroot)
+		return;
+
 	if (shsurf->parent_destroy_listener.notify) {
 		wl_list_remove(&shsurf->parent_destroy_listener.link);
 		shsurf->parent_destroy_listener.notify = NULL;
@@ -273,9 +327,27 @@ kiosk_shell_surface_set_parent(struct kiosk_shell_surface *shsurf,
 			kiosk_shell_surface_notify_parent_destroy;
 		wl_signal_add(&shsurf->parent->destroy_signal,
 			      &shsurf->parent_destroy_listener);
+
+		if (!kiosk_shell_surface_is_surface_in_tree(shsurf, shroot)) {
+			active_surface_tree_move_element_to_top(&shroot->surface_tree_list,
+								&shsurf->surface_tree_link);
+		}
 		kiosk_shell_surface_set_output(shsurf, NULL);
 		kiosk_shell_surface_set_normal(shsurf);
 	} else {
+		struct kiosk_shell_surface *s, *tmp;
+
+		/* Relink the child and all its descendents to a new surface
+		 * tree list, with the child as root. */
+		wl_list_init(&shsurf->surface_tree_list);
+		wl_list_for_each_reverse_safe(s, tmp, &shroot->surface_tree_list,
+					      surface_tree_link) {
+			if (kiosk_shell_surface_is_descendant_of(s, shsurf)) {
+				active_surface_tree_move_element_to_top(&shsurf->surface_tree_list,
+									&s->surface_tree_link);
+			}
+		}
+		kiosk_shell_output_set_active_surface_tree(shoutput, shsurf);
 		kiosk_shell_surface_set_fullscreen(shsurf, shsurf->output);
 	}
 }
