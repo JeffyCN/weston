@@ -439,6 +439,8 @@ pipewire_output_stream_add_buffer_pixman(struct pipewire_output *output,
 {
 	struct weston_compositor *ec = output->base.compositor;
 	const struct weston_renderer *renderer = ec->renderer;
+	struct spa_buffer *buf = buffer->buffer;
+	struct spa_data *d = buf->datas;
 	const struct pixel_format_info *format;
 	unsigned int width;
 	unsigned int height;
@@ -449,7 +451,7 @@ pipewire_output_stream_add_buffer_pixman(struct pipewire_output *output,
 	width = output->base.width;
 	height = output->base.height;
 	stride = width * format->bpp / 8;
-	ptr = buffer->buffer->datas[0].data;
+	ptr = d[0].data;
 
 	return renderer->pixman->create_image_from_ptr(&output->base,
 						       format, width, height,
