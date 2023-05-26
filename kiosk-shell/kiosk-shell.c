@@ -467,6 +467,35 @@ kiosk_shell_seat_create(struct kiosk_shell *shell, struct weston_seat *seat)
  * kiosk_shell_output
  */
 
+static void
+kiosk_shell_output_set_active_surface_tree(struct kiosk_shell_output *shoutput,
+					   struct kiosk_shell_surface *shroot)
+
+{
+	struct kiosk_shell *shell = shoutput->shell;
+	struct kiosk_shell_surface *s;
+
+	/* Remove the previous active surface tree (i.e., move the tree to
+	 * WESTON_LAYER_POSITION_HIDDEN) */
+	if (shoutput->active_surface_tree) {
+		wl_list_for_each_reverse(s, shoutput->active_surface_tree, surface_tree_link) {
+			weston_view_move_to_layer(s->view,
+						  &shell->inactive_layer.view_list);
+		}
+	}
+
+	if (shroot) {
+		wl_list_for_each_reverse(s, &shroot->surface_tree_list, surface_tree_link) {
+			weston_view_move_to_layer(s->view,
+						  &shell->normal_layer.view_list);
+		}
+	}
+
+	shoutput->active_surface_tree = shroot ?
+					&shroot->surface_tree_list :
+					NULL;
+}
+
 static int
 kiosk_shell_background_surface_get_label(struct weston_surface *surface,
 					 char *buf, size_t len)
@@ -795,12 +824,23 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	if (!weston_surface_is_mapped(surface)) {
 		struct weston_seat *seat =
 			get_kiosk_shell_first_seat(shsurf->shell);
+		struct kiosk_shell_output *shoutput =
+			kiosk_shell_find_shell_output(shsurf->shell,
+						      shsurf->output);
 		struct kiosk_shell_seat *kiosk_seat;
 
 		shsurf->view->is_mapped = true;
 		weston_surface_map(surface);
 
 		kiosk_seat = get_kiosk_shell_seat(seat);
+
+		/* We are mapping a new surface tree root; set it active,
+		 * replacing the previous one */
+		if (!shsurf->parent) {
+			kiosk_shell_output_set_active_surface_tree(shoutput,
+								   shsurf);
+		}
+
 		if (seat && kiosk_seat)
 			kiosk_shell_surface_activate(shsurf, kiosk_seat,
 						     WESTON_ACTIVATE_FLAG_NONE);
