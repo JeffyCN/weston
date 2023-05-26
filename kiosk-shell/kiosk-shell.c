@@ -325,7 +325,7 @@ kiosk_shell_surface_set_parent(struct kiosk_shell_surface *shsurf,
 	if (shsurf->parent) {
 		shsurf->parent_destroy_listener.notify =
 			kiosk_shell_surface_notify_parent_destroy;
-		wl_signal_add(&shsurf->parent->destroy_signal,
+		wl_signal_add(&parent->parent_destroy_signal,
 			      &shsurf->parent_destroy_listener);
 
 		if (!kiosk_shell_surface_is_surface_in_tree(shsurf, shroot)) {
@@ -432,6 +432,7 @@ kiosk_shell_surface_create(struct kiosk_shell *shell,
 	weston_desktop_surface_set_user_data(desktop_surface, shsurf);
 
 	wl_signal_init(&shsurf->destroy_signal);
+	wl_signal_init(&shsurf->parent_destroy_signal);
 
 	/* start life inserting itself as root of its own surface tree list */
 	wl_list_init(&shsurf->surface_tree_list);
@@ -809,6 +810,11 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 
 	seat = get_kiosk_shell_first_seat(shell);
 	kiosk_seat = get_kiosk_shell_seat(seat);
+
+	/* Inform children about destruction of their parent, so that we can
+	 * reparent them and potentially relink surface tree links before
+	 * finding a focus successor and activating a new surface. */
+	wl_signal_emit(&shsurf->parent_destroy_signal, shsurf);
 
 	if (seat && kiosk_seat) {
 		focus_view = find_focus_successor(&shell->inactive_layer, shsurf,

@@ -60,6 +60,8 @@ struct kiosk_shell_surface {
 	struct wl_listener output_destroy_listener;
 
 	struct wl_signal destroy_signal;
+
+	struct wl_signal parent_destroy_signal;
 	struct wl_listener parent_destroy_listener;
 	struct kiosk_shell_surface *parent;
 
