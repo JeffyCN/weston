@@ -943,14 +943,16 @@ pipewire_backend_create(struct weston_compositor *compositor,
 	switch (config->renderer) {
 	case WESTON_RENDERER_AUTO:
 	case WESTON_RENDERER_PIXMAN:
+		ret = weston_compositor_init_renderer(compositor,
+						      WESTON_RENDERER_PIXMAN,
+						      NULL);
 		break;
 	default:
 		weston_log("Unsupported renderer requested\n");
 		goto err_compositor;
 	}
 
-	if (weston_compositor_init_renderer(compositor, WESTON_RENDERER_PIXMAN,
-					    NULL) < 0)
+	if (ret < 0)
 		goto err_compositor;
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
