@@ -1041,7 +1041,7 @@ pipeline_print(cmsPipeline **lut, cmsContext context_id,
 		return;
 
 	if (!stage) {
-		weston_log_scope_printf(scope, "no elements\n");
+		weston_log_scope_printf(scope, "    no elements\n");
 		return;
 	}
 
