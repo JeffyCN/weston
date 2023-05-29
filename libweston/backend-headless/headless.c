@@ -508,7 +508,10 @@ headless_destroy(struct weston_backend *backend)
 	free(b->formats);
 	free(b);
 
-	cleanup_after_cairo();
+	/* XXX: cleaning up after cairo/fontconfig here might seem suitable,
+	 * but fontconfig will create additional threads which we can't wait
+	 * for -- in order to realiably de-allocate all resources, as to get a
+	 * report without any mem leaks. */
 }
 
 static const struct weston_windowed_output_api api = {
