@@ -269,6 +269,12 @@ tests = [
 		],
 		'dep_objs': [ dep_libweston_public ]
 	},
+	{	'name': 'iterate-debug-scopes',
+		'sources': [
+		  'iterate-debug-scopes-test.c',
+		],
+		'dep_objs': [ dep_libweston_public ]
+	},
 ]
 
 if get_option('renderer-gl')

@@ -1057,3 +1057,66 @@ weston_log_subscription_iterate(struct weston_log_scope *scope,
 
 	return container_of(node, struct weston_log_subscription, source_link);
 }
+
+/** Iterate over all debug scopes added to a weston_log_context
+ *
+ * @param log_ctx the log context
+ * @param nscope the iterator, use NULL to start from the head of the list
+ * @returns the next log scope from list added to weston_log_ctx
+ *
+ * Note that that \c nscope needs to be NULL-initialized before calling
+ * this function.
+ *
+ * This helper can be used by libweston users to grab all the debug scopes
+ * created. This would be an alternative to using weston-debug private
+ * extension.
+ *
+ */
+WL_EXPORT struct weston_log_scope *
+weston_log_scopes_iterate(struct weston_log_context *log_ctx,
+                          struct weston_log_scope *nscope)
+{
+        struct wl_list *list;
+        struct wl_list *node;
+
+        assert(log_ctx);
+
+        list = &log_ctx->scope_list;
+
+        if (nscope) {
+                node = nscope->compositor_link.next;
+        } else {
+                node = list->next;
+        }
+
+	assert(node);
+	assert(!nscope || node != &nscope->compositor_link);
+
+        if (node == list)
+                return NULL;
+
+        return container_of(node, struct weston_log_scope, compositor_link);
+}
+
+/** Helper to retrieve, in human readable form,  the name of a log scope
+ *
+ * @param scope the scope in question
+ * @returns the name of the scope as a pointer to a string
+ */
+WL_EXPORT const char *
+weston_log_scope_get_name(struct weston_log_scope *scope)
+{
+        return scope->name;
+}
+
+/** Helper to retreive, in human reable form, the description of a log scope
+ *
+ * @param scope the scope in question
+ * @returns the description of the scope as pointer to a string
+ *
+ */
+WL_EXPORT const char *
+weston_log_scope_get_description(struct weston_log_scope *scope)
+{
+        return scope->desc;
+}

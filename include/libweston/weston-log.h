@@ -136,6 +136,16 @@ weston_log_subscription_iterate(struct weston_log_scope *scope,
 void
 weston_log_flight_recorder_display_buffer(FILE *file);
 
+const char *
+weston_log_scope_get_description(struct weston_log_scope *scope);
+
+const char *
+weston_log_scope_get_name(struct weston_log_scope *scope);
+
+struct weston_log_scope *
+weston_log_scopes_iterate(struct weston_log_context *log_ctx,
+                          struct weston_log_scope *nscope);
+
 #ifdef  __cplusplus
 }
 #endif
