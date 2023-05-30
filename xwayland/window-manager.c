@@ -3272,7 +3272,9 @@ xserver_map_shell_surface(struct weston_wm_window *window,
 	} else if (window->override_redirect) {
 		xwayland_interface->set_xwayland(window->shsurf,
 						 window->x, window->y);
-	} else if (window->transient_for && window->transient_for->surface) {
+	} else if (window->transient_for &&
+		   !window->transient_for->override_redirect &&
+		   window->transient_for->surface) {
 		parent = window->transient_for;
 		if (weston_wm_window_type_inactive(window)) {
 			xwayland_interface->set_transient(window->shsurf,
