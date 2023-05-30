@@ -1436,7 +1436,7 @@ pixman_renderer_output_create(struct weston_output *output,
 		}
 
 		po->shadow_image =
-			pixman_image_create_bits(PIXMAN_x8r8g8b8, w, h,
+			pixman_image_create_bits(PIXMAN_a8r8g8b8, w, h,
 						 po->shadow_buffer, w * 4);
 
 		if (!po->shadow_image) {
