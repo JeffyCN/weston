@@ -2897,6 +2897,8 @@ wayland_backend_create(struct weston_compositor *compositor,
 
 	create_cursor(b, new_config);
 
+	b->fullscreen = new_config->fullscreen;
+
 	b->formats_count = ARRAY_LENGTH(wayland_formats);
 	b->formats = pixel_format_get_array(wayland_formats, b->formats_count);
 
