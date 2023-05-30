@@ -1519,7 +1519,7 @@ pixman_renderer_output_create(struct weston_output *output,
 		h = output->current_mode->height;
 
 		po->shadow_image =
-			pixman_image_create_bits_no_clear(PIXMAN_x8r8g8b8,
+			pixman_image_create_bits_no_clear(PIXMAN_a8r8g8b8,
 							  w, h, NULL, 0);
 
 		if (!po->shadow_image) {
