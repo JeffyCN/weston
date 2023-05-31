@@ -29,6 +29,7 @@
 
 #include "color-curve-segments.h"
 #include "color-lcms.h"
+#include "shared/xalloc.h"
 
 /**
  * LCMS internally defines MINUS_INF and PLUS_INF arbitrarily to -1e22 and 1e22.
@@ -402,6 +403,119 @@ are_curvesets_inverse(cmsStage *set_A, cmsStage *set_B)
 			return false;
 
 	return true;
+}
+
+static cmsToneCurve *
+join_powerlaw_curves(cmsContext context_id,
+		     cmsToneCurve *curve_A, cmsToneCurve *curve_B)
+{
+	const float PRECISION = 1e-5;
+	cmsCurveSegment segment;
+	const cmsCurveSegment *seg_A, *seg_B;
+
+	seg_A = cmsGetToneCurveSegment(0, curve_A);
+	seg_B = cmsGetToneCurveSegment(0, curve_B);
+	if (!seg_A || !seg_B)
+		return NULL;
+
+	/* TODO: handle certain multi-segmented curves, In such cases, we need
+	 * to pay attention to the segment breaks, and it is harder to merge the
+	 * curves.
+	 *
+	 * To merge the curves, we need to compute B(A(x)). This curve has the
+	 * same domain (input range) of curve A(x). So we already have the
+	 * segment breaks of A(x) in the domain of B(A(x)), but we need to
+	 * compute the breaks of B(x) in the same domain. To do that, we can use
+	 * the info that B(x) domain equals the output range of A(x). So feeding
+	 * the breaks of B(x) to the inverse of A(x) gives us the breaks of B(x)
+	 * in the domain of B(A(x)) as well. With the segments of A(x) and B(x)
+	 * and their breaks in the domain of B(A(x)), it is simple to compute
+	 * the segments of B(A(x)).
+	 *
+	 * Addressing the generic case described above is too much work for a
+	 * case that probably won't happen. But an easy multi-segmented case
+	 * that we'd be able to merge but are not handling here is when both
+	 * curves are like that:
+	 *
+	 * segment 1: (-inf, 0.0] - constant 0.0
+	 * segment 2:  (0.0, 1.0] - some parametric curve
+	 * segment 3:  (1.0, inf] - constant 1.0
+	 *
+	 * The meaning of such curves is: the values out of the range (0.0, 1.0]
+	 * don't matter. So if both curves have 3 segments like that and the 2nd
+	 * segment of both is power law, we can easily merge them. */
+	if (cmsGetToneCurveSegment(1, curve_A) ||
+	    cmsGetToneCurveSegment(1, curve_B))
+		return NULL;
+
+	/* Ensure that the segment breaks are equal to (-inf, inf). */
+	if (!are_segment_breaks_equal(seg_A->x0, -INFINITY) ||
+	    !are_segment_breaks_equal(seg_A->x1, INFINITY) ||
+	    !are_segment_breaks_equal(seg_B->x0, -INFINITY) ||
+	    !are_segment_breaks_equal(seg_B->x1, INFINITY))
+		return NULL;
+
+	/* Power law curves are type 1 and -1, and we only merge these curves
+	 * here. See segment_print() to know more about the curves types. */
+	if (abs(seg_A->Type) != 1 || abs(seg_A->Type) != abs(seg_B->Type))
+		return NULL;
+
+	segment.x0 = seg_A->x0;
+	segment.x1 = seg_A->x1;
+	segment.Type = seg_A->Type;
+
+	/* Being seg_A the curve f and seg_B the curve g, we need to compute
+	 * g(f(x)). Type 1 is the power law curve and type -1 is its inverse.
+	 *
+	 * So if seg_A has exponent j and seg_B has exponent j', g(f(x)) has
+	 * exponent k:
+	 *
+	 * k = j * j', if seg_A and seg_B have the same sign.
+	 * k = j / j', if they have opposite signs.
+	 *
+	 * If the resulting curve type (seg_A->Type) is positive, LCMS
+	 * internally handles it as x^k, and if it is negative it will use
+	 * x^(1/k). */
+	if (seg_A->Type == seg_B->Type) {
+		segment.Params[0] = seg_A->Params[0] * seg_B->Params[0];
+	} else {
+		assert(seg_A->Type == - seg_B->Type);
+		if (fabs(seg_B->Params[0]) < PRECISION)
+			return NULL;
+		segment.Params[0] = seg_A->Params[0] / seg_B->Params[0];
+	}
+
+	return cmsBuildSegmentedToneCurve(context_id, 1, &segment);
+}
+
+cmsStage *
+join_powerlaw_curvesets(cmsContext context_id,
+			cmsToneCurve **set_A, cmsToneCurve **set_B)
+{
+	cmsToneCurve *arr[3];
+	int i;
+        cmsStage *ret;
+        bool powerlaw = true;
+
+	for (i = 0; (uint32_t)i < ARRAY_LENGTH(arr); i++) {
+		arr[i] = join_powerlaw_curves(context_id, set_A[i], set_B[i]);
+		if (!arr[i]) {
+			powerlaw = false;
+			break;
+		}
+	}
+
+        if (!powerlaw) {
+                for (; i >= 0; i--)
+                        cmsFreeToneCurve(arr[i]);
+                return NULL;
+        }
+
+        /* The CurveSet's are powerlaw functions that we were able to merge. */
+        ret = cmsStageAllocToneCurves(context_id, ARRAY_LENGTH(arr), arr);
+        abort_oom_if_null(ret);
+        cmsFreeToneCurveTriple(arr);
+        return ret;       
 }
 
 void

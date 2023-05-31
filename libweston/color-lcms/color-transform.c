@@ -376,6 +376,15 @@ join_curvesets(cmsContext context_id, const cmsStage *prev,
 	assert(prev_->nCurves == ARRAY_LENGTH(arr));
 	assert(next_->nCurves == ARRAY_LENGTH(arr));
 
+	/* If the CurveSet's are parametric powerlaw curves that we know how to
+	 * merge (preserving them as parametric powerlaw curves), we do that. We
+	 * want to avoid transforming parametric curves into sampled curves. */
+	ret = join_powerlaw_curvesets(context_id,
+				      prev_->TheCurves, next_->TheCurves);
+	if (ret)
+		return ret;
+
+	/* Transform both CurveSet's into a single sampled one. */
 	for (i = 0; i < ARRAY_LENGTH(arr); i++) {
 		arr[i] = lcmsJoinToneCurve(context_id, prev_->TheCurves[i],
 					   next_->TheCurves[i], num_samples);
