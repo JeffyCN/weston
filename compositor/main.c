@@ -119,6 +119,12 @@ struct wet_layoutput {
 	struct wet_head_array add;	/**< tmp: heads to add as clones */
 };
 
+enum require_outputs {
+        REQUIRE_OUTPUTS_ALL_FOUND,
+        REQUIRE_OUTPUTS_ANY,
+        REQUIRE_OUTPUTS_NONE,
+};
+
 struct wet_compositor {
 	struct weston_compositor *compositor;
 	struct weston_config *config;
@@ -133,6 +139,7 @@ struct wet_compositor {
 	bool autolaunch_watch;
 	bool use_color_manager;
 	struct wl_listener screenshot_auth;
+	enum require_outputs require_outputs;
 };
 
 static FILE *weston_logfile = NULL;
@@ -1066,6 +1073,29 @@ out:
 	free(helper);
 
 	return ret;
+}
+
+static const struct {
+	const char *name;
+	enum require_outputs mode;
+} require_outputs_modes [] = {
+	{ "all-found",	REQUIRE_OUTPUTS_ALL_FOUND },
+	{ "any",	REQUIRE_OUTPUTS_ANY },
+	{ "none",	REQUIRE_OUTPUTS_NONE },
+};
+
+static int
+weston_parse_require_outputs(const char *name, enum require_outputs *mode)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_LENGTH(require_outputs_modes); i++)
+		if (strcmp(require_outputs_modes[i].name, name) == 0) {
+			*mode = require_outputs_modes[i].mode;
+			return 0;
+		}
+
+	return -1;
 }
 
 static int
@@ -2530,7 +2560,7 @@ static int
 drm_process_layoutputs(struct wet_compositor *wet)
 {
 	struct wet_layoutput *lo;
-	int ret = 0;
+	int failed_layoutputs = 0;
 
 	wl_list_for_each(lo, &wet->layoutput_list, compositor_link) {
 		if (lo->add.n == 0)
@@ -2538,11 +2568,19 @@ drm_process_layoutputs(struct wet_compositor *wet)
 
 		if (drm_process_layoutput(wet, lo) < 0) {
 			lo->add = (struct wet_head_array){};
-			ret = -1;
+			failed_layoutputs += 1;
+			continue;
 		}
 	}
 
-	return ret;
+	if (wet->require_outputs == REQUIRE_OUTPUTS_ALL_FOUND &&
+	    failed_layoutputs > 0)
+		return -1;
+	if (wet->require_outputs == REQUIRE_OUTPUTS_ANY &&
+	    failed_layoutputs == wl_list_length(&wet->layoutput_list))
+		return -1;
+
+	return 0;
 }
 
 static void
@@ -3866,6 +3904,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	char *log_scopes = NULL;
 	char *flight_rec_scopes = NULL;
 	char *server_socket = NULL;
+	char *require_outputs = NULL;
 	int32_t idle_time = -1;
 	int32_t help = 0;
 	char *socket_name = NULL;
@@ -4071,6 +4110,15 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 
 	weston_config_section_get_bool(section, "require-input",
 				       &wet.compositor->require_input, true);
+
+	wet.require_outputs = REQUIRE_OUTPUTS_ALL_FOUND;
+	weston_config_section_get_string(section, "require-outputs",
+					 &require_outputs, NULL);
+	if (require_outputs) {
+		weston_parse_require_outputs(require_outputs,
+					     &wet.require_outputs);
+		free(require_outputs);
+	}
 
 	if (load_backend(wet.compositor, backend, &argc, argv, config,
 			 renderer) < 0) {

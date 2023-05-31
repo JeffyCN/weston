@@ -168,6 +168,21 @@ set to 300 seconds.
 .BI "require-input=" true
 require an input device for launch
 .TP 7
+.BI "require-outputs=" all-found
+configures the behavior if Weston fails to configure and enable outputs.
+
+Depending on the use-case, it may preferable to ensure that Weston only starts
+if it can enable all available outputs, or that it ignores failed outputs. The
+possible options are:
+.PP
+.RS 10
+.nf
+.BR "all-found    " "all available outputs must be enabled"
+.BR "any          " "start if any output could be enabled"
+.BR "none         " "start even if no output was enabled"
+.fi
+.RE
+.TP 7
 .BI "wait-for-debugger=" true
 Raises SIGSTOP before initializing the compositor. This allows the user to
 attach with a debugger and continue execution by sending SIGCONT. This is
