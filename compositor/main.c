@@ -4111,7 +4111,7 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	weston_config_section_get_bool(section, "require-input",
 				       &wet.compositor->require_input, true);
 
-	wet.require_outputs = REQUIRE_OUTPUTS_ALL_FOUND;
+	wet.require_outputs = REQUIRE_OUTPUTS_ANY;
 	weston_config_section_get_string(section, "require-outputs",
 					 &require_outputs, NULL);
 	if (require_outputs) {
