@@ -35,6 +35,9 @@
 void
 curve_set_print(cmsStage *stage, struct weston_log_scope *scope);
 
+bool
+are_curvesets_inverse(cmsStage *set_A, cmsStage *set_B);
+
 # else /* HAVE_CMS_GET_TONE_CURVE_SEGMENT */
 
 static inline void
@@ -42,6 +45,12 @@ curve_set_print(cmsStage *stage, struct weston_log_scope *scope)
 {
 	weston_log_scope_printf(scope, "%*scmsGetToneCurveSegment() symbol not " \
 				       "found, so can't print curve set\n", 6, "");
+}
+
+static inline bool
+are_curvesets_inverse(cmsStage *set_A, cmsStage *set_B)
+{
+	return false;
 }
 
 #endif /* HAVE_CMS_GET_TONE_CURVE_SEGMENT */

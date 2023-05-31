@@ -423,6 +423,17 @@ merge_curvesets(cmsPipeline **lut, cmsContext context_id)
 	do {
 		if (prev && cmsStageType(prev) == cmsSigCurveSetElemType &&
 		    elem && cmsStageType(elem) == cmsSigCurveSetElemType) {
+			/* If the curvesets are inverse, joining them results in
+			 * the identity. So we can drop both and continue. */
+			if (are_curvesets_inverse(prev, elem)) {
+				prev = cmsStageNext(elem);
+				if (prev)
+					elem = cmsStageNext(prev);
+				else
+					elem = NULL;
+				modified = true;
+				continue;
+			}
 			/* Replace two curve set elements with a merged one. */
 			prev = join_curvesets(context_id, prev, elem,
 					      cmlcms_reasonable_1D_points());

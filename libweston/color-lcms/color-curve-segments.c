@@ -337,6 +337,73 @@ are_curves_equal(cmsToneCurve *curve_A, cmsToneCurve *curve_B)
 	return true;
 }
 
+static bool
+are_curves_inverse(cmsToneCurve *curve_A, cmsToneCurve *curve_B)
+{
+	const cmsCurveSegment *seg_A, *seg_B;
+	cmsCurveSegment seg_B_inverse;
+
+	seg_A = cmsGetToneCurveSegment(0, curve_A);
+	seg_B = cmsGetToneCurveSegment(0, curve_B);
+	if (!seg_A || !seg_B)
+		return false;
+
+	/* TODO: handle certain multi-segmented curves, In such cases, we need
+	 * to pay attention to the segment breaks.
+	 *
+	 * Some multi-segmented curves in which one of the segments has an input
+	 * range of negative values would not compute. E.g. power law curves
+	 * with fractional exponent. When it takes negative as input, the result
+	 * would be complex numbers.
+	 *
+	 * The multi-segmented case that we care but are not handling here is
+	 * like that:
+	 *
+	 * segment 1: (-inf, 0.0] - constant 0.0
+	 * segment 2:  (0.0, 1.0] - some parametric curve
+	 * segment 3:  (1.0, inf] - constant 1.0
+	 *
+	 * The meaning of such curves is: the values out of the range (0.0, 1.0]
+	 * don't matter. So if both curves have 3 segments like that and the 2nd
+	 * segment of one is the inverse of the other, they are inverse curves. */
+	if (cmsGetToneCurveSegment(1, curve_A) ||
+	    cmsGetToneCurveSegment(1, curve_B))
+		return false;
+
+	/* TODO: handle sampled curves. If one of them is a sampled curve, we
+	 * assume they are not inverse segments. How to do that? */
+	if (seg_A->Type == 0 || seg_B->Type == 0)
+		return false;
+
+	/* Both are parametric segments, we check if the inverse of one equals
+	 * the other. */
+	seg_B_inverse = *seg_B;
+	seg_B_inverse.Type = - seg_B->Type;
+	return are_segments_equal(seg_A, &seg_B_inverse);
+}
+
+bool
+are_curvesets_inverse(cmsStage *set_A, cmsStage *set_B)
+{
+	unsigned int i;
+	_cmsStageToneCurvesData *set_A_data, *set_B_data;
+
+	assert(cmsStageType(set_A) == cmsSigCurveSetElemType);
+	assert(cmsStageType(set_B) == cmsSigCurveSetElemType);
+
+	set_A_data = cmsStageData(set_A);
+	set_B_data = cmsStageData(set_B);
+
+	assert(set_A_data->nCurves == set_B_data->nCurves);
+
+	for (i = 0; i < set_A_data->nCurves; i++)
+		if (!are_curves_inverse(set_A_data->TheCurves[i],
+					set_B_data->TheCurves[i]))
+			return false;
+
+	return true;
+}
+
 void
 curve_set_print(cmsStage *stage, struct weston_log_scope *scope)
 {
