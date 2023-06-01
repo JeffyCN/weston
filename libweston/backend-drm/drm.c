@@ -561,6 +561,12 @@ drm_output_pick_writeback_capture_task(struct drm_output *output)
 
 	assert(output->device->atomic_modeset);
 
+	if (output->base.disable_planes > 0) {
+		msg = "drm: KMS planes usage is disabled for now, so " \
+		      "writeback capture tasks are rejected";
+		goto err;
+	}
+
 	wb = drm_output_find_compatible_writeback(output);
 	if (!wb) {
 		msg = "drm: could not find writeback connector for output";
@@ -948,7 +954,7 @@ drm_output_apply_mode(struct drm_output *output)
 		}
 	}
 
-	if (device->atomic_modeset && !output->base.disable_planes)
+	if (device->atomic_modeset)
 		weston_output_update_capture_info(&output->base,
 						  WESTON_OUTPUT_CAPTURE_SOURCE_WRITEBACK,
 						  output->base.current_mode->width,
@@ -2138,7 +2144,7 @@ drm_output_enable(struct weston_output *base)
 	output->base.switch_mode = drm_output_switch_mode;
 	output->base.set_gamma = drm_output_set_gamma;
 
-	if (device->atomic_modeset && !base->disable_planes)
+	if (device->atomic_modeset)
 		weston_output_update_capture_info(base, WESTON_OUTPUT_CAPTURE_SOURCE_WRITEBACK,
 						  base->current_mode->width,
 						  base->current_mode->height,
