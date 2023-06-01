@@ -1705,6 +1705,9 @@ client_capture_output(struct client *client,
 
 	client_roundtrip(client);
 
+	assert(capt.width != 0 && capt.height != 0 && capt.drm_format != 0 &&
+	       "capture source not available");
+
 	buf = create_shm_buffer(client,
 				capt.width, capt.height, capt.drm_format);
 
