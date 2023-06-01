@@ -86,8 +86,6 @@ struct gl_border_image {
 struct gl_fbo_texture {
 	GLuint fbo;
 	GLuint tex;
-	int32_t width;
-	int32_t height;
 };
 
 struct gl_renderbuffer {
@@ -705,8 +703,6 @@ gl_fbo_texture_init(struct gl_fbo_texture *fbotex,
 
 	fbotex->fbo = shadow_fbo;
 	fbotex->tex = shadow_tex;
-	fbotex->width = width;
-	fbotex->height = height;
 
 	return true;
 }
