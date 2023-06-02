@@ -238,6 +238,9 @@ retrieve_eotf_and_output_inv_eotf(cmsContext lcms_ctx,
 unsigned int
 cmlcms_reasonable_1D_points(void);
 
+void
+lcms_optimize_pipeline(cmsPipeline **lut, cmsContext context_id);
+
 cmsToneCurve *
 lcmsJoinToneCurve(cmsContext context_id, const cmsToneCurve *X,
 		  const cmsToneCurve *Y, unsigned int resulting_points);

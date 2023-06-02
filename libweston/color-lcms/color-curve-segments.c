@@ -306,7 +306,7 @@ are_segments_equal(const cmsCurveSegment *seg_A, const cmsCurveSegment *seg_B)
 	return true;
 }
 
-static bool
+WESTON_EXPORT_FOR_TESTS bool
 are_curves_equal(cmsToneCurve *curve_A, cmsToneCurve *curve_B)
 {
 	unsigned int i;

@@ -581,9 +581,8 @@ translate_pipeline(struct cmlcms_color_transform *xform, const cmsPipeline *lut)
 	return false;
 }
 
-static cmsBool
-optimize_float_pipeline(cmsPipeline **lut, cmsContext context_id,
-			struct cmlcms_color_transform *xform)
+WESTON_EXPORT_FOR_TESTS void
+lcms_optimize_pipeline(cmsPipeline **lut, cmsContext context_id)
 {
 	bool cont_opt;
 
@@ -597,6 +596,13 @@ optimize_float_pipeline(cmsPipeline **lut, cmsContext context_id,
 		cont_opt = merge_matrices(lut, context_id);
 		cont_opt |= merge_curvesets(lut, context_id);
 	} while (cont_opt);
+}
+
+static cmsBool
+optimize_float_pipeline(cmsPipeline **lut, cmsContext context_id,
+			struct cmlcms_color_transform *xform)
+{
+	lcms_optimize_pipeline(lut, context_id);
 
 	if (translate_pipeline(xform, *lut)) {
 		xform->status = CMLCMS_TRANSFORM_OPTIMIZED;

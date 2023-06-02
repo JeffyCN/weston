@@ -38,6 +38,9 @@ curve_set_print(cmsStage *stage, struct weston_log_scope *scope);
 bool
 are_curvesets_inverse(cmsStage *set_A, cmsStage *set_B);
 
+bool
+are_curves_equal(cmsToneCurve *curve_A, cmsToneCurve *curve_B);
+
 cmsStage *
 join_powerlaw_curvesets(cmsContext context_id,
 			cmsToneCurve **set_A, cmsToneCurve **set_B);
@@ -53,6 +56,12 @@ curve_set_print(cmsStage *stage, struct weston_log_scope *scope)
 
 static inline bool
 are_curvesets_inverse(cmsStage *set_A, cmsStage *set_B)
+{
+	return false;
+}
+
+static inline bool
+are_curves_equal(cmsToneCurve *curve_A, cmsToneCurve *curve_B)
 {
 	return false;
 }

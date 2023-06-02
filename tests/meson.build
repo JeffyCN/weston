@@ -301,6 +301,11 @@ if get_option('color-management-lcms')
 			'name': 'color-icc-output',
 			'dep_objs': [ dep_libm, dep_lcms_util ]
 		},
+		{
+			'name': 'color-lcms-optimizer',
+			'link_with': plugin_color_lcms,
+			'dep_objs': [ dep_lcms_util ]
+		},
 		{	'name': 'color-metadata-parsing' },
 		{
 			'name': 'lcms-util',
