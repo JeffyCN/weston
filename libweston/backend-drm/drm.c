@@ -553,13 +553,13 @@ drm_output_pick_writeback_capture_task(struct drm_output *output)
 	int32_t height = output->base.current_mode->height;
 	uint32_t format = output->format->format;
 
+	assert(output->device->atomic_modeset);
+
 	ct = weston_output_pull_capture_task(&output->base,
 					     WESTON_OUTPUT_CAPTURE_SOURCE_WRITEBACK,
 					     width, height, pixel_format_get_info(format));
 	if (!ct)
 		return;
-
-	assert(output->device->atomic_modeset);
 
 	if (output->base.disable_planes > 0) {
 		msg = "drm: KMS planes usage is disabled for now, so " \
@@ -642,7 +642,8 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	if (drm_output_ensure_hdr_output_metadata_blob(output) < 0)
 		goto err;
 
-	drm_output_pick_writeback_capture_task(output);
+	if (device->atomic_modeset)
+		drm_output_pick_writeback_capture_task(output);
 
 	drm_output_render(state, damage);
 	scanout_state = drm_output_state_get_plane(state,
