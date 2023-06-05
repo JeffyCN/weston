@@ -55,6 +55,8 @@
 #include <libweston/weston-log.h>
 #include "pixel-formats.h"
 #include "pixman-renderer.h"
+#include "renderer-gl/gl-renderer.h"
+#include "shared/weston-egl-ext.h"
 
 #define DEFAULT_AXIS_STEP_DISTANCE 10
 
@@ -73,6 +75,9 @@ struct vnc_backend {
 	struct wl_event_source *aml_event;
 	struct nvnc *server;
 	int vnc_monitor_refresh_rate;
+
+	const struct pixel_format_info **formats;
+	unsigned int formats_count;
 };
 
 struct vnc_output {
@@ -268,6 +273,11 @@ struct vnc_keysym_to_keycode key_translation[] = {
 	{XKB_KEY_Down,		0x6c,   false	},
 	{XKB_KEY_Next,		0x6d,   false	},
 	{ },
+};
+
+static const uint32_t vnc_formats[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
 };
 
 static void
@@ -606,18 +616,35 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 
 	renderbuffer = nvnc_get_userdata(fb);
 	if (!renderbuffer) {
-		const struct pixman_renderer_interface *pixman;
 		const struct pixel_format_info *pfmt;
 
-		pixman = ec->renderer->pixman;
 		pfmt = pixel_format_get_info(DRM_FORMAT_XRGB8888);
 
-		renderbuffer =
-			pixman->create_image_from_ptr(&output->base, pfmt,
-						      output->base.width,
-						      output->base.height,
-						      nvnc_fb_get_addr(fb),
-						      output->base.width * 4);
+		switch (ec->renderer->type) {
+		case WESTON_RENDERER_PIXMAN: {
+			const struct pixman_renderer_interface *pixman;
+
+			pixman = ec->renderer->pixman;
+
+			renderbuffer =
+				pixman->create_image_from_ptr(&output->base, pfmt,
+							      output->base.width,
+							      output->base.height,
+							      nvnc_fb_get_addr(fb),
+							      output->base.width * 4);
+			break;
+		}
+		case WESTON_RENDERER_GL: {
+			renderbuffer =
+				ec->renderer->gl->create_fbo(&output->base, pfmt,
+							     output->base.width,
+							     output->base.height,
+							     nvnc_fb_get_addr(fb));
+			break;
+		}
+		default:
+			unreachable("cannot have auto renderer at runtime");
+		}
 
 		/* This is a new buffer, so the whole surface is damaged. */
 		pixman_region32_copy(&renderbuffer->damage,
@@ -708,13 +735,6 @@ vnc_output_enable(struct weston_output *base)
 	struct vnc_output *output = to_vnc_output(base);
 	struct vnc_backend *backend;
 	struct wl_event_loop *loop;
-	const struct pixman_renderer_output_options options = {
-		.fb_size = {
-			.width = output->base.width,
-			.height = output->base.height,
-		},
-		.format = pixel_format_get_info(DRM_FORMAT_XRGB8888),
-	};
 
 	assert(output);
 
@@ -723,8 +743,37 @@ vnc_output_enable(struct weston_output *base)
 
 	weston_plane_init(&output->cursor_plane, backend->compositor);
 
-	if (renderer->pixman->output_create(&output->base, &options) < 0)
-		return -1;
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN: {
+		const struct pixman_renderer_output_options options = {
+			.fb_size = {
+				.width = output->base.width,
+				.height = output->base.height,
+			},
+			.format = backend->formats[0],
+		};
+		if (renderer->pixman->output_create(&output->base, &options) < 0)
+			return -1;
+		break;
+	}
+	case WESTON_RENDERER_GL: {
+		const struct gl_renderer_fbo_options options = {
+			.area = {
+				.width = output->base.width,
+				.height = output->base.height,
+			},
+			.fb_size = {
+				.width = output->base.width,
+				.height = output->base.height,
+			},
+		};
+		if (renderer->gl->output_fbo_create(&output->base, &options) < 0)
+			return -1;
+		break;
+	}
+	default:
+		unreachable("cannot have auto renderer at runtime");
+	}
 
 	loop = wl_display_get_event_loop(backend->compositor->wl_display);
 	output->finish_frame_timer = wl_event_loop_add_timer(loop,
@@ -733,7 +782,7 @@ vnc_output_enable(struct weston_output *base)
 
 	output->fb_pool = nvnc_fb_pool_new(output->base.width,
 					   output->base.height,
-					   options.format->format,
+					   backend->formats[0]->format,
 					   output->base.width);
 
 	output->display = nvnc_display_new(0, 0);
@@ -760,7 +809,16 @@ vnc_output_disable(struct weston_output *base)
 	nvnc_display_unref(output->display);
 	nvnc_fb_pool_unref(output->fb_pool);
 
-	renderer->pixman->output_destroy(&output->base);
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN:
+		renderer->pixman->output_destroy(&output->base);
+		break;
+	case WESTON_RENDERER_GL:
+		renderer->gl->output_destroy(&output->base);
+		break;
+	default:
+		unreachable("cannot have auto renderer at runtime");
+	}
 
 	wl_event_source_remove(output->finish_frame_timer);
 	backend->output = NULL;
@@ -1086,18 +1144,34 @@ vnc_backend_create(struct weston_compositor *compositor,
 	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
 		goto err_compositor;
 
+	backend->formats_count = ARRAY_LENGTH(vnc_formats);
+	backend->formats = pixel_format_get_array(vnc_formats,
+						  backend->formats_count);
+
 	switch (config->renderer) {
 	case WESTON_RENDERER_AUTO:
 	case WESTON_RENDERER_PIXMAN:
+		if (weston_compositor_init_renderer(compositor,
+						    WESTON_RENDERER_PIXMAN,
+						    NULL) < 0)
+			goto err_compositor;
 		break;
+	case WESTON_RENDERER_GL: {
+		const struct gl_renderer_display_options options = {
+			.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+			.formats = backend->formats,
+			.formats_count = backend->formats_count,
+		};
+		if (weston_compositor_init_renderer(compositor,
+						    WESTON_RENDERER_GL,
+						    &options.base) < 0)
+			goto err_compositor;
+		break;
+	}
 	default:
 		weston_log("Unsupported renderer requested\n");
 		goto err_compositor;
 	}
-
-	if (weston_compositor_init_renderer(compositor, WESTON_RENDERER_PIXMAN,
-					    NULL) < 0)
-		goto err_compositor;
 
 	vnc_head_create(backend, "vnc");
 
