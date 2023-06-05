@@ -125,6 +125,9 @@ kiosk_shell_surface_set_parent(struct kiosk_shell_surface *shsurf,
 static void
 kiosk_shell_output_set_active_surface_tree(struct kiosk_shell_output *shoutput,
 					   struct kiosk_shell_surface *shroot);
+static void
+kiosk_shell_output_raise_surface_subtree(struct kiosk_shell_output *shoutput,
+					 struct kiosk_shell_surface *shroot);
 static struct kiosk_shell_output *
 kiosk_shell_find_shell_output(struct kiosk_shell *shell,
 			      struct weston_output *output);
@@ -451,6 +454,8 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 	struct weston_desktop_surface *dsurface = shsurf->desktop_surface;
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(dsurface);
+	struct kiosk_shell_output *shoutput =
+		kiosk_shell_find_shell_output(shsurf->shell, shsurf->output);
 
 	/* keyboard focus */
 	weston_view_activate_input(shsurf->view, kiosk_seat->seat, activate_flags);
@@ -465,16 +470,6 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 		dsurface_focus = current_focus->desktop_surface;
 		if (--current_focus->focus_count == 0)
 			weston_desktop_surface_set_activated(dsurface_focus, false);
-
-		/* removes it from the normal_layer and move it to inactive
-		 * one, without occluding the top-level window if the new one
-		 * is a child to that. Also, do not occlude another view
-		 * (currently focused one) on a different output when activating
-		 * a new one. */
-		if (!shsurf->parent && (shsurf->output == current_focus->output)) {
-			weston_view_move_to_layer(current_focus->view,
-						  &shsurf->shell->inactive_layer.view_list);
-		}
 	}
 
 	/* xdg-shell activation for the new one */
@@ -482,10 +477,8 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 	if (shsurf->focus_count++ == 0)
 		weston_desktop_surface_set_activated(dsurface, true);
 
-	/* removes it from the inactive_layer, on removal of a surface, and
-	 * move it back to the normal layer */
-	weston_view_move_to_layer(shsurf->view,
-				  &shsurf->shell->normal_layer.view_list);
+	/* raise the focused subtree to the top of the visible layer */
+	kiosk_shell_output_raise_surface_subtree(shoutput, shsurf);
 }
 
 /*
@@ -568,6 +561,40 @@ kiosk_shell_output_set_active_surface_tree(struct kiosk_shell_output *shoutput,
 	shoutput->active_surface_tree = shroot ?
 					&shroot->surface_tree_list :
 					NULL;
+}
+
+/* Raises the subtree originating at the specified 'shroot' of the output's
+ * active surface tree to the top of the visible layer. */
+static void
+kiosk_shell_output_raise_surface_subtree(struct kiosk_shell_output *shoutput,
+					 struct kiosk_shell_surface *shroot)
+{
+	struct kiosk_shell *shell = shroot->shell;
+	struct wl_list tmp_list;
+	struct kiosk_shell_surface *s, *tmp_s;
+
+	wl_list_init(&tmp_list);
+
+	/* Move all shell surfaces in the active surface tree starting at
+	 * shroot to the tmp_list while maintaining the relative order. */
+	wl_list_for_each_reverse_safe(s, tmp_s,
+				      shoutput->active_surface_tree, surface_tree_link) {
+		if (kiosk_shell_surface_is_descendant_of(s, shroot)) {
+			active_surface_tree_move_element_to_top(&tmp_list,
+								&s->surface_tree_link);
+		}
+	}
+
+	/* Now insert the views corresponding to the shell surfaces stored to
+	 * the top of the layer in the proper order.
+	 * Also remove the shell surface from tmp_list and insert it at the top
+	 * of the output's active surface tree. */
+	wl_list_for_each_reverse_safe(s, tmp_s, &tmp_list, surface_tree_link) {
+		weston_view_move_to_layer(s->view, &shell->normal_layer.view_list);
+
+		active_surface_tree_move_element_to_top(shoutput->active_surface_tree,
+							&s->surface_tree_link);
+	}
 }
 
 static int
@@ -1159,18 +1186,10 @@ kiosk_shell_activate_view(struct kiosk_shell *shell,
 	struct kiosk_shell_seat *kiosk_seat =
 		get_kiosk_shell_seat(seat);
 
-	if (!shsurf)
+	if (!shsurf || !kiosk_seat)
 		return;
 
-	/* If the view belongs to a child window bring it to the front.
-	 * We don't do this for the parent top-level, since that would
-	 * obscure all children.
-	 */
-	if (shsurf->parent)
-		weston_view_move_to_layer(view, &shell->normal_layer.view_list);
-
-	if (kiosk_seat)
-		kiosk_shell_surface_activate(shsurf, kiosk_seat, flags);
+	kiosk_shell_surface_activate(shsurf, kiosk_seat, flags);
 }
 
 static void
