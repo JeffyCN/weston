@@ -294,7 +294,7 @@ headless_output_enable_gl(struct headless_output *output)
 	output->renderbuffer =
 		renderer->gl->create_fbo(&output->base, b->formats[0],
 					 options.fb_size.width,
-					 options.fb_size.height);
+					 options.fb_size.height, NULL);
 	if (!output->renderbuffer)
 		goto err_renderbuffer;
 

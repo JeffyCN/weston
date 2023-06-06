@@ -94,6 +94,7 @@ struct gl_renderbuffer {
 	/* The fbo value zero represents the default surface framebuffer. */
 	GLuint fbo;
 	GLuint rb;
+	uint32_t *pixels;
 	struct wl_list link;
 	int age;
 };
@@ -760,7 +761,7 @@ gl_renderer_create_dummy_renderbuffer(struct weston_output *output)
 static struct weston_renderbuffer *
 gl_renderer_create_fbo(struct weston_output *output,
 		       const struct pixel_format_info *format,
-		       int width, int height)
+		       int width, int height, uint32_t *pixels)
 {
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	struct gl_output_state *go = get_output_state(output);
@@ -804,6 +805,8 @@ gl_renderer_create_fbo(struct weston_output *output,
 		free(renderbuffer);
 		return NULL;
 	}
+
+	renderbuffer->pixels = pixels;
 
 	pixman_region32_init(&renderbuffer->base.damage);
 	/*
@@ -2028,7 +2031,6 @@ gl_renderer_repaint_output(struct weston_output *output,
 		glFlush();
 	}
 
-	pixman_region32_clear(&rb->base.damage);
 	rb->border_damage = BORDER_STATUS_CLEAN;
 	go->border_status = BORDER_STATUS_CLEAN;
 
@@ -2039,6 +2041,39 @@ gl_renderer_repaint_output(struct weston_output *output,
 				    go->render_query);
 
 	update_buffer_release_fences(compositor, output);
+
+	if (rb->pixels) {
+		uint32_t *pixels = rb->pixels;
+		int stride = go->fb_size.width;
+		pixman_box32_t *extents = &rb->base.damage.extents;
+		struct weston_geometry rect = {
+			.x = go->area.x,
+			.width = go->area.width,
+		};
+
+		if (gr->fan_debug) {
+			rect.y = go->fb_size.height - go->area.y - go->area.height;
+			rect.height = go->area.height;
+		} else {
+			rect.y = go->fb_size.height - go->area.y - extents->y2;
+			rect.height = extents->y2 - extents->y1;
+			pixels += rect.width * extents->y1;
+		}
+
+		if (gr->gl_version >= gr_gl_version(3, 0) && ! gr->fan_debug) {
+			glPixelStorei(GL_PACK_ROW_LENGTH, stride);
+			rect.width = extents->x2 - extents->x1;
+			rect.x += extents->x1;
+			pixels += extents->x1;
+		}
+
+		gl_renderer_do_read_pixels(gr, compositor->read_format, pixels, stride, &rect);
+
+		if (gr->gl_version >= gr_gl_version(3, 0))
+			glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	}
+
+	pixman_region32_clear(&rb->base.damage);
 
 	gl_renderer_garbage_collect_programs(gr);
 }
