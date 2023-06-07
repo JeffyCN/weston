@@ -102,9 +102,6 @@ struct gl_output_state {
 	struct weston_geometry area; /**< composited area in pixels inside fb */
 
 	EGLSurface egl_surface;
-	pixman_region32_t buffer_damage[BUFFER_DAMAGE_COUNT];
-	int buffer_damage_index;
-	enum gl_border_status border_damage[BUFFER_DAMAGE_COUNT];
 	struct gl_border_image borders[4];
 	enum gl_border_status border_status;
 	bool swap_behavior_is_preserved;
@@ -1648,55 +1645,6 @@ output_get_dummy_renderbuffer(struct weston_output *output)
 
 }
 
-static void
-output_get_damage(struct weston_output *output,
-		  pixman_region32_t *buffer_damage, uint32_t *border_damage)
-{
-	struct gl_output_state *go = get_output_state(output);
-	int buffer_age;
-	int i;
-
-	buffer_age = output_get_buffer_age(output);
-
-	if (buffer_age == 0 || buffer_age - 1 > BUFFER_DAMAGE_COUNT) {
-		pixman_region32_copy(buffer_damage, &output->region);
-		*border_damage = BORDER_ALL_DIRTY;
-	} else {
-		for (i = 0; i < buffer_age - 1; i++)
-			*border_damage |= go->border_damage[(go->buffer_damage_index + i) % BUFFER_DAMAGE_COUNT];
-
-		if (*border_damage & BORDER_SIZE_CHANGED) {
-			/* If we've had a resize, we have to do a full
-			 * repaint. */
-			*border_damage |= BORDER_ALL_DIRTY;
-			pixman_region32_copy(buffer_damage, &output->region);
-		} else {
-			for (i = 0; i < buffer_age - 1; i++)
-				pixman_region32_union(buffer_damage,
-						      buffer_damage,
-						      &go->buffer_damage[(go->buffer_damage_index + i) % BUFFER_DAMAGE_COUNT]);
-		}
-	}
-}
-
-static void
-output_rotate_damage(struct weston_output *output,
-		     pixman_region32_t *output_damage,
-		     enum gl_border_status border_status)
-{
-	struct gl_output_state *go = get_output_state(output);
-	struct gl_renderer *gr = get_renderer(output->compositor);
-
-	if (!gr->has_egl_buffer_age && !gr->has_egl_partial_update)
-		return;
-
-	go->buffer_damage_index += BUFFER_DAMAGE_COUNT - 1;
-	go->buffer_damage_index %= BUFFER_DAMAGE_COUNT;
-
-	pixman_region32_copy(&go->buffer_damage[go->buffer_damage_index], output_damage);
-	go->border_damage[go->buffer_damage_index] = border_status;
-}
-
 /**
  * Given a region in Weston's (top-left-origin) global co-ordinate space,
  * translate it to the co-ordinate space used by GL for our output
@@ -1858,11 +1806,6 @@ gl_renderer_repaint_output(struct weston_output *output,
 	struct gl_renderer *gr = get_renderer(compositor);
 	EGLBoolean ret;
 	static int errored;
-	/* areas we've damaged since we last used this buffer */
-	pixman_region32_t previous_damage;
-	/* total area we need to repaint this time */
-	pixman_region32_t total_damage;
-	enum gl_border_status border_status = BORDER_STATUS_CLEAN;
 	struct weston_paint_node *pnode;
 	const int32_t area_inv_y =
 		go->fb_size.height - go->area.y - go->area.height;
@@ -1932,26 +1875,6 @@ gl_renderer_repaint_output(struct weston_output *output,
 		pixman_region32_fini(&undamaged);
 	}
 
-	/* previous_damage covers regions damaged in previous paints since we
-	 * last used this buffer */
-	pixman_region32_init(&previous_damage);
-	pixman_region32_init(&total_damage); /* total area to redraw */
-
-	/* Update previous_damage using buffer_age (if available), and store
-	 * current damaged region for future use. */
-	output_get_damage(output, &previous_damage, &border_status);
-	output_rotate_damage(output, output_damage, go->border_status);
-
-	/* Redraw both areas which have changed since we last used this buffer,
-	 * as well as the areas we now want to repaint, to make sure the
-	 * buffer is up to date. */
-	pixman_region32_union(&total_damage, &previous_damage, output_damage);
-	border_status |= go->border_status;
-
-	/* validate new damage tracking */
-	assert(pixman_region32_equal(&total_damage, &rb->base.damage));
-	assert(!((border_status & BORDER_ALL_DIRTY) & ~rb->border_damage));
-
 	if (gr->has_egl_partial_update && !gr->fan_debug) {
 		int n_egl_rects;
 		EGLint *egl_rects;
@@ -1980,9 +1903,6 @@ gl_renderer_repaint_output(struct weston_output *output,
 	} else {
 		repaint_views(output, &rb->base.damage);
 	}
-
-	pixman_region32_fini(&total_damage);
-	pixman_region32_fini(&previous_damage);
 
 	draw_output_borders(output, rb->border_damage);
 
@@ -3648,7 +3568,6 @@ gl_renderer_output_create(struct weston_output *output,
 	struct gl_output_state *go;
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	const struct weston_testsuite_quirks *quirks;
-	int i;
 
 	quirks = &output->compositor->test_data.test_quirks;
 
@@ -3657,9 +3576,6 @@ gl_renderer_output_create(struct weston_output *output,
 		return -1;
 
 	go->egl_surface = surface;
-
-	for (i = 0; i < BUFFER_DAMAGE_COUNT; i++)
-		pixman_region32_init(&go->buffer_damage[i]);
 
 	if (gr->has_disjoint_timer_query)
 		gr->gen_queries(1, &go->render_query);
@@ -3785,10 +3701,6 @@ gl_renderer_output_destroy(struct weston_output *output)
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	struct gl_output_state *go = get_output_state(output);
 	struct timeline_render_point *trp, *tmp;
-	int i;
-
-	for (i = 0; i < 2; i++)
-		pixman_region32_fini(&go->buffer_damage[i]);
 
 	if (shadow_exists(go))
 		gl_fbo_texture_fini(&go->shadow);
