@@ -90,6 +90,13 @@ struct gl_fbo_texture {
 	int32_t height;
 };
 
+struct gl_renderbuffer {
+	struct weston_renderbuffer base;
+	enum gl_border_status border_damage;
+	struct wl_list link;
+	int age;
+};
+
 struct gl_output_state {
 	struct weston_size fb_size; /**< in pixels, including borders */
 	struct weston_geometry area; /**< composited area in pixels inside fb */
@@ -112,6 +119,9 @@ struct gl_output_state {
 
 	const struct pixel_format_info *shadow_format;
 	struct gl_fbo_texture shadow;
+
+	/* struct gl_renderbuffer::link */
+	struct wl_list renderbuffer_list;
 };
 
 struct gl_renderer;
@@ -709,6 +719,38 @@ gl_fbo_texture_fini(struct gl_fbo_texture *fbotex)
 	fbotex->fbo = 0;
 	glDeleteTextures(1, &fbotex->tex);
 	fbotex->tex = 0;
+}
+
+static void
+gl_renderer_renderbuffer_destroy(struct weston_renderbuffer *renderbuffer)
+{
+	struct gl_renderbuffer *rb;
+
+	rb = container_of(renderbuffer, struct gl_renderbuffer, base);
+	pixman_region32_fini(&rb->base.damage);
+	free(rb);
+}
+
+static struct gl_renderbuffer *
+gl_renderer_create_dummy_renderbuffer(struct weston_output *output)
+{
+	struct gl_output_state *go = get_output_state(output);
+	struct gl_renderbuffer *renderbuffer;
+
+	renderbuffer = xzalloc(sizeof(*renderbuffer));
+
+	pixman_region32_init(&renderbuffer->base.damage);
+	pixman_region32_copy(&renderbuffer->base.damage, &output->region);
+	renderbuffer->border_damage = BORDER_ALL_DIRTY;
+	/*
+	 * A single reference is kept on the renderbuffer_list,
+	 * the caller just borrows it.
+	 */
+	renderbuffer->base.refcount = 1;
+	renderbuffer->base.destroy = gl_renderer_renderbuffer_destroy;
+	wl_list_insert(&go->renderbuffer_list, &renderbuffer->link);
+
+	return renderbuffer;
 }
 
 static bool
@@ -1560,6 +1602,52 @@ output_get_buffer_age(struct weston_output *output)
 	return buffer_age;
 }
 
+static struct gl_renderbuffer *
+output_get_dummy_renderbuffer(struct weston_output *output)
+{
+	struct gl_output_state *go = get_output_state(output);
+	struct gl_renderer *gr = get_renderer(output->compositor);
+	int buffer_age = output_get_buffer_age(output);
+	int count = 0;
+	struct gl_renderbuffer *rb;
+	struct gl_renderbuffer *ret = NULL;
+	struct gl_renderbuffer *oldest_rb = NULL;
+	int max_buffers;
+
+	wl_list_for_each(rb, &go->renderbuffer_list, link) {
+		/* Count dummy renderbuffers, age them, */
+		count++;
+		rb->age++;
+		/* find the one with buffer_age to return, */
+		if (rb->age == buffer_age)
+			ret = rb;
+		/* and the oldest one in case we decide to reuse it. */
+		if (!oldest_rb || rb->age > oldest_rb->age)
+			oldest_rb = rb;
+	}
+
+	/* If a renderbuffer of correct age was found, return it, */
+	if (ret) {
+		ret->age = 0;
+		return ret;
+	}
+
+	/* otherwise decide whether to refurbish and return the oldest, */
+	max_buffers = (gr->has_egl_buffer_age || gr->has_egl_partial_update) ?
+		      BUFFER_DAMAGE_COUNT : 1;
+	if ((buffer_age == 0 || buffer_age - 1 > BUFFER_DAMAGE_COUNT) &&
+	    count >= max_buffers) {
+		pixman_region32_copy(&oldest_rb->base.damage, &output->region);
+		oldest_rb->border_damage = BORDER_ALL_DIRTY;
+		oldest_rb->age = 0;
+		return oldest_rb;
+	}
+
+	/* or create a new dummy renderbuffer */
+	return gl_renderer_create_dummy_renderbuffer(output);
+
+}
+
 static void
 output_get_damage(struct weston_output *output,
 		  pixman_region32_t *buffer_damage, uint32_t *border_damage)
@@ -1778,6 +1866,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 	struct weston_paint_node *pnode;
 	const int32_t area_inv_y =
 		go->fb_size.height - go->area.y - go->area.height;
+	struct gl_renderbuffer *rb;
 
 	assert(output->from_blend_to_output_by_backend ||
 	       output->color_outcome->from_blend_to_output == NULL ||
@@ -1785,6 +1874,16 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	if (use_output(output) < 0)
 		return;
+
+	/* Accumulate damage in all renderbuffers */
+	wl_list_for_each(rb, &go->renderbuffer_list, link) {
+		pixman_region32_union(&rb->base.damage,
+				      &rb->base.damage,
+				      output_damage);
+		rb->border_damage |= go->border_status;
+	}
+
+	rb = output_get_dummy_renderbuffer(output);
 
 	/* Clear the used_in_output_repaint flag, so that we can properly track
 	 * which surfaces were used in this output repaint. */
@@ -1849,6 +1948,10 @@ gl_renderer_repaint_output(struct weston_output *output,
 	pixman_region32_union(&total_damage, &previous_damage, output_damage);
 	border_status |= go->border_status;
 
+	/* validate new damage tracking */
+	assert(pixman_region32_equal(&total_damage, &rb->base.damage));
+	assert(!((border_status & BORDER_ALL_DIRTY) & ~rb->border_damage));
+
 	if (gr->has_egl_partial_update && !gr->fan_debug) {
 		int n_egl_rects;
 		EGLint *egl_rects;
@@ -1856,7 +1959,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 		/* For partial_update, we need to pass the region which has
 		 * changed since we last rendered into this specific buffer;
 		 * this is total_damage. */
-		pixman_region_to_egl_y_invert(output, &total_damage,
+		pixman_region_to_egl_y_invert(output, &rb->base.damage,
 					      &egl_rects, &n_egl_rects);
 		gr->set_damage_region(gr->egl_display, go->egl_surface,
 				      egl_rects, n_egl_rects);
@@ -1873,15 +1976,15 @@ gl_renderer_repaint_output(struct weston_output *output,
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(go->area.x, area_inv_y,
 			   go->area.width, go->area.height);
-		blit_shadow_to_output(output, &total_damage);
+		blit_shadow_to_output(output, &rb->base.damage);
 	} else {
-		repaint_views(output, &total_damage);
+		repaint_views(output, &rb->base.damage);
 	}
 
 	pixman_region32_fini(&total_damage);
 	pixman_region32_fini(&previous_damage);
 
-	draw_output_borders(output, border_status);
+	draw_output_borders(output, rb->border_damage);
 
 	gl_renderer_do_capture_tasks(gr, output,
 				     WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER);
@@ -1918,6 +2021,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 		gl_renderer_print_egl_error_state();
 	}
 
+	pixman_region32_clear(&rb->base.damage);
+	rb->border_damage = BORDER_STATUS_CLEAN;
 	go->border_status = BORDER_STATUS_CLEAN;
 
 	/* We have to submit the render sync objects after swap buffers, since
@@ -3452,6 +3557,17 @@ gl_renderer_output_set_border(struct weston_output *output,
 	go->border_status |= 1 << side;
 }
 
+static void
+gl_renderer_remove_renderbuffers(struct gl_output_state *go)
+{
+	struct gl_renderbuffer *renderbuffer, *tmp;
+
+	wl_list_for_each_safe(renderbuffer, tmp, &go->renderbuffer_list, link) {
+		wl_list_remove(&renderbuffer->link);
+		weston_renderbuffer_unref(&renderbuffer->base);
+	}
+}
+
 static bool
 gl_renderer_resize_output(struct weston_output *output,
 			  const struct weston_size *fb_size,
@@ -3462,6 +3578,8 @@ gl_renderer_resize_output(struct weston_output *output,
 	bool ret;
 
 	check_compositing_area(fb_size, area);
+
+	gl_renderer_remove_renderbuffers(go);
 
 	go->fb_size = *fb_size;
 	go->area = *area;
@@ -3558,6 +3676,8 @@ gl_renderer_output_create(struct weston_output *output,
 		go->shadow_format =
 			pixel_format_get_info(DRM_FORMAT_ABGR16161616F);
 	}
+
+	wl_list_init(&go->renderbuffer_list);
 
 	output->renderer_state = go;
 
@@ -3690,6 +3810,8 @@ gl_renderer_output_destroy(struct weston_output *output)
 
 	if (go->render_sync != EGL_NO_SYNC_KHR)
 		gr->destroy_sync(gr->egl_display, go->render_sync);
+
+	gl_renderer_remove_renderbuffers(go);
 
 	free(go);
 }
