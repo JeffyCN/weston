@@ -1538,15 +1538,13 @@ output_get_border_damage(struct weston_output *output,
 	}
 }
 
-static void
-output_get_damage(struct weston_output *output,
-		  pixman_region32_t *buffer_damage, uint32_t *border_damage)
+static int
+output_get_buffer_age(struct weston_output *output)
 {
 	struct gl_output_state *go = get_output_state(output);
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	EGLint buffer_age = 0;
 	EGLBoolean ret;
-	int i;
 
 	if (gr->has_egl_buffer_age || gr->has_egl_partial_update) {
 		ret = eglQuerySurface(gr->egl_display, go->egl_surface,
@@ -1558,6 +1556,19 @@ output_get_damage(struct weston_output *output,
 	} else if (go->swap_behavior_is_preserved) {
 		buffer_age = 1;
 	}
+
+	return buffer_age;
+}
+
+static void
+output_get_damage(struct weston_output *output,
+		  pixman_region32_t *buffer_damage, uint32_t *border_damage)
+{
+	struct gl_output_state *go = get_output_state(output);
+	int buffer_age;
+	int i;
+
+	buffer_age = output_get_buffer_age(output);
 
 	if (buffer_age == 0 || buffer_age - 1 > BUFFER_DAMAGE_COUNT) {
 		pixman_region32_copy(buffer_damage, &output->region);
