@@ -93,6 +93,8 @@ struct gl_fbo_texture {
 struct gl_renderbuffer {
 	struct weston_renderbuffer base;
 	enum gl_border_status border_damage;
+	/* The fbo value zero represents the default surface framebuffer. */
+	GLuint fbo;
 	struct wl_list link;
 	int age;
 };
@@ -735,6 +737,8 @@ gl_renderer_create_dummy_renderbuffer(struct weston_output *output)
 	struct gl_renderbuffer *renderbuffer;
 
 	renderbuffer = xzalloc(sizeof(*renderbuffer));
+
+	renderbuffer->fbo = 0;
 
 	pixman_region32_init(&renderbuffer->base.damage);
 	pixman_region32_copy(&renderbuffer->base.damage, &output->region);
@@ -1855,7 +1859,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 		glBindFramebuffer(GL_FRAMEBUFFER, go->shadow.fbo);
 		glViewport(0, 0, go->area.width, go->area.height);
 	} else {
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, rb->fbo);
 		glViewport(go->area.x, area_inv_y,
 			   go->area.width, go->area.height);
 	}
@@ -1896,7 +1900,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 		else
 			repaint_views(output, output_damage);
 
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, rb->fbo);
 		glViewport(go->area.x, area_inv_y,
 			   go->area.width, go->area.height);
 		blit_shadow_to_output(output, &rb->base.damage);
