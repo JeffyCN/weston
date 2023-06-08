@@ -818,33 +818,23 @@ gl_renderer_create_fbo(struct weston_output *output,
 }
 
 static bool
-gl_renderer_do_capture(struct gl_renderer *gr, struct weston_buffer *into,
-		       const struct weston_geometry *rect)
+gl_renderer_do_read_pixels(struct gl_renderer *gr,
+			   const struct pixel_format_info *fmt,
+			   void *pixels, int stride,
+			   const struct weston_geometry *rect)
 {
-	struct wl_shm_buffer *shm = into->shm_buffer;
-	const struct pixel_format_info *fmt = into->pixel_format;
-	void *shm_pixels;
 	void *read_target;
-	int32_t stride;
 	pixman_image_t *tmp = NULL;
 
 	assert(fmt->gl_type != 0);
 	assert(fmt->gl_format != 0);
-	assert(into->type == WESTON_BUFFER_SHM);
-	assert(shm);
-
-	stride = wl_shm_buffer_get_stride(shm);
-	if (stride % 4 != 0)
-		return false;
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-
-	shm_pixels = wl_shm_buffer_get_data(shm);
 
 	if (gr->has_pack_reverse) {
 		/* Make glReadPixels() return top row first. */
 		glPixelStorei(GL_PACK_REVERSE_ROW_ORDER_ANGLE, GL_TRUE);
-		read_target = shm_pixels;
+		read_target = pixels;
 	} else {
 		/*
 		 * glReadPixels() returns bottom row first. We need to
@@ -859,21 +849,18 @@ gl_renderer_do_capture(struct gl_renderer *gr, struct weston_buffer *into,
 		read_target = pixman_image_get_data(tmp);
 	}
 
-	wl_shm_buffer_begin_access(shm);
-
 	glReadPixels(rect->x, rect->y, rect->width, rect->height,
 		     fmt->gl_format, fmt->gl_type, read_target);
 
 	if (tmp) {
-		pixman_image_t *shm_image;
+		pixman_image_t *image;
 		pixman_transform_t flip;
 
-		shm_image = pixman_image_create_bits_no_clear(fmt->pixman_format,
-							      rect->width,
-							      rect->height,
-							      shm_pixels,
-							      stride);
-		abort_oom_if_null(shm_image);
+		image = pixman_image_create_bits_no_clear(fmt->pixman_format,
+							  rect->width,
+							  rect->height,
+							  pixels, stride);
+		abort_oom_if_null(image);
 
 		pixman_transform_init_scale(&flip, pixman_fixed_1,
 					    pixman_fixed_minus_1);
@@ -884,19 +871,45 @@ gl_renderer_do_capture(struct gl_renderer *gr, struct weston_buffer *into,
 		pixman_image_composite32(PIXMAN_OP_SRC,
 					 tmp,       /* src */
 					 NULL,      /* mask */
-					 shm_image, /* dest */
+					 image,     /* dest */
 					 0, 0,      /* src x,y */
 					 0, 0,      /* mask x,y */
 					 0, 0,      /* dest x,y */
 					 rect->width, rect->height);
 
-		pixman_image_unref(shm_image);
+		pixman_image_unref(image);
 		pixman_image_unref(tmp);
 	}
 
+	return true;
+}
+
+static bool
+gl_renderer_do_capture(struct gl_renderer *gr, struct weston_buffer *into,
+		       const struct weston_geometry *rect)
+{
+	struct wl_shm_buffer *shm = into->shm_buffer;
+	const struct pixel_format_info *fmt = into->pixel_format;
+	void *shm_pixels;
+	int32_t stride;
+	bool ret;
+
+	assert(into->type == WESTON_BUFFER_SHM);
+	assert(shm);
+
+	shm_pixels = wl_shm_buffer_get_data(shm);
+
+	stride = wl_shm_buffer_get_stride(shm);
+	if (stride % 4 != 0)
+		return false;
+
+	wl_shm_buffer_begin_access(shm);
+
+	ret = gl_renderer_do_read_pixels(gr, fmt, shm_pixels, stride, rect);
+
 	wl_shm_buffer_end_access(shm);
 
-	return true;
+	return ret;
 }
 
 static void
