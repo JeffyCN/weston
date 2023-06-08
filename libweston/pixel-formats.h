@@ -62,6 +62,9 @@ struct pixel_format_info {
 	 *  opaque. */
 	uint32_t sampler_type;
 
+	/** GL internal format; to be used when creating FBO renderbuffers */
+	int gl_internalformat;
+
 	/** GL format, if data can be natively/directly uploaded. Note that
 	 *  whilst DRM formats are little-endian unless explicitly specified,
 	 *  (i.e. DRM_FORMAT_ARGB8888 is stored BGRA as sequential bytes in
