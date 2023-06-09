@@ -603,8 +603,7 @@ wayland_shm_buffer_attach(struct wayland_shm_buffer *sb)
 				  rects[i].y1, rects[i].x2 - rects[i].x1,
 				  rects[i].y2 - rects[i].y1);
 
-	if (sb->output->frame)
-		pixman_region32_fini(&damage);
+	pixman_region32_fini(&damage);
 }
 
 static int
