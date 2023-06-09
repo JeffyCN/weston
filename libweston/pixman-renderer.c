@@ -81,12 +81,17 @@ struct pixman_renderer {
 	struct wl_signal destroy_signal;
 };
 
+static inline struct pixman_renderbuffer *
+to_pixman_renderbuffer(struct weston_renderbuffer *renderbuffer)
+{
+	return container_of(renderbuffer, struct pixman_renderbuffer, base);
+}
+
 static pixman_image_t *
 pixman_renderer_renderbuffer_get_image(struct weston_renderbuffer *renderbuffer)
 {
-	struct pixman_renderbuffer *rb;
+	struct pixman_renderbuffer *rb = to_pixman_renderbuffer(renderbuffer);
 
-	rb = container_of(renderbuffer, struct pixman_renderbuffer, base);
 	return rb->image;
 }
 
@@ -649,7 +654,7 @@ pixman_renderer_repaint_output(struct weston_output *output,
 
 	assert(renderbuffer);
 
-	rb = container_of(renderbuffer, struct pixman_renderbuffer, base);
+	rb = to_pixman_renderbuffer(renderbuffer);
 
 	pixman_renderer_output_set_buffer(output, rb->image);
 
@@ -1208,9 +1213,8 @@ pixman_renderer_create_image(struct weston_output *output,
 static void
 pixman_renderer_renderbuffer_destroy(struct weston_renderbuffer *renderbuffer)
 {
-	struct pixman_renderbuffer *rb;
+	struct pixman_renderbuffer *rb = to_pixman_renderbuffer(renderbuffer);
 
-	rb = container_of(renderbuffer, struct pixman_renderbuffer, base);
 	pixman_image_unref(rb->image);
 	pixman_region32_fini(&rb->base.damage);
 	free(rb);
