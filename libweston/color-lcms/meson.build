@@ -6,14 +6,20 @@ if not dep_lcms2.found()
 	error('color-lcms plugin requires lcms2 which was not found. Or, you can use \'-Dcolor-management-lcms=false\'.')
 endif
 
+has_function_cmsGetToneCurveSegment = cc.has_function('cmsGetToneCurveSegment',
+						      dependencies: dep_lcms2)
+
 config_h.set10('HAVE_CMS_GET_TONE_CURVE_SEGMENT',
-	       cc.has_function('cmsGetToneCurveSegment', dependencies : dep_lcms2))
+	       has_function_cmsGetToneCurveSegment)
 
 srcs_color_lcms = [
 	'color-lcms.c',
 	'color-profile.c',
 	'color-transform.c',
 ]
+if (has_function_cmsGetToneCurveSegment)
+	srcs_color_lcms += 'color-curve-segments.c'
+endif
 
 deps_color_lcms = [
 	dep_libm,
