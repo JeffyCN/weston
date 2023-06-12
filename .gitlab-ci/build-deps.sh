@@ -98,7 +98,7 @@ if [[ -n "$KERNEL_DEFCONFIG" ]]; then
 
 	git clone https://github.com/fooishbar/virtme
 	cd virtme
-	git checkout -b snapshot 70e390c564cd09e0da287a7f2c04a6592e59e379
+	git checkout -b snapshot 036fc0c8b3ee0881a035abc47ab4f152546a4408
 	./setup.py install
 	cd ..
 fi
