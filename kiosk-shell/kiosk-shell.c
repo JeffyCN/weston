@@ -821,8 +821,9 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		from_g = weston_coord_surface_to_global(shsurf->view, from_s);
 		to_g = weston_coord_surface_to_global(shsurf->view, to_s);
 		offset.c = weston_coord_sub(to_g.c, from_g.c);
-		pos.c = weston_coord_add(shsurf->view->geometry.pos_offset,
-					 offset.c);
+		pos.c = weston_coord_add(
+			weston_view_get_pos_offset_global(shsurf->view).c,
+			offset.c);
 
 		weston_view_set_position(shsurf->view, pos);
 		weston_view_update_transform(shsurf->view);
@@ -1138,8 +1139,9 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		if (view->output != output)
 			continue;
 
-		pos.c = weston_coord_add(view->geometry.pos_offset,
-					 output->move.c);
+		pos.c = weston_coord_add(
+			weston_view_get_pos_offset_global(view).c,
+			output->move.c);
 		weston_view_set_position(view, pos);
 	}
 
@@ -1150,8 +1152,9 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		if (view->output != output)
 			continue;
 
-		pos.c = weston_coord_add(view->geometry.pos_offset,
-					 output->move.c);
+		pos.c = weston_coord_add(
+			weston_view_get_pos_offset_global(view).c,
+			output->move.c);
 		weston_view_set_position(view, pos);
 	}
 }

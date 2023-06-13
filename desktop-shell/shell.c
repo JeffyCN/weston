@@ -1032,8 +1032,9 @@ surface_touch_move(struct shell_surface *shsurf, struct weston_touch *touch)
 		return -1;
 
 	move->active = 1;
-	pos.c = weston_coord_sub(shsurf->view->geometry.pos_offset,
-				 touch->grab_pos.c);
+	pos.c = weston_coord_sub(
+		weston_view_get_pos_offset_global(shsurf->view).c,
+		touch->grab_pos.c);
 	move->dx = wl_fixed_from_double(pos.c.x);
 	move->dy = wl_fixed_from_double(pos.c.y);
 
@@ -1168,7 +1169,7 @@ surface_move(struct shell_surface *shsurf, struct weston_pointer *pointer,
 	     bool client_initiated)
 {
 	struct weston_move_grab *move;
-	struct weston_coord offset;
+	struct weston_coord_global offset;
 
 	if (!shsurf)
 		return -1;
@@ -1182,10 +1183,11 @@ surface_move(struct shell_surface *shsurf, struct weston_pointer *pointer,
 	if (!move)
 		return -1;
 
-	offset = weston_coord_sub(shsurf->view->geometry.pos_offset,
-				  pointer->grab_pos.c);
-	move->dx = wl_fixed_from_double(offset.x);
-	move->dy = wl_fixed_from_double(offset.y);
+	offset.c = weston_coord_sub(
+		weston_view_get_pos_offset_global(shsurf->view).c,
+		pointer->grab_pos.c);
+	move->dx = wl_fixed_from_double(offset.c.x);
+	move->dy = wl_fixed_from_double(offset.c.y);
 	move->client_initiated = client_initiated;
 
 	weston_desktop_surface_set_orientation(shsurf->desktop_surface,
@@ -1321,7 +1323,7 @@ static int
 surface_tablet_tool_move(struct shell_surface *shsurf, struct weston_tablet_tool *tool)
 {
 	struct weston_tablet_tool_move_grab *move;
-	struct weston_coord offset;
+	struct weston_coord_global offset;
 
 	if (!shsurf)
 		return -1;
@@ -1333,10 +1335,11 @@ surface_tablet_tool_move(struct shell_surface *shsurf, struct weston_tablet_tool
 	if (!move)
 		return -1;
 
-	offset = weston_coord_sub(shsurf->view->geometry.pos_offset,
-				  tool->grab_pos.c);
-	move->dx = wl_fixed_from_double(offset.x);
-	move->dy = wl_fixed_from_double(offset.y);
+	offset.c = weston_coord_sub(
+		weston_view_get_pos_offset_global(shsurf->view).c,
+		tool->grab_pos.c);
+	move->dx = wl_fixed_from_double(offset.c.x);
+	move->dy = wl_fixed_from_double(offset.c.y);
 
 	shell_tablet_tool_grab_start(&move->base, &tablet_tool_move_grab_interface,
 				     shsurf, tool);
@@ -2278,7 +2281,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 			 * the view */
 			weston_view_set_output(shsurf->wview_anim_fade,
 					       shsurf->view->output);
-			pos.c = shsurf->view->geometry.pos_offset;
+			pos = weston_view_get_pos_offset_global(shsurf->view);
 			weston_view_set_position(shsurf->wview_anim_fade, pos);
 
 			weston_layer_entry_insert(&shsurf->view->layer_link,
@@ -2449,7 +2452,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	if ((shsurf->state.fullscreen || shsurf->state.maximized) &&
 	    !shsurf->saved_position_valid) {
-		shsurf->saved_pos.c = shsurf->view->geometry.pos_offset;
+		shsurf->saved_pos = weston_view_get_pos_offset_global(shsurf->view);
 		shsurf->saved_position_valid = true;
 
 		if (!wl_list_empty(&shsurf->rotation.transform.link)) {
@@ -2496,7 +2499,9 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		to_g = weston_coord_surface_to_global(view, to_s);
 
 		offset.c = weston_coord_sub(to_g.c, from_g.c);
-		pos.c = weston_coord_add(view->geometry.pos_offset, offset.c);
+		pos.c = weston_coord_add(
+			weston_view_get_pos_offset_global(view).c,
+			offset.c);
 
 		weston_view_set_position(shsurf->view, pos);
 	}
@@ -3559,7 +3564,7 @@ rotate_grab_motion(struct weston_pointer_grab *grab,
 	if (dposx != 0.0f || dposy != 0.0f) {
 		struct weston_coord_global pos;
 
-		pos.c = shsurf->view->geometry.pos_offset;
+		pos = weston_view_get_pos_offset_global(shsurf->view);
 		pos.c.x += dposx;
 		pos.c.y += dposy;
 		weston_view_set_position(shsurf->view, pos);
@@ -4029,7 +4034,7 @@ shell_fade_create_fade_out_view(struct shell_surface *shsurf,
 	/* set the initial position and output just in case we happen to not
 	 * move it around and just destroy it */
 	weston_view_set_output(view, woutput);
-	pos.c = shsurf->view->geometry.pos_offset;
+	pos = weston_view_get_pos_offset_global(shsurf->view);
 	weston_view_set_position(view, pos);
 	view->is_mapped = true;
 
@@ -4671,7 +4676,7 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	wl_list_for_each(output, &ec->output_list, link) {
 		struct weston_coord_global pos;
 
-		pos.c = view->geometry.pos_offset;
+		pos = weston_view_get_pos_offset_global(view);
 		if (weston_output_contains_coord(output, pos)) {
 			visible = 1;
 			break;
@@ -4838,8 +4843,9 @@ handle_output_move_layer(struct desktop_shell *shell,
 		if (view->output != output)
 			continue;
 
-		pos.c = weston_coord_add(view->geometry.pos_offset,
-					 output->move.c);
+		pos.c = weston_coord_add(
+			weston_view_get_pos_offset_global(view).c,
+			output->move.c);
 		weston_view_set_position(view, pos);
 	}
 }

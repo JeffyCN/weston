@@ -256,8 +256,9 @@ kiosk_shell_grab_start_for_pointer_move(struct kiosk_shell_surface *shsurf,
 	if (!shgrab)
 		return KIOSK_SHELL_GRAB_RESULT_ERROR;
 
-	offset.c = weston_coord_sub(shsurf->view->geometry.pos_offset,
-				    pointer->grab_pos.c);
+	offset.c = weston_coord_sub(
+		weston_view_get_pos_offset_global(shsurf->view).c,
+		pointer->grab_pos.c);
 	shgrab->dx = wl_fixed_from_double(offset.c.x);
 	shgrab->dy = wl_fixed_from_double(offset.c.y);
 	shgrab->active = true;
@@ -289,8 +290,9 @@ kiosk_shell_grab_start_for_touch_move(struct kiosk_shell_surface *shsurf,
 	if (!shgrab)
 		return KIOSK_SHELL_GRAB_RESULT_ERROR;
 
-	pos.c = weston_coord_sub(shsurf->view->geometry.pos_offset,
-				 touch->grab_pos.c);
+	pos.c = weston_coord_sub(
+		weston_view_get_pos_offset_global(shsurf->view).c,
+		touch->grab_pos.c);
 	shgrab->dx = wl_fixed_from_double(pos.c.x);
 	shgrab->dy = wl_fixed_from_double(pos.c.y);
 	shgrab->active = true;

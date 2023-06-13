@@ -2158,6 +2158,12 @@ void
 weston_view_set_position(struct weston_view *view,
 			 struct weston_coord_global pos);
 
+struct weston_coord_surface
+weston_view_get_pos_offset_rel(struct weston_view *view);
+
+struct weston_coord_global
+weston_view_get_pos_offset_global(struct weston_view *view);
+
 void
 weston_view_set_transform_parent(struct weston_view *view,
 				 struct weston_view *parent);

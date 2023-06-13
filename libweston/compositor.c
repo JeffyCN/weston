@@ -1615,6 +1615,32 @@ weston_view_set_position(struct weston_view *view,
 	weston_view_geometry_dirty(view);
 }
 
+WL_EXPORT struct weston_coord_surface
+weston_view_get_pos_offset_rel(struct weston_view *view)
+{
+	struct weston_coord_surface out;
+
+	assert(view->geometry.parent);
+
+	out.c = view->geometry.pos_offset;
+	out.coordinate_space_id = view->geometry.parent->surface;
+
+	return out;
+}
+
+WL_EXPORT struct weston_coord_global
+weston_view_get_pos_offset_global(struct weston_view *view)
+{
+	struct weston_coord_global out;
+
+	assert(view->surface->committed != subsurface_committed);
+	assert(!view->geometry.parent);
+
+	out.c = view->geometry.pos_offset;
+
+	return out;
+}
+
 static void
 transform_parent_handle_parent_destroy(struct wl_listener *listener,
 				       void *data)
@@ -4560,9 +4586,7 @@ subsurface_committed(struct weston_surface *surface,
 			continue;
 		}
 
-		tmp = weston_coord_surface(view->geometry.pos_offset.x,
-					   view->geometry.pos_offset.y,
-					   view->geometry.parent->surface);
+		tmp = weston_view_get_pos_offset_rel(view);
 		tmp.c = weston_coord_add(tmp.c, new_origin.c);
 		weston_view_set_rel_position(view, tmp);
 	}
