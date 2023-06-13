@@ -820,10 +820,10 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 		from_g = weston_coord_surface_to_global(shsurf->view, from_s);
 		to_g = weston_coord_surface_to_global(shsurf->view, to_s);
-		offset.c = weston_coord_sub(to_g.c, from_g.c);
-		pos.c = weston_coord_add(
-			weston_view_get_pos_offset_global(shsurf->view).c,
-			offset.c);
+		offset = weston_coord_global_sub(to_g, from_g);
+		pos = weston_coord_global_add(
+			weston_view_get_pos_offset_global(shsurf->view),
+			offset);
 
 		weston_view_set_position(shsurf->view, pos);
 		weston_view_update_transform(shsurf->view);

@@ -344,7 +344,7 @@ get_panel_size(struct desktop_shell *shell,
 				     view->surface);
 	b = weston_coord_surface_to_global(view, tmp_s);
 
-	a.c = weston_coord_sub(b.c, a.c);
+	a = weston_coord_global_sub(b, a);
 	*width = a.c.x;
 	*height = a.c.y;
 }
@@ -2498,10 +2498,10 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		from_g = weston_coord_surface_to_global(view, from_s);
 		to_g = weston_coord_surface_to_global(view, to_s);
 
-		offset.c = weston_coord_sub(to_g.c, from_g.c);
-		pos.c = weston_coord_add(
-			weston_view_get_pos_offset_global(view).c,
-			offset.c);
+		offset = weston_coord_global_sub(to_g, from_g);
+		pos = weston_coord_global_add(
+			weston_view_get_pos_offset_global(view),
+			offset);
 
 		weston_view_set_position(shsurf->view, pos);
 	}

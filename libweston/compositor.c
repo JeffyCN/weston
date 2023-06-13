@@ -6496,7 +6496,7 @@ weston_output_set_position(struct weston_output *output,
 		return;
 	}
 
-	output->move.c = weston_coord_sub(pos.c, output->pos.c);
+	output->move = weston_coord_global_sub(pos, output->pos);
 
 	if (output->move.c.x == 0 && output->move.c.y == 0)
 		return;

@@ -160,10 +160,24 @@ weston_coord_add(struct weston_coord a, struct weston_coord b)
 	return weston_coord(a.x + b.x, a.y + b.y);
 }
 
+static inline struct weston_coord_global __attribute__ ((warn_unused_result))
+weston_coord_global_add(struct weston_coord_global a,
+			struct weston_coord_global b)
+{
+	return (struct weston_coord_global){ .c = weston_coord_add(a.c, b.c) };
+}
+
 static inline struct weston_coord __attribute__ ((warn_unused_result))
 weston_coord_sub(struct weston_coord a, struct weston_coord b)
 {
 	return weston_coord(a.x - b.x, a.y - b.y);
+}
+
+static inline struct weston_coord_global __attribute__ ((warn_unused_result))
+weston_coord_global_sub(struct weston_coord_global a,
+			struct weston_coord_global b)
+{
+	return (struct weston_coord_global){ .c = weston_coord_sub(a.c, b.c) };
 }
 
 static inline struct weston_coord __attribute__ ((warn_unused_result))
