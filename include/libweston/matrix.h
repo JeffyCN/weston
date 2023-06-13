@@ -166,6 +166,12 @@ weston_coord_sub(struct weston_coord a, struct weston_coord b)
 	return weston_coord(a.x - b.x, a.y - b.y);
 }
 
+static inline struct weston_coord __attribute__ ((warn_unused_result))
+weston_coord_truncate(struct weston_coord in)
+{
+	return (struct weston_coord){ (int)in.x, (int)in.y };
+}
+
 #ifdef  __cplusplus
 }
 #endif

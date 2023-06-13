@@ -982,8 +982,9 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 
 	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
-	pos.c.x = (int)(pos.c.x + wl_fixed_to_double(move->dx));
-	pos.c.y = (int)(pos.c.y + wl_fixed_to_double(move->dy));
+	pos.c.x = pos.c.x + wl_fixed_to_double(move->dx);
+	pos.c.y = pos.c.y + wl_fixed_to_double(move->dy);
+	pos.c = weston_coord_truncate(pos.c);
 	weston_view_set_position(shsurf->view, pos);
 
 	weston_compositor_schedule_repaint(es->compositor);
