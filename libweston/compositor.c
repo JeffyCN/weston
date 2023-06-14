@@ -1149,8 +1149,12 @@ get_view_layer(struct weston_view *view)
  * \param es  The surface to remap to outputs
  *
  * Finds the output that is showing the largest amount of one
- * of the surface's various views.  This output becomes the
- * surface's primary output for vsync and frame callback purposes.
+ * of the surface's various views.  Prefer outputs that are not
+ * powered off when assigning a surface to an output.
+ * If a surface covers the same area on two outputs, prefer the
+ * output with the higher refresh rate.
+ * The assigned output becomes the surface's primary output for
+ * vsync and frame callback purposes.
  *
  * Also notes all outputs of all of the surface's views
  * in the output_mask for the surface.
@@ -1182,7 +1186,28 @@ weston_surface_assign_output(struct weston_surface *es)
 
 		mask |= view->output_mask;
 
-		if (area >= max) {
+		/* Do not switch from an active output to an inactive output. */
+		if (new_output &&
+		    new_output->power_state != WESTON_OUTPUT_POWER_FORCED_OFF &&
+		    view->output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF)
+			continue;
+
+		/*
+		 * Do not switch to an output with the same intersection area
+		 * but lower refresh rate.
+		 */
+		if (area == max && new_output &&
+		    new_output->current_mode->refresh > view->output->current_mode->refresh)
+			continue;
+
+		/*
+		 * Switch to an output with either larger intersection area or
+		 * to an output that is active from an inactive output.
+		 */
+		if (area >= max ||
+		    (new_output &&
+		     new_output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF &&
+		     view->output->power_state != WESTON_OUTPUT_POWER_FORCED_OFF)) {
 			new_output = view->output;
 			max = area;
 		}
