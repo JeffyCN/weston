@@ -1649,7 +1649,6 @@ struct weston_view {
 
 	struct wl_list link;             /* weston_compositor::view_list */
 	struct weston_layer_entry layer_link; /* part of geometry */
-	struct weston_plane *plane;
 
 	/* For weston_layer inheritance from another view */
 	struct weston_view *parent_view;

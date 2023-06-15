@@ -1055,11 +1055,11 @@ drm_assign_planes(struct weston_output *output_base)
 			drm_debug(b, "\t[repaint] view %p on %s plane %lu\n",
 				  ev, plane_type_enums[target_plane->type].name,
 				  (unsigned long) target_plane->plane_id);
-			weston_view_move_to_plane(ev, &target_plane->base);
+			weston_paint_node_move_to_plane(pnode, &target_plane->base);
 		} else {
 			drm_debug(b, "\t[repaint] view %p using renderer "
 				     "composition\n", ev);
-			weston_view_move_to_plane(ev, primary);
+			weston_paint_node_move_to_plane(pnode, primary);
 		}
 
 		if (!target_plane ||

@@ -449,7 +449,8 @@ vnc_client_cleanup(struct nvnc_client *client)
 }
 
 static struct weston_pointer *
-vnc_output_get_pointer(struct vnc_output *output)
+vnc_output_get_pointer(struct vnc_output *output,
+		       struct weston_paint_node **pointer_pnode)
 {
 	struct weston_pointer *pointer = NULL;
 	struct weston_paint_node *pnode;
@@ -464,8 +465,10 @@ vnc_output_get_pointer(struct vnc_output *output)
 		return NULL;
 
 	wl_list_for_each(pnode, &output->base.paint_node_z_order_list, z_order_link) {
-		if (pnode->view == pointer->sprite)
+		if (pnode->view == pointer->sprite) {
+			*pointer_pnode = pnode;
 			return pointer;
+		}
 	}
 
 	return NULL;
@@ -476,6 +479,7 @@ vnc_output_update_cursor(struct vnc_output *output)
 {
 	struct vnc_backend *backend = output->backend;
 	struct weston_pointer *pointer;
+	struct weston_paint_node *pointer_pnode = NULL;
 	struct weston_view *view;
 	struct weston_buffer *buffer;
 	struct nvnc_fb *fb;
@@ -484,7 +488,7 @@ vnc_output_update_cursor(struct vnc_output *output)
 	uint8_t *src, *dst;
 	int i;
 
-	pointer = vnc_output_get_pointer(output);
+	pointer = vnc_output_get_pointer(output, &pointer_pnode);
 	if (!pointer)
 		return;
 
@@ -500,7 +504,9 @@ vnc_output_update_cursor(struct vnc_output *output)
 	if (format != WL_SHM_FORMAT_ARGB8888)
 		return;
 
-	weston_view_move_to_plane(view, &output->cursor_plane);
+	assert(pointer_pnode);
+
+	weston_paint_node_move_to_plane(pointer_pnode, &output->cursor_plane);
 
 	if (view->surface == output->cursor_surface &&
 	    !pixman_region32_not_empty(&view->surface->damage))
@@ -1050,7 +1056,7 @@ vnc_output_assign_planes(struct weston_output *base)
 		assert(view->output_mask & (1u << output->base.id));
 
 		/* Skip cursor view */
-		if (view->plane == &output->cursor_plane)
+		if (pnode->plane == &output->cursor_plane)
 			continue;
 
 		if (topmost &&
@@ -1061,7 +1067,7 @@ vnc_output_assign_planes(struct weston_output *base)
 			pixman_region32_t local_damage;
 			pixman_region16_t nvnc_damage;
 
-			weston_view_move_to_plane(view, &output->scanout_plane);
+			weston_paint_node_move_to_plane(pnode, &output->scanout_plane);
 
 			/* Convert to local coordinates */
 			pixman_region32_init(&local_damage);
@@ -1083,7 +1089,7 @@ vnc_output_assign_planes(struct weston_output *base)
 
 			nvnc_fb_unref(fb);
 		} else {
-			weston_view_move_to_plane(view, primary);
+			weston_paint_node_move_to_plane(pnode, primary);
 		}
 
 		topmost = false;

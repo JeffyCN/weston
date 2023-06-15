@@ -181,6 +181,8 @@ paint_node_update_early(struct weston_paint_node *pnode)
 static void
 paint_node_update_late(struct weston_paint_node *pnode)
 {
+	bool plane_dirty = pnode->status & PAINT_NODE_PLANE_DIRTY;
+
 	/* Even if our geometry didn't change, our visible region may
 	 * have been updated by some other node changing. Keep the
 	 * visible region up to date.
@@ -189,7 +191,15 @@ paint_node_update_late(struct weston_paint_node *pnode)
 				  &pnode->view->visible,
 				  &pnode->output->region);
 
-	pnode->status &= ~(PAINT_NODE_VISIBILITY_DIRTY);
+	if (plane_dirty) {
+		assert(pnode->plane_next);
+
+		pnode->plane = pnode->plane_next;
+		pnode->plane_next = NULL;
+	}
+
+	pnode->status &= ~(PAINT_NODE_VISIBILITY_DIRTY |
+			   PAINT_NODE_PLANE_DIRTY);
 
 	/* Nothing should be able to flip "early" bits between
 	 * the early and late updates.
@@ -240,7 +250,10 @@ weston_paint_node_create(struct weston_surface *surface,
 	pixman_region32_init(&pnode->visible);
 	pixman_region32_copy(&pnode->visible, &view->visible);
 
-	pnode->status = PAINT_NODE_ALL_DIRTY;
+	pnode->plane = &pnode->surface->compositor->primary_plane;
+	pnode->plane_next = NULL;
+
+	pnode->status = PAINT_NODE_ALL_DIRTY & ~PAINT_NODE_PLANE_DIRTY;
 
 	return pnode;
 }
@@ -503,7 +516,6 @@ weston_view_create_internal(struct weston_surface *surface)
 		return NULL;
 
 	view->surface = surface;
-	view->plane = &surface->compositor->primary_plane;
 
 	/* Assign to surface */
 	wl_list_insert(&surface->views, &view->surface_link);
@@ -984,15 +996,20 @@ weston_view_buffer_to_output_matrix(const struct weston_view *view,
 }
 
 WL_EXPORT void
-weston_view_move_to_plane(struct weston_view *view,
-			     struct weston_plane *plane)
+weston_paint_node_move_to_plane(struct weston_paint_node *pnode,
+				struct weston_plane *plane)
 {
-	if (view->plane == plane)
+	assert(plane);
+
+	if (pnode->plane == plane)
 		return;
 
-	weston_view_damage_below(view);
-	view->plane = plane;
-	weston_surface_damage(view->surface);
+	weston_view_damage_below(pnode->view);
+	pnode->plane_next = plane;
+	weston_surface_damage(pnode->view->surface);
+
+	pnode->status |= PAINT_NODE_PLANE_DIRTY |
+			 PAINT_NODE_VISIBILITY_DIRTY;
 }
 
 /** Inflict damage on the plane where the view is visible.
@@ -1014,14 +1031,18 @@ weston_view_move_to_plane(struct weston_view *view,
 WL_EXPORT void
 weston_view_damage_below(struct weston_view *view)
 {
+	struct weston_paint_node *pnode;
 	pixman_region32_t damage;
 
 	pixman_region32_init(&damage);
 	pixman_region32_subtract(&damage, &view->transform.boundingbox,
 				 &view->clip);
-	if (view->plane)
-		pixman_region32_union(&view->plane->damage,
-				      &view->plane->damage, &damage);
+	wl_list_for_each(pnode, &view->paint_node_list, view_link) {
+		assert(pnode->plane);
+
+		pixman_region32_union(&pnode->plane->damage,
+				      &pnode->plane->damage, &damage);
+	}
 	pixman_region32_fini(&damage);
 	weston_view_schedule_repaint(view);
 }
@@ -2242,7 +2263,6 @@ weston_view_unmap(struct weston_view *view)
 
 	weston_view_damage_below(view);
 	weston_view_set_output(view, NULL);
-	view->plane = NULL;
 	view->is_mapped = false;
 	weston_layer_entry_remove(&view->layer_link);
 	wl_list_remove(&view->link);
@@ -2942,6 +2962,7 @@ surface_flush_damage(struct weston_surface *surface, struct weston_output *outpu
 static void
 view_accumulate_damage(struct weston_view *view)
 {
+	struct weston_paint_node *pnode;
 	pixman_region32_t damage;
 
 	assert(!view->transform.dirty);
@@ -2960,8 +2981,11 @@ view_accumulate_damage(struct weston_view *view)
 	}
 
 	pixman_region32_intersect(&damage, &damage, &view->visible);
-	pixman_region32_union(&view->plane->damage,
-			      &view->plane->damage, &damage);
+
+	wl_list_for_each(pnode, &view->paint_node_list, view_link) {
+		pixman_region32_union(&pnode->plane->damage,
+				      &pnode->plane->damage, &damage);
+	}
 	pixman_region32_fini(&damage);
 }
 
@@ -2995,7 +3019,7 @@ output_update_visibility(struct weston_output *output)
 
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-			if (pnode->view->plane != plane)
+			if (pnode->plane != plane)
 				continue;
 
 			view_update_clip_and_visible(pnode->view, &opaque);
@@ -3018,7 +3042,7 @@ output_accumulate_damage(struct weston_output *output)
 	wl_list_for_each(plane, &ec->plane_list, link) {
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-			if (pnode->view->plane != plane)
+			if (pnode->plane != plane)
 				continue;
 
 			view_accumulate_damage(pnode->view);
@@ -3300,7 +3324,7 @@ weston_output_repaint(struct weston_output *output)
 	} else {
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-			weston_view_move_to_plane(pnode->view, &ec->primary_plane);
+			weston_paint_node_move_to_plane(pnode, &ec->primary_plane);
 			pnode->view->psf_flags = 0;
 		}
 	}
@@ -5658,18 +5682,24 @@ weston_plane_init(struct weston_plane *plane, struct weston_compositor *ec)
 WL_EXPORT void
 weston_plane_release(struct weston_plane *plane)
 {
-	struct weston_view *view;
+	struct weston_output *output;
 
 	pixman_region32_fini(&plane->damage);
 	pixman_region32_fini(&plane->clip);
 
-	/*
-	 * Can't use paint node list here, weston_plane is not specific to an
-	 * output.
-	 */
-	wl_list_for_each(view, &plane->compositor->view_list, link) {
-		if (view->plane == plane)
-			view->plane = NULL;
+	wl_list_for_each(output, &plane->compositor->output_list, link) {
+		struct weston_paint_node *node;
+
+		wl_list_for_each(node, &output->paint_node_z_order_list,
+				 z_order_link) {
+			if (node->plane != plane)
+				continue;
+
+			node->plane = NULL;
+			node->plane_next = &output->compositor->primary_plane;
+			node->status |= PAINT_NODE_PLANE_DIRTY |
+					PAINT_NODE_VISIBILITY_DIRTY;
+		}
 	}
 
 	wl_list_remove(&plane->link);

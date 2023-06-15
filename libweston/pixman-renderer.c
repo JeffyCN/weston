@@ -550,7 +550,7 @@ repaint_surfaces(struct weston_output *output, pixman_region32_t *damage)
 
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-		if (pnode->view->plane == &compositor->primary_plane)
+		if (pnode->plane == &compositor->primary_plane)
 			draw_paint_node(pnode, damage);
 	}
 }

@@ -418,8 +418,8 @@ weston_view_takes_input_at_point(struct weston_view *view,
 				 struct weston_coord_surface surf_pos);
 
 void
-weston_view_move_to_plane(struct weston_view *view,
-			  struct weston_plane *plane);
+weston_paint_node_move_to_plane(struct weston_paint_node *pnode,
+				struct weston_plane *plane);
 void
 weston_view_buffer_to_output_matrix(const struct weston_view *view,
 				    const struct weston_output *output,
@@ -509,7 +509,8 @@ enum paint_node_status {
 	PAINT_NODE_OUTPUT_DIRTY = 1 << 0,
 	PAINT_NODE_VIEW_DIRTY = 1 << 1,
 	PAINT_NODE_VISIBILITY_DIRTY = 1 << 2,
-	PAINT_NODE_ALL_DIRTY = (1 << 3) - 1,
+	PAINT_NODE_PLANE_DIRTY = 1 << 3,
+	PAINT_NODE_ALL_DIRTY = (1 << 4) - 1,
 };
 
 /**
@@ -546,6 +547,8 @@ struct weston_paint_node {
 	struct wl_list z_order_link;
 
 	pixman_region32_t visible;
+	struct weston_plane *plane;
+	struct weston_plane *plane_next;
 
 	struct weston_surface_color_transform surf_xform;
 	bool surf_xform_valid;
