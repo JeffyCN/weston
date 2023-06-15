@@ -26,6 +26,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <drm_fourcc.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -401,15 +402,13 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 	base->native_mode = cur;
 	if (base->enabled) {
 		const struct weston_renderer *renderer;
-		const struct pixel_format_info *pfmt;
 		pixman_image_t *new_image;
 
 		weston_renderer_resize_output(output, &(struct weston_size){
 			.width = output->current_mode->width,
 			.height = output->current_mode->height }, NULL);
 
-		pfmt = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8);
-		new_image = pixman_image_create_bits(pfmt->pixman_format,
+		new_image = pixman_image_create_bits(b->formats[0]->pixman_format,
 						     mode->width, mode->height,
 						     NULL, mode->width * 4);
 		renderer = b->compositor->renderer;
@@ -419,7 +418,7 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 
 			pixman = renderer->pixman;
 			new_renderbuffer =
-				pixman->create_image_from_ptr(output, pfmt,
+				pixman->create_image_from_ptr(output, b->formats[0],
 							      mode->width, mode->height,
 							      pixman_image_get_data(new_image),
 							      mode->width * 4);
@@ -493,7 +492,7 @@ rdp_output_enable(struct weston_output *base)
 
 	b = output->backend;
 
-	output->shadow_surface = pixman_image_create_bits(PIXMAN_x8r8g8b8,
+	output->shadow_surface = pixman_image_create_bits(b->formats[0]->pixman_format,
 							  output->base.current_mode->width,
 							  output->base.current_mode->height,
 							  NULL,
@@ -506,7 +505,7 @@ rdp_output_enable(struct weston_output *base)
 				.width = output->base.current_mode->width,
 				.height = output->base.current_mode->height
 			},
-			.format = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8)
+			.format = b->formats[0],
 		};
 
 		if (renderer->pixman->output_create(&output->base, &options) < 0) {
@@ -1822,6 +1821,11 @@ static const struct weston_rdp_output_api api = {
 	rdp_output_set_mode,
 };
 
+static const uint32_t rdp_formats[] = {
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ARGB8888,
+};
+
 static struct rdp_backend *
 rdp_backend_create(struct weston_compositor *compositor,
 		   struct weston_rdp_backend_config *config)
@@ -1899,6 +1903,9 @@ rdp_backend_create(struct weston_compositor *compositor,
 
 	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
 		goto err_compositor;
+
+	b->formats_count = ARRAY_LENGTH(rdp_formats);
+	b->formats = pixel_format_get_array(rdp_formats, b->formats_count);
 
 	switch (config->renderer) {
 	case WESTON_RENDERER_PIXMAN:

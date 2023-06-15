@@ -24,6 +24,7 @@ deps_rdp = [
 	dep_frdp,
 	dep_frdp_server,
 	dep_wpr,
+	dep_libdrm_headers,
 ]
 srcs_rdp = [
         'rdp.c',
