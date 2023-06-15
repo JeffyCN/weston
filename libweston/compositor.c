@@ -120,7 +120,8 @@ weston_view_dirty_paint_nodes(struct weston_view *view)
 	wl_list_for_each(node, &view->paint_node_list, view_link) {
 		assert(node->surface == view->surface);
 
-		node->status |= PAINT_NODE_VIEW_DIRTY;
+		node->status |= PAINT_NODE_VIEW_DIRTY |
+				PAINT_NODE_VISIBILITY_DIRTY;
 	}
 }
 
@@ -148,8 +149,14 @@ weston_output_dirty_paint_nodes(struct weston_output *output)
 	}
 }
 
+/* Paint nodes contain filter and transform information that needs to be
+ * up to date before assign_planes() is called. But there are also
+ * damage related bits that must be updated after assign_planes()
+ * completes.
+ * The early update handles just the pre-assign_planes() data.
+ */
 static void
-paint_node_update(struct weston_paint_node *pnode)
+paint_node_update_early(struct weston_paint_node *pnode)
 {
 	struct weston_matrix *mat = &pnode->buffer_to_output_matrix;
 	bool view_dirty = pnode->status & PAINT_NODE_VIEW_DIRTY;
@@ -165,8 +172,29 @@ paint_node_update(struct weston_paint_node *pnode)
 								    &pnode->transform);
 	}
 
-	pnode->status = PAINT_NODE_CLEAN;
+	pnode->status &= ~(PAINT_NODE_VIEW_DIRTY | PAINT_NODE_OUTPUT_DIRTY);
+}
 
+/* Update all the paint node data that needs to be handled after
+ * assign_planes() completes.
+ */
+static void
+paint_node_update_late(struct weston_paint_node *pnode)
+{
+	/* Even if our geometry didn't change, our visible region may
+	 * have been updated by some other node changing. Keep the
+	 * visible region up to date.
+	 */
+	pixman_region32_intersect(&pnode->visible,
+				  &pnode->view->visible,
+				  &pnode->output->region);
+
+	pnode->status &= ~(PAINT_NODE_VISIBILITY_DIRTY);
+
+	/* Nothing should be able to flip "early" bits between
+	 * the early and late updates.
+	 */
+	assert(pnode->status == PAINT_NODE_CLEAN);
 }
 
 static struct weston_paint_node *
@@ -209,6 +237,9 @@ weston_paint_node_create(struct weston_surface *surface,
 
 	wl_list_init(&pnode->z_order_link);
 
+	pixman_region32_init(&pnode->visible);
+	pixman_region32_copy(&pnode->visible, &view->visible);
+
 	pnode->status = PAINT_NODE_ALL_DIRTY;
 
 	return pnode;
@@ -224,6 +255,7 @@ weston_paint_node_destroy(struct weston_paint_node *pnode)
 	wl_list_remove(&pnode->z_order_link);
 	assert(pnode->surf_xform_valid || !pnode->surf_xform.transform);
 	weston_surface_color_transform_fini(&pnode->surf_xform);
+	pixman_region32_fini(&pnode->visible);
 	free(pnode);
 }
 
@@ -498,6 +530,7 @@ weston_view_create_internal(struct weston_surface *surface)
 	pixman_region32_init(&view->transform.boundingbox);
 	view->transform.dirty = 1;
 	weston_view_update_transform(view);
+	pixman_region32_copy(&view->visible, &view->transform.boundingbox);
 
 	return view;
 }
@@ -3251,7 +3284,7 @@ weston_output_repaint(struct weston_output *output)
 
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
 			 z_order_link)
-		paint_node_update(pnode);
+		paint_node_update_early(pnode);
 
 	if (output->assign_planes && !output->disable_planes) {
 		output->assign_planes(output);
@@ -3279,6 +3312,10 @@ weston_output_repaint(struct weston_output *output)
 	}
 
 	output_update_visibility(output);
+
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link)
+		paint_node_update_late(pnode);
 
 	output_accumulate_damage(output);
 

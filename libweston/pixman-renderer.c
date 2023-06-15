@@ -514,7 +514,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 
 	pixman_region32_init(&repaint);
 	pixman_region32_intersect(&repaint,
-				  &pnode->view->visible, damage);
+				  &pnode->visible, damage);
 
 	if (!pixman_region32_not_empty(&repaint))
 		goto out;

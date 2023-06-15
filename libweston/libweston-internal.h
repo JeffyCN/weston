@@ -508,7 +508,8 @@ enum paint_node_status {
 	PAINT_NODE_CLEAN = 0,
 	PAINT_NODE_OUTPUT_DIRTY = 1 << 0,
 	PAINT_NODE_VIEW_DIRTY = 1 << 1,
-	PAINT_NODE_ALL_DIRTY = (1 << 2) - 1,
+	PAINT_NODE_VISIBILITY_DIRTY = 1 << 2,
+	PAINT_NODE_ALL_DIRTY = (1 << 3) - 1,
 };
 
 /**
@@ -543,6 +544,8 @@ struct weston_paint_node {
 
 	/* struct weston_output::paint_node_z_order_list */
 	struct wl_list z_order_link;
+
+	pixman_region32_t visible;
 
 	struct weston_surface_color_transform surf_xform;
 	bool surf_xform_valid;
