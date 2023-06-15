@@ -126,6 +126,7 @@ struct rdp_output {
 	struct rdp_backend *backend;
 	struct wl_event_source *finish_frame_timer;
 	struct weston_renderbuffer *renderbuffer;
+	pixman_image_t *shadow_surface;
 };
 
 struct rdp_peer_context {

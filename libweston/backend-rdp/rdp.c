@@ -248,18 +248,13 @@ rdp_peer_refresh_region(pixman_region32_t *region, freerdp_peer *peer)
 	RdpPeerContext *context = (RdpPeerContext *)peer->context;
 	struct rdp_output *output = rdp_get_first_output(context->rdpBackend);
 	rdpSettings *settings = peer->context->settings;
-	const struct weston_renderer *renderer;
-	pixman_image_t *image;
-
-	renderer = output->base.compositor->renderer;
-	image = renderer->pixman->renderbuffer_get_image(output->renderbuffer);
 
 	if (settings->RemoteFxCodec)
-		rdp_peer_refresh_rfx(region, image, peer);
+		rdp_peer_refresh_rfx(region, output->shadow_surface, peer);
 	else if (settings->NSCodec)
-		rdp_peer_refresh_nsc(region, image, peer);
+		rdp_peer_refresh_nsc(region, output->shadow_surface, peer);
 	else
-		rdp_peer_refresh_raw(region, image, peer);
+		rdp_peer_refresh_raw(region, output->shadow_surface, peer);
 }
 
 static int
@@ -407,7 +402,7 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 	if (base->enabled) {
 		const struct pixman_renderer_interface *pixman;
 		const struct pixel_format_info *pfmt;
-		pixman_image_t *old_image, *new_image;
+		pixman_image_t *new_image;
 
 		weston_renderer_resize_output(output, &(struct weston_size){
 			.width = output->current_mode->width,
@@ -415,19 +410,22 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 
 		pixman = b->compositor->renderer->pixman;
 
-		old_image =
-			pixman->renderbuffer_get_image(rdpOutput->renderbuffer);
 		pfmt = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8);
+		new_image = pixman_image_create_bits(pfmt->pixman_format,
+						     mode->width, mode->height,
+						     NULL, mode->width * 4);
 		new_renderbuffer =
 			pixman->create_image_from_ptr(output, pfmt,
 						      mode->width, mode->height,
-						      0, mode->width * 4);
-		new_image = pixman->renderbuffer_get_image(new_renderbuffer);
-		pixman_image_composite32(PIXMAN_OP_SRC, old_image, 0, new_image,
-					 0, 0, 0, 0, 0, 0, mode->width,
-					 mode->height);
+						      pixman_image_get_data(new_image),
+						      mode->width * 4);
+		pixman_image_composite32(PIXMAN_OP_SRC, rdpOutput->shadow_surface,
+					 0, new_image, 0, 0, 0, 0, 0, 0,
+					 mode->width, mode->height);
 		weston_renderbuffer_unref(rdpOutput->renderbuffer);
 		rdpOutput->renderbuffer = new_renderbuffer;
+		pixman_image_unref(rdpOutput->shadow_surface);
+		rdpOutput->shadow_surface = new_image;
 	}
 
 	/* Apparently settings->DesktopWidth is supposed to be primary only.
@@ -497,15 +495,22 @@ rdp_output_enable(struct weston_output *base)
 		return -1;
 	}
 
+	output->shadow_surface = pixman_image_create_bits(options.format->pixman_format,
+							  output->base.current_mode->width,
+							  output->base.current_mode->height,
+							  NULL,
+							  output->base.current_mode->width * 4);
 	output->renderbuffer =
 		pixman->create_image_from_ptr(&output->base, options.format,
 					      output->base.current_mode->width,
 					      output->base.current_mode->height,
-					      NULL,
+					      pixman_image_get_data(output->shadow_surface),
 					      output->base.current_mode->width * 4);
 	if (output->renderbuffer == NULL) {
 		weston_log("Failed to create surface for frame buffer.\n");
 		renderer->pixman->output_destroy(&output->base);
+		pixman_image_unref(output->shadow_surface);
+		output->shadow_surface = NULL;
 		return -1;
 	}
 
@@ -529,6 +534,8 @@ rdp_output_disable(struct weston_output *base)
 	weston_renderbuffer_unref(output->renderbuffer);
 	output->renderbuffer = NULL;
 	renderer->pixman->output_destroy(&output->base);
+	pixman_image_unref(output->shadow_surface);
+	output->shadow_surface = NULL;
 
 	wl_event_source_remove(output->finish_frame_timer);
 
