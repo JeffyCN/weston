@@ -400,7 +400,7 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 	base->current_mode = cur;
 	base->native_mode = cur;
 	if (base->enabled) {
-		const struct pixman_renderer_interface *pixman;
+		const struct weston_renderer *renderer;
 		const struct pixel_format_info *pfmt;
 		pixman_image_t *new_image;
 
@@ -408,17 +408,26 @@ rdp_output_set_mode(struct weston_output *base, struct weston_mode *mode)
 			.width = output->current_mode->width,
 			.height = output->current_mode->height }, NULL);
 
-		pixman = b->compositor->renderer->pixman;
-
 		pfmt = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8);
 		new_image = pixman_image_create_bits(pfmt->pixman_format,
 						     mode->width, mode->height,
 						     NULL, mode->width * 4);
-		new_renderbuffer =
-			pixman->create_image_from_ptr(output, pfmt,
-						      mode->width, mode->height,
-						      pixman_image_get_data(new_image),
-						      mode->width * 4);
+		renderer = b->compositor->renderer;
+		switch (renderer->type) {
+		case WESTON_RENDERER_PIXMAN: {
+			const struct pixman_renderer_interface *pixman;
+
+			pixman = renderer->pixman;
+			new_renderbuffer =
+				pixman->create_image_from_ptr(output, pfmt,
+							      mode->width, mode->height,
+							      pixman_image_get_data(new_image),
+							      mode->width * 4);
+			break;
+		}
+		default:
+			unreachable("cannot have auto renderer at runtime");
+		}
 		pixman_image_composite32(PIXMAN_OP_SRC, rdpOutput->shadow_surface,
 					 0, new_image, 0, 0, 0, 0, 0, 0,
 					 mode->width, mode->height);
@@ -479,39 +488,48 @@ rdp_output_enable(struct weston_output *base)
 	struct rdp_output *output = to_rdp_output(base);
 	struct rdp_backend *b;
 	struct wl_event_loop *loop;
-	const struct pixman_renderer_output_options options = {
-		.fb_size = {
-			.width = output->base.current_mode->width,
-			.height = output->base.current_mode->height
-		},
-		.format = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8)
-	};
 
 	assert(output);
 
 	b = output->backend;
 
-	if (renderer->pixman->output_create(&output->base, &options) < 0) {
-		return -1;
-	}
-
-	output->shadow_surface = pixman_image_create_bits(options.format->pixman_format,
+	output->shadow_surface = pixman_image_create_bits(PIXMAN_x8r8g8b8,
 							  output->base.current_mode->width,
 							  output->base.current_mode->height,
 							  NULL,
 							  output->base.current_mode->width * 4);
-	output->renderbuffer =
-		pixman->create_image_from_ptr(&output->base, options.format,
-					      output->base.current_mode->width,
-					      output->base.current_mode->height,
-					      pixman_image_get_data(output->shadow_surface),
-					      output->base.current_mode->width * 4);
-	if (output->renderbuffer == NULL) {
-		weston_log("Failed to create surface for frame buffer.\n");
-		renderer->pixman->output_destroy(&output->base);
-		pixman_image_unref(output->shadow_surface);
-		output->shadow_surface = NULL;
-		return -1;
+
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN: {
+		const struct pixman_renderer_output_options options = {
+			.fb_size = {
+				.width = output->base.current_mode->width,
+				.height = output->base.current_mode->height
+			},
+			.format = pixel_format_get_info_by_pixman(PIXMAN_x8r8g8b8)
+		};
+
+		if (renderer->pixman->output_create(&output->base, &options) < 0) {
+			return -1;
+		}
+
+		output->renderbuffer =
+			pixman->create_image_from_ptr(&output->base, options.format,
+						      output->base.current_mode->width,
+						      output->base.current_mode->height,
+						      pixman_image_get_data(output->shadow_surface),
+						      output->base.current_mode->width * 4);
+		if (output->renderbuffer == NULL) {
+			weston_log("Failed to create surface for frame buffer.\n");
+			renderer->pixman->output_destroy(&output->base);
+			pixman_image_unref(output->shadow_surface);
+			output->shadow_surface = NULL;
+			return -1;
+		}
+		break;
+	}
+	default:
+		unreachable("cannot have auto renderer at runtime");
 	}
 
 	loop = wl_display_get_event_loop(b->compositor->wl_display);
@@ -533,7 +551,13 @@ rdp_output_disable(struct weston_output *base)
 
 	weston_renderbuffer_unref(output->renderbuffer);
 	output->renderbuffer = NULL;
-	renderer->pixman->output_destroy(&output->base);
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN:
+		renderer->pixman->output_destroy(&output->base);
+		break;
+	default:
+		unreachable("cannot have auto renderer at runtime");
+	}
 	pixman_image_unref(output->shadow_surface);
 	output->shadow_surface = NULL;
 
@@ -1855,15 +1879,6 @@ rdp_backend_create(struct weston_compositor *compositor,
 			goto err_free_strings;
 	}
 
-	switch (config->renderer) {
-	case WESTON_RENDERER_PIXMAN:
-	case WESTON_RENDERER_AUTO:
-		break;
-	default:
-		weston_log("Unsupported renderer requested\n");
-		goto err_free_strings;
-	}
-
 	/* if we are listening for client connections on an external listener
 	 * fd, we don't need to enforce TLS or RDP security, since FreeRDP
 	 * will consider it to be a local connection */
@@ -1885,9 +1900,17 @@ rdp_backend_create(struct weston_compositor *compositor,
 	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
 		goto err_compositor;
 
-	if (weston_compositor_init_renderer(compositor, WESTON_RENDERER_PIXMAN,
-					    NULL) < 0)
-		goto err_compositor;
+	switch (config->renderer) {
+	case WESTON_RENDERER_PIXMAN:
+	case WESTON_RENDERER_AUTO:
+		if (weston_compositor_init_renderer(compositor, WESTON_RENDERER_PIXMAN,
+						    NULL) < 0)
+			goto err_compositor;
+		break;
+	default:
+		weston_log("Unsupported renderer requested\n");
+		goto err_free_strings;
+	}
 
 	rdp_head_create(b, NULL);
 
