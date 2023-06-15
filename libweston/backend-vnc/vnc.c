@@ -527,14 +527,8 @@ vnc_output_update_cursor(struct vnc_output *output)
 	nvnc_fb_unref(fb);
 }
 
-/*
- * Convert damage rectangles from 32-bit global coordinates to 16-bit local
- * coordinates. The output transformation has to be a pure translation.
- */
 static void
-vnc_region_global_to_output(pixman_region16_t *dst,
-			    struct weston_output *output,
-			    pixman_region32_t *src)
+vnc_region32_to_region16(pixman_region16_t *dst, pixman_region32_t *src)
 {
 	struct pixman_box32 *src_rects;
 	struct pixman_box16 *dest_rects;
@@ -548,10 +542,10 @@ vnc_region_global_to_output(pixman_region16_t *dst,
 	dest_rects = xcalloc(n_rects, sizeof(*dest_rects));
 
 	for (i = 0; i < n_rects; i++) {
-		dest_rects[i].x1 = src_rects[i].x1 - output->pos.c.x;
-		dest_rects[i].y1 = src_rects[i].y1 - output->pos.c.y;
-		dest_rects[i].x2 = src_rects[i].x2 - output->pos.c.x;
-		dest_rects[i].y2 = src_rects[i].y2 - output->pos.c.y;
+		dest_rects[i].x1 = src_rects[i].x1;
+		dest_rects[i].y1 = src_rects[i].y1;
+		dest_rects[i].x2 = src_rects[i].x2;
+		dest_rects[i].y2 = src_rects[i].y2;
 	}
 
 	pixman_region_init_rects(dst, dest_rects, n_rects);
@@ -608,7 +602,8 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 	struct vnc_output *output = backend->output;
 	struct weston_compositor *ec = output->base.compositor;
 	struct weston_renderbuffer *renderbuffer;
-	pixman_region16_t local_damage;
+	pixman_region32_t local_damage;
+	pixman_region16_t nvnc_damage;
 	struct nvnc_fb *fb;
 
 	fb = nvnc_fb_pool_acquire(output->fb_pool);
@@ -659,12 +654,17 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 	ec->renderer->repaint_output(&output->base, damage, renderbuffer);
 
 	/* Convert to local coordinates */
-	pixman_region_init(&local_damage);
-	vnc_region_global_to_output(&local_damage, &output->base, damage);
+	pixman_region32_init(&local_damage);
+	weston_region_global_to_output(&local_damage, &output->base, damage);
 
-	nvnc_display_feed_buffer(output->display, fb, &local_damage);
+	/* Convert to 16-bit */
+	pixman_region_init(&nvnc_damage);
+	vnc_region32_to_region16(&nvnc_damage, &local_damage);
+
+	nvnc_display_feed_buffer(output->display, fb, &nvnc_damage);
 	nvnc_fb_unref(fb);
-	pixman_region_fini(&local_damage);
+	pixman_region32_fini(&local_damage);
+	pixman_region_fini(&nvnc_damage);
 }
 
 static void
