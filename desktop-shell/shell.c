@@ -212,10 +212,6 @@ struct tablet_tool_listener {
 	struct wl_listener removed_listener;
 };
 
-static struct weston_view *
-shell_fade_create_fade_out_view(struct shell_surface *shsurf,
-				struct weston_surface *surface);
-
 static struct desktop_shell *
 shell_surface_get_shell(struct shell_surface *shsurf);
 
@@ -2263,16 +2259,18 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 			 * migrated to a different output, so re-compute  this
 			 * as the animation requires having the same output as
 			 * the view */
+			shsurf->wview_anim_fade = weston_view_create(surface);
 			weston_view_set_output(shsurf->wview_anim_fade,
 					       shsurf->view->output);
 			pos = weston_view_get_pos_offset_global(shsurf->view);
 			weston_view_set_position(shsurf->wview_anim_fade, pos);
 
-			weston_layer_entry_insert(&shsurf->view->layer_link,
-						  &shsurf->wview_anim_fade->layer_link);
+			weston_view_move_to_layer(shsurf->wview_anim_fade,
+						  &shsurf->view->layer_link);
 
-			/* unmap the "original" view */
-			weston_view_unmap(shsurf->view);
+			/* unmap the "original" view, which is owned by
+			 * libweston-desktop */
+			weston_view_move_to_layer(shsurf->view, NULL);
 			weston_fade_run(shsurf->wview_anim_fade, 1.0, 0.0, 300.0,
 					fade_out_done, shsurf);
 
@@ -2414,8 +2412,6 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		if (shsurf->shell->win_close_animation_type == ANIMATION_FADE) {
 			shsurf->wsurface_anim_fade =
 				weston_surface_ref(surface);
-			shsurf->wview_anim_fade =
-				shell_fade_create_fade_out_view(shsurf, surface);
 		}
 
 		return;
@@ -3990,30 +3986,6 @@ shell_fade_create_view_for_output(struct desktop_shell *shell,
 	weston_view_move_to_layer(curtain->view, &compositor->fade_layer.view_list);
 
 	return curtain;
-}
-
-static struct weston_view *
-shell_fade_create_fade_out_view(struct shell_surface *shsurf,
-				struct weston_surface *surface)
-{
-	struct weston_view *view;
-	struct weston_output *woutput;
-	struct weston_coord_global pos;
-
-	view = weston_view_create(surface);
-	if (!view)
-		return NULL;
-
-	woutput = weston_shell_utils_get_focused_output(surface->compositor);
-	/* set the initial position and output just in case we happen to not
-	 * move it around and just destroy it */
-	weston_view_set_output(view, woutput);
-	pos = weston_view_get_pos_offset_global(shsurf->view);
-	weston_view_set_position(view, pos);
-	/* XXX: can't map without a layer! */
-	view->is_mapped = true;
-
-	return view;
 }
 
 static void
