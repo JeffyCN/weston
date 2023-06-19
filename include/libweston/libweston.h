@@ -1638,6 +1638,7 @@ struct weston_view {
 	struct weston_surface *surface;
 	struct wl_list surface_link;
 	struct wl_signal destroy_signal;
+	struct wl_signal map_signal;
 	struct wl_signal unmap_signal;
 
 	/* struct weston_paint_node::view_link */

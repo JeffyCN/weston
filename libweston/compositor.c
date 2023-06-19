@@ -476,6 +476,7 @@ weston_view_create(struct weston_surface *surface)
 	wl_list_insert(&surface->views, &view->surface_link);
 
 	wl_signal_init(&view->destroy_signal);
+	wl_signal_init(&view->map_signal);
 	wl_signal_init(&view->unmap_signal);
 	wl_list_init(&view->link);
 	wl_list_init(&view->layer_link.link);
@@ -3528,6 +3529,8 @@ WL_EXPORT void
 weston_view_move_to_layer(struct weston_view *view,
 			  struct weston_layer_entry *layer)
 {
+	bool was_mapped = view->is_mapped;
+
 	if (layer == &view->layer_link)
 		return;
 
@@ -3550,6 +3553,9 @@ weston_view_move_to_layer(struct weston_view *view,
 	weston_view_geometry_dirty(view);
 	weston_view_update_transform(view);
 	weston_surface_damage(view->surface);
+
+	if (!was_mapped)
+		weston_signal_emit_mutable(&view->map_signal, view);
 }
 
 WL_EXPORT void
