@@ -459,8 +459,8 @@ region_init_infinite(pixman_region32_t *region)
 static struct weston_subsurface *
 weston_surface_to_subsurface(struct weston_surface *surface);
 
-WL_EXPORT struct weston_view *
-weston_view_create(struct weston_surface *surface)
+static struct weston_view *
+weston_view_create_internal(struct weston_surface *surface)
 {
 	struct weston_view *view;
 
@@ -497,6 +497,12 @@ weston_view_create(struct weston_surface *surface)
 	weston_view_update_transform(view);
 
 	return view;
+}
+
+WL_EXPORT struct weston_view *
+weston_view_create(struct weston_surface *surface)
+{
+	return weston_view_create_internal(surface);
 }
 
 struct weston_presentation_feedback {
@@ -2972,7 +2978,7 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 		wl_list_remove(&view->surface_link);
 		wl_list_insert(&sub->surface->views, &view->surface_link);
 	} else {
-		view = weston_view_create(sub->surface);
+		view = weston_view_create_internal(sub->surface);
 		weston_view_set_transform_parent(view, parent);
 		weston_view_set_rel_position(view, sub->position.offset);
 	}
