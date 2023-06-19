@@ -511,11 +511,10 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	weston_surface_set_role(shoutput->curtain->view->surface,
 				"kiosk-shell-background", NULL, 0);
 
-	weston_layer_entry_insert(&shell->background_layer.view_list,
-				  &shoutput->curtain->view->layer_link);
-
-	shoutput->curtain->view->is_mapped = true;
 	shoutput->curtain->view->surface->output = output;
+
+	weston_view_move_to_layer(shoutput->curtain->view,
+				  &shell->background_layer.view_list);
 	weston_view_set_output(shoutput->curtain->view, output);
 }
 
