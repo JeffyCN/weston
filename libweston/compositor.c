@@ -600,7 +600,7 @@ surface_state_handle_buffer_destroy(struct wl_listener *listener, void *data)
 static void
 weston_surface_state_init(struct weston_surface_state *state)
 {
-	state->newly_attached = 0;
+	state->newly_attached = false;
 	state->buffer = NULL;
 	state->buffer_destroy_listener.notify =
 		surface_state_handle_buffer_destroy;
@@ -619,7 +619,7 @@ weston_surface_state_init(struct weston_surface_state *state)
 	state->buffer_viewport.buffer.scale = 1;
 	state->buffer_viewport.buffer.src_width = wl_fixed_from_int(-1);
 	state->buffer_viewport.surface.width = -1;
-	state->buffer_viewport.changed = 0;
+	state->buffer_viewport.changed = false;
 
 	state->acquire_fence_fd = -1;
 
@@ -2133,8 +2133,8 @@ static void
 weston_surface_reset_pending_buffer(struct weston_surface *surface)
 {
 	weston_surface_state_set_buffer(&surface->pending, NULL);
-	surface->pending.newly_attached = 0;
-	surface->pending.buffer_viewport.changed = 0;
+	surface->pending.newly_attached = false;
+	surface->pending.buffer_viewport.changed = false;
 }
 
 WL_EXPORT void
@@ -3697,7 +3697,7 @@ surface_attach(struct wl_client *client,
 	 * wl_buffer.release. */
 	weston_surface_state_set_buffer(&surface->pending, buffer);
 
-	surface->pending.newly_attached = 1;
+	surface->pending.newly_attached = true;
 }
 
 static void
@@ -4072,8 +4072,8 @@ weston_surface_commit_state(struct weston_surface *surface,
 
 	state->sx = 0;
 	state->sy = 0;
-	state->newly_attached = 0;
-	state->buffer_viewport.changed = 0;
+	state->newly_attached = false;
+	state->buffer_viewport.changed = false;
 
 	/* wl_surface.damage and wl_surface.damage_buffer */
 	if (pixman_region32_not_empty(&state->damage_surface) ||
@@ -4241,7 +4241,7 @@ surface_set_buffer_transform(struct wl_client *client,
 	}
 
 	surface->pending.buffer_viewport.buffer.transform = transform;
-	surface->pending.buffer_viewport.changed = 1;
+	surface->pending.buffer_viewport.changed = true;
 }
 
 static void
@@ -4260,7 +4260,7 @@ surface_set_buffer_scale(struct wl_client *client,
 	}
 
 	surface->pending.buffer_viewport.buffer.scale = scale;
-	surface->pending.buffer_viewport.changed = 1;
+	surface->pending.buffer_viewport.changed = true;
 }
 
 static void
@@ -4431,7 +4431,7 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 	pixman_region32_clear(&surface->pending.damage_buffer);
 
 	if (surface->pending.newly_attached) {
-		sub->cached.newly_attached = 1;
+		sub->cached.newly_attached = true;
 		weston_surface_state_set_buffer(&sub->cached,
 						surface->pending.buffer);
 		weston_buffer_reference(&sub->cached_buffer_ref,
@@ -7795,7 +7795,7 @@ destroy_viewport(struct wl_resource *resource)
 	surface->pending.buffer_viewport.buffer.src_width =
 		wl_fixed_from_int(-1);
 	surface->pending.buffer_viewport.surface.width = -1;
-	surface->pending.buffer_viewport.changed = 1;
+	surface->pending.buffer_viewport.changed = true;
 }
 
 static void
@@ -7833,7 +7833,7 @@ viewport_set_source(struct wl_client *client,
 		/* unset source rect */
 		surface->pending.buffer_viewport.buffer.src_width =
 			wl_fixed_from_int(-1);
-		surface->pending.buffer_viewport.changed = 1;
+		surface->pending.buffer_viewport.changed = true;
 		return;
 	}
 
@@ -7854,7 +7854,7 @@ viewport_set_source(struct wl_client *client,
 	surface->pending.buffer_viewport.buffer.src_y = src_y;
 	surface->pending.buffer_viewport.buffer.src_width = src_width;
 	surface->pending.buffer_viewport.buffer.src_height = src_height;
-	surface->pending.buffer_viewport.changed = 1;
+	surface->pending.buffer_viewport.changed = true;
 }
 
 static void
@@ -7878,7 +7878,7 @@ viewport_set_destination(struct wl_client *client,
 	if (dst_width == -1 && dst_height == -1) {
 		/* unset destination size */
 		surface->pending.buffer_viewport.surface.width = -1;
-		surface->pending.buffer_viewport.changed = 1;
+		surface->pending.buffer_viewport.changed = true;
 		return;
 	}
 
@@ -7892,7 +7892,7 @@ viewport_set_destination(struct wl_client *client,
 
 	surface->pending.buffer_viewport.surface.width = dst_width;
 	surface->pending.buffer_viewport.surface.height = dst_height;
-	surface->pending.buffer_viewport.changed = 1;
+	surface->pending.buffer_viewport.changed = true;
 }
 
 static const struct wp_viewport_interface viewport_interface = {

@@ -1578,7 +1578,7 @@ struct weston_buffer_viewport {
 		int32_t width, height;
 	} surface;
 
-	int changed;
+	bool changed;
 };
 
 struct weston_buffer_release {
@@ -1730,7 +1730,7 @@ struct weston_view {
 
 struct weston_surface_state {
 	/* wl_surface.attach */
-	int newly_attached;
+	bool newly_attached;
 	struct weston_buffer *buffer;
 	struct wl_listener buffer_destroy_listener;
 
