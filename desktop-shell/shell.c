@@ -3987,11 +3987,7 @@ shell_fade_create_view_for_output(struct desktop_shell *shell,
 	assert(curtain);
 
 	weston_view_set_output(curtain->view, output);
-	weston_layer_entry_insert(&compositor->fade_layer.view_list,
-				  &curtain->view->layer_link);
-	curtain->view->is_mapped = true;
-	weston_view_geometry_dirty(curtain->view);
-	weston_surface_damage(curtain->view->surface);
+	weston_view_move_to_layer(curtain->view, &compositor->fade_layer.view_list);
 
 	return curtain;
 }
