@@ -392,11 +392,8 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 		 * (currently focused one) on a different output when activating
 		 * a new one. */
 		if (!shsurf->parent && (shsurf->output == current_focus->output)) {
-			weston_layer_entry_remove(&current_focus->view->layer_link);
-			weston_layer_entry_insert(&shsurf->shell->inactive_layer.view_list,
-						  &current_focus->view->layer_link);
-			weston_view_geometry_dirty(current_focus->view);
-			weston_surface_damage(current_focus->view->surface);
+			weston_view_move_to_layer(current_focus->view,
+						  &shsurf->shell->inactive_layer.view_list);
 		}
 	}
 
@@ -407,12 +404,8 @@ kiosk_shell_surface_activate(struct kiosk_shell_surface *shsurf,
 
 	/* removes it from the inactive_layer, on removal of a surface, and
 	 * move it back to the normal layer */
-	weston_layer_entry_remove(&shsurf->view->layer_link);
-	weston_layer_entry_insert(&shsurf->shell->normal_layer.view_list,
-				  &shsurf->view->layer_link);
-	weston_view_geometry_dirty(shsurf->view);
-	weston_view_update_transform(shsurf->view);
-	weston_surface_damage(shsurf->view->surface);
+	weston_view_move_to_layer(shsurf->view,
+				  &shsurf->shell->normal_layer.view_list);
 }
 
 /*
