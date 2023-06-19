@@ -3708,17 +3708,11 @@ lower_fullscreen_layer(struct desktop_shell *shell,
 		 * in the fullscreen layer. */
 		if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface) &&
 		    shsurf->fullscreen.black_view) {
-			/* Hide the black view */
-			weston_layer_entry_remove(&shsurf->fullscreen.black_view->view->layer_link);
-			wl_list_init(&shsurf->fullscreen.black_view->view->layer_link.link);
-			weston_view_damage_below(shsurf->fullscreen.black_view->view);
+			weston_view_move_to_layer(shsurf->fullscreen.black_view->view, NULL);
 		}
 
 		/* Lower the view to the workspace layer */
-		weston_layer_entry_remove(&view->layer_link);
-		weston_layer_entry_insert(&ws->layer.view_list, &view->layer_link);
-		weston_view_damage_below(view);
-		weston_surface_damage(view->surface);
+		weston_view_move_to_layer(view, &ws->layer.view_list);
 
 		shsurf->state.lowered = true;
 	}
