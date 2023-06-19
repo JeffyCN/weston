@@ -2137,7 +2137,7 @@ fade_out_done(struct weston_view_animation *animation, void *data)
 	loop = wl_display_get_event_loop(shsurf->shell->compositor->wl_display);
 
 	if (weston_view_is_mapped(shsurf->wview_anim_fade)) {
-		weston_view_unmap(shsurf->wview_anim_fade);
+		weston_view_move_to_layer(shsurf->wview_anim_fade, NULL);
 		wl_event_loop_add_idle(loop, fade_out_done_idle_cb, shsurf);
 	}
 }
