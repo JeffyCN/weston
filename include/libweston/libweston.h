@@ -1267,7 +1267,6 @@ struct weston_layer {
 
 struct weston_plane {
 	struct weston_compositor *compositor;
-	pixman_region32_t damage; /**< in global coords */
 	pixman_region32_t clip;
 	int32_t x, y;
 	struct wl_list link;

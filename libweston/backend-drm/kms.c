@@ -708,8 +708,6 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 		return;
 
 	if (!state->fb) {
-		pixman_region32_fini(&plane->base.damage);
-		pixman_region32_init(&plane->base.damage);
 		drmModeSetCursor(device->drm.fd, crtc->crtc_id, 0, 0, 0);
 		return;
 	}
@@ -726,9 +724,6 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 			goto err;
 		}
 	}
-
-	pixman_region32_fini(&plane->base.damage);
-	pixman_region32_init(&plane->base.damage);
 
 	if (drmModeMoveCursor(device->drm.fd, crtc->crtc_id,
 	                      state->dest_x, state->dest_y)) {

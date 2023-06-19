@@ -547,6 +547,7 @@ struct weston_paint_node {
 	struct wl_list z_order_link;
 
 	pixman_region32_t visible;
+	pixman_region32_t damage; /* In global coordinates */
 	struct weston_plane *plane;
 	struct weston_plane *plane_next;
 

@@ -149,6 +149,25 @@ weston_output_dirty_paint_nodes(struct weston_output *output)
 	}
 }
 
+static void
+paint_node_damage_below(struct weston_paint_node *pnode)
+{
+	struct weston_paint_node *lower_node;
+
+	if (!pnode->plane)
+		return;
+
+	wl_list_for_each(lower_node, &pnode->z_order_link,
+			 z_order_link) {
+
+		if (lower_node->plane != pnode->plane)
+			continue;
+
+		pixman_region32_union(&lower_node->damage, &lower_node->damage,
+				      &pnode->visible);
+	}
+}
+
 /* Paint nodes contain filter and transform information that needs to be
  * up to date before assign_planes() is called. But there are also
  * damage related bits that must be updated after assign_planes()
@@ -181,7 +200,19 @@ paint_node_update_early(struct weston_paint_node *pnode)
 static void
 paint_node_update_late(struct weston_paint_node *pnode)
 {
+	bool vis_dirty = pnode->status & PAINT_NODE_VISIBILITY_DIRTY;
 	bool plane_dirty = pnode->status & PAINT_NODE_PLANE_DIRTY;
+
+	/* The geoemtry may be shrinking, so we shouldn't just
+	 * add the old visible region to our damage region, because
+	 * our damage region shouldn't contain anything outside of
+	 * our geometry.
+	 *
+	 * On a plane change, we need to damage below now before
+	 * we update visibility.
+	 */
+	if (vis_dirty || plane_dirty)
+		paint_node_damage_below(pnode);
 
 	/* Even if our geometry didn't change, our visible region may
 	 * have been updated by some other node changing. Keep the
@@ -190,6 +221,15 @@ paint_node_update_late(struct weston_paint_node *pnode)
 	pixman_region32_intersect(&pnode->visible,
 				  &pnode->view->visible,
 				  &pnode->output->region);
+
+	/* If our visible region was dirty, we should damage the entire
+	 * new visible region to ensure a redraw of our content.
+	 *
+	 * If we chanaged planes, we need full visible region damage
+	 * on the new plane now that visibility is updated.
+	 */
+	if (pnode->plane && (vis_dirty || plane_dirty))
+		pixman_region32_copy(&pnode->damage, &pnode->visible);
 
 	if (plane_dirty) {
 		assert(pnode->plane_next);
@@ -247,6 +287,7 @@ weston_paint_node_create(struct weston_surface *surface,
 
 	wl_list_init(&pnode->z_order_link);
 
+	pixman_region32_init(&pnode->damage);
 	pixman_region32_init(&pnode->visible);
 	pixman_region32_copy(&pnode->visible, &view->visible);
 
@@ -262,12 +303,16 @@ static void
 weston_paint_node_destroy(struct weston_paint_node *pnode)
 {
 	assert(pnode->view->surface == pnode->surface);
+
+	paint_node_damage_below(pnode);
+
 	wl_list_remove(&pnode->surface_link);
 	wl_list_remove(&pnode->view_link);
 	wl_list_remove(&pnode->output_link);
 	wl_list_remove(&pnode->z_order_link);
 	assert(pnode->surf_xform_valid || !pnode->surf_xform.transform);
 	weston_surface_color_transform_fini(&pnode->surf_xform);
+	pixman_region32_fini(&pnode->damage);
 	pixman_region32_fini(&pnode->visible);
 	free(pnode);
 }
@@ -1004,46 +1049,15 @@ weston_paint_node_move_to_plane(struct weston_paint_node *pnode,
 	if (pnode->plane == plane)
 		return;
 
-	weston_view_damage_below(pnode->view);
 	pnode->plane_next = plane;
-	weston_surface_damage(pnode->view->surface);
 
 	pnode->status |= PAINT_NODE_PLANE_DIRTY |
 			 PAINT_NODE_VISIBILITY_DIRTY;
 }
 
-/** Inflict damage on the plane where the view is visible.
- *
- * \param view The view that causes the damage.
- *
- * If the view is currently on a plane (including the primary plane),
- * take the view's boundingbox, subtract all the opaque views that cover it,
- * and add the remaining region as damage to the plane. This corresponds
- * to the damage inflicted to the plane if this view disappeared.
- *
- * A repaint is scheduled for this view.
- *
- * The region of all opaque views covering this view is stored in
- * weston_view::clip and updated by output_update_visibility() during
- * weston_output_repaint(). Specifically, that region matches the
- * scenegraph as it was last painted.
- */
 WL_EXPORT void
 weston_view_damage_below(struct weston_view *view)
 {
-	struct weston_paint_node *pnode;
-	pixman_region32_t damage;
-
-	pixman_region32_init(&damage);
-	pixman_region32_subtract(&damage, &view->transform.boundingbox,
-				 &view->clip);
-	wl_list_for_each(pnode, &view->paint_node_list, view_link) {
-		assert(pnode->plane);
-
-		pixman_region32_union(&pnode->plane->damage,
-				      &pnode->plane->damage, &damage);
-	}
-	pixman_region32_fini(&damage);
 	weston_view_schedule_repaint(view);
 }
 
@@ -2930,39 +2944,10 @@ weston_output_damage(struct weston_output *output)
 	weston_output_schedule_repaint(output);
 }
 
-/* FIXME: note that we don't flush any damage when the core wants us to
- * do so as it will sometimes ask for a flush not necessarily at the
- * right time.
- *
- * A (more) proper way is to handle correctly damage whenever there's
- * compositor side damage. See the comment for weston_surface_damage().
- */
-static bool
-buffer_can_be_accessed_BANDAID_XXX(struct weston_buffer_reference buffer_ref)
-{
-	return buffer_ref.type == BUFFER_MAY_BE_ACCESSED;
-}
-
 static void
-surface_flush_damage(struct weston_surface *surface, struct weston_output *output)
+paint_node_add_damage(struct weston_paint_node *node)
 {
-	struct weston_buffer *buffer = surface->buffer_ref.buffer;
-
-	if (buffer->type == WESTON_BUFFER_SHM &&
-	    buffer_can_be_accessed_BANDAID_XXX(surface->buffer_ref))
-		surface->compositor->renderer->flush_damage(surface, buffer);
-
-	if (pixman_region32_not_empty(&surface->damage))
-		TL_POINT(surface->compositor, "core_flush_damage",
-			 TLP_SURFACE(surface), TLP_OUTPUT(output), TLP_END);
-
-	pixman_region32_clear(&surface->damage);
-}
-
-static void
-view_accumulate_damage(struct weston_view *view)
-{
-	struct weston_paint_node *pnode;
+	struct weston_view *view = node->view;
 	pixman_region32_t damage;
 
 	assert(!view->transform.dirty);
@@ -2980,13 +2965,46 @@ view_accumulate_damage(struct weston_view *view)
 					  view->geometry.pos_offset.y);
 	}
 
-	pixman_region32_intersect(&damage, &damage, &view->visible);
-
-	wl_list_for_each(pnode, &view->paint_node_list, view_link) {
-		pixman_region32_union(&pnode->plane->damage,
-				      &pnode->plane->damage, &damage);
-	}
+	pixman_region32_intersect(&damage, &damage, &node->visible);
+	pixman_region32_union(&node->damage, &node->damage, &damage);
 	pixman_region32_fini(&damage);
+}
+
+/* FIXME: note that we don't flush any damage when the core wants us to
+ * do so as it will sometimes ask for a flush not necessarily at the
+ * right time.
+ *
+ * A (more) proper way is to handle correctly damage whenever there's
+ * compositor side damage. See the comment for weston_surface_damage().
+ */
+static bool
+buffer_can_be_accessed_BANDAID_XXX(struct weston_buffer_reference buffer_ref)
+{
+	return buffer_ref.type == BUFFER_MAY_BE_ACCESSED;
+}
+
+static void
+surface_flush_damage(struct weston_surface *surface, struct weston_output *output)
+{
+	struct weston_buffer *buffer = surface->buffer_ref.buffer;
+	struct weston_paint_node *node;
+
+	if (buffer->type == WESTON_BUFFER_SHM &&
+	    buffer_can_be_accessed_BANDAID_XXX(surface->buffer_ref))
+		surface->compositor->renderer->flush_damage(surface, buffer);
+
+	if (!pixman_region32_not_empty(&surface->damage))
+		return;
+
+	TL_POINT(surface->compositor, "core_flush_damage",
+		 TLP_SURFACE(surface), TLP_OUTPUT(output), TLP_END);
+
+	wl_list_for_each(node, &surface->paint_node_list, surface_link) {
+		assert(node->surface == surface);
+
+		paint_node_add_damage(node);
+	}
+	pixman_region32_clear(&surface->damage);
 }
 
 static void
@@ -3035,19 +3053,7 @@ output_update_visibility(struct weston_output *output)
 static void
 output_accumulate_damage(struct weston_output *output)
 {
-	struct weston_compositor *ec = output->compositor;
-	struct weston_plane *plane;
 	struct weston_paint_node *pnode;
-
-	wl_list_for_each(plane, &ec->plane_list, link) {
-		wl_list_for_each(pnode, &output->paint_node_z_order_list,
-				 z_order_link) {
-			if (pnode->plane != plane)
-				continue;
-
-			view_accumulate_damage(pnode->view);
-		}
-	}
 
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
 			 z_order_link) {
@@ -3133,15 +3139,6 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 
 	assert(view);
 
-	/* We used to mysteriously depend on the view->plane transition
-	 * from NULL to primary to generate damage when a view that was
-	 * unmapped became remapped. Forcing damage here is a little
-	 * more obvious.
-	 *
-	 * We can't use weston_view_damage_below() because the clip region
-	 * isn't correct until after we render, and by then it's too late.
-	 */
-	weston_surface_damage(view->surface);
 	weston_view_update_transform(view);
 	view->is_mapped = true;
 
@@ -3272,6 +3269,28 @@ weston_output_take_feedback_list(struct weston_output *output,
 	wl_list_init(&surface->feedback_list);
 }
 
+static bool
+weston_output_flush_damage_for_plane(struct weston_output *output,
+				     struct weston_plane *plane,
+				     pixman_region32_t *damage)
+{
+	struct weston_paint_node *pnode;
+	bool changed = false;
+
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link) {
+		if (pnode->plane != plane)
+			continue;
+		changed = true;
+
+		pixman_region32_union(damage, damage, &pnode->damage);
+		pixman_region32_clear(&pnode->damage);
+	}
+	pixman_region32_intersect(damage, damage, &output->region);
+	pixman_region32_subtract(damage, damage, &plane->clip);
+	return changed;
+}
+
 static int
 weston_output_repaint(struct weston_output *output)
 {
@@ -3353,10 +3372,9 @@ weston_output_repaint(struct weston_output *output)
 	output_accumulate_damage(output);
 
 	pixman_region32_init(&output_damage);
-	pixman_region32_intersect(&output_damage,
-				  &ec->primary_plane.damage, &output->region);
-	pixman_region32_subtract(&output_damage,
-				 &output_damage, &ec->primary_plane.clip);
+
+	weston_output_flush_damage_for_plane(output, &ec->primary_plane,
+					     &output_damage);
 
 	if (output->full_repaint_needed) {
 		pixman_region32_copy(&output_damage, &output->region);
@@ -3364,9 +3382,6 @@ weston_output_repaint(struct weston_output *output)
 	}
 
 	r = output->repaint(output, &output_damage);
-
-	pixman_region32_subtract(&ec->primary_plane.damage,
-				 &ec->primary_plane.damage, &output_damage);
 
 	pixman_region32_fini(&output_damage);
 
@@ -5668,7 +5683,6 @@ idle_handler(void *data)
 WL_EXPORT void
 weston_plane_init(struct weston_plane *plane, struct weston_compositor *ec)
 {
-	pixman_region32_init(&plane->damage);
 	pixman_region32_init(&plane->clip);
 	plane->x = 0;
 	plane->y = 0;
@@ -5684,7 +5698,6 @@ weston_plane_release(struct weston_plane *plane)
 {
 	struct weston_output *output;
 
-	pixman_region32_fini(&plane->damage);
 	pixman_region32_fini(&plane->clip);
 
 	wl_list_for_each(output, &plane->compositor->output_list, link) {
