@@ -906,11 +906,16 @@ x11_output_disable(struct weston_output *base)
 
 	wl_event_source_remove(output->finish_frame_timer);
 
-	if (renderer->type == WESTON_RENDERER_PIXMAN) {
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN:
 		x11_output_deinit_shm(backend, output);
 		renderer->pixman->output_destroy(&output->base);
-	} else {
+		break;
+	case WESTON_RENDERER_GL:
 		renderer->gl->output_destroy(&output->base);
+		break;
+	default:
+		unreachable("invalid renderer");
 	}
 
 	xcb_destroy_window(backend->conn, output->window);
@@ -1041,7 +1046,8 @@ x11_output_enable(struct weston_output *base)
 	if (b->fullscreen)
 		x11_output_wait_for_map(b, output);
 
-	if (renderer->type == WESTON_RENDERER_PIXMAN) {
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN: {
 		const struct pixman_renderer_output_options options = {
 			.use_shadow = true,
 			.fb_size = {
@@ -1064,7 +1070,9 @@ x11_output_enable(struct weston_output *base)
 		}
 
 		output->base.repaint = x11_output_repaint_shm;
-	} else {
+		break;
+	}
+	case WESTON_RENDERER_GL: {
 		/* eglCreatePlatformWindowSurfaceEXT takes a Window*
 		 * but eglCreateWindowSurface takes a Window. */
 		Window xid = (Window) output->window;
@@ -1086,6 +1094,10 @@ x11_output_enable(struct weston_output *base)
 			goto err;
 
 		output->base.repaint = x11_output_repaint_gl;
+		break;
+	}
+	default:
+		unreachable("invalid renderer");
 	}
 
 	output->base.start_repaint_loop = x11_output_start_repaint_loop;
@@ -1905,15 +1917,17 @@ x11_backend_create(struct weston_compositor *compositor,
 	b->formats_count = ARRAY_LENGTH(x11_formats);
 	b->formats = pixel_format_get_array(x11_formats, b->formats_count);
 
-	if (config->renderer == WESTON_RENDERER_PIXMAN) {
+	switch (config->renderer) {
+	case WESTON_RENDERER_PIXMAN:
 		if (weston_compositor_init_renderer(compositor,
 						    WESTON_RENDERER_PIXMAN,
 						    NULL) < 0) {
 			weston_log("Failed to initialize pixman renderer for X11 backend\n");
 			goto err_xdisplay;
 		}
-	}
-	else {
+		break;
+	case WESTON_RENDERER_AUTO:
+	case WESTON_RENDERER_GL: {
 		const struct gl_renderer_display_options options = {
 			.egl_platform = EGL_PLATFORM_X11_KHR,
 			.egl_native_display = b->dpy,
@@ -1925,6 +1939,11 @@ x11_backend_create(struct weston_compositor *compositor,
 						    WESTON_RENDERER_GL,
 						    &options.base) < 0)
 			goto err_xdisplay;
+		break;
+	}
+	default:
+		weston_log("Unsupported renderer requested\n");
+		goto err_xdisplay;
 	}
 
 	b->base.shutdown = x11_shutdown;
