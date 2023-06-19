@@ -1018,13 +1018,8 @@ kiosk_shell_activate_view(struct kiosk_shell *shell,
 	 * We don't do this for the parent top-level, since that would
 	 * obscure all children.
 	 */
-	if (shsurf->parent) {
-		weston_layer_entry_remove(&view->layer_link);
-		weston_layer_entry_insert(&shell->normal_layer.view_list,
-					  &view->layer_link);
-		weston_view_geometry_dirty(view);
-		weston_surface_damage(view->surface);
-	}
+	if (shsurf->parent)
+		weston_view_move_to_layer(view, &shell->normal_layer.view_list);
 
 	if (kiosk_seat)
 		kiosk_shell_surface_activate(shsurf, kiosk_seat, flags);
