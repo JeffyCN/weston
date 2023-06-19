@@ -4067,22 +4067,17 @@ weston_surface_commit_state(struct weston_surface *surface,
 	assert(state->acquire_fence_fd == -1);
 	assert(state->buffer_release_ref.buffer_release == NULL);
 
-	weston_surface_build_buffer_matrix(surface,
-					   &surface->surface_to_buffer_matrix);
-	weston_matrix_invert(&surface->buffer_to_surface_matrix,
-			     &surface->surface_to_buffer_matrix);
+	if (status & WESTON_SURFACE_DIRTY_SIZE) {
+		weston_surface_build_buffer_matrix(surface,
+						   &surface->surface_to_buffer_matrix);
+		weston_matrix_invert(&surface->buffer_to_surface_matrix,
+			     	     &surface->surface_to_buffer_matrix);
+		weston_surface_dirty_paint_nodes(surface);
+		weston_surface_update_size(surface);
+	}
 
-	/* It's possible that this surface's buffer and transform changed
-	 * at the same time in such a way that its size remains the same.
-	 *
-	 * That means we can't depend on view_geometry_dirty() from a
-	 * size update to invalidate the paint node data in all relevant
-	 * cases, so just smash it here.
-	 */
-	weston_surface_dirty_paint_nodes(surface);
 	if (state->newly_attached || state->buffer_viewport.changed ||
 	    state->sx != 0 || state->sy != 0) {
-		weston_surface_update_size(surface);
 		if (surface->committed) {
 			struct weston_coord_surface new_origin;
 
