@@ -693,15 +693,20 @@ wayland_output_disable(struct weston_output *base)
 
 	wayland_output_destroy_shm_buffers(output);
 
-	if (renderer->type == WESTON_RENDERER_PIXMAN) {
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN:
 		renderer->pixman->output_destroy(&output->base);
+		break;
 #ifdef ENABLE_EGL
-	} else {
+	case WESTON_RENDERER_GL:
 		weston_gl_borders_fini(&output->gl.borders, &output->base);
 
 		renderer->gl->output_destroy(&output->base);
 		wl_egl_window_destroy(output->gl.egl_window);
+		break;
 #endif
+	default:
+		unreachable("invalid renderer");
 	}
 
 	wayland_backend_destroy_output_surface(output);
@@ -1021,17 +1026,22 @@ wayland_output_switch_mode_finish(struct wayland_output *output)
 {
 	struct weston_renderer *renderer = output->base.compositor->renderer;
 
-	if (renderer->type == WESTON_RENDERER_PIXMAN) {
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN:
 		renderer->pixman->output_destroy(&output->base);
 		if (wayland_output_init_pixman_renderer(output) < 0)
 			return -1;
+		break;
 #ifdef ENABLE_EGL
-	} else {
+	case WESTON_RENDERER_GL:
 		renderer->gl->output_destroy(&output->base);
 		wl_egl_window_destroy(output->gl.egl_window);
 		if (wayland_output_init_gl_renderer(output) < 0)
 			return -1;
+		break;
 #endif
+	default:
+		unreachable("invalid renderer");
 	}
 
 	weston_output_schedule_repaint(&output->base);
@@ -1245,6 +1255,7 @@ wayland_backend_create_output_surface(struct wayland_output *output)
 static int
 wayland_output_enable(struct weston_output *base)
 {
+	const struct weston_renderer *renderer = base->compositor->renderer;
 	struct wayland_output *output = to_wayland_output(base);
 	struct wayland_backend *b;
 	enum mode_status mode_status;
@@ -1269,18 +1280,23 @@ wayland_output_enable(struct weston_output *base)
 	if (ret < 0)
 		return -1;
 
-	if (base->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
+	switch (renderer->type) {
+	case WESTON_RENDERER_PIXMAN:
 		if (wayland_output_init_pixman_renderer(output) < 0)
 			goto err_output;
 
 		output->base.repaint = wayland_output_repaint_pixman;
+		break;
 #ifdef ENABLE_EGL
-	} else {
+	case WESTON_RENDERER_GL:
 		if (wayland_output_init_gl_renderer(output) < 0)
 			goto err_output;
 
 		output->base.repaint = wayland_output_repaint_gl;
+		break;
 #endif
+	default:
+		unreachable("invalid renderer");
 	}
 
 	output->base.start_repaint_loop = wayland_output_start_repaint_loop;
@@ -2900,8 +2916,9 @@ wayland_backend_create(struct weston_compositor *compositor,
 	b->formats_count = ARRAY_LENGTH(wayland_formats);
 	b->formats = pixel_format_get_array(wayland_formats, b->formats_count);
 
-	if (renderer == WESTON_RENDERER_AUTO ||
-	    renderer == WESTON_RENDERER_GL) {
+	switch (renderer) {
+	case WESTON_RENDERER_AUTO:
+	case WESTON_RENDERER_GL: {
 		const struct gl_renderer_display_options options = {
 			.egl_platform = EGL_PLATFORM_WAYLAND_KHR,
 			.egl_native_display = b->parent.wl_display,
@@ -2914,22 +2931,28 @@ wayland_backend_create(struct weston_compositor *compositor,
 						    WESTON_RENDERER_GL,
 						    &options.base) < 0) {
 			weston_log("Failed to initialize the GL renderer");
-			if (renderer == WESTON_RENDERER_AUTO) {
-				weston_log_continue("; falling back to Pixman.\n");
-				renderer = WESTON_RENDERER_PIXMAN;
-			} else {
+			if (renderer == WESTON_RENDERER_GL) {
+				weston_log_continue("\n");
 				goto err_display;
 			}
+			renderer = WESTON_RENDERER_PIXMAN;
 		}
+		if (renderer != WESTON_RENDERER_PIXMAN)
+			break;
+		weston_log_continue("; falling back to Pixman.\n");
 	}
-
-	if (renderer == WESTON_RENDERER_PIXMAN) {
+		/* fallthrough */
+	case WESTON_RENDERER_PIXMAN:
 		if (weston_compositor_init_renderer(compositor,
 						    WESTON_RENDERER_PIXMAN,
 						    NULL) < 0) {
 			weston_log("Failed to initialize pixman renderer\n");
 			goto err_display;
 		}
+		break;
+	default:
+		weston_log("Unsupported renderer requested\n");
+		goto err_display;
 	}
 
 	b->base.shutdown = wayland_shutdown;
