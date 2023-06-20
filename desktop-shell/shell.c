@@ -2863,13 +2863,8 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer, int x,
 	weston_view_set_position(ev, pos);
 	weston_surface_map(ev->surface);
 
-	if (wl_list_empty(&ev->layer_link.link)) {
-		weston_layer_entry_insert(&layer->view_list, &ev->layer_link);
-		ev->is_mapped = true;
-		/* XXX: missing damage */
-		weston_view_geometry_dirty(ev);
-		weston_compositor_schedule_repaint(ev->surface->compositor);
-	}
+	if (wl_list_empty(&ev->layer_link.link))
+		weston_view_move_to_layer(ev, &layer->view_list);
 }
 
 
