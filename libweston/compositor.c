@@ -2679,7 +2679,6 @@ weston_surface_attach(struct weston_surface *surface,
 	surface->compositor->renderer->attach(surface, buffer);
 
 	weston_surface_calculate_size_from_buffer(surface);
-	weston_presentation_feedback_discard_list(&surface->feedback_list);
 
 	if (buffer)
 		surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
@@ -4038,6 +4037,10 @@ weston_surface_commit_state(struct weston_surface *surface,
 		/* zwp_surface_synchronization_v1.get_release */
 		weston_buffer_release_move(&surface->buffer_release_ref,
 					   &state->buffer_release_ref);
+
+		/* wp_presentation.feedback */
+		weston_presentation_feedback_discard_list(&surface->feedback_list);
+
 		weston_surface_attach(surface, state->buffer);
 	}
 	weston_surface_state_set_buffer(state, NULL);
