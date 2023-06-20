@@ -1958,35 +1958,6 @@ convert_size_by_transform_scale(int32_t *width_out, int32_t *height_out,
 	}
 }
 
-static enum weston_surface_status
-weston_surface_calculate_size_from_buffer(struct weston_surface *surface)
-{
-	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
-	int32_t old_width = surface->width_from_buffer;
-	int32_t old_height = surface->height_from_buffer;
-	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
-
-	if (!weston_surface_has_content(surface)) {
-		surface->width_from_buffer = 0;
-		surface->height_from_buffer = 0;
-		return status;
-	}
-
-	convert_size_by_transform_scale(&surface->width_from_buffer,
-					&surface->height_from_buffer,
-					surface->buffer_ref.buffer->width,
-					surface->buffer_ref.buffer->height,
-					vp->buffer.transform,
-					vp->buffer.scale);
-
-	if (surface->width_from_buffer != old_width ||
-	    surface->height_from_buffer != old_height) {
-		status |= WESTON_SURFACE_DIRTY_SIZE;
-	}
-
-	return status;
-}
-
 static void
 weston_surface_update_size(struct weston_surface *surface)
 {
@@ -2674,11 +2645,10 @@ static enum weston_surface_status
 weston_surface_attach(struct weston_surface *surface,
 		      struct weston_buffer *buffer)
 {
+	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
+	int32_t old_width = surface->width_from_buffer;
+	int32_t old_height = surface->height_from_buffer;
 	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
-
-	weston_buffer_reference(&surface->buffer_ref, buffer,
-				buffer ? BUFFER_MAY_BE_ACCESSED :
-					 BUFFER_WILL_NOT_BE_ACCESSED);
 
 	if (!buffer) {
 		if (weston_surface_is_mapped(surface)) {
@@ -2686,17 +2656,38 @@ weston_surface_attach(struct weston_surface *surface,
 			/* This is the unmapping commit */
 			surface->is_unmapping = true;
 			status |= WESTON_SURFACE_DIRTY_BUFFER;
+			status |= WESTON_SURFACE_DIRTY_SIZE;
 		}
-	} else if (buffer) {
-		status |= WESTON_SURFACE_DIRTY_BUFFER;
+
+		weston_buffer_reference(&surface->buffer_ref, NULL,
+					BUFFER_WILL_NOT_BE_ACCESSED);
+		surface->compositor->renderer->attach(surface, buffer);
+
+		surface->width_from_buffer = 0;
+		surface->height_from_buffer = 0;
+
+		return status;
 	}
 
+	convert_size_by_transform_scale(&surface->width_from_buffer,
+					&surface->height_from_buffer,
+					buffer->width,
+					buffer->height,
+					vp->buffer.transform,
+					vp->buffer.scale);
+
+	if (surface->width_from_buffer != old_width ||
+	    surface->height_from_buffer != old_height) {
+		status |= WESTON_SURFACE_DIRTY_SIZE;
+	}
+
+	status |= WESTON_SURFACE_DIRTY_BUFFER;
+
+	weston_buffer_reference(&surface->buffer_ref, buffer,
+				BUFFER_MAY_BE_ACCESSED);
 	surface->compositor->renderer->attach(surface, buffer);
 
-	status |= weston_surface_calculate_size_from_buffer(surface);
-
-	if (buffer)
-		surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
+	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 
 	return status;
 }
