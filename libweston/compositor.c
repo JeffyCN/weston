@@ -2643,11 +2643,12 @@ bind_single_pixel_buffer(struct wl_client *client, void *data, uint32_t version,
 
 static enum weston_surface_status
 weston_surface_attach(struct weston_surface *surface,
-		      struct weston_buffer *buffer)
+		      struct weston_surface_state *state)
 {
-	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
+	struct weston_buffer_viewport *vp = &state->buffer_viewport;
 	int32_t old_width = surface->width_from_buffer;
 	int32_t old_height = surface->height_from_buffer;
+	struct weston_buffer *buffer = state->buffer;
 	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
 
 	if (!buffer) {
@@ -4052,7 +4053,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 		/* wp_presentation.feedback */
 		weston_presentation_feedback_discard_list(&surface->feedback_list);
 
-		status |= weston_surface_attach(surface, state->buffer);
+		status |= weston_surface_attach(surface, state);
 	}
 	weston_surface_state_set_buffer(state, NULL);
 	assert(state->acquire_fence_fd == -1);
