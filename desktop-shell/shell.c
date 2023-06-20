@@ -3499,7 +3499,6 @@ rotate_grab_motion(struct weston_pointer_grab *grab,
 	r = sqrtf(dx * dx + dy * dy);
 
 	wl_list_remove(&shsurf->rotation.transform.link);
-	weston_view_geometry_dirty(shsurf->view);
 
 	if (r > 20.0f) {
 		struct weston_matrix *matrix =
@@ -3523,6 +3522,8 @@ rotate_grab_motion(struct weston_pointer_grab *grab,
 		weston_matrix_init(&rotate->rotation);
 	}
 
+	weston_view_geometry_dirty(shsurf->view);
+
 	/* We need to adjust the position of the surface
 	 * in case it was resized in a rotated state before */
 	cposx = shsurf->view->geometry.pos_offset.x + cx;
@@ -3538,10 +3539,8 @@ rotate_grab_motion(struct weston_pointer_grab *grab,
 		weston_view_set_position(shsurf->view, pos);
 	}
 
-	/* Repaint implies weston_view_update_transform(), which
-	 * lazily applies the damage due to rotation update.
-	 */
-	weston_compositor_schedule_repaint(surface->compositor);
+	weston_view_update_transform(shsurf->view);
+	weston_surface_damage(shsurf->view->surface);
 }
 
 static void
