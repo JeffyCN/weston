@@ -4076,7 +4076,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 		weston_surface_update_size(surface);
 	}
 
-	if (state->newly_attached || state->buffer_viewport.changed ||
+	if ((status & (WESTON_SURFACE_DIRTY_BUFFER | WESTON_SURFACE_DIRTY_SIZE)) ||
 	    state->sx != 0 || state->sy != 0) {
 		if (surface->committed) {
 			struct weston_coord_surface new_origin;
