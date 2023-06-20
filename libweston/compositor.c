@@ -2671,13 +2671,10 @@ bind_single_pixel_buffer(struct wl_client *client, void *data, uint32_t version,
 
 static enum weston_surface_status
 weston_surface_attach(struct weston_surface *surface,
-		      struct weston_surface_state *state)
+		      struct weston_surface_state *state,
+		      enum weston_surface_status status)
 {
-	struct weston_buffer_viewport *vp = &state->buffer_viewport;
-	int32_t old_width = surface->width_from_buffer;
-	int32_t old_height = surface->height_from_buffer;
 	struct weston_buffer *buffer = state->buffer;
-	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
 
 	if (!buffer) {
 		if (weston_surface_is_mapped(surface)) {
@@ -2698,16 +2695,28 @@ weston_surface_attach(struct weston_surface *surface,
 		return status;
 	}
 
-	convert_size_by_transform_scale(&surface->width_from_buffer,
-					&surface->height_from_buffer,
-					buffer->width,
-					buffer->height,
-					vp->buffer.transform,
-					vp->buffer.scale);
+	/* Recalculate the surface size if the buffer dimensions or the
+	 * surface transforms (viewport, rotation/mirror, scale) have
+	 * changed. */
+	if (!surface->buffer_ref.buffer ||
+	    buffer->width != surface->buffer_ref.buffer->width ||
+	    buffer->height != surface->buffer_ref.buffer->height ||
+	    (status & WESTON_SURFACE_DIRTY_SIZE)) {
+		struct weston_buffer_viewport *vp = &state->buffer_viewport;
+		int32_t old_width = surface->width_from_buffer;
+		int32_t old_height = surface->height_from_buffer;
 
-	if (surface->width_from_buffer != old_width ||
-	    surface->height_from_buffer != old_height) {
-		status |= WESTON_SURFACE_DIRTY_SIZE;
+		convert_size_by_transform_scale(&surface->width_from_buffer,
+						&surface->height_from_buffer,
+						buffer->width,
+						buffer->height,
+						vp->buffer.transform,
+						vp->buffer.scale);
+
+		if (surface->width_from_buffer != old_width ||
+		    surface->height_from_buffer != old_height) {
+			status |= WESTON_SURFACE_DIRTY_SIZE;
+		}
 	}
 
 	status |= WESTON_SURFACE_DIRTY_BUFFER;
@@ -4125,7 +4134,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 		/* wp_presentation.feedback */
 		weston_presentation_feedback_discard_list(&surface->feedback_list);
 
-		status |= weston_surface_attach(surface, state);
+		status |= weston_surface_attach(surface, state, status);
 	}
 	weston_surface_state_set_buffer(state, NULL);
 	assert(state->acquire_fence_fd == -1);
