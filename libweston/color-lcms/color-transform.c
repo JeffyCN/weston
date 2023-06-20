@@ -727,7 +727,7 @@ pipeline_print(cmsPipeline **lut, cmsContext context_id,
 			matrix_print(stage, scope);
 			break;
 		case cmsSigCurveSetElemType:
-			curve_set_print(stage, scope);
+			curveset_print(stage, scope);
 			break;
 		default:
 			break;

@@ -33,7 +33,7 @@
 #if HAVE_CMS_GET_TONE_CURVE_SEGMENT
 
 void
-curve_set_print(cmsStage *stage, struct weston_log_scope *scope);
+curveset_print(cmsStage *stage, struct weston_log_scope *scope);
 
 bool
 are_curvesets_inverse(cmsStage *set_A, cmsStage *set_B);
@@ -48,7 +48,7 @@ join_powerlaw_curvesets(cmsContext context_id,
 # else /* HAVE_CMS_GET_TONE_CURVE_SEGMENT */
 
 static inline void
-curve_set_print(cmsStage *stage, struct weston_log_scope *scope)
+curveset_print(cmsStage *stage, struct weston_log_scope *scope)
 {
 	weston_log_scope_printf(scope, "%*scmsGetToneCurveSegment() symbol not " \
 				       "found, so can't print curve set\n", 6, "");

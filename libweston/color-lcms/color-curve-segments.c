@@ -519,7 +519,7 @@ join_powerlaw_curvesets(cmsContext context_id,
 }
 
 void
-curve_set_print(cmsStage *stage, struct weston_log_scope *scope)
+curveset_print(cmsStage *stage, struct weston_log_scope *scope)
 {
 	const _cmsStageToneCurvesData *data;
 	uint32_t already_printed = 0;
