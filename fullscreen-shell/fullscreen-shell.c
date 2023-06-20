@@ -616,15 +616,12 @@ fs_output_apply_pending(struct fs_output *fsout)
 			weston_log("no memory\n");
 			return;
 		}
-		fsout->view->is_mapped = true;
 		fsout->surface->is_mapped = true;
 
 		wl_signal_add(&fsout->surface->destroy_signal,
 			      &fsout->surface_destroyed);
-		weston_layer_entry_insert(&fsout->shell->layer.view_list,
-			       &fsout->view->layer_link);
-
-		weston_view_geometry_dirty(fsout->view);
+		weston_view_move_to_layer(fsout->view,
+					  &fsout->shell->layer.view_list);
 	}
 
 	fs_output_clear_pending(fsout);
