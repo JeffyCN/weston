@@ -1927,11 +1927,7 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 	view = shsurf->fullscreen.black_view->view;
 
 	weston_view_set_output(view, output);
-	weston_layer_entry_remove(&view->layer_link);
-	weston_layer_entry_insert(&shsurf->view->layer_link, &view->layer_link);
-	view->is_mapped = true;
-	weston_view_geometry_dirty(view);
-	weston_surface_damage(surface);
+	weston_view_move_to_layer(view, &shsurf->view->layer_link);
 
 	shsurf->state.lowered = false;
 }
