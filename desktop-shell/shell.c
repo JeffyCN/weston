@@ -3082,18 +3082,14 @@ lock_surface_committed(struct weston_surface *surface,
 	if (surface->width == 0)
 		return;
 
+	if (weston_surface_is_mapped(surface))
+		return;
+
+	weston_surface_map(surface);
+	weston_view_move_to_layer(view, &shell->lock_layer.view_list);
 	weston_shell_utils_center_on_output(view,
 		weston_shell_utils_get_default_output(shell->compositor));
-
-	if (!weston_surface_is_mapped(surface)) {
-		/* XXX: don't map without a buffer */
-		weston_surface_map(surface);
-		weston_layer_entry_insert(&shell->lock_layer.view_list,
-					  &view->layer_link);
-		view->is_mapped = true;
-		weston_view_update_transform(view); /* XXX: geometry_dirty */
-		shell_fade(shell, FADE_IN);
-	}
+	shell_fade(shell, FADE_IN);
 }
 
 static void
