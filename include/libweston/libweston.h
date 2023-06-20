@@ -1728,6 +1728,12 @@ struct weston_view {
 	struct weston_log_pacer subsurface_parent_log_pacer;
 };
 
+enum weston_surface_status {
+	WESTON_SURFACE_CLEAN = 0,
+	WESTON_SURFACE_DIRTY_BUFFER = 1 << 0,
+	WESTON_SURFACE_DIRTY_SIZE = 1 << 1,
+};
+
 struct weston_surface_state {
 	/* wl_surface.attach */
 	bool newly_attached;

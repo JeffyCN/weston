@@ -1958,15 +1958,18 @@ convert_size_by_transform_scale(int32_t *width_out, int32_t *height_out,
 	}
 }
 
-static void
+static enum weston_surface_status
 weston_surface_calculate_size_from_buffer(struct weston_surface *surface)
 {
 	struct weston_buffer_viewport *vp = &surface->buffer_viewport;
+	int32_t old_width = surface->width_from_buffer;
+	int32_t old_height = surface->height_from_buffer;
+	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
 
 	if (!weston_surface_has_content(surface)) {
 		surface->width_from_buffer = 0;
 		surface->height_from_buffer = 0;
-		return;
+		return status;
 	}
 
 	convert_size_by_transform_scale(&surface->width_from_buffer,
@@ -1975,6 +1978,13 @@ weston_surface_calculate_size_from_buffer(struct weston_surface *surface)
 					surface->buffer_ref.buffer->height,
 					vp->buffer.transform,
 					vp->buffer.scale);
+
+	if (surface->width_from_buffer != old_width ||
+	    surface->height_from_buffer != old_height) {
+		status |= WESTON_SURFACE_DIRTY_SIZE;
+	}
+
+	return status;
 }
 
 static void
@@ -2660,10 +2670,12 @@ bind_single_pixel_buffer(struct wl_client *client, void *data, uint32_t version,
 				       NULL, NULL);
 }
 
-static void
+static enum weston_surface_status
 weston_surface_attach(struct weston_surface *surface,
 		      struct weston_buffer *buffer)
 {
+	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
+
 	weston_buffer_reference(&surface->buffer_ref, buffer,
 				buffer ? BUFFER_MAY_BE_ACCESSED :
 					 BUFFER_WILL_NOT_BE_ACCESSED);
@@ -2673,15 +2685,20 @@ weston_surface_attach(struct weston_surface *surface,
 			weston_surface_unmap(surface);
 			/* This is the unmapping commit */
 			surface->is_unmapping = true;
+			status |= WESTON_SURFACE_DIRTY_BUFFER;
 		}
+	} else if (buffer) {
+		status |= WESTON_SURFACE_DIRTY_BUFFER;
 	}
 
 	surface->compositor->renderer->attach(surface, buffer);
 
-	weston_surface_calculate_size_from_buffer(surface);
+	status |= weston_surface_calculate_size_from_buffer(surface);
 
 	if (buffer)
 		surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
+
+	return status;
 }
 
 /** weston_compositor_damage_all
@@ -4022,12 +4039,15 @@ weston_surface_commit_state(struct weston_surface *surface,
 {
 	struct weston_view *view;
 	pixman_region32_t opaque;
+	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
 
 	/* wl_surface.set_buffer_transform */
 	/* wl_surface.set_buffer_scale */
 	/* wp_viewport.set_source */
 	/* wp_viewport.set_destination */
 	surface->buffer_viewport = state->buffer_viewport;
+	if (surface->buffer_viewport.changed)
+		status |= WESTON_SURFACE_DIRTY_SIZE;
 
 	/* wl_surface.attach */
 	if (state->newly_attached) {
@@ -4041,7 +4061,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 		/* wp_presentation.feedback */
 		weston_presentation_feedback_discard_list(&surface->feedback_list);
 
-		weston_surface_attach(surface, state->buffer);
+		status |= weston_surface_attach(surface, state->buffer);
 	}
 	weston_surface_state_set_buffer(state, NULL);
 	assert(state->acquire_fence_fd == -1);
