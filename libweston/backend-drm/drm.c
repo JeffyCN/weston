@@ -3203,17 +3203,13 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 	return 1;
 }
 
-void
-drm_destroy(struct weston_backend *backend)
+static void
+drm_shutdown(struct weston_backend *backend)
 {
 	struct drm_backend *b = container_of(backend, struct drm_backend, base);
 	struct weston_compositor *ec = b->compositor;
-	struct drm_device *device = b->drm;
-	struct weston_head *base, *next;
 	struct weston_output *output_base;
 	struct drm_output *output;
-	struct drm_crtc *crtc, *crtc_tmp;
-	struct drm_writeback *writeback, *writeback_tmp;
 
 	udev_input_destroy(&b->input);
 
@@ -3252,6 +3248,18 @@ drm_destroy(struct weston_backend *backend)
 
 	weston_log_scope_destroy(b->debug);
 	b->debug = NULL;
+}
+
+void
+drm_destroy(struct weston_backend *backend)
+{
+	struct drm_backend *b = container_of(backend, struct drm_backend, base);
+	struct weston_compositor *ec = b->compositor;
+	struct drm_device *device = b->drm;
+	struct weston_head *base, *next;
+	struct drm_crtc *crtc, *crtc_tmp;
+	struct drm_writeback *writeback, *writeback_tmp;
+
 	weston_compositor_shutdown(ec);
 
 	wl_list_for_each_safe(crtc, crtc_tmp, &b->drm->crtc_list, link)
@@ -3861,6 +3869,7 @@ drm_backend_create(struct weston_compositor *compositor,
 		goto err_udev_dev;
 	}
 
+	b->base.shutdown = drm_shutdown;
 	b->base.destroy = drm_destroy;
 	b->base.repaint_begin = drm_repaint_begin;
 	b->base.repaint_flush = drm_repaint_flush;

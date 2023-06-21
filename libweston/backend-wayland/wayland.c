@@ -2740,6 +2740,14 @@ wayland_backend_handle_event(int fd, uint32_t mask, void *data)
 }
 
 static void
+wayland_shutdown(struct weston_backend *backend)
+{
+	struct wayland_backend *b = to_wayland_backend(backend);
+
+	wl_event_source_remove(b->parent.wl_source);
+}
+
+static void
 wayland_destroy(struct weston_backend *backend)
 {
 	struct wayland_backend *b = container_of(backend, struct wayland_backend, base);
@@ -2747,8 +2755,6 @@ wayland_destroy(struct weston_backend *backend)
 	struct weston_head *base, *next;
 	struct wayland_parent_output *output, *next_output;
 	struct wayland_input *input, *next_input;
-
-	wl_event_source_remove(b->parent.wl_source);
 
 	weston_compositor_shutdown(ec);
 
@@ -2928,6 +2934,7 @@ wayland_backend_create(struct weston_compositor *compositor,
 		}
 	}
 
+	b->base.shutdown = wayland_shutdown;
 	b->base.destroy = wayland_destroy;
 	b->base.create_output = wayland_output_create;
 

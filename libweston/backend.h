@@ -35,6 +35,11 @@
 struct weston_hdr_metadata_type1;
 
 struct weston_backend {
+	/** Prepare for compositor shutdown (optional)
+	 *
+	 * This will be called before weston_compositor_shutdown()
+	 */
+	void (*shutdown)(struct weston_backend *backend);
 	void (*destroy)(struct weston_backend *backend);
 
 	/** Begin a repaint sequence

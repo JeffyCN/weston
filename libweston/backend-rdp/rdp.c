@@ -692,12 +692,10 @@ rdp_head_destroy(struct weston_head *base)
 	free(head);
 }
 
-void
-rdp_destroy(struct weston_backend *backend)
+static void
+rdp_shutdown(struct weston_backend *backend)
 {
 	struct rdp_backend *b = container_of(backend, struct rdp_backend, base);
-	struct weston_compositor *ec = b->compositor;
-	struct weston_head *base, *next;
 	struct rdp_peers_item *rdp_peer, *tmp;
 	int i;
 
@@ -712,6 +710,15 @@ rdp_destroy(struct weston_backend *backend)
 	for (i = 0; i < MAX_FREERDP_FDS; i++)
 		if (b->listener_events[i])
 			wl_event_source_remove(b->listener_events[i]);
+
+}
+
+void
+rdp_destroy(struct weston_backend *backend)
+{
+	struct rdp_backend *b = container_of(backend, struct rdp_backend, base);
+	struct weston_compositor *ec = b->compositor;
+	struct weston_head *base, *next;
 
 	if (b->clipboard_debug) {
 		weston_log_scope_destroy(b->clipboard_debug);
@@ -1880,6 +1887,7 @@ rdp_backend_create(struct weston_compositor *compositor,
 	b = xzalloc(sizeof *b);
 	b->compositor_tid = gettid();
 	b->compositor = compositor;
+	b->base.shutdown = rdp_shutdown;
 	b->base.destroy = rdp_destroy;
 	b->base.create_output = rdp_output_create;
 	b->rdp_key = config->rdp_key ? strdup(config->rdp_key) : NULL;

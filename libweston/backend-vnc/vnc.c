@@ -870,13 +870,19 @@ vnc_create_output(struct weston_backend *backend, const char *name)
 }
 
 static void
+vnc_shutdown(struct weston_backend *base)
+{
+	struct vnc_backend *backend = container_of(base, struct vnc_backend, base);
+
+	nvnc_close(backend->server);
+}
+
+static void
 vnc_destroy(struct weston_backend *base)
 {
 	struct vnc_backend *backend = container_of(base, struct vnc_backend, base);
 	struct weston_compositor *ec = backend->compositor;
 	struct weston_head *head, *next;
-
-	nvnc_close(backend->server);
 
 	weston_compositor_shutdown(ec);
 
@@ -1217,6 +1223,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 		return NULL;
 
 	backend->compositor = compositor;
+	backend->base.shutdown = vnc_shutdown;
 	backend->base.destroy = vnc_destroy;
 	backend->base.create_output = vnc_create_output;
 	backend->vnc_monitor_refresh_rate = config->refresh_rate * 1000;

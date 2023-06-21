@@ -9088,6 +9088,9 @@ weston_compositor_destroy(struct weston_compositor *compositor)
 
 	weston_compositor_xkb_destroy(compositor);
 
+	if (compositor->backend && compositor->backend->shutdown)
+		compositor->backend->shutdown(compositor->backend);
+
 	if (compositor->backend)
 		compositor->backend->destroy(compositor->backend);
 

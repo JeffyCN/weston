@@ -1829,14 +1829,20 @@ x11_backend_get_wm_info(struct x11_backend *c)
 }
 
 static void
-x11_destroy(struct weston_backend *base)
+x11_shutdown(struct weston_backend *base)
 {
-	struct x11_backend *backend = container_of(base, struct x11_backend, base);
-	struct weston_compositor *ec = backend->compositor;
-	struct weston_head *head, *next;
+	struct x11_backend *backend = to_x11_backend(base);
 
 	wl_event_source_remove(backend->xcb_source);
 	x11_input_destroy(backend);
+}
+
+static void
+x11_destroy(struct weston_backend *base)
+{
+	struct x11_backend *backend = to_x11_backend(base);
+	struct weston_compositor *ec = backend->compositor;
+	struct weston_head *head, *next;
 
 	weston_compositor_shutdown(ec); /* destroys outputs, too */
 
@@ -1923,6 +1929,7 @@ x11_backend_create(struct weston_compositor *compositor,
 			goto err_xdisplay;
 	}
 
+	b->base.shutdown = x11_shutdown;
 	b->base.destroy = x11_destroy;
 	b->base.create_output = x11_output_create;
 
