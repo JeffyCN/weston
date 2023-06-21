@@ -4048,26 +4048,27 @@ apply_damage_buffer(pixman_region32_t *dest,
 		    struct weston_surface_state *state)
 {
 	struct weston_buffer *buffer = surface->buffer_ref.buffer;
+	pixman_region32_t buffer_damage;
 
 	/* wl_surface.damage_buffer needs to be clipped to the buffer,
 	 * translated into surface co-ordinates and unioned with
 	 * any other surface damage.
 	 * None of this makes sense if there is no buffer though.
 	 */
-	if (buffer && pixman_region32_not_empty(&state->damage_buffer)) {
-		pixman_region32_t buffer_damage;
+	if (!buffer || !pixman_region32_not_empty(&state->damage_buffer))
+		return;
 
-		pixman_region32_intersect_rect(&state->damage_buffer,
-					       &state->damage_buffer,
-					       0, 0, buffer->width,
-					       buffer->height);
-		pixman_region32_init(&buffer_damage);
-		weston_matrix_transform_region(&buffer_damage,
-					       &surface->buffer_to_surface_matrix,
-					       &state->damage_buffer);
-		pixman_region32_union(dest, dest, &buffer_damage);
-		pixman_region32_fini(&buffer_damage);
-	}
+
+	pixman_region32_intersect_rect(&state->damage_buffer,
+				       &state->damage_buffer,
+				       0, 0,
+				       buffer->width, buffer->height);
+	pixman_region32_init(&buffer_damage);
+	weston_matrix_transform_region(&buffer_damage,
+				       &surface->buffer_to_surface_matrix,
+				       &state->damage_buffer);
+	pixman_region32_union(dest, dest, &buffer_damage);
+	pixman_region32_fini(&buffer_damage);
 }
 
 static void
