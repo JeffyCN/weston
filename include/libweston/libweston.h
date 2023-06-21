@@ -484,6 +484,9 @@ struct weston_output {
 	 *  if set, a repaint will eventually occur. */
 	bool repaint_needed;
 
+	/** True if the entire contents of the output should be redrawn */
+	bool full_repaint_needed;
+
 	/** Used only between repaint_begin and repaint_cancel. */
 	bool repainted;
 

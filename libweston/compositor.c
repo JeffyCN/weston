@@ -2872,11 +2872,7 @@ weston_compositor_damage_all(struct weston_compositor *compositor)
 WL_EXPORT void
 weston_output_damage(struct weston_output *output)
 {
-	struct weston_compositor *compositor = output->compositor;
-
-	pixman_region32_union(&compositor->primary_plane.damage,
-			      &compositor->primary_plane.damage,
-			      &output->region);
+	output->full_repaint_needed = true;
 	weston_output_schedule_repaint(output);
 }
 
@@ -3260,6 +3256,11 @@ weston_output_repaint(struct weston_output *output)
 				  &ec->primary_plane.damage, &output->region);
 	pixman_region32_subtract(&output_damage,
 				 &output_damage, &ec->primary_plane.clip);
+
+	if (output->full_repaint_needed) {
+		pixman_region32_copy(&output_damage, &output->region);
+		output->full_repaint_needed = false;
+	}
 
 	r = output->repaint(output, &output_damage);
 
