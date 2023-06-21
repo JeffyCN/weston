@@ -441,9 +441,6 @@ x11_output_repaint_gl(struct weston_output *output_base,
 
 	ec->renderer->repaint_output(output_base, damage, NULL);
 
-	pixman_region32_subtract(&ec->primary_plane.damage,
-				 &ec->primary_plane.damage, damage);
-
 	wl_event_source_timer_update(output->finish_frame_timer, 10);
 	return 0;
 }
@@ -522,8 +519,6 @@ x11_output_repaint_shm(struct weston_output *output_base,
 
 	ec->renderer->repaint_output(output_base, damage, output->renderbuffer);
 
-	pixman_region32_subtract(&ec->primary_plane.damage,
-				 &ec->primary_plane.damage, damage);
 	set_clip_for_output(output_base, damage);
 	cookie = xcb_shm_put_image_checked(b->conn, output->window, output->gc,
 					pixman_image_get_width(image),

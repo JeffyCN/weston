@@ -515,8 +515,6 @@ wayland_output_repaint_gl(struct weston_output *output_base,
 
 	ec->renderer->repaint_output(&output->base, damage, NULL);
 
-	pixman_region32_subtract(&ec->primary_plane.damage,
-				 &ec->primary_plane.damage, damage);
 	return 0;
 }
 #endif
@@ -638,8 +636,6 @@ wayland_output_repaint_pixman(struct weston_output *output_base,
 
 	sb->frame_damaged = 0;
 
-	pixman_region32_subtract(&b->compositor->primary_plane.damage,
-				 &b->compositor->primary_plane.damage, damage);
 	return 0;
 }
 

@@ -3263,6 +3263,9 @@ weston_output_repaint(struct weston_output *output)
 
 	r = output->repaint(output, &output_damage);
 
+	pixman_region32_subtract(&ec->primary_plane.damage,
+				 &ec->primary_plane.damage, &output_damage);
+
 	pixman_region32_fini(&output_damage);
 
 	output->repaint_needed = false;

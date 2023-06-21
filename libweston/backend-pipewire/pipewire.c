@@ -789,8 +789,6 @@ pipewire_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 
 	pipewire_submit_buffer(output, buffer);
 
-	pixman_region32_subtract(&ec->primary_plane.damage,
-				 &ec->primary_plane.damage, damage);
 out:
 
 	pipewire_output_arm_timer(output);

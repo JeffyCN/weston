@@ -957,8 +957,6 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 
 	if (pixman_region32_not_empty(damage)) {
 		vnc_update_buffer(output->display, damage);
-		pixman_region32_subtract(&ec->primary_plane.damage,
-					 &ec->primary_plane.damage, damage);
 	}
 
 	/*

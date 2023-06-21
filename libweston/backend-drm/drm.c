@@ -415,9 +415,6 @@ drm_output_render(struct drm_output_state *state, pixman_region32_t *damage)
 
 	scanout_state->zpos = scanout_plane->zpos_min;
 
-	pixman_region32_subtract(&c->primary_plane.damage,
-				 &c->primary_plane.damage, damage);
-
 	/* Don't bother calculating plane damage if the plane doesn't support it */
 	if (damage_info->prop_id == 0)
 		return;
