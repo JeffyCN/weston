@@ -1740,6 +1740,8 @@ enum weston_surface_status {
 	/** buffer parameters have changed in a way which impacts the
 	 * processing pipeline, e.g. format/opacity */
 	WESTON_SURFACE_DIRTY_BUFFER_PARAMS = 1 << 3,
+	/** input region has changed */
+	WESTON_SURFACE_DIRTY_INPUT = 1 << 4,
 };
 
 struct weston_surface_state {

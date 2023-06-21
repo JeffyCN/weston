@@ -3880,6 +3880,8 @@ surface_set_input_region(struct wl_client *client,
 		pixman_region32_fini(&surface->pending.input);
 		region_init_infinite(&surface->pending.input);
 	}
+
+	surface->pending.status |= WESTON_SURFACE_DIRTY_INPUT;
 }
 
 /* Cause damage to this sub-surface and all its children.
@@ -4199,8 +4201,11 @@ weston_surface_commit_state(struct weston_surface *surface,
 	}
 
 	/* wl_surface.set_input_region */
-	pixman_region32_intersect_rect(&surface->input, &state->input,
-				       0, 0, surface->width, surface->height);
+	if (status & (WESTON_SURFACE_DIRTY_SIZE | WESTON_SURFACE_DIRTY_INPUT)) {
+		pixman_region32_intersect_rect(&surface->input, &state->input,
+				       	       0, 0,
+					       surface->width, surface->height);
+	}
 
 	/* wl_surface.frame */
 	wl_list_insert_list(&surface->frame_callback_list,
