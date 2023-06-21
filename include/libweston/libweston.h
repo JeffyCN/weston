@@ -1577,8 +1577,6 @@ struct weston_buffer_viewport {
 		 */
 		int32_t width, height;
 	} surface;
-
-	bool changed;
 };
 
 struct weston_buffer_release {
