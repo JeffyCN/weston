@@ -1735,6 +1735,8 @@ enum weston_surface_status {
 	WESTON_SURFACE_DIRTY_BUFFER = 1 << 0,
 	/** surface has been resized */
 	WESTON_SURFACE_DIRTY_SIZE = 1 << 1,
+	/** x/y position has changed */
+	WESTON_SURFACE_DIRTY_POS = 1 << 2,
 };
 
 struct weston_surface_state {

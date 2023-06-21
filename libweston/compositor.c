@@ -3769,6 +3769,7 @@ surface_attach(struct wl_client *client,
 			return;
 		}
 	} else {
+		surface->pending.status |= WESTON_SURFACE_DIRTY_POS;
 		surface->pending.sx = sx;
 		surface->pending.sy = sy;
 	}
@@ -4138,16 +4139,15 @@ weston_surface_commit_state(struct weston_surface *surface,
 		weston_surface_update_size(surface);
 	}
 
-	if ((status & (WESTON_SURFACE_DIRTY_BUFFER | WESTON_SURFACE_DIRTY_SIZE)) ||
-	    state->sx != 0 || state->sy != 0) {
-		if (surface->committed) {
-			struct weston_coord_surface new_origin;
+	if ((status & (WESTON_SURFACE_DIRTY_BUFFER | WESTON_SURFACE_DIRTY_SIZE |
+		       WESTON_SURFACE_DIRTY_POS)) &&
+	     surface->committed) {
+		struct weston_coord_surface new_origin;
 
-			new_origin = weston_coord_surface(state->sx,
-							  state->sy,
-							  surface);
-			surface->committed(surface, new_origin);
-		}
+		new_origin = weston_coord_surface(state->sx,
+						  state->sy,
+						  surface);
+		surface->committed(surface, new_origin);
 	}
 
 	state->sx = 0;
@@ -4350,6 +4350,7 @@ surface_offset(struct wl_client *client,
 {
 	struct weston_surface *surface = wl_resource_get_user_data(resource);
 
+	surface->pending.status |= WESTON_SURFACE_DIRTY_POS;
 	surface->pending.sx = sx;
 	surface->pending.sy = sy;
 }
@@ -4497,8 +4498,11 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 	 * translated to correspond to the new surface coordinate system
 	 * origin.
 	 */
-	pixman_region32_translate(&sub->cached.damage_surface,
-				  -surface->pending.sx, -surface->pending.sy);
+	if (surface->pending.status & WESTON_SURFACE_DIRTY_POS) {
+		pixman_region32_translate(&sub->cached.damage_surface,
+				  	  -surface->pending.sx, -surface->pending.sy);
+	}
+
 	pixman_region32_union(&sub->cached.damage_surface,
 			      &sub->cached.damage_surface,
 			      &surface->pending.damage_surface);
