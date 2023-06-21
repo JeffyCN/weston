@@ -35,8 +35,7 @@ export WESTON_CI_LEAK_DL_HANDLE=$(find /usr/local -name swrast_dri.so -print 2>/
 # run the tests and save the exit status
 # we give ourselves a very generous timeout multiplier due to ASan overhead
 echo 0x1f > /sys/module/drm/parameters/debug
-seatd-launch -- meson test --no-rebuild --timeout-multiplier 4 \
-	--wrapper $(pwd)/../.gitlab-ci/virtme-scripts/per-test-asan.sh
+seatd-launch -- meson test --no-rebuild --timeout-multiplier 4
 # note that we need to store the return value from the tests in order to
 # determine if the test suite ran successfully or not.
 TEST_RES=$?
