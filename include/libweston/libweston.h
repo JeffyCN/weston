@@ -1737,6 +1737,9 @@ enum weston_surface_status {
 	WESTON_SURFACE_DIRTY_SIZE = 1 << 1,
 	/** x/y position has changed */
 	WESTON_SURFACE_DIRTY_POS = 1 << 2,
+	/** buffer parameters have changed in a way which impacts the
+	 * processing pipeline, e.g. format/opacity */
+	WESTON_SURFACE_DIRTY_BUFFER_PARAMS = 1 << 3,
 };
 
 struct weston_surface_state {

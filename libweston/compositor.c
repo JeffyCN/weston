@@ -2666,6 +2666,7 @@ weston_surface_attach(struct weston_surface *surface,
 		      enum weston_surface_status status)
 {
 	struct weston_buffer *buffer = state->buffer;
+	struct weston_buffer *old_buffer = surface->buffer_ref.buffer;
 
 	if (!buffer) {
 		if (weston_surface_is_mapped(surface)) {
@@ -2673,6 +2674,7 @@ weston_surface_attach(struct weston_surface *surface,
 			/* This is the unmapping commit */
 			surface->is_unmapping = true;
 			status |= WESTON_SURFACE_DIRTY_BUFFER;
+			status |= WESTON_SURFACE_DIRTY_BUFFER_PARAMS;
 			status |= WESTON_SURFACE_DIRTY_SIZE;
 		}
 
@@ -2689,9 +2691,9 @@ weston_surface_attach(struct weston_surface *surface,
 	/* Recalculate the surface size if the buffer dimensions or the
 	 * surface transforms (viewport, rotation/mirror, scale) have
 	 * changed. */
-	if (!surface->buffer_ref.buffer ||
-	    buffer->width != surface->buffer_ref.buffer->width ||
-	    buffer->height != surface->buffer_ref.buffer->height ||
+	if (!old_buffer ||
+	    buffer->width != old_buffer->width ||
+	    buffer->height != old_buffer->height ||
 	    (status & WESTON_SURFACE_DIRTY_SIZE)) {
 		struct weston_buffer_viewport *vp = &state->buffer_viewport;
 		int32_t old_width = surface->width_from_buffer;
@@ -2710,13 +2712,19 @@ weston_surface_attach(struct weston_surface *surface,
 		}
 	}
 
+	if (!old_buffer ||
+	    buffer->pixel_format != old_buffer->pixel_format ||
+	    buffer->format_modifier != old_buffer->format_modifier) {
+		surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
+		status |= WESTON_SURFACE_DIRTY_BUFFER_PARAMS;
+	}
+
 	status |= WESTON_SURFACE_DIRTY_BUFFER;
 
+	old_buffer = NULL;
 	weston_buffer_reference(&surface->buffer_ref, buffer,
 				BUFFER_MAY_BE_ACCESSED);
 	surface->compositor->renderer->attach(surface, buffer);
-
-	surface->is_opaque = pixel_format_is_opaque(buffer->pixel_format);
 
 	return status;
 }
@@ -3852,6 +3860,8 @@ surface_set_opaque_region(struct wl_client *client,
 	} else {
 		pixman_region32_clear(&surface->pending.opaque);
 	}
+
+	surface->pending.status |= WESTON_SURFACE_DIRTY_BUFFER_PARAMS;
 }
 
 static void
@@ -4172,17 +4182,21 @@ weston_surface_commit_state(struct weston_surface *surface,
 	pixman_region32_clear(&state->damage_surface);
 
 	/* wl_surface.set_opaque_region */
-	pixman_region32_init(&opaque);
-	pixman_region32_intersect_rect(&opaque, &state->opaque,
-				       0, 0, surface->width, surface->height);
+	if (status & (WESTON_SURFACE_DIRTY_SIZE |
+		      WESTON_SURFACE_DIRTY_BUFFER_PARAMS)) {
+		pixman_region32_init(&opaque);
+		pixman_region32_intersect_rect(&opaque, &state->opaque,
+					       0, 0,
+					       surface->width, surface->height);
 
-	if (!pixman_region32_equal(&opaque, &surface->opaque)) {
-		pixman_region32_copy(&surface->opaque, &opaque);
-		wl_list_for_each(view, &surface->views, surface_link)
-			weston_view_geometry_dirty(view);
+		if (!pixman_region32_equal(&opaque, &surface->opaque)) {
+			pixman_region32_copy(&surface->opaque, &opaque);
+			wl_list_for_each(view, &surface->views, surface_link)
+				weston_view_geometry_dirty(view);
+		}
+
+		pixman_region32_fini(&opaque);
 	}
-
-	pixman_region32_fini(&opaque);
 
 	/* wl_surface.set_input_region */
 	pixman_region32_intersect_rect(&surface->input, &state->input,
