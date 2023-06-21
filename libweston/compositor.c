@@ -600,7 +600,7 @@ surface_state_handle_buffer_destroy(struct wl_listener *listener, void *data)
 static void
 weston_surface_state_init(struct weston_surface_state *state)
 {
-	state->newly_attached = false;
+	state->status = WESTON_SURFACE_CLEAN;
 	state->buffer = NULL;
 	state->buffer_destroy_listener.notify =
 		surface_state_handle_buffer_destroy;
@@ -2143,7 +2143,6 @@ static void
 weston_surface_reset_pending_buffer(struct weston_surface *surface)
 {
 	weston_surface_state_set_buffer(&surface->pending, NULL);
-	surface->pending.newly_attached = false;
 	surface->pending.buffer_viewport.changed = false;
 }
 
@@ -3786,7 +3785,7 @@ surface_attach(struct wl_client *client,
 	 * wl_buffer.release. */
 	weston_surface_state_set_buffer(&surface->pending, buffer);
 
-	surface->pending.newly_attached = true;
+	surface->pending.status |= WESTON_SURFACE_DIRTY_BUFFER;
 }
 
 static void
@@ -3983,7 +3982,7 @@ weston_surface_is_pending_viewport_source_valid(
 	if (vp->buffer.src_width == wl_fixed_from_int(-1))
 		return true;
 
-	if (pend->newly_attached) {
+	if (pend->status & WESTON_SURFACE_DIRTY_BUFFER) {
 		if (pend->buffer) {
 			convert_size_by_transform_scale(&width_from_buffer,
 							&height_from_buffer,
@@ -4112,7 +4111,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 {
 	struct weston_view *view;
 	pixman_region32_t opaque;
-	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
+	enum weston_surface_status status = state->status;
 
 	/* wl_surface.set_buffer_transform */
 	/* wl_surface.set_buffer_scale */
@@ -4123,7 +4122,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 		status |= WESTON_SURFACE_DIRTY_SIZE;
 
 	/* wl_surface.attach */
-	if (state->newly_attached) {
+	if (status & WESTON_SURFACE_DIRTY_BUFFER) {
 		/* zwp_surface_synchronization_v1.set_acquire_fence */
 		fd_move(&surface->acquire_fence_fd,
 			&state->acquire_fence_fd);
@@ -4163,7 +4162,6 @@ weston_surface_commit_state(struct weston_surface *surface,
 
 	state->sx = 0;
 	state->sy = 0;
-	state->newly_attached = false;
 	state->buffer_viewport.changed = false;
 
 	/* wl_surface.damage and wl_surface.damage_buffer */
@@ -4224,6 +4222,7 @@ weston_surface_commit_state(struct weston_surface *surface,
 
 	/* Surface is fully unmapped now */
 	surface->is_unmapping = false;
+	state->status = WESTON_SURFACE_CLEAN;
 }
 
 static void
@@ -4521,8 +4520,8 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 			      &surface->pending.damage_buffer);
 	pixman_region32_clear(&surface->pending.damage_buffer);
 
-	if (surface->pending.newly_attached) {
-		sub->cached.newly_attached = true;
+
+	if (surface->pending.status & WESTON_SURFACE_DIRTY_BUFFER) {
 		weston_surface_state_set_buffer(&sub->cached,
 						surface->pending.buffer);
 		weston_buffer_reference(&sub->cached_buffer_ref,
@@ -4570,6 +4569,8 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 			    &surface->pending.feedback_list);
 	wl_list_init(&surface->pending.feedback_list);
 
+	sub->cached.status |= surface->pending.status;
+	surface->pending.status = WESTON_SURFACE_CLEAN;
 	sub->has_cached_data = 1;
 }
 

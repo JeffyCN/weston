@@ -1736,8 +1736,9 @@ enum weston_surface_status {
 };
 
 struct weston_surface_state {
+	enum weston_surface_status status;
+
 	/* wl_surface.attach */
-	bool newly_attached;
 	struct weston_buffer *buffer;
 	struct wl_listener buffer_destroy_listener;
 
