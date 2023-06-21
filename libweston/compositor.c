@@ -484,6 +484,7 @@ weston_view_create_internal(struct weston_surface *surface)
 	wl_list_init(&view->paint_node_list);
 
 	pixman_region32_init(&view->clip);
+	pixman_region32_init(&view->visible);
 
 	view->alpha = 1.0;
 	pixman_region32_init(&view->transform.opaque);
@@ -2283,6 +2284,7 @@ weston_view_destroy(struct weston_view *view)
 	weston_layer_entry_remove(&view->layer_link);
 
 	pixman_region32_fini(&view->clip);
+	pixman_region32_fini(&view->visible);
 	pixman_region32_fini(&view->geometry.scissor);
 	pixman_region32_fini(&view->transform.boundingbox);
 	pixman_region32_fini(&view->transform.opaque);
@@ -2931,6 +2933,8 @@ view_accumulate_damage(struct weston_view *view,
 	pixman_region32_union(&view->plane->damage,
 			      &view->plane->damage, &damage);
 	pixman_region32_fini(&damage);
+	pixman_region32_subtract(&view->visible, &view->transform.boundingbox,
+				 opaque);
 	pixman_region32_copy(&view->clip, opaque);
 	pixman_region32_union(opaque, opaque, &view->transform.opaque);
 }

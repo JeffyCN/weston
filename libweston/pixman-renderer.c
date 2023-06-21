@@ -514,8 +514,7 @@ draw_paint_node(struct weston_paint_node *pnode,
 
 	pixman_region32_init(&repaint);
 	pixman_region32_intersect(&repaint,
-				  &pnode->view->transform.boundingbox, damage);
-	pixman_region32_subtract(&repaint, &repaint, &pnode->view->clip);
+				  &pnode->view->visible, damage);
 
 	if (!pixman_region32_not_empty(&repaint))
 		goto out;
