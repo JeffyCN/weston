@@ -1728,8 +1728,12 @@ struct weston_view {
 };
 
 enum weston_surface_status {
+	/** nothing has changed */
 	WESTON_SURFACE_CLEAN = 0,
+	/** a new buffer has been attached, but is like-for-like with the
+	 * previous */
 	WESTON_SURFACE_DIRTY_BUFFER = 1 << 0,
+	/** surface has been resized */
 	WESTON_SURFACE_DIRTY_SIZE = 1 << 1,
 };
 
