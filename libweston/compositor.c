@@ -974,7 +974,7 @@ weston_view_move_to_plane(struct weston_view *view,
  * A repaint is scheduled for this view.
  *
  * The region of all opaque views covering this view is stored in
- * weston_view::clip and updated by view_accumulate_damage() during
+ * weston_view::clip and updated by output_update_visibility() during
  * weston_output_repaint(). Specifically, that region matches the
  * scenegraph as it was last painted.
  */
@@ -2907,8 +2907,7 @@ surface_flush_damage(struct weston_surface *surface, struct weston_output *outpu
 }
 
 static void
-view_accumulate_damage(struct weston_view *view,
-		       pixman_region32_t *opaque)
+view_accumulate_damage(struct weston_view *view)
 {
 	pixman_region32_t damage;
 
@@ -2927,20 +2926,27 @@ view_accumulate_damage(struct weston_view *view,
 					  view->geometry.pos_offset.y);
 	}
 
-	pixman_region32_intersect(&damage, &damage,
-				  &view->transform.boundingbox);
-	pixman_region32_subtract(&damage, &damage, opaque);
+	pixman_region32_intersect(&damage, &damage, &view->visible);
 	pixman_region32_union(&view->plane->damage,
 			      &view->plane->damage, &damage);
 	pixman_region32_fini(&damage);
+}
+
+static void
+view_update_clip_and_visible(struct weston_view *view,
+                             pixman_region32_t *opaque)
+{
+	assert(!view->transform.dirty);
+
 	pixman_region32_subtract(&view->visible, &view->transform.boundingbox,
 				 opaque);
 	pixman_region32_copy(&view->clip, opaque);
 	pixman_region32_union(opaque, opaque, &view->transform.opaque);
 }
 
+
 static void
-output_accumulate_damage(struct weston_output *output)
+output_update_visibility(struct weston_output *output)
 {
 	struct weston_compositor *ec = output->compositor;
 	struct weston_plane *plane;
@@ -2959,7 +2965,7 @@ output_accumulate_damage(struct weston_output *output)
 			if (pnode->view->plane != plane)
 				continue;
 
-			view_accumulate_damage(pnode->view, &opaque);
+			view_update_clip_and_visible(pnode->view, &opaque);
 		}
 
 		pixman_region32_union(&clip, &clip, &opaque);
@@ -2967,6 +2973,24 @@ output_accumulate_damage(struct weston_output *output)
 	}
 
 	pixman_region32_fini(&clip);
+}
+
+static void
+output_accumulate_damage(struct weston_output *output)
+{
+	struct weston_compositor *ec = output->compositor;
+	struct weston_plane *plane;
+	struct weston_paint_node *pnode;
+
+	wl_list_for_each(plane, &ec->plane_list, link) {
+		wl_list_for_each(pnode, &output->paint_node_z_order_list,
+				 z_order_link) {
+			if (pnode->view->plane != plane)
+				continue;
+
+			view_accumulate_damage(pnode->view);
+		}
+	}
 
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
 			 z_order_link) {
@@ -3253,6 +3277,8 @@ weston_output_repaint(struct weston_output *output)
 			weston_output_take_feedback_list(output, pnode->surface);
 		}
 	}
+
+	output_update_visibility(output);
 
 	output_accumulate_damage(output);
 
