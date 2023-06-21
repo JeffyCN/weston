@@ -45,6 +45,7 @@ dir_lib_pc = dir_lib / 'pkgconfig'
 dir_man = dir_prefix / get_option('mandir')
 dir_protocol_libweston = 'libweston-@0@'.format(libweston_major) / 'protocols'
 dir_sysconf = dir_prefix / get_option('sysconfdir')
+dir_gitlab_ci = meson.project_source_root() / '.gitlab-ci'
 
 public_inc = include_directories('include')
 common_inc = [ include_directories('.'), public_inc ]

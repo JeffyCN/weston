@@ -408,6 +408,13 @@ test_config_h.set_quoted('TESTSUITE_PLUGIN_PATH', exe_plugin_test.full_path())
 test_config_h.set10('WESTON_TEST_SKIP_IS_FAILURE', get_option('test-skip-is-failure'))
 configure_file(output: 'test-config.h', configuration: test_config_h)
 
+test_env = {}
+
+# there are some leaks in fontconfig we can't fix; 
+if get_option('b_sanitize') in ['address', 'address,undefined' ]
+  test_env += { 'LSAN_OPTIONS': 'suppressions=@0@'.format(dir_gitlab_ci / 'leak-sanitizer.supp') }
+endif
+
 foreach t : tests
 	t_name = 'test-' + t.get('name')
 	t_sources = t.get('sources', [t.get('name') + '-test.c'])
@@ -434,6 +441,7 @@ foreach t : tests
 	test(
 		t.get('name'),
 		t_exe,
+                env: test_env,
 		depends: t.get('test_deps', []),
 		timeout: 120,
 		protocol: 'tap',
