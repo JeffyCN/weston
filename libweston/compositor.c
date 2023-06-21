@@ -9150,6 +9150,10 @@ weston_compositor_backends_loaded(struct weston_compositor *compositor)
 	struct weston_backend *backend;
 	uint32_t supported_clocks = 0xffffffff;
 
+	compositor->primary_backend =
+		wl_container_of(compositor->backend_list.prev,
+				compositor->primary_backend, link);
+
 	wl_list_for_each(backend, &compositor->backend_list, link)
 		supported_clocks &= backend->supported_presentation_clocks;
 
@@ -9562,9 +9566,9 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 	if (backend_init(compositor, config_base) < 0)
 		return NULL;
 
-	/* Return the last loaded backend. */
 	b = wl_container_of(compositor->backend_list.next, b, link);
 
+	/* Return the last loaded backend. */
 	return b;
 }
 

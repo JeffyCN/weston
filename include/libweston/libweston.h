@@ -1439,6 +1439,8 @@ struct weston_compositor {
 	struct weston_renderer *renderer;
 	const struct pixel_format_info *read_format;
 
+	/* Pointer to the first backend on backend_list */
+	struct weston_backend *primary_backend;
 	struct wl_list backend_list;
 
 	struct weston_launcher *launcher;
