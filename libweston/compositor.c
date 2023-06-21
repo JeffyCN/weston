@@ -8714,7 +8714,7 @@ fail:
 /** weston_compositor_shutdown
  * \ingroup compositor
  */
-WL_EXPORT void
+static void
 weston_compositor_shutdown(struct weston_compositor *ec)
 {
 	struct weston_output *output, *next;
@@ -9091,6 +9091,8 @@ weston_compositor_destroy(struct weston_compositor *compositor)
 	if (compositor->backend && compositor->backend->shutdown)
 		compositor->backend->shutdown(compositor->backend);
 
+	weston_compositor_shutdown(compositor);
+
 	if (compositor->backend)
 		compositor->backend->destroy(compositor->backend);
 
@@ -9196,6 +9198,7 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 
 	if (backend_init(compositor, config_base) < 0) {
 		compositor->backend = NULL;
+		weston_compositor_shutdown(compositor);
 		return -1;
 	}
 

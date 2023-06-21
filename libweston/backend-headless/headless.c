@@ -506,8 +506,6 @@ headless_destroy(struct weston_backend *backend)
 	struct weston_compositor *ec = b->compositor;
 	struct weston_head *base, *next;
 
-	weston_compositor_shutdown(ec);
-
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
 		if (to_headless_head(base))
 			headless_head_destroy(base);
@@ -625,8 +623,6 @@ headless_backend_create(struct weston_compositor *compositor,
 err_input:
 	if (b->theme)
 		theme_destroy(b->theme);
-
-	weston_compositor_shutdown(compositor);
 err_free:
 	free(b);
 	return NULL;

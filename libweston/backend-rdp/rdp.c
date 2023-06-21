@@ -740,8 +740,6 @@ rdp_destroy(struct weston_backend *backend)
 		b->verbose = NULL;
 	}
 
-	weston_compositor_shutdown(ec);
-
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
 		if (to_rdp_head(base))
 			rdp_head_destroy(base);
@@ -2035,8 +2033,6 @@ err_compositor:
 		if (to_rdp_head(base))
 			rdp_head_destroy(base);
 	}
-
-	weston_compositor_shutdown(compositor);
 err_free_strings:
 	if (b->clipboard_debug)
 		weston_log_scope_destroy(b->clipboard_debug);

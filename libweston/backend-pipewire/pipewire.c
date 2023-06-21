@@ -645,8 +645,6 @@ pipewire_destroy(struct weston_backend *base)
 	weston_log_scope_destroy(b->debug);
 	b->debug = NULL;
 
-	weston_compositor_shutdown(ec);
-
 	pw_loop_leave(b->loop);
 	pw_loop_destroy(b->loop);
 	wl_event_source_remove(b->loop_source);
@@ -1098,8 +1096,6 @@ pipewire_backend_create(struct weston_compositor *compositor,
 	return backend;
 
 err_compositor:
-	weston_compositor_shutdown(compositor);
-
 	free(backend);
 	return NULL;
 }

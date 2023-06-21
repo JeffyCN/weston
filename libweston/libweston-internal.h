@@ -243,8 +243,6 @@ weston_compositor_set_presentation_clock(struct weston_compositor *compositor,
 int
 weston_compositor_set_presentation_clock_software(
 					struct weston_compositor *compositor);
-void
-weston_compositor_shutdown(struct weston_compositor *ec);
 
 void
 weston_compositor_xkb_destroy(struct weston_compositor *ec);

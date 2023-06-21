@@ -2756,8 +2756,6 @@ wayland_destroy(struct weston_backend *backend)
 	struct wayland_parent_output *output, *next_output;
 	struct wayland_input *input, *next_input;
 
-	weston_compositor_shutdown(ec);
-
 	wl_list_for_each_safe(base, next, &ec->head_list, compositor_link) {
 		if (to_wayland_head(base))
 			wayland_head_destroy(base);
@@ -2961,7 +2959,6 @@ err_renderer:
 err_display:
 	wl_display_disconnect(b->parent.wl_display);
 err_compositor:
-	weston_compositor_shutdown(compositor);
 	free(b->formats);
 	free(b);
 	return NULL;
@@ -2978,7 +2975,6 @@ wayland_backend_destroy(struct wayland_backend *b)
 		cairo_device_destroy(b->frame_device);
 	wl_cursor_theme_destroy(b->cursor_theme);
 
-	weston_compositor_shutdown(b->compositor);
 	cleanup_after_cairo();
 	free(b->formats);
 	free(b);

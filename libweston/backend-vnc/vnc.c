@@ -884,8 +884,6 @@ vnc_destroy(struct weston_backend *base)
 	struct weston_compositor *ec = backend->compositor;
 	struct weston_head *head, *next;
 
-	weston_compositor_shutdown(ec);
-
 	wl_event_source_remove(backend->aml_event);
 
 	aml_unref(backend->aml);
@@ -1344,7 +1342,6 @@ err_output:
 	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link)
 		vnc_head_destroy(base);
 err_compositor:
-	weston_compositor_shutdown(compositor);
 	free(backend);
 	return NULL;
 }

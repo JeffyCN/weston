@@ -3260,8 +3260,6 @@ drm_destroy(struct weston_backend *backend)
 	struct drm_crtc *crtc, *crtc_tmp;
 	struct drm_writeback *writeback, *writeback_tmp;
 
-	weston_compositor_shutdown(ec);
-
 	wl_list_for_each_safe(crtc, crtc_tmp, &b->drm->crtc_list, link)
 		drm_crtc_destroy(crtc);
 
@@ -4021,7 +4019,6 @@ err_udev:
 err_launcher:
 	weston_launcher_destroy(compositor->launcher);
 err_compositor:
-	weston_compositor_shutdown(compositor);
 #ifdef BUILD_DRM_GBM
 	if (b->gbm)
 		gbm_device_destroy(b->gbm);

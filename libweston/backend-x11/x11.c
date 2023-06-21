@@ -1844,8 +1844,6 @@ x11_destroy(struct weston_backend *base)
 	struct weston_compositor *ec = backend->compositor;
 	struct weston_head *head, *next;
 
-	weston_compositor_shutdown(ec); /* destroys outputs, too */
-
 	wl_list_for_each_safe(head, next, &ec->head_list, compositor_link) {
 		if (to_x11_head(head))
 			x11_head_destroy(head);
