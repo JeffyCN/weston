@@ -2967,7 +2967,7 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 		return;
 
 	wl_list_for_each(iv, &sub->unused_views, surface_link) {
-		if (iv->geometry.parent == parent) {
+		if (iv->parent_view == parent) {
 			view = iv;
 			break;
 		}
