@@ -2938,7 +2938,7 @@ wayland_backend_create(struct weston_compositor *compositor,
 		wl_event_loop_add_fd(loop, fd, WL_EVENT_READABLE,
 				     wayland_backend_handle_event, b);
 	if (b->parent.wl_source == NULL)
-		goto err_display;
+		goto err_renderer;
 
 	wl_event_source_check(b->parent.wl_source);
 
@@ -2949,6 +2949,8 @@ wayland_backend_create(struct weston_compositor *compositor,
 	}
 
 	return b;
+err_renderer:
+	compositor->renderer->destroy(compositor);
 err_display:
 	wl_display_disconnect(b->parent.wl_display);
 err_compositor:
