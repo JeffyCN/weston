@@ -3806,6 +3806,7 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	weston_log_scope_destroy(gr->shader_scope);
 	weston_log_scope_destroy(gr->renderer_scope);
 	free(gr);
+	ec->renderer = NULL;
 }
 
 static int
