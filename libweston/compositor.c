@@ -4068,8 +4068,6 @@ apply_damage_buffer(pixman_region32_t *dest,
 		pixman_region32_union(dest, dest, &buffer_damage);
 		pixman_region32_fini(&buffer_damage);
 	}
-	/* We should clear this on commit even if there was no buffer */
-	pixman_region32_clear(&state->damage_buffer);
 }
 
 static void
@@ -4153,18 +4151,23 @@ weston_surface_commit_state(struct weston_surface *surface,
 	state->sx = 0;
 	state->sy = 0;
 
-	/* wl_surface.damage and wl_surface.damage_buffer */
-	if (pixman_region32_not_empty(&state->damage_surface) ||
-	     pixman_region32_not_empty(&state->damage_buffer))
-		TL_POINT(surface->compositor, "core_commit_damage", TLP_SURFACE(surface), TLP_END);
+	/* wl_surface.damage and wl_surface.damage_buffer; only valid
+	 * in the same cycle as wl_surface.commit */
+	if (status & WESTON_SURFACE_DIRTY_BUFFER) {
+		TL_POINT(surface->compositor, "core_commit_damage",
+			TLP_SURFACE(surface), TLP_END);
 
-	pixman_region32_union(&surface->damage, &surface->damage,
-			      &state->damage_surface);
+		pixman_region32_union(&surface->damage, &surface->damage,
+				      &state->damage_surface);
 
-	apply_damage_buffer(&surface->damage, surface, state);
+		apply_damage_buffer(&surface->damage, surface, state);
 
-	pixman_region32_intersect_rect(&surface->damage, &surface->damage,
-				       0, 0, surface->width, surface->height);
+		pixman_region32_intersect_rect(&surface->damage,
+					       &surface->damage,
+					       0, 0,
+					       surface->width, surface->height);
+	}
+	pixman_region32_clear(&state->damage_buffer);
 	pixman_region32_clear(&state->damage_surface);
 
 	/* wl_surface.set_opaque_region */
