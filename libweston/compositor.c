@@ -210,7 +210,6 @@ weston_paint_node_create(struct weston_surface *surface,
 	wl_list_init(&pnode->z_order_link);
 
 	pnode->status = PAINT_NODE_ALL_DIRTY;
-	paint_node_update(pnode);
 
 	return pnode;
 }
@@ -3005,10 +3004,8 @@ view_ensure_paint_node(struct weston_view *view, struct weston_output *output)
 		return NULL;
 
 	pnode = weston_view_find_paint_node(view, output);
-	if (pnode) {
-		paint_node_update(pnode);
+	if (pnode)
 		return pnode;
-	}
 
 	return weston_paint_node_create(view->surface, view, output);
 }
@@ -3223,6 +3220,10 @@ weston_output_repaint(struct weston_output *output)
 	}
 
 	output->desired_protection = highest_requested;
+
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link)
+		paint_node_update(pnode);
 
 	if (output->assign_planes && !output->disable_planes) {
 		output->assign_planes(output);
