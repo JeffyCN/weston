@@ -2750,7 +2750,7 @@ wayland_shutdown(struct weston_backend *backend)
 static void
 wayland_destroy(struct weston_backend *backend)
 {
-	struct wayland_backend *b = container_of(backend, struct wayland_backend, base);
+	struct wayland_backend *b = to_wayland_backend(backend);
 	struct weston_compositor *ec = b->compositor;
 	struct weston_head *base, *next;
 	struct wayland_parent_output *output, *next_output;
