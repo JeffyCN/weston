@@ -2926,10 +2926,11 @@ surface_free_unused_subsurface_views(struct weston_surface *surface)
 		if (sub->surface == surface)
 			continue;
 
-		wl_list_for_each_safe(view, nv, &sub->unused_views, surface_link) {
-			weston_view_unmap (view);
-			weston_view_destroy(view);
-		}
+		wl_list_for_each_safe(view, nv, &sub->unused_views, surface_link)
+			assert(!weston_view_is_mapped(view));
+
+		wl_list_insert_list(&sub->surface->views, &sub->unused_views);
+		wl_list_init(&sub->unused_views);
 
 		surface_free_unused_subsurface_views(sub->surface);
 	}
