@@ -202,6 +202,7 @@ paint_node_update_late(struct weston_paint_node *pnode)
 {
 	bool vis_dirty = pnode->status & PAINT_NODE_VISIBILITY_DIRTY;
 	bool plane_dirty = pnode->status & PAINT_NODE_PLANE_DIRTY;
+	bool content_dirty = pnode->status & PAINT_NODE_CONTENT_DIRTY;
 
 	/* The geoemtry may be shrinking, so we shouldn't just
 	 * add the old visible region to our damage region, because
@@ -231,6 +232,10 @@ paint_node_update_late(struct weston_paint_node *pnode)
 	if (pnode->plane && (vis_dirty || plane_dirty))
 		pixman_region32_copy(&pnode->damage, &pnode->visible);
 
+	if (content_dirty && pnode->plane)
+		pixman_region32_union(&pnode->damage,
+				      &pnode->damage, &pnode->visible);
+
 	if (plane_dirty) {
 		assert(pnode->plane_next);
 
@@ -239,7 +244,8 @@ paint_node_update_late(struct weston_paint_node *pnode)
 	}
 
 	pnode->status &= ~(PAINT_NODE_VISIBILITY_DIRTY |
-			   PAINT_NODE_PLANE_DIRTY);
+			   PAINT_NODE_PLANE_DIRTY |
+			   PAINT_NODE_CONTENT_DIRTY);
 
 	/* Nothing should be able to flip "early" bits between
 	 * the early and late updates.
@@ -1768,22 +1774,13 @@ weston_view_schedule_repaint(struct weston_view *view)
 			weston_output_schedule_repaint(output);
 }
 
-/**
- * XXX: This function does it the wrong way.
- * surface->damage is the damage from the client, and causes
- * surface_flush_damage() to copy pixels. No window management action can
- * cause damage to the client-provided content, warranting re-upload!
- *
- * Instead of surface->damage, this function should record the damage
- * with all the views for this surface to avoid extraneous texture
- * uploads.
- */
 WL_EXPORT void
 weston_surface_damage(struct weston_surface *surface)
 {
-	pixman_region32_union_rect(&surface->damage, &surface->damage,
-				   0, 0, surface->width,
-				   surface->height);
+	struct weston_paint_node *pnode;
+
+	wl_list_for_each(pnode, &surface->paint_node_list, surface_link)
+			 pnode->status |= PAINT_NODE_CONTENT_DIRTY;
 
 	weston_surface_schedule_repaint(surface);
 }
@@ -2970,27 +2967,13 @@ paint_node_add_damage(struct weston_paint_node *node)
 	pixman_region32_fini(&damage);
 }
 
-/* FIXME: note that we don't flush any damage when the core wants us to
- * do so as it will sometimes ask for a flush not necessarily at the
- * right time.
- *
- * A (more) proper way is to handle correctly damage whenever there's
- * compositor side damage. See the comment for weston_surface_damage().
- */
-static bool
-buffer_can_be_accessed_BANDAID_XXX(struct weston_buffer_reference buffer_ref)
-{
-	return buffer_ref.type == BUFFER_MAY_BE_ACCESSED;
-}
-
 static void
 surface_flush_damage(struct weston_surface *surface, struct weston_output *output)
 {
 	struct weston_buffer *buffer = surface->buffer_ref.buffer;
 	struct weston_paint_node *node;
 
-	if (buffer->type == WESTON_BUFFER_SHM &&
-	    buffer_can_be_accessed_BANDAID_XXX(surface->buffer_ref))
+	if (buffer->type == WESTON_BUFFER_SHM)
 		surface->compositor->renderer->flush_damage(surface, buffer);
 
 	if (!pixman_region32_not_empty(&surface->damage))
