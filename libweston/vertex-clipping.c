@@ -294,29 +294,29 @@ clip_simple(struct clip_context *ctx,
 
 WESTON_EXPORT_FOR_TESTS int
 clip_transformed(struct clip_context *ctx,
-		 struct polygon8 *surf,
+		 const struct polygon8 *surf,
 		 struct clip_vertex *restrict vertices)
 {
-	struct polygon8 polygon;
+	struct polygon8 p = *surf, tmp;
 	int i, n;
 
-	polygon.n = clip_polygon_left(ctx, surf, polygon.pos);
-	surf->n = clip_polygon_right(ctx, &polygon, surf->pos);
-	polygon.n = clip_polygon_top(ctx, surf, polygon.pos);
-	surf->n = clip_polygon_bottom(ctx, &polygon, surf->pos);
+	tmp.n = clip_polygon_left(ctx, &p, tmp.pos);
+	p.n = clip_polygon_right(ctx, &tmp, p.pos);
+	tmp.n = clip_polygon_top(ctx, &p, tmp.pos);
+	p.n = clip_polygon_bottom(ctx, &tmp, p.pos);
 
 	/* Get rid of duplicate vertices */
-	vertices[0] = surf->pos[0];
+	vertices[0] = p.pos[0];
 	n = 1;
-	for (i = 1; i < surf->n; i++) {
-		if (float_difference(vertices[n - 1].x, surf->pos[i].x) == 0.0f &&
-		    float_difference(vertices[n - 1].y, surf->pos[i].y) == 0.0f)
+	for (i = 1; i < p.n; i++) {
+		if (float_difference(vertices[n - 1].x, p.pos[i].x) == 0.0f &&
+		    float_difference(vertices[n - 1].y, p.pos[i].y) == 0.0f)
 			continue;
-		vertices[n] = surf->pos[i];
+		vertices[n] = p.pos[i];
 		n++;
 	}
-	if (float_difference(vertices[n - 1].x, surf->pos[0].x) == 0.0f &&
-	    float_difference(vertices[n - 1].y, surf->pos[0].y) == 0.0f)
+	if (float_difference(vertices[n - 1].x, p.pos[0].x) == 0.0f &&
+	    float_difference(vertices[n - 1].y, p.pos[0].y) == 0.0f)
 		n--;
 
 	return n;

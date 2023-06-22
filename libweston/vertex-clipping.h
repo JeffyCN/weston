@@ -64,7 +64,7 @@ clip_simple(struct clip_context *ctx,
 
 int
 clip_transformed(struct clip_context *ctx,
-		 struct polygon8 *surf,
+		 const struct polygon8 *surf,
 		 struct clip_vertex *restrict vertices);
 
 /*
