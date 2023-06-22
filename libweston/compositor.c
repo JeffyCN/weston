@@ -578,7 +578,6 @@ weston_view_create_internal(struct weston_surface *surface)
 	wl_list_init(&view->layer_link.link);
 	wl_list_init(&view->paint_node_list);
 
-	pixman_region32_init(&view->clip);
 	pixman_region32_init(&view->visible);
 
 	view->alpha = 1.0;
@@ -2347,7 +2346,6 @@ weston_view_destroy(struct weston_view *view)
 	wl_list_remove(&view->link);
 	weston_layer_entry_remove(&view->layer_link);
 
-	pixman_region32_fini(&view->clip);
 	pixman_region32_fini(&view->visible);
 	pixman_region32_fini(&view->geometry.scissor);
 	pixman_region32_fini(&view->transform.boundingbox);
@@ -2991,14 +2989,13 @@ surface_flush_damage(struct weston_surface *surface, struct weston_output *outpu
 }
 
 static void
-view_update_clip_and_visible(struct weston_view *view,
+view_update_visible(struct weston_view *view,
                              pixman_region32_t *opaque)
 {
 	assert(!view->transform.dirty);
 
 	pixman_region32_subtract(&view->visible, &view->transform.boundingbox,
 				 opaque);
-	pixman_region32_copy(&view->clip, opaque);
 	pixman_region32_union(opaque, opaque, &view->transform.opaque);
 }
 
@@ -3023,7 +3020,7 @@ output_update_visibility(struct weston_output *output)
 			if (pnode->plane != plane)
 				continue;
 
-			view_update_clip_and_visible(pnode->view, &opaque);
+			view_update_visible(pnode->view, &opaque);
 		}
 
 		pixman_region32_union(&clip, &clip, &opaque);
