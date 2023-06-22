@@ -37,7 +37,7 @@ sphinx_conf = configure_file(
 )
 
 doxy_conf_data = configuration_data()
-doxy_conf_data.set('SRC_ROOT', meson.source_root())
+doxy_conf_data.set('SRC_ROOT', meson.project_source_root())
 doxy_conf_data.set('OUTPUT_DIR', doxygen_database)
 doxy_conf_data.set('MESON_WERROR', get_option('werror') == true ? 'YES' : 'NO')
 doxygen_conf_weston = configure_file(
