@@ -54,8 +54,8 @@ script_data.set('OUTDIR', meson.current_build_dir() + '/doc')
 script_data.set('DOCTREES_DIR', meson.current_build_dir() + '/doctrees')
 
 script_data.set('DOXYGEN_CONF', meson.current_build_dir() + '/doxygen.ini')
-script_data.set('DOXYGEN_CMD', doxygen.path())
-script_data.set('SPHINX_CMD', sphinx.path())
+script_data.set('DOXYGEN_CMD', doxygen.full_path())
+script_data.set('SPHINX_CMD', sphinx.full_path())
 script_doxy_sphinx = configure_file(
 	input: 'run_doxygen_sphinx.sh.in',
 	output: 'run_doxygen_sphinx.sh',
