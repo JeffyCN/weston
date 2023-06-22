@@ -2087,9 +2087,17 @@ WL_EXPORT void
 weston_view_unmap(struct weston_view *view)
 {
 	struct weston_seat *seat;
+	struct weston_view *child;
 
 	if (!weston_view_is_mapped(view))
 		return;
+
+	/* Recursively unmap any child views, e.g. subsurfaces */
+	wl_list_for_each(child, &view->geometry.child_list,
+			 geometry.parent_link) {
+		if (child->parent_view == view)
+			weston_view_unmap(child);
+	}
 
 	weston_view_damage_below(view);
 	weston_view_set_output(view, NULL);
