@@ -5087,9 +5087,6 @@ subsurface_handle_parent_destroy(struct wl_listener *listener, void *data)
 	assert(data == sub->parent);
 	assert(sub->surface != sub->parent);
 
-	if (weston_surface_is_mapped(sub->surface))
-		weston_surface_unmap(sub->surface);
-
 	weston_subsurface_unlink_parent(sub);
 }
 
