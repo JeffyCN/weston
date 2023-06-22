@@ -25,5 +25,5 @@ install_data(
 		'wayland.png',
 		'wayland.svg',
 	],
-	install_dir: join_paths(dir_data, 'weston')
+	install_dir: dir_data / 'weston'
 )

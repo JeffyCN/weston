@@ -89,7 +89,7 @@ docs = run_target(
 
 install_subdir(
 	sphinx_doc.full_path(),
-	install_dir: join_paths(dir_data, 'doc', 'weston'),
+	install_dir: dir_data / 'doc' / 'weston',
 	exclude_files: '.buildinfo',
 	strip_directory: true,
 )

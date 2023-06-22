@@ -64,7 +64,7 @@ pkgconfig.generate(
 
 install_data(
 	'weston.desktop',
-	install_dir: join_paths(dir_data, 'wayland-sessions')
+	install_dir: dir_data / 'wayland-sessions'
 )
 
 if get_option('screenshare')

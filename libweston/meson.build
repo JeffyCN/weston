@@ -156,8 +156,8 @@ pkgconfig.generate(
 	version: version_weston,
 	description: 'libWeston protocol files',
 	variables: [
-		'datarootdir=' + join_paths('${prefix}', get_option('datadir')),
-		'pkgdatadir=' + join_paths('${pc_sysrootdir}${datarootdir}', dir_protocol_libweston)
+		'datarootdir=' + '${prefix}' / get_option('datadir'),
+		'pkgdatadir=' + '${pc_sysrootdir}${datarootdir}' / dir_protocol_libweston
 	],
 	install_dir: dir_data_pc
 )

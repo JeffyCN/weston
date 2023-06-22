@@ -32,19 +32,19 @@ if not (get_option('deprecated-launcher-logind') or get_option('launcher-libseat
 endif
 
 dir_prefix = get_option('prefix')
-dir_bin = join_paths(dir_prefix, get_option('bindir'))
-dir_data = join_paths(dir_prefix, get_option('datadir'))
+dir_bin = dir_prefix / get_option('bindir')
+dir_data = dir_prefix / get_option('datadir')
 dir_include_libweston = 'libweston-@0@'.format(libweston_major)
-dir_include_libweston_install = join_paths(dir_include_libweston, 'libweston')
-dir_lib = join_paths(dir_prefix, get_option('libdir'))
-dir_libexec = join_paths(dir_prefix, get_option('libexecdir'))
-dir_module_weston = join_paths(dir_lib, 'weston')
-dir_module_libweston = join_paths(dir_lib, 'libweston-@0@'.format(libweston_major))
-dir_data_pc = join_paths(dir_data, 'pkgconfig')
-dir_lib_pc = join_paths(dir_lib, 'pkgconfig')
-dir_man = join_paths(dir_prefix, get_option('mandir'))
-dir_protocol_libweston = join_paths('libweston-@0@'.format(libweston_major), 'protocols')
-dir_sysconf = join_paths(dir_prefix, get_option('sysconfdir'))
+dir_include_libweston_install = dir_include_libweston / 'libweston'
+dir_lib = dir_prefix /get_option('libdir')
+dir_libexec = dir_prefix / get_option('libexecdir')
+dir_module_weston = dir_lib / 'weston'
+dir_module_libweston = dir_lib / 'libweston-@0@'.format(libweston_major)
+dir_data_pc = dir_data / 'pkgconfig'
+dir_lib_pc = dir_lib / 'pkgconfig'
+dir_man = dir_prefix / get_option('mandir')
+dir_protocol_libweston = 'libweston-@0@'.format(libweston_major) / 'protocols'
+dir_sysconf = dir_prefix / get_option('sysconfdir')
 
 public_inc = include_directories('include')
 common_inc = [ include_directories('.'), public_inc ]
@@ -182,7 +182,7 @@ subdir('pam')
 if meson.version().version_compare('>= 0.58.0')
 	devenv = environment()
 	devenv.set('WESTON_MODULE_MAP', env_modmap)
-	devenv.set('WESTON_DATA_DIR', join_paths(meson.current_source_dir(), 'data'))
+	devenv.set('WESTON_DATA_DIR', meson.current_source_dir() / 'data')
 	meson.add_devenv(devenv)
 endif
 
