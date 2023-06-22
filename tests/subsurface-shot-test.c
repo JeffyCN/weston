@@ -123,6 +123,96 @@ surface_commit_color(struct client *client, struct wl_surface *surface,
 	return buf;
 }
 
+TEST(subsurface_recursive_unmap)
+{
+	struct client *client;
+	struct wl_subcompositor *subco;
+	struct buffer *bufs[5] = { 0 };
+	struct wl_surface *surf[5] = { 0 };
+	struct wl_subsurface *sub[5] = { 0 };
+	struct rectangle clip = { 40, 40, 280, 200 };
+	int fail = 0;
+	unsigned i;
+	pixman_color_t red;
+	pixman_color_t blue;
+	pixman_color_t cyan;
+	pixman_color_t green;
+
+	color_rgb888(&red, 255, 0, 0);
+	color_rgb888(&blue, 0, 0, 255);
+	color_rgb888(&cyan, 0, 255, 255);
+	color_rgb888(&green, 0, 255, 0);
+
+	client = create_client_and_test_surface(100, 50, 100, 100);
+	assert(client);
+	subco = get_subcompositor(client);
+
+	/* move the pointer clearly away from our screenshooting area */
+	weston_test_move_pointer(client->test->weston_test, 0, 1, 0, 2, 30);
+
+	/* make the parent surface red */
+	surf[0] = client->surface->wl_surface;
+	client->surface->wl_surface = NULL; /* we stole it and destroy it */
+	bufs[0] = surface_commit_color(client, surf[0], &red, 100, 100);
+	/* sub[0] is not used */
+
+	fail += check_screen(client, "subsurface_z_order", 0, &clip, 0);
+
+	/* create a blue sub-surface above red */
+	surf[1] = wl_compositor_create_surface(client->wl_compositor);
+	sub[1] = wl_subcompositor_get_subsurface(subco, surf[1], surf[0]);
+	bufs[1] = surface_commit_color(client, surf[1], &blue, 100, 100);
+
+	wl_subsurface_set_position(sub[1], 20, 20);
+	wl_surface_commit(surf[0]);
+
+	fail += check_screen(client, "subsurface_z_order", 1, &clip, 1);
+
+	/* create a cyan sub-surface above blue */
+	surf[2] = wl_compositor_create_surface(client->wl_compositor);
+	sub[2] = wl_subcompositor_get_subsurface(subco, surf[2], surf[1]);
+	bufs[2] = surface_commit_color(client, surf[2], &cyan, 100, 100);
+
+	wl_subsurface_set_position(sub[2], 20, 20);
+	wl_surface_commit(surf[1]);
+	wl_surface_commit(surf[0]);
+
+	fail += check_screen(client, "subsurface_z_order", 2, &clip, 2);
+
+	/* create a green sub-surface above blue, sibling to cyan */
+	surf[3] = wl_compositor_create_surface(client->wl_compositor);
+	sub[3] = wl_subcompositor_get_subsurface(subco, surf[3], surf[1]);
+	bufs[3] = surface_commit_color(client, surf[3], &green, 100, 100);
+
+	wl_subsurface_set_position(sub[3], -40, 10);
+	wl_surface_commit(surf[1]);
+	wl_surface_commit(surf[0]);
+
+	fail += check_screen(client, "subsurface_z_order", 3, &clip, 3);
+
+	/* destroy blue, to immediately unmap blue + red + cyan */
+	wl_surface_destroy(surf[1]);
+	surf[1] = NULL;
+	fail += check_screen(client, "subsurface_z_order", 0, &clip, 0);
+
+	assert(fail == 0);
+
+	for (i = 0; i < ARRAY_LENGTH(sub); i++)
+		if (sub[i])
+			wl_subsurface_destroy(sub[i]);
+
+	for (i = 0; i < ARRAY_LENGTH(surf); i++)
+		if (surf[i])
+			wl_surface_destroy(surf[i]);
+
+	for (i = 0; i < ARRAY_LENGTH(bufs); i++)
+		if (bufs[i])
+			buffer_destroy(bufs[i]);
+
+	wl_subcompositor_destroy(subco);
+	client_destroy(client);
+}
+
 TEST(subsurface_z_order)
 {
 	struct client *client;
