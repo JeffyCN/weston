@@ -324,7 +324,7 @@ drm_virtual_output_enable(struct weston_output *output_base)
 
 	weston_compositor_stack_plane(b->compositor,
 				      &output->scanout_plane->base,
-				      &b->compositor->primary_plane);
+				      &output->base.primary_plane);
 
 	return 0;
 err:

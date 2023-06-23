@@ -1035,7 +1035,7 @@ vnc_fb_get_from_view(struct weston_view *view)
 static void
 vnc_output_assign_planes(struct weston_output *base)
 {
-	struct weston_plane *primary = &base->compositor->primary_plane;
+	struct weston_plane *primary = &base->primary_plane;
 	struct vnc_output *output = to_vnc_output(base);
 	struct weston_paint_node *pnode;
 	bool topmost = true;

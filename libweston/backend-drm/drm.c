@@ -1938,7 +1938,7 @@ drm_output_init_planes(struct drm_output *output)
 
 	weston_compositor_stack_plane(b->compositor,
 				      &output->scanout_plane->base,
-				      &b->compositor->primary_plane);
+				      &output->base.primary_plane);
 
 	/* Failing to find a cursor plane is not fatal, as we'll fall back
 	 * to software cursor. */

@@ -462,6 +462,7 @@ struct weston_output {
 	struct wl_signal user_destroy_signal;
 
 	void *renderer_state;
+	struct weston_plane primary_plane;
 
 	struct wl_list link;
 	struct weston_compositor *compositor;
@@ -1430,7 +1431,6 @@ struct weston_compositor {
 	const struct weston_pointer_grab_interface *default_pointer_grab;
 
 	/* Repaint state. */
-	struct weston_plane primary_plane;
 	uint32_t capabilities; /* combination of enum weston_capability */
 
 	struct weston_color_manager *color_manager;

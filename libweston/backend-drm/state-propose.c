@@ -962,7 +962,7 @@ drm_assign_planes(struct weston_output *output_base)
 	struct drm_plane_state *plane_state;
 	struct drm_writeback_state *wb_state = output->wb_state;
 	struct weston_paint_node *pnode;
-	struct weston_plane *primary = &output_base->compositor->primary_plane;
+	struct weston_plane *primary = &output_base->primary_plane;
 	enum drm_output_propose_state_mode mode = DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY;
 
 	assert(output);

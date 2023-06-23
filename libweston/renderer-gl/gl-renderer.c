@@ -1330,7 +1330,6 @@ out:
 static void
 repaint_views(struct weston_output *output, pixman_region32_t *damage)
 {
-	struct weston_compositor *compositor = output->compositor;
 	struct weston_paint_node *pnode;
 
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
@@ -1338,7 +1337,7 @@ repaint_views(struct weston_output *output, pixman_region32_t *damage)
 
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-		if (pnode->plane == &compositor->primary_plane)
+		if (pnode->plane == &output->primary_plane)
 			draw_paint_node(pnode, damage);
 	}
 
@@ -1365,7 +1364,7 @@ update_buffer_release_fences(struct weston_compositor *compositor,
 		struct weston_buffer_release *buffer_release;
 		int fence_fd;
 
-		if (pnode->plane != &compositor->primary_plane)
+		if (pnode->plane != &output->primary_plane)
 			continue;
 
 		gs = get_surface_state(view->surface);
@@ -1861,7 +1860,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 	 * which surfaces were used in this output repaint. */
 	wl_list_for_each_reverse(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-		if (pnode->plane == &compositor->primary_plane) {
+		if (pnode->plane == &output->primary_plane) {
 			struct gl_surface_state *gs =
 				get_surface_state(pnode->view->surface);
 			gs->used_in_output_repaint = false;
@@ -2099,7 +2098,7 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 	 */
 	texture_used = false;
 	wl_list_for_each(pnode, &surface->paint_node_list, surface_link) {
-		if (pnode->plane == &surface->compositor->primary_plane) {
+		if (pnode->plane == &pnode->output->primary_plane) {
 			texture_used = true;
 			break;
 		}

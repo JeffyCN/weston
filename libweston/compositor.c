@@ -297,7 +297,7 @@ weston_paint_node_create(struct weston_surface *surface,
 	pixman_region32_init(&pnode->visible);
 	pixman_region32_copy(&pnode->visible, &view->visible);
 
-	pnode->plane = &pnode->surface->compositor->primary_plane;
+	pnode->plane = &pnode->output->primary_plane;
 	pnode->plane_next = NULL;
 
 	pnode->status = PAINT_NODE_ALL_DIRTY & ~PAINT_NODE_PLANE_DIRTY;
@@ -3323,7 +3323,7 @@ weston_output_repaint(struct weston_output *output)
 	} else {
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-			weston_paint_node_move_to_plane(pnode, &ec->primary_plane);
+			weston_paint_node_move_to_plane(pnode, &output->primary_plane);
 			pnode->view->psf_flags = 0;
 		}
 	}
@@ -3353,7 +3353,7 @@ weston_output_repaint(struct weston_output *output)
 
 	pixman_region32_init(&output_damage);
 
-	weston_output_flush_damage_for_plane(output, &ec->primary_plane,
+	weston_output_flush_damage_for_plane(output, &output->primary_plane,
 					     &output_damage);
 
 	if (output->full_repaint_needed) {
@@ -5689,7 +5689,7 @@ weston_plane_release(struct weston_plane *plane)
 				continue;
 
 			node->plane = NULL;
-			node->plane_next = &output->compositor->primary_plane;
+			node->plane_next = &output->primary_plane;
 			node->status |= PAINT_NODE_PLANE_DIRTY |
 					PAINT_NODE_VISIBILITY_DIRTY;
 		}
@@ -7464,6 +7464,10 @@ weston_output_init(struct weston_output *output,
 	 */
 	if (!compositor)
 		return;
+
+	weston_plane_init(&output->primary_plane, compositor);
+	weston_compositor_stack_plane(compositor,
+				      &output->primary_plane, NULL);
 }
 
 /** Adds weston_output object to pending output list.
@@ -7911,6 +7915,8 @@ weston_compositor_create_output(struct weston_compositor *compositor,
 WL_EXPORT void
 weston_output_destroy(struct weston_output *output)
 {
+	weston_plane_release(&output->primary_plane);
+
 	output->destroy(output);
 }
 
@@ -8926,9 +8932,6 @@ weston_compositor_create(struct wl_display *display,
 
 	wl_list_init(&ec->plugin_api_list);
 
-	weston_plane_init(&ec->primary_plane, ec);
-	weston_compositor_stack_plane(ec, &ec->primary_plane, NULL);
-
 	wl_data_device_manager_init(ec->wl_display);
 
 	wl_display_init_shm(ec->wl_display);
@@ -9009,8 +9012,6 @@ weston_compositor_shutdown(struct weston_compositor *ec)
 	weston_binding_list_destroy_all(&ec->axis_binding_list);
 	weston_binding_list_destroy_all(&ec->debug_binding_list);
 	weston_binding_list_destroy_all(&ec->tablet_tool_binding_list);
-
-	weston_plane_release(&ec->primary_plane);
 
 	weston_layer_fini(&ec->fade_layer);
 	weston_layer_fini(&ec->cursor_layer);
