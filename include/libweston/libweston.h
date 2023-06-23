@@ -440,6 +440,13 @@ enum weston_output_power_state {
 	WESTON_OUTPUT_POWER_NORMAL
 };
 
+struct weston_plane {
+	struct weston_compositor *compositor;
+	pixman_region32_t clip;
+	int32_t x, y;
+	struct wl_list link;
+};
+
 /** Content producer for heads
  *
  * \rst
@@ -1263,13 +1270,6 @@ struct weston_layer {
 	enum weston_layer_position position;
 	pixman_box32_t mask;
 	struct weston_layer_entry view_list;
-};
-
-struct weston_plane {
-	struct weston_compositor *compositor;
-	pixman_region32_t clip;
-	int32_t x, y;
-	struct wl_list link;
 };
 
 struct weston_drm_format_array;
