@@ -4131,7 +4131,7 @@ weston_surface_set_protection_mode(struct weston_surface *surface,
 	}
 }
 
-static void
+static enum weston_surface_status
 weston_surface_commit_state(struct weston_surface *surface,
 			    struct weston_surface_state *state)
 {
@@ -4257,22 +4257,28 @@ weston_surface_commit_state(struct weston_surface *surface,
 	/* Surface is fully unmapped now */
 	surface->is_unmapping = false;
 	state->status = WESTON_SURFACE_CLEAN;
+
+	return status;
 }
 
-static void
+static enum weston_surface_status
 weston_surface_commit(struct weston_surface *surface)
 {
-	weston_surface_commit_state(surface, &surface->pending);
+	enum weston_surface_status status;
+
+	status = weston_surface_commit_state(surface, &surface->pending);
 
 	weston_surface_commit_subsurface_order(surface);
 
 	weston_surface_schedule_repaint(surface);
+
+	return status;
 }
 
-static void
+static enum weston_surface_status
 weston_subsurface_commit(struct weston_subsurface *sub);
 
-static void
+static enum weston_surface_status
 weston_subsurface_parent_commit(struct weston_subsurface *sub,
 				int parent_is_synchronized);
 
@@ -4281,6 +4287,7 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 {
 	struct weston_surface *surface = wl_resource_get_user_data(resource);
 	struct weston_subsurface *sub = weston_surface_to_subsurface(surface);
+	enum weston_surface_status status;
 
 	if (!weston_surface_is_pending_viewport_source_valid(surface)) {
 		assert(surface->viewport_resource);
@@ -4336,16 +4343,16 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 	}
 
 	if (sub) {
-		weston_subsurface_commit(sub);
-		return;
+		status = weston_subsurface_commit(sub);
+	} else {
+		status = WESTON_SURFACE_CLEAN;
+		wl_list_for_each(sub, &surface->subsurface_list, parent_link) {
+			if (sub->surface != surface)
+				status |= weston_subsurface_parent_commit(sub, 0);
+		}
+		status |= weston_surface_commit(surface);
 	}
 
-	wl_list_for_each(sub, &surface->subsurface_list, parent_link) {
-		if (sub->surface != surface)
-			weston_subsurface_parent_commit(sub, 0);
-	}
-
-	weston_surface_commit(surface);
 }
 
 static void
@@ -4516,12 +4523,13 @@ static const struct wl_compositor_interface compositor_interface = {
 	compositor_create_region
 };
 
-static void
+static enum weston_surface_status
 weston_subsurface_commit_from_cache(struct weston_subsurface *sub)
 {
 	struct weston_surface *surface = sub->surface;
+	enum weston_surface_status status;
 
-	weston_surface_commit_state(surface, &sub->cached);
+	status = weston_surface_commit_state(surface, &sub->cached);
 	weston_buffer_reference(&sub->cached_buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 
@@ -4530,6 +4538,7 @@ weston_subsurface_commit_from_cache(struct weston_subsurface *sub)
 	weston_surface_schedule_repaint(surface);
 
 	sub->has_cached_data = 0;
+	return status;
 }
 
 static void
@@ -4626,10 +4635,11 @@ weston_subsurface_is_synchronized(struct weston_subsurface *sub)
 	return false;
 }
 
-static void
+static enum weston_surface_status
 weston_subsurface_commit(struct weston_subsurface *sub)
 {
 	struct weston_surface *surface = sub->surface;
+	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
 	struct weston_subsurface *tmp;
 
 	/* Recursive check for effectively synchronized. */
@@ -4639,22 +4649,25 @@ weston_subsurface_commit(struct weston_subsurface *sub)
 		if (sub->has_cached_data) {
 			/* flush accumulated state from cache */
 			weston_subsurface_commit_to_cache(sub);
-			weston_subsurface_commit_from_cache(sub);
+			status |= weston_subsurface_commit_from_cache(sub);
 		} else {
-			weston_surface_commit(surface);
+			status |= weston_surface_commit(surface);
 		}
 
 		wl_list_for_each(tmp, &surface->subsurface_list, parent_link) {
 			if (tmp->surface != surface)
-				weston_subsurface_parent_commit(tmp, 0);
+				status |= weston_subsurface_parent_commit(tmp, 0);
 		}
 	}
+
+	return status;
 }
 
-static void
+static enum weston_surface_status
 weston_subsurface_synchronized_commit(struct weston_subsurface *sub)
 {
 	struct weston_surface *surface = sub->surface;
+	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
 	struct weston_subsurface *tmp;
 
 	/* From now on, commit_from_cache the whole sub-tree, regardless of
@@ -4664,18 +4677,21 @@ weston_subsurface_synchronized_commit(struct weston_subsurface *sub)
 	 */
 
 	if (sub->has_cached_data)
-		weston_subsurface_commit_from_cache(sub);
+		status |= weston_subsurface_commit_from_cache(sub);
 
 	wl_list_for_each(tmp, &surface->subsurface_list, parent_link) {
 		if (tmp->surface != surface)
-			weston_subsurface_parent_commit(tmp, 1);
+			status |= weston_subsurface_parent_commit(tmp, 1);
 	}
+
+	return status;
 }
 
-static void
+static enum weston_surface_status
 weston_subsurface_parent_commit(struct weston_subsurface *sub,
 				int parent_is_synchronized)
 {
+	enum weston_surface_status status = WESTON_SURFACE_CLEAN;
 	struct weston_view *view;
 
 	if (sub->position.changed) {
@@ -4687,7 +4703,9 @@ weston_subsurface_parent_commit(struct weston_subsurface *sub,
 	}
 
 	if (parent_is_synchronized || sub->synchronized)
-		weston_subsurface_synchronized_commit(sub);
+		status = weston_subsurface_synchronized_commit(sub);
+
+	return status;
 }
 
 static int
