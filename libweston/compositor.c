@@ -7458,6 +7458,12 @@ weston_output_init(struct weston_output *output,
 
 	pixman_region32_init(&output->region);
 	wl_list_init(&output->mode_list);
+
+	/* At least one test inits outputs with a NULL compositor,
+	 * So bail on anything that requires a valid compositor here.
+	 */
+	if (!compositor)
+		return;
 }
 
 /** Adds weston_output object to pending output list.

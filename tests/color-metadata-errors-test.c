@@ -290,6 +290,7 @@ TEST_P(hdr_metadata_type1_errors, value_cases)
 
 	weston_log_set_handler(no_logger, no_logger);
 
+	wl_list_init(&mock_compositor.plane_list);
 	weston_output_init(&mock_output, &mock_compositor, "mockoutput");
 
 	assert(t->field_index < ARRAY_LENGTH(fields));
@@ -326,6 +327,7 @@ TEST(hdr_metadata_type1_ignore_unflagged)
 	struct weston_output mock_output = {};
 	bool ret;
 
+	wl_list_init(&mock_compositor.plane_list);
 	weston_log_set_handler(no_logger, no_logger);
 
 	weston_output_init(&mock_output, &mock_compositor, "mockoutput");
