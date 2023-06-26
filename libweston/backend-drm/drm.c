@@ -1206,7 +1206,7 @@ create_sprites(struct drm_device *device)
 		if (drm_plane->type == WDRM_PLANE_TYPE_OVERLAY)
 			weston_compositor_stack_plane(b->compositor,
 						      &drm_plane->base,
-						      &b->compositor->primary_plane);
+						      NULL);
 	}
 
 	wl_list_for_each (drm_plane, &device->plane_list, link)
