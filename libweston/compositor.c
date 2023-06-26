@@ -6880,8 +6880,8 @@ weston_output_move(struct weston_output *output,
 	 * as we do for weston_output_enable, and allow moves to fail.
 	 *
 	 * However, while a front-end is rearranging outputs it may
-	 * pass through indeterminate states where outputs overlap
-	 * or are discontinuous, and this may be ok as long as no
+	 * pass through indeterminate states where outputs are
+	 * discontinuous, and this may be ok as long as no
 	 * input processing or rendering occurs at that time.
 	 *
 	 * Ultimately, we probably need a way to pass complete output
@@ -7519,45 +7519,6 @@ weston_output_create_heads_string(struct weston_output *output)
 	return str;
 }
 
-static bool
-weston_outputs_overlap(struct weston_output *a, struct weston_output *b)
-{
-	bool overlap;
-	pixman_region32_t intersection;
-
-	pixman_region32_init(&intersection);
-	pixman_region32_intersect(&intersection, &a->region, &b->region);
-	overlap = pixman_region32_not_empty(&intersection);
-	pixman_region32_fini(&intersection);
-
-	return overlap;
-}
-
-/* This only works if the output region is current!
- *
- * That means we shouldn't expect it to return usable results unless
- * the output is at least undergoing enabling.
- */
-static bool
-weston_output_placement_ok(struct weston_output *output)
-{
-	struct weston_compositor *c = output->compositor;
-	struct weston_output *iter;
-
-	wl_list_for_each(iter, &c->output_list, link) {
-		if (!iter->enabled)
-			continue;
-
-		if (weston_outputs_overlap(iter, output)) {
-			weston_log("Error: output '%s' overlaps enabled output '%s'.\n",
-				   output->name, iter->name);
-			return false;
-		}
-	}
-
-	return true;
-}
-
 /** Constructs a weston_output object that can be used by the compositor.
  *
  * \param output The weston_output object that needs to be enabled. Must not
@@ -7637,9 +7598,8 @@ weston_output_enable(struct weston_output *output)
 
 	weston_output_init_geometry(output, output->pos);
 
-	/* At this point we have a valid region so we can check placement. */
-	if (!weston_output_placement_ok(output))
-		return -1;
+	/* TODO: At this point we have a valid region so we can check placement.
+	 * We should probably check for discontinuities here. */
 
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->feedback_list);
