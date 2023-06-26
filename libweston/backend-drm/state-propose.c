@@ -797,14 +797,6 @@ drm_output_propose_state(struct weston_output *output_base,
 			continue;
 		}
 
-		/* We only assign planes to views which are exclusively present
-		 * on our output. */
-		if (ev->output_mask != (1u << output->base.id)) {
-			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
-			             "(on multiple outputs)\n", ev);
-			force_renderer = true;
-		}
-
 		if (!b->gbm) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 			             "(GBM not available)\n", ev);
