@@ -1661,7 +1661,7 @@ widget_cairo_update_transform(struct widget *widget, cairo_t *cr)
 				     surface->allocation.width,
 				     surface->allocation.height,
 				     surface->buffer_scale);
-	cairo_matrix_init(&m, matrix.d[0], matrix.d[4], matrix.d[1],
+	cairo_matrix_init(&m, matrix.d[0], matrix.d[1], matrix.d[4],
 			  matrix.d[5], matrix.d[12], matrix.d[13]);
 	cairo_transform(cr, &m);
 }
