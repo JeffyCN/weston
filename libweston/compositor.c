@@ -4268,7 +4268,8 @@ weston_surface_commit(struct weston_surface *surface)
 
 	status = weston_surface_commit_state(surface, &surface->pending);
 
-	weston_surface_commit_subsurface_order(surface);
+	if (status & WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG)
+		weston_surface_commit_subsurface_order(surface);
 
 	weston_surface_schedule_repaint(surface);
 
@@ -4533,7 +4534,8 @@ weston_subsurface_commit_from_cache(struct weston_subsurface *sub)
 	weston_buffer_reference(&sub->cached_buffer_ref, NULL,
 				BUFFER_WILL_NOT_BE_ACCESSED);
 
-	weston_surface_commit_subsurface_order(surface);
+	if (status & WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG)
+		weston_surface_commit_subsurface_order(surface);
 
 	weston_surface_schedule_repaint(surface);
 
@@ -4968,6 +4970,7 @@ subsurface_set_position(struct wl_client *client,
 
 	sub->position.offset = weston_coord_surface(x, y, sub->parent);
 	sub->position.changed = true;
+	sub->parent->pending.status |= WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG;
 }
 
 static struct weston_subsurface *
@@ -5028,6 +5031,7 @@ subsurface_place_above(struct wl_client *client,
 		       &sub->parent_link_pending);
 
 	sub->reordered = true;
+	sub->parent->pending.status |= WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG;
 }
 
 static void
@@ -5052,6 +5056,7 @@ subsurface_place_below(struct wl_client *client,
 		       &sub->parent_link_pending);
 
 	sub->reordered = true;
+	sub->parent->pending.status |= WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG;
 }
 
 static void
@@ -5083,6 +5088,7 @@ weston_subsurface_unlink_parent(struct weston_subsurface *sub)
 	wl_list_remove(&sub->parent_link);
 	wl_list_remove(&sub->parent_link_pending);
 	wl_list_remove(&sub->parent_destroy_listener.link);
+	sub->parent->pending.status |= WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG;
 	sub->parent = NULL;
 }
 
@@ -5139,6 +5145,8 @@ weston_subsurface_link_parent(struct weston_subsurface *sub,
 	sub->parent_destroy_listener.notify = subsurface_handle_parent_destroy;
 	wl_signal_add(&parent->destroy_signal,
 		      &sub->parent_destroy_listener);
+
+	parent->pending.status |= WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG;
 
 	wl_list_insert(&parent->subsurface_list, &sub->parent_link);
 	wl_list_insert(&parent->subsurface_list_pending,
