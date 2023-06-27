@@ -123,7 +123,6 @@ struct shell_surface {
 	} rotation;
 
 	struct {
-		struct weston_transform transform; /* matrix from x, y */
 		struct weston_curtain *black_view;
 	} fullscreen;
 
@@ -1764,10 +1763,6 @@ weston_view_set_initial_position(struct weston_view *view,
 static void
 unset_fullscreen(struct shell_surface *shsurf)
 {
-	/* Unset the fullscreen output, driver configuration and transforms. */
-	wl_list_remove(&shsurf->fullscreen.transform.link);
-	wl_list_init(&shsurf->fullscreen.transform.link);
-
 	if (shsurf->fullscreen.black_view)
 		weston_shell_utils_curtain_destroy(shsurf->fullscreen.black_view);
 	shsurf->fullscreen.black_view = NULL;
@@ -2184,7 +2179,6 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 	shsurf->desktop_surface = desktop_surface;
 	shsurf->view = view;
 	shsurf->fullscreen.black_view = NULL;
-	wl_list_init(&shsurf->fullscreen.transform.link);
 
 	shell_surface_set_output(
 		shsurf, weston_shell_utils_get_default_output(shsurf->shell->compositor));
