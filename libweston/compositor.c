@@ -2995,42 +2995,6 @@ output_accumulate_damage(struct weston_output *output)
 	}
 }
 
-static void
-surface_stash_subsurface_views(struct weston_surface *surface)
-{
-	struct weston_subsurface *sub;
-
-	wl_list_for_each(sub, &surface->subsurface_list, parent_link) {
-		if (sub->surface == surface)
-			continue;
-
-		wl_list_insert_list(&sub->unused_views, &sub->surface->views);
-		wl_list_init(&sub->surface->views);
-
-		surface_stash_subsurface_views(sub->surface);
-	}
-}
-
-static void
-surface_free_unused_subsurface_views(struct weston_surface *surface)
-{
-	struct weston_subsurface *sub;
-	struct weston_view *view, *nv;
-
-	wl_list_for_each(sub, &surface->subsurface_list, parent_link) {
-		if (sub->surface == surface)
-			continue;
-
-		wl_list_for_each_safe(view, nv, &sub->unused_views, surface_link)
-			assert(!weston_view_is_mapped(view));
-
-		wl_list_insert_list(&sub->surface->views, &sub->unused_views);
-		wl_list_init(&sub->unused_views);
-
-		surface_free_unused_subsurface_views(sub->surface);
-	}
-}
-
 static struct weston_paint_node *
 view_ensure_paint_node(struct weston_view *view, struct weston_output *output)
 {
@@ -3077,7 +3041,7 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 	if (!weston_surface_is_mapped(sub->surface))
 		return;
 
-	wl_list_for_each(iv, &sub->unused_views, surface_link) {
+	wl_list_for_each(iv, &sub->surface->views, surface_link) {
 		if (iv->parent_view == parent) {
 			view = iv;
 			break;
@@ -3085,9 +3049,6 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 	}
 
 	assert(view);
-	/* Put it back in the surface's list of views */
-	wl_list_remove(&view->surface_link);
-	wl_list_insert(&sub->surface->views, &view->surface_link);
 
 	weston_view_update_transform(view);
 	view->is_mapped = true;
@@ -3175,10 +3136,6 @@ weston_compositor_build_view_list(struct weston_compositor *compositor)
 	struct weston_view *view, *tmp;
 	struct weston_layer *layer;
 
-	wl_list_for_each(layer, &compositor->layer_list, link)
-		wl_list_for_each(view, &layer->view_list.link, layer_link.link)
-			surface_stash_subsurface_views(view->surface);
-
 	wl_list_for_each_safe(view, tmp, &compositor->view_list, link)
 		wl_list_init(&view->link);
 	wl_list_init(&compositor->view_list);
@@ -3188,10 +3145,6 @@ weston_compositor_build_view_list(struct weston_compositor *compositor)
 			view_list_add(compositor, view);
 		}
 	}
-
-	wl_list_for_each(layer, &compositor->layer_list, link)
-		wl_list_for_each(view, &layer->view_list.link, layer_link.link)
-			surface_free_unused_subsurface_views(view->surface);
 
 	wl_list_for_each(output, &compositor->output_list, link)
 		weston_output_build_z_order_list(compositor, output);
@@ -5342,8 +5295,6 @@ weston_subsurface_create(uint32_t id, struct weston_surface *surface,
 	sub = zalloc(sizeof *sub);
 	if (sub == NULL)
 		return NULL;
-
-	wl_list_init(&sub->unused_views);
 
 	sub->resource =
 		wl_resource_create(client, &wl_subsurface_interface, 1, id);
