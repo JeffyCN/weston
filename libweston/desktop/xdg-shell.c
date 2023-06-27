@@ -60,7 +60,7 @@ struct weston_desktop_xdg_positioner {
 	enum xdg_positioner_anchor anchor;
 	enum xdg_positioner_gravity gravity;
 	enum xdg_positioner_constraint_adjustment constraint_adjustment;
-	struct weston_position offset;
+	struct weston_coord offset;
 };
 
 enum weston_desktop_xdg_surface_role {
@@ -304,8 +304,7 @@ weston_desktop_xdg_positioner_protocol_set_offset(struct wl_client *wl_client,
 	struct weston_desktop_xdg_positioner *positioner =
 		wl_resource_get_user_data(resource);
 
-	positioner->offset.x = x;
-	positioner->offset.y = y;
+	positioner->offset = weston_coord(x, y);
 }
 
 static void
@@ -1608,6 +1607,7 @@ weston_desktop_xdg_shell_protocol_create_positioner(struct wl_client *wl_client,
 		free(positioner);
 		return;
 	}
+	positioner->offset = weston_coord(0, 0);
 	wl_resource_set_implementation(positioner->resource,
 				       &weston_desktop_xdg_positioner_implementation,
 				       positioner, weston_desktop_xdg_positioner_destroy);

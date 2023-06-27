@@ -58,10 +58,6 @@ struct weston_geometry {
 	int32_t width, height;
 };
 
-struct weston_position {
-	int32_t x, y;
-};
-
 struct weston_size {
 	int32_t width, height;
 };

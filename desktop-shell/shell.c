@@ -2357,7 +2357,7 @@ set_position_from_xwayland(struct shell_surface *shsurf)
 #ifdef WM_DEBUG
 	weston_log("%s: XWM %d, %d; geometry %d, %d; view %f, %f\n",
 		   __func__, shsurf->xwayland.x, shsurf->xwayland.y,
-		   (int)geometry.coord.x, (int)geometry.coord.y, pos.x, pos.y);
+		   (int)geometry.x, (int)geometry.y, pos.c.x, pos.c.y);
 #endif
 }
 

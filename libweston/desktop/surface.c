@@ -51,7 +51,7 @@ struct weston_desktop_surface {
 	void *user_data;
 	struct weston_surface *surface;
 	struct wl_list view_list;
-	struct weston_position buffer_move;
+	struct weston_coord_surface buffer_move;
 	struct wl_listener surface_commit_listener;
 	struct wl_listener surface_destroy_listener;
 	struct wl_listener client_destroy_listener;
@@ -69,7 +69,7 @@ struct weston_desktop_surface {
 	struct {
 		struct weston_desktop_surface *parent;
 		struct wl_list children_link;
-		struct weston_position position;
+		struct weston_coord pos_offset;
 		bool use_geometry;
 	};
 	struct {
@@ -83,8 +83,8 @@ weston_desktop_surface_update_view_position(struct weston_desktop_surface *surfa
 	struct weston_desktop_view *view;
 	struct weston_desktop_surface *parent =
 		weston_desktop_surface_get_parent(surface);
-	int32_t x = surface->position.x;
-	int32_t y = surface->position.y;
+	int32_t x = surface->pos_offset.x;
+	int32_t y = surface->pos_offset.y;
 
 	if (!parent) {
 		struct weston_coord_global pos;
@@ -187,12 +187,13 @@ weston_desktop_surface_surface_committed(struct wl_listener *listener,
 {
 	struct weston_desktop_surface *surface =
 		wl_container_of(listener, surface, surface_commit_listener);
+	struct weston_surface *wsurface = surface->surface;
 
 	if (surface->implementation->committed != NULL)
 		surface->implementation->committed(surface,
 						   surface->implementation_data,
-						   surface->buffer_move.x,
-						   surface->buffer_move.y);
+						   surface->buffer_move.c.x,
+						   surface->buffer_move.c.y);
 
 	if (surface->parent != NULL) {
 		struct weston_desktop_view *view;
@@ -212,8 +213,7 @@ weston_desktop_surface_surface_committed(struct wl_listener *listener,
 			weston_desktop_surface_update_view_position(child);
 	}
 
-	surface->buffer_move.x = 0;
-	surface->buffer_move.y = 0;
+	surface->buffer_move = weston_coord_surface(0, 0, wsurface);
 }
 
 static void
@@ -242,8 +242,7 @@ weston_desktop_surface_committed(struct weston_surface *wsurface,
 {
 	struct weston_desktop_surface *surface = wsurface->committed_private;
 
-	surface->buffer_move.x = new_origin.c.x;
-	surface->buffer_move.y = new_origin.c.y;
+	surface->buffer_move = new_origin;
 }
 
 static void
@@ -797,8 +796,8 @@ weston_desktop_surface_set_relative_to(struct weston_desktop_surface *surface,
 
 	assert(parent);
 
-	surface->position.x = x;
-	surface->position.y = y;
+	surface->pos_offset.x = x;
+	surface->pos_offset.y = y;
 	surface->use_geometry = use_geometry;
 
 	if (surface->parent == parent)
