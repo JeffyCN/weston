@@ -378,15 +378,16 @@ fs_output_scale_view(struct fs_output *fsout, float width, float height)
 		pos.c.x -= surf_x;
 		pos.c.y -= surf_y;
 		weston_view_set_position(view, pos);
+		weston_view_remove_transform(fsout->view, &fsout->transform);
 	} else {
 		matrix = &fsout->transform.matrix;
 		weston_matrix_init(matrix);
 
 		weston_matrix_scale(matrix, width / surf_width,
 				    height / surf_height, 1);
-		wl_list_remove(&fsout->transform.link);
-		wl_list_insert(&fsout->view->geometry.transformation_list,
-			       &fsout->transform.link);
+		weston_view_add_transform(fsout->view,
+					  &fsout->view->geometry.transformation_list,
+					  &fsout->transform);
 
 		pos.c.x += (output->width - width) / 2 - surf_x;
 		pos.c.y += (output->height - height) / 2 - surf_y;

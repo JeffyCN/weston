@@ -145,10 +145,9 @@ weston_view_animation_destroy(struct weston_view_animation *animation)
 {
 	wl_list_remove(&animation->animation.link);
 	wl_list_remove(&animation->listener.link);
-	wl_list_remove(&animation->transform.link);
+	weston_view_remove_transform(animation->view, &animation->transform);
 	if (animation->reset)
 		animation->reset(animation);
-	weston_view_geometry_dirty(animation->view);
 	if (animation->done)
 		animation->done(animation, animation->data);
 	free(animation);
@@ -189,8 +188,10 @@ weston_view_animation_frame(struct weston_animation *base,
 	if (animation->frame)
 		animation->frame(animation);
 
-	weston_view_geometry_dirty(animation->view);
-	weston_view_schedule_repaint(animation->view);
+	weston_view_add_transform(animation->view,
+				  &animation->view->geometry.transformation_list,
+				  &animation->transform);
+	weston_view_update_transform(animation->view);
 
 	/* The view's output_mask will be zero if its position is
 	 * offscreen. Animations should always run but as they are also
@@ -237,8 +238,7 @@ weston_view_animation_create(struct weston_view *view,
 	animation->private = private;
 
 	weston_matrix_init(&animation->transform.matrix);
-	wl_list_insert(&view->geometry.transformation_list,
-		       &animation->transform.link);
+	wl_list_init(&animation->transform.link);
 
 	animation->animation.frame = weston_view_animation_frame;
 

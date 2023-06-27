@@ -2013,6 +2013,15 @@ weston_view_update_transform(struct weston_view *view);
 void
 weston_view_geometry_dirty(struct weston_view *view);
 
+void
+weston_view_add_transform(struct weston_view *view,
+			  struct wl_list *pos,
+			  struct weston_transform *transform);
+
+void
+weston_view_remove_transform(struct weston_view *view,
+			     struct weston_transform *transform);
+
 struct weston_coord_global __attribute__ ((warn_unused_result))
 weston_coord_surface_to_global(const struct weston_view *view,
 			       struct weston_coord_surface coord);

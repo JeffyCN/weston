@@ -1777,8 +1777,9 @@ unset_fullscreen(struct shell_surface *shsurf)
 					       shsurf->orientation);
 
 	if (shsurf->saved_rotation_valid) {
-		wl_list_insert(&shsurf->view->geometry.transformation_list,
-		               &shsurf->rotation.transform.link);
+		weston_view_add_transform(shsurf->view,
+					  &shsurf->view->geometry.transformation_list,
+					  &shsurf->rotation.transform);
 		shsurf->saved_rotation_valid = false;
 	}
 }
@@ -1803,8 +1804,9 @@ unset_maximized(struct shell_surface *shsurf)
 					       shsurf->orientation);
 
 	if (shsurf->saved_rotation_valid) {
-		wl_list_insert(&shsurf->view->geometry.transformation_list,
-			       &shsurf->rotation.transform.link);
+		weston_view_add_transform(shsurf->view,
+					  &shsurf->view->geometry.transformation_list,
+					  &shsurf->rotation.transform);
 		shsurf->saved_rotation_valid = false;
 	}
 }
@@ -3491,8 +3493,6 @@ rotate_grab_motion(struct weston_pointer_grab *grab,
 	dy = pointer->pos.c.y - rotate->center.y;
 	r = sqrtf(dx * dx + dy * dy);
 
-	wl_list_remove(&shsurf->rotation.transform.link);
-
 	if (r > 20.0f) {
 		struct weston_matrix *matrix =
 			&shsurf->rotation.transform.matrix;
@@ -3506,16 +3506,15 @@ rotate_grab_motion(struct weston_pointer_grab *grab,
 		weston_matrix_multiply(matrix, &rotate->rotation);
 		weston_matrix_translate(matrix, cx, cy, 0.0f);
 
-		wl_list_insert(
-			&shsurf->view->geometry.transformation_list,
-			&shsurf->rotation.transform.link);
+		weston_view_add_transform(shsurf->view,
+					  &shsurf->view->geometry.transformation_list,
+					  &shsurf->rotation.transform);
 	} else {
-		wl_list_init(&shsurf->rotation.transform.link);
+		weston_view_remove_transform(shsurf->view,
+					     &shsurf->rotation.transform);
 		weston_matrix_init(&shsurf->rotation.rotation);
 		weston_matrix_init(&rotate->rotation);
 	}
-
-	weston_view_geometry_dirty(shsurf->view);
 
 	/* We need to adjust the position of the surface
 	 * in case it was resized in a rotated state before */

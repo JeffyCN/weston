@@ -1623,6 +1623,44 @@ weston_view_geometry_dirty(struct weston_view *view)
 	view->surface->compositor->view_list_needs_rebuild = true;
 }
 
+WL_EXPORT void
+weston_view_add_transform(struct weston_view *view,
+			  struct wl_list *pos,
+			  struct weston_transform *transform)
+{
+	if (weston_view_is_mapped(view))
+		weston_view_damage_below(view);
+
+	wl_list_remove(&transform->link);
+	wl_list_insert(pos, &transform->link);
+
+	weston_view_geometry_dirty_internal(view);
+	weston_view_update_transform(view);
+
+	if (weston_view_is_mapped(view))
+		weston_surface_damage(view->surface);
+}
+
+WL_EXPORT void
+weston_view_remove_transform(struct weston_view *view,
+			     struct weston_transform *transform)
+{
+	if (wl_list_empty(&transform->link))
+		return;
+
+	if (weston_view_is_mapped(view))
+		weston_view_damage_below(view);
+
+	wl_list_remove(&transform->link);
+	wl_list_init(&transform->link);
+
+	weston_view_geometry_dirty_internal(view);
+	weston_view_update_transform(view);
+
+	if (weston_view_is_mapped(view))
+		weston_surface_damage(view->surface);
+}
+
 /**
  * \param surface  The surface to be repainted
  *
