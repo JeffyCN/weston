@@ -110,6 +110,9 @@ subsurface_committed(struct weston_surface *surface,
 		     struct weston_coord_surface new_origin);
 
 static void
+weston_view_geometry_dirty_internal(struct weston_view *view);
+
+static void
 weston_view_dirty_paint_nodes(struct weston_view *view)
 {
 	struct weston_paint_node *node;
@@ -1547,8 +1550,8 @@ weston_view_update_transform(struct weston_view *view)
 	}
 }
 
-WL_EXPORT void
-weston_view_geometry_dirty(struct weston_view *view)
+static void
+weston_view_geometry_dirty_internal(struct weston_view *view)
 {
 	struct weston_view *child;
 
@@ -1566,9 +1569,15 @@ weston_view_geometry_dirty(struct weston_view *view)
 
 	wl_list_for_each(child, &view->geometry.child_list,
 			 geometry.parent_link)
-		weston_view_geometry_dirty(child);
+		weston_view_geometry_dirty_internal(child);
 
 	weston_view_dirty_paint_nodes(view);
+}
+
+WL_EXPORT void
+weston_view_geometry_dirty(struct weston_view *view)
+{
+	weston_view_geometry_dirty_internal(view);
 }
 
 /**
@@ -3568,7 +3577,7 @@ weston_view_move_to_layer(struct weston_view *view,
 	/* Damage the view's old region, and remove it from the layer. */
 	if (weston_view_is_mapped(view)) {
 		weston_view_damage_below(view);
-		weston_view_geometry_dirty(view);
+		weston_view_geometry_dirty_internal(view);
 	}
 
 	weston_layer_entry_remove(&view->layer_link);
@@ -3581,7 +3590,7 @@ weston_view_move_to_layer(struct weston_view *view,
 	/* Add the view to the new layer and damage its new region. */
 	weston_layer_entry_insert(layer, &view->layer_link);
 	view->is_mapped = true;
-	weston_view_geometry_dirty(view);
+	weston_view_geometry_dirty_internal(view);
 	weston_view_update_transform(view);
 	weston_surface_damage(view->surface);
 
@@ -3682,7 +3691,7 @@ weston_layer_set_mask(struct weston_layer *layer,
 	layer->mask.y2 = y + height;
 
 	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
-		weston_view_geometry_dirty(view);
+		weston_view_geometry_dirty_internal(view);
 	}
 }
 
@@ -3697,7 +3706,7 @@ weston_layer_set_mask_infinite(struct weston_layer *layer)
 	layer->mask.y2 = INT32_MAX;
 
 	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
-		weston_view_geometry_dirty(view);
+		weston_view_geometry_dirty_internal(view);
 	}
 }
 
@@ -6755,7 +6764,7 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 	 * output yet. Any existing view might touch this new output.
 	 */
 	wl_list_for_each_safe(view, next, &compositor->view_list, link)
-		weston_view_geometry_dirty(view);
+		weston_view_geometry_dirty_internal(view);
 }
 
 /** Create a weston_coord_global from a point and a weston_output
