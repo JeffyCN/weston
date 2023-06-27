@@ -2946,12 +2946,10 @@ add_to_z_order_list(struct weston_output *output,
 static void
 view_list_add_subsurface_view(struct weston_compositor *compositor,
 			      struct weston_subsurface *sub,
-			      struct weston_view *parent,
-			      struct weston_output *output)
+			      struct weston_view *parent)
 {
 	struct weston_subsurface *child;
 	struct weston_view *view = NULL, *iv;
-	struct weston_paint_node *pnode;
 
 	if (!weston_surface_is_mapped(sub->surface))
 		return;
@@ -2976,20 +2974,17 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 	view->parent_view = parent;
 	weston_view_update_transform(view);
 	view->is_mapped = true;
-	pnode = view_ensure_paint_node(view, output);
 
 	if (wl_list_empty(&sub->surface->subsurface_list)) {
 		wl_list_insert(compositor->view_list.prev, &view->link);
-		add_to_z_order_list(output, pnode);
 		return;
 	}
 
 	wl_list_for_each(child, &sub->surface->subsurface_list, parent_link) {
 		if (child->surface == sub->surface) {
 			wl_list_insert(compositor->view_list.prev, &view->link);
-			add_to_z_order_list(output, pnode);
 		} else {
-			view_list_add_subsurface_view(compositor, child, view, output);
+			view_list_add_subsurface_view(compositor, child, view);
 		}
 	}
 }
@@ -3002,47 +2997,57 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
  */
 static void
 view_list_add(struct weston_compositor *compositor,
-	      struct weston_view *view,
-	      struct weston_output *output)
+	      struct weston_view *view)
 {
-	struct weston_paint_node *pnode;
 	struct weston_subsurface *sub;
 
 	weston_view_update_transform(view);
 
-	/* It is possible for a view to appear in the layer list even though
-	 * the view or the surface is unmapped. This is erroneous but difficult
-	 * to fix. */
-	if (!weston_surface_is_mapped(view->surface) ||
-	    !weston_view_is_mapped(view) ||
-	    !weston_surface_has_content(view->surface)) {
-		weston_log_paced(&compositor->unmapped_surface_or_view_pacer,
-				 1, 0,
-				 "Detected an unmapped surface or view in "
-				 "the layer list, which should not occur.\n");
-
-		pnode = weston_view_find_paint_node(view, output);
-		if (pnode)
-			weston_paint_node_destroy(pnode);
-
-		return;
-	}
-
-	pnode = view_ensure_paint_node(view, output);
-
 	if (wl_list_empty(&view->surface->subsurface_list)) {
 		wl_list_insert(compositor->view_list.prev, &view->link);
-		add_to_z_order_list(output, pnode);
 		return;
 	}
 
 	wl_list_for_each(sub, &view->surface->subsurface_list, parent_link) {
 		if (sub->surface == view->surface) {
 			wl_list_insert(compositor->view_list.prev, &view->link);
-			add_to_z_order_list(output, pnode);
 		} else {
-			view_list_add_subsurface_view(compositor, sub, view, output);
+			view_list_add_subsurface_view(compositor, sub, view);
 		}
+	}
+}
+
+static void
+weston_output_build_z_order_list(struct weston_compositor *compositor,
+				 struct weston_output *output)
+{
+	struct weston_paint_node *pnode;
+	struct weston_view *view;
+
+	wl_list_remove(&output->paint_node_z_order_list);
+	wl_list_init(&output->paint_node_z_order_list);
+
+	wl_list_for_each(view, &compositor->view_list, link) {
+		/* It is possible for a view to appear in the layer list even though
+		 * the view or the surface is unmapped. This is erroneous but difficult
+		 * to fix. */
+		if (!weston_surface_is_mapped(view->surface) ||
+		    !weston_view_is_mapped(view) ||
+		    !weston_surface_has_content(view->surface)) {
+			weston_log_paced(&compositor->unmapped_surface_or_view_pacer,
+					 1, 0,
+					 "Detected an unmapped surface or view in "
+					 "the layer list, which should not occur.\n");
+
+			pnode = weston_view_find_paint_node(view, output);
+			if (pnode)
+				weston_paint_node_destroy(pnode);
+
+			continue;
+		}
+
+		pnode = view_ensure_paint_node(view, output);
+		add_to_z_order_list(output, pnode);
 	}
 }
 
@@ -3052,11 +3057,6 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 {
 	struct weston_view *view, *tmp;
 	struct weston_layer *layer;
-
-	if (output) {
-		wl_list_remove(&output->paint_node_z_order_list);
-		wl_list_init(&output->paint_node_z_order_list);
-	}
 
 	wl_list_for_each(layer, &compositor->layer_list, link)
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link)
@@ -3068,13 +3068,17 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 
 	wl_list_for_each(layer, &compositor->layer_list, link) {
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
-			view_list_add(compositor, view, output);
+			view_list_add(compositor, view);
 		}
 	}
 
 	wl_list_for_each(layer, &compositor->layer_list, link)
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link)
 			surface_free_unused_subsurface_views(view->surface);
+
+	if (output)
+		weston_output_build_z_order_list(compositor, output);
+
 }
 
 static void
