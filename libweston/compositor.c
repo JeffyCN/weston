@@ -502,10 +502,52 @@ weston_view_create_internal(struct weston_surface *surface)
 	return view;
 }
 
+static struct weston_view *
+weston_view_create_subsurfaces(struct weston_view *parent_view,
+			       struct weston_subsurface *sub)
+{
+	struct weston_surface *child_surface = sub->surface;
+	struct weston_subsurface *sub_sub;
+	struct weston_view *child_view;
+
+	child_view = weston_view_create_internal(child_surface);
+	assert(child_view);
+
+	weston_view_set_transform_parent(child_view, parent_view);
+	weston_view_set_rel_position(child_view, sub->position.offset);
+	child_view->parent_view = parent_view;
+	weston_view_update_transform(child_view);
+	child_surface->compositor->view_list_needs_rebuild = true;
+
+	wl_list_for_each(sub_sub, &child_surface->subsurface_list, parent_link) {
+		if (sub_sub->surface == sub->surface)
+			continue;
+
+		weston_view_create_subsurfaces(child_view, sub_sub);
+	}
+
+	return child_view;
+}
+
 WL_EXPORT struct weston_view *
 weston_view_create(struct weston_surface *surface)
 {
-	return weston_view_create_internal(surface);
+	struct weston_view *view = weston_view_create_internal(surface);
+	struct weston_subsurface *sub;
+
+	if (!view)
+		return NULL;
+
+	/* Create a view for all the subsurfaces so it's ready to use later;
+	 * this will be discovered by view_list_add_subsurface_list(). */
+	wl_list_for_each(sub, &surface->subsurface_list, parent_link) {
+		if (sub->surface == surface)
+			continue;
+
+		weston_view_create_subsurfaces(view, sub);
+	}
+
+	return view;
 }
 
 struct weston_presentation_feedback {
