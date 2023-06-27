@@ -2034,6 +2034,9 @@ void
 notify_modifiers(struct weston_seat *seat, uint32_t serial);
 
 void
+weston_view_set_alpha(struct weston_view *view, float alpha);
+
+void
 weston_view_move_to_layer(struct weston_view *view,
 			  struct weston_layer_entry *layer);
 
