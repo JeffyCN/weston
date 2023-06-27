@@ -1778,7 +1778,11 @@ transform_parent_handle_parent_destroy(struct wl_listener *listener,
 			     geometry.parent_destroy_listener);
 
 	weston_view_set_transform_parent(view, NULL);
-	view->parent_view = NULL;
+
+	/* Destroy any child views which were automatically created for a
+	 * subsurface when the parent view is destroyed. */
+	if (view->parent_view)
+		weston_view_destroy(view);
 }
 
 WL_EXPORT void
