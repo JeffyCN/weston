@@ -1494,6 +1494,7 @@ WL_EXPORT void
 weston_view_update_transform(struct weston_view *view)
 {
 	struct weston_view *parent = view->geometry.parent;
+	struct weston_view *child;
 	struct weston_layer *layer;
 	pixman_region32_t mask;
 
@@ -1539,6 +1540,11 @@ weston_view_update_transform(struct weston_view *view)
 
 	wl_signal_emit(&view->surface->compositor->transform_signal,
 		       view->surface);
+
+	wl_list_for_each(child, &view->geometry.child_list,
+			 geometry.parent_link) {
+		weston_view_update_transform(child);
+	}
 }
 
 WL_EXPORT void
