@@ -2186,6 +2186,7 @@ weston_compositor_repick(struct weston_compositor *compositor)
 WL_EXPORT void
 weston_view_unmap(struct weston_view *view)
 {
+	struct weston_paint_node *pnode, *pntmp;
 	struct weston_seat *seat;
 	struct weston_view *child;
 
@@ -2230,6 +2231,10 @@ weston_view_unmap(struct weston_view *view)
 			}
 		}
 	}
+
+	wl_list_for_each_safe(pnode, pntmp, &view->paint_node_list, view_link)
+		weston_paint_node_destroy(pnode);
+
 	weston_signal_emit_mutable(&view->unmap_signal, view);
 	view->surface->compositor->view_list_needs_rebuild = true;
 }
@@ -2257,8 +2262,6 @@ weston_surface_unmap(struct weston_surface *surface)
 WL_EXPORT void
 weston_view_destroy(struct weston_view *view)
 {
-	struct weston_paint_node *pnode, *pntmp;
-
 	if (weston_view_is_mapped(view))
 		weston_view_unmap(view);
 
@@ -2266,8 +2269,7 @@ weston_view_destroy(struct weston_view *view)
 
 	assert(wl_list_empty(&view->geometry.child_list));
 
-	wl_list_for_each_safe(pnode, pntmp, &view->paint_node_list, view_link)
-		weston_paint_node_destroy(pnode);
+	assert(wl_list_empty(&view->paint_node_list));
 
 	if (!wl_list_empty(&view->link))
 		view->surface->compositor->view_list_needs_rebuild = true;
