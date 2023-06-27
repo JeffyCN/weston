@@ -1578,6 +1578,7 @@ WL_EXPORT void
 weston_view_geometry_dirty(struct weston_view *view)
 {
 	weston_view_geometry_dirty_internal(view);
+	view->surface->compositor->view_list_needs_rebuild = true;
 }
 
 /**
@@ -2146,12 +2147,14 @@ weston_view_unmap(struct weston_view *view)
 		}
 	}
 	weston_signal_emit_mutable(&view->unmap_signal, view);
+	view->surface->compositor->view_list_needs_rebuild = true;
 }
 
 WL_EXPORT void
 weston_surface_map(struct weston_surface *surface)
 {
 	surface->is_mapped = true;
+	surface->compositor->view_list_needs_rebuild = true;
 	weston_signal_emit_mutable(&surface->map_signal, surface);
 }
 
@@ -2171,7 +2174,6 @@ WL_EXPORT void
 weston_view_destroy(struct weston_view *view)
 {
 	struct weston_paint_node *pnode, *pntmp;
-	struct weston_compositor *compositor = view->surface->compositor;
 
 	if (weston_view_is_mapped(view))
 		weston_view_unmap(view);
@@ -2197,8 +2199,6 @@ weston_view_destroy(struct weston_view *view)
 	wl_list_remove(&view->surface_link);
 
 	free(view);
-
-	weston_compositor_build_view_list(compositor);
 }
 
 WL_EXPORT struct weston_surface *
@@ -3115,6 +3115,8 @@ weston_compositor_build_view_list(struct weston_compositor *compositor)
 
 	wl_list_for_each(output, &compositor->output_list, link)
 		weston_output_build_z_order_list(compositor, output);
+
+	compositor->view_list_needs_rebuild = false;
 }
 
 static void
@@ -3161,7 +3163,8 @@ weston_output_repaint(struct weston_output *output)
 	TL_POINT(ec, "core_repaint_begin", TLP_OUTPUT(output), TLP_END);
 
 	/* Rebuild the surface list and update surface transforms up front. */
-	weston_compositor_build_view_list(ec);
+	if (ec->view_list_needs_rebuild)
+		weston_compositor_build_view_list(ec);
 
 	/* Find the highest protection desired for an output */
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
@@ -3574,6 +3577,8 @@ weston_view_move_to_layer(struct weston_view *view,
 	if (layer == &view->layer_link)
 		return;
 
+	view->surface->compositor->view_list_needs_rebuild = true;
+
 	/* Damage the view's old region, and remove it from the layer. */
 	if (weston_view_is_mapped(view)) {
 		weston_view_damage_below(view);
@@ -3693,6 +3698,8 @@ weston_layer_set_mask(struct weston_layer *layer,
 	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
 		weston_view_geometry_dirty_internal(view);
 	}
+
+	layer->compositor->view_list_needs_rebuild = true;
 }
 
 WL_EXPORT void
@@ -3708,6 +3715,8 @@ weston_layer_set_mask_infinite(struct weston_layer *layer)
 	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
 		weston_view_geometry_dirty_internal(view);
 	}
+
+	layer->compositor->view_list_needs_rebuild = true;
 }
 
 WL_EXPORT bool
@@ -4363,6 +4372,8 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 		status |= weston_surface_commit(surface);
 	}
 
+	if (status & WESTON_SURFACE_DIRTY_SUBSURFACE_CONFIG)
+		surface->compositor->view_list_needs_rebuild = true;
 }
 
 static void

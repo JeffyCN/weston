@@ -1417,6 +1417,8 @@ struct weston_compositor {
 	struct wl_list axis_binding_list;
 	struct wl_list debug_binding_list;
 
+	bool view_list_needs_rebuild;
+
 	uint32_t state;
 	struct wl_event_source *idle_source;
 	uint32_t idle_inhibit;
