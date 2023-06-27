@@ -2227,6 +2227,8 @@ weston_view_destroy(struct weston_view *view)
 	wl_list_for_each_safe(pnode, pntmp, &view->paint_node_list, view_link)
 		weston_paint_node_destroy(pnode);
 
+	if (!wl_list_empty(&view->link))
+		view->surface->compositor->view_list_needs_rebuild = true;
 	wl_list_remove(&view->link);
 	weston_layer_entry_remove(&view->layer_link);
 
