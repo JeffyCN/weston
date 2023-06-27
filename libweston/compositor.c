@@ -100,8 +100,7 @@ weston_output_transform_scale_init(struct weston_output *output,
 				   uint32_t transform, uint32_t scale);
 
 static void
-weston_compositor_build_view_list(struct weston_compositor *compositor,
-				  struct weston_output *output);
+weston_compositor_build_view_list(struct weston_compositor *compositor);
 
 static char *
 weston_output_create_heads_string(struct weston_output *output);
@@ -2159,8 +2158,7 @@ weston_view_destroy(struct weston_view *view)
 
 	if (weston_view_is_mapped(view)) {
 		weston_view_unmap(view);
-		weston_compositor_build_view_list(view->surface->compositor,
-						  NULL);
+		weston_compositor_build_view_list(view->surface->compositor);
 	}
 
 	wl_list_for_each_safe(pnode, pntmp, &view->paint_node_list, view_link)
@@ -3052,9 +3050,9 @@ weston_output_build_z_order_list(struct weston_compositor *compositor,
 }
 
 static void
-weston_compositor_build_view_list(struct weston_compositor *compositor,
-				  struct weston_output *output)
+weston_compositor_build_view_list(struct weston_compositor *compositor)
 {
+	struct weston_output *output;
 	struct weston_view *view, *tmp;
 	struct weston_layer *layer;
 
@@ -3076,9 +3074,8 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link)
 			surface_free_unused_subsurface_views(view->surface);
 
-	if (output)
+	wl_list_for_each(output, &compositor->output_list, link)
 		weston_output_build_z_order_list(compositor, output);
-
 }
 
 static void
@@ -3125,7 +3122,7 @@ weston_output_repaint(struct weston_output *output)
 	TL_POINT(ec, "core_repaint_begin", TLP_OUTPUT(output), TLP_END);
 
 	/* Rebuild the surface list and update surface transforms up front. */
-	weston_compositor_build_view_list(ec, output);
+	weston_compositor_build_view_list(ec);
 
 	/* Find the highest protection desired for an output */
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
