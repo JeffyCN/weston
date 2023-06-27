@@ -3084,17 +3084,11 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 		}
 	}
 
-	if (view) {
-		/* Put it back in the surface's list of views */
-		wl_list_remove(&view->surface_link);
-		wl_list_insert(&sub->surface->views, &view->surface_link);
-	} else {
-		view = weston_view_create_internal(sub->surface);
-		weston_view_set_transform_parent(view, parent);
-		weston_view_set_rel_position(view, sub->position.offset);
-	}
+	assert(view);
+	/* Put it back in the surface's list of views */
+	wl_list_remove(&view->surface_link);
+	wl_list_insert(&sub->surface->views, &view->surface_link);
 
-	view->parent_view = parent;
 	weston_view_update_transform(view);
 	view->is_mapped = true;
 
