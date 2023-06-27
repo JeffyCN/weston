@@ -5258,6 +5258,8 @@ static void
 weston_subsurface_link_parent(struct weston_subsurface *sub,
 			      struct weston_surface *parent)
 {
+	struct weston_view *pv;
+
 	sub->parent = parent;
 	sub->parent_destroy_listener.notify = subsurface_handle_parent_destroy;
 	wl_signal_add(&parent->destroy_signal,
@@ -5268,6 +5270,16 @@ weston_subsurface_link_parent(struct weston_subsurface *sub,
 	wl_list_insert(&parent->subsurface_list, &sub->parent_link);
 	wl_list_insert(&parent->subsurface_list_pending,
 		       &sub->parent_link_pending);
+
+	assert(wl_list_empty(&sub->surface->views));
+
+	wl_list_for_each(pv, &parent->views, surface_link) {
+		struct weston_view *sv = weston_view_create(sub->surface);
+		weston_view_set_transform_parent(sv, pv);
+		weston_view_set_rel_position(sv, sub->position.offset);
+		sv->parent_view = pv;
+		weston_view_update_transform(sv);
+	}
 }
 
 static void
