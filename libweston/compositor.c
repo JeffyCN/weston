@@ -2976,10 +2976,6 @@ output_accumulate_damage(struct weston_output *output)
 
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
 			 z_order_link) {
-		/* Ignore views not visible on the current output */
-		/* TODO: turn this into assert once z_order_list is pruned. */
-		if (!(pnode->view->output_mask & (1u << output->id)))
-			continue;
 		if (pnode->surface->touched)
 			continue;
 		pnode->surface->touched = true;
@@ -3211,13 +3207,15 @@ weston_output_repaint(struct weston_output *output)
 	if (ec->view_list_needs_rebuild)
 		weston_compositor_build_view_list(ec);
 
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link) {
+		assert(pnode->view->output_mask & (1u << pnode->output->id));
+		assert(pnode->output == output);
+	}
+
 	/* Find the highest protection desired for an output */
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
 			 z_order_link) {
-		/* TODO: turn this into assert once z_order_list is pruned. */
-		if ((pnode->surface->output_mask & (1u << output->id)) == 0)
-			continue;
-
 		/*
 		 * The desired_protection of the output should be the
 		 * maximum of the desired_protection of the surfaces,
@@ -3235,10 +3233,6 @@ weston_output_repaint(struct weston_output *output)
 	} else {
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-			/* TODO: turn this into assert once z_order_list is pruned. */
-			if ((pnode->view->output_mask & (1u << output->id)) == 0)
-				continue;
-
 			weston_view_move_to_plane(pnode->view, &ec->primary_plane);
 			pnode->view->psf_flags = 0;
 		}

@@ -1049,11 +1049,7 @@ vnc_output_assign_planes(struct weston_output *base)
 		struct weston_view *view = pnode->view;
 		struct nvnc_fb *fb = NULL;
 
-		/* If this view doesn't touch our output at all, there's no
-		 * reason to do anything with it. */
-		/* TODO: turn this into assert once z_order_list is pruned. */
-		if (!(view->output_mask & (1u << output->base.id)))
-			continue;
+		assert(view->output_mask & (1u << output->base.id));
 
 		/* Skip cursor view */
 		if (view->plane == &output->cursor_plane)

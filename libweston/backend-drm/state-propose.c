@@ -767,14 +767,7 @@ drm_output_propose_state(struct weston_output *output_base,
 		          ev, output->base.name,
 			  (unsigned long) output->base.id);
 
-		/* If this view doesn't touch our output at all, there's no
-		 * reason to do anything with it. */
-		/* TODO: turn this into assert once z_order_list is pruned. */
-		if (!(ev->output_mask & (1u << output->base.id))) {
-			drm_debug(b, "\t\t\t\t[view] ignoring view %p "
-			             "(not on our output)\n", ev);
-			continue;
-		}
+		assert(ev->output_mask & (1u << output->base.id));
 
 		/* Cannot show anything without a color transform. */
 		if (!pnode->surf_xform_valid) {
@@ -1022,11 +1015,7 @@ drm_assign_planes(struct weston_output *output_base)
 		struct weston_view *ev = pnode->view;
 		struct drm_plane *target_plane = NULL;
 
-		/* If this view doesn't touch our output at all, there's no
-		 * reason to do anything with it. */
-		/* TODO: turn this into assert once z_order_list is pruned. */
-		if (!(ev->output_mask & (1u << output->base.id)))
-			continue;
+		assert(ev->output_mask & (1u << output->base.id));
 
 		/* Update dmabuf-feedback if needed */
 		if (ev->surface->dmabuf_feedback)
