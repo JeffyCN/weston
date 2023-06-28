@@ -259,6 +259,9 @@ test_surface_committed(struct weston_surface *surface,
 	struct weston_test *test = test_surface->test;
 	struct weston_coord_global pos;
 
+	if (!weston_surface_has_content(surface))
+		return;
+
 	weston_surface_map(test_surface->surface);
 
 	pos.c = weston_coord(test_surface->x, test_surface->y);
