@@ -99,11 +99,10 @@ frame_callback_wait_nofail(struct client *client, int *done)
 	return 1;
 }
 
-void
-move_client(struct client *client, int x, int y)
+static void
+move_client_internal(struct client *client, int x, int y)
 {
 	struct surface *surface = client->surface;
-	int done;
 
 	client->surface->x = x;
 	client->surface->y = y;
@@ -116,11 +115,28 @@ move_client(struct client *client, int x, int y)
 	wl_surface_damage(surface->wl_surface, 0, 0, surface->width,
 			  surface->height);
 
+}
+
+void
+move_client(struct client *client, int x, int y)
+{
+	struct surface *surface = client->surface;
+	int done;
+
+	move_client_internal(client, x, y);
 	frame_callback_set(surface->wl_surface, &done);
-
 	wl_surface_commit(surface->wl_surface);
-
 	frame_callback_wait(client, &done);
+}
+
+void
+move_client_offscreenable(struct client *client, int x, int y)
+{
+	struct surface *surface = client->surface;
+
+	move_client_internal(client, x, y);
+	wl_surface_commit(surface->wl_surface);
+	wl_display_roundtrip(client->wl_display);
 }
 
 static void

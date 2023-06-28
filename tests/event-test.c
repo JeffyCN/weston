@@ -56,7 +56,7 @@ output_contains_client(struct client *client)
 static void
 check_client_move(struct client *client, int x, int y)
 {
-	move_client(client, x, y);
+	move_client_offscreenable(client, x, y);
 
 	if (output_contains_client(client)) {
 		assert(client->surface->output == client->output);
