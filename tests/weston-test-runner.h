@@ -51,17 +51,20 @@
  */
 struct weston_test_entry {
 	const char *name;
-	void (*run)(void *);
+	void (*run)(struct wet_testsuite_data *, void *);
 	const void *table_data;
 	size_t element_size;
 	int n_elements;
 } __attribute__ ((aligned (64)));
 
 #define TEST_BEGIN(name, arg)						\
-	static void name(arg)
+	static void name(struct wet_testsuite_data *_wet_suite_data, arg)
+
+#define TEST_BEGIN_NO_ARG(name)						\
+	static void name(struct wet_testsuite_data *_wet_suite_data)
 
 #define TEST_COMMON(func, name, data, size, n_elem)			\
-	static void func(void *);					\
+	static void func(struct wet_testsuite_data *, void *);		\
 									\
 	const struct weston_test_entry test##name			\
 		__attribute__ ((used, section ("test_section"))) =	\
@@ -71,14 +74,15 @@ struct weston_test_entry {
 
 #define NO_ARG_TEST(name)						\
 	TEST_COMMON(wrap##name, name, NULL, 0, 1)			\
-	static void name(void);						\
-	static void wrap##name(void *data)				\
+	static void name(struct wet_testsuite_data *);			\
+	static void wrap##name(struct wet_testsuite_data *_wet_suite_data,\
+			       void *data)				\
 	{								\
 		(void) data;						\
-		name();							\
+		name(_wet_suite_data);					\
 	}								\
 									\
-	TEST_BEGIN(name, void)
+	TEST_BEGIN_NO_ARG(name)
 
 #define ARG_TEST(name, test_data)					\
 	TEST_COMMON(name, name, test_data,				\
@@ -130,10 +134,12 @@ struct weston_test_entry {
  */
 #define PLUGIN_TEST(name)						\
 	TEST_COMMON(wrap##name, name, NULL, 0, 1)			\
-	static void name(struct weston_compositor *);			\
-	static void wrap##name(void *compositor)			\
+	static void name(struct wet_testsuite_data *,			\
+			 struct weston_compositor *);			\
+	static void wrap##name(struct wet_testsuite_data *_wet_suite_data,\
+			       void *compositor)			\
 	{								\
-		name(compositor);					\
+		name(_wet_suite_data, compositor);			\
 	}								\
 	TEST_BEGIN(name, struct weston_compositor *compositor)
 
