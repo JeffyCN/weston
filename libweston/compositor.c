@@ -3124,6 +3124,9 @@ weston_output_build_z_order_list(struct weston_compositor *compositor,
 			continue;
 		}
 
+		if (!(view->output_mask & (1u << output->id)))
+			continue;
+
 		pnode = view_ensure_paint_node(view, output);
 		add_to_z_order_list(output, pnode);
 	}
