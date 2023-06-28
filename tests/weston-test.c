@@ -261,13 +261,13 @@ test_surface_committed(struct weston_surface *surface,
 
 	weston_surface_map(test_surface->surface);
 
-	if (wl_list_empty(&test_surface->view->layer_link.link))
-		weston_layer_entry_insert(&test->layer.view_list,
-					  &test_surface->view->layer_link);
-	test_surface->view->is_mapped = true;
-
 	pos.c = weston_coord(test_surface->x, test_surface->y);
 	weston_view_set_position(test_surface->view, pos);
+
+	if (wl_list_empty(&test_surface->view->layer_link.link)) {
+		weston_view_move_to_layer(test_surface->view,
+					  &test->layer.view_list);
+	}
 
 	weston_view_update_transform(test_surface->view);
 }
