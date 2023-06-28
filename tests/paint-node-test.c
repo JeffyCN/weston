@@ -155,3 +155,97 @@ TEST(top_surface_present_in_output_repaint)
 	buffer_destroy(buf);
 	client_destroy(client);
 }
+
+TEST(test_surface_unmaps_on_null)
+{
+	struct wet_testsuite_data *suite_data = TEST_GET_SUITE_DATA();
+	struct client *client;
+	struct buffer *buf;
+	pixman_color_t red;
+
+	color_rgb888(&red, 255, 0, 0);
+
+	client = create_client_and_test_surface(100, 50, 100, 100);
+	assert(client);
+
+	/* move the pointer clearly away from our screenshooting area */
+	weston_test_move_pointer(client->test->weston_test, 0, 1, 0, 2, 30);
+
+	client_push_breakpoint(client, suite_data,
+			       WESTON_TEST_BREAKPOINT_POST_REPAINT,
+			       (struct wl_proxy *) client->output->wl_output);
+
+	buf = surface_commit_color(client, client->surface->wl_surface, &red, 100, 100);
+
+	RUN_INSIDE_BREAKPOINT(client, suite_data) {
+		struct weston_compositor *compositor;
+		struct weston_output *output;
+		struct weston_head *head;
+		struct weston_paint_node *pnode;
+		struct weston_view *view;
+		struct weston_surface *surface;
+		struct weston_buffer *buffer;
+
+		assert(breakpoint->template_->breakpoint ==
+		       WESTON_TEST_BREAKPOINT_POST_REPAINT);
+		compositor = breakpoint->compositor;
+		head = breakpoint->resource;
+		output = next_output(compositor, NULL);
+		assert(output == head->output);
+		assert(strcmp(output->name, "headless") == 0);
+		assert(!next_output(compositor, output));
+
+		/* check that our surface is top of the paint node list */
+		pnode = next_pnode_from_z(output, NULL);
+		assert(pnode);
+		view = pnode->view;
+		surface = view->surface;
+		buffer = surface->buffer_ref.buffer;
+		assert(wl_resource_get_client(surface->resource) ==
+		       suite_data->wl_client);
+		assert(weston_view_is_mapped(view));
+		assert(weston_surface_is_mapped(surface));
+		assert(surface->width == 100);
+		assert(surface->height == 100);
+		assert(buffer->width == surface->width);
+		assert(buffer->height == surface->height);
+		assert(buffer->type == WESTON_BUFFER_SHM);
+
+		REARM_BREAKPOINT(breakpoint);
+	}
+
+	wl_surface_attach(client->surface->wl_surface, NULL, 0, 0);
+	wl_surface_commit(client->surface->wl_surface);
+
+	RUN_INSIDE_BREAKPOINT(client, suite_data) {
+		struct weston_compositor *compositor;
+		struct weston_output *output;
+		struct weston_head *head;
+		struct weston_paint_node *pnode;
+		struct weston_view *view;
+		struct weston_surface *surface;
+		struct weston_buffer *buffer;
+
+		assert(breakpoint->template_->breakpoint ==
+		       WESTON_TEST_BREAKPOINT_POST_REPAINT);
+		compositor = breakpoint->compositor;
+		head = breakpoint->resource;
+		output = next_output(compositor, NULL);
+		assert(output == head->output);
+		assert(strcmp(output->name, "headless") == 0);
+		assert(!next_output(compositor, output));
+
+		/* check that our NULL-buffer commit removed the surface from
+		 * view */
+		pnode = next_pnode_from_z(output, NULL);
+		assert(pnode);
+		view = pnode->view;
+		surface = view->surface;
+		buffer = surface->buffer_ref.buffer;
+		assert(!surface->resource);
+		assert(buffer->type == WESTON_BUFFER_SOLID);
+	}
+
+	buffer_destroy(buf);
+	client_destroy(client);
+}
