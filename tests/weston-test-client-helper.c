@@ -27,6 +27,7 @@
 
 #include "config.h"
 
+#include <semaphore.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -2084,4 +2085,163 @@ color_rgb888(pixman_color_t *tmp, uint8_t r, uint8_t g, uint8_t b)
 	tmp->blue = (b << 8) + b;
 
 	return tmp;
+}
+
+/**
+ * Asks the server to wait for a specified breakpoint the next time it occurs,
+ * synchronized as part of the protocol stream.
+ *
+ * \param client Client structure
+ * \param suite_data Test suite data structure
+ * \param breakpoint Breakpoint to stop at
+ * \param proxy Optional breakpoint-specific object to filter by
+ */
+void
+client_push_breakpoint(struct client *client,
+		       struct wet_testsuite_data *suite_data,
+		       enum weston_test_breakpoint breakpoint,
+		       struct wl_proxy *proxy)
+{
+	weston_test_client_break(client->test->weston_test, breakpoint,
+				 proxy ? wl_proxy_get_id(proxy) : 0);
+}
+
+/**
+ * Waits for the server's next breakpoint and returns control to the client.
+ * Must have had a corresponding client_push_breakpoint() call made before.
+ *
+ * May only be called after a weston_test.breakpoint request has been issued,
+ * or within a break, before client_release_breakpoint() has been called.
+ *
+ * \param client Client structure
+ * \param suite_data Test suite data structure
+ * \return Information about the active breakpoint
+ */
+struct wet_test_active_breakpoint *
+client_wait_breakpoint(struct client *client,
+		       struct wet_testsuite_data *suite_data)
+{
+	struct wet_test_active_breakpoint *active_bp;
+
+	assert(suite_data);
+	assert(!suite_data->breakpoints.in_client_break);
+
+	wl_display_flush(client->wl_display);
+	wet_test_wait_sem(&suite_data->breakpoints.client_break);
+
+	active_bp = suite_data->breakpoints.active_bp;
+	assert(active_bp);
+	suite_data->breakpoints.in_client_break = true;
+	return active_bp;
+}
+
+static void *
+get_resource_data_from_proxy(struct wet_testsuite_data *suite_data,
+			     struct wl_proxy *proxy)
+{
+	struct wl_resource *resource;
+
+	assert(suite_data->breakpoints.in_client_break);
+
+	if (!proxy)
+		return NULL;
+
+	resource = wl_client_get_object(suite_data->wl_client,
+					wl_proxy_get_id(proxy));
+	assert(resource);
+	return wl_resource_get_user_data(resource);
+}
+
+/**
+ * Asks the server to wait for a specified breakpoint the next time it occurs,
+ * inserted immediately into the wait list with no synchronization to the
+ * protocol stream.
+ *
+ * Must only be called between client_wait_breakpoint() and
+ * client_release_breakpoint().
+ *
+ * \param client Client structure
+ * \param suite_data Test suite data structure
+ * \param breakpoint Breakpoint to stop at
+ * \param proxy Optional breakpoint-specific object to filter by
+ */
+void
+client_insert_breakpoint(struct client *client,
+		         struct wet_testsuite_data *suite_data,
+			 enum weston_test_breakpoint breakpoint,
+			 struct wl_proxy *proxy)
+{
+	struct wet_test_pending_breakpoint *bp;
+
+	assert(suite_data->breakpoints.in_client_break);
+
+	bp = xzalloc(sizeof(*bp));
+	bp->breakpoint = breakpoint;
+	bp->resource = get_resource_data_from_proxy(suite_data, proxy);
+	wl_list_insert(&suite_data->breakpoints.list, &bp->link);
+}
+
+/**
+ * Removes a specified breakpoint from the server's breakpoint list,
+ * with no synchronization to the protocol stream.
+ *
+ * Must only be called between client_wait_breakpoint() and
+ * client_release_breakpoint().
+ *
+ * \param client Client structure
+ * \param suite_data Test suite data structure
+ * \param breakpoint Breakpoint to remove
+ * \param proxy Optional breakpoint-specific object to filter by
+ */
+void
+client_remove_breakpoint(struct client *client,
+		         struct wet_testsuite_data *suite_data,
+			 enum weston_test_breakpoint breakpoint,
+			 struct wl_proxy *proxy)
+{
+	struct wet_test_pending_breakpoint *bp, *tmp;
+	void *resource = get_resource_data_from_proxy(suite_data, proxy);
+
+	assert(suite_data->breakpoints.in_client_break);
+
+	wl_list_for_each_safe(bp, tmp, &suite_data->breakpoints.list,
+			      link) {
+		if (bp->breakpoint != breakpoint)
+			continue;
+		if (bp->resource != resource)
+			continue;
+		assert(bp != suite_data->breakpoints.active_bp->template_);
+		wl_list_remove(&bp->link);
+		free(bp);
+		return;
+	}
+
+	assert(!"couldn't find breakpoint to remove");
+}
+
+/**
+ * Continues server execution after a breakpoint.
+ *
+ * \param client Client structure
+ * \param suite_data Test suite data structure
+ * \param active_bp Data structure returned from client_wait_breakpoint()
+ */
+void
+client_release_breakpoint(struct client *client,
+			  struct wet_testsuite_data *suite_data,
+			  struct wet_test_active_breakpoint *active_bp)
+{
+	assert(suite_data->breakpoints.active_bp == active_bp);
+
+	if (active_bp->rearm_on_release) {
+		wl_list_insert(&suite_data->breakpoints.list,
+			       &active_bp->template_->link);
+	} else {
+		free(active_bp->template_);
+	}
+
+	free(active_bp);
+	suite_data->breakpoints.active_bp = NULL;
+	suite_data->breakpoints.in_client_break = false;
+	wet_test_post_sem(&suite_data->breakpoints.server_release);
 }

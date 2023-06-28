@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #include <libweston/libweston.h>
 #include <libweston/weston-log.h>
@@ -86,8 +87,55 @@ struct weston_test_output {
 };
 
 static void
+maybe_breakpoint(struct weston_test *test,
+		 enum weston_test_breakpoint breakpoint,
+		 void *resource)
+{
+	struct wet_test_pending_breakpoint *bp, *tmp;
+	struct wet_testsuite_data *tsd = weston_compositor_get_test_data(test->compositor);
+
+	wl_list_for_each_safe(bp, tmp, &tsd->breakpoints.list, link) {
+		struct wet_test_active_breakpoint *active_bp;
+
+		if (breakpoint != bp->breakpoint)
+			continue;
+		if (bp->resource && resource != bp->resource)
+			continue;
+
+		/* Remove this breakpoint from the list; ownership passes to
+		 * the active breakpoint */
+		wl_list_remove(&bp->link);
+
+		/* The active breakpoint and the pending one which triggered it
+		 * are now owned by the client */
+		active_bp = xzalloc(sizeof(*active_bp));
+		active_bp->compositor = test->compositor;
+		active_bp->resource = resource;
+		active_bp->template_ = bp;
+
+		/* Wake the client with the active breakpoint, and wait for it
+		 * to return control */
+		tsd->breakpoints.active_bp = active_bp;
+		wet_test_post_sem(&tsd->breakpoints.client_break);
+		wet_test_wait_sem(&tsd->breakpoints.server_release);
+
+		/* Only ever trigger a single breakpoint at a time */
+		return;
+	}
+}
+
+static void
 output_repaint_listener(struct wl_listener *listener, void *data)
 {
+	struct weston_test_output *to =
+		container_of(listener, struct weston_test_output,
+			     repaint_listener);
+	struct weston_head *head;
+
+	wl_list_for_each(head, &to->output->head_list, output_link) {
+		maybe_breakpoint(to->test, WESTON_TEST_BREAKPOINT_POST_REPAINT,
+				 head);
+	}
 }
 
 static void
@@ -501,6 +549,28 @@ send_touch(struct wl_client *client, struct wl_resource *resource,
 	}
 }
 
+static void
+client_break(struct wl_client *client, struct wl_resource *resource,
+	     uint32_t _breakpoint, uint32_t resource_id)
+{
+	struct weston_test *test = wl_resource_get_user_data(resource);
+	struct wet_testsuite_data *tsd = weston_compositor_get_test_data(test->compositor);
+	struct wet_test_pending_breakpoint *bp;
+	enum weston_test_breakpoint breakpoint = _breakpoint;
+
+	bp = calloc(1, sizeof(*bp));
+	bp->breakpoint = breakpoint;
+
+	if (resource_id != 0) {
+		struct wl_resource *resource =
+			wl_client_get_object(client, resource_id);
+		assert(resource);
+		bp->resource = wl_resource_get_user_data(resource);
+	}
+
+	wl_list_insert(&tsd->breakpoints.list, &bp->link);
+}
+
 static const struct weston_test_interface test_implementation = {
 	move_surface,
 	move_pointer,
@@ -511,12 +581,24 @@ static const struct weston_test_interface test_implementation = {
 	device_release,
 	device_add,
 	send_touch,
+	client_break,
 };
+
+static void
+destroy_test(struct wl_resource *resource)
+{
+	struct weston_test *test = wl_resource_get_user_data(resource);
+	struct wet_testsuite_data *tsd = weston_compositor_get_test_data(test->compositor);
+
+	assert(tsd->wl_client);
+	tsd->wl_client = NULL;
+}
 
 static void
 bind_test(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
 	struct weston_test *test = data;
+	struct wet_testsuite_data *tsd = weston_compositor_get_test_data(test->compositor);
 	struct wl_resource *resource;
 
 	resource = wl_resource_create(client, &weston_test_interface, 1, id);
@@ -526,8 +608,12 @@ bind_test(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 	}
 
 	wl_resource_set_implementation(resource,
-				       &test_implementation, test, NULL);
+				       &test_implementation, test,
+				       destroy_test);
 
+	/* There can only be one wl_client bound */
+	assert(!tsd->wl_client);
+	tsd->wl_client = client;
 	notify_pointer_position(test, resource);
 }
 
@@ -613,6 +699,23 @@ create_client_thread(struct weston_test *test, struct wet_testsuite_data *data)
 
 	data->thread_event_pipe = pipefd[1];
 
+	wl_list_init(&data->breakpoints.list);
+
+	ret = sem_init(&data->breakpoints.client_break, 0, 0);
+	if (ret != 0) {
+		weston_log("Creating breakpoint semaphore failed: %s (%d)\n",
+			   strerror(errno), errno);
+		goto out_source;
+	}
+
+	ret = sem_init(&data->breakpoints.server_release, 0, 0);
+	if (ret != 0) {
+		weston_log("Creating release semaphore failed: %s (%d)\n",
+			   strerror(errno), errno);
+		goto out_source;
+	}
+
+
 	/* Ensure we don't accidentally get signals to the thread. */
 	sigfillset(&blocked);
 	sigdelset(&blocked, SIGSEGV);
@@ -686,10 +789,12 @@ handle_compositor_destroy(struct wl_listener *listener,
 			  void *weston_compositor)
 {
 	struct weston_compositor *compositor = weston_compositor;
+	struct wet_testsuite_data *data;
 	struct weston_test *test;
 	struct weston_output *output;
 
 	test = wl_container_of(listener, test, destroy_listener);
+	data = weston_compositor_get_test_data(test->compositor);
 
 	wl_list_remove(&test->destroy_listener.link);
 	wl_list_remove(&test->output_created_listener.link);
@@ -707,6 +812,8 @@ handle_compositor_destroy(struct wl_listener *listener,
 
 	if (test->is_seat_initialized)
 		test_seat_release(test);
+
+	data->wl_client = NULL;
 
 	wl_list_remove(&test->layer.view_list.link);
 	wl_list_remove(&test->layer.link);

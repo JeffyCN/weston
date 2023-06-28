@@ -26,6 +26,10 @@
 #ifndef WESTON_TESTSUITE_DATA_H
 #define WESTON_TESTSUITE_DATA_H
 
+#include <assert.h>
+#include <errno.h>
+#include <semaphore.h>
+
 /** Standard return codes
  *
  * Both Autotools and Meson use these codes as test program exit codes
@@ -57,12 +61,106 @@ enum test_type {
 	TEST_TYPE_CLIENT,
 };
 
+/** Safely handle posting a semaphore to wake a waiter
+ *
+ * \ingroup testharness_private
+ */
+static inline void wet_test_post_sem(sem_t *sem)
+{
+	int ret = sem_post(sem);
+	assert(ret == 0); /* only fails on programming errors */
+}
+
+/** Safely handle waiting on a semaphore
+ *
+ * \ingroup testharness_private
+ */
+static inline void wet_test_wait_sem(sem_t *sem)
+{
+	int ret;
+
+	do {
+		ret = sem_wait(sem);
+	} while (ret != 0 && errno == EINTR);
+	assert(ret == 0); /* all other failures are programming errors */
+}
+
+/** An individual breakpoint set for the server
+ *
+ * This breakpoint data is created and placed in a list by either the server
+ * (when handling protocol messages) or the client (when directly manipulating
+ * the list during a breakpoint).
+ *
+ * It must be freed by the client.
+ *
+ * \ingroup testharness_private
+ */
+struct wet_test_pending_breakpoint {
+	/** breakpoint type - enum weston_test_breakpoint from protocol */
+	uint32_t breakpoint;
+	/** type-specific resource to filter on (optional) */
+	void *resource;
+	struct wl_list link; /**< wet_testsuite_breakpoints.list */
+};
+
+/** Information about the server's active breakpoint
+ *
+ * This breakpoint data is created by the server and passed to the client when
+ * the server enters a breakpoint.
+ *
+ * It must be freed by the client.
+ *
+ * \ingroup testharness_private
+ */
+struct wet_test_active_breakpoint {
+	/** libweston compositor instance in use */
+	struct weston_compositor *compositor;
+	/** type-specific pointer to resource which triggered this breakpoint */
+	void *resource;
+	/** on release, reinsert the template to trigger next time */
+	bool rearm_on_release;
+	/** client's original breakpoint request */
+	struct wet_test_pending_breakpoint *template_;
+};
+
+/** Client/compositor synchronisation for breakpoint state
+ *
+ * Manages the set of active breakpoints placed for the server, as well as
+ * signalling the pausing/continuing of server actions.
+ *
+ * \ingroup testharness_private
+ */
+struct wet_testsuite_breakpoints {
+	/** signalled by the server when it reaches a breakpoint */
+	sem_t client_break;
+	/** signalled by the client to resume server execution */
+	sem_t server_release;
+
+	/** Pushed by the server when a breakpoint is triggered, immediately
+	  * before it signals the client_break semaphore. Client consumes this
+	  * and takes ownership after the wait succeeds. */
+	struct wet_test_active_breakpoint *active_bp;
+
+	/** client-internal state; set by consuming active_bp, cleared by
+	  * signalling server_release */
+	bool in_client_break;
+
+	/** list of pending breakpoints: owned by the server during normal
+	  * execution (ordinarily added to by a protocol request, and
+	  * traversed to find a possible breakpoint to trigger), and owned by
+	  * the client wtihin a breakpoint (pending breakpoints may be added
+	  * or removed). Members are wet_test_pending_breakpoint.link */
+	struct wl_list list;
+};
+
 /** Test harness specific data for running tests
  *
  * \ingroup testharness_private
  */
 struct wet_testsuite_data {
 	void (*run)(struct wet_testsuite_data *);
+
+	void *wl_client;
 
 	/* test definitions */
 	const struct weston_test_entry *tests;
@@ -73,6 +171,7 @@ struct wet_testsuite_data {
 
 	/* client thread control */
 	int thread_event_pipe;
+	struct wet_testsuite_breakpoints breakpoints;
 
 	/* informational run state */
 	int fixture_iteration;

@@ -29,6 +29,7 @@
 
 #include "config.h"
 
+#include <semaphore.h>
 #include <stdlib.h>
 
 #include <wayland-util.h>
@@ -142,6 +143,16 @@ struct weston_test_entry {
 		name(_wet_suite_data, compositor);			\
 	}								\
 	TEST_BEGIN(name, struct weston_compositor *compositor)
+
+/** Get test suite data structure
+ *
+ * This returns the shared test suite data structure, to be used in
+ * any test which is declared with TEST(), TEST_P(), or PLUGIN_TEST().
+ *
+ * \return Test suite data structure
+ * \ingroup testharness
+ */
+#define TEST_GET_SUITE_DATA() _wet_suite_data
 
 void
 testlog(const char *fmt, ...) WL_PRINTF(1, 2);

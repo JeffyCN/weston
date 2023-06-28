@@ -15,6 +15,7 @@ lib_test_runner = static_library(
 		dep_libweston_private_h_deps,
 		dep_wayland_client,
                 dep_libdl,
+                dep_threads,
 	],
 	include_directories: common_inc,
 	install: false,
@@ -46,6 +47,7 @@ lib_test_client = static_library(
 		dep_libweston_private,
 		dep_libdrm_headers,
 		dep_pixman,
+                dep_threads,
 		dependency('cairo'),
 	],
 	install: false,
@@ -60,6 +62,7 @@ dep_test_client = declare_dependency(
 		dep_test_runner,
 		dep_pixman,
 		dep_libdrm_headers,
+                dep_threads,
 		dependency('libudev', version: '>= 136'),
 	]
 )
