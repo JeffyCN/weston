@@ -207,6 +207,7 @@ tests = [
 	{	'name': 'output-decorations', },
 	{	'name': 'output-transforms', },
 	{	'name': 'plugin-registry', },
+        {       'name': 'paint-node', },
 	{
 		'name': 'pointer',
 		'sources': [
