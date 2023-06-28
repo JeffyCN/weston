@@ -46,6 +46,7 @@
 
 #include "shared/helpers.h"
 #include "shared/timespec-util.h"
+#include "shared/xalloc.h"
 
 #define MAX_TOUCH_DEVICES 32
 
@@ -63,6 +64,10 @@ struct weston_test {
 
 	pthread_t client_thread;
 	struct wl_event_source *client_source;
+
+	struct wl_list output_list;
+	struct wl_listener output_created_listener;
+	struct wl_listener output_destroyed_listener;
 };
 
 struct weston_test_surface {
@@ -72,6 +77,53 @@ struct weston_test_surface {
 	int32_t x, y;
 	struct weston_test *test;
 };
+
+struct weston_test_output {
+	struct weston_test *test;
+	struct weston_output *output;
+	struct wl_listener repaint_listener;
+	struct wl_list link;
+};
+
+static void
+output_repaint_listener(struct wl_listener *listener, void *data)
+{
+}
+
+static void
+output_created_listener(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct weston_test_output *to = xzalloc(sizeof(*to));
+	struct weston_test *test =
+		container_of(listener, struct weston_test,
+			     output_created_listener);
+
+	to->test = test;
+	to->output = output;
+	to->repaint_listener.notify = output_repaint_listener;
+	wl_signal_add(&output->frame_signal, &to->repaint_listener);
+	wl_list_insert(&test->output_list, &to->link);
+}
+
+static void
+output_destroyed_listener(struct wl_listener *listener, void *data)
+{
+	struct weston_output *output = data;
+	struct weston_test_output *to, *tmp;
+	struct weston_test *test =
+		container_of(listener, struct weston_test,
+			     output_destroyed_listener);
+
+	wl_list_for_each_safe(to, tmp, &test->output_list, link) {
+		if (to->output != output)
+			continue;
+
+		wl_list_remove(&to->repaint_listener.link);
+		wl_list_remove(&to->link);
+		free(to);
+	}
+}
 
 static void
 touch_device_add(struct weston_test *test)
@@ -633,11 +685,19 @@ static void
 handle_compositor_destroy(struct wl_listener *listener,
 			  void *weston_compositor)
 {
+	struct weston_compositor *compositor = weston_compositor;
 	struct weston_test *test;
+	struct weston_output *output;
 
 	test = wl_container_of(listener, test, destroy_listener);
 
 	wl_list_remove(&test->destroy_listener.link);
+	wl_list_remove(&test->output_created_listener.link);
+	wl_list_remove(&test->output_destroyed_listener.link);
+	wl_list_for_each(output, &compositor->output_list, link) {
+		output_destroyed_listener(&test->output_destroyed_listener,
+					  output);
+	}
 
 	if (test->client_source) {
 		weston_log_scope_printf(test->log, "Cancelling client thread...\n");
@@ -660,6 +720,7 @@ wet_module_init(struct weston_compositor *ec,
 		int *argc, char *argv[])
 {
 	struct weston_test *test;
+	struct weston_output *output;
 	struct wl_event_loop *loop;
 
 	test = zalloc(sizeof *test);
@@ -676,6 +737,15 @@ wet_module_init(struct weston_compositor *ec,
 	test->compositor = ec;
 	weston_layer_init(&test->layer, ec);
 	weston_layer_set_position(&test->layer, WESTON_LAYER_POSITION_CURSOR - 1);
+
+	wl_list_init(&test->output_list);
+	wl_list_for_each(output, &ec->output_list, link)
+		output_created_listener(&test->output_created_listener, output);
+	test->output_created_listener.notify = output_created_listener;
+	wl_signal_add(&ec->output_created_signal, &test->output_created_listener);
+	test->output_destroyed_listener.notify = output_destroyed_listener;
+	wl_signal_add(&ec->output_destroyed_signal,
+		      &test->output_destroyed_listener);
 
 	test->log = weston_compositor_add_log_scope(ec, "test-harness-plugin",
 					"weston-test plugin's own actions",
