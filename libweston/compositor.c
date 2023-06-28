@@ -1286,6 +1286,7 @@ weston_view_assign_output(struct weston_view *ev)
 {
 	struct weston_compositor *ec = ev->surface->compositor;
 	struct weston_output *output, *new_output;
+	struct weston_paint_node *pnode, *pntmp;
 	pixman_region32_t region;
 	uint32_t max, area, mask;
 	pixman_box32_t *e;
@@ -1318,6 +1319,12 @@ weston_view_assign_output(struct weston_view *ev)
 	ev->output_mask = mask;
 
 	weston_surface_assign_output(ev->surface);
+
+	/* Destroy any paint nodes that no longer appear on their output */
+	wl_list_for_each_safe(pnode, pntmp, &ev->paint_node_list, view_link) {
+		if (!(pnode->view->output_mask & (1u << pnode->output->id)))
+			weston_paint_node_destroy(pnode);
+	}
 }
 
 static void
