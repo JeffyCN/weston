@@ -128,7 +128,7 @@ struct weston_test_entry {
  *
  * \ingroup testharness
  */
-#define PLUGIN_TEST(name) 						\
+#define PLUGIN_TEST(name)						\
 	TEST_COMMON(wrap##name, name, NULL, 0, 1)			\
 	static void name(struct weston_compositor *);			\
 	static void wrap##name(void *compositor)			\

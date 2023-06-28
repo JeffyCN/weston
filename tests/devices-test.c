@@ -152,7 +152,8 @@ TEST(multiple_device_add_and_remove)
 	client_destroy(cl);
 }
 
-TEST(device_release_before_destroy)
+static void
+device_release_before_destroy(void)
 {
 	struct client *cl = create_client_and_test_surface(100, 100, 100, 100);
 
@@ -195,15 +196,12 @@ TEST(device_release_before_destroy_multiple)
 {
 	int i;
 
-	/* if weston crashed during this test, then there is
-	 * some inconsistency */
-	for (i = 0; i < 30; ++i) {
+	for (i = 0; i < 30; ++i)
 		device_release_before_destroy();
-	}
 }
 
-/* normal work-flow test */
-TEST(device_release_after_destroy)
+static void
+device_release_after_destroy(void)
 {
 	struct client *cl = create_client_and_test_surface(100, 100, 100, 100);
 
@@ -247,17 +245,15 @@ TEST(device_release_after_destroy_multiple)
 {
 	int i;
 
-	/* if weston crashed during this test, then there is
-	 * some inconsistency */
-	for (i = 0; i < 30; ++i) {
+	for (i = 0; i < 30; ++i)
 		device_release_after_destroy();
-	}
 }
 
 /* see https://bugzilla.gnome.org/show_bug.cgi?id=745008
  * It is a mutter bug, but highly relevant. Weston does not
  * suffer from this bug atm, but it is worth of testing. */
-TEST(get_device_after_destroy)
+static void
+get_device_after_destroy(void)
 {
 	struct client *cl = create_client_and_test_surface(100, 100, 100, 100);
 	struct wl_pointer *wl_pointer;
