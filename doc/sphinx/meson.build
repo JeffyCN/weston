@@ -3,9 +3,9 @@ doxygen = find_program('doxygen', required: true)
 dot = find_program('dot', required: true)
 breathe = find_program('breathe-apidoc', required: true)
 
-sphinx_c = run_command(sphinx, '--version')
-breathe_c = run_command(breathe, '--version')
-doxygen_c = run_command(doxygen, '--version')
+sphinx_c = run_command(sphinx, '--version', check: true)
+breathe_c = run_command(breathe, '--version', check: true)
+doxygen_c = run_command(doxygen, '--version', check: true)
 
 sphinx_v = sphinx_c.stdout().split(' ')[1].strip()
 breathe_v = breathe_c.stdout().split(' ')[2].strip()
