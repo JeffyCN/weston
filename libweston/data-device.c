@@ -972,6 +972,7 @@ weston_pointer_start_drag(struct weston_pointer *pointer,
 		icon->committed_private = drag;
 		weston_surface_set_label_func(icon,
 					pointer_drag_surface_get_label);
+		drag->base.offset = weston_coord_surface(0, 0, icon);
 	} else {
 		drag->base.icon = NULL;
 	}
@@ -990,7 +991,6 @@ weston_pointer_start_drag(struct weston_pointer *pointer,
 	if (keyboard)
 		weston_keyboard_start_grab(keyboard, &drag->base.keyboard_grab);
 
-	drag->base.offset = weston_coord_surface(0, 0, icon);
 	return 0;
 }
 
@@ -1036,6 +1036,7 @@ weston_touch_start_drag(struct weston_touch *touch,
 		icon->committed_private = drag;
 		weston_surface_set_label_func(icon,
 					touch_drag_surface_get_label);
+		drag->base.offset = weston_coord_surface(0, 0, icon);
 	} else {
 		drag->base.icon = NULL;
 	}
@@ -1055,7 +1056,6 @@ weston_touch_start_drag(struct weston_touch *touch,
 
 	drag_grab_touch_focus(drag);
 
-	drag->base.offset = weston_coord_surface(0, 0, icon);
 	return 0;
 }
 
