@@ -55,7 +55,7 @@ segment_print(const cmsCurveSegment *seg, struct weston_log_scope *scope)
 	float x0 = round_segment_break_value(seg->x0);
 	float x1 = round_segment_break_value(seg->x1);
 
-	weston_log_scope_printf(scope, "%*s(%.2f, %.2f] ", 12, "", x0, x1);
+	weston_log_scope_printf(scope, "%*s(%.4f, %.4f] ", 12, "", x0, x1);
 
 	if (seg->Type == 0) {
 		/* Not much to print as this is a sampled curve. We have only
