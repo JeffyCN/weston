@@ -2393,7 +2393,7 @@ gl_renderer_fill_buffer_info(struct weston_compositor *ec,
 	struct gl_renderer *gr = get_renderer(ec);
 	struct gl_buffer_state *gb = zalloc(sizeof(*gb));
 	EGLint format;
-	uint32_t fourcc;
+	uint32_t fourcc = 0;
 	GLenum target;
 	EGLint y_inverted;
 	bool ret = true;
