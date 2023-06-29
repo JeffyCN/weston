@@ -194,6 +194,8 @@ rather than as systemd system service, still relying on logind launcher.  In
 order to do that we would need two
 `unit <https://man7.org/linux/man-pages/man5/systemd.unit.5.html>`_ files,
 a ``.service`` and a ``.socket`` one.
+The ``systemd-notify.so`` module needs to be enabled to notify systemd when
+Weston has finished its startup and is ready to accept client connections.
 
 On a Debian system, the systemd user units are under ``/etc/systemd/user/``
 directory.
@@ -236,7 +238,7 @@ directory.
         StandardError=journal
 
         # add a ~/.config/weston.ini and weston will pick-it up
-        ExecStart=/usr/bin/weston
+        ExecStart=/usr/bin/weston --modules=systemd-notify.so
 
         [Install]
         WantedBy=graphical-session.target
