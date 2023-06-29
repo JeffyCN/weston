@@ -9198,7 +9198,6 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 
 	if (backend_init(compositor, config_base) < 0) {
 		compositor->backend = NULL;
-		weston_compositor_shutdown(compositor);
 		return -1;
 	}
 
