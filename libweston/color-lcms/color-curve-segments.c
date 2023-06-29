@@ -221,19 +221,35 @@ static void
 curve_print(const cmsToneCurve *curve, struct weston_log_scope *scope)
 {
 	const cmsCurveSegment *seg;
+	cmsUInt32Number n_entries;
 	unsigned int i;
-
-	weston_log_scope_printf(scope, "%*sSegments\n", 9, "");
 
 	for (i = 0; ; i++) {
 		seg = cmsGetToneCurveSegment(i, curve);
 		if (!seg)
 			break;
+
+		if (i == 0)
+			weston_log_scope_printf(scope, "%*sSegments\n", 9, "");
+
 		segment_print(seg, scope);
 	}
+	if (i > 0)
+		return;
 
-	if (i == 0)
+	n_entries = cmsGetToneCurveEstimatedTableEntries(curve);
+
+	/* We have a curve with 0 segments and 0 entries... we are not expecting
+	 * seeing this case. */
+	if (n_entries <= 0) {
 		weston_log_scope_printf(scope, "%*sNo segments\n", 12, "");
+		return;
+	}
+
+	/* We have a curve with 0 segments but n_entries > 0. That's a 16-bit
+	 * sampled curve. */
+	weston_log_scope_printf(scope, "%*sNo segments, 16-bit sampled curve " \
+				       "with %u samples\n", 12, "", n_entries);
 }
 
 static bool
