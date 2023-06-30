@@ -1382,11 +1382,11 @@ weston_view_assign_output(struct weston_view *ev)
 	struct weston_output *output, *new_output;
 	struct weston_paint_node *pnode, *pntmp;
 	pixman_region32_t region;
-	uint32_t max, area, mask;
+	uint32_t new_output_area, area, mask;
 	pixman_box32_t *e;
 
 	new_output = NULL;
-	max = 0;
+	new_output_area = 0;
 	mask = 0;
 	pixman_region32_init(&region);
 	wl_list_for_each(output, &ec->output_list, link) {
@@ -1399,12 +1399,23 @@ weston_view_assign_output(struct weston_view *ev)
 		e = pixman_region32_extents(&region);
 		area = (e->x2 - e->x1) * (e->y2 - e->y1);
 
-		if (area > 0)
-			mask |= 1u << output->id;
+		if (area == 0)
+			continue;
 
-		if (area >= max) {
+		mask |= 1u << output->id;
+
+		/* Regardless of what we have now, even if it's off, a turned
+		 * off output is not better.
+		 */
+		if (new_output && output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF)
+			continue;
+
+		/* If our current best pick is turned off, anything with
+		 * coverage is better, otherwise only switch to increase area. */
+		if ((new_output && new_output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF) ||
+		    area >= new_output_area) {
 			new_output = output;
-			max = area;
+			new_output_area = area;
 		}
 	}
 	pixman_region32_fini(&region);
