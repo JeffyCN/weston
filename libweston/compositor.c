@@ -8102,6 +8102,7 @@ static void
 weston_output_force_power(struct weston_output *output,
 			  enum weston_output_power_state power)
 {
+	struct weston_view *view;
 	enum dpms_enum dpms;
 
 	output->power_state = power;
@@ -8109,6 +8110,10 @@ weston_output_force_power(struct weston_output *output,
 	if (output->compositor->state == WESTON_COMPOSITOR_SLEEPING ||
 	    output->compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
 		return;
+
+	wl_list_for_each(view, &output->compositor->view_list, link)
+		if (view->output_mask & (1u << output->id))
+			weston_view_assign_output(view);
 
 	if (!output->set_dpms || !output->enabled)
 		return;
