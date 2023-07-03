@@ -145,6 +145,7 @@ struct shell_surface {
 	int focus_count;
 
 	bool destroying;
+	struct wl_list link;	/** desktop_shell::shsurf_list */
 };
 
 struct shell_grab {
@@ -334,6 +335,7 @@ desktop_shell_destroy_surface(struct shell_surface *shsurf)
 	}
 	wl_list_remove(&shsurf->children_link);
 	weston_desktop_surface_unlink_view(shsurf->view);
+	wl_list_remove(&shsurf->link);
 	weston_view_destroy(shsurf->view);
 
 	wl_signal_emit(&shsurf->destroy_signal, shsurf);
@@ -2244,6 +2246,8 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 	 */
 	wl_list_init(&shsurf->children_list);
 	wl_list_init(&shsurf->children_link);
+
+	wl_list_insert(&shsurf->shell->shsurf_list, &shsurf->link);
 
 	weston_desktop_surface_set_user_data(desktop_surface, shsurf);
 }
@@ -5049,6 +5053,7 @@ wet_shell_init(struct weston_compositor *ec,
 				  WESTON_LAYER_POSITION_BACKGROUND);
 
 	wl_list_init(&shell->seat_list);
+	wl_list_init(&shell->shsurf_list);
 
 	if (input_panel_setup(shell) < 0)
 		return -1;
