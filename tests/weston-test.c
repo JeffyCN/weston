@@ -699,8 +699,6 @@ create_client_thread(struct weston_test *test, struct wet_testsuite_data *data)
 
 	data->thread_event_pipe = pipefd[1];
 
-	wl_list_init(&data->breakpoints.list);
-
 	ret = sem_init(&data->breakpoints.client_break, 0, 0);
 	if (ret != 0) {
 		weston_log("Creating breakpoint semaphore failed: %s (%d)\n",
@@ -758,6 +756,8 @@ idle_launch_testsuite(void *test_)
 
 	if (!data)
 		return;
+
+	wl_list_init(&data->breakpoints.list);
 
 	switch (data->type) {
 	case TEST_TYPE_CLIENT:
