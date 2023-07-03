@@ -930,6 +930,7 @@ drm_output_apply_mode(struct drm_output *output)
 {
 	struct drm_device *device = output->device;
 	struct drm_backend *b = device->backend;
+	struct weston_size fb_size;
 
 	/* XXX: This drops our current buffer too early, before we've started
 	 *      displaying it. Ideally this should be much more atomic and
@@ -938,6 +939,11 @@ drm_output_apply_mode(struct drm_output *output)
 	 *      content.
 	 */
 	device->state_invalid = true;
+
+	fb_size.width = output->base.current_mode->width;
+	fb_size.height = output->base.current_mode->height;
+
+	weston_renderer_resize_output(&output->base, &fb_size, NULL);
 
 	if (b->compositor->renderer->type == WESTON_RENDERER_PIXMAN) {
 		drm_output_fini_pixman(output);
