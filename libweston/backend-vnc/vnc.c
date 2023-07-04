@@ -953,8 +953,7 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 	struct vnc_backend *backend = output->backend;
 	struct timespec now, target;
 	int refresh_nsec = millihz_to_nsec(output->base.current_mode->refresh);
-	int refresh_msec = refresh_nsec / 1000000;
-	int next_frame_delta;
+	int64_t delay_nsec;
 
 	assert(output);
 
@@ -976,14 +975,10 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 	weston_compositor_read_presentation_clock(ec, &now);
 	timespec_add_nsec(&target, &output->base.frame_time, refresh_nsec);
 
-	next_frame_delta = (int)timespec_sub_to_msec(&target, &now);
-	if (next_frame_delta < 1)
-		next_frame_delta = 1;
-	if (next_frame_delta > refresh_msec)
-		next_frame_delta = refresh_msec;
+	delay_nsec = CLIP(timespec_sub_to_nsec(&target, &now), 1, refresh_nsec);
 
 	wl_event_source_timer_update(output->finish_frame_timer,
-				     next_frame_delta);
+				     DIV_ROUND_UP(delay_nsec, 1000000));
 
 	return 0;
 }
