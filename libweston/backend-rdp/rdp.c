@@ -280,8 +280,7 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	struct rdp_peers_item *peer;
 	struct timespec now, target;
 	int refresh_nsec = millihz_to_nsec(output_base->current_mode->refresh);
-	int refresh_msec = refresh_nsec / 1000000;
-	int next_frame_delta;
+	int64_t delay_nsec;
 
 	/* Calculate the time we should complete this frame such that frames
 	   are spaced out by the specified monitor refresh. Note that our timer
@@ -292,10 +291,7 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 
 	timespec_add_nsec(&target, &output_base->frame_time, refresh_nsec);
 
-	next_frame_delta = (int)timespec_sub_to_msec(&target, &now);
-	if (next_frame_delta < 1 || next_frame_delta > refresh_msec) {
-		next_frame_delta = refresh_msec;
-	}
+	delay_nsec = CLIP(timespec_sub_to_nsec(&target, &now), 1, refresh_nsec);
 
 	assert(output);
 
@@ -317,7 +313,8 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 		pixman_region32_fini(&transformed_damage);
 	}
 
-	wl_event_source_timer_update(output->finish_frame_timer, next_frame_delta);
+	wl_event_source_timer_update(output->finish_frame_timer,
+				     DIV_ROUND_UP(delay_nsec, 1000000));
 	return 0;
 }
 
