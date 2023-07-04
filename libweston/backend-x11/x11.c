@@ -428,6 +428,24 @@ x11_output_start_repaint_loop(struct weston_output *output)
 	return 0;
 }
 
+static void
+x11_output_arm_timer(struct x11_output *output)
+{
+	struct weston_compositor *ec = output->base.compositor;
+	struct timespec now;
+	struct timespec target;
+	int refresh_nsec = millihz_to_nsec(output->base.current_mode->refresh);
+	int64_t delay_nsec;
+
+	weston_compositor_read_presentation_clock(ec, &now);
+	timespec_add_nsec(&target, &output->base.frame_time, refresh_nsec);
+
+	delay_nsec = CLIP(timespec_sub_to_nsec(&target, &now), 1, refresh_nsec);
+
+	wl_event_source_timer_update(output->finish_frame_timer,
+				     DIV_ROUND_UP(delay_nsec, 1000000));
+}
+
 static int
 x11_output_repaint_gl(struct weston_output *output_base,
 		      pixman_region32_t *damage)
@@ -441,7 +459,7 @@ x11_output_repaint_gl(struct weston_output *output_base,
 
 	ec->renderer->repaint_output(output_base, damage, NULL);
 
-	wl_event_source_timer_update(output->finish_frame_timer, 10);
+	x11_output_arm_timer(output);
 	return 0;
 }
 
@@ -534,7 +552,7 @@ x11_output_repaint_shm(struct weston_output *output_base,
 		free(err);
 	}
 
-	wl_event_source_timer_update(output->finish_frame_timer, 10);
+	x11_output_arm_timer(output);
 	return 0;
 }
 
@@ -542,9 +560,22 @@ static int
 finish_frame_handler(void *data)
 {
 	struct x11_output *output = data;
-	struct timespec ts;
+	int refresh_nsec = millihz_to_nsec(output->base.current_mode->refresh);
+	struct timespec now, ts;
+	int delta;
 
-	weston_compositor_read_presentation_clock(output->base.compositor, &ts);
+	/* The timer only has msec precision, but if we approximately hit our
+	 * target, report an exact time stamp by adding to the previous frame
+	 * time.
+	 */
+	timespec_add_nsec(&ts, &output->base.frame_time, refresh_nsec);
+
+	/* If we are more than 1.5 ms late, report the current time instead. */
+	weston_compositor_read_presentation_clock(output->base.compositor, &now);
+	delta = (int)timespec_sub_to_nsec(&now, &ts);
+	if (delta > 1500000)
+		ts = now;
+
 	weston_output_finish_frame(&output->base, &ts, 0);
 
 	return 1;
