@@ -4279,6 +4279,15 @@ window_schedule_resize(struct window *window, int width, int height)
 			window->min_allocation.height = min_height;
 		else
 			window->min_allocation.height = height;
+	} else {
+		/* update min_allocation to allow having a smaller
+		 * pending_allocation and still allow other surfaces type be
+		 * resized correctly */
+		if (width < window->min_allocation.width)
+			window->min_allocation.width = width;
+
+		if (height < window->min_allocation.height)
+			window->min_allocation.height = height;
 	}
 
 	if (window->pending_allocation.width < window->min_allocation.width)
