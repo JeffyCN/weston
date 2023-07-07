@@ -690,7 +690,8 @@ pixman_renderer_repaint_output(struct weston_output *output,
 
 static void
 pixman_renderer_flush_damage(struct weston_surface *surface,
-			     struct weston_buffer *buffer)
+			     struct weston_buffer *buffer,
+			     struct weston_output *output)
 {
 	/* No-op for pixman renderer */
 }

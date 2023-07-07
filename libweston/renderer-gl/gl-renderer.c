@@ -2068,7 +2068,8 @@ gl_format_from_internal(GLenum internal_format)
 
 static void
 gl_renderer_flush_damage(struct weston_surface *surface,
-			 struct weston_buffer *buffer)
+			 struct weston_buffer *buffer,
+			 struct weston_output *output)
 {
 	const struct weston_testsuite_quirks *quirks =
 		&surface->compositor->test_data.test_quirks;
@@ -3297,7 +3298,7 @@ gl_renderer_surface_copy_content(struct weston_surface *surface,
 		*(uint32_t *)target = pack_color(format, gb->color);
 		return 0;
 	case WESTON_BUFFER_SHM:
-		gl_renderer_flush_damage(surface, buffer);
+		gl_renderer_flush_damage(surface, buffer, NULL);
 		/* fall through */
 	case WESTON_BUFFER_DMABUF:
 	case WESTON_BUFFER_RENDERER_OPAQUE:
@@ -3442,7 +3443,8 @@ gl_renderer_create_surface(struct weston_surface *surface)
 		gl_renderer_attach(surface, surface->buffer_ref.buffer);
 		if (surface->buffer_ref.buffer->type == WESTON_BUFFER_SHM) {
 			gl_renderer_flush_damage(surface,
-						 surface->buffer_ref.buffer);
+						 surface->buffer_ref.buffer,
+						 NULL);
 		}
 	}
 

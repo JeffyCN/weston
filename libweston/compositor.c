@@ -2972,7 +2972,8 @@ surface_flush_damage(struct weston_surface *surface, struct weston_output *outpu
 	struct weston_paint_node *node;
 
 	if (buffer->type == WESTON_BUFFER_SHM)
-		surface->compositor->renderer->flush_damage(surface, buffer);
+		surface->compositor->renderer->flush_damage(surface, buffer,
+							    output);
 
 	if (!pixman_region32_not_empty(&surface->damage))
 		return;
