@@ -1010,7 +1010,7 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 		zwp_linux_buffer_release_v1_add_listener(
 			buffer->buffer_release, &buffer_release_listener, buffer);
 	} else {
-		glFinish();
+		glFlush();
 	}
 
 	wl_surface_attach(window->surface, buffer->buffer, 0, 0);
