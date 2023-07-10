@@ -3109,6 +3109,15 @@ view_list_add_subsurface_view(struct weston_compositor *compositor,
 
 	assert(view);
 
+	/* We used to mysteriously depend on the view->plane transition
+	 * from NULL to primary to generate damage when a view that was
+	 * unmapped became remapped. Forcing damage here is a little
+	 * more obvious.
+	 *
+	 * We can't use weston_view_damage_below() because the clip region
+	 * isn't correct until after we render, and by then it's too late.
+	 */
+	weston_surface_damage(view->surface);
 	weston_view_update_transform(view);
 	view->is_mapped = true;
 
