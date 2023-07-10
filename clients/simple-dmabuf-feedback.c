@@ -667,7 +667,7 @@ render(struct buffer *buffer)
 	glDisableVertexAttribArray(window->gl.pos);
 	glDisableVertexAttribArray(window->gl.color);
 
-	glFinish();
+	glFlush();
 }
 
 static const struct wl_callback_listener frame_listener;
