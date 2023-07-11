@@ -1976,12 +1976,6 @@ shell_configure_fullscreen(struct shell_surface *shsurf)
 }
 
 static void
-shell_map_fullscreen(struct shell_surface *shsurf)
-{
-	shell_configure_fullscreen(shsurf);
-}
-
-static void
 desktop_shell_destroy_seat(struct shell_seat *shseat)
 {
 
@@ -2337,7 +2331,7 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 	if (shsurf->state.fullscreen) {
 		weston_shell_utils_center_on_output(shsurf->view,
 						    shsurf->fullscreen_output);
-		shell_map_fullscreen(shsurf);
+		shell_configure_fullscreen(shsurf);
 	} else if (shsurf->state.maximized) {
 		set_maximized_position(shell, shsurf);
 	} else if (shsurf->xwayland.is_set) {
