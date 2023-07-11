@@ -798,7 +798,7 @@ find_focus_successor(struct kiosk_shell_surface *shsurf,
 			struct kiosk_shell_surface *view_shsurf;
 			struct kiosk_shell_surface *root;
 
-			if (!view->is_mapped || view == shsurf->view)
+			if (view == shsurf->view)
 				continue;
 
 			/* pick views only on the same output */
