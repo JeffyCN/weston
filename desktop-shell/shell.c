@@ -1969,16 +1969,10 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 static void
 shell_configure_fullscreen(struct shell_surface *shsurf)
 {
-	struct weston_surface *surface =
-		weston_desktop_surface_get_surface(shsurf->desktop_surface);
-
 	weston_view_move_to_layer(shsurf->view,
 				  &shsurf->shell->fullscreen_layer.view_list);
-
+	weston_shell_utils_center_on_output(shsurf->view, shsurf->fullscreen_output);
 	shell_ensure_fullscreen_black_view(shsurf);
-
-	if (weston_surface_has_content(surface))
-		weston_shell_utils_center_on_output(shsurf->view, shsurf->fullscreen_output);
 }
 
 static void
