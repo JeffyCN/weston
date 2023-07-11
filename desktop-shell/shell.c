@@ -1932,8 +1932,10 @@ is_black_surface_view(struct weston_view *view, struct weston_view **fs_view)
 	return false;
 }
 
+/* Set the shell surface as the current fullscreen view for its current output,
+ * centering it with a black background */
 static void
-shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
+shell_set_view_fullscreen(struct shell_surface *shsurf)
 {
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
@@ -1948,31 +1950,23 @@ shell_ensure_fullscreen_black_view(struct shell_surface *shsurf)
 		.surface_private = shsurf->view,
 		.capture_input = true,
 	};
-	struct weston_view *view;
 
 	assert(weston_desktop_surface_get_fullscreen(shsurf->desktop_surface));
+
+	weston_view_move_to_layer(shsurf->view,
+				  &shsurf->shell->fullscreen_layer.view_list);
+	weston_shell_utils_center_on_output(shsurf->view, shsurf->fullscreen_output);
 
 	if (!shsurf->fullscreen.black_view) {
 		shsurf->fullscreen.black_view =
 			weston_shell_utils_curtain_create(ec, &curtain_params);
 	}
-	view = shsurf->fullscreen.black_view->view;
-
-	weston_view_set_output(view, output);
-	weston_view_move_to_layer(view, &shsurf->view->layer_link);
+	weston_view_set_output(shsurf->fullscreen.black_view->view,
+			       shsurf->fullscreen_output);
+	weston_view_move_to_layer(shsurf->fullscreen.black_view->view,
+				  &shsurf->view->layer_link);
 
 	shsurf->state.lowered = false;
-}
-
-/* Create black surface and append it to the associated fullscreen surface.
- * Handle size dismatch and positioning according to the method. */
-static void
-shell_configure_fullscreen(struct shell_surface *shsurf)
-{
-	weston_view_move_to_layer(shsurf->view,
-				  &shsurf->shell->fullscreen_layer.view_list);
-	weston_shell_utils_center_on_output(shsurf->view, shsurf->fullscreen_output);
-	shell_ensure_fullscreen_black_view(shsurf);
 }
 
 static void
@@ -2331,7 +2325,7 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 	if (shsurf->state.fullscreen) {
 		weston_shell_utils_center_on_output(shsurf->view,
 						    shsurf->fullscreen_output);
-		shell_configure_fullscreen(shsurf);
+		shell_set_view_fullscreen(shsurf);
 	} else if (shsurf->state.maximized) {
 		set_maximized_position(shell, shsurf);
 	} else if (shsurf->xwayland.is_set) {
@@ -3641,7 +3635,7 @@ rotate_binding(struct weston_pointer *pointer, const struct timespec *time,
 /* Move all fullscreen layers down to the current workspace and hide their
  * black views. The surfaces' state is set to both fullscreen and lowered,
  * and this is reversed when such a surface is re-configured, see
- * shell_configure_fullscreen() and shell_ensure_fullscreen_black_view().
+ * shell_set_view_fullscreen().
  *
  * lowering_output = NULL - Lower on all outputs, else only lower on the
  *                   specified output.
@@ -3748,7 +3742,7 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 
 	if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface) &&
 	    flags & WESTON_ACTIVATE_FLAG_CONFIGURE)
-		shell_configure_fullscreen(shsurf);
+		shell_set_view_fullscreen(shsurf);
 
 	/* Update the surface’s layer. This brings it to the top of the stacking
 	 * order as appropriate. */
