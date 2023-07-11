@@ -864,7 +864,7 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 		return;
 
 	output = weston_shell_utils_get_default_output(shell->compositor);
-	if (ws->fsurf_front == NULL && (from || to)) {
+	if (ws->fsurf_front == NULL) {
 		ws->fsurf_front = create_focus_surface(shell->compositor, output);
 		if (ws->fsurf_front == NULL)
 			return;
