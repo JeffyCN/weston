@@ -1971,7 +1971,6 @@ shell_configure_fullscreen(struct shell_surface *shsurf)
 {
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
-	int32_t surf_x, surf_y, surf_width, surf_height;
 
 	/* Reverse the effect of lower_fullscreen_layer() */
 	weston_layer_entry_remove(&shsurf->view->layer_link);
@@ -1989,9 +1988,6 @@ shell_configure_fullscreen(struct shell_surface *shsurf)
 	}
 
 	shell_ensure_fullscreen_black_view(shsurf);
-
-	weston_shell_utils_subsurfaces_boundingbox(surface, &surf_x, &surf_y,
-						   &surf_width, &surf_height);
 
 	if (weston_surface_has_content(surface))
 		weston_shell_utils_center_on_output(shsurf->view, shsurf->fullscreen_output);
