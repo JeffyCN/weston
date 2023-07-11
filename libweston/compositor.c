@@ -2136,7 +2136,22 @@ weston_view_find_paint_node(struct weston_view *view,
 WL_EXPORT bool
 weston_surface_is_mapped(struct weston_surface *surface)
 {
-	return surface->is_mapped;
+	struct weston_subsurface *sub = weston_surface_to_subsurface(surface);
+
+	/* This surface isn't mapped. */
+	if (!surface->is_mapped)
+		return false;
+
+	/* This surface is mapped, and has no parents to refer to. */
+	if (!sub || sub->parent == surface)
+		return true;
+
+	/* This subsurface's parent has since vanished. */
+	if (!sub->parent)
+		return false;
+
+	/* Check recursively up its parent tree. */
+	return weston_surface_is_mapped(sub->parent);
 }
 
 /** Check if the weston_surface is emitting an mapping commit
