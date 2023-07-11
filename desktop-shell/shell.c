@@ -2323,8 +2323,6 @@ map(struct desktop_shell *shell, struct shell_surface *shsurf)
 
 	/* initial positioning, see also configure() */
 	if (shsurf->state.fullscreen) {
-		weston_shell_utils_center_on_output(shsurf->view,
-						    shsurf->fullscreen_output);
 		shell_set_view_fullscreen(shsurf);
 	} else if (shsurf->state.maximized) {
 		set_maximized_position(shell, shsurf);
