@@ -1863,8 +1863,8 @@ set_minimized(struct weston_surface *surface)
 	shsurf = get_shell_surface(surface);
 	current_ws = get_current_workspace(shsurf->shell);
 
-	weston_layer_entry_remove(&view->layer_link);
-	weston_layer_entry_insert(&shsurf->shell->minimized_layer.view_list, &view->layer_link);
+	weston_view_move_to_layer(view,
+				  &shsurf->shell->minimized_layer.view_list);
 
 	drop_focus_state(shsurf->shell, current_ws, view->surface);
 	surface_keyboard_focus_lost(surface);
