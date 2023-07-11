@@ -3341,6 +3341,11 @@ load_rdp_backend(struct weston_compositor *c,
 	weston_config_section_get_int(section, "refresh-rate",
 				      &config.refresh_rate,
 				      RDP_DEFAULT_FREQ);
+	weston_config_section_get_string(section, "tls-cert",
+					 &config.server_cert,
+					 config.server_cert);
+	weston_config_section_get_string(section, "tls-key",
+					 &config.server_key, config.server_key);
 
 	wet->heads_changed_listener.notify = rdp_heads_changed;
 	weston_compositor_add_heads_changed_listener(c,
@@ -3443,6 +3448,11 @@ load_vnc_backend(struct weston_compositor *c,
 	weston_config_section_get_int(section, "refresh-rate",
 				      &config.refresh_rate,
 				      VNC_DEFAULT_FREQ);
+	weston_config_section_get_string(section, "tls-cert",
+					 &config.server_cert,
+					 config.server_cert);
+	weston_config_section_get_string(section, "tls-key",
+					 &config.server_key, config.server_key);
 
 	ret = weston_compositor_load_backend(c, WESTON_BACKEND_VNC,
 					     &config.base);
