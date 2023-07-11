@@ -3664,12 +3664,8 @@ lower_fullscreen_layer(struct desktop_shell *shell,
 		if (lowering_output && (shsurf->fullscreen_output != lowering_output))
 			continue;
 
-		/* We can have a non-fullscreen popup for a fullscreen surface
-		 * in the fullscreen layer. */
-		if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface) &&
-		    shsurf->fullscreen.black_view) {
+		if (shsurf->fullscreen.black_view)
 			weston_view_move_to_layer(shsurf->fullscreen.black_view->view, NULL);
-		}
 
 		/* Lower the view to the workspace layer */
 		weston_view_move_to_layer(view, &ws->layer.view_list);
