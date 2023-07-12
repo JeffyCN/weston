@@ -240,6 +240,20 @@ shell_surface_update_child_surface_layers(struct shell_surface *shsurf);
 static void
 get_maximized_size(struct shell_surface *shsurf, int32_t *width, int32_t *height);
 
+static struct shell_output *
+find_shell_output_from_weston_output(struct desktop_shell *shell,
+				     struct weston_output *output)
+{
+	struct shell_output *shell_output;
+
+	wl_list_for_each(shell_output, &shell->output_list, link) {
+		if (shell_output->output == output)
+			return shell_output;
+	}
+
+	return NULL;
+}
+
 static bool
 shsurf_is_max_or_fullscreen(struct shell_surface *shsurf)
 {
@@ -387,6 +401,7 @@ get_output_panel_size(struct desktop_shell *shell,
 		      int *width,
 		      int *height)
 {
+	struct shell_output *sh_output;
 	struct weston_view *view;
 
 	*width = 0;
@@ -395,16 +410,15 @@ get_output_panel_size(struct desktop_shell *shell,
 	if (!output)
 		return;
 
-	wl_list_for_each(view, &shell->panel_layer.view_list.link, layer_link.link) {
-		if (view->surface->output == output) {
-			weston_view_update_transform(view);
+	sh_output = find_shell_output_from_weston_output(shell, output);
+	assert(sh_output);
 
-			get_panel_size(shell, view, width, height);
-			return;
-		}
-	}
+	view = sh_output->panel_view;
+	if (!view || !weston_view_is_mapped(view))
+		return;
 
-	/* the correct view wasn't found */
+	weston_view_update_transform(view);
+	get_panel_size(shell, view, width, height);
 }
 
 void
@@ -2814,21 +2828,6 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer,
 	pos = weston_coord_global_add(ev->output->pos, offset_on_output);
 	weston_view_set_position(ev, pos);
 	weston_view_move_to_layer(ev, &layer->view_list);
-}
-
-
-static struct shell_output *
-find_shell_output_from_weston_output(struct desktop_shell *shell,
-				     struct weston_output *output)
-{
-	struct shell_output *shell_output;
-
-	wl_list_for_each(shell_output, &shell->output_list, link) {
-		if (shell_output->output == output)
-			return shell_output;
-	}
-
-	return NULL;
 }
 
 static int
