@@ -866,15 +866,12 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 		ws->fsurf_front = create_focus_surface(shell->compositor, output);
 		if (ws->fsurf_front == NULL)
 			return;
-		weston_view_set_alpha(ws->fsurf_front->curtain->view, 0.0);
 
 		ws->fsurf_back = create_focus_surface(shell->compositor, output);
 		if (ws->fsurf_back == NULL) {
 			focus_surface_destroy(ws->fsurf_front);
 			return;
 		}
-		weston_view_set_alpha(ws->fsurf_back->curtain->view, 0.0);
-
 		focus_surface_created = true;
 	} else {
 		weston_view_move_to_layer(ws->fsurf_front->curtain->view, NULL);
