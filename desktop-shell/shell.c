@@ -230,11 +230,6 @@ static struct shell_seat *
 get_shell_seat(struct weston_seat *seat);
 
 static void
-get_output_panel_size(struct desktop_shell *shell,
-		      struct weston_output *output,
-		      int *width, int *height);
-
-static void
 shell_surface_update_child_surface_layers(struct shell_surface *shsurf);
 
 static void
@@ -373,39 +368,17 @@ shell_grab_start(struct shell_grab *grab,
 	}
 }
 
-static void
-get_panel_size(struct desktop_shell *shell,
-	       struct weston_view *view,
-	       int *width,
-	       int *height)
-{
-	struct weston_coord_global a, b;
-	struct weston_coord_surface tmp_s;
-
-	tmp_s = weston_coord_surface(0, 0, view->surface);
-	a = weston_coord_surface_to_global(view, tmp_s);
-
-	tmp_s = weston_coord_surface(view->surface->width,
-				     view->surface->height,
-				     view->surface);
-	b = weston_coord_surface_to_global(view, tmp_s);
-
-	a = weston_coord_global_sub(b, a);
-	*width = a.c.x;
-	*height = a.c.y;
-}
-
-static void
-get_output_panel_size(struct desktop_shell *shell,
-		      struct weston_output *output,
-		      int *width,
-		      int *height)
+void
+get_output_work_area(struct desktop_shell *shell,
+		     struct weston_output *output,
+		     pixman_rectangle32_t *area)
 {
 	struct shell_output *sh_output;
-	struct weston_view *view;
 
-	*width = 0;
-	*height = 0;
+	area->x = 0;
+	area->y = 0;
+	area->width = 0;
+	area->height = 0;
 
 	if (!output)
 		return;
@@ -413,50 +386,31 @@ get_output_panel_size(struct desktop_shell *shell,
 	sh_output = find_shell_output_from_weston_output(shell, output);
 	assert(sh_output);
 
-	view = sh_output->panel_view;
-	if (!view || !weston_view_is_mapped(view))
-		return;
+	area->x = output->pos.c.x;
+	area->y = output->pos.c.y;
+	area->width = output->width;
+	area->height = output->height;
 
-	weston_view_update_transform(view);
-	get_panel_size(shell, view, width, height);
-}
-
-void
-get_output_work_area(struct desktop_shell *shell,
-		     struct weston_output *output,
-		     pixman_rectangle32_t *area)
-{
-	int32_t panel_width = 0, panel_height = 0;
-
-	if (!output) {
-		area->x = 0;
-		area->y = 0;
-		area->width = 0;
-		area->height = 0;
-
+	if (!sh_output->panel_view ||
+	    !weston_view_is_mapped(sh_output->panel_view)) {
 		return;
 	}
 
-	area->x = output->pos.c.x;
-	area->y = output->pos.c.y;
-
-	get_output_panel_size(shell, output, &panel_width, &panel_height);
 	switch (shell->panel_position) {
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP:
-	default:
-		area->y += panel_height;
+		area->y += sh_output->panel_surface->height;
 		/* fallthrough */
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_BOTTOM:
-		area->width = output->width;
-		area->height = output->height - panel_height;
+		area->height -= sh_output->panel_surface->height;
 		break;
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_LEFT:
-		area->x += panel_width;
+		area->x += sh_output->panel_surface->width;
 		/* fallthrough */
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_RIGHT:
-		area->width = output->width - panel_width;
-		area->height = output->height;
+		area->width -= sh_output->panel_surface->width;
 		break;
+	default:
+		unreachable("unknown panel position");
 	}
 }
 
