@@ -605,6 +605,12 @@ shell_configuration(struct desktop_shell *shell)
 
 	weston_config_section_get_string(section, "focus-animation", &s, "none");
 	shell->focus_animation_type = get_animation_type(s);
+	if (shell->focus_animation_type != ANIMATION_NONE &&
+	    shell->focus_animation_type != ANIMATION_DIM_LAYER) {
+		weston_log("invalid focus animation type %s\n", s);
+		free(s);
+		return false;
+	}
 	free(s);
 
 	return true;
@@ -936,9 +942,11 @@ workspace_create(struct desktop_shell *shell)
 	wl_list_init(&ws->seat_destroyed_listener.link);
 	ws->seat_destroyed_listener.notify = seat_destroyed;
 
-	if (shell->focus_animation_type == ANIMATION_DIM_LAYER) {
+	if (shell->focus_animation_type != ANIMATION_NONE) {
 		struct weston_output *output =
 			weston_shell_utils_get_default_output(shell->compositor);
+
+		assert(shell->focus_animation_type == ANIMATION_DIM_LAYER);
 
 		ws->fsurf_front = create_focus_surface(shell->compositor, output);
 		assert(ws->fsurf_front);
@@ -3728,6 +3736,7 @@ activate(struct desktop_shell *shell, struct weston_view *view,
 	shell_surface_update_layer(shsurf);
 
 	if (shell->focus_animation_type != ANIMATION_NONE) {
+		assert(shell->focus_animation_type == ANIMATION_DIM_LAYER);
 		ws = get_current_workspace(shell);
 		animate_focus_change(shell, ws, get_default_view(old_es), get_default_view(es));
 	}
