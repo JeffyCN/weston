@@ -180,7 +180,6 @@ weston_view_animation_frame(struct weston_animation *base,
 	weston_spring_update(&animation->spring, time);
 
 	if (weston_spring_done(&animation->spring)) {
-		weston_view_schedule_repaint(animation->view);
 		weston_view_animation_destroy(animation);
 		return;
 	}
