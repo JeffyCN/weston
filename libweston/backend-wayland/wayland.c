@@ -2802,6 +2802,8 @@ wayland_destroy(struct weston_backend *backend)
 
 	wl_cursor_theme_destroy(b->cursor_theme);
 
+	free(b->formats);
+
 	wl_registry_destroy(b->parent.registry);
 	wl_display_flush(b->parent.wl_display);
 	wl_display_disconnect(b->parent.wl_display);
