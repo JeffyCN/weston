@@ -2973,9 +2973,6 @@ lock_surface_committed(struct weston_surface *surface,
 		       struct weston_coord_surface new_origin)
 {
 	struct desktop_shell *shell = surface->committed_private;
-	struct weston_view *view;
-
-	view = container_of(surface->views.next, struct weston_view, surface_link);
 
 	if (!weston_surface_has_content(surface))
 		return;
@@ -2984,9 +2981,13 @@ lock_surface_committed(struct weston_surface *surface,
 		return;
 
 	weston_surface_map(surface);
-	weston_view_move_to_layer(view, &shell->lock_layer.view_list);
-	weston_shell_utils_center_on_output(view,
+
+	assert(!shell->lock_view);
+	shell->lock_view = weston_view_create(surface);
+	weston_shell_utils_center_on_output(shell->lock_view,
 		weston_shell_utils_get_default_output(shell->compositor));
+	weston_view_move_to_layer(shell->lock_view,
+				  &shell->lock_layer.view_list);
 	shell_fade(shell, FADE_IN);
 }
 
@@ -2997,6 +2998,7 @@ handle_lock_surface_destroy(struct wl_listener *listener, void *data)
 	    container_of(listener, struct desktop_shell, lock_surface_listener);
 
 	shell->lock_surface = NULL;
+	shell->lock_view = NULL;
 }
 
 static void
@@ -3013,16 +3015,21 @@ desktop_shell_set_lock_surface(struct wl_client *client,
 	if (!shell->locked)
 		return;
 
-	shell->lock_surface = surface;
+	if (shell->lock_surface) {
+		wl_resource_post_error(surface_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "already have a lock surface");
+		return;
+	}
 
-	shell->lock_surface_listener.notify = handle_lock_surface_destroy;
-	wl_signal_add(&surface->destroy_signal,
-		      &shell->lock_surface_listener);
-
-	weston_view_create(surface);
 	surface->committed = lock_surface_committed;
 	surface->committed_private = shell;
 	weston_surface_set_label_func(surface, lock_surface_get_label);
+
+	shell->lock_surface = surface;
+	shell->lock_surface_listener.notify = handle_lock_surface_destroy;
+	wl_signal_add(&surface->destroy_signal,
+		      &shell->lock_surface_listener);
 }
 
 static void

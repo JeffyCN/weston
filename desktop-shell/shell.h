@@ -122,6 +122,7 @@ struct desktop_shell {
 
 	struct weston_surface *lock_surface;
 	struct wl_listener lock_surface_listener;
+	struct weston_view *lock_view;
 
 	struct workspace workspace;
 
