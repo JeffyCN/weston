@@ -1023,19 +1023,14 @@ touch_move_grab_motion(struct weston_touch_grab *grab,
 {
 	struct weston_touch_move_grab *move = (struct weston_touch_move_grab *) grab;
 	struct shell_surface *shsurf = move->base.shsurf;
-	struct weston_surface *es;
 	struct weston_coord_global pos;
 
 	if (!shsurf || !shsurf->desktop_surface || !move->active)
 		return;
 
-	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
-
 	pos = weston_coord_global_add(grab->touch->grab_pos, move->delta);
 	pos.c = weston_coord_truncate(pos.c);
 	weston_view_set_position(shsurf->view, pos);
-
-	weston_compositor_schedule_repaint(es->compositor);
 }
 
 static void
@@ -1156,7 +1151,6 @@ move_grab_motion(struct weston_pointer_grab *grab,
 	struct weston_move_grab *move = (struct weston_move_grab *) grab;
 	struct weston_pointer *pointer = grab->pointer;
 	struct shell_surface *shsurf = move->base.shsurf;
-	struct weston_surface *surface;
 	struct weston_coord_global pos;
 	int cx, cy;
 
@@ -1164,14 +1158,10 @@ move_grab_motion(struct weston_pointer_grab *grab,
 	if (!shsurf || !shsurf->desktop_surface)
 		return;
 
-	surface = weston_desktop_surface_get_surface(shsurf->desktop_surface);
-
 	constrain_position(move, &cx, &cy);
 
 	pos.c = weston_coord(cx, cy);
 	weston_view_set_position(shsurf->view, pos);
-
-	weston_compositor_schedule_repaint(surface->compositor);
 }
 
 static void
@@ -1289,18 +1279,15 @@ tablet_tool_move_grab_motion(struct weston_tablet_tool_grab *grab,
 	struct weston_tablet_tool_move_grab *move =
 		(struct weston_tablet_tool_move_grab *)grab;
 	struct shell_surface *shsurf = move->base.shsurf;
-	struct weston_surface *es;
 
 	weston_tablet_tool_cursor_move(grab->tool, pos);
 
 	if (!shsurf)
 		return;
 
-	es = weston_desktop_surface_get_surface(shsurf->desktop_surface);
 	pos.c.x += wl_fixed_to_double(move->dx);
 	pos.c.y += wl_fixed_to_double(move->dy);
 	weston_view_set_position(shsurf->view, pos);
-	weston_compositor_schedule_repaint(es->compositor);
 }
 
 static void
@@ -3361,7 +3348,6 @@ set_tiled_orientation(struct weston_surface *focus,
 	weston_view_set_position(shsurf->view, pos);
 	weston_desktop_surface_set_size(shsurf->desktop_surface, width, height);
 	weston_desktop_surface_set_orientation(shsurf->desktop_surface, orientation);
-	weston_compositor_schedule_repaint(surface->compositor);
 }
 
 static void
