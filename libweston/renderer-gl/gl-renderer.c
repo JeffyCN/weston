@@ -2096,10 +2096,14 @@ gl_renderer_flush_damage(struct weston_surface *surface,
 	 * We still accumulate the damage in texture_damage, and
 	 * hold the reference to the buffer, in case the surface
 	 * migrates back to the primary plane.
+	 *
+	 * When called from gl_renderer_surface_copy_content()
+	 * or gl_renderer_create_surface(), output is NULL.
+	 * In that case, always upload.
 	 */
 	texture_used = false;
 	wl_list_for_each(pnode, &surface->paint_node_list, surface_link) {
-		if (pnode->plane == &pnode->output->primary_plane) {
+		if (!output || pnode->plane == &output->primary_plane) {
 			texture_used = true;
 			break;
 		}
