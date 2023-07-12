@@ -854,29 +854,12 @@ static void
 animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 		     struct weston_view *from, struct weston_view *to)
 {
-	struct weston_output *output;
-	bool focus_surface_created = false;
-
 	/* FIXME: Only support dim animation using two layers */
 	if (from == to || shell->focus_animation_type != ANIMATION_DIM_LAYER)
 		return;
 
-	output = weston_shell_utils_get_default_output(shell->compositor);
-	if (ws->fsurf_front == NULL) {
-		ws->fsurf_front = create_focus_surface(shell->compositor, output);
-		if (ws->fsurf_front == NULL)
-			return;
-
-		ws->fsurf_back = create_focus_surface(shell->compositor, output);
-		if (ws->fsurf_back == NULL) {
-			focus_surface_destroy(ws->fsurf_front);
-			return;
-		}
-		focus_surface_created = true;
-	} else {
-		weston_view_move_to_layer(ws->fsurf_front->curtain->view, NULL);
-		weston_view_move_to_layer(ws->fsurf_back->curtain->view, NULL);
-	}
+	weston_view_move_to_layer(ws->fsurf_front->curtain->view, NULL);
+	weston_view_move_to_layer(ws->fsurf_back->curtain->view, NULL);
 
 	if (ws->focus_animation) {
 		weston_view_animation_destroy(ws->focus_animation);
@@ -886,17 +869,12 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 	if (to) {
 		weston_view_move_to_layer(ws->fsurf_front->curtain->view,
 					  &to->layer_link);
-	} else if (from) {
+	} else {
 		weston_view_move_to_layer(ws->fsurf_front->curtain->view,
 					  &ws->layer.view_list);
 	}
 
-	if (focus_surface_created) {
-		ws->focus_animation = weston_fade_run(
-			ws->fsurf_front->curtain->view,
-			ws->fsurf_front->curtain->view->alpha, 0.4, 300,
-			focus_animation_done, ws);
-	} else if (from) {
+	if (from) {
 		weston_view_move_to_layer(ws->fsurf_back->curtain->view,
 					  &from->layer_link);
 		ws->focus_animation = weston_stable_fade_run(
@@ -909,6 +887,11 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 		ws->focus_animation = weston_stable_fade_run(
 			ws->fsurf_front->curtain->view, 0.0,
 			ws->fsurf_back->curtain->view, 0.4,
+			focus_animation_done, ws);
+	} else {
+		ws->focus_animation = weston_fade_run(
+			ws->fsurf_front->curtain->view,
+			ws->fsurf_front->curtain->view->alpha, 0.0, 300,
 			focus_animation_done, ws);
 	}
 }
@@ -957,8 +940,19 @@ workspace_create(struct desktop_shell *shell)
 	wl_list_init(&ws->focus_list);
 	wl_list_init(&ws->seat_destroyed_listener.link);
 	ws->seat_destroyed_listener.notify = seat_destroyed;
-	ws->fsurf_front = NULL;
-	ws->fsurf_back = NULL;
+
+	if (shell->focus_animation_type == ANIMATION_DIM_LAYER) {
+		struct weston_output *output =
+			weston_shell_utils_get_default_output(shell->compositor);
+
+		ws->fsurf_front = create_focus_surface(shell->compositor, output);
+		assert(ws->fsurf_front);
+		ws->fsurf_back = create_focus_surface(shell->compositor, output);
+		assert(ws->fsurf_back);
+	} else {
+		ws->fsurf_front = NULL;
+		ws->fsurf_back = NULL;
+	}
 	ws->focus_animation = NULL;
 }
 
