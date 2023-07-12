@@ -2139,6 +2139,18 @@ weston_surface_is_mapped(struct weston_surface *surface)
 	return surface->is_mapped;
 }
 
+/** Check if the weston_surface is emitting an mapping commit
+ *
+ * @param surface The weston_surface.
+ *
+ * Returns true if the surface is emitting an mapping commit.
+ */
+WL_EXPORT bool
+weston_surface_is_mapping(struct weston_surface *surface)
+{
+	return surface->is_mapping;
+}
+
 /** Check if the weston_surface is emitting an unmapping commit
  *
  * @param surface The weston_surface.
@@ -2362,6 +2374,7 @@ weston_surface_map(struct weston_surface *surface)
 	if (weston_surface_is_mapped(surface))
 		return;
 
+	surface->is_mapping = true;
 	surface->is_mapped = true;
 	surface->compositor->view_list_needs_rebuild = true;
 	weston_signal_emit_mutable(&surface->map_signal, surface);
@@ -4481,8 +4494,9 @@ weston_surface_commit_state(struct weston_surface *surface,
 
 	wl_signal_emit(&surface->commit_signal, surface);
 
-	/* Surface is fully unmapped now */
+	/* Surface is now quiescent */
 	surface->is_unmapping = false;
+	surface->is_mapping = false;
 	state->status = WESTON_SURFACE_CLEAN;
 
 	return status;

@@ -1927,7 +1927,7 @@ struct weston_surface {
 	 */
 	const char *role_name;
 
-	bool is_mapped, is_unmapping;
+	bool is_mapped, is_unmapping, is_mapping;
 	bool is_opaque;
 
 	/* An list of per seat pointer constraints. */
@@ -2243,6 +2243,9 @@ weston_view_schedule_repaint(struct weston_view *view);
 
 bool
 weston_surface_is_mapped(struct weston_surface *surface);
+
+bool
+weston_surface_is_mapping(struct weston_surface *surface);
 
 bool
 weston_surface_is_unmapping(struct weston_surface *surface);
