@@ -2977,7 +2977,7 @@ lock_surface_committed(struct weston_surface *surface,
 
 	view = container_of(surface->views.next, struct weston_view, surface_link);
 
-	if (surface->width == 0)
+	if (!weston_surface_has_content(surface))
 		return;
 
 	if (weston_surface_is_mapped(surface))
