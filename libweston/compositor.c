@@ -1695,6 +1695,8 @@ weston_view_geometry_dirty_internal(struct weston_view *view)
 		weston_view_geometry_dirty_internal(child);
 
 	weston_view_dirty_paint_nodes(view);
+
+	weston_view_schedule_repaint(view);
 }
 
 WL_EXPORT void
@@ -1950,7 +1952,6 @@ weston_view_set_mask(struct weston_view *view,
 	pixman_region32_init_rect(&view->geometry.scissor, x, y, width, height);
 	view->geometry.scissor_enabled = true;
 	weston_view_geometry_dirty(view);
-	weston_view_schedule_repaint(view);
 }
 
 /** Remove the clip mask from a view
@@ -1966,7 +1967,6 @@ weston_view_set_mask_infinite(struct weston_view *view)
 {
 	view->geometry.scissor_enabled = false;
 	weston_view_geometry_dirty(view);
-	weston_view_schedule_repaint(view);
 }
 
 /* Check if view should be displayed
