@@ -625,7 +625,6 @@ drag_grab_motion(struct weston_pointer_grab *grab,
 
 		pos.c = weston_coord_add(pointer->pos.c, drag->base.offset.c);
 		weston_view_set_position(drag->base.icon, pos);
-		weston_view_schedule_repaint(drag->base.icon);
 	}
 
 	if (drag->base.focus_resource) {
@@ -821,7 +820,6 @@ drag_grab_touch_motion(struct weston_touch_grab *grab,
 		pos.c = weston_coord_add(touch_drag->base.offset.c,
 					 touch->grab_pos.c);
 		weston_view_set_position(touch_drag->base.icon, pos);
-		weston_view_schedule_repaint(touch_drag->base.icon);
 	}
 
 	if (touch_drag->base.focus_resource) {
