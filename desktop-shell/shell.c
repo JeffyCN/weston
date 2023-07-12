@@ -646,8 +646,6 @@ create_focus_surface(struct weston_compositor *ec,
 
 	fsurf->curtain = weston_shell_utils_curtain_create(ec, &curtain_params);
 	weston_view_set_output(fsurf->curtain->view, output);
-	/* XXX: can't map view without a layer! */
-	fsurf->curtain->view->is_mapped = true;
 
 	return fsurf;
 }
@@ -879,8 +877,8 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 
 		focus_surface_created = true;
 	} else {
-		weston_layer_entry_remove(&ws->fsurf_front->curtain->view->layer_link);
-		weston_layer_entry_remove(&ws->fsurf_back->curtain->view->layer_link);
+		weston_view_move_to_layer(ws->fsurf_front->curtain->view, NULL);
+		weston_view_move_to_layer(ws->fsurf_back->curtain->view, NULL);
 	}
 
 	if (ws->focus_animation) {
@@ -888,12 +886,13 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 		ws->focus_animation = NULL;
 	}
 
-	if (to)
-		weston_layer_entry_insert(&to->layer_link,
-					  &ws->fsurf_front->curtain->view->layer_link);
-	else if (from)
-		weston_layer_entry_insert(&ws->layer.view_list,
-					  &ws->fsurf_front->curtain->view->layer_link);
+	if (to) {
+		weston_view_move_to_layer(ws->fsurf_front->curtain->view,
+					  &to->layer_link);
+	} else if (from) {
+		weston_view_move_to_layer(ws->fsurf_front->curtain->view,
+					  &ws->layer.view_list);
+	}
 
 	if (focus_surface_created) {
 		ws->focus_animation = weston_fade_run(
@@ -901,15 +900,15 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 			ws->fsurf_front->curtain->view->alpha, 0.4, 300,
 			focus_animation_done, ws);
 	} else if (from) {
-		weston_layer_entry_insert(&from->layer_link,
-					  &ws->fsurf_back->curtain->view->layer_link);
+		weston_view_move_to_layer(ws->fsurf_back->curtain->view,
+					  &from->layer_link);
 		ws->focus_animation = weston_stable_fade_run(
 			ws->fsurf_front->curtain->view, 0.0,
 			ws->fsurf_back->curtain->view, 0.4,
 			focus_animation_done, ws);
 	} else if (to) {
-		weston_layer_entry_insert(&ws->layer.view_list,
-					  &ws->fsurf_back->curtain->view->layer_link);
+		weston_view_move_to_layer(ws->fsurf_back->curtain->view,
+					  &ws->layer.view_list);
 		ws->focus_animation = weston_stable_fade_run(
 			ws->fsurf_front->curtain->view, 0.0,
 			ws->fsurf_back->curtain->view, 0.4,
