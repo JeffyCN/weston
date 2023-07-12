@@ -1867,7 +1867,6 @@ weston_tablet_tool_cursor_move(struct weston_tablet_tool *tool,
 
 		hotspot.c = weston_coord_sub(pos.c, tool->hotspot.c);
 		weston_view_set_position(tool->sprite, hotspot);
-		weston_view_schedule_repaint(tool->sprite);
 	}
 }
 
@@ -2201,7 +2200,6 @@ weston_pointer_move_to(struct weston_pointer *pointer,
 		pos.c = weston_coord_sub(pointer->pos.c,
 					 pointer->hotspot.c);
 		weston_view_set_position(pointer->sprite, pos);
-		weston_view_schedule_repaint(pointer->sprite);
 	}
 
 	pointer->grab->interface->focus(pointer->grab);
