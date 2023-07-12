@@ -2764,29 +2764,6 @@ static const struct weston_desktop_api shell_desktop_api = {
 /* ************************ *
  * end of libweston-desktop *
  * ************************ */
-static void
-configure_static_view(struct shell_output *sh_output,
-		      struct weston_view *ev,
-		      struct weston_layer *layer,
-		      struct weston_coord_global offset_on_output)
-{
-	struct weston_output *output = sh_output->output;
-	struct weston_coord_global pos;
-
-	if (!weston_surface_has_content(ev->surface))
-		return;
-
-	if (!weston_surface_is_mapped(ev->surface))
-		weston_surface_map(ev->surface);
-
-	if (weston_view_is_mapped(ev))
-		return;
-
-	pos = weston_coord_global_add(output->pos, offset_on_output);
-	weston_view_set_position(ev, pos);
-	weston_view_move_to_layer(ev, &layer->view_list);
-}
-
 static int
 background_get_label(struct weston_surface *surface, char *buf, size_t len)
 {
@@ -2889,8 +2866,8 @@ panel_committed(struct weston_surface *es,
 {
 	struct shell_output *sh_output = es->committed_private;
 	struct weston_output *output = sh_output->output;
+	struct weston_coord_global pos = output->pos;
 	struct desktop_shell *shell = sh_output->shell;
-	struct weston_view *view = sh_output->panel_view;
 
 	if (!weston_surface_has_content(es))
 		return;
@@ -2913,8 +2890,17 @@ panel_committed(struct weston_surface *es,
 		break;
 	}
 
-	configure_static_view(sh_output, view, &shell->panel_layer,
-			      sh_output->panel_offset);
+	if (!weston_surface_is_mapped(es)) {
+		weston_surface_map(es);
+		assert(wl_list_empty(&es->views));
+		sh_output->panel_view = weston_view_create(es);
+	}
+
+	assert(sh_output->panel_view);
+	pos = weston_coord_global_add(output->pos, sh_output->panel_offset);
+	weston_view_set_position(sh_output->panel_view, pos);
+	weston_view_move_to_layer(sh_output->panel_view,
+				  &shell->panel_layer.view_list);
 }
 
 static void
@@ -2938,7 +2924,6 @@ desktop_shell_set_panel(struct wl_client *client,
 	struct desktop_shell *shell = wl_resource_get_user_data(resource);
 	struct weston_surface *surface =
 		wl_resource_get_user_data(surface_resource);
-	struct weston_view *view;
 	struct shell_output *sh_output;
 	struct weston_head *head = weston_head_from_resource(output_resource);
 
@@ -2962,13 +2947,9 @@ desktop_shell_set_panel(struct wl_client *client,
 		return;
 	}
 
-	assert(wl_list_empty(&surface->views));
-	view = weston_view_create(surface);
-
 	surface->committed = panel_committed;
 	surface->committed_private = sh_output;
 	weston_surface_set_label_func(surface, panel_get_label);
-	weston_view_set_output(view, surface->output);
 
 	weston_desktop_shell_send_configure(resource, 0,
 					    surface_resource,
@@ -2976,7 +2957,6 @@ desktop_shell_set_panel(struct wl_client *client,
 					    surface->output->height);
 
 	sh_output->panel_surface = surface;
-	sh_output->panel_view = view;
 
 	sh_output->panel_surface_listener.notify = handle_panel_surface_destroy;
 	wl_signal_add(&surface->destroy_signal, &sh_output->panel_surface_listener);
