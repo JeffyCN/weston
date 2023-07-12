@@ -2800,11 +2800,21 @@ background_committed(struct weston_surface *es,
 {
 	struct shell_output *sh_output = es->committed_private;
 	struct desktop_shell *shell = sh_output->shell;
-	struct weston_view *view = sh_output->background_view;
-	struct weston_coord_global tmp;
 
-	tmp.c = weston_coord(0, 0);
-	configure_static_view(sh_output, view, &shell->background_layer, tmp);
+	if (!weston_surface_has_content(es))
+		return;
+
+	if (!weston_surface_is_mapped(es)) {
+		weston_surface_map(es);
+		assert(wl_list_empty(&es->views));
+		sh_output->background_view = weston_view_create(es);
+	}
+
+	assert(sh_output->background_view);
+	weston_view_set_position(sh_output->background_view,
+				 sh_output->output->pos);
+	weston_view_move_to_layer(sh_output->background_view,
+				  &shell->background_layer.view_list);
 }
 
 static void
@@ -2828,7 +2838,6 @@ desktop_shell_set_background(struct wl_client *client,
 	struct weston_surface *surface =
 		wl_resource_get_user_data(surface_resource);
 	struct shell_output *sh_output;
-	struct weston_view *view;
 	struct weston_head *head = weston_head_from_resource(output_resource);
 
 	if (surface->committed) {
@@ -2850,13 +2859,9 @@ desktop_shell_set_background(struct wl_client *client,
 		return;
 	}
 
-	assert(wl_list_empty(&surface->views));
-	view = weston_view_create(surface);
-
 	surface->committed = background_committed;
 	surface->committed_private = sh_output;
 	weston_surface_set_label_func(surface, background_get_label);
-	weston_view_set_output(view, surface->output);
 
 	weston_desktop_shell_send_configure(resource, 0,
 					    surface_resource,
@@ -2864,7 +2869,6 @@ desktop_shell_set_background(struct wl_client *client,
 					    surface->output->height);
 
 	sh_output->background_surface = surface;
-	sh_output->background_view = view;
 
 	sh_output->background_surface_listener.notify =
 				handle_background_surface_destroy;
