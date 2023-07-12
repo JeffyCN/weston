@@ -2802,15 +2802,18 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer,
 {
 	struct weston_coord_global pos;
 
-	if (!ev->output)
+	if (!weston_surface_has_content(ev->surface))
+		return;
+
+	if (!weston_surface_is_mapped(ev->surface))
+		weston_surface_map(ev->surface);
+
+	if (weston_view_is_mapped(ev))
 		return;
 
 	pos = weston_coord_global_add(ev->output->pos, offset_on_output);
 	weston_view_set_position(ev, pos);
-	weston_surface_map(ev->surface);
-
-	if (wl_list_empty(&ev->layer_link.link))
-		weston_view_move_to_layer(ev, &layer->view_list);
+	weston_view_move_to_layer(ev, &layer->view_list);
 }
 
 
