@@ -2879,7 +2879,7 @@ desktop_shell_set_background(struct wl_client *client,
 	struct weston_surface *surface =
 		wl_resource_get_user_data(surface_resource);
 	struct shell_output *sh_output;
-	struct weston_view *view, *next;
+	struct weston_view *view;
 	struct weston_head *head = weston_head_from_resource(output_resource);
 
 	if (surface->committed) {
@@ -2892,8 +2892,7 @@ desktop_shell_set_background(struct wl_client *client,
 	if (!head)
 		return;
 
-	wl_list_for_each_safe(view, next, &surface->views, surface_link)
-		weston_view_destroy(view);
+	assert(wl_list_empty(&surface->views));
 	view = weston_view_create(surface);
 
 	surface->committed = background_committed;
@@ -2987,7 +2986,7 @@ desktop_shell_set_panel(struct wl_client *client,
 	struct desktop_shell *shell = wl_resource_get_user_data(resource);
 	struct weston_surface *surface =
 		wl_resource_get_user_data(surface_resource);
-	struct weston_view *view, *next;
+	struct weston_view *view;
 	struct shell_output *sh_output;
 	struct weston_head *head = weston_head_from_resource(output_resource);
 
@@ -3001,8 +3000,7 @@ desktop_shell_set_panel(struct wl_client *client,
 	if (!head)
 		return;
 
-	wl_list_for_each_safe(view, next, &surface->views, surface_link)
-		weston_view_destroy(view);
+	assert(wl_list_empty(&surface->views));
 	view = weston_view_create(surface);
 
 	surface->committed = panel_committed;
