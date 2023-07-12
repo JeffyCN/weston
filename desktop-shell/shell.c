@@ -679,6 +679,39 @@ focus_animation_done(struct weston_view_animation *animation, void *data)
 }
 
 static void
+animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
+		     struct weston_view *from, struct weston_view *to)
+{
+	struct weston_view *front = ws->fsurf_front->curtain->view;
+	struct weston_view *back = ws->fsurf_back->curtain->view;
+	if ((from && from == to) || shell->focus_animation_type == ANIMATION_NONE)
+		return;
+
+	if (ws->focus_animation) {
+		weston_view_animation_destroy(ws->focus_animation);
+		ws->focus_animation = NULL;
+	}
+
+	if (to) {
+		weston_view_move_to_layer(front, &to->layer_link);
+		if (from)
+			weston_view_move_to_layer(back, &from->layer_link);
+		else
+			weston_view_move_to_layer(back, &ws->layer.view_list);
+
+		ws->focus_animation =
+			weston_stable_fade_run(front, 0.0, back, 0.4,
+					       focus_animation_done, ws);
+	} else {
+		weston_view_move_to_layer(front, &ws->layer.view_list);
+		weston_view_move_to_layer(back, NULL);
+		ws->focus_animation =
+			weston_fade_run(front, front->alpha, 0.0, 300,
+					focus_animation_done, ws);
+	}
+}
+
+static void
 focus_state_destroy(struct focus_state *state)
 {
 	wl_list_remove(&state->seat_destroy_listener.link);
@@ -736,14 +769,9 @@ focus_state_surface_destroy(struct wl_listener *listener, void *data)
 		activate(state->shell, next, state->seat,
 			 WESTON_ACTIVATE_FLAG_CONFIGURE);
 	} else {
-		if (state->shell->focus_animation_type == ANIMATION_DIM_LAYER) {
-			if (state->ws->focus_animation)
-				weston_view_animation_destroy(state->ws->focus_animation);
-
-			state->ws->focus_animation = weston_fade_run(
-				state->ws->fsurf_front->curtain->view,
-				state->ws->fsurf_front->curtain->view->alpha, 0.0, 300,
-				focus_animation_done, state->ws);
+		if (state->shell->focus_animation_type != ANIMATION_NONE) {
+			animate_focus_change(state->shell, state->ws,
+					     get_default_view(main_surface), NULL);
 		}
 
 		wl_list_remove(&state->link);
@@ -861,40 +889,6 @@ drop_focus_state(struct desktop_shell *shell, struct workspace *ws,
 	wl_list_for_each(state, &ws->focus_list, link)
 		if (state->keyboard_focus == surface)
 			focus_state_set_focus(state, NULL);
-}
-
-static void
-animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
-		     struct weston_view *from, struct weston_view *to)
-{
-	struct weston_view *front = ws->fsurf_front->curtain->view;
-	struct weston_view *back = ws->fsurf_back->curtain->view;
-
-	if ((from && from == to) || shell->focus_animation_type == ANIMATION_NONE)
-		return;
-
-	if (ws->focus_animation) {
-		weston_view_animation_destroy(ws->focus_animation);
-		ws->focus_animation = NULL;
-	}
-
-	if (to) {
-		weston_view_move_to_layer(front, &to->layer_link);
-		if (from)
-			weston_view_move_to_layer(back, &from->layer_link);
-		else
-			weston_view_move_to_layer(back, &ws->layer.view_list);
-
-		ws->focus_animation =
-			weston_stable_fade_run(front, 0.0, back, 0.4,
-					       focus_animation_done, ws);
-	} else {
-		weston_view_move_to_layer(front, &ws->layer.view_list);
-		weston_view_move_to_layer(back, NULL);
-		ws->focus_animation =
-			weston_fade_run(front, front->alpha, 0.0, 300,
-					focus_animation_done, ws);
-	}
 }
 
 static void
