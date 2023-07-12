@@ -854,12 +854,11 @@ static void
 animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 		     struct weston_view *from, struct weston_view *to)
 {
-	/* FIXME: Only support dim animation using two layers */
-	if (from == to || shell->focus_animation_type != ANIMATION_DIM_LAYER)
-		return;
+	struct weston_view *front = ws->fsurf_front->curtain->view;
+	struct weston_view *back = ws->fsurf_back->curtain->view;
 
-	weston_view_move_to_layer(ws->fsurf_front->curtain->view, NULL);
-	weston_view_move_to_layer(ws->fsurf_back->curtain->view, NULL);
+	if ((from && from == to) || shell->focus_animation_type == ANIMATION_NONE)
+		return;
 
 	if (ws->focus_animation) {
 		weston_view_animation_destroy(ws->focus_animation);
@@ -867,32 +866,21 @@ animate_focus_change(struct desktop_shell *shell, struct workspace *ws,
 	}
 
 	if (to) {
-		weston_view_move_to_layer(ws->fsurf_front->curtain->view,
-					  &to->layer_link);
-	} else {
-		weston_view_move_to_layer(ws->fsurf_front->curtain->view,
-					  &ws->layer.view_list);
-	}
+		weston_view_move_to_layer(front, &to->layer_link);
+		if (from)
+			weston_view_move_to_layer(back, &from->layer_link);
+		else
+			weston_view_move_to_layer(back, &ws->layer.view_list);
 
-	if (from) {
-		weston_view_move_to_layer(ws->fsurf_back->curtain->view,
-					  &from->layer_link);
-		ws->focus_animation = weston_stable_fade_run(
-			ws->fsurf_front->curtain->view, 0.0,
-			ws->fsurf_back->curtain->view, 0.4,
-			focus_animation_done, ws);
-	} else if (to) {
-		weston_view_move_to_layer(ws->fsurf_back->curtain->view,
-					  &ws->layer.view_list);
-		ws->focus_animation = weston_stable_fade_run(
-			ws->fsurf_front->curtain->view, 0.0,
-			ws->fsurf_back->curtain->view, 0.4,
-			focus_animation_done, ws);
+		ws->focus_animation =
+			weston_stable_fade_run(front, 0.0, back, 0.4,
+					       focus_animation_done, ws);
 	} else {
-		ws->focus_animation = weston_fade_run(
-			ws->fsurf_front->curtain->view,
-			ws->fsurf_front->curtain->view->alpha, 0.0, 300,
-			focus_animation_done, ws);
+		weston_view_move_to_layer(front, &ws->layer.view_list);
+		weston_view_move_to_layer(back, NULL);
+		ws->focus_animation =
+			weston_fade_run(front, front->alpha, 0.0, 300,
+					focus_animation_done, ws);
 	}
 }
 
