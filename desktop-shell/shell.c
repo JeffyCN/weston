@@ -2860,6 +2860,7 @@ handle_background_surface_destroy(struct wl_listener *listener, void *data)
 
 	wl_list_remove(&output->background_surface_listener.link);
 	output->background_surface = NULL;
+	output->background_view = NULL;
 }
 
 static void
@@ -2908,6 +2909,7 @@ desktop_shell_set_background(struct wl_client *client,
 					    surface->output->height);
 
 	sh_output->background_surface = surface;
+	sh_output->background_view = view;
 
 	sh_output->background_surface_listener.notify =
 				handle_background_surface_destroy;
@@ -2965,6 +2967,7 @@ handle_panel_surface_destroy(struct wl_listener *listener, void *data)
 
 	wl_list_remove(&output->panel_surface_listener.link);
 	output->panel_surface = NULL;
+	output->panel_view = NULL;
 }
 
 
@@ -3015,6 +3018,7 @@ desktop_shell_set_panel(struct wl_client *client,
 					    surface->output->height);
 
 	sh_output->panel_surface = surface;
+	sh_output->panel_view = view;
 
 	sh_output->panel_surface_listener.notify = handle_panel_surface_destroy;
 	wl_signal_add(&surface->destroy_signal, &sh_output->panel_surface_listener);
