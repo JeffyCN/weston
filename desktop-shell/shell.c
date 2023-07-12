@@ -2842,13 +2842,12 @@ static void
 background_committed(struct weston_surface *es,
 		     struct weston_coord_surface new_origin)
 {
-	struct desktop_shell *shell = es->committed_private;
-	struct weston_view *view;
+	struct shell_output *sh_output = es->committed_private;
+	struct desktop_shell *shell = sh_output->shell;
+	struct weston_view *view = sh_output->background_view;
 	struct weston_coord_global tmp;
 
 	tmp.c = weston_coord(0, 0);
-	view = container_of(es->views.next, struct weston_view, surface_link);
-
 	configure_static_view(view, &shell->background_layer, tmp);
 }
 
@@ -2899,7 +2898,7 @@ desktop_shell_set_background(struct wl_client *client,
 	view = weston_view_create(surface);
 
 	surface->committed = background_committed;
-	surface->committed_private = shell;
+	surface->committed_private = sh_output;
 	weston_surface_set_label_func(surface, background_get_label);
 	weston_view_set_output(view, surface->output);
 
@@ -2928,13 +2927,13 @@ static void
 panel_committed(struct weston_surface *es,
 		struct weston_coord_surface new_origin)
 {
-	struct desktop_shell *shell = es->committed_private;
-	struct weston_view *view;
+	struct shell_output *sh_output = es->committed_private;
+	struct weston_output *output = sh_output->output;
+	struct desktop_shell *shell = sh_output->shell;
+	struct weston_view *view = sh_output->panel_view;
 	int width, height;
 	int x = 0, y = 0;
 	struct weston_coord_global tmp;
-
-	view = container_of(es->views.next, struct weston_view, surface_link);
 
 	/* XXX delete me eventually - it would be better if we didn't get here
 	 * with a dirty transform at all, but for now just make sure the
@@ -2946,12 +2945,12 @@ panel_committed(struct weston_surface *es,
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP:
 		break;
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_BOTTOM:
-		y = view->output->height - height;
+		y = output->height - height;
 		break;
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_LEFT:
 		break;
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_RIGHT:
-		x = view->output->width - width;
+		x = output->width - width;
 		break;
 	}
 
@@ -3008,7 +3007,7 @@ desktop_shell_set_panel(struct wl_client *client,
 	view = weston_view_create(surface);
 
 	surface->committed = panel_committed;
-	surface->committed_private = shell;
+	surface->committed_private = sh_output;
 	weston_surface_set_label_func(surface, panel_get_label);
 	weston_view_set_output(view, surface->output);
 
