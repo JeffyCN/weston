@@ -2801,18 +2801,9 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer,
 		      struct weston_coord_global offset_on_output)
 {
 	struct weston_coord_global pos;
-	struct weston_view *v, *next;
 
 	if (!ev->output)
 		return;
-
-	wl_list_for_each_safe(v, next, &layer->view_list.link, layer_link.link) {
-		if (v->output == ev->output && v != ev) {
-			weston_view_unmap(v);
-			v->surface->committed = NULL;
-			weston_surface_set_label_func(v->surface, NULL);
-		}
-	}
 
 	pos = weston_coord_global_add(ev->output->pos, offset_on_output);
 	weston_view_set_position(ev, pos);
@@ -2892,35 +2883,34 @@ desktop_shell_set_background(struct wl_client *client,
 	if (!head)
 		return;
 
+	surface->output = head->output;
+	sh_output = find_shell_output_from_weston_output(shell, surface->output);
+	if (sh_output->background_surface) {
+		wl_resource_post_error(surface_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "output already has a background surface");
+		return;
+	}
+
 	assert(wl_list_empty(&surface->views));
 	view = weston_view_create(surface);
 
 	surface->committed = background_committed;
 	surface->committed_private = shell;
 	weston_surface_set_label_func(surface, background_get_label);
-	surface->output = head->output;
 	weston_view_set_output(view, surface->output);
 
-	sh_output = find_shell_output_from_weston_output(shell, surface->output);
-	if (sh_output->background_surface) {
-		/* The output already has a background, tell our helper
-		 * there is no need for another one. */
-		weston_desktop_shell_send_configure(resource, 0,
-						    surface_resource,
-						    0, 0);
-	} else {
-		weston_desktop_shell_send_configure(resource, 0,
-						    surface_resource,
-						    surface->output->width,
-						    surface->output->height);
+	weston_desktop_shell_send_configure(resource, 0,
+					    surface_resource,
+					    surface->output->width,
+					    surface->output->height);
 
-		sh_output->background_surface = surface;
+	sh_output->background_surface = surface;
 
-		sh_output->background_surface_listener.notify =
-					handle_background_surface_destroy;
-		wl_signal_add(&surface->destroy_signal,
-			      &sh_output->background_surface_listener);
-	}
+	sh_output->background_surface_listener.notify =
+				handle_background_surface_destroy;
+	wl_signal_add(&surface->destroy_signal,
+		      &sh_output->background_surface_listener);
 }
 
 static int
@@ -3000,33 +2990,33 @@ desktop_shell_set_panel(struct wl_client *client,
 	if (!head)
 		return;
 
+	surface->output = head->output;
+	sh_output = find_shell_output_from_weston_output(shell, surface->output);
+
+	if (sh_output->panel_surface) {
+		wl_resource_post_error(surface_resource,
+				       WL_DISPLAY_ERROR_INVALID_OBJECT,
+				       "output already has a panel surface");
+		return;
+	}
+
 	assert(wl_list_empty(&surface->views));
 	view = weston_view_create(surface);
 
 	surface->committed = panel_committed;
 	surface->committed_private = shell;
 	weston_surface_set_label_func(surface, panel_get_label);
-	surface->output = head->output;
 	weston_view_set_output(view, surface->output);
 
-	sh_output = find_shell_output_from_weston_output(shell, surface->output);
-	if (sh_output->panel_surface) {
-		/* The output already has a panel, tell our helper
-		 * there is no need for another one. */
-		weston_desktop_shell_send_configure(resource, 0,
-						    surface_resource,
-						    0, 0);
-	} else {
-		weston_desktop_shell_send_configure(resource, 0,
-						    surface_resource,
-						    surface->output->width,
-						    surface->output->height);
+	weston_desktop_shell_send_configure(resource, 0,
+					    surface_resource,
+					    surface->output->width,
+					    surface->output->height);
 
-		sh_output->panel_surface = surface;
+	sh_output->panel_surface = surface;
 
-		sh_output->panel_surface_listener.notify = handle_panel_surface_destroy;
-		wl_signal_add(&surface->destroy_signal, &sh_output->panel_surface_listener);
-	}
+	sh_output->panel_surface_listener.notify = handle_panel_surface_destroy;
+	wl_signal_add(&surface->destroy_signal, &sh_output->panel_surface_listener);
 }
 
 static int
