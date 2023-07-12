@@ -2855,7 +2855,6 @@ handle_background_surface_destroy(struct wl_listener *listener, void *data)
 	struct shell_output *output =
 	    container_of(listener, struct shell_output, background_surface_listener);
 
-	weston_log("background surface gone\n");
 	wl_list_remove(&output->background_surface_listener.link);
 	output->background_surface = NULL;
 }
@@ -2961,7 +2960,6 @@ handle_panel_surface_destroy(struct wl_listener *listener, void *data)
 	struct shell_output *output =
 	    container_of(listener, struct shell_output, panel_surface_listener);
 
-	weston_log("panel surface gone\n");
 	wl_list_remove(&output->panel_surface_listener.link);
 	output->panel_surface = NULL;
 }
@@ -3053,7 +3051,6 @@ handle_lock_surface_destroy(struct wl_listener *listener, void *data)
 	struct desktop_shell *shell =
 	    container_of(listener, struct desktop_shell, lock_surface_listener);
 
-	weston_log("lock surface gone\n");
 	shell->lock_surface = NULL;
 }
 
