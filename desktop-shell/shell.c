@@ -4331,8 +4331,7 @@ switcher_next(struct switcher *switcher)
 	struct weston_view *tmp;
 	struct weston_view **minimized;
 	wl_list_for_each_safe(view, tmp, &switcher->shell->minimized_layer.view_list.link, layer_link.link) {
-		weston_layer_entry_remove(&view->layer_link);
-		weston_layer_entry_insert(&ws->layer.view_list, &view->layer_link);
+		weston_view_move_to_layer(view, &ws->layer.view_list);
 		minimized = wl_array_add(&switcher->minimized_array, sizeof *minimized);
 		*minimized = view;
 	}
@@ -4408,11 +4407,10 @@ switcher_destroy(struct switcher *switcher)
 	struct weston_view **minimized;
 	wl_array_for_each(minimized, &switcher->minimized_array) {
 		/* with the exception of the current selected */
-		if ((*minimized)->surface != switcher->current->surface) {
-			weston_layer_entry_remove(&(*minimized)->layer_link);
-			weston_layer_entry_insert(&switcher->shell->minimized_layer.view_list, &(*minimized)->layer_link);
-			weston_view_damage_below(*minimized);
-		}
+		if ((*minimized)->surface == switcher->current->surface)
+			continue;
+		weston_view_move_to_layer(*minimized,
+					  &switcher->shell->minimized_layer.view_list);
 	}
 	wl_array_release(&switcher->minimized_array);
 
