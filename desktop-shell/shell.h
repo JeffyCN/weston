@@ -69,6 +69,7 @@ struct shell_output {
 	struct weston_surface *panel_surface;
 	struct weston_view *panel_view;
 	struct wl_listener panel_surface_listener;
+	struct weston_coord_global panel_offset;
 
 	struct weston_surface *background_surface;
 	struct weston_view *background_view;

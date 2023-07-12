@@ -2811,9 +2811,12 @@ static const struct weston_desktop_api shell_desktop_api = {
  * end of libweston-desktop *
  * ************************ */
 static void
-configure_static_view(struct weston_view *ev, struct weston_layer *layer,
+configure_static_view(struct shell_output *sh_output,
+		      struct weston_view *ev,
+		      struct weston_layer *layer,
 		      struct weston_coord_global offset_on_output)
 {
+	struct weston_output *output = sh_output->output;
 	struct weston_coord_global pos;
 
 	if (!weston_surface_has_content(ev->surface))
@@ -2825,7 +2828,7 @@ configure_static_view(struct weston_view *ev, struct weston_layer *layer,
 	if (weston_view_is_mapped(ev))
 		return;
 
-	pos = weston_coord_global_add(ev->output->pos, offset_on_output);
+	pos = weston_coord_global_add(output->pos, offset_on_output);
 	weston_view_set_position(ev, pos);
 	weston_view_move_to_layer(ev, &layer->view_list);
 }
@@ -2847,7 +2850,7 @@ background_committed(struct weston_surface *es,
 	struct weston_coord_global tmp;
 
 	tmp.c = weston_coord(0, 0);
-	configure_static_view(view, &shell->background_layer, tmp);
+	configure_static_view(sh_output, view, &shell->background_layer, tmp);
 }
 
 static void
@@ -2930,31 +2933,30 @@ panel_committed(struct weston_surface *es,
 	struct weston_output *output = sh_output->output;
 	struct desktop_shell *shell = sh_output->shell;
 	struct weston_view *view = sh_output->panel_view;
-	int width, height;
-	int x = 0, y = 0;
-	struct weston_coord_global tmp;
 
-	/* XXX delete me eventually - it would be better if we didn't get here
-	 * with a dirty transform at all, but for now just make sure the
-	 * transform is updated here. */
-	weston_view_update_transform(view);
+	if (!weston_surface_has_content(es))
+		return;
 
-	get_panel_size(shell, view, &width, &height);
 	switch (shell->panel_position) {
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP:
+	case WESTON_DESKTOP_SHELL_PANEL_POSITION_LEFT:
+		sh_output->panel_offset.c = weston_coord(0, 0);
 		break;
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_BOTTOM:
-		y = output->height - height;
-		break;
-	case WESTON_DESKTOP_SHELL_PANEL_POSITION_LEFT:
+		sh_output->panel_offset.c =
+			weston_coord(0, output->height - es->height);
 		break;
 	case WESTON_DESKTOP_SHELL_PANEL_POSITION_RIGHT:
-		x = output->width - width;
+		sh_output->panel_offset.c =
+			weston_coord(output->width - es->width, 0);
+		break;
+	default:
+		unreachable("unknown panel position");
 		break;
 	}
 
-	tmp.c = weston_coord(x, y);
-	configure_static_view(view, &shell->panel_layer, tmp);
+	configure_static_view(sh_output, view, &shell->panel_layer,
+			      sh_output->panel_offset);
 }
 
 static void
