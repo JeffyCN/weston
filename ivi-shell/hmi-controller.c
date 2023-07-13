@@ -923,6 +923,13 @@ hmi_controller_create(struct weston_compositor *ec)
 	}
 
 	hmi_ctrl = xzalloc(sizeof(*hmi_ctrl));
+
+	if(interface->shell_add_destroy_listener_once(&hmi_ctrl->destroy_listener,
+				hmi_controller_destroy) == IVI_FAILED){
+		free(hmi_ctrl);
+		return NULL;
+	}
+
 	i = 0;
 
 	wl_array_init(&hmi_ctrl->ui_widgets);
@@ -1034,13 +1041,6 @@ hmi_controller_create(struct weston_compositor *ec)
 
 	hmi_ctrl->input_panel_update.notify = set_notification_update_input_panel;
 	hmi_ctrl->interface->add_listener_update_input_panel(&hmi_ctrl->input_panel_update);
-
-	if(hmi_ctrl->interface->shell_add_destroy_listener_once(&hmi_ctrl->destroy_listener,
-				hmi_controller_destroy) == IVI_FAILED){
-		hmi_controller_destroy(&hmi_ctrl->destroy_listener, NULL);
-		return NULL;
-	}
-
 
 	return hmi_ctrl;
 }
