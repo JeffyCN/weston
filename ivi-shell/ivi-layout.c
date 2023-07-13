@@ -370,7 +370,7 @@ update_opacity(struct ivi_layout_layer *ivilayer,
 	double layer_alpha = wl_fixed_to_double(ivilayer->prop.opacity);
 	double surf_alpha  = wl_fixed_to_double(ivisurf->prop.opacity);
 
-	view->alpha = layer_alpha * surf_alpha;
+	weston_view_set_alpha(view, layer_alpha * surf_alpha);
 }
 
 static void
