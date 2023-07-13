@@ -847,26 +847,22 @@ build_view_list(struct ivi_layout *layout)
 	 */
 	wl_list_for_each(ivi_view, &layout->view_list, link) {
 		if (!ivi_view_is_mapped(ivi_view))
-			weston_view_unmap(ivi_view->view);
+			weston_view_move_to_layer(ivi_view->view, NULL);
 	}
-
-	/* Clear view list of layout ivi_layer */
-	wl_list_init(&layout->layout_layer.view_list.link);
 
 	wl_list_for_each(iviscrn, &layout->screen_list, link) {
 		wl_list_for_each(ivilayer, &iviscrn->order.layer_list, order.link) {
-			if (ivilayer->prop.visibility == false)
-				continue;
-
 			wl_list_for_each(ivi_view, &ivilayer->order.view_list, order_link) {
-				if (ivi_view->ivisurf->prop.visibility == false)
+				if (ivilayer->prop.visibility == false ||
+				    ivi_view->ivisurf->prop.visibility == false) {
+					weston_view_move_to_layer(ivi_view->view,
+								  NULL);
 					continue;
-
-				weston_layer_entry_insert(&layout->layout_layer.view_list,
-							  &ivi_view->view->layer_link);
+				}
 
 				weston_surface_map(ivi_view->ivisurf->surface);
-				ivi_view->view->is_mapped = true;
+				weston_view_move_to_layer(ivi_view->view,
+							  &layout->layout_layer.view_list);
 			}
 		}
 	}
