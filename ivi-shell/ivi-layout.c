@@ -624,8 +624,6 @@ update_prop(struct ivi_layout_view *ivi_view)
 	}
 
 	ivisurf->update_count++;
-
-	weston_view_schedule_repaint(ivi_view->view);
 }
 
 static bool
