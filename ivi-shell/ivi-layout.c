@@ -50,7 +50,7 @@
  *
  * 4/ According properties, set transformation by using weston_matrix and
  *    weston_view per ivi_surfaces and ivi_layers in while loop.
- * 5/ Set damage and trigger transform by using weston_view_geometry_dirty.
+ * 5/ Set damage and trigger transform by using weston_view_add_transform
  * 6/ Schedule repaint for each view by using weston_view_schedule_repaint.
  * 7/ Notify update of properties.
  *
@@ -149,7 +149,7 @@ ivi_view_is_rendered(struct ivi_layout_view *view)
 static void
 ivi_view_destroy(struct ivi_layout_view *ivi_view)
 {
-	wl_list_remove(&ivi_view->transform.link);
+	weston_view_remove_transform(ivi_view->view, &ivi_view->transform);
 	wl_list_remove(&ivi_view->link);
 	wl_list_remove(&ivi_view->surf_link);
 	wl_list_remove(&ivi_view->pending_link);
@@ -611,19 +611,16 @@ update_prop(struct ivi_layout_view *ivi_view)
 	}
 
 	if (can_calc) {
-		wl_list_remove(&ivi_view->transform.link);
 		weston_matrix_init(&ivi_view->transform.matrix);
 
 		calc_surface_to_global_matrix_and_mask_to_weston_surface(
 			iviscrn, ivilayer, ivisurf, &ivi_view->transform.matrix, &r);
 
 		weston_view_set_mask(ivi_view->view, r.x, r.y, r.width, r.height);
-		wl_list_insert(&ivi_view->view->geometry.transformation_list,
-			       &ivi_view->transform.link);
-
+		weston_view_add_transform(ivi_view->view,
+					  &ivi_view->view->geometry.transformation_list,
+					  &ivi_view->transform);
 		weston_view_set_transform_parent(ivi_view->view, NULL);
-		weston_view_geometry_dirty(ivi_view->view);
-		weston_view_update_transform(ivi_view->view);
 	}
 
 	ivisurf->update_count++;
