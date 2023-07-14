@@ -96,6 +96,16 @@ do { \
 #endif
 
 /**
+ * Divides two integers, rounding up.
+ *
+ * @param n the numerator to divide.
+ * @param d the denominator to divide by.
+ * @return the rounded up result of the division n / d.
+ */
+#define DIV_ROUND_UP(n, d) \
+	({ typeof(d) tmp = (d); ((n) + tmp - 1) / tmp; })
+
+/**
  * Returns a pointer to the containing struct of a given member item.
  *
  * To demonstrate, the following example retrieves a pointer to
