@@ -73,11 +73,17 @@ endforeach
 # and those in toc
 subdir('toc')
 
+sphinx_env = []
+if doxygen_v.version_compare('< 1.9.7')
+	sphinx_env += 'CAIRO_DEBUG_PDF=1'
+endif
+
 sphinx_doc = custom_target(
 		'weston-doc-breathe',
 		command: script_doxy_sphinx,
 		output: 'doc',
 		build_by_default: true,
+		env: sphinx_env,
 )
 
 # we need this because we will have a stale 'doc' directory
