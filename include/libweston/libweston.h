@@ -129,12 +129,18 @@ enum weston_surface_protection_mode {
 	WESTON_SURFACE_PROTECTION_MODE_ENFORCED
 };
 
+/** Possible mode of an output
+ *
+ * \ingroup output
+ */
 struct weston_mode {
 	uint32_t flags;
+	/** Picture aspect ratio.*/
 	enum weston_mode_aspect_ratio aspect_ratio;
-	int32_t width, height;
-	uint32_t refresh;
-	struct wl_list link;
+	int32_t width;		/**< Width in pixels. */
+	int32_t height;		/**< Height in pixels. */
+	uint32_t refresh;	/**< Refresh rate in mHz. */
+	struct wl_list link;	/**< in weston_output::mode_list */
 };
 
 struct weston_animation {
