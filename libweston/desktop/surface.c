@@ -89,6 +89,8 @@ weston_desktop_surface_update_view_position(struct weston_desktop_surface *surfa
 	if (!parent) {
 		struct weston_coord_global pos;
 
+		assert(!surface->use_geometry);
+
 		pos.c = weston_coord(x, y);
 		wl_list_for_each(view, &surface->view_list, link)
 			weston_view_set_position(view->view, pos);
@@ -843,6 +845,7 @@ weston_desktop_surface_unset_relative_to(struct weston_desktop_surface *surface)
 		return;
 
 	surface->parent = NULL;
+	surface->use_geometry = false;
 	wl_list_remove(&surface->children_link);
 	wl_list_init(&surface->children_link);
 
