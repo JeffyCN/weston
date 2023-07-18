@@ -3309,6 +3309,13 @@ weston_output_finish_frame(struct weston_output *output,
 	struct timespec vblank_monotonic;
 	int64_t msec_rel;
 
+	/* Delayed DPMS-ON to avoid showing old frame */
+	if (stamp && output->pending_active) {
+		output->pending_active = false;
+		if (output->set_dpms)
+			output->set_dpms(output, WESTON_DPMS_ON);
+	}
+
 	/*
 	 * If timestamp of latest vblank is given, it must always go forwards.
 	 * If not given, INVALID flag must be set.
@@ -5141,9 +5148,21 @@ weston_compositor_dpms(struct weston_compositor *compositor,
 {
 	struct weston_output *output;
 
-	wl_list_for_each(output, &compositor->output_list, link)
+	wl_list_for_each(output, &compositor->output_list, link) {
+		/**
+		 * Delay to weston_output_finish_frame() to avoid showing
+		 * old frame
+		 */
+		if (state == WESTON_DPMS_ON) {
+			output->pending_active = true;
+			weston_output_damage(output);
+			continue;
+		}
+		output->pending_active = false;
+
 		if (output->set_dpms)
 			output->set_dpms(output, state);
+	}
 }
 
 /** Restores the compositor to active status
@@ -6439,6 +6458,7 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 	wl_list_remove(&output->link);
 	wl_list_insert(compositor->output_list.prev, &output->link);
 	output->enabled = true;
+	output->pending_active = true;
 
 	wl_signal_emit(&compositor->output_created_signal, output);
 
