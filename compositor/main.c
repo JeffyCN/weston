@@ -3794,6 +3794,11 @@ wet_load_xwayland(struct weston_compositor *comp)
 {
 	return NULL;
 }
+
+void
+wet_xwayland_destroy(struct weston_compositor *comp, void *wet_xwl)
+{
+}
 #endif
 
 static int
