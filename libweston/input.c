@@ -3606,7 +3606,7 @@ pointer_set_cursor(struct wl_client *client, struct wl_resource *resource,
 		pointer->sprite = weston_view_create(surface);
 	}
 
-	pointer->hotspot.c = weston_coord(x, y);
+	pointer->hotspot = weston_coord_surface(x, y, surface);
 
 	if (surface->width != 0) {
 		struct weston_coord_surface zero;
