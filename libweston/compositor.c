@@ -4816,8 +4816,8 @@ weston_subsurface_commit_to_cache(struct weston_subsurface *sub)
 	sub->cached.protection_mode = surface->pending.protection_mode;
 	assert(surface->pending.acquire_fence_fd == -1);
 	assert(surface->pending.buffer_release_ref.buffer_release == NULL);
-	sub->cached.buf_offset.c = weston_coord_add(sub->cached.buf_offset.c,
-						    surface->pending.buf_offset.c);
+	sub->cached.buf_offset = weston_coord_surface_add(sub->cached.buf_offset,
+							  surface->pending.buf_offset);
 
 	sub->cached.buffer_viewport.buffer =
 		surface->pending.buffer_viewport.buffer;
@@ -4958,8 +4958,9 @@ subsurface_committed(struct weston_surface *surface,
 			continue;
 		}
 
+		new_origin.coordinate_space_id = view->geometry.parent->surface;
 		tmp = weston_view_get_pos_offset_rel(view);
-		tmp.c = weston_coord_add(tmp.c, new_origin.c);
+		tmp = weston_coord_surface_add(tmp, new_origin);
 		weston_view_set_rel_position(view, tmp);
 	}
 	/* No need to check parent mappedness, because if parent is not

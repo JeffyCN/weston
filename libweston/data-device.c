@@ -435,9 +435,7 @@ drag_surface_configure(struct weston_drag *drag,
 		drag->icon->is_mapped = true;
 	}
 
-	assert(drag->offset.coordinate_space_id &&
-	       drag->offset.coordinate_space_id == new_origin.coordinate_space_id);
-	drag->offset.c = weston_coord_add(drag->offset.c, new_origin.c);
+	drag->offset = weston_coord_surface_add(drag->offset, new_origin);
 
 	/* init to 0 for avoiding a compile warning */
 	pos.c = weston_coord(0, 0);

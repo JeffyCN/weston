@@ -167,6 +167,19 @@ weston_coord_global_add(struct weston_coord_global a,
 	return (struct weston_coord_global){ .c = weston_coord_add(a.c, b.c) };
 }
 
+static inline struct weston_coord_surface __attribute__ ((warn_unused_result))
+weston_coord_surface_add(struct weston_coord_surface a,
+			 struct weston_coord_surface b)
+{
+	assert(a.coordinate_space_id &&
+	       a.coordinate_space_id == b.coordinate_space_id);
+
+	return (struct weston_coord_surface){
+		.c = weston_coord_add(a.c, b.c),
+		.coordinate_space_id = a.coordinate_space_id,
+	};
+}
+
 static inline struct weston_coord __attribute__ ((warn_unused_result))
 weston_coord_sub(struct weston_coord a, struct weston_coord b)
 {
@@ -178,6 +191,19 @@ weston_coord_global_sub(struct weston_coord_global a,
 			struct weston_coord_global b)
 {
 	return (struct weston_coord_global){ .c = weston_coord_sub(a.c, b.c) };
+}
+
+static inline struct weston_coord_surface __attribute__ ((warn_unused_result))
+weston_coord_surface_sub(struct weston_coord_surface a,
+			 struct weston_coord_surface b)
+{
+	assert(a.coordinate_space_id &&
+	       a.coordinate_space_id == b.coordinate_space_id);
+
+	return (struct weston_coord_surface){
+		.c = weston_coord_sub(a.c, b.c),
+		.coordinate_space_id = a.coordinate_space_id,
+	};
 }
 
 static inline struct weston_coord __attribute__ ((warn_unused_result))
