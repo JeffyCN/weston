@@ -862,7 +862,11 @@ drm_output_repaint(struct weston_output *output_base,
 		state = drm_output_state_duplicate(output->state_cur,
 						   pending_state,
 						   DRM_OUTPUT_STATE_CLEAR_PLANES);
-	state->dpms = WESTON_DPMS_ON;
+
+	if (output_base->pending_active)
+		state->dpms = WESTON_DPMS_ON;
+	else
+		state->dpms = output->state_cur->dpms;
 
 	if (output_base->allow_protection)
 		state->protection = output_base->desired_protection;
@@ -3728,10 +3732,7 @@ config_handle_output(struct drm_backend *b, const char *name,
 		} else if (!strcmp(config, "unfreeze") ||
 			   !strcmp(config, "on")) {
 			output->base.freezing = false;
-
-			if (!output->virtual)
-				drm_set_dpms(&output->base, WESTON_DPMS_ON);
-
+			output->base.pending_active = true;
 			weston_output_damage(&output->base);
 		} else if (!strncmp(config, "down-scale=",
 				    strlen("down-scale="))) {
