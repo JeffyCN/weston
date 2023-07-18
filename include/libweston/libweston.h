@@ -574,6 +574,7 @@ struct weston_output {
 	void (*detach_head)(struct weston_output *output,
 			    struct weston_head *head);
 
+	bool pending_active;
 	bool unavailable;
 	bool freezing;
 
