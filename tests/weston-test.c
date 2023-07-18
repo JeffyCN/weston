@@ -398,7 +398,7 @@ move_pointer(struct wl_client *client, struct wl_resource *resource,
 	pos.c = weston_coord(x, y);
 	event = (struct weston_pointer_motion_event) {
 		.mask = WESTON_POINTER_MOTION_REL,
-		.rel = weston_coord_sub(pos.c, pointer->pos.c),
+		.rel = weston_coord_global_sub(pos, pointer->pos).c,
 	};
 
 	timespec_from_proto(&time, tv_sec_hi, tv_sec_lo, tv_nsec);

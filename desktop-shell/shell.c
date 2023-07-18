@@ -1328,9 +1328,9 @@ surface_tablet_tool_move(struct shell_surface *shsurf, struct weston_tablet_tool
 	if (!move)
 		return -1;
 
-	offset.c = weston_coord_sub(
-		weston_view_get_pos_offset_global(shsurf->view).c,
-		tool->grab_pos.c);
+	offset = weston_coord_global_sub(
+		weston_view_get_pos_offset_global(shsurf->view),
+		tool->grab_pos);
 	move->dx = wl_fixed_from_double(offset.c.x);
 	move->dy = wl_fixed_from_double(offset.c.y);
 
@@ -4723,9 +4723,9 @@ handle_output_move_layer(struct desktop_shell *shell,
 		if (view->output != output)
 			continue;
 
-		pos.c = weston_coord_add(
-			weston_view_get_pos_offset_global(view).c,
-			output->move.c);
+		pos = weston_coord_global_add(
+		      weston_view_get_pos_offset_global(view),
+		      output->move);
 		weston_view_set_position(view, pos);
 	}
 }

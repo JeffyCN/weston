@@ -1283,9 +1283,9 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		if (view->output != output)
 			continue;
 
-		pos.c = weston_coord_add(
-			weston_view_get_pos_offset_global(view).c,
-			output->move.c);
+		pos = weston_coord_global_add(
+		      weston_view_get_pos_offset_global(view),
+		      output->move);
 		weston_view_set_position(view, pos);
 	}
 
@@ -1296,9 +1296,9 @@ kiosk_shell_handle_output_moved(struct wl_listener *listener, void *data)
 		if (view->output != output)
 			continue;
 
-		pos.c = weston_coord_add(
-			weston_view_get_pos_offset_global(view).c,
-			output->move.c);
+		pos = weston_coord_global_add(
+		      weston_view_get_pos_offset_global(view),
+		      output->move);
 		weston_view_set_position(view, pos);
 	}
 }
