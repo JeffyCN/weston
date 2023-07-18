@@ -406,7 +406,6 @@ weston_mode_switch_finish(struct weston_output *output,
 	 * lower-right corner */
 	wl_list_for_each(seat, &output->compositor->seat_list, link) {
 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
-		double quantum = 1.0 / 1024.0;
 		int32_t x, y;
 
 		if (!pointer)
@@ -419,11 +418,8 @@ weston_mode_switch_finish(struct weston_output *output,
 		    weston_output_contains_coord(output, pointer->pos))
 			continue;
 
-		if (pointer->pos.c.x >= output->pos.c.x + output->width - quantum)
-			pointer->pos.c.x = output->pos.c.x + output->width - quantum;
-
-		if (pointer->pos.c.y >= output->pos.c.y + output->height - quantum)
-			pointer->pos.c.y = output->pos.c.y + output->height - quantum;
+		pointer->pos = weston_coord_global_clamp_for_output(pointer->pos,
+								    output);
 	}
 
 	pixman_region32_fini(&old_output_region);
@@ -903,6 +899,27 @@ weston_coord_surface_to_buffer(const struct weston_surface *surface,
 	tmp.c = weston_matrix_transform_coord(&surface->surface_to_buffer_matrix,
 					      coord.c);
 	return tmp;
+}
+
+WL_EXPORT struct weston_coord_global
+weston_coord_global_clamp_for_output(struct weston_coord_global pos,
+                                     const struct weston_output *output)
+{
+	struct weston_coord_global clamped_pos;
+	double quantum = 1.0 / 1024.0;
+	int x = pos.c.x;
+	int y = pos.c.y;
+
+	if (x < output->pos.c.x)
+		clamped_pos.c.x = output->pos.c.x;
+	else if (x >= output->pos.c.x + output->width - quantum)
+		clamped_pos.c.x = output->pos.c.x + output->width - quantum;
+	if (y < output->pos.c.y)
+		clamped_pos.c.y = output->pos.c.y;
+	else if (y >= output->pos.c.y + output->height - quantum)
+		clamped_pos.c.y = output->pos.c.y + output->height - quantum;
+
+	return clamped_pos;
 }
 
 WL_EXPORT pixman_box32_t

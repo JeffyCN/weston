@@ -2141,21 +2141,7 @@ weston_pointer_clamp_for_output(struct weston_pointer *pointer,
 				struct weston_output *output,
 				struct weston_coord_global pos)
 {
-	double quantum = 1.0 / 1024.0;
-	struct weston_coord_global out = pos;
-	int x = pos.c.x;
-	int y = pos.c.y;
-
-	if (x < output->pos.c.x)
-		out.c.x = output->pos.c.x;
-	else if (x >= output->pos.c.x + output->width - quantum)
-		out.c.x = output->pos.c.x + output->width - quantum;
-	if (y < output->pos.c.y)
-		out.c.y = output->pos.c.y;
-	else if (y >= output->pos.c.y + output->height - quantum)
-		out.c.y = output->pos.c.y + output->height - quantum;
-
-	return out;
+	return weston_coord_global_clamp_for_output(pos, output);
 }
 
 WL_EXPORT struct weston_coord_global

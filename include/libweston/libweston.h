@@ -2040,6 +2040,10 @@ struct weston_coord_buffer __attribute__ ((warn_unused_result))
 weston_coord_surface_to_buffer(const struct weston_surface *surface,
 			       struct weston_coord_surface coord);
 
+struct weston_coord_global __attribute__ ((warn_unused_result))
+weston_coord_global_clamp_for_output(struct weston_coord_global pos,
+				     const struct weston_output *output);
+
 void
 weston_view_activate_input(struct weston_view *view,
 		           struct weston_seat *seat,
