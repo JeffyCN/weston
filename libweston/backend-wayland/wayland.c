@@ -2882,8 +2882,8 @@ wayland_backend_create(struct weston_compositor *compositor,
 	b->compositor = compositor;
 	compositor->backend = &b->base;
 
-	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
-		goto err_compositor;
+	b->base.supported_presentation_clocks =
+		WESTON_PRESENTATION_CLOCKS_SOFTWARE;
 
 	b->parent.wl_display = wl_display_connect(new_config->display_name);
 	if (b->parent.wl_display == NULL) {

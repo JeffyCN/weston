@@ -1787,7 +1787,6 @@ int
 init_kms_caps(struct drm_device *device)
 {
 	struct drm_backend *b = device->backend;
-	struct weston_compositor *compositor = b->compositor;
 	uint64_t cap;
 	int ret;
 
@@ -1799,10 +1798,7 @@ init_kms_caps(struct drm_device *device)
 		return -1;
 	}
 
-	if (weston_compositor_set_presentation_clock(compositor, CLOCK_MONOTONIC) < 0) {
-		weston_log("Error: failed to set presentation clock to CLOCK_MONOTONIC.\n");
-		return -1;
-	}
+	b->base.supported_presentation_clocks = 1 << CLOCK_MONOTONIC;
 
 	ret = drmGetCap(device->drm.fd, DRM_CAP_CURSOR_WIDTH, &cap);
 	if (ret == 0)

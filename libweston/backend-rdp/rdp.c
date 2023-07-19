@@ -1891,8 +1891,8 @@ rdp_backend_create(struct weston_compositor *compositor,
 
 	wl_list_init(&b->peers);
 
-	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
-		goto err_compositor;
+	b->base.supported_presentation_clocks =
+			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
 
 	b->formats_count = ARRAY_LENGTH(rdp_formats);
 	b->formats = pixel_format_get_array(rdp_formats, b->formats_count);

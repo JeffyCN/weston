@@ -4141,6 +4141,9 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		goto out;
 	}
 
+	if (weston_compositor_backends_loaded(wet.compositor) < 0)
+		goto out;
+
 	if (test_data && !check_compositor_capabilities(wet.compositor,
 				test_data->test_quirks.required_capabilities)) {
 		ret = WET_MAIN_RET_MISSING_CAPS;

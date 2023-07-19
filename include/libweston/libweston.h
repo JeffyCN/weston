@@ -2665,6 +2665,9 @@ weston_compositor_add_screenshot_authority(struct weston_compositor *compositor,
 					   void (*auth)(struct wl_listener *l,
 					   		struct weston_output_capture_attempt *att));
 
+int
+weston_compositor_backends_loaded(struct weston_compositor *compositor);
+
 #ifdef  __cplusplus
 }
 #endif

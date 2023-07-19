@@ -1884,8 +1884,8 @@ x11_backend_create(struct weston_compositor *compositor,
 
 	compositor->backend = &b->base;
 
-	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
-		goto err_free;
+	b->base.supported_presentation_clocks =
+			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
 
 	b->dpy = XOpenDisplay(NULL);
 	if (b->dpy == NULL)

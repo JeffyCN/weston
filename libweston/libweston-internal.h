@@ -238,13 +238,6 @@ weston_compositor_set_touch_mode_normal(struct weston_compositor *compositor);
 void
 weston_compositor_set_touch_mode_calib(struct weston_compositor *compositor);
 
-int
-weston_compositor_set_presentation_clock(struct weston_compositor *compositor,
-					 clockid_t clk_id);
-int
-weston_compositor_set_presentation_clock_software(
-					struct weston_compositor *compositor);
-
 void
 weston_compositor_xkb_destroy(struct weston_compositor *ec);
 

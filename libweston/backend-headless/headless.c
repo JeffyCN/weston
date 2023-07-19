@@ -539,8 +539,8 @@ headless_backend_create(struct weston_compositor *compositor,
 	b->compositor = compositor;
 	compositor->backend = &b->base;
 
-	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
-		goto err_free;
+	b->base.supported_presentation_clocks =
+			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
 
 	b->base.destroy = headless_destroy;
 	b->base.create_output = headless_output_create;

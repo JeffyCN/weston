@@ -1041,8 +1041,8 @@ pipewire_backend_create(struct weston_compositor *compositor,
 	backend->formats = pixel_format_get_array(pipewire_formats,
 						  backend->formats_count);
 
-	if (weston_compositor_set_presentation_clock_software(compositor) < 0)
-		goto err_compositor;
+	backend->base.supported_presentation_clocks =
+			WESTON_PRESENTATION_CLOCKS_SOFTWARE;
 
 	switch (config->renderer) {
 	case WESTON_RENDERER_AUTO:

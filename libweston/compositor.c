@@ -8841,6 +8841,9 @@ weston_compositor_create(struct wl_display *display,
 	if (test_data)
 		ec->test_data = *test_data;
 
+	/* No backend supports CLOCK_REALTIME, use it to mean 'uninitialized' */
+	ec->presentation_clock = CLOCK_REALTIME;
+
 	ec->weston_log_ctx = log_ctx;
 	ec->wl_display = display;
 	ec->user_data = user_data;
@@ -9046,10 +9049,7 @@ weston_compositor_set_default_pointer_grab(struct weston_compositor *ec,
 	}
 }
 
-/** weston_compositor_set_presentation_clock
- * \ingroup compositor
- */
-WL_EXPORT int
+static int
 weston_compositor_set_presentation_clock(struct weston_compositor *compositor,
 					 clockid_t clk_id)
 {
@@ -9063,15 +9063,19 @@ weston_compositor_set_presentation_clock(struct weston_compositor *compositor,
 	return 0;
 }
 
-/** For choosing the software clock, when the display hardware or API
- * does not expose a compatible presentation timestamp.
+/** To be called by the compositor after the last backend is loaded.
+ *
+ * \param compositor A compositor that has all backends loaded.
+ *
+ * \return 0 on success, or -1 on error.
  *
  * \ingroup compositor
  */
 WL_EXPORT int
-weston_compositor_set_presentation_clock_software(
-					struct weston_compositor *compositor)
+weston_compositor_backends_loaded(struct weston_compositor *compositor)
 {
+	struct weston_backend *backend = compositor->backend;
+	uint32_t supported_clocks = backend->supported_presentation_clocks;
 	/* In order of preference */
 	static const clockid_t clocks[] = {
 		CLOCK_MONOTONIC_RAW,	/* no jumps, no crawling */
@@ -9080,10 +9084,17 @@ weston_compositor_set_presentation_clock_software(
 	};
 	unsigned i;
 
-	for (i = 0; i < ARRAY_LENGTH(clocks); i++)
+	for (i = 0; i < ARRAY_LENGTH(clocks); i++) {
+		clockid_t clk_id = clocks[i];
+		bool supported = (supported_clocks >> clocks[i]) & 1;
+
+		if (!supported)
+			continue;
+
 		if (weston_compositor_set_presentation_clock(compositor,
-							     clocks[i]) == 0)
+							     clk_id) == 0)
 			return 0;
+	}
 
 	weston_log("Error: no suitable presentation clock available.\n");
 
@@ -9110,6 +9121,12 @@ weston_compositor_read_presentation_clock(
 			struct timespec *ts)
 {
 	int ret;
+
+	/*
+	 * Make sure weston_compositor_backends_loaded() was called.
+	 * We use CLOCK_REALTIME to mean 'uninitialized'.
+	 */
+	assert(compositor->presentation_clock != CLOCK_REALTIME);
 
 	ret = clock_gettime(compositor->presentation_clock, ts);
 	if (ret < 0) {

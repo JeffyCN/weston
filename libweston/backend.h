@@ -32,9 +32,20 @@
 #ifndef LIBWESTON_BACKEND_INTERNAL_H
 #define LIBWESTON_BACKEND_INTERNAL_H
 
+#define WESTON_PRESENTATION_CLOCKS_SOFTWARE \
+	((1 << CLOCK_MONOTONIC) | \
+	 (1 << CLOCK_MONOTONIC_RAW) | \
+	 (1 << CLOCK_MONOTONIC_COARSE))
+
 struct weston_hdr_metadata_type1;
 
 struct weston_backend {
+	/** Bitfield of supported presentation clocks
+	 *
+	 * Bit positions correspond to system clock IDs.
+	 */
+	unsigned int supported_presentation_clocks;
+
 	/** Prepare for compositor shutdown (optional)
 	 *
 	 * This will be called before weston_compositor_shutdown()
