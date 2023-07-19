@@ -3868,6 +3868,7 @@ drm_backend_create(struct weston_compositor *compositor,
 	device->state_invalid = true;
 	device->drm.fd = -1;
 	device->backend = b;
+	device->gem_handle_refcnt = hash_table_create();
 
 	b->drm = device;
 	wl_list_init(&b->kms_list);
