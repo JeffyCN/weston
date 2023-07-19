@@ -583,9 +583,25 @@ set_notification_remove_surface(struct wl_listener *listener, void *data)
 	struct hmi_controller *hmi_ctrl =
 			wl_container_of(listener, hmi_ctrl,
 					surface_removed);
-	(void)data;
+	struct ivi_layout_surface *ivisurf = data;
 
 	switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
+
+	/* set focus */
+	if (hmi_ctrl->interface->surface_is_active(ivisurf)) {
+		struct ivi_layout_surface **pp_surface = NULL;
+		int32_t surface_length = 0;
+		int32_t i;
+
+		hmi_ctrl->interface->get_surfaces(&surface_length, &pp_surface);
+
+		for (i = 0; i < surface_length; i++) {
+			if (pp_surface[i] != ivisurf) {
+				hmi_ctrl->interface->surface_activate(pp_surface[i]);
+				break;
+			}
+		}
+	}
 }
 
 static void
@@ -643,6 +659,9 @@ set_notification_configure_surface(struct wl_listener *listener, void *data)
 		ivisurfs = NULL;
 	}
 
+	hmi_ctrl->interface->layer_add_surface(application_layer, ivisurf);
+	hmi_ctrl->interface->surface_activate(ivisurf);
+
 	switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
 }
 
@@ -678,7 +697,9 @@ set_notification_configure_desktop_surface(struct wl_listener *listener, void *d
 				0, surface->width, surface->height);
 	}
 
+	hmi_ctrl->interface->surface_activate(ivisurf);
 	hmi_ctrl->interface->commit_changes();
+
 	switch_mode(hmi_ctrl, hmi_ctrl->layout_mode);
 }
 
