@@ -157,11 +157,12 @@ paint_node_damage_below(struct weston_paint_node *pnode)
 	if (!pnode->plane)
 		return;
 
-	wl_list_for_each(lower_node, &pnode->z_order_link,
-			 z_order_link) {
+	wl_list_for_each_reverse(lower_node,
+				 &pnode->output->paint_node_z_order_list,
+				 z_order_link) {
 
-		if (lower_node->plane != pnode->plane)
-			continue;
+		if (lower_node == pnode)
+			break;
 
 		pixman_region32_union(&lower_node->damage, &lower_node->damage,
 				      &pnode->visible);
