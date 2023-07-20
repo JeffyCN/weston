@@ -398,7 +398,8 @@ repaint_region(struct weston_view *ev, struct weston_output *output,
 
 	pixman_renderer_compute_transform(&transform, ev, output);
 
-	if (ev->transform.enabled || output->current_scale != vp->buffer.scale)
+	if (getenv("WESTON_PIXMAN_ALLOW_BILINEAR") &&
+	    (ev->transform.enabled || output->current_scale != vp->buffer.scale))
 		filter = PIXMAN_FILTER_BILINEAR;
 	else
 		filter = PIXMAN_FILTER_NEAREST;
