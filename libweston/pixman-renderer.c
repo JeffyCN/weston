@@ -392,7 +392,7 @@ repaint_region(struct weston_paint_node *pnode,
 	weston_matrix_to_pixman_transform(&transform,
 					  &pnode->output_to_buffer_matrix);
 
-	if (pnode->needs_filtering)
+	if (getenv("WESTON_PIXMAN_ALLOW_BILINEAR") && pnode->needs_filtering)
 		filter = PIXMAN_FILTER_BILINEAR;
 	else
 		filter = PIXMAN_FILTER_NEAREST;
