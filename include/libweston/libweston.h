@@ -444,7 +444,6 @@ enum weston_output_power_state {
 
 struct weston_plane {
 	struct weston_compositor *compositor;
-	pixman_region32_t clip;
 	int32_t x, y;
 	struct wl_list link;
 };

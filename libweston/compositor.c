@@ -3012,8 +3012,6 @@ output_update_visibility(struct weston_output *output)
 	pixman_region32_init(&clip);
 
 	wl_list_for_each(plane, &ec->plane_list, link) {
-		pixman_region32_copy(&plane->clip, &clip);
-
 		pixman_region32_init(&opaque);
 
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
@@ -3268,7 +3266,6 @@ weston_output_flush_damage_for_plane(struct weston_output *output,
 		pixman_region32_clear(&pnode->damage);
 	}
 	pixman_region32_intersect(damage, damage, &output->region);
-	pixman_region32_subtract(damage, damage, &plane->clip);
 	return changed;
 }
 
@@ -5664,7 +5661,6 @@ idle_handler(void *data)
 WL_EXPORT void
 weston_plane_init(struct weston_plane *plane, struct weston_compositor *ec)
 {
-	pixman_region32_init(&plane->clip);
 	plane->x = 0;
 	plane->y = 0;
 	plane->compositor = ec;
@@ -5678,8 +5674,6 @@ WL_EXPORT void
 weston_plane_release(struct weston_plane *plane)
 {
 	struct weston_output *output;
-
-	pixman_region32_fini(&plane->clip);
 
 	wl_list_for_each(output, &plane->compositor->output_list, link) {
 		struct weston_paint_node *node;
