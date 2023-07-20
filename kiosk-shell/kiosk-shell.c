@@ -32,6 +32,7 @@
 #include "kiosk-shell.h"
 #include "kiosk-shell-grab.h"
 #include "compositor/weston.h"
+#include "libweston/libweston.h"
 #include "shared/helpers.h"
 #include <libweston/shell-utils.h>
 
@@ -738,58 +739,62 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 	kiosk_shell_surface_set_fullscreen(shsurf, NULL);
 }
 
-/* Return the view that should gain focus after the specified shsurf is
+/* Return the shell surface that should gain focus after the specified shsurf is
  * destroyed. We prefer the top remaining view from the same parent surface,
  * but if we can't find one we fall back to the top view regardless of
- * parentage. */
-static struct weston_view *
-find_focus_successor(struct weston_layer *layer,
-		     struct kiosk_shell_surface *shsurf,
+ * parentage.
+ * First look for the successor in the normal layer, and if that
+ * fails, look for it in the inactive layer, and if that also fails, then there
+ * is no successor. */
+static struct kiosk_shell_surface *
+find_focus_successor(struct kiosk_shell_surface *shsurf,
 		     struct weston_surface *focused_surface)
 {
 	struct kiosk_shell_surface *parent_root =
 		kiosk_shell_surface_get_parent_root(shsurf);
 	struct weston_view *top_view = NULL;
+	struct kiosk_shell_surface *successor = NULL;
+	struct wl_list *layers = &shsurf->shell->compositor->layer_list;
+	struct weston_layer *layer;
 	struct weston_view *view;
 
+	wl_list_for_each(layer, layers, link) {
+		struct kiosk_shell *shell = shsurf->shell;
 
-	/* we need to take into account that the surface being destroyed it not
-	 * always the same as the focus_surface, which could result in picking
-	 * and *activating* the wrong window, so avoid returning a view for
-	 * that case. A particular case is when a top-level child window, would
-	 * pick a parent window below the focused_surface.
-	 *
-	 * Apply that only on the same output to avoid incorrectly returning an
-	 * invalid/empty view, which could happen if the view being destroyed
-	 * is on a output different than the focused_surface output */
-	if (focused_surface && focused_surface != shsurf->view->surface &&
-	    shsurf->output == focused_surface->output)
-		return top_view;
-
-	wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
-		struct kiosk_shell_surface *view_shsurf;
-		struct kiosk_shell_surface *root;
-
-		if (!view->is_mapped || view == shsurf->view)
+		if (layer != &shell->inactive_layer &&
+		    layer != &shell->normal_layer) {
 			continue;
+		}
+		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
+			struct kiosk_shell_surface *view_shsurf;
+			struct kiosk_shell_surface *root;
 
-		/* pick views only on the same output */
-		if (view->output != shsurf->output)
-			continue;
+			if (!view->is_mapped || view == shsurf->view)
+				continue;
 
-		view_shsurf = get_kiosk_shell_surface(view->surface);
-		if (!view_shsurf)
-			continue;
+			/* pick views only on the same output */
+			if (view->output != shsurf->output)
+				continue;
 
-		if (!top_view)
-			top_view = view;
+			view_shsurf = get_kiosk_shell_surface(view->surface);
+			if (!view_shsurf)
+				continue;
 
-		root = kiosk_shell_surface_get_parent_root(view_shsurf);
-		if (root == parent_root)
-			return view;
+			if (!top_view)
+				top_view = view;
+
+			root = kiosk_shell_surface_get_parent_root(view_shsurf);
+			if (root == parent_root) {
+				top_view = view;
+				break;
+			}
+		}
 	}
 
-	return top_view;
+	if (top_view)
+		successor = get_kiosk_shell_surface(top_view->surface);
+
+	return successor;
 }
 
 static void
@@ -801,7 +806,6 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 		weston_desktop_surface_get_user_data(desktop_surface);
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(desktop_surface);
-	struct weston_view *focus_view;
 	struct weston_seat *seat;
 	struct kiosk_shell_seat* kiosk_seat;
 
@@ -816,19 +820,25 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	 * finding a focus successor and activating a new surface. */
 	wl_signal_emit(&shsurf->parent_destroy_signal, shsurf);
 
-	if (seat && kiosk_seat) {
-		focus_view = find_focus_successor(&shell->inactive_layer, shsurf,
-						  kiosk_seat->focused_surface);
+	/* We need to take into account that the surface being destroyed it not
+	 * always the same as the focused surface, which could result in picking
+	 * and *activating* the wrong window.
+	 *
+	 * Apply that only on the same output to avoid incorrectly picking an
+	 * invalid surface, which could happen if the view being destroyed
+	 * is on a output different than the focused_surface output */
+	if (seat && kiosk_seat &&
+	    (kiosk_seat->focused_surface == surface ||
+	    surface->output != kiosk_seat->focused_surface->output)) {
+		struct kiosk_shell_surface *successor;
 
-		if (focus_view) {
-			struct kiosk_shell_surface *focus_shsurf =
-				get_kiosk_shell_surface(focus_view->surface);
-
-			kiosk_shell_surface_activate(focus_shsurf, kiosk_seat,
+		successor = find_focus_successor(shsurf,
+						 kiosk_seat->focused_surface);
+		if (successor) {
+			kiosk_shell_surface_activate(successor, kiosk_seat,
 						     WESTON_ACTIVATE_FLAG_NONE);
 		} else {
-			if (kiosk_seat->focused_surface == surface)
-				kiosk_seat->focused_surface = NULL;
+			kiosk_seat->focused_surface = NULL;
 		}
 	}
 

@@ -73,6 +73,9 @@ weston_shell_utils_curtain_create(struct weston_compositor *compositor,
 void
 weston_shell_utils_curtain_destroy(struct weston_curtain *curtain);
 
+enum weston_layer_position
+weston_shell_utils_view_get_layer_position(struct weston_view *view);
+
 #ifdef __cplusplus
 }
 #endif

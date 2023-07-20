@@ -1221,6 +1221,9 @@ struct weston_layer_entry {
  * at their discretion.
  */
 enum weston_layer_position {
+	/* Special value to indicate an invalid layer position. */
+	WESTON_LAYER_POSITION_NONE = -1,
+
 	/*
 	 * Special value to make the layer invisible and still rendered.
 	 * This is used by compositors wanting e.g. minimized surfaces to still

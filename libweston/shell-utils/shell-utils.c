@@ -250,3 +250,15 @@ weston_shell_utils_curtain_destroy(struct weston_curtain *curtain)
 	weston_buffer_destroy_solid(curtain->buffer_ref);
 	free(curtain);
 }
+
+/**
+ * \ingroup shell-utils
+ */
+WL_EXPORT enum weston_layer_position
+weston_shell_utils_view_get_layer_position(struct weston_view *view)
+{
+	if (!weston_view_is_mapped(view))
+		return WESTON_LAYER_POSITION_NONE;
+
+	return view->layer_link.layer->position;
+}
