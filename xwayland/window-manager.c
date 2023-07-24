@@ -938,6 +938,7 @@ weston_wm_create_surface(struct wl_listener *listener, void *data)
 			xserver_map_shell_surface(window, surface);
 			window->surface_id = 0;
 			wl_list_remove(&window->link);
+			wl_list_init(&window->link);
 			break;
 		}
 }
@@ -1658,8 +1659,7 @@ weston_wm_window_destroy(struct weston_wm_window *window)
 	if (window->frame)
 		frame_destroy(window->frame);
 
-	if (window->surface_id)
-		wl_list_remove(&window->link);
+	wl_list_remove(&window->link);
 
 	if (window->surface)
 		wl_list_remove(&window->surface_destroy_listener.link);
