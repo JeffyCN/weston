@@ -831,14 +831,28 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	    (kiosk_seat->focused_surface == surface ||
 	    surface->output != kiosk_seat->focused_surface->output)) {
 		struct kiosk_shell_surface *successor;
+		struct kiosk_shell_output *shoutput;
 
 		successor = find_focus_successor(shsurf,
 						 kiosk_seat->focused_surface);
-		if (successor) {
+		shoutput = kiosk_shell_find_shell_output(shsurf->shell, shsurf->output);
+		if (shoutput && successor) {
+			enum weston_layer_position succesor_view_layer_pos;
+
+			succesor_view_layer_pos = weston_shell_utils_view_get_layer_position(successor->view);
+			if (succesor_view_layer_pos == WESTON_LAYER_POSITION_HIDDEN) {
+				struct kiosk_shell_surface *shroot =
+					kiosk_shell_surface_get_parent_root(successor);
+
+				kiosk_shell_output_set_active_surface_tree(shoutput,
+									   shroot);
+			}
 			kiosk_shell_surface_activate(successor, kiosk_seat,
 						     WESTON_ACTIVATE_FLAG_NONE);
 		} else {
 			kiosk_seat->focused_surface = NULL;
+			kiosk_shell_output_set_active_surface_tree(shoutput,
+								   NULL);
 		}
 	}
 
