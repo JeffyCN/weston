@@ -79,7 +79,7 @@ fallback_format_for(const struct pixel_format_info *format)
 static int
 drm_backend_create_gl_renderer(struct drm_backend *b)
 {
-	const struct pixel_format_info *format[3] = {
+	const struct pixel_format_info *format[2] = {
 		b->format,
 		fallback_format_for(b->format),
 	};
