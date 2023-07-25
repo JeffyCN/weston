@@ -79,21 +79,20 @@ fallback_format_for(const struct pixel_format_info *format)
 static int
 drm_backend_create_gl_renderer(struct drm_backend *b)
 {
-	const struct pixel_format_info *format[3] = {
+	const struct pixel_format_info *format[2] = {
 		b->format,
 		fallback_format_for(b->format),
-		NULL,
 	};
 	struct gl_renderer_display_options options = {
 		.egl_platform = EGL_PLATFORM_GBM_KHR,
 		.egl_native_display = b->gbm,
 		.egl_surface_type = EGL_WINDOW_BIT,
 		.formats = format,
-		.formats_count = 2,
+		.formats_count = 1,
 	};
 
 	if (format[1])
-		options.formats_count = 3;
+		options.formats_count = 2;
 
 	return weston_compositor_init_renderer(b->compositor,
 					       WESTON_RENDERER_GL,
