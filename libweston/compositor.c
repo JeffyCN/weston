@@ -6061,11 +6061,23 @@ bind_output(struct wl_client *client,
 static void
 weston_head_add_global(struct weston_head *head)
 {
+	int version = 4;
+	const char *buf;
+
+	/**
+	 * HACK: Allow lowering wl_output version for old chromium
+	 * See:
+	 * https://bugs.chromium.org/p/chromium/issues/detail?id=1279574
+	 */
+	buf = getenv("WL_OUTPUT_VERSION");
+	if (buf && buf[0])
+		version = atoi(buf);
+
 	if (head->global || !weston_output_valid(head->output))
 		return;
 
 	head->global = wl_global_create(head->compositor->wl_display,
-					&wl_output_interface, 4,
+					&wl_output_interface, version,
 					head, bind_output);
 }
 
