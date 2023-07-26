@@ -6550,6 +6550,8 @@ static void
 weston_head_add_global(struct weston_head *head)
 {
 	struct weston_head *tmp_head;
+	int version = 4;
+	const char *buf;
 
 	/* Avoid multiple globals to maintain a single panel and background */
 	wl_list_for_each(tmp_head, &head->output->head_list, output_link) {
@@ -6557,8 +6559,19 @@ weston_head_add_global(struct weston_head *head)
 			return;
 	}
 
+
+	/* HACK: Allow lowering wl_output version for compatibility with old
+	 * clients. Set WL_OUTPUT_VERSION environment variable to override
+	 * the default version 4.
+	 * See:
+	 * https://bugs.chromium.org/p/chromium/issues/detail?id=1279574
+	 */
+	buf = getenv("WL_OUTPUT_VERSION");
+	if (buf && buf[0])
+		version = atoi(buf);
+
 	head->global = wl_global_create(head->compositor->wl_display,
-					&wl_output_interface, 4,
+					&wl_output_interface, version,
 					head, bind_output);
 }
 
