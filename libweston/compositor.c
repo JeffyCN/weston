@@ -3725,9 +3725,16 @@ weston_view_move_to_layer(struct weston_view *view,
 			  struct weston_layer_entry *layer)
 {
 	bool was_mapped = view->is_mapped;
+	struct weston_paint_node *pnode, *pntmp;
 
 	if (layer == &view->layer_link)
 		return;
+
+	/* Remove all paint nodes because we have no idea what a layer change
+	 * does to view visibility on any output.
+	 */
+	wl_list_for_each_safe(pnode, pntmp, &view->paint_node_list, view_link)
+		weston_paint_node_destroy(pnode);
 
 	view->surface->compositor->view_list_needs_rebuild = true;
 
