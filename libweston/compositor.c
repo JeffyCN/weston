@@ -164,6 +164,9 @@ paint_node_damage_below(struct weston_paint_node *pnode)
 		if (lower_node == pnode)
 			break;
 
+		if (lower_node->plane != pnode->plane)
+			continue;
+
 		pixman_region32_union(&lower_node->damage, &lower_node->damage,
 				      &pnode->visible);
 	}
