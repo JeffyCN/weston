@@ -2890,6 +2890,7 @@ desktop_shell_set_background(struct wl_client *client,
 		wl_resource_get_user_data(surface_resource);
 	struct shell_output *sh_output;
 	struct weston_view *view, *next;
+	struct weston_head *head = weston_head_from_resource(output_resource);
 
 	if (surface->committed) {
 		wl_resource_post_error(surface_resource,
@@ -2898,6 +2899,9 @@ desktop_shell_set_background(struct wl_client *client,
 		return;
 	}
 
+	if (!head)
+		return;
+
 	wl_list_for_each_safe(view, next, &surface->views, surface_link)
 		weston_view_destroy(view);
 	view = weston_view_create(surface);
@@ -2905,7 +2909,7 @@ desktop_shell_set_background(struct wl_client *client,
 	surface->committed = background_committed;
 	surface->committed_private = shell;
 	weston_surface_set_label_func(surface, background_get_label);
-	surface->output = weston_head_from_resource(output_resource)->output;
+	surface->output = head->output;
 	weston_view_set_output(view, surface->output);
 
 	sh_output = find_shell_output_from_weston_output(shell, surface->output);
@@ -2995,6 +2999,7 @@ desktop_shell_set_panel(struct wl_client *client,
 		wl_resource_get_user_data(surface_resource);
 	struct weston_view *view, *next;
 	struct shell_output *sh_output;
+	struct weston_head *head = weston_head_from_resource(output_resource);
 
 	if (surface->committed) {
 		wl_resource_post_error(surface_resource,
@@ -3003,6 +3008,9 @@ desktop_shell_set_panel(struct wl_client *client,
 		return;
 	}
 
+	if (!head)
+		return;
+
 	wl_list_for_each_safe(view, next, &surface->views, surface_link)
 		weston_view_destroy(view);
 	view = weston_view_create(surface);
@@ -3010,7 +3018,7 @@ desktop_shell_set_panel(struct wl_client *client,
 	surface->committed = panel_committed;
 	surface->committed_private = shell;
 	weston_surface_set_label_func(surface, panel_get_label);
-	surface->output = weston_head_from_resource(output_resource)->output;
+	surface->output = head->output;
 	weston_view_set_output(view, surface->output);
 
 	sh_output = find_shell_output_from_weston_output(shell, surface->output);

@@ -699,7 +699,6 @@ fullscreen_shell_present_surface(struct wl_client *client,
 {
 	struct fullscreen_shell *shell =
 		wl_resource_get_user_data(resource);
-	struct weston_output *output;
 	struct weston_surface *surface;
 	struct weston_seat *seat;
 	struct fs_output *fsout;
@@ -720,8 +719,13 @@ fullscreen_shell_present_surface(struct wl_client *client,
 	}
 
 	if (output_res) {
-		output = weston_head_from_resource(output_res)->output;
-		fsout = fs_output_for_output(output);
+		struct weston_head *head =
+			weston_head_from_resource(output_res);
+
+		if (!head)
+			return;
+
+		fsout = fs_output_for_output(head->output);
 		fs_output_set_surface(fsout, surface, method, 0, 0);
 	} else {
 		replace_default_surface(shell, surface, method);
@@ -759,13 +763,15 @@ fullscreen_shell_present_surface_for_mode(struct wl_client *client,
 {
 	struct fullscreen_shell *shell =
 		wl_resource_get_user_data(resource);
-	struct weston_output *output;
 	struct weston_surface *surface;
 	struct weston_seat *seat;
 	struct fs_output *fsout;
+	struct weston_head *head = weston_head_from_resource(output_res);
 
-	output = weston_head_from_resource(output_res)->output;
-	fsout = fs_output_for_output(output);
+	if (!head)
+		return;
+
+	fsout = fs_output_for_output(head->output);
 
 	if (surface_res == NULL) {
 		fs_output_set_surface(fsout, NULL, 0, 0, 0);

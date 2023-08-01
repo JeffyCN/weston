@@ -878,8 +878,10 @@ input_panel_surface_set_toplevel(struct wl_client *client,
 
 	head = weston_head_from_resource(output_resource);
 
-	ipsurf->type = INPUT_PANEL_TOPLEVEL;
-	ipsurf->output = head->output;
+	if (head) {
+		ipsurf->type = INPUT_PANEL_TOPLEVEL;
+		ipsurf->output = head->output;
+	}
 }
 
 static void

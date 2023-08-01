@@ -562,8 +562,12 @@ weston_desktop_xdg_toplevel_protocol_set_fullscreen(struct wl_client *wl_client,
 		weston_desktop_surface_get_implementation_data(dsurface);
 	struct weston_output *output = NULL;
 
-	if (output_resource != NULL)
-		output = weston_head_from_resource(output_resource)->output;
+	if (output_resource != NULL) {
+		struct weston_head *head =
+			weston_head_from_resource(output_resource);
+		if (head)
+			output = head->output;
+	}
 
 	weston_desktop_xdg_toplevel_ensure_added(toplevel);
 	weston_desktop_api_fullscreen_requested(toplevel->base.desktop, dsurface,
