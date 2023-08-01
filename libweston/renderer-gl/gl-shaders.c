@@ -428,7 +428,8 @@ gl_shader_scope_new_subscription(struct weston_log_subscription *subs,
 	int count = 0;
 	char *desc;
 
-	weston_compositor_read_presentation_clock(gr->compositor, &now);
+	if (!wl_list_empty(&gr->shader_list))
+		weston_compositor_read_presentation_clock(gr->compositor, &now);
 
 	weston_log_subscription_printf(subs,
 				       "Vertex shader body:\n"
