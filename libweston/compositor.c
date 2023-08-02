@@ -9108,6 +9108,19 @@ weston_compositor_backends_loaded(struct weston_compositor *compositor)
 		return -1;
 	}
 
+	if (!compositor->color_manager) {
+		compositor->color_manager =
+			weston_color_manager_noop_create(compositor);
+	}
+
+	if (!compositor->color_manager)
+		return -1;
+
+	if (!compositor->color_manager->init(compositor->color_manager))
+		return -1;
+
+	weston_log("Color manager: %s\n", compositor->color_manager->name);
+
 	return 0;
 }
 
@@ -9481,19 +9494,6 @@ weston_compositor_load_backend(struct weston_compositor *compositor,
 		compositor->backend = NULL;
 		return -1;
 	}
-
-	if (!compositor->color_manager) {
-		compositor->color_manager =
-			weston_color_manager_noop_create(compositor);
-	}
-
-	if (!compositor->color_manager)
-		return -1;
-
-	if (!compositor->color_manager->init(compositor->color_manager))
-		return -1;
-
-	weston_log("Color manager: %s\n", compositor->color_manager->name);
 
 	return 0;
 }
