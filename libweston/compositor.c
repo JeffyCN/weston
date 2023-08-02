@@ -9061,16 +9061,31 @@ weston_compositor_set_default_pointer_grab(struct weston_compositor *ec,
 
 static int
 weston_compositor_set_presentation_clock(struct weston_compositor *compositor,
-					 clockid_t clk_id)
+					 uint32_t supported_clocks)
 {
+	/* In order of preference */
+	static const clockid_t clocks[] = {
+		CLOCK_MONOTONIC_RAW,	/* no jumps, no crawling */
+		CLOCK_MONOTONIC_COARSE,	/* no jumps, may crawl, fast & coarse */
+		CLOCK_MONOTONIC,	/* no jumps, may crawl */
+	};
 	struct timespec ts;
+	unsigned i;
 
-	if (clock_gettime(clk_id, &ts) < 0)
-		return -1;
+	for (i = 0; i < ARRAY_LENGTH(clocks); i++) {
+		clockid_t clk_id = clocks[i];
+		bool supported = (supported_clocks >> clocks[i]) & 1;
 
-	compositor->presentation_clock = clk_id;
+		if (!supported)
+			continue;
 
-	return 0;
+		if (clock_gettime(clk_id, &ts) == 0) {
+			compositor->presentation_clock = clk_id;
+			return 0;
+		}
+	}
+
+	return -1;
 }
 
 /** To be called by the compositor after the last backend is loaded.
@@ -9086,29 +9101,14 @@ weston_compositor_backends_loaded(struct weston_compositor *compositor)
 {
 	struct weston_backend *backend = compositor->backend;
 	uint32_t supported_clocks = backend->supported_presentation_clocks;
-	/* In order of preference */
-	static const clockid_t clocks[] = {
-		CLOCK_MONOTONIC_RAW,	/* no jumps, no crawling */
-		CLOCK_MONOTONIC_COARSE,	/* no jumps, may crawl, fast & coarse */
-		CLOCK_MONOTONIC,	/* no jumps, may crawl */
-	};
-	unsigned i;
 
-	for (i = 0; i < ARRAY_LENGTH(clocks); i++) {
-		clockid_t clk_id = clocks[i];
-		bool supported = (supported_clocks >> clocks[i]) & 1;
-
-		if (!supported)
-			continue;
-
-		if (weston_compositor_set_presentation_clock(compositor,
-							     clk_id) == 0)
-			return 0;
+	if (weston_compositor_set_presentation_clock(compositor,
+						     supported_clocks) < 0) {
+		weston_log("Error: no suitable presentation clock available.\n");
+		return -1;
 	}
 
-	weston_log("Error: no suitable presentation clock available.\n");
-
-	return -1;
+	return 0;
 }
 
 /** Read the current time from the Presentation clock
