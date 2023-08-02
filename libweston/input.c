@@ -1863,10 +1863,11 @@ weston_tablet_tool_cursor_move(struct weston_tablet_tool *tool,
 	tool->pos = pos;
 
 	if (tool->sprite) {
-		struct weston_coord_global hotspot;
+		struct weston_coord_surface hotspot_inv;
 
-		hotspot.c = weston_coord_sub(pos.c, tool->hotspot.c);
-		weston_view_set_position(tool->sprite, hotspot);
+		hotspot_inv = weston_coord_surface_invert(tool->hotspot);
+		weston_view_set_position_with_offset(tool->sprite,
+						     pos, hotspot_inv);
 	}
 }
 
@@ -2197,9 +2198,11 @@ weston_pointer_move_to(struct weston_pointer *pointer,
 	pointer->pos = pos;
 
 	if (pointer->sprite) {
-		pos.c = weston_coord_sub(pointer->pos.c,
-					 pointer->hotspot.c);
-		weston_view_set_position(pointer->sprite, pos);
+		struct weston_coord_surface hotspot_inv;
+
+		hotspot_inv = weston_coord_surface_invert(pointer->hotspot);
+		weston_view_set_position_with_offset(pointer->sprite,
+						     pos, hotspot_inv);
 	}
 
 	pointer->grab->interface->focus(pointer->grab);
@@ -3231,7 +3234,7 @@ tablet_tool_cursor_surface_committed(struct weston_surface *es,
 				     struct weston_coord_surface new_origin)
 {
 	struct weston_tablet_tool *tool = es->committed_private;
-	struct weston_coord_global pos;
+	struct weston_coord_surface hotspot_inv;
 
 	if (es->width == 0)
 		return;
@@ -3239,9 +3242,9 @@ tablet_tool_cursor_surface_committed(struct weston_surface *es,
 	assert(es == tool->sprite->surface);
 
 	tool->hotspot.c = weston_coord_sub(tool->hotspot.c, new_origin.c);
-	pos.c = weston_coord_sub(tool->pos.c, tool->hotspot.c);
-
-	weston_view_set_position(tool->sprite, pos);
+	hotspot_inv = weston_coord_surface_invert(tool->hotspot);
+	weston_view_set_position_with_offset(tool->sprite,
+					     tool->pos, hotspot_inv);
 
 	empty_region(&es->pending.input);
 	empty_region(&es->input);
@@ -3526,7 +3529,7 @@ pointer_cursor_surface_committed(struct weston_surface *es,
 				 struct weston_coord_surface new_origin)
 {
 	struct weston_pointer *pointer = es->committed_private;
-	struct weston_coord_global pos;
+	struct weston_coord_surface hotspot_inv;
 
 	if (es->width == 0)
 		return;
@@ -3535,9 +3538,9 @@ pointer_cursor_surface_committed(struct weston_surface *es,
 
 	pointer->hotspot.c = weston_coord_sub(pointer->hotspot.c,
 					      new_origin.c);
-	pos.c = weston_coord_sub(pointer->pos.c, pointer->hotspot.c);
-
-	weston_view_set_position(pointer->sprite, pos);
+	hotspot_inv = weston_coord_surface_invert(pointer->hotspot);
+	weston_view_set_position_with_offset(pointer->sprite,
+					     pointer->pos, hotspot_inv);
 
 	empty_region(&es->pending.input);
 	empty_region(&es->input);

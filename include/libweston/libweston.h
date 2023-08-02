@@ -2208,6 +2208,11 @@ void
 weston_view_set_position(struct weston_view *view,
 			 struct weston_coord_global pos);
 
+void
+weston_view_set_position_with_offset(struct weston_view *view,
+				     struct weston_coord_global pos,
+				     struct weston_coord_surface offset);
+
 struct weston_coord_surface
 weston_view_get_pos_offset_rel(struct weston_view *view);
 

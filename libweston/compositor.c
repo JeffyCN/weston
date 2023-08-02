@@ -1820,6 +1820,32 @@ weston_view_set_position(struct weston_view *view,
 	weston_view_geometry_dirty(view);
 }
 
+WL_EXPORT void
+weston_view_set_position_with_offset(struct weston_view *view,
+				     struct weston_coord_global pos,
+				     struct weston_coord_surface offset)
+{
+	struct weston_coord_global global_offset;
+	struct weston_coord_surface origin_s;
+	struct weston_coord_global origin_g, newpos;
+
+	assert(view->surface->committed != subsurface_committed);
+	assert(!view->geometry.parent);
+
+	/* We need up to date transform matrices */
+	weston_view_set_position(view, pos);
+	weston_view_update_transform(view);
+
+	origin_s = weston_coord_surface(0, 0, view->surface);
+	origin_g = weston_coord_surface_to_global(view, origin_s);
+
+	global_offset = weston_coord_surface_to_global(view, offset);
+	global_offset = weston_coord_global_sub(global_offset, origin_g);
+	newpos = weston_coord_global_add(weston_view_get_pos_offset_global(view),
+				      global_offset);
+	weston_view_set_position(view, newpos);
+}
+
 WL_EXPORT struct weston_coord_surface
 weston_view_get_pos_offset_rel(struct weston_view *view)
 {

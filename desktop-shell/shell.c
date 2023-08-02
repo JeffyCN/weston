@@ -2263,28 +2263,31 @@ set_maximized_position(struct desktop_shell *shell,
 	pixman_rectangle32_t area;
 	struct weston_geometry geometry;
 	struct weston_coord_global pos;
+	struct weston_coord_surface offset;
 
 	get_output_work_area(shell, shsurf->output, &area);
 	geometry = weston_desktop_surface_get_geometry(shsurf->desktop_surface);
 
-	pos.c = weston_coord(area.x - geometry.x,
-			     area.y - geometry.y);
-	weston_view_set_position(shsurf->view, pos);
+	pos.c = weston_coord(area.x, area.y);
+	offset = weston_coord_surface(-geometry.x, -geometry.y, shsurf->view->surface);
+	weston_view_set_position_with_offset(shsurf->view, pos, offset);
 }
 
 static void
 set_position_from_xwayland(struct shell_surface *shsurf)
 {
 	struct weston_geometry geometry;
-	struct weston_coord_global pos;
+	struct weston_coord_surface offs;
 
 	assert(shsurf->xwayland.is_set);
 
 	geometry = weston_desktop_surface_get_geometry(shsurf->desktop_surface);
-	pos.c = weston_coord(geometry.x, geometry.y);
-	pos.c = weston_coord_sub(shsurf->xwayland.pos.c, pos.c);
+	offs = weston_coord_surface(-geometry.x, -geometry.y,
+				    shsurf->view->surface);
 
-	weston_view_set_position(shsurf->view, pos);
+	weston_view_set_position_with_offset(shsurf->view,
+					     shsurf->xwayland.pos,
+					     offs);
 
 #ifdef WM_DEBUG
 	weston_log("%s: XWM %d, %d; geometry %d, %d; view %f, %f\n",
@@ -2429,11 +2432,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		set_maximized_position(shell, shsurf);
 		surface->output = shsurf->output;
 	} else {
-		struct weston_coord_surface from_s, to_s;
-		struct weston_coord_global to_g, from_g;
-		struct weston_coord_global offset, pos;
-
-		from_s = weston_coord_surface(0, 0, view->surface);
+		struct weston_coord_surface offset;
+		struct weston_coord_global pos;
 
 		if (shsurf->resize_edges) {
 			sx = 0;
@@ -2445,17 +2445,10 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 		if (shsurf->resize_edges & WESTON_DESKTOP_SURFACE_EDGE_TOP)
 			sy = shsurf->last_height - surface->height;
 
-		to_s = weston_coord_surface(sx, sy, view->surface);
+		offset = weston_coord_surface(sx, sy, view->surface);
 
-		from_g = weston_coord_surface_to_global(view, from_s);
-		to_g = weston_coord_surface_to_global(view, to_s);
-
-		offset = weston_coord_global_sub(to_g, from_g);
-		pos = weston_coord_global_add(
-			weston_view_get_pos_offset_global(view),
-			offset);
-
-		weston_view_set_position(shsurf->view, pos);
+		pos = weston_view_get_pos_offset_global(view);
+		weston_view_set_position_with_offset(shsurf->view, pos, offset);
 	}
 
 	shsurf->last_width = surface->width;

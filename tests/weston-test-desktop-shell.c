@@ -88,6 +88,7 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	struct weston_geometry geometry =
 		weston_desktop_surface_get_geometry(desktop_surface);
 	struct weston_coord_global pos;
+	struct weston_coord_surface offset;
 
 	assert(dts->view);
 
@@ -96,9 +97,10 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 
 	weston_surface_map(surface);
 	pos.c = weston_coord(0, 0);
-	pos.c.x -= geometry.x;
-	pos.c.y -= geometry.y;
-	weston_view_set_position(dts->view, pos);
+	offset = weston_coord_surface(geometry.x, geometry.y,
+				      dts->view->surface);
+	offset = weston_coord_surface_invert(offset);
+	weston_view_set_position_with_offset(dts->view, pos, offset);
 	weston_layer_entry_insert(&dts->layer.view_list, &dts->view->layer_link);
 	weston_view_move_to_layer(dts->view, &dts->layer.view_list);
 }

@@ -446,8 +446,7 @@ drag_surface_configure(struct weston_drag *drag,
 	else if (touch)
 		pos = touch->grab_pos;
 
-	pos.c = weston_coord_add(pos.c, drag->offset.c);
-	weston_view_set_position(drag->icon, pos);
+	weston_view_set_position_with_offset(drag->icon, pos, drag->offset);
 }
 
 static int
@@ -621,10 +620,9 @@ drag_grab_motion(struct weston_pointer_grab *grab,
 	weston_pointer_move(pointer, event);
 
 	if (drag->base.icon) {
-		struct weston_coord_global pos;
-
-		pos.c = weston_coord_add(pointer->pos.c, drag->base.offset.c);
-		weston_view_set_position(drag->base.icon, pos);
+		weston_view_set_position_with_offset(drag->base.icon,
+						     pointer->pos,
+						     drag->base.offset);
 	}
 
 	if (drag->base.focus_resource) {
@@ -814,13 +812,10 @@ drag_grab_touch_motion(struct weston_touch_grab *grab,
 		return;
 
 	drag_grab_touch_focus(touch_drag);
-	if (touch_drag->base.icon) {
-		struct weston_coord_global pos;
-
-		pos.c = weston_coord_add(touch_drag->base.offset.c,
-					 touch->grab_pos.c);
-		weston_view_set_position(touch_drag->base.icon, pos);
-	}
+	if (touch_drag->base.icon)
+		weston_view_set_position_with_offset(touch_drag->base.icon,
+						     touch->grab_pos,
+						     touch_drag->base.offset);
 
 	if (touch_drag->base.focus_resource) {
 		struct weston_coord_surface surf_pos;
