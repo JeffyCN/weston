@@ -58,7 +58,7 @@ deps_drm = [
 ]
 
 if get_option('renderer-gl')
-	dep_gbm = dependency('gbm', required: false)
+	dep_gbm = dependency('gbm', required: false, version: '>= 21.1.1')
 	if not dep_gbm.found()
 		error('drm-backend with GL renderer requires gbm which was not found. Or, you can use \'-Drenderer-gl=false\'.')
 	endif
