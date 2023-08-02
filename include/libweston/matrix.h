@@ -186,6 +186,17 @@ weston_coord_truncate(struct weston_coord in)
 	return (struct weston_coord){ (int)in.x, (int)in.y };
 }
 
+static inline struct weston_coord_surface __attribute__ ((warn_unused_result))
+weston_coord_surface_invert(struct weston_coord_surface in)
+{
+	struct weston_coord_surface out = in;
+
+	out.c.x = -out.c.x;
+	out.c.y = -out.c.y;
+
+	return out;
+}
+
 #ifdef  __cplusplus
 }
 #endif
