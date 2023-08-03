@@ -198,7 +198,6 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 		return;
 	}
 
-#ifdef HAVE_GBM_MODIFIERS
 	if (!weston_drm_format_has_modifier(fmt, DRM_FORMAT_MOD_INVALID)) {
 		modifiers = weston_drm_format_get_modifiers(fmt, &num_modifiers);
 		output->gbm_surface =
@@ -207,7 +206,6 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 							  output->format->format,
 							  modifiers, num_modifiers);
 	}
-#endif
 
 	/*
 	 * If we cannot use modifiers to allocate the GBM surface and the GBM
@@ -220,9 +218,8 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 
 	/* We may allocate with no modifiers in the following situations:
 	 *
-	 * 1. old GBM version, so HAVE_GBM_MODIFIERS is false;
-	 * 2. the KMS driver does not support modifiers;
-	 * 3. if allocating with modifiers failed, what can happen when the KMS
+	 * 1. the KMS driver does not support modifiers;
+	 * 2. if allocating with modifiers failed, what can happen when the KMS
 	 *    display device supports modifiers but the GBM driver does not,
 	 *    e.g. the old i915 Mesa driver.
 	 */

@@ -376,12 +376,6 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 		       struct drm_device *device, bool is_opaque,
 		       uint32_t *try_view_on_plane_failure_reasons)
 {
-#ifndef HAVE_GBM_FD_IMPORT
-	/* Importing a buffer to KMS requires explicit modifiers, so
-	 * we can't continue with the legacy GBM_BO_IMPORT_FD instead
-	 * of GBM_BO_IMPORT_FD_MODIFIER. */
-	return NULL;
-#else
 	struct drm_backend *backend = device->backend;
 	struct drm_fb *fb;
 	int i;
@@ -492,7 +486,6 @@ drm_fb_get_from_dmabuf(struct linux_dmabuf_buffer *dmabuf,
 err_free:
 	drm_fb_destroy_dmabuf(fb);
 	return NULL;
-#endif
 }
 
 struct drm_fb *
@@ -500,9 +493,7 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_device *device,
 		   bool is_opaque, enum drm_fb_type type)
 {
 	struct drm_fb *fb = gbm_bo_get_user_data(bo);
-#ifdef HAVE_GBM_MODIFIERS
 	int i;
-#endif
 
 	if (fb) {
 		assert(fb->type == type);
@@ -524,7 +515,6 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_device *device,
 	fb->format = pixel_format_get_info(gbm_bo_get_format(bo));
 	fb->size = 0;
 
-#ifdef HAVE_GBM_MODIFIERS
 	fb->modifier = gbm_bo_get_modifier(bo);
 	fb->num_planes = gbm_bo_get_plane_count(bo);
 	for (i = 0; i < fb->num_planes; i++) {
@@ -532,12 +522,6 @@ drm_fb_get_from_bo(struct gbm_bo *bo, struct drm_device *device,
 		fb->handles[i] = gbm_bo_get_handle_for_plane(bo, i).u32;
 		fb->offsets[i] = gbm_bo_get_offset(bo, i);
 	}
-#else
-	fb->num_planes = 1;
-	fb->strides[0] = gbm_bo_get_stride(bo);
-	fb->handles[0] = gbm_bo_get_handle(bo).u32;
-	fb->modifier = DRM_FORMAT_MOD_INVALID;
-#endif
 
 	if (!fb->format) {
 		weston_log("couldn't look up format 0x%lx\n",
