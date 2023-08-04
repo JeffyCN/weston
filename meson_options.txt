@@ -41,7 +41,7 @@ option(
 option(
 	'backend-vnc',
 	type: 'boolean',
-	value: true,
+	value: false,
 	description: 'Weston backend: VNC remote screensharing'
 )
 option(
