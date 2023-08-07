@@ -6946,6 +6946,8 @@ weston_compositor_add_output(struct weston_compositor *compositor,
 	 */
 	wl_list_for_each_safe(view, next, &compositor->view_list, link)
 		weston_view_geometry_dirty_internal(view);
+
+	compositor->view_list_needs_rebuild = true;
 }
 
 /** Create a weston_coord_global from a point and a weston_output
