@@ -4769,7 +4769,6 @@ setup_output_destroy_handler(struct weston_compositor *ec,
 {
 	struct weston_output *output;
 
-	wl_list_init(&shell->output_list);
 	wl_list_for_each(output, &ec->output_list, link)
 		create_shell_output(shell, output);
 
@@ -5002,6 +5001,16 @@ wet_shell_init(struct weston_compositor *ec,
 
 	wl_list_init(&shell->seat_list);
 	wl_list_init(&shell->shsurf_list);
+	wl_list_init(&shell->output_list);
+	wl_list_init(&shell->output_create_listener.link);
+	wl_list_init(&shell->output_move_listener.link);
+	wl_list_init(&shell->seat_create_listener.link);
+	wl_list_init(&shell->resized_listener.link);
+	wl_list_init(&shell->workspace.focus_list);
+	wl_list_init(&shell->workspace.seat_destroyed_listener.link);
+
+	weston_layer_init(&shell->minimized_layer, ec);
+	weston_layer_init(&shell->workspace.layer, ec);
 
 	if (input_panel_setup(shell) < 0)
 		return -1;
@@ -5011,8 +5020,6 @@ wet_shell_init(struct weston_compositor *ec,
 	shell_configuration(shell);
 
 	workspace_create(shell);
-
-	weston_layer_init(&shell->minimized_layer, ec);
 
 	shell->desktop = weston_desktop_create(ec, &shell_desktop_api, shell);
 	if (!shell->desktop)
