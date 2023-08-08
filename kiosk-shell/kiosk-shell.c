@@ -857,7 +857,7 @@ desktop_surface_removed(struct weston_desktop_surface *desktop_surface,
 	 * Apply that only on the same output to avoid incorrectly picking an
 	 * invalid surface, which could happen if the view being destroyed
 	 * is on a output different than the focused_surface output */
-	if (seat && kiosk_seat &&
+	if (seat && kiosk_seat && kiosk_seat->focused_surface &&
 	    (kiosk_seat->focused_surface == surface ||
 	    surface->output != kiosk_seat->focused_surface->output)) {
 		struct kiosk_shell_surface *successor;
