@@ -565,7 +565,7 @@ get_animation_type(char *animation)
 		return ANIMATION_NONE;
 }
 
-static void
+static bool
 shell_configuration(struct desktop_shell *shell)
 {
 	struct weston_config_section *section;
@@ -592,15 +592,22 @@ shell_configuration(struct desktop_shell *shell)
 	weston_config_section_get_string(section, "close-animation", &s, "fade");
 	shell->win_close_animation_type = get_animation_type(s);
 	free(s);
+
 	weston_config_section_get_string(section,
 					 "startup-animation", &s, "fade");
 	shell->startup_animation_type = get_animation_type(s);
+	if (shell->startup_animation_type == ANIMATION_ZOOM) {
+		weston_log("invalid startup animation type %s\n", s);
+		free(s);
+		return false;
+	}
 	free(s);
-	if (shell->startup_animation_type == ANIMATION_ZOOM)
-		shell->startup_animation_type = ANIMATION_NONE;
+
 	weston_config_section_get_string(section, "focus-animation", &s, "none");
 	shell->focus_animation_type = get_animation_type(s);
 	free(s);
+
+	return true;
 }
 
 static int
@@ -5017,7 +5024,8 @@ wet_shell_init(struct weston_compositor *ec,
 
 	shell->text_backend = text_backend_init(ec);
 
-	shell_configuration(shell);
+	if (!shell_configuration(shell))
+		return -1;
 
 	workspace_create(shell);
 
