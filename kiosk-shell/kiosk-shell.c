@@ -575,6 +575,9 @@ kiosk_shell_output_raise_surface_subtree(struct kiosk_shell_output *shoutput,
 
 	wl_list_init(&tmp_list);
 
+	if (!shoutput->active_surface_tree)
+		return;
+
 	/* Move all shell surfaces in the active surface tree starting at
 	 * shroot to the tmp_list while maintaining the relative order. */
 	wl_list_for_each_reverse_safe(s, tmp_s,
