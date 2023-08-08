@@ -4744,19 +4744,6 @@ handle_output_resized_shsurfs(struct desktop_shell *shell)
 			set_shsurf_size_maximized_or_fullscreen(shsurf,
 								is_maximized,
 								is_fullscreen);
-			continue;
-		}
-
-		if (shsurf->saved_position_valid) {
-			weston_view_set_position(shsurf->view, shsurf->saved_pos);
-			shsurf->saved_position_valid = false;
-		} else {
-			shsurf->saved_pos =
-				weston_view_get_pos_offset_global(shsurf->view);
-
-			shsurf->saved_position_valid = true;
-			weston_view_set_initial_position(shsurf->view,
-					shsurf->shell);
 		}
 	}
 }
