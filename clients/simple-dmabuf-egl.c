@@ -341,7 +341,6 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 	buffer->format = display->format;
 	buffer->release_fence_fd = -1;
 
-#ifdef HAVE_GBM_MODIFIERS
 	if (display->modifiers_count > 0) {
 #ifdef HAVE_GBM_BO_CREATE_WITH_MODIFIERS2
 		buffer->bo = gbm_bo_create_with_modifiers2(display->gbm.device,
@@ -362,7 +361,6 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 		if (buffer->bo)
 			buffer->modifier = gbm_bo_get_modifier(buffer->bo);
 	}
-#endif
 
 	if (!buffer->bo) {
 		buffer->bo = gbm_bo_create(display->gbm.device,
@@ -378,7 +376,6 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 		goto error;
 	}
 
-#ifdef HAVE_GBM_MODIFIERS
 	buffer->plane_count = gbm_bo_get_plane_count(buffer->bo);
 	for (i = 0; i < buffer->plane_count; ++i) {
 		int ret;
@@ -399,15 +396,6 @@ create_dmabuf_buffer(struct display *display, struct buffer *buffer,
 		buffer->strides[i] = gbm_bo_get_stride_for_plane(buffer->bo, i);
 		buffer->offsets[i] = gbm_bo_get_offset(buffer->bo, i);
 	}
-#else
-	buffer->plane_count = 1;
-	buffer->strides[0] = gbm_bo_get_stride(buffer->bo);
-	buffer->dmabuf_fds[0] = gbm_bo_get_fd(buffer->bo);
-	if (buffer->dmabuf_fds[0] < 0) {
-		fprintf(stderr, "error: failed to get dmabuf_fd\n");
-		goto error;
-	}
-#endif
 
 	params = zwp_linux_dmabuf_v1_create_params(display->dmabuf);
 
