@@ -50,6 +50,7 @@
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
 #include "weston-direct-display-client-protocol.h"
+#include "viewporter-client-protocol.h"
 
 #include "shared/helpers.h"
 #include "shared/weston-drm-fourcc.h"
@@ -57,6 +58,9 @@
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #define OPT_FLAG_INVERT (1 << 0)
 #define OPT_FLAG_DIRECT_DISPLAY (1 << 1)
+#define WIN_FLAG_FULLSCREEN (1 << 0)
+
+struct window;
 
 static void
 redraw(void *data, struct wl_callback *callback, uint32_t time);
@@ -109,12 +113,14 @@ struct display {
 	struct zwp_fullscreen_shell_v1 *fshell;
 	struct zwp_linux_dmabuf_v1 *dmabuf;
 	struct weston_direct_display_v1 *direct_display;
+	struct wp_viewporter *viewporter;
 	bool requested_format_found;
 	uint32_t opts;
 
 	int v4l_fd;
 	struct buffer_format format;
 	uint32_t drm_format;
+	struct window *window;
 };
 
 struct buffer {
@@ -136,8 +142,10 @@ struct window {
 	struct xdg_toplevel *xdg_toplevel;
 	struct buffer buffers[NUM_BUFFERS];
 	struct wl_callback *callback;
+	struct wp_viewport *viewport;
 	bool wait_for_configure;
 	bool initialized;
+	bool fullscreen;
 };
 
 static bool running = true;
@@ -709,6 +717,41 @@ xdg_toplevel_handle_configure(void *data, struct xdg_toplevel *toplevel,
 			      int32_t width, int32_t height,
 			      struct wl_array *states)
 {
+	struct window *window = data;
+	uint32_t *p;
+
+	window->fullscreen = 0;
+	wl_array_for_each(p, states) {
+		uint32_t state = *p;
+		switch (state) {
+		case XDG_TOPLEVEL_STATE_FULLSCREEN:
+			window->fullscreen = 1;
+			break;
+		}
+	}
+
+	if (!window->viewport)
+		return;
+
+	if (window->fullscreen) {
+		float ratio_w = (float)width / window->display->format.width;
+		float ratio_h = (float)height / window->display->format.height;
+		int32_t viewport_w;
+		int32_t viewport_h;
+
+		if (ratio_w > ratio_h) {
+			viewport_w = width / ratio_w * ratio_h;
+			viewport_h = height;
+		} else {
+			viewport_w = width;
+			viewport_h = height / ratio_h * ratio_w;
+		}
+
+		wp_viewport_set_destination(window->viewport, viewport_w,
+					    viewport_h);
+	} else {
+		wp_viewport_set_destination(window->viewport, -1, -1);
+	}
 }
 
 static void
@@ -723,7 +766,7 @@ static const struct xdg_toplevel_listener xdg_toplevel_listener = {
 };
 
 static struct window *
-create_window(struct display *display)
+create_window(struct display *display, uint32_t win_flags)
 {
 	struct window *window;
 
@@ -736,6 +779,12 @@ create_window(struct display *display)
 	window->surface = wl_compositor_create_surface(display->compositor);
 
 	if (display->wm_base) {
+		if (display->viewporter) {
+			window->viewport =
+				wp_viewporter_get_viewport(display->viewporter,
+							   window->surface);
+		}
+
 		window->xdg_surface =
 			xdg_wm_base_get_xdg_surface(display->wm_base,
 						    window->surface);
@@ -756,6 +805,9 @@ create_window(struct display *display)
 		xdg_toplevel_set_title(window->xdg_toplevel, "simple-dmabuf-v4l");
 		xdg_toplevel_set_app_id(window->xdg_toplevel,
 				"org.freedesktop.weston.simple-dmabuf-v4l");
+
+		if (win_flags & WIN_FLAG_FULLSCREEN)
+			xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
 
 		window->wait_for_configure = true;
 		wl_surface_commit(window->surface);
@@ -779,6 +831,9 @@ destroy_window(struct window *window)
 
 	if (window->callback)
 		wl_callback_destroy(window->callback);
+
+	if (window->viewport)
+		wp_viewport_destroy(window->viewport);
 
 	if (window->xdg_toplevel)
 		xdg_toplevel_destroy(window->xdg_toplevel);
@@ -832,9 +887,7 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	assert(!buffer->busy);
 
 	wl_surface_attach(window->surface, buffer->buffer, 0, 0);
-	wl_surface_damage(window->surface, 0, 0,
-	                  window->display->format.width,
-	                  window->display->format.height);
+	wl_surface_damage(window->surface, 0, 0, INT32_MAX, INT32_MAX);
 
 	if (callback)
 		wl_callback_destroy(callback);
@@ -904,7 +957,12 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	if (!d->wm_base)
 		return;
 
-	if (key == KEY_ESC && state)
+	if (key == KEY_F11 && state) {
+		if (d->window->fullscreen)
+			xdg_toplevel_unset_fullscreen(d->window->xdg_toplevel);
+		else
+			xdg_toplevel_set_fullscreen(d->window->xdg_toplevel, NULL);
+	} else if (key == KEY_ESC && state)
 		running = false;
 }
 
@@ -983,6 +1041,10 @@ registry_handle_global(void *data, struct wl_registry *registry,
 	} else if (strcmp(interface, weston_direct_display_v1_interface.name) == 0) {
 		d->direct_display = wl_registry_bind(registry,
 						     id, &weston_direct_display_v1_interface, 1);
+	} else if (strcmp(interface, wp_viewporter_interface.name) == 0) {
+		d->viewporter = wl_registry_bind(registry, id,
+						 &wp_viewporter_interface,
+						 1);
 	}
 }
 
@@ -1042,6 +1104,9 @@ destroy_display(struct display *display)
 	if (display->dmabuf)
 		zwp_linux_dmabuf_v1_destroy(display->dmabuf);
 
+	if (display->viewporter)
+		wp_viewporter_destroy(display->viewporter);
+
 	if (display->wm_base)
 		xdg_wm_base_destroy(display->wm_base);
 
@@ -1060,7 +1125,7 @@ destroy_display(struct display *display)
 static void
 usage(const char *argv0)
 {
-	printf("Usage: %s [-v v4l2_device] [-f v4l2_format] [-d drm_format] [-i|--y-invert] [-g|--d-display]\n"
+	printf("Usage: %s [-v v4l2_device] [-f v4l2_format] [-d drm_format] [-i|--y-invert] [-g|--d-display] [-s|--fullscreen]\n"
 	       "\n"
 	       "The default V4L2 device is /dev/video0\n"
 	       "\n"
@@ -1075,7 +1140,8 @@ usage(const char *argv0)
 	       "automatically added if we detect if the camera sensor is "
 	       "y-flipped\n"
 	       "- d-display skip importing dmabuf-based buffer into the GPU\n  "
-	       "and attempt pass the buffer straight to the display controller\n",
+	       "and attempt pass the buffer straight to the display controller\n"
+	       "- fullscreen make the window fullscreen and scale up the image\n",
 	       argv0);
 
 	printf("\n"
@@ -1116,6 +1182,7 @@ main(int argc, char **argv)
 	uint32_t v4l_format = 0x0;
 	uint32_t drm_format = 0x0;
 	uint32_t opts_flags = 0x0;
+	uint32_t win_flags = 0x0;
 	int c, opt_index, ret = 0;
 
 	static struct option long_options[] = {
@@ -1124,11 +1191,12 @@ main(int argc, char **argv)
 		{ "drm-format",	 required_argument, NULL, 'd' },
 		{ "y-invert",    no_argument, 	    NULL, 'i' },
 		{ "d-display",   no_argument, 	    NULL, 'g' },
+		{ "fullscreen",  no_argument, 	    NULL, 's' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ 0,             0,                 NULL,  0  }
 	};
 
-	while ((c = getopt_long(argc, argv, "hiv:d:f:g", long_options,
+	while ((c = getopt_long(argc, argv, "hiv:d:f:gs", long_options,
 				&opt_index)) != -1) {
 		switch (c) {
 		case 'v':
@@ -1145,6 +1213,9 @@ main(int argc, char **argv)
 			break;
 		case 'g':
 			opts_flags |= OPT_FLAG_DIRECT_DISPLAY;
+			break;
+		case 's':
+			win_flags |= WIN_FLAG_FULLSCREEN;
 			break;
 		default:
 		case 'h':
@@ -1165,7 +1236,7 @@ main(int argc, char **argv)
 	display = create_display(drm_format, opts_flags);
 	display->format.format = v4l_format;
 
-	window = create_window(display);
+	display->window = window = create_window(display, win_flags);
 	if (!window)
 		return 1;
 
