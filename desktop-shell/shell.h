@@ -151,6 +151,8 @@ struct desktop_shell {
 	struct wl_list output_list;
 	struct wl_list seat_list;
 
+	struct wl_listener kill_focus_listener;
+
 	enum weston_desktop_shell_panel_position panel_position;
 
 	char *client;
