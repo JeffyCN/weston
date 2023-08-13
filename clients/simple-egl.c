@@ -1210,20 +1210,20 @@ registry_handle_global(void *data, struct wl_registry *registry,
 {
 	struct display *d = data;
 
-	if (strcmp(interface, "wl_compositor") == 0) {
+	if (strcmp(interface, wl_compositor_interface.name) == 0) {
 		d->compositor =
 			wl_registry_bind(registry, name,
 					 &wl_compositor_interface,
 					 MIN(version, 4));
-	} else if (strcmp(interface, "xdg_wm_base") == 0) {
+	} else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
 		d->wm_base = wl_registry_bind(registry, name,
 					      &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(d->wm_base, &wm_base_listener, d);
-	} else if (strcmp(interface, "wl_seat") == 0) {
+	} else if (strcmp(interface, wl_seat_interface.name) == 0) {
 		d->seat = wl_registry_bind(registry, name,
 					   &wl_seat_interface, 1);
 		wl_seat_add_listener(d->seat, &seat_listener, d);
-	} else if (strcmp(interface, "wl_shm") == 0) {
+	} else if (strcmp(interface, wl_shm_interface.name) == 0) {
 		d->shm = wl_registry_bind(registry, name,
 					  &wl_shm_interface, 1);
 		d->cursor_theme = wl_cursor_theme_load(NULL, 32, d->shm);
@@ -1237,9 +1237,9 @@ registry_handle_global(void *data, struct wl_registry *registry,
 			fprintf(stderr, "unable to load default left pointer\n");
 			// TODO: abort ?
 		}
-	} else if (strcmp(interface, "wl_output") == 0 && version >= 2) {
+	} else if (strcmp(interface, wl_output_interface.name) == 0 && version >= 2) {
 		display_add_output(d, name);
-	} else if (strcmp(interface, "wp_tearing_control_manager_v1") == 0) {
+	} else if (strcmp(interface, wp_tearing_control_manager_v1_interface.name) == 0) {
 		d->tearing_manager = wl_registry_bind(registry, name,
 						      &wp_tearing_control_manager_v1_interface,
 						      1);
