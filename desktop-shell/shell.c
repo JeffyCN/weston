@@ -4867,6 +4867,8 @@ shell_destroy(struct wl_listener *listener, void *data)
 	text_backend_destroy(shell->text_backend);
 	input_panel_destroy(shell);
 
+	wl_list_remove(&shell->kill_focus_listener.link);
+
 	if (shell->fade.animation) {
 		weston_view_animation_destroy(shell->fade.animation);
 		shell->fade.animation = NULL;
@@ -4996,6 +4998,22 @@ handle_seat_created(struct wl_listener *listener, void *data)
 	create_shell_seat(shell, seat);
 }
 
+static void
+handle_kill_focus(struct wl_listener *listener, void *data)
+{
+	struct desktop_shell *shell =
+		container_of(listener, struct desktop_shell, kill_focus_listener);
+	struct weston_seat *seat, *next;
+
+	wl_list_for_each_safe(seat, next, &shell->compositor->seat_list, link) {
+		struct weston_keyboard *keyboard =
+			weston_seat_get_keyboard(seat);
+
+		if (keyboard)
+			force_kill_binding(keyboard, NULL, 0, shell);
+	}
+}
+
 WL_EXPORT int
 wet_shell_init(struct weston_compositor *ec,
 	       int *argc, char *argv[])
@@ -5080,6 +5098,9 @@ wet_shell_init(struct weston_compositor *ec,
 	shell->panel_position = WESTON_DESKTOP_SHELL_PANEL_POSITION_TOP;
 
 	setup_output_destroy_handler(ec, shell);
+
+	shell->kill_focus_listener.notify = handle_kill_focus;
+	wl_signal_add(&ec->kill_focus_signal, &shell->kill_focus_listener);
 
 	loop = wl_display_get_event_loop(ec->wl_display);
 	wl_event_loop_add_idle(loop, launch_desktop_shell_process, shell);

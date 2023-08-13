@@ -9204,6 +9204,7 @@ weston_compositor_create(struct wl_display *display,
 	wl_signal_init(&ec->kill_signal);
 	wl_signal_init(&ec->idle_signal);
 	wl_signal_init(&ec->wake_signal);
+	wl_signal_init(&ec->kill_focus_signal);
 	wl_signal_init(&ec->show_input_panel_signal);
 	wl_signal_init(&ec->hide_input_panel_signal);
 	wl_signal_init(&ec->update_input_panel_signal);
