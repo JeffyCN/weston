@@ -773,6 +773,19 @@ static int on_term_signal(int signal_number, void *data)
 	return 1;
 }
 
+static int on_user2_signal(int signal_number, void *data)
+{
+	struct wet_compositor *wet = data;
+	struct weston_compositor *compositor = wet->compositor;
+
+	weston_log("caught signal %d\n", signal_number);
+
+	if (compositor)
+		wl_signal_emit(&compositor->kill_focus_signal, NULL);
+
+	return 1;
+}
+
 static const char *
 clock_name(clockid_t clk_id)
 {
@@ -3650,7 +3663,7 @@ weston_log_subscribe_to_scopes(struct weston_log_context *log_ctx,
 static void
 sigint_helper(int sig)
 {
-	raise(SIGUSR2);
+	raise(SIGTERM);
 }
 
 WL_EXPORT int
@@ -3784,8 +3797,9 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 	loop = wl_display_get_event_loop(display);
 	signals[0] = wl_event_loop_add_signal(loop, SIGTERM, on_term_signal,
 					      display);
-	signals[1] = wl_event_loop_add_signal(loop, SIGUSR2, on_term_signal,
-					      display);
+
+	signals[1] = wl_event_loop_add_signal(loop, SIGUSR2, on_user2_signal,
+					      &wet);
 
 	wl_list_init(&wet.child_process_list);
 	signals[2] = wl_event_loop_add_signal(loop, SIGCHLD, sigchld_handler,
