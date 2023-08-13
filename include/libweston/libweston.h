@@ -1515,6 +1515,7 @@ struct weston_compositor {
 	struct wl_signal idle_signal;
 	struct wl_signal wake_signal;
 	struct wl_signal sleep_signal;
+	struct wl_signal kill_focus_signal;
 
 	struct wl_signal show_input_panel_signal;
 	struct wl_signal hide_input_panel_signal;
