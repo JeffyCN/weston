@@ -126,7 +126,8 @@ simple_clients = [
 			viewporter_client_protocol_h,
 			viewporter_protocol_c,
 		],
-		'dep_objs': [ dep_wayland_client, dep_libdrm_headers ]
+		'dep_objs': [ dep_wayland_client, dep_libdrm_headers ],
+		'deps': [ 'wayland-cursor' ]
 	},
 	{
 		'name': 'egl',

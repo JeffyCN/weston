@@ -45,6 +45,7 @@
 #include <linux/input.h>
 
 #include <wayland-client.h>
+#include <wayland-cursor.h>
 #include <libweston/zalloc.h>
 #include "xdg-shell-client-protocol.h"
 #include "fullscreen-shell-unstable-v1-client-protocol.h"
@@ -59,6 +60,7 @@
 #define OPT_FLAG_INVERT (1 << 0)
 #define OPT_FLAG_DIRECT_DISPLAY (1 << 1)
 #define WIN_FLAG_FULLSCREEN (1 << 0)
+#define WIN_FLAG_FULLSCREEN_CURSOR (1 << 1)
 
 struct window;
 
@@ -108,7 +110,12 @@ struct display {
 	struct wl_registry *registry;
 	struct wl_compositor *compositor;
 	struct wl_seat *seat;
+	struct wl_pointer *pointer;
 	struct wl_keyboard *keyboard;
+	struct wl_shm *shm;
+	struct wl_cursor_theme *cursor_theme;
+	struct wl_cursor *default_cursor;
+	struct wl_surface *cursor_surface;
 	struct xdg_wm_base *wm_base;
 	struct zwp_fullscreen_shell_v1 *fshell;
 	struct zwp_linux_dmabuf_v1 *dmabuf;
@@ -146,6 +153,7 @@ struct window {
 	bool wait_for_configure;
 	bool initialized;
 	bool fullscreen;
+	bool fullscreen_cursor;
 };
 
 static bool running = true;
@@ -808,6 +816,8 @@ create_window(struct display *display, uint32_t win_flags)
 
 		if (win_flags & WIN_FLAG_FULLSCREEN)
 			xdg_toplevel_set_fullscreen(window->xdg_toplevel, NULL);
+		if (win_flags & WIN_FLAG_FULLSCREEN_CURSOR)
+			window->fullscreen_cursor = true;
 
 		window->wait_for_configure = true;
 		wl_surface_commit(window->surface);
@@ -927,6 +937,75 @@ static const struct zwp_linux_dmabuf_v1_listener dmabuf_listener = {
 };
 
 static void
+pointer_handle_enter(void *data, struct wl_pointer *pointer,
+		     uint32_t serial, struct wl_surface *surface,
+		     wl_fixed_t sx, wl_fixed_t sy)
+{
+	struct display *display = data;
+	struct wl_buffer *buffer;
+	struct wl_cursor *cursor = display->default_cursor;
+	struct wl_cursor_image *image;
+
+	if (display->window->fullscreen && !display->window->fullscreen_cursor)
+		wl_pointer_set_cursor(pointer, serial, NULL, 0, 0);
+	else if (cursor) {
+		image = cursor->images[0];
+		buffer = wl_cursor_image_get_buffer(image);
+		if (!buffer)
+			return;
+		wl_pointer_set_cursor(pointer, serial,
+				      display->cursor_surface,
+				      image->hotspot_x,
+				      image->hotspot_y);
+		wl_surface_attach(display->cursor_surface, buffer, 0, 0);
+		wl_surface_damage(display->cursor_surface, 0, 0,
+				  image->width, image->height);
+		wl_surface_commit(display->cursor_surface);
+	}
+}
+
+static void
+pointer_handle_leave(void *data, struct wl_pointer *pointer,
+		     uint32_t serial, struct wl_surface *surface)
+{
+}
+
+static void
+pointer_handle_motion(void *data, struct wl_pointer *pointer,
+		      uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
+{
+}
+
+static void
+pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
+		      uint32_t serial, uint32_t time, uint32_t button,
+		      uint32_t state)
+{
+	struct display *display = data;
+
+	if (!display->window->xdg_toplevel)
+		return;
+
+	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+		xdg_toplevel_move(display->window->xdg_toplevel,
+				  display->seat, serial);
+}
+
+static void
+pointer_handle_axis(void *data, struct wl_pointer *wl_pointer,
+		    uint32_t time, uint32_t axis, wl_fixed_t value)
+{
+}
+
+static const struct wl_pointer_listener pointer_listener = {
+	pointer_handle_enter,
+	pointer_handle_leave,
+	pointer_handle_motion,
+	pointer_handle_button,
+	pointer_handle_axis,
+};
+
+static void
 keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
                        uint32_t format, int fd, uint32_t size)
 {
@@ -988,6 +1067,14 @@ seat_handle_capabilities(void *data, struct wl_seat *seat,
 {
 	struct display *d = data;
 
+	if ((caps & WL_SEAT_CAPABILITY_POINTER) && !d->pointer) {
+		d->pointer = wl_seat_get_pointer(seat);
+		wl_pointer_add_listener(d->pointer, &pointer_listener, d);
+	} else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && d->pointer) {
+		wl_pointer_destroy(d->pointer);
+		d->pointer = NULL;
+	}
+
 	if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !d->keyboard) {
 		d->keyboard = wl_seat_get_keyboard(seat);
 		wl_keyboard_add_listener(d->keyboard, &keyboard_listener, d);
@@ -1025,6 +1112,20 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		d->seat = wl_registry_bind(registry,
 		                           id, &wl_seat_interface, 1);
 		wl_seat_add_listener(d->seat, &seat_listener, d);
+	} else if (strcmp(interface, wl_shm_interface.name) == 0) {
+		d->shm = wl_registry_bind(registry, id,
+					  &wl_shm_interface, 1);
+		d->cursor_theme = wl_cursor_theme_load(NULL, 32, d->shm);
+		if (!d->cursor_theme) {
+			fprintf(stderr, "unable to load default theme\n");
+			return;
+		}
+		d->default_cursor =
+			wl_cursor_theme_get_cursor(d->cursor_theme, "left_ptr");
+		if (!d->default_cursor) {
+			fprintf(stderr, "unable to load default left pointer\n");
+			// TODO: abort ?
+		}
 	} else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
 		d->wm_base = wl_registry_bind(registry,
 					      id, &xdg_wm_base_interface, 1);
@@ -1095,12 +1196,18 @@ create_display(uint32_t requested_format, uint32_t opt_flags)
 
 	if (opt_flags)
 		display->opts = opt_flags;
+
+	display->cursor_surface =
+		wl_compositor_create_surface(display->compositor);
+
 	return display;
 }
 
 static void
 destroy_display(struct display *display)
 {
+	wl_surface_destroy(display->cursor_surface);
+
 	if (display->dmabuf)
 		zwp_linux_dmabuf_v1_destroy(display->dmabuf);
 
@@ -1141,7 +1248,8 @@ usage(const char *argv0)
 	       "y-flipped\n"
 	       "- d-display skip importing dmabuf-based buffer into the GPU\n  "
 	       "and attempt pass the buffer straight to the display controller\n"
-	       "- fullscreen make the window fullscreen and scale up the image\n",
+	       "- fullscreen make the window fullscreen and scale up the image\n"
+	       "- fs-cursor show the cursor in fullscreen mode\n",
 	       argv0);
 
 	printf("\n"
@@ -1192,11 +1300,12 @@ main(int argc, char **argv)
 		{ "y-invert",    no_argument, 	    NULL, 'i' },
 		{ "d-display",   no_argument, 	    NULL, 'g' },
 		{ "fullscreen",  no_argument, 	    NULL, 's' },
+		{ "fs-cursor",   no_argument, 	    NULL, 'c' },
 		{ "help",        no_argument,       NULL, 'h' },
 		{ 0,             0,                 NULL,  0  }
 	};
 
-	while ((c = getopt_long(argc, argv, "hiv:d:f:gs", long_options,
+	while ((c = getopt_long(argc, argv, "hiv:d:f:gsc", long_options,
 				&opt_index)) != -1) {
 		switch (c) {
 		case 'v':
@@ -1216,6 +1325,9 @@ main(int argc, char **argv)
 			break;
 		case 's':
 			win_flags |= WIN_FLAG_FULLSCREEN;
+			break;
+		case 'c':
+			win_flags |= WIN_FLAG_FULLSCREEN_CURSOR;
 			break;
 		default:
 		case 'h':
