@@ -4372,11 +4372,13 @@ respawn_desktop_shell_process(struct desktop_shell *shell)
 		shell->child.deathcount = 0;
 	}
 
+#if 0
 	shell->child.deathcount++;
 	if (shell->child.deathcount > 5) {
 		weston_log("%s disconnected, giving up.\n", shell->client);
 		return;
 	}
+#endif
 
 	weston_log("%s disconnected, respawning...\n", shell->client);
 	launch_desktop_shell_process(shell);
