@@ -3979,15 +3979,7 @@ shell_fade(struct desktop_shell *shell, enum fade_type type)
 		weston_view_set_alpha(shell->fade.curtain->view, 1.0 - tint);
 	}
 
-	if (shell->fade.curtain->view->output == NULL) {
-		/* If the black view gets a NULL output, we lost the
-		 * last output and we'll just cancel the fade.  This
-		 * happens when you close the last window under the
-		 * X11 or Wayland backends. */
-		shell->locked = false;
-		weston_shell_utils_curtain_destroy(shell->fade.curtain);
-		shell->fade.curtain = NULL;
-	} else if (shell->fade.animation) {
+	if (shell->fade.animation) {
 		weston_fade_update(shell->fade.animation, tint);
 	} else {
 		shell->fade.animation =
