@@ -3989,19 +3989,12 @@ static void
 do_shell_fade_startup(void *data)
 {
 	struct desktop_shell *shell = data;
-	struct shell_output *shell_output;
 
-	if (shell->startup_animation_type == ANIMATION_FADE) {
+	assert(shell->startup_animation_type == ANIMATION_FADE ||
+	       shell->startup_animation_type == ANIMATION_NONE);
+
+	if (shell->startup_animation_type == ANIMATION_FADE)
 		shell_fade(shell, FADE_IN);
-	} else {
-		weston_log("desktop shell: "
-			   "unexpected fade-in animation type %d\n",
-			   shell->startup_animation_type);
-		wl_list_for_each(shell_output, &shell->output_list, link) {
-			weston_shell_utils_curtain_destroy(shell_output->fade.curtain);
-			shell_output->fade.curtain = NULL;
-		}
-	}
 }
 
 static void
