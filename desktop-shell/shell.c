@@ -3929,7 +3929,6 @@ shell_fade_create_view_for_output(struct desktop_shell *shell,
 	curtain = weston_shell_utils_curtain_create(compositor, &curtain_params);
 	assert(curtain);
 
-	weston_view_set_output(curtain->view, output);
 	weston_view_move_to_layer(curtain->view, &compositor->fade_layer.view_list);
 
 	return curtain;
