@@ -3909,6 +3909,7 @@ static struct weston_curtain *
 shell_fade_create_view(struct desktop_shell *shell)
 {
 	struct weston_compositor *compositor = shell->compositor;
+	struct shell_output *shell_output;
 	struct weston_curtain_params curtain_params = {
 		.r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0,
 		.x = 0, .y = 0,
@@ -3919,7 +3920,30 @@ shell_fade_create_view(struct desktop_shell *shell)
 		.capture_input = false,
 	};
 	struct weston_curtain *curtain;
+	bool first = true;
+	int x1, y1, x2, y2;
 
+	wl_list_for_each(shell_output, &shell->output_list, link) {
+		struct weston_output *op = shell_output->output;
+
+		if (first) {
+			first = false;
+			x1 = op->pos.c.x;
+			y1 = op->pos.c.y;
+			x2 = op->pos.c.x + op->width;
+			y2 = op->pos.c.y + op->height;
+			continue;
+		}
+
+		x1 = MIN(x1, op->pos.c.x);
+		y1 = MIN(y1, op->pos.c.y);
+		x2 = MAX(x2, op->pos.c.x + op->width);
+		y2 = MAX(y2, op->pos.c.y + op->height);
+	}
+	curtain_params.x = x1;
+	curtain_params.y = y1;
+	curtain_params.width = x2 - x1;
+	curtain_params.height = y2 - y1;
 	curtain = weston_shell_utils_curtain_create(compositor, &curtain_params);
 	assert(curtain);
 
