@@ -163,6 +163,7 @@ pkgconfig.generate(
 )
 
 srcs_session_helper = [
+	'launcher-direct.c',
 	'launcher-util.c',
 ]
 deps_session_helper = [ dep_libweston_private_h ]
