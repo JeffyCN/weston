@@ -43,6 +43,7 @@ static const struct launcher_interface *ifaces[] = {
 #ifdef HAVE_SYSTEMD_LOGIN
 	&launcher_logind_iface,
 #endif
+	&launcher_direct_iface,
 	NULL,
 };
 
