@@ -95,6 +95,8 @@ struct gl_output_state {
 	struct weston_geometry area; /**< composited area in pixels inside fb */
 
 	EGLSurface egl_surface;
+	EGLSurface default_egl_surface;
+
 	pixman_region32_t buffer_damage[BUFFER_DAMAGE_COUNT];
 	int buffer_damage_index;
 	enum gl_border_status border_damage[BUFFER_DAMAGE_COUNT];
@@ -112,6 +114,8 @@ struct gl_output_state {
 
 	const struct pixel_format_info *shadow_format;
 	struct gl_fbo_texture shadow;
+
+	struct wl_list renderbuffer_list;
 };
 
 struct gl_renderer;
@@ -197,6 +201,14 @@ struct timeline_render_point {
 	GLuint query;
 	struct weston_output *output;
 	struct wl_event_source *event_source;
+};
+
+struct gl_renderbuffer {
+	struct weston_renderbuffer base;
+
+	EGLDisplay egl_display;
+	EGLSurface egl_surface;
+	struct wl_list link;
 };
 
 static uint32_t
@@ -1563,7 +1575,8 @@ output_get_damage(struct weston_output *output,
 	EGLBoolean ret;
 	int i;
 
-	if (gr->has_egl_buffer_age) {
+	if (gr->has_egl_buffer_age &&
+	    go->egl_surface == go->default_egl_surface) {
 		ret = eglQuerySurface(gr->egl_display, go->egl_surface,
 				      EGL_BUFFER_AGE_EXT, &buffer_age);
 		if (ret == EGL_FALSE) {
@@ -1786,6 +1799,14 @@ gl_renderer_repaint_output(struct weston_output *output,
 	assert(output->from_blend_to_output_by_backend ||
 	       output->color_outcome->from_blend_to_output == NULL ||
 	       shadow_exists(go));
+
+	if (renderbuffer) {
+		struct gl_renderbuffer *rb =
+			container_of(renderbuffer, struct gl_renderbuffer, base);
+		go->egl_surface = rb->egl_surface;
+	} else {
+		go->egl_surface = go->default_egl_surface;
+	}
 
 	if (use_output(output) < 0)
 		return;
@@ -3443,12 +3464,18 @@ gl_renderer_resize_output(struct weston_output *output,
 {
 	struct gl_output_state *go = get_output_state(output);
 	const struct pixel_format_info *shfmt = go->shadow_format;
+	struct gl_renderbuffer *renderbuffer, *tmp;
 	bool ret;
 
 	check_compositing_area(fb_size, area);
 
 	go->fb_size = *fb_size;
 	go->area = *area;
+
+	wl_list_for_each_safe(renderbuffer, tmp, &go->renderbuffer_list, link) {
+		wl_list_remove(&renderbuffer->link);
+		weston_renderbuffer_unref(&renderbuffer->base);
+	}
 
 	weston_output_update_capture_info(output,
 					  WESTON_OUTPUT_CAPTURE_SOURCE_FRAMEBUFFER,
@@ -3522,6 +3549,7 @@ gl_renderer_output_create(struct weston_output *output,
 	if (go == NULL)
 		return -1;
 
+	go->default_egl_surface = surface;
 	go->egl_surface = surface;
 
 	for (i = 0; i < BUFFER_DAMAGE_COUNT; i++)
@@ -3545,6 +3573,8 @@ gl_renderer_output_create(struct weston_output *output,
 
 	output->renderer_state = go;
 
+	wl_list_init(&go->renderbuffer_list);
+
 	if (!gl_renderer_resize_output(output, fb_size, area)) {
 		weston_log("Output %s failed to create 16F shadow.\n",
 			   output->name);
@@ -3561,6 +3591,50 @@ gl_renderer_output_create(struct weston_output *output,
 	return 0;
 }
 
+static void
+gl_renderer_renderbuffer_destroy(struct weston_renderbuffer *renderbuffer)
+{
+	struct gl_renderbuffer *rb;
+
+	rb = container_of(renderbuffer, struct gl_renderbuffer, base);
+	weston_platform_destroy_egl_surface(rb->egl_display, rb->egl_surface);
+	pixman_region32_fini(&rb->base.damage);
+	free(rb);
+}
+
+static struct weston_renderbuffer *
+gl_renderer_create_buffer(struct weston_output *output,
+			  const struct gl_renderer_output_options *options)
+{
+	struct weston_compositor *ec = output->compositor;
+	struct gl_output_state *go = get_output_state(output);
+	struct gl_renderer *gr = get_renderer(ec);
+	struct gl_renderbuffer *renderbuffer;
+	EGLSurface egl_surface = EGL_NO_SURFACE;
+
+	egl_surface = gl_renderer_create_window_surface(gr,
+							options->window_for_legacy,
+							options->window_for_platform,
+							options->formats,
+							options->formats_count);
+	if (egl_surface == EGL_NO_SURFACE) {
+		weston_log("failed to create egl surface\n");
+		return NULL;
+	}
+
+	renderbuffer = xzalloc(sizeof(*renderbuffer));
+
+	renderbuffer->egl_surface = egl_surface;
+	renderbuffer->egl_display = gr->egl_display;
+
+	pixman_region32_init(&renderbuffer->base.damage);
+	renderbuffer->base.refcount = 2;
+	renderbuffer->base.destroy = gl_renderer_renderbuffer_destroy;
+	wl_list_insert(&go->renderbuffer_list, &renderbuffer->link);
+
+	return &renderbuffer->base;
+}
+
 static int
 gl_renderer_output_window_create(struct weston_output *output,
 				 const struct gl_renderer_output_options *options)
@@ -3569,6 +3643,9 @@ gl_renderer_output_window_create(struct weston_output *output,
 	struct gl_renderer *gr = get_renderer(ec);
 	EGLSurface egl_surface = EGL_NO_SURFACE;
 	int ret = 0;
+
+	if (!options->window_for_legacy && !options->window_for_platform)
+		goto create_output;
 
 	egl_surface = gl_renderer_create_window_surface(gr,
 							options->window_for_legacy,
@@ -3580,9 +3657,10 @@ gl_renderer_output_window_create(struct weston_output *output,
 		return -1;
 	}
 
+create_output:
 	ret = gl_renderer_output_create(output, egl_surface,
 					&options->fb_size, &options->area);
-	if (ret < 0)
+	if (ret < 0 && egl_surface != EGL_NO_SURFACE)
 		weston_platform_destroy_egl_surface(gr->egl_display, egl_surface);
 
 	return ret;
@@ -3648,8 +3726,12 @@ gl_renderer_output_destroy(struct weston_output *output)
 {
 	struct gl_renderer *gr = get_renderer(output->compositor);
 	struct gl_output_state *go = get_output_state(output);
+	struct gl_renderbuffer *renderbuffer, *tmp_rb;
 	struct timeline_render_point *trp, *tmp;
 	int i;
+
+	if (!go)
+		return;
 
 	for (i = 0; i < 2; i++)
 		pixman_region32_fini(&go->buffer_damage[i]);
@@ -3660,7 +3742,9 @@ gl_renderer_output_destroy(struct weston_output *output)
 	eglMakeCurrent(gr->egl_display,
 		       gr->dummy_surface, gr->dummy_surface, gr->egl_context);
 
-	weston_platform_destroy_egl_surface(gr->egl_display, go->egl_surface);
+	if (go->default_egl_surface != EGL_NO_SURFACE)
+		weston_platform_destroy_egl_surface(gr->egl_display,
+						    go->default_egl_surface);
 
 	if (!wl_list_empty(&go->timeline_render_point_list))
 		weston_log("warning: discarding pending timeline render"
@@ -3674,6 +3758,11 @@ gl_renderer_output_destroy(struct weston_output *output)
 
 	if (go->render_sync != EGL_NO_SYNC_KHR)
 		gr->destroy_sync(gr->egl_display, go->render_sync);
+
+	wl_list_for_each_safe(renderbuffer, tmp_rb, &go->renderbuffer_list, link) {
+		wl_list_remove(&renderbuffer->link);
+		weston_renderbuffer_unref(&renderbuffer->base);
+	}
 
 	free(go);
 }
@@ -4211,6 +4300,7 @@ gl_renderer_setup(struct weston_compositor *ec, EGLSurface egl_surface)
 
 WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.display_create = gl_renderer_display_create,
+	.create_buffer = gl_renderer_create_buffer,
 	.output_window_create = gl_renderer_output_window_create,
 	.output_pbuffer_create = gl_renderer_output_pbuffer_create,
 	.output_destroy = gl_renderer_output_destroy,
