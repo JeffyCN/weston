@@ -123,6 +123,8 @@
 #define WESTON_DRM_CONFIG_FILE	"/tmp/.weston_drm.conf"
 #define DRM_CONFIG_UPDATE_MS	100
 
+#define DRM_MAX_BUFFERS		16
+
 /**
  * Represents the values of an enum-type KMS property
  */
@@ -706,7 +708,6 @@ struct drm_output {
 	struct wl_listener cursor_view_destroy_listener;
 	int current_cursor;
 
-	struct gbm_surface *gbm_surface;
 	const struct pixel_format_info *format;
 	uint32_t gbm_bo_flags;
 
@@ -730,12 +731,17 @@ struct drm_output {
 	/* only set when a writeback screenshot is ongoing */
 	struct drm_writeback_state *wb_state;
 
-	struct drm_fb *dumb[2];
-	struct weston_renderbuffer *renderbuffer[2];
-	int current_image;
+	struct gbm_surface *gbm_surfaces[DRM_MAX_BUFFERS];
+	struct gbm_surface *gbm_surface;
+	unsigned int num_surfaces;
+
+	struct drm_fb *dumb[DRM_MAX_BUFFERS];
+	struct weston_renderbuffer *renderbuffer[DRM_MAX_BUFFERS];
+	int next_image;
+	unsigned int num_images;
 
 	/* Wrap fb for scale/rotate usage */
-	struct drm_fb *wrap[2];
+	struct drm_fb *wrap[DRM_MAX_BUFFERS];
 	int next_wrap;
 
 	struct vaapi_recorder *recorder;
