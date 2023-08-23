@@ -135,6 +135,9 @@ struct gl_renderer_interface {
 	int (*display_create)(struct weston_compositor *ec,
 			      const struct gl_renderer_display_options *options);
 
+	struct weston_renderbuffer *(*create_buffer)(struct weston_output *output,
+						     const struct gl_renderer_output_options *options);
+
 	/**
 	 * Attach GL-renderer to the output with a native window
 	 *
