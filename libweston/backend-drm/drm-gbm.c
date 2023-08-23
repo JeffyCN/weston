@@ -141,24 +141,23 @@ init_vulkan(struct drm_backend *b)
 	return 0;
 }
 
-static void
-create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
+/**
+ * create_gbm_surface - Create a single GBM surface for DRM output
+ * @gbm: GBM device handle
+ * @output: Target DRM output
+ * @fmt: Pre-validated DRM format for the output
+ *
+ * Return: Valid GBM surface on success, NULL on failure
+ */
+static struct gbm_surface *
+create_gbm_surface(struct gbm_device *gbm, struct drm_output *output,
+		   struct weston_drm_format *fmt)
 {
 	struct weston_mode *mode = output->base.current_mode;
-	struct drm_plane *plane = output->scanout_handle->plane;
 	struct drm_device *device = output->device;
-	struct weston_drm_format *fmt;
+	struct gbm_surface *gbm_surface = NULL;
 	const uint64_t *modifiers;
 	unsigned int num_modifiers;
-
-	fmt = weston_drm_format_array_find_format(&plane->formats,
-						  output->format->format);
-	if (!fmt) {
-		weston_log("format %s not supported by output %s\n",
-			   output->format->drm_format_name,
-			   output->base.name);
-		return;
-	}
 
 	/* HACK: Prefer valid modifiers when fb_modifiers is enabled.
 	 * Note: modifiers pointer is reassigned to local array, but
@@ -176,11 +175,50 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 		modifiers = _modifiers;
 		num_modifiers = j;
 
-		output->gbm_surface =
+		gbm_surface =
 			gbm_surface_create_with_modifiers(gbm,
 							  mode->width, mode->height,
 							  output->format->format,
 							  modifiers, num_modifiers);
+	}
+
+	/* We may allocate with no modifiers in the following situations:
+	 *
+	 * 1. the KMS driver does not support modifiers;
+	 * 2. if allocating with modifiers failed, what can happen when the KMS
+	 *    display device supports modifiers but the GBM driver does not,
+	 *    e.g. the old i915 Mesa driver.
+	 */
+	if (!gbm_surface)
+		gbm_surface = gbm_surface_create(gbm, mode->width, mode->height,
+						 output->format->format,
+						 output->gbm_bo_flags);
+
+	return gbm_surface;
+}
+
+/**
+ * create_gbm_surfaces - Create multiple GBM surfaces for multi-buffering
+ * @gbm: GBM device handle
+ * @output: Target DRM output
+ *
+ * Each GBM surface is paired with two render buffers (double buffering per surface).
+ * Return: true on success, false on failure
+ */
+static bool
+create_gbm_surfaces(struct gbm_device *gbm, struct drm_output *output)
+{
+	struct drm_plane *plane = output->scanout_handle->plane;
+	struct weston_drm_format *fmt;
+	unsigned int i;
+
+	fmt = weston_drm_format_array_find_format(&plane->formats,
+						  output->format->format);
+	if (!fmt) {
+		weston_log("format %s not supported by output %s\n",
+			   output->format->drm_format_name,
+			   output->base.name);
+		return false;
 	}
 
 	/*
@@ -192,18 +230,23 @@ create_gbm_surface(struct gbm_device *gbm, struct drm_output *output)
 	if (gbm_device_get_fd(gbm) != output->device->kms_device->fd)
 		output->gbm_bo_flags |= GBM_BO_USE_LINEAR;
 
-	/* We may allocate with no modifiers in the following situations:
-	 *
-	 * 1. the KMS driver does not support modifiers;
-	 * 2. if allocating with modifiers failed, what can happen when the KMS
-	 *    display device supports modifiers but the GBM driver does not,
-	 *    e.g. the old i915 Mesa driver.
-	 */
-	if (!output->gbm_surface)
-		output->gbm_surface = gbm_surface_create(gbm,
-							 mode->width, mode->height,
-							 output->format->format,
-							 output->gbm_bo_flags);
+	/* Create multiple GBM surfaces for multi-buffering */
+	for (i = 0; i < output->num_surfaces; i++) {
+		output->gbm_surfaces[i] = create_gbm_surface(gbm, output, fmt);
+		if (!output->gbm_surfaces[i]) {
+			weston_log("failed to create gbm surface\n");
+			goto err;
+		}
+	}
+
+	return true;
+err:
+	for (i = 0; i < output->num_surfaces; i++) {
+		if (output->gbm_surfaces[i])
+			gbm_surface_destroy(output->gbm_surfaces[i]);
+		output->gbm_surfaces[i] = NULL;
+	}
+	return false;
 }
 
 enum format_alpha_required {
@@ -415,21 +458,48 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 	options.area.height = mode->height;
 	options.fb_size.width = mode->width;
 	options.fb_size.height = mode->height;
+	options.window_for_legacy = NULL;
+	options.window_for_platform = NULL;
+	unsigned int i;
 
-	assert(output->gbm_surface == NULL);
-	create_gbm_surface(b->gbm, output);
-	if (!output->gbm_surface) {
-		weston_log("failed to create gbm surface\n");
+	output->current_image = 0;
+
+	if (!create_gbm_surfaces(b->gbm, output))
+		return -1;
+
+	if (renderer->gl->output_window_create(&output->base, &options) < 0) {
+		weston_log("failed to create gl renderer output state\n");
+		drm_output_fini_egl(output);
 		return -1;
 	}
 
-	options.window_for_legacy = (EGLNativeWindowType) output->gbm_surface;
-	options.window_for_platform = output->gbm_surface;
-	if (renderer->gl->output_window_create(&output->base, &options) < 0) {
-		weston_log("failed to create gl renderer output state\n");
-		gbm_surface_destroy(output->gbm_surface);
-		output->gbm_surface = NULL;
-		return -1;
+	/* Each GBM surface is associated with two render buffers */
+	for (i = 0; i < output->num_images; i += 2) {
+		struct gbm_surface *gbm_surface = output->gbm_surfaces[i / 2];
+		options.window_for_legacy =
+			(EGLNativeWindowType) gbm_surface;
+		options.window_for_platform = gbm_surface;
+
+		output->renderbuffer[i] =
+			renderer->gl->create_buffer(&output->base,
+						    &options);
+		if (!output->renderbuffer[i]) {
+			weston_log("failed to create window surface\n");
+			drm_output_fini_egl(output);
+			return -1;
+		}
+
+		/* There are two buffers per surface, duplicate buffer to
+		 * share EGL surface (no ownership)
+		 */
+		output->renderbuffer[i + 1] =
+			renderer->gl->dup_buffer(&output->base,
+						 output->renderbuffer[i]);
+		if (!output->renderbuffer[i + 1]) {
+			weston_log("failed to dup window surface\n");
+			drm_output_fini_egl(output);
+			return -1;
+		}
 	}
 
 	return 0;
@@ -640,6 +710,7 @@ drm_output_fini_egl(struct drm_output *output)
 {
 	struct drm_backend *b = output->backend;
 	const struct weston_renderer *renderer = b->compositor->renderer;
+	unsigned int i;
 
 	/* Destroying the GBM surface will destroy all our GBM buffers,
 	 * regardless of refcount. Ensure we destroy them here. */
@@ -650,8 +721,16 @@ drm_output_fini_egl(struct drm_output *output)
 	}
 
 	renderer->gl->output_destroy(&output->base);
-	gbm_surface_destroy(output->gbm_surface);
-	output->gbm_surface = NULL;
+
+	/* Should be destroyed in the gl->output_destroy() */
+	for (i = 0; i < ARRAY_LENGTH(output->renderbuffer); i++)
+		output->renderbuffer[i] = NULL;
+
+	for (i = 0; i < output->num_surfaces; i++) {
+		if (output->gbm_surfaces[i])
+			gbm_surface_destroy(output->gbm_surfaces[i]);
+		output->gbm_surfaces[i] = NULL;
+	}
 }
 
 void
@@ -677,13 +756,25 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 {
 	struct drm_output *output = state->output;
 	struct drm_device *device = output->device;
+	struct weston_renderbuffer *renderbuffer = NULL;
+	struct gbm_surface *gbm_surface;
 	struct gbm_bo *bo;
 	struct drm_fb *ret;
 
-	output->base.compositor->renderer->repaint_output(&output->base,
-							  damage, NULL);
+	/* Cycle through GBM surfaces for multi-buffering */
+	gbm_surface = output->gbm_surfaces[output->current_surface];
 
-	bo = gbm_surface_lock_front_buffer(output->gbm_surface);
+	/* HACK: Renderbuffer is only used to pass EGL surface to renderer */
+	renderbuffer = output->renderbuffer[output->current_image];
+
+	/* Cycle through buffers to reduce tearing */
+	output->current_image = (output->current_image + 1) % output->num_images;
+	output->current_surface = output->current_image / 2;
+
+	output->base.compositor->renderer->repaint_output(&output->base,
+							  damage, renderbuffer);
+
+	bo = gbm_surface_lock_front_buffer(gbm_surface);
 	if (!bo) {
 		weston_log("failed to lock front buffer: %s\n",
 			   strerror(errno));
@@ -695,10 +786,10 @@ drm_output_render_gl(struct drm_output_state *state, pixman_region32_t *damage)
 	ret = drm_fb_get_from_bo(bo, device, BUFFER_GBM_SURFACE);
 	if (!ret) {
 		weston_log("failed to get drm_fb for bo\n");
-		gbm_surface_release_buffer(output->gbm_surface, bo);
+		gbm_surface_release_buffer(gbm_surface, bo);
 		return NULL;
 	}
-	ret->gbm_surface = output->gbm_surface;
+	ret->gbm_surface = gbm_surface;
 
 	return ret;
 }
@@ -739,6 +830,7 @@ drm_output_render_vulkan(struct drm_output_state *state, pixman_region32_t *dama
 		return NULL;
 	}
 
+	/* Cycle through buffers to reduce tearing. */
 	output->current_image = (output->current_image + 1) % ARRAY_LENGTH(output->renderbuffer);
 
 	return ret;

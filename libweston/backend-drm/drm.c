@@ -549,13 +549,15 @@ drm_output_render_pixman(struct drm_output_state *state,
 {
 	struct drm_output *output = state->output;
 	struct weston_compositor *ec = output->base.compositor;
-
-	output->current_image ^= 1;
+	struct drm_fb *fb;
 
 	ec->renderer->repaint_output(&output->base, damage,
 				     output->renderbuffer[output->current_image]);
+	fb = drm_fb_ref(output->dumb[output->current_image]);
 
-	return drm_fb_ref(output->dumb[output->current_image]);
+	/* Cycle through buffers to mitigate screen tearing (bounds-safe) */
+	output->current_image = (output->current_image + 1) % output->num_images;
+	return fb;
 }
 
 void
@@ -2083,7 +2085,7 @@ drm_output_init_pixman(struct drm_output *output, struct drm_backend *b)
 		goto err;
 
 	/* FIXME error checking */
-	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
+	for (i = 0; i < output->num_images; i++) {
 		output->dumb[i] = drm_fb_create_dumb(device, w, h,
 						     options.format->format);
 		if (!output->dumb[i])
@@ -2136,8 +2138,11 @@ drm_output_fini_pixman(struct drm_output *output)
 	}
 
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
-		renderer->destroy_renderbuffer(output->renderbuffer[i]);
-		drm_fb_unref(output->dumb[i]);
+		if (output->dumb[i])
+			drm_fb_unref(output->dumb[i]);
+		if (output->renderbuffer[i])
+			renderer->destroy_renderbuffer(output->renderbuffer[i]);
+
 		output->dumb[i] = NULL;
 		output->renderbuffer[i] = NULL;
 	}
@@ -3682,6 +3687,7 @@ drm_output_create(struct weston_backend *backend, const char *name)
 	struct drm_backend *b = container_of(backend, struct drm_backend, base);
 	struct drm_device *device;
 	struct drm_output *output;
+	const char *env;
 
 	device = drm_device_find_by_output(b->compositor, name);
 	if (!device)
@@ -3700,6 +3706,17 @@ drm_output_create(struct weston_backend *backend, const char *name)
 #ifdef BUILD_DRM_GBM
 	output->gbm_bo_flags = GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING;
 #endif
+
+	env = getenv("WESTON_DRM_MIN_BUFFERS");
+	if (env)
+		output->num_images = atoi(env);
+
+	/* There are two buffers per surface */
+	output->num_surfaces = (output->num_images + 1) / 2;
+	output->num_surfaces = MIN(MAX(output->num_surfaces, 1),
+				   ARRAY_LENGTH(output->gbm_surfaces));
+	output->num_images = output->num_surfaces * 2;
+	weston_log("%s using %d buffers\n", name, output->num_images);
 
 	weston_output_init(&output->base, b->compositor, name);
 

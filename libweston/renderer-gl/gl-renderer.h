@@ -129,6 +129,28 @@ struct gl_renderer_interface {
 			      const struct gl_renderer_display_options *options);
 
 	/**
+	 * create_buffer - Create window-type renderbuffer with EGL surface
+	 * @output: Target weston output
+	 * @options: Output options (EGL window handle, size, format, etc.)
+	 *
+	 * Creates a renderbuffer that owns the EGL surface (destroys it on cleanup).
+	 * Return: Valid renderbuffer on success; NULL on failure.
+	 */
+	struct weston_renderbuffer *(*create_buffer)(struct weston_output *output,
+						     const struct gl_renderer_output_options *options);
+
+	/**
+	 * dup_buffer - Duplicate renderbuffer (share EGL surface)
+	 * @output: Target weston output
+	 * @renderbuffer: Original renderbuffer to duplicate
+	 *
+	 * Duplicates a renderbuffer that shares the EGL surface (no ownership, avoids double-free).
+	 * Return: Valid renderbuffer on success; NULL on failure.
+	 */
+	struct weston_renderbuffer *(*dup_buffer)(struct weston_output *output,
+						  struct weston_renderbuffer *renderbuffer);
+
+	/**
 	 * Attach GL-renderer to the output with a native window
 	 *
 	 * \param output The output to create a rendering surface for.
