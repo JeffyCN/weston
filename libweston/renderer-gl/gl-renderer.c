@@ -159,6 +159,11 @@ struct gl_renderbuffer {
 
 	/* Needs full buffer clear */
 	bool full_clear_needed;
+
+	EGLDisplay egl_display;
+	EGLSurface egl_surface;
+	/* Whether this renderbuffer owns the EGL surface (should destroy it) */
+	bool own_surface;
 };
 
 struct gl_output_state {
@@ -168,6 +173,7 @@ struct gl_output_state {
 	float y_flip;
 
 	EGLSurface egl_surface;
+	EGLSurface default_egl_surface;
 
 	struct gl_border_image borders_pending[4];
 	struct gl_border_image borders_current[4];
@@ -856,6 +862,10 @@ gl_renderer_destroy_renderbuffer(weston_renderbuffer_t weston_renderbuffer)
 	if (rb->type == RENDERBUFFER_DMABUF)
 		rb->dmabuf.memory->destroy(rb->dmabuf.memory);
 
+	if (rb->own_surface)
+		weston_platform_destroy_egl_surface(rb->egl_display,
+						    rb->egl_surface);
+
 	free(rb);
 }
 
@@ -932,6 +942,13 @@ gl_renderer_get_renderbuffer_window(struct weston_output *output)
 
 	wl_list_for_each(rb, &go->renderbuffer_list, link) {
 		if (rb->type == RENDERBUFFER_WINDOW) {
+			/* Skip renderbuffers for other windows when using
+			 * multi-buffering
+			 */
+			if (go->default_egl_surface == EGL_NO_SURFACE &&
+			    rb->egl_surface != go->egl_surface)
+				continue;
+
 			/* Count window renderbuffers, age them, */
 			count++;
 			rb->window.age++;
@@ -3129,6 +3146,18 @@ gl_renderer_repaint_output(struct weston_output *output,
 	area_y = is_y_flipped(go) ?
 		go->fb_size.height - go->area.height - go->area.y : go->area.y;
 
+	go->egl_surface = go->default_egl_surface;
+	if (renderbuffer) {
+		rb = (struct gl_renderbuffer *) renderbuffer;
+		if (rb->egl_surface != EGL_NO_SURFACE) {
+			/* HACK: Renderbuffer is only used to pass EGL surface
+			 * to renderer
+			 */
+			go->egl_surface = rb->egl_surface;
+			renderbuffer = NULL;
+		}
+	}
+
 	if (use_output(output) < 0)
 		return;
 
@@ -4853,7 +4882,8 @@ static int
 gl_renderer_output_create(struct weston_output *output,
 			  EGLSurface surface,
 			  const struct weston_size *fb_size,
-			  const struct weston_geometry *area)
+			  const struct weston_geometry *area,
+			  const bool y_flip)
 {
 	struct gl_output_state *go;
 	struct gl_renderer *gr = get_renderer(output->compositor);
@@ -4870,8 +4900,9 @@ gl_renderer_output_create(struct weston_output *output,
 	if (go == NULL)
 		return -1;
 
+	go->default_egl_surface = surface;
 	go->egl_surface = surface;
-	go->y_flip = surface == EGL_NO_SURFACE ? 1.0f : -1.0f;
+	go->y_flip = y_flip ? -1.0f : 1.0f;
 
 	go->border_status = BORDER_ALL_DIRTY;
 	for (i = 0; i < 4; i++) {
@@ -4941,6 +4972,69 @@ gl_renderer_output_create(struct weston_output *output,
 	return 0;
 }
 
+static struct weston_renderbuffer *
+gl_renderer_create_renderbuffer_egl(struct weston_output *output,
+				    EGLSurface egl_surface, bool own_surface)
+{
+	struct weston_compositor *ec = output->compositor;
+	struct gl_renderer *gr = get_renderer(ec);
+	struct gl_renderbuffer *rb;
+
+	if (egl_surface == EGL_NO_SURFACE) {
+		weston_log("no egl surface\n");
+		return NULL;
+	}
+
+	rb = xzalloc(sizeof(*rb));
+
+	rb->egl_surface = egl_surface;
+	rb->egl_display = gr->egl_display;
+	rb->own_surface = own_surface;
+	gl_renderbuffer_init(rb, RENDERBUFFER_WINDOW, 0, NULL, NULL, output);
+
+	return (weston_renderbuffer_t) rb;
+}
+
+/**
+ * gl_renderer_create_buffer_egl - Create window-type renderbuffer with EGL surface
+ * @output: Target weston output
+ * @options: Output options (EGL window handle, size, format, etc.)
+ *
+ * Creates a renderbuffer that owns the EGL surface (destroys it on cleanup).
+ * Return: Valid renderbuffer on success; NULL on failure.
+ */
+static struct weston_renderbuffer *
+gl_renderer_create_buffer_egl(struct weston_output *output,
+			      const struct gl_renderer_output_options *options)
+{
+	struct weston_compositor *ec = output->compositor;
+	struct gl_renderer *gr = get_renderer(ec);
+	EGLSurface egl_surface;
+	egl_surface = gl_renderer_create_window_surface(gr,
+						  options->window_for_legacy,
+						  options->window_for_platform,
+						  options->formats,
+						  options->formats_count);
+	return gl_renderer_create_renderbuffer_egl(output, egl_surface, true);
+}
+
+/**
+ * gl_renderer_dup_buffer_egl - Duplicate renderbuffer (share EGL surface)
+ * @output: Target weston output
+ * @renderbuffer: Original renderbuffer to duplicate
+ *
+ * Duplicates a renderbuffer that shares the EGL surface (no ownership, avoids double-free).
+ * Return: Valid renderbuffer on success; NULL on failure.
+ */
+static struct weston_renderbuffer *
+gl_renderer_dup_buffer_egl(struct weston_output *output,
+			   struct weston_renderbuffer *renderbuffer)
+{
+	struct gl_renderbuffer *rb = (struct gl_renderbuffer *) renderbuffer;
+	EGLSurface egl_surface = rb->egl_surface;
+	return gl_renderer_create_renderbuffer_egl(output, egl_surface, false);
+}
+
 static int
 gl_renderer_output_window_create(struct weston_output *output,
 				 const struct gl_renderer_output_options *options)
@@ -4949,6 +5043,9 @@ gl_renderer_output_window_create(struct weston_output *output,
 	struct gl_renderer *gr = get_renderer(ec);
 	EGLSurface egl_surface = EGL_NO_SURFACE;
 	int ret;
+
+	if (!options->window_for_legacy && !options->window_for_platform)
+		goto create_output;
 
 	egl_surface = gl_renderer_create_window_surface(gr,
 							options->window_for_legacy,
@@ -4960,9 +5057,10 @@ gl_renderer_output_window_create(struct weston_output *output,
 		return -1;
 	}
 
+create_output:
 	ret = gl_renderer_output_create(output, egl_surface,
-					&options->fb_size, &options->area);
-	if (ret < 0)
+					&options->fb_size, &options->area, true);
+	if (ret < 0 && egl_surface != EGL_NO_SURFACE)
 		weston_platform_destroy_egl_surface(gr->egl_display, egl_surface);
 
 	return ret;
@@ -4983,7 +5081,7 @@ gl_renderer_output_fbo_create(struct weston_output *output,
 			      const struct gl_renderer_fbo_options *options)
 {
 	return gl_renderer_output_create(output, EGL_NO_SURFACE,
-					&options->fb_size, &options->area);
+					&options->fb_size, &options->area, false);
 }
 
 #ifdef HAVE_GBM
@@ -5081,6 +5179,9 @@ gl_renderer_output_destroy(struct weston_output *output)
 		if (go->borders_tex[side])
 			gl_texture_fini(&go->borders_tex[side]);
 
+	if (!go)
+		return;
+
 	if (shadow_exists(go))
 		gl_fbo_texture_fini(&go->shadow_fb, &go->shadow_tex);
 
@@ -5089,7 +5190,9 @@ gl_renderer_output_destroy(struct weston_output *output)
 	eglMakeCurrent(gr->egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE,
 		       gr->egl_context);
 
-	weston_platform_destroy_egl_surface(gr->egl_display, go->egl_surface);
+	if (go->default_egl_surface != EGL_NO_SURFACE)
+		weston_platform_destroy_egl_surface(gr->egl_display,
+						    go->default_egl_surface);
 
 	if (!wl_list_empty(&go->timeline_render_point_list))
 		weston_log("warning: discarding pending timeline render"
@@ -5807,6 +5910,8 @@ gl_renderer_setup(struct weston_compositor *ec)
 
 WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.display_create = gl_renderer_display_create,
+	.create_buffer = gl_renderer_create_buffer_egl,
+	.dup_buffer = gl_renderer_dup_buffer_egl,
 	.output_window_create = gl_renderer_output_window_create,
 	.get_supported_rendering_formats = gl_renderer_get_supported_rendering_formats,
 	.output_fbo_create = gl_renderer_output_fbo_create,
