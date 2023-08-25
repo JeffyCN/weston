@@ -263,22 +263,6 @@ set_shsurf_size_maximized_or_fullscreen(struct shell_surface *shsurf,
 			width = shsurf->output->width;
 			height = shsurf->output->height;
 		}
-	} else {
-		/* this is a corner case where we set up the surface as
-		 * maximized, then fullscreen, and back to maximized.
-		 *
-		 * we land here here when we're back from fullscreen and we
-		 * were previously maximized: rather than sending (0, 0) send
-		 * the area of the output minus the panels */
-		if (shsurf->state.fullscreen) {
-			struct weston_desktop_surface *dsurface =
-				shsurf->desktop_surface;
-
-			if (weston_desktop_surface_get_maximized(dsurface) ||
-			    weston_desktop_surface_get_pending_maximized(dsurface)) {
-				get_maximized_size(shsurf, &width, &height);
-			}
-		}
 	}
 
 	/* take the panels into considerations */
@@ -2474,6 +2458,7 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 	struct weston_surface *surface =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 
+	weston_desktop_surface_set_fullscreen(desktop_surface, fullscreen);
 	if (fullscreen) {
 		/* handle clients launching in fullscreen */
 		if (output == NULL && !weston_surface_is_mapped(surface)) {
@@ -2486,10 +2471,30 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 
 		weston_desktop_surface_set_orientation(shsurf->desktop_surface,
 							WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE);
+
+		set_shsurf_size_maximized_or_fullscreen(shsurf, false, fullscreen);
+	} else {
+		int width;
+		int height;
+
+		width = 0;
+		height = 0;
+		/* this is a corner case where we set up the surface as
+		 * maximized, then fullscreen, and back to maximized.
+		 *
+		 * we land here here when we're back from fullscreen and we
+		 * were previously maximized: rather than sending (0, 0) send
+		 * the area of the output minus the panels */
+		struct weston_desktop_surface *dsurface =
+			shsurf->desktop_surface;
+
+		if (weston_desktop_surface_get_maximized(dsurface) ||
+		    weston_desktop_surface_get_pending_maximized(dsurface)) {
+			get_maximized_size(shsurf, &width, &height);
+		}
+		weston_desktop_surface_set_size(shsurf->desktop_surface, width, height);
 	}
 
-	weston_desktop_surface_set_fullscreen(desktop_surface, fullscreen);
-	set_shsurf_size_maximized_or_fullscreen(shsurf, false, fullscreen);
 }
 
 static void
