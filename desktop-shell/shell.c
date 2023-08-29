@@ -4672,17 +4672,20 @@ handle_output_resized_shsurfs(struct desktop_shell *shell)
 	struct shell_surface *shsurf;
 
 	wl_list_for_each(shsurf, &shell->shsurf_list, link) {
-		if (shsurf_is_max_or_fullscreen(shsurf)) {
-			struct weston_desktop_surface *dsurface =
-				shsurf->desktop_surface;
+		struct weston_desktop_surface *dsurface =
+			shsurf->desktop_surface;
+
+		if (dsurface) {
 			bool is_maximized =
 				weston_desktop_surface_get_maximized(dsurface);
 			bool is_fullscreen =
 				weston_desktop_surface_get_fullscreen(dsurface);
 
-			set_shsurf_size_maximized_or_fullscreen(shsurf,
-								is_maximized,
-								is_fullscreen);
+			if (is_maximized || is_fullscreen) {
+				set_shsurf_size_maximized_or_fullscreen(shsurf,
+									is_maximized,
+									is_fullscreen);
+			}
 		}
 	}
 }
