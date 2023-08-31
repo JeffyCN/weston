@@ -524,7 +524,6 @@ pipewire_output_create(struct weston_compositor *c, char *name)
 	const struct weston_drm_virtual_output_api *api;
 	const char *make = "Weston";
 	const char *model = "Virtual Display";
-	const char *serial_number = "unknown";
 	const char *connector_name = "pipewire";
 	char *remoting_name;
 
@@ -566,7 +565,7 @@ pipewire_output_create(struct weston_compositor *c, char *name)
 	str_printf(&remoting_name, "%s-%s", connector_name, name);
 	weston_head_init(head, remoting_name);
 	weston_head_set_subpixel(head, WL_OUTPUT_SUBPIXEL_NONE);
-	weston_head_set_monitor_strings(head, make, model, serial_number);
+	weston_head_set_monitor_strings(head, make, model, NULL);
 	head->compositor = c;
 	output->head = head;
 
