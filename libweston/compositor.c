@@ -5929,7 +5929,7 @@ weston_head_init(struct weston_head *head, const char *name)
 	wl_list_init(&head->output_link);
 	wl_list_init(&head->resource_list);
 	wl_list_init(&head->xdg_output_resource_list);
-	head->name = strdup(name);
+	head->name = xstrdup(name);
 	head->supported_eotf_mask = WESTON_EOTF_MODE_SDR;
 	head->current_protection = WESTON_HDCP_DISABLE;
 }
@@ -6351,9 +6351,9 @@ weston_head_set_monitor_strings(struct weston_head *head,
 	free(head->model);
 	free(head->serial_number);
 
-	head->make = make ? strdup(make) : NULL;
-	head->model = model ? strdup(model) : NULL;
-	head->serial_number = serialno ? strdup(serialno) : NULL;
+	head->make = make ? xstrdup(make) : NULL;
+	head->model = model ? xstrdup(model) : NULL;
+	head->serial_number = serialno ? xstrdup(serialno) : NULL;
 
 	weston_head_set_device_changed(head);
 }
