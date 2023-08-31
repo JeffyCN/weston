@@ -5932,6 +5932,8 @@ weston_head_init(struct weston_head *head, const char *name)
 	head->name = xstrdup(name);
 	head->supported_eotf_mask = WESTON_EOTF_MODE_SDR;
 	head->current_protection = WESTON_HDCP_DISABLE;
+
+	weston_head_set_monitor_strings(head, NULL, NULL, NULL);
 }
 
 /** Send output heads changed signal
@@ -6325,9 +6327,9 @@ str_null_eq(const char *a, const char *b)
  *
  * \param head The head to modify.
  * \param make The monitor make. If EDID is available, the PNP ID. Otherwise
- * any string, or NULL for none.
+ * any string, or NULL for "unknown".
  * \param model The monitor model or name, or a made-up string, or NULL for
- * none.
+ * "unknown".
  * \param serialno The monitor serial number, a made-up string, or NULL for
  * none.
  *
@@ -6342,6 +6344,11 @@ weston_head_set_monitor_strings(struct weston_head *head,
 				const char *model,
 				const char *serialno)
 {
+	if (!make)
+		make = "unknown";
+	if (!model)
+		model = "unknown";
+
 	if (str_null_eq(head->make, make) &&
 	    str_null_eq(head->model, model) &&
 	    str_null_eq(head->serial_number, serialno))
@@ -6351,8 +6358,8 @@ weston_head_set_monitor_strings(struct weston_head *head,
 	free(head->model);
 	free(head->serial_number);
 
-	head->make = make ? xstrdup(make) : NULL;
-	head->model = model ? xstrdup(model) : NULL;
+	head->make = xstrdup(make);
+	head->model = xstrdup(model);
 	head->serial_number = serialno ? xstrdup(serialno) : NULL;
 
 	weston_head_set_device_changed(head);

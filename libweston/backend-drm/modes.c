@@ -599,8 +599,8 @@ update_head_from_connector(struct drm_head *head)
 
 	find_and_parse_output_edid(head, props, &dhi);
 
-	weston_head_set_monitor_strings(&head->base, dhi.make ?: "unknown",
-					dhi.model ?: "unknown",
+	weston_head_set_monitor_strings(&head->base, dhi.make,
+					dhi.model,
 					dhi.serial_number);
 
 	prune_eotf_modes_by_kms_support(head, &dhi.eotf_mask);
