@@ -1161,6 +1161,7 @@ handle_xdg_toplevel_configure(void *data, struct xdg_toplevel *toplevel,
 			  struct wl_array *states)
 {
 	struct wayland_output *output = data;
+	bool should_send_resize = false;
 
 	output->parent.configure_width = width;
 	output->parent.configure_height = height;
@@ -1175,10 +1176,16 @@ handle_xdg_toplevel_configure(void *data, struct xdg_toplevel *toplevel,
 			width -= left + right;
 			height -= top + bottom;
 		}
+
+		if (output->native_mode.width != width ||
+		    output->native_mode.height != height)
+			should_send_resize = true;
+
 		output->native_mode.width = width;
 		output->native_mode.height = height;
 
-		if (weston_output_mode_set_native(&output->base,
+		if (should_send_resize &&
+		    weston_output_mode_set_native(&output->base,
 						  &output->native_mode,
 						  output->base.current_scale) < 0) {
 			output->native_mode.width = output->mode.width;
