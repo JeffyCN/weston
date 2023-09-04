@@ -282,6 +282,39 @@ struct yuv_format_descriptor yuv_formats[] = {
 			.plane_index = 1
 		}}
 	}, {
+		.format = DRM_FORMAT_P010,
+		.output_planes = 2,
+		.shader_variant = SHADER_VARIANT_Y_UV,
+		{{
+			.format = DRM_FORMAT_R16,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_GR1616,
+			.plane_index = 1
+		}}
+	}, {
+		.format = DRM_FORMAT_P012,
+		.output_planes = 2,
+		.shader_variant = SHADER_VARIANT_Y_UV,
+		{{
+			.format = DRM_FORMAT_R16,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_GR1616,
+			.plane_index = 1
+		}}
+	}, {
+		.format = DRM_FORMAT_P016,
+		.output_planes = 2,
+		.shader_variant = SHADER_VARIANT_Y_UV,
+		{{
+			.format = DRM_FORMAT_R16,
+			.plane_index = 0
+		}, {
+			.format = DRM_FORMAT_GR1616,
+			.plane_index = 1
+		}}
+	}, {
 		.format = DRM_FORMAT_YUV420,
 		.output_planes = 3,
 		.shader_variant = SHADER_VARIANT_Y_U_V,
