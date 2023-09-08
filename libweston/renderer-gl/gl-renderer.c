@@ -3211,6 +3211,11 @@ gl_renderer_attach(struct weston_surface *es, struct weston_buffer *buffer)
 	struct gl_surface_state *gs = get_surface_state(es);
 	bool ret = false;
 
+	/* If get_surface_state called gl_renderer_create_surface, it did
+	 * attach the buffer */
+	if (gs->buffer_ref.buffer == buffer)
+		return;
+
 	/* SHM buffers are a little special in that they are allocated
 	 * per-surface rather than per-buffer, because we keep a shadow
 	 * copy of the SHM data in a GL texture; for these we need to
