@@ -23,8 +23,6 @@
  */
 #pragma once
 
-#include "config.h"
-#include "shared/helpers.h"
 #include <libweston/libweston.h>
 
 #ifdef __cplusplus

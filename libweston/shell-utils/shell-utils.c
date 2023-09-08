@@ -27,6 +27,7 @@
 #include "config.h"
 #include <libweston/shell-utils.h>
 #include <libweston/desktop.h>
+#include "shared/helpers.h"
 
 /**
  * \defgroup shell-utils Shell utils
