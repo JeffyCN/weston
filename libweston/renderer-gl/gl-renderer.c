@@ -3988,6 +3988,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR8888);
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 	if (gr->has_texture_type_2_10_10_10_rev) {
 		wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_ABGR2101010);
@@ -4164,9 +4165,9 @@ gl_renderer_setup(struct weston_compositor *ec)
 	}
 
 	if (weston_check_egl_extension(extensions, "GL_EXT_read_format_bgra"))
-		ec->read_format = pixel_format_get_info_by_pixman(PIXMAN_a8r8g8b8);
+		ec->read_format = pixel_format_get_info(DRM_FORMAT_ARGB8888);
 	else
-		ec->read_format = pixel_format_get_info_by_pixman(PIXMAN_a8b8g8r8);
+		ec->read_format = pixel_format_get_info(DRM_FORMAT_ABGR8888);
 
 	if (gr->gl_version < gr_gl_version(3, 0) &&
 	    !weston_check_egl_extension(extensions, "GL_EXT_unpack_subimage")) {
