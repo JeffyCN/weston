@@ -2359,6 +2359,9 @@ weston_view_unmap(struct weston_view *view)
 WL_EXPORT void
 weston_surface_map(struct weston_surface *surface)
 {
+	if (weston_surface_is_mapped(surface))
+		return;
+
 	surface->is_mapped = true;
 	surface->compositor->view_list_needs_rebuild = true;
 	weston_signal_emit_mutable(&surface->map_signal, surface);
