@@ -278,20 +278,6 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 	struct weston_compositor *ec = output->base.compositor;
 	struct rdp_backend *b = output->backend;
 	struct rdp_peers_item *peer;
-	struct timespec now, target;
-	int refresh_nsec = millihz_to_nsec(output_base->current_mode->refresh);
-	int64_t delay_nsec;
-
-	/* Calculate the time we should complete this frame such that frames
-	   are spaced out by the specified monitor refresh. Note that our timer
-	   mechanism only has msec precision, so we won't exactly hit our
-	   target refresh rate.
-	 */
-	weston_compositor_read_presentation_clock(ec, &now);
-
-	timespec_add_nsec(&target, &output_base->frame_time, refresh_nsec);
-
-	delay_nsec = CLIP(timespec_sub_to_nsec(&target, &now), 1, refresh_nsec);
 
 	assert(output);
 
@@ -313,8 +299,8 @@ rdp_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 		pixman_region32_fini(&transformed_damage);
 	}
 
-	wl_event_source_timer_update(output->finish_frame_timer,
-				     DIV_ROUND_UP(delay_nsec, 1000000));
+	weston_output_arm_frame_timer(output_base, output->finish_frame_timer);
+
 	return 0;
 }
 
