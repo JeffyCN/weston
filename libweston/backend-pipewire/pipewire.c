@@ -249,10 +249,6 @@ static int
 finish_frame_handler(void *data)
 {
 	struct pipewire_output *output = data;
-	int refresh_nsec = millihz_to_nsec(output->base.current_mode->refresh);
-	struct timespec ts;
-	struct timespec now;
-	int64_t delta;
 
 	/*
 	 * Skip weston_output_finish_frame() if the repaint state machine was
@@ -261,20 +257,7 @@ finish_frame_handler(void *data)
 	if (output->base.repaint_status != REPAINT_AWAITING_COMPLETION)
 		return 1;
 
-	/*
-	 * The timer only has msec precision, but if the approximately hit our
-	 * target, report an exact time stamp by adding to the previous frame
-	 * time.
-	 */
-	timespec_add_nsec(&ts,&output->base.frame_time, refresh_nsec);
-
-	/* If we are more than 1.5 ms late, report the current time instead. */
-	weston_compositor_read_presentation_clock(output->base.compositor, &now);
-	delta = timespec_sub_to_nsec(&now, &ts);
-	if (delta > 1500000)
-		ts = now;
-
-	weston_output_finish_frame(&output->base, &ts, 0);
+	weston_output_finish_frame_from_timer(&output->base);
 
 	return 1;
 }

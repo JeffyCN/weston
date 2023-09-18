@@ -9764,3 +9764,30 @@ weston_output_arm_frame_timer(struct weston_output *output,
 	wl_event_source_timer_update(frame_timer,
 				     DIV_ROUND_UP(delay_nsec, 1000000));
 }
+
+/** Helper to call weston_output_finish_frame() from frame timer callbacks
+ *
+ * \param output The output to call weston_output_finish_frame() for.
+ */
+WL_EXPORT void
+weston_output_finish_frame_from_timer(struct weston_output *output)
+{
+	int refresh_nsec = millihz_to_nsec(output->current_mode->refresh);
+	struct timespec ts;
+	struct timespec now;
+	int delta;
+
+	/* The timer only has msec precision, but if we approximately hit our
+	 * target, report an exact time stamp by adding to the previous frame
+	 * time.
+	 */
+	timespec_add_nsec(&ts, &output->frame_time, refresh_nsec);
+
+	/* If we are more than 1.5 ms late, report the current time instead. */
+	weston_compositor_read_presentation_clock(output->compositor, &now);
+	delta = (int)timespec_sub_to_nsec(&now, &ts);
+	if (delta > 1500000)
+		ts = now;
+
+	weston_output_finish_frame(output, &ts, 0);
+}

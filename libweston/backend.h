@@ -197,6 +197,8 @@ weston_output_get_hdr_metadata_type1(const struct weston_output *output);
 void
 weston_output_arm_frame_timer(struct weston_output *output,
 			      struct wl_event_source *frame_timer);
+void
+weston_output_finish_frame_from_timer(struct weston_output *output);
 
 /* weston_seat */
 
