@@ -194,6 +194,10 @@ weston_region_global_to_output(pixman_region32_t *dst,
 const struct weston_hdr_metadata_type1 *
 weston_output_get_hdr_metadata_type1(const struct weston_output *output);
 
+void
+weston_output_arm_frame_timer(struct weston_output *output,
+			      struct wl_event_source *frame_timer);
+
 /* weston_seat */
 
 void

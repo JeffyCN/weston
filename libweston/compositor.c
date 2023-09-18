@@ -9736,3 +9736,31 @@ weston_renderer_resize_output(struct weston_output *output,
 			   output->name);
 	}
 }
+
+/** Queue a frame timer callback
+ *
+ * \param output The output to queue a frame timer callback for.
+ * \param frame_timer The timer that calls weston_output_finish_frame().
+ *
+ * This function calculates the time when the current frame should be completed
+ * such that frames are spaced out evenly by the specified refresh rate.
+ */
+WL_EXPORT void
+weston_output_arm_frame_timer(struct weston_output *output,
+			      struct wl_event_source *frame_timer)
+{
+	struct weston_compositor *ec = output->compositor;
+	struct timespec now;
+	struct timespec target;
+	int refresh_nsec = millihz_to_nsec(output->current_mode->refresh);
+	int64_t delay_nsec;
+
+	weston_compositor_read_presentation_clock(ec, &now);
+	timespec_add_nsec(&target, &output->frame_time, refresh_nsec);
+
+	delay_nsec = CLIP(timespec_sub_to_nsec(&target, &now), 1, refresh_nsec);
+
+	/* The libwayland event source timer API only has msec precision. */
+	wl_event_source_timer_update(frame_timer,
+				     DIV_ROUND_UP(delay_nsec, 1000000));
+}
