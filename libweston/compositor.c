@@ -3078,6 +3078,9 @@ weston_compositor_build_view_list(struct weston_compositor *compositor,
 	wl_list_for_each(layer, &compositor->layer_list, link) {
 		bool system_layer = weston_compositor_is_system_layer(layer);
 
+		if (compositor->hide_cursor && layer == &compositor->cursor_layer)
+			continue;
+
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
 			if (compositor->warm_up && !system_layer) {
 				weston_log("seeing the first app\n");
