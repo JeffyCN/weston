@@ -1539,6 +1539,8 @@ struct weston_compositor {
 	struct weston_output *prefer_output;
 
 	bool warm_up;
+
+	bool hide_cursor;
 };
 
 struct weston_solid_buffer_values {
