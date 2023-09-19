@@ -3759,6 +3759,10 @@ weston_compositor_build_view_list(struct weston_compositor *compositor)
 	wl_list_init(&compositor->view_list);
 
 	wl_list_for_each(layer, &compositor->layer_list, link) {
+		/* Skip cursor layer to disable all cursor rendering */
+		if (compositor->hide_cursor && layer == &compositor->cursor_layer)
+			continue;
+
 		wl_list_for_each(view, &layer->view_list.link, layer_link.link) {
 			view_list_add(compositor, view);
 		}

@@ -1699,6 +1699,8 @@ struct weston_compositor {
 
 	/* Delay output display until first desktop surface (warm-up) */
 	bool lazy_output_ready;
+
+	bool hide_cursor;
 };
 
 struct weston_solid_buffer_values {
