@@ -428,24 +428,6 @@ x11_output_start_repaint_loop(struct weston_output *output)
 	return 0;
 }
 
-static void
-x11_output_arm_timer(struct x11_output *output)
-{
-	struct weston_compositor *ec = output->base.compositor;
-	struct timespec now;
-	struct timespec target;
-	int refresh_nsec = millihz_to_nsec(output->base.current_mode->refresh);
-	int64_t delay_nsec;
-
-	weston_compositor_read_presentation_clock(ec, &now);
-	timespec_add_nsec(&target, &output->base.frame_time, refresh_nsec);
-
-	delay_nsec = CLIP(timespec_sub_to_nsec(&target, &now), 1, refresh_nsec);
-
-	wl_event_source_timer_update(output->finish_frame_timer,
-				     DIV_ROUND_UP(delay_nsec, 1000000));
-}
-
 static int
 x11_output_repaint_gl(struct weston_output *output_base,
 		      pixman_region32_t *damage)
@@ -459,7 +441,7 @@ x11_output_repaint_gl(struct weston_output *output_base,
 
 	ec->renderer->repaint_output(output_base, damage, NULL);
 
-	x11_output_arm_timer(output);
+	weston_output_arm_frame_timer(output_base, output->finish_frame_timer);
 	return 0;
 }
 
@@ -552,7 +534,7 @@ x11_output_repaint_shm(struct weston_output *output_base,
 		free(err);
 	}
 
-	x11_output_arm_timer(output);
+	weston_output_arm_frame_timer(output_base, output->finish_frame_timer);
 	return 0;
 }
 
