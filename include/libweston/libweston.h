@@ -1544,6 +1544,8 @@ struct weston_compositor {
 	bool pin_output;
 
 	bool warm_up;
+
+	bool hide_cursor;
 };
 
 struct weston_solid_buffer_values {
