@@ -219,9 +219,15 @@ switching to the monitor preferred mode.
 \fB\-\-drm\-device\fR=\fIcardN\fR
 Use the DRM device
 .I cardN
-instead of the default heuristics based on seat assignments and boot VGA
+for rendering and output instead of the default heuristics based on seat assignments and boot VGA
 status. For example, use
 .BR card0 .
+.TP
+\fB\-\-additional\-devices\fR=\fIcardN\fR
+Comma separated list of secondary DRM devices
+.I cardM,cardN
+that will only be used as outputs, but not for rendering. For example, use
+.BR card1,card2 .
 .TP
 \fB\-\-seat\fR=\fIseatid\fR
 Use graphics and input devices designated for seat

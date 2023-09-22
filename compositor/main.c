@@ -708,7 +708,8 @@ usage(int error_code)
 	fprintf(out,
 		"Options for drm:\n\n"
 		"  --seat=SEAT\t\tThe seat that weston should run on, instead of the seat defined in XDG_SEAT\n"
-		"  --drm-device=CARD\tThe DRM device to use, e.g. \"card0\".\n"
+		"  --drm-device=CARD\tThe DRM device to use for rendering and output, e.g. \"card0\".\n"
+		"  --additional-devices=CARD\tSecondary DRM devices to use for output only, e.g. \"card1,card2\".\n"
 		"  --use-pixman\t\tUse the pixman (CPU) renderer (deprecated alias for --renderer=pixman)\n"
 		"  --current-mode\tPrefer current KMS mode over EDID preferred mode\n"
 		"  --continue-without-input\tAllow the compositor to start without input devices\n\n");
