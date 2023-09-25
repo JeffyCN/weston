@@ -9143,9 +9143,11 @@ weston_compositor_set_presentation_clock(struct weston_compositor *compositor,
 WL_EXPORT int
 weston_compositor_backends_loaded(struct weston_compositor *compositor)
 {
-	struct weston_backend *backend =
-		wl_container_of(compositor->backend_list.next, backend, link);
-	uint32_t supported_clocks = backend->supported_presentation_clocks;
+	struct weston_backend *backend;
+	uint32_t supported_clocks = 0xffffffff;
+
+	wl_list_for_each(backend, &compositor->backend_list, link)
+		supported_clocks &= backend->supported_presentation_clocks;
 
 	if (weston_compositor_set_presentation_clock(compositor,
 						     supported_clocks) < 0) {
