@@ -425,7 +425,7 @@ dmabuf_feedback_maybe_update(struct drm_device *device, struct weston_view *ev,
 
 	drm_debug(b, "\t[repaint] Need to update and resend the "
 		     "dma-buf feedback for surface of view %p\n", ev);
-	weston_dmabuf_feedback_send_all(dmabuf_feedback,
+	weston_dmabuf_feedback_send_all(b->compositor, dmabuf_feedback,
 					b->compositor->dmabuf_feedback_format_table);
 
 	/* Set the timer to off */

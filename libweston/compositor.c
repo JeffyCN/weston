@@ -2542,7 +2542,7 @@ weston_buffer_from_resource(struct weston_compositor *ec,
 
 		if (!buffer->pixel_format || buffer->pixel_format->hide_from_clients)
 			goto fail;
-	} else if ((dmabuf = linux_dmabuf_buffer_get(buffer->resource))) {
+	} else if ((dmabuf = linux_dmabuf_buffer_get(ec, buffer->resource))) {
 		buffer->type = WESTON_BUFFER_DMABUF;
 		buffer->dmabuf = dmabuf;
 		buffer->direct_display = dmabuf->direct_display;
