@@ -169,7 +169,7 @@ rm -rf pipewire-src
 git clone --depth=1 --branch 0.6.1 https://git.sr.ht/~kennylevinsen/seatd
 cd seatd
 meson build --wrap-mode=nofallback -Dauto_features=disabled \
-	-Dlibseat-seatd=enabled -Dlibseat-logind=systemd -Dserver=enabled
+	-Dserver=enabled
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf seatd

@@ -27,10 +27,6 @@ else
 	error('Bad versions in meson.build: libweston_major is too low')
 endif
 
-if not (get_option('deprecated-launcher-logind') or get_option('launcher-libseat'))
-       error('At least one launcher must be enabled')
-endif
-
 dir_prefix = get_option('prefix')
 dir_bin = dir_prefix / get_option('bindir')
 dir_data = dir_prefix / get_option('datadir')

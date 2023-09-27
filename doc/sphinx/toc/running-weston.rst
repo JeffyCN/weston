@@ -83,8 +83,7 @@ By default Weston will use the default seat named ``seat0``, but there's an
 option to specify which seat Weston must use by passing ``--seat`` argument.
 
 You can start Weston from a VT assuming that there's a seat manager supported by
-`libseat <https://sr.ht/~kennylevinsen/seatd>`_ running, such as ``seatd`` or
-`logind <https://www.freedesktop.org/wiki/Software/systemd/logind/>`_.  The
+`libseat <https://sr.ht/~kennylevinsen/seatd>`_ running, such as ``seatd``. The
 backend to be used by ``libseat`` can optionally be selected with
 ``$LIBSEAT_BACKEND``.  If ``libseat`` and ``seatd`` are both installed, but
 ``seatd`` is not already running, it can be started with ``sudo -- seatd -g
@@ -190,7 +189,7 @@ Running weston from a systemd service
 
 Weston could also be started, as a systemd user `service
 <https://www.freedesktop.org/software/systemd/man/systemd.service.html>`_,
-rather than as systemd system service, still relying on logind launcher.  In
+rather than as systemd system service.  In
 order to do that we would need two
 `unit <https://man7.org/linux/man-pages/man5/systemd.unit.5.html>`_ files,
 a ``.service`` and a ``.socket`` one.
