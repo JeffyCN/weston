@@ -164,6 +164,20 @@ option(
 )
 
 option(
+	'deprecated-launcher-logind',
+	type: 'boolean',
+	value: false,
+	description: 'DEPRECATED: Compositor: support systemd-logind D-Bus protocol (superseded by launcher-libseat)'
+)
+
+option(
+	'launcher-libseat',
+	type: 'boolean',
+	value: true,
+	description: 'Compositor: support libseat'
+)
+
+option(
 	'image-jpeg',
 	type: 'boolean',
 	value: true,

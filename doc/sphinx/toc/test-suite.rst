@@ -242,7 +242,12 @@ in parallel with other types of tests.
 
 Another specificity of DRM-backend tests is that they run using the non-default
 seat ``seat-weston-test``. This avoids unnecessarily opening input devices that
-may be present in the default seat ``seat0``.
+may be present in the default seat ``seat0``. On the other hand, this will make
+``launcher-logind`` fail, as we are trying to use a seat that is different from
+the one we are logged in. In the CI we do not rely on ``logind``, so it should
+fallback to ``launcher-direct`` anyway. It requires root, but this is also not a
+problem for the CI, as ``virtme`` starts as root. The problem is that to run
+the tests locally with a real hardware the users need to run as root.
 
 
 Writing tests

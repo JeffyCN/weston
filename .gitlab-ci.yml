@@ -394,6 +394,8 @@ aarch64-debian-container_prep:
       -Db_coverage=true
       -Dwerror=true
       -Dtest-skip-is-failure=true
+      -Dlauncher-libseat=true
+      -Ddeprecated-launcher-logind=true
       -Ddeprecated-color-management-static=true
       -Ddeprecated-color-management-colord=true
   after_script:
@@ -471,6 +473,7 @@ docs-build:
       -Dremoting=false
       -Dpipewire=false
       -Dwerror=true
+      -Dlauncher-libseat=true
 
 x86_64-debian-lts-no-gl-build:
   extends:
