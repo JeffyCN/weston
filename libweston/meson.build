@@ -167,10 +167,6 @@ srcs_session_helper = [
 ]
 deps_session_helper = [ dep_libweston_private_h ]
 
-if get_option('backend-drm')
-	deps_session_helper += dep_libdrm
-endif
-
 systemd_dep = dependency('', required: false)
 
 subdir('dbus')
