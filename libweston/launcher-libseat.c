@@ -40,7 +40,6 @@
 
 #include <libseat.h>
 
-#include <libweston/dbus.h>
 #include <libweston/libweston.h>
 #include <libweston/weston-log.h>
 #include "weston-log-internal.h"
