@@ -162,57 +162,28 @@ pkgconfig.generate(
 	install_dir: dir_data_pc
 )
 
-srcs_session_helper = [
-	'launcher-util.c',
-]
-deps_session_helper = [ dep_libweston_private_h ]
-
-systemd_dep = dependency('', required: false)
-
 subdir('dbus')
 
-if get_option('deprecated-launcher-logind')
-	if not get_option('dbus')
-		error('dbus support is required for deprecated-launcher-logind')
-	endif
-
-	systemd_dep = dependency('libsystemd', version: '>= 209', required: false)
-	if not systemd_dep.found()
-		error('logind support requires libsystemd >= 209. Or, you can use \'-Ddeprecated-launcher-logind=false\'')
-	endif
-
-	config_h.set('HAVE_SYSTEMD_LOGIN', '1')
-
-	srcs_session_helper += [
-		'launcher-logind.c',
-	]
-	deps_session_helper += [
-		dep_dbus,
-		systemd_dep,
-	]
-
-	warning('deprecated-launcher-logind is enabled. This will go away, see https://gitlab.freedesktop.org/wayland/weston/-/issues/488')
-endif
-if get_option('launcher-libseat')
+if get_option('backend-drm')
 	dep_libseat = dependency('libseat', version: '>= 0.4')
-	config_h.set('HAVE_LIBSEAT', '1')
-	srcs_session_helper += [
+	srcs_session_helper = [
 		'launcher-libseat.c',
+		'launcher-util.c',
 	]
-	deps_session_helper += [
+	deps_session_helper = [
 		dep_libseat,
+		dep_libweston_private_h,
 	]
+
+	lib_session_helper = static_library(
+		'session-helper',
+		srcs_session_helper,
+		include_directories: common_inc,
+		dependencies: deps_session_helper,
+		install: false
+	)
+	dep_session_helper = declare_dependency(link_with: lib_session_helper)
 endif
-
-lib_session_helper = static_library(
-	'session-helper',
-	srcs_session_helper,
-	include_directories: common_inc,
-	dependencies: deps_session_helper,
-	install: false
-)
-dep_session_helper = declare_dependency(link_with: lib_session_helper)
-
 
 lib_libinput_backend = static_library(
 	'libinput-backend',

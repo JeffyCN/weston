@@ -201,7 +201,7 @@ Running weston from a systemd service
 
 Weston could also be started, as a systemd user `service
 <https://www.freedesktop.org/software/systemd/man/systemd.service.html>`_,
-rather than as systemd system service, still relying on logind launcher.  In
+rather than as systemd system service.  In
 order to do that we would need two
 `unit <https://man7.org/linux/man-pages/man5/systemd.unit.5.html>`_ files,
 a ``.service`` and a ``.socket`` one.

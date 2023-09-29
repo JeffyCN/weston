@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS-$FDO_DISTRIBUTION_VERSION/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2023-07-19-bump-wayland-to-1.22'
+  FDO_DISTRIBUTION_TAG: '2023-09-28-remove_logind'
 
 
 include:
@@ -394,8 +394,6 @@ aarch64-debian-container_prep:
       -Db_coverage=true
       -Dwerror=true
       -Dtest-skip-is-failure=true
-      -Dlauncher-libseat=true
-      -Ddeprecated-launcher-logind=true
       -Ddeprecated-color-management-static=true
       -Ddeprecated-color-management-colord=true
   after_script:
@@ -473,7 +471,6 @@ docs-build:
       -Dremoting=false
       -Dpipewire=false
       -Dwerror=true
-      -Dlauncher-libseat=true
 
 x86_64-debian-lts-no-gl-build:
   extends:
