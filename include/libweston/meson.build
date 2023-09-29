@@ -21,7 +21,6 @@ backend_vnc_h =      files('backend-vnc.h')
 backend_wayland_h =  files('backend-wayland.h')
 backend_x11_h =      files('backend-x11.h')
 
-dbus_h =         files('dbus.h')
 xwayland_api_h = files('xwayland-api.h')
 
 libweston_version_h = configuration_data()

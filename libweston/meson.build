@@ -162,8 +162,6 @@ pkgconfig.generate(
 	install_dir: dir_data_pc
 )
 
-subdir('dbus')
-
 if get_option('backend-drm')
 	dep_libseat = dependency('libseat', version: '>= 0.4')
 	srcs_session_helper = [

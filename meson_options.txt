@@ -157,13 +157,6 @@ option(
 )
 
 option(
-	'dbus',
-	type: 'boolean',
-	value: true,
-	description: 'D-Bus protocol support'
-)
-
-option(
 	'image-jpeg',
 	type: 'boolean',
 	value: true,
