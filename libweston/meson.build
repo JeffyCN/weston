@@ -198,13 +198,13 @@ if get_option('deprecated-launcher-logind')
 	warning('deprecated-launcher-logind is enabled. This will go away, see https://gitlab.freedesktop.org/wayland/weston/-/issues/488')
 endif
 if get_option('launcher-libseat')
-	libseat_dep = dependency('libseat', version: '>= 0.4')
+	dep_libseat = dependency('libseat', version: '>= 0.4')
 	config_h.set('HAVE_LIBSEAT', '1')
 	srcs_session_helper += [
 		'launcher-libseat.c',
 	]
 	deps_session_helper += [
-		libseat_dep,
+		dep_libseat,
 	]
 endif
 
