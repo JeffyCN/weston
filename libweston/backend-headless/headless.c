@@ -559,55 +559,57 @@ headless_backend_create(struct weston_compositor *compositor,
 	b->formats_count = ARRAY_LENGTH(headless_formats);
 	b->formats = pixel_format_get_array(headless_formats, b->formats_count);
 
-	switch (config->renderer) {
-	case WESTON_RENDERER_GL: {
-		const struct gl_renderer_display_options options = {
-			.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
-			.egl_native_display = NULL,
-			.formats = b->formats,
-			.formats_count = b->formats_count,
-		};
-		ret = weston_compositor_init_renderer(compositor,
-						      WESTON_RENDERER_GL,
-						      &options.base);
-		break;
-	}
-	case WESTON_RENDERER_PIXMAN:
-		if (config->decorate) {
-			weston_log("Error: Pixman renderer does not support decorations.\n");
-			goto err_input;
+	if (!compositor->renderer) {
+		switch (config->renderer) {
+		case WESTON_RENDERER_GL: {
+			const struct gl_renderer_display_options options = {
+				.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+				.egl_native_display = NULL,
+				.formats = b->formats,
+				.formats_count = b->formats_count,
+			};
+			ret = weston_compositor_init_renderer(compositor,
+							      WESTON_RENDERER_GL,
+							      &options.base);
+			break;
 		}
-		ret = weston_compositor_init_renderer(compositor,
-						      WESTON_RENDERER_PIXMAN,
-						      NULL);
-		break;
-	case WESTON_RENDERER_AUTO:
-	case WESTON_RENDERER_NOOP:
-		if (config->decorate) {
-			weston_log("Error: no-op renderer does not support decorations.\n");
-			goto err_input;
+		case WESTON_RENDERER_PIXMAN:
+			if (config->decorate) {
+				weston_log("Error: Pixman renderer does not support decorations.\n");
+				goto err_input;
+			}
+			ret = weston_compositor_init_renderer(compositor,
+							      WESTON_RENDERER_PIXMAN,
+							      NULL);
+			break;
+		case WESTON_RENDERER_AUTO:
+		case WESTON_RENDERER_NOOP:
+			if (config->decorate) {
+				weston_log("Error: no-op renderer does not support decorations.\n");
+				goto err_input;
+			}
+			ret = noop_renderer_init(compositor);
+			break;
+		default:
+			weston_log("Error: unsupported renderer\n");
+			break;
 		}
-		ret = noop_renderer_init(compositor);
-		break;
-	default:
-		weston_log("Error: unsupported renderer\n");
-		break;
-	}
 
-	if (ret < 0)
-		goto err_input;
-
-	if (compositor->renderer->import_dmabuf) {
-		if (linux_dmabuf_setup(compositor) < 0) {
-			weston_log("Error: dmabuf protocol setup failed.\n");
+		if (ret < 0)
 			goto err_input;
-		}
-	}
 
-	/* Support zwp_linux_explicit_synchronization_unstable_v1 to enable
-	 * testing. */
-	if (linux_explicit_synchronization_setup(compositor) < 0)
-		goto err_input;
+		if (compositor->renderer->import_dmabuf) {
+			if (linux_dmabuf_setup(compositor) < 0) {
+				weston_log("Error: dmabuf protocol setup failed.\n");
+				goto err_input;
+			}
+		}
+
+		/* Support zwp_linux_explicit_synchronization_unstable_v1 to enable
+		 * testing. */
+		if (linux_explicit_synchronization_setup(compositor) < 0)
+			goto err_input;
+	}
 
 	ret = weston_plugin_api_register(compositor, WESTON_WINDOWED_OUTPUT_API_NAME,
 					 &api, sizeof(api));
@@ -644,11 +646,6 @@ weston_backend_init(struct weston_compositor *compositor,
 	    config_base->struct_version != WESTON_HEADLESS_BACKEND_CONFIG_VERSION ||
 	    config_base->struct_size > sizeof(struct weston_headless_backend_config)) {
 		weston_log("headless backend config structure is invalid\n");
-		return -1;
-	}
-
-	if (compositor->renderer) {
-		weston_log("headless backend must be the primary backend\n");
 		return -1;
 	}
 
