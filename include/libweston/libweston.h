@@ -459,6 +459,8 @@ struct weston_output {
 	uint32_t id;
 	char *name;
 
+	struct weston_backend *backend;
+
 	/** Matches the lifetime from the user perspective */
 	struct wl_signal user_destroy_signal;
 

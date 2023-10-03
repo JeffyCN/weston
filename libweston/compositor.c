@@ -1350,12 +1350,19 @@ weston_surface_assign_output(struct weston_surface *es)
 		 * Switch to an output with either larger intersection area or
 		 * to an output that is active from an inactive output.
 		 */
-		if (area >= max ||
+		if (area > max ||
 		    (new_output &&
 		     new_output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF &&
 		     view->output->power_state != WESTON_OUTPUT_POWER_FORCED_OFF)) {
 			new_output = view->output;
 			max = area;
+			continue;
+		}
+
+		/* All else being equal, prefer the primary backend */
+		if (area == max && new_output &&
+		    view->output->backend == es->compositor->primary_backend) {
+			new_output = view->output;
 		}
 	}
 	pixman_region32_fini(&region);
@@ -1413,9 +1420,16 @@ weston_view_assign_output(struct weston_view *ev)
 		/* If our current best pick is turned off, anything with
 		 * coverage is better, otherwise only switch to increase area. */
 		if ((new_output && new_output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF) ||
-		    area >= new_output_area) {
+		    area > new_output_area) {
 			new_output = output;
 			new_output_area = area;
+			continue;
+		}
+
+		/* All else being equal, prefer the primary backend */
+		if (new_output && new_output_area == area &&
+		    output->backend == ec->primary_backend) {
+			new_output = output;
 		}
 	}
 	pixman_region32_fini(&region);
@@ -7999,6 +8013,8 @@ weston_compositor_create_output(struct weston_compositor *compositor,
 		weston_output_destroy(output);
 		return NULL;
 	}
+
+	output->backend = head->backend;
 
 	return output;
 }
