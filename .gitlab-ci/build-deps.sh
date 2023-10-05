@@ -181,7 +181,7 @@ meson build --wrap-mode=nofallback
 ninja ${NINJAFLAGS} -C build install
 cd ..
 rm -rf aml
-git clone --branch v0.6.0 --depth=1 https://github.com/any1/neatvnc.git
+git clone --branch v0.7.0 --depth=1 https://github.com/any1/neatvnc.git
 cd neatvnc
 meson build --wrap-mode=nofallback -Dauto_features=disabled
 ninja ${NINJAFLAGS} -C build install

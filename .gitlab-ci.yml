@@ -43,7 +43,7 @@
 variables:
   FDO_UPSTREAM_REPO: wayland/weston
   FDO_REPO_SUFFIX: "$BUILD_OS-$FDO_DISTRIBUTION_VERSION/$BUILD_ARCH"
-  FDO_DISTRIBUTION_TAG: '2023-09-28-remove_logind'
+  FDO_DISTRIBUTION_TAG: '2023-10-05-neatvnc-0.7.0'
 
 
 include:

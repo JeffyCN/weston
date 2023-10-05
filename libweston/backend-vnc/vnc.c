@@ -1248,8 +1248,15 @@ vnc_backend_create(struct weston_compositor *compositor,
 		goto err_output;
 	}
 
-	ret = nvnc_enable_auth(backend->server, config->server_key,
-			       config->server_cert, vnc_handle_auth,
+	ret = nvnc_set_tls_creds(backend->server, config->server_key,
+				 config->server_cert);
+	if (ret) {
+		weston_log("Failed set TLS credentials\n");
+		goto err_output;
+	}
+
+	ret = nvnc_enable_auth(backend->server, NVNC_AUTH_REQUIRE_AUTH |
+			       NVNC_AUTH_REQUIRE_ENCRYPTION, vnc_handle_auth,
 			       NULL);
 	if (ret) {
 		weston_log("Failed to enable TLS support\n");
