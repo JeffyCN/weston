@@ -42,6 +42,19 @@ to ship a file containing a certificate.
 The file containing the certificate for doing TLS security. To have TLS security you also need
 to ship a key file.
 
+.SS Section output
+.TP
+\fBname\fR=\fIvnc\fR
+The name
+.BR vnc
+is used to identify the VNC output.
+.TP
+\fBmode\fR=\fIwidth\fBx\fIheight\fR
+Specifies the (initial) size for the output.
+.TP
+\fBresizeable\fR=\fIboolean\fR
+Specifies whether the VNC client is allowed to resize the output.
+
 .\" ***************************************************************
 .SH OPTIONS
 .
