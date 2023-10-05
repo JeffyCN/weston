@@ -92,6 +92,8 @@ struct vnc_output {
 	struct nvnc_fb_pool *fb_pool;
 
 	struct wl_list peers;
+
+	bool resizeable;
 };
 
 struct vnc_peer {
@@ -400,13 +402,16 @@ vnc_handle_desktop_layout_event(struct nvnc_client *client,
 
 	vnc_log_desktop_layout(peer->backend, layout);
 
+	if (!output->resizeable)
+		return false;
+
 	new_mode.width = width;
 	new_mode.height = height;
 	new_mode.refresh = peer->backend->vnc_monitor_refresh_rate;
 
 	weston_output_mode_set_native(&output->base, &new_mode, 1);
 
-	return false;
+	return true;
 }
 
 static void
@@ -1140,7 +1145,8 @@ vnc_switch_mode(struct weston_output *base, struct weston_mode *target_mode)
 }
 
 static int
-vnc_output_set_size(struct weston_output *base, int width, int height)
+vnc_output_set_size(struct weston_output *base, int width, int height,
+		    bool resizeable)
 {
 	struct vnc_output *output = to_vnc_output(base);
 	struct vnc_backend *backend = output->backend;
@@ -1163,6 +1169,8 @@ vnc_output_set_size(struct weston_output *base, int width, int height)
 	output->base.set_backlight = NULL;
 	output->base.set_dpms = NULL;
 	output->base.switch_mode = vnc_switch_mode;
+
+	output->resizeable = resizeable;
 
 	return 0;
 }

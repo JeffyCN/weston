@@ -3444,6 +3444,7 @@ vnc_backend_output_configure(struct weston_output *output)
 	struct weston_config_section *section;
 	int width;
 	int height;
+	bool resizeable;
 
 	assert(parsed_options);
 
@@ -3457,10 +3458,12 @@ vnc_backend_output_configure(struct weston_output *output)
 	parse_simple_mode(output, section, &width, &height, &defaults,
 			  compositor->parsed_options);
 
+	weston_config_section_get_bool(section, "resizeable", &resizeable, true);
+
 	weston_output_set_scale(output, 1);
 	weston_output_set_transform(output, WL_OUTPUT_TRANSFORM_NORMAL);
 
-	if (api->output_set_size(output, width, height) < 0) {
+	if (api->output_set_size(output, width, height, resizeable) < 0) {
 		weston_log("Cannot configure output \"%s\" using weston_vnc_output_api.\n",
 			   output->name);
 		return -1;

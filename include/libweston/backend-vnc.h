@@ -33,7 +33,7 @@ extern "C" {
 #include <libweston/libweston.h>
 #include <libweston/plugin-registry.h>
 
-#define WESTON_VNC_OUTPUT_API_NAME "weston_vnc_output_api_v1"
+#define WESTON_VNC_OUTPUT_API_NAME "weston_vnc_output_api_v2"
 #define VNC_DEFAULT_FREQ 60
 
 struct weston_vnc_output_api {
@@ -42,7 +42,7 @@ struct weston_vnc_output_api {
 	 * Returns 0 on success, -1 on failure.
 	 */
 	int (*output_set_size)(struct weston_output *output,
-			       int width, int height);
+			       int width, int height, bool resizeable);
 };
 
 static inline const struct weston_vnc_output_api *
