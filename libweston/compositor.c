@@ -3108,7 +3108,7 @@ static void
 output_update_visibility(struct weston_output *output)
 {
 	struct weston_compositor *ec = output->compositor;
-	struct weston_plane *plane;
+	struct weston_plane *plane, *pnode_plane;
 	struct weston_paint_node *pnode;
 	pixman_region32_t opaque, clip;
 
@@ -3119,7 +3119,8 @@ output_update_visibility(struct weston_output *output)
 
 		wl_list_for_each(pnode, &output->paint_node_z_order_list,
 				 z_order_link) {
-			if (pnode->plane != plane)
+			pnode_plane = pnode->plane_next ?: pnode->plane;
+			if (pnode_plane != plane)
 				continue;
 
 			view_update_visible(pnode->view, &opaque);
