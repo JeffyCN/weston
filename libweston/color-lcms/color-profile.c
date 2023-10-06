@@ -442,6 +442,17 @@ err_close:
 	return false;
 }
 
+struct weston_color_profile *
+cmlcms_get_stock_sRGB_color_profile(struct weston_color_manager *cm_base)
+{
+	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
+	struct cmlcms_color_profile *cprof;
+
+	cprof = ref_cprof(cm->sRGB_profile);
+
+	return &cprof->base;
+}
+
 bool
 cmlcms_get_color_profile_from_icc(struct weston_color_manager *cm_base,
 				  const void *icc_data,

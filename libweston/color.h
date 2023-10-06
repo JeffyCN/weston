@@ -262,6 +262,14 @@ struct weston_color_manager {
 	void
 	(*destroy_color_profile)(struct weston_color_profile *cprof);
 
+	/** Gets a reference to the stock sRGB color profile
+	 *
+	 * \param cm The color manager.
+	 * \return A reference to the stock sRGB profile, never returns NULL.
+	 */
+	struct weston_color_profile *
+	(*get_stock_sRGB_color_profile)(struct weston_color_manager *cm);
+
 	/** Create a color profile from ICC data
 	 *
 	 * \param cm The color manager.

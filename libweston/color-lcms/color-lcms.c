@@ -457,6 +457,7 @@ weston_color_manager_create(struct weston_compositor *compositor)
 	cm->base.init = cmlcms_init;
 	cm->base.destroy = cmlcms_destroy;
 	cm->base.destroy_color_profile = cmlcms_destroy_color_profile;
+	cm->base.get_stock_sRGB_color_profile = cmlcms_get_stock_sRGB_color_profile;
 	cm->base.get_color_profile_from_icc = cmlcms_get_color_profile_from_icc;
 	cm->base.destroy_color_transform = cmlcms_destroy_color_transform;
 	cm->base.get_surface_color_transform = cmlcms_get_surface_color_transform;

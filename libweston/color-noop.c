@@ -64,6 +64,16 @@ get_cprof(struct weston_color_profile *cprof_base)
 	return container_of(cprof_base, struct cmnoop_color_profile, base);
 }
 
+static struct cmnoop_color_profile *
+ref_cprof(struct cmnoop_color_profile *cprof)
+{
+	if (!cprof)
+		return NULL;
+
+	weston_color_profile_ref(&cprof->base);
+	return cprof;
+}
+
 static void
 unref_cprof(struct cmnoop_color_profile *cprof)
 {
@@ -99,6 +109,17 @@ cmnoop_color_profile_create(struct weston_color_manager_noop *cm, char *desc)
 	cprof->base.description = desc;
 
 	return cprof;
+}
+
+static struct weston_color_profile *
+cmnoop_get_stock_sRGB_color_profile(struct weston_color_manager *cm_base)
+{
+	struct weston_color_manager_noop *cm = get_cmnoop(cm_base);
+	struct cmnoop_color_profile *cprof;
+
+	cprof = ref_cprof(cm->stock_cprof);
+
+	return &cprof->base;
 }
 
 static bool
@@ -213,6 +234,7 @@ weston_color_manager_noop_create(struct weston_compositor *compositor)
 	cm->base.init = cmnoop_init;
 	cm->base.destroy = cmnoop_destroy;
 	cm->base.destroy_color_profile = cmnoop_destroy_color_profile;
+	cm->base.get_stock_sRGB_color_profile = cmnoop_get_stock_sRGB_color_profile;
 	cm->base.get_color_profile_from_icc = cmnoop_get_color_profile_from_icc;
 	cm->base.destroy_color_transform = cmnoop_destroy_color_transform;
 	cm->base.get_surface_color_transform = cmnoop_get_surface_color_transform;
