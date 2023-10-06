@@ -2785,6 +2785,8 @@ remoted_output_init(struct weston_compositor *c,
 		goto err;
 	}
 
+	weston_output_lazy_align(output);
+
 	if (weston_output_enable(output) < 0) {
 		weston_log("Enabling remoted output \"%s\" failed.\n",
 			   output_name);
@@ -2915,6 +2917,8 @@ pipewire_output_init(struct weston_compositor *c,
 			   output_name);
 		goto err;
 	}
+
+	weston_output_lazy_align(output);
 
 	if (weston_output_enable(output) < 0) {
 		weston_log("Enabling pipewire output \"%s\" failed.\n",
@@ -4269,8 +4273,6 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		goto out;
 	}
 
-	load_additional_modules(wet);
-
 	weston_compositor_flush_heads_changed(wet.compositor);
 	if (wet.init_failed)
 		goto out;
@@ -4337,6 +4339,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 
 	if (load_modules(wet.compositor, option_modules, &argc, argv) < 0)
 		goto out;
+
+	load_additional_modules(wet);
 
 	section = weston_config_get_section(config, "keyboard", NULL, NULL);
 	weston_config_section_get_bool(section, "numlock-on", &numlock_on, false);
