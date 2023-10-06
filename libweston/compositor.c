@@ -905,7 +905,7 @@ WL_EXPORT struct weston_coord_global
 weston_coord_global_clamp_for_output(struct weston_coord_global pos,
                                      const struct weston_output *output)
 {
-	struct weston_coord_global clamped_pos;
+	struct weston_coord_global clamped_pos = pos;
 	double quantum = 1.0 / 1024.0;
 	int x = pos.c.x;
 	int y = pos.c.y;
