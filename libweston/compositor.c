@@ -7170,6 +7170,8 @@ weston_output_set_color_outcome(struct weston_output *output)
 	struct weston_color_manager *cm = output->compositor->color_manager;
 	struct weston_output_color_outcome *colorout;
 
+	assert(output->color_profile);
+
 	colorout = cm->create_output_color_outcome(cm, output);
 	if (!colorout) {
 		weston_log("Creating color transformation for output \"%s\" failed.\n",
@@ -7412,11 +7414,17 @@ WL_EXPORT bool
 weston_output_set_color_profile(struct weston_output *output,
 				struct weston_color_profile *cprof)
 {
+	struct weston_color_manager *cm = output->compositor->color_manager;
 	struct weston_color_profile *old;
 	struct weston_paint_node *pnode;
 
 	old = output->color_profile;
-	output->color_profile = weston_color_profile_ref(cprof);
+
+	if (!cprof) {
+		output->color_profile = cm->get_stock_sRGB_color_profile(cm);
+	} else {
+		output->color_profile = weston_color_profile_ref(cprof);
+	}
 
 	if (output->enabled) {
 		if (!weston_output_set_color_outcome(output)) {
@@ -7603,6 +7611,8 @@ weston_output_init(struct weston_output *output,
 		   struct weston_compositor *compositor,
 		   const char *name)
 {
+	struct weston_color_manager *cm;
+
 	output->pos.c = weston_coord(0, 0);
 	output->compositor = compositor;
 	output->destroying = 0;
@@ -7636,6 +7646,11 @@ weston_output_init(struct weston_output *output,
 	weston_plane_init(&output->primary_plane, compositor);
 	weston_compositor_stack_plane(compositor,
 				      &output->primary_plane, NULL);
+
+	/* Set the stock sRGB color profile for the output. Libweston users are
+	 * free to set the color profile to whatever they want later on. */
+	cm = compositor->color_manager;
+	output->color_profile = cm->get_stock_sRGB_color_profile(cm);
 }
 
 /** Adds weston_output object to pending output list.
@@ -7949,7 +7964,12 @@ weston_output_release(struct weston_output *output)
 	if (output->enabled)
 		weston_compositor_remove_output(output);
 
+	/* We always have a color profile set, as weston_output_init() sets the
+	 * output cprof to the stock sRGB one. */
+	assert(output->color_profile);
 	weston_color_profile_unref(output->color_profile);
+	output->color_profile = NULL;
+
 	assert(output->color_outcome == NULL);
 
 	pixman_region32_fini(&output->region);

@@ -304,13 +304,7 @@ cmlcms_create_output_color_outcome(struct weston_color_manager *cm_base,
 	if (!cmlcms_get_hdr_meta(output, &co->hdr_meta))
 		goto out_fail;
 
-	/*
-	 * TODO: if output->color_profile is NULL, maybe manufacture a
-	 * profile from weston_color_characteristics if it has enough
-	 * information?
-	 * Or let the frontend decide to call a "create a profile from
-	 * characteristics" API?
-	 */
+	assert(output->color_profile);
 
 	/* TODO: take container color space into account */
 

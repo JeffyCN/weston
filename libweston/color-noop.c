@@ -146,8 +146,12 @@ cmnoop_get_surface_color_transform(struct weston_color_manager *cm_base,
 				   struct weston_output *output,
 				   struct weston_surface_color_transform *surf_xform)
 {
-	/* TODO: Assert surface has no colorspace set */
-	assert(output->color_profile == NULL);
+	struct weston_color_manager_noop *cmnoop = get_cmnoop(cm_base);
+
+	/* TODO: Assert that, if the surface has a cprof, it is the stock one */
+
+	assert(output->color_profile &&
+	       get_cprof(output->color_profile) == cmnoop->stock_cprof);
 
 	if (!check_output_eotf_mode(output))
 		return false;
@@ -163,9 +167,11 @@ static struct weston_output_color_outcome *
 cmnoop_create_output_color_outcome(struct weston_color_manager *cm_base,
 				   struct weston_output *output)
 {
+	struct weston_color_manager_noop *cmnoop = get_cmnoop(cm_base);
 	struct weston_output_color_outcome *co;
 
-	assert(output->color_profile == NULL);
+	assert(output->color_profile &&
+	       get_cprof(output->color_profile) == cmnoop->stock_cprof);
 
 	if (!check_output_eotf_mode(output))
 		return NULL;
