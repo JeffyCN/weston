@@ -229,21 +229,13 @@ cmlcms_get_hdr_meta(struct weston_output *output,
 {
 	const struct weston_color_characteristics *cc;
 
+	/* TODO: get color characteristics from color profiles instead. */
+
 	hdr_meta->group_mask = 0;
 
 	/* Only SMPTE ST 2084 mode uses HDR Static Metadata Type 1 */
 	if (weston_output_get_eotf_mode(output) != WESTON_EOTF_MODE_ST2084)
 		return true;
-
-	/* ICC profile overrides color characteristics */
-	if (output->color_profile) {
-		/*
-		 * TODO: extract characteristics from profile?
-		 * Get dynamic range from weston_color_characteristics?
-		 */
-
-		return true;
-	}
 
 	cc = weston_output_get_color_characteristics(output);
 
