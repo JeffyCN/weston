@@ -36,6 +36,7 @@
 #include "libweston-internal.h"
 #include "backend.h"
 #include "color.h"
+#include "shared/xalloc.h"
 
 struct config_testcase {
 	bool has_characteristics_key;
@@ -148,6 +149,46 @@ create_config(const struct config_testcase *t)
 	return wc;
 }
 
+struct mock_color_manager {
+	struct weston_color_manager base;
+	struct weston_hdr_metadata_type1 *test_hdr_meta;
+};
+
+static struct weston_output_color_outcome *
+mock_create_output_color_outcome(struct weston_color_manager *cm_base,
+				 struct weston_output *output)
+{
+	struct mock_color_manager *cm = container_of(cm_base, typeof(*cm), base);
+	struct weston_output_color_outcome *co;
+
+	co = xzalloc(sizeof *co);
+
+	co->hdr_meta = *cm->test_hdr_meta;
+
+	return co;
+}
+
+static struct weston_color_profile *
+mock_cm_get_stock_sRGB_color_profile(struct weston_color_manager *mock_cm)
+{
+	struct weston_color_profile *mock_cprof;
+
+	mock_cprof = xzalloc(sizeof(*mock_cprof));
+
+	mock_cprof->cm = mock_cm;
+	mock_cprof->ref_count = 1;
+	mock_cprof->description = xstrdup("mock cprof");
+
+	return mock_cprof;
+}
+
+static void
+mock_cm_destroy_color_profile(struct weston_color_profile *mock_cprof)
+{
+	free(mock_cprof->description);
+	free(mock_cprof);
+}
+
 /*
  * Manufacture various weston.ini and check what
  * wet_output_set_color_characteristics() says. Tests for the return value and
@@ -161,9 +202,18 @@ TEST_P(color_characteristics_config_error, config_cases)
 	int retval;
 	char *logbuf;
 	size_t logsize;
+	struct mock_color_manager mock_cm = {
+		.base.create_output_color_outcome = mock_create_output_color_outcome,
+		.base.get_stock_sRGB_color_profile = mock_cm_get_stock_sRGB_color_profile,
+		.base.destroy_color_profile = mock_cm_destroy_color_profile,
+	};
+	struct weston_compositor mock_compositor = {
+		.color_manager = &mock_cm.base,
+	};
 	struct weston_output mock_output = {};
 
-	weston_output_init(&mock_output, NULL, "mockoutput");
+	wl_list_init(&mock_compositor.plane_list);
+	weston_output_init(&mock_output, &mock_compositor, "mockoutput");
 
 	logfile = open_memstream(&logbuf, &logsize);
 	weston_log_set_handler(logger, logger);
@@ -190,9 +240,18 @@ TEST_P(color_characteristics_config_error, config_cases)
 /* Setting NULL resets group_mask */
 TEST(weston_output_set_color_characteristics_null)
 {
+	struct mock_color_manager mock_cm = {
+		.base.create_output_color_outcome = mock_create_output_color_outcome,
+		.base.get_stock_sRGB_color_profile = mock_cm_get_stock_sRGB_color_profile,
+		.base.destroy_color_profile = mock_cm_destroy_color_profile,
+	};
+	struct weston_compositor mock_compositor = {
+		.color_manager = &mock_cm.base,
+	};
 	struct weston_output mock_output = {};
 
-	weston_output_init(&mock_output, NULL, "mockoutput");
+	wl_list_init(&mock_compositor.plane_list);
+	weston_output_init(&mock_output, &mock_compositor, "mockoutput");
 
 	mock_output.color_characteristics.group_mask = 1;
 	weston_output_set_color_characteristics(&mock_output, NULL);
@@ -232,26 +291,6 @@ static const struct value_testcase value_cases[] = {
 	{ 11, 65535.1, false },
 };
 
-struct mock_color_manager {
-	struct weston_color_manager base;
-	struct weston_hdr_metadata_type1 *test_hdr_meta;
-};
-
-static struct weston_output_color_outcome *
-mock_create_output_color_outcome(struct weston_color_manager *cm_base,
-				 struct weston_output *output)
-{
-	struct mock_color_manager *cm = container_of(cm_base, typeof(*cm), base);
-	struct weston_output_color_outcome *co;
-
-	co = zalloc(sizeof *co);
-	assert(co);
-
-	co->hdr_meta = *cm->test_hdr_meta;
-
-	return co;
-}
-
 /*
  * Modify one value in a known good metadata structure, and see how
  * validation reacts to it.
@@ -280,6 +319,8 @@ TEST_P(hdr_metadata_type1_errors, value_cases)
 	};
 	struct mock_color_manager mock_cm = {
 		.base.create_output_color_outcome = mock_create_output_color_outcome,
+		.base.get_stock_sRGB_color_profile = mock_cm_get_stock_sRGB_color_profile,
+		.base.destroy_color_profile = mock_cm_destroy_color_profile,
 		.test_hdr_meta = &meta,
 	};
 	struct weston_compositor mock_compositor = {
@@ -319,6 +360,8 @@ TEST(hdr_metadata_type1_ignore_unflagged)
 	};
 	struct mock_color_manager mock_cm = {
 		.base.create_output_color_outcome = mock_create_output_color_outcome,
+		.base.get_stock_sRGB_color_profile = mock_cm_get_stock_sRGB_color_profile,
+		.base.destroy_color_profile = mock_cm_destroy_color_profile,
 		.test_hdr_meta = &meta,
 	};
 	struct weston_compositor mock_compositor = {
