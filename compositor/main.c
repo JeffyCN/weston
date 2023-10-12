@@ -149,6 +149,7 @@ struct wet_compositor {
 	pid_t autolaunch_pid;
 	bool autolaunch_watch;
 	bool use_color_manager;
+	bool drm_backend_loaded;
 	struct wl_listener screenshot_auth;
 	enum require_outputs require_outputs;
 };
@@ -157,6 +158,12 @@ static FILE *weston_logfile = NULL;
 static struct weston_log_scope *log_scope;
 static struct weston_log_scope *protocol_scope;
 static int cached_tm_mday = -1;
+
+static void
+load_remoting(struct weston_compositor *c, struct weston_config *wc);
+
+static void
+load_pipewire(struct weston_compositor *c, struct weston_config *wc);
 
 static void
 custom_handler(const char *fmt, va_list arg)
@@ -1028,6 +1035,15 @@ load_modules(struct weston_compositor *ec, const char *modules,
 	}
 
 	return 0;
+}
+
+static void
+load_additional_modules(struct wet_compositor wet)
+{
+	if (wet.drm_backend_loaded) {
+		load_remoting(wet.compositor, wet.config);
+		load_pipewire(wet.compositor, wet.config);
+	}
 }
 
 static int
@@ -3054,11 +3070,8 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	if (!wb)
 		return -1;
 
-	/* remoting */
-	load_remoting(c, wc);
 
-	/* pipewire */
-	load_pipewire(c, wc);
+	wet->drm_backend_loaded = true;
 
 	free(config.gbm_format);
 	free(config.seat_id);
@@ -4255,6 +4268,8 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 		ret = WET_MAIN_RET_MISSING_CAPS;
 		goto out;
 	}
+
+	load_additional_modules(wet);
 
 	weston_compositor_flush_heads_changed(wet.compositor);
 	if (wet.init_failed)
