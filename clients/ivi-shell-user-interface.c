@@ -1287,6 +1287,11 @@ int main(int argc, char **argv)
 	wlCtx_WorkSpaceBackGround.cmm = &wlCtxCommon;
 
 	/* create desktop widgets */
+	create_launchers(&wlCtxCommon, &hmi_setting->launcher_list);
+
+	create_workspace_background(&wlCtx_WorkSpaceBackGround,
+				    &hmi_setting->workspace_background);
+
 	for (i = 0; i < hmi_setting->screen_num; i++) {
 		wlCtx_BackGround[i].cmm = &wlCtxCommon;
 		create_background(&wlCtx_BackGround[i],
@@ -1311,11 +1316,6 @@ int main(int argc, char **argv)
 
 	create_button(&wlCtx_Button_4, hmi_setting->random.id,
 		      hmi_setting->random.filePath, 3);
-
-	create_workspace_background(&wlCtx_WorkSpaceBackGround,
-				    &hmi_setting->workspace_background);
-
-	create_launchers(&wlCtxCommon, &hmi_setting->launcher_list);
 
 	create_home_button(&wlCtx_HomeButton, hmi_setting->home.id,
 			   hmi_setting->home.filePath);
