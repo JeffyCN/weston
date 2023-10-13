@@ -5021,7 +5021,7 @@ locked_pointer_set_cursor_position_hint(struct wl_client *client,
 	constraint->hint_is_pending = true;
 	constraint->hint_pending = weston_coord_surface_from_fixed(surface_x,
 								   surface_y,
-								   constraint->view->surface);
+								   constraint->surface);
 }
 
 static void
@@ -5659,7 +5659,7 @@ maybe_warp_confined_pointer(struct weston_pointer_constraint *constraint)
 
 		pixman_region32_init(&confine_region);
 		pixman_region32_intersect(&confine_region,
-					  &constraint->view->surface->input,
+					  &constraint->surface->input,
 					  &constraint->region);
 		assert(pixman_region32_not_empty(&confine_region));
 		region_to_outline(&confine_region, &borders);
