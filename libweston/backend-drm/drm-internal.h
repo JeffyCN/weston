@@ -356,6 +356,9 @@ struct drm_backend {
 	int64_t last_resize_ms;
 	int64_t resize_freeze_ms;
 
+	int64_t initial_repaint_ms;
+	int64_t initial_freeze_ms;
+
 	bool master;
 	bool single_head;
 	bool head_fallback;
