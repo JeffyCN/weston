@@ -2982,16 +2982,21 @@ panel_committed(struct weston_surface *es,
 		struct weston_coord_surface new_origin)
 {
 	struct desktop_shell *shell = es->committed_private;
+	struct weston_output *output;
 	struct weston_view *view;
 	int width, height;
 	int x = 0, y = 0;
 
 	view = container_of(es->views.next, struct weston_view, surface_link);
+	output = view->output;
 
 	/* XXX delete me eventually - it would be better if we didn't get here
 	 * with a dirty transform at all, but for now just make sure the
 	 * transform is updated here. */
 	weston_view_update_transform(view);
+
+	/* Restore to the original output */
+	weston_view_set_output(view, output);
 
 	get_panel_size(shell, view, &width, &height);
 	switch (shell->panel_position) {
