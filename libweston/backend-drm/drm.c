@@ -955,11 +955,15 @@ drm_output_repaint(struct weston_output *output_base)
 	struct drm_plane_state *cursor_state;
 	struct drm_pending_state *pending_state;
 	struct drm_device *device;
+	struct drm_backend *b;
+	struct timespec now;
+	int64_t now_ms;
 
 	assert(output);
 	assert(!output->is_virtual);
 
 	device = output->device;
+	b = device->backend;
 	pending_state = device->repaint_data;
 	assert(pending_state);
 
@@ -974,6 +978,16 @@ drm_output_repaint(struct weston_output *output_base)
 		timespec_add_nsec(&output_base->next_repaint,
 				  &output_base->next_repaint, refresh_nsec);
 		goto skip;
+	}
+
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+	now_ms = timespec_to_msec(&now);
+	if (now_ms < b->initial_update_ms + b->initial_freeze_ms) {
+		int64_t duration =
+			b->initial_update_ms + b->initial_freeze_ms - now_ms;
+		timespec_add_msec(&output_base->next_repaint,
+				  &output_base->next_repaint, duration);
+		return 1;
 	}
 
 	/* If planes have been disabled in the core, we might not have
@@ -3576,6 +3590,12 @@ drm_backend_update_connectors(struct drm_device *device,
 	uint32_t connector_id;
 	int i, ret;
 
+	if (!b->primary_head) {
+		struct timespec now;
+		weston_compositor_read_presentation_clock(b->compositor, &now);
+		b->initial_update_ms = timespec_to_msec(&now);
+	}
+
 	resources = drmModeGetResources(device->drm.fd);
 	if (!resources) {
 		weston_log("drmModeGetResources failed\n");
@@ -4981,6 +5001,10 @@ drm_backend_create(struct weston_compositor *compositor,
 		b->mirror_mode = true;
 		weston_log("Entering mirror mode.\n");
 	}
+
+	buf = getenv("WESTON_DRM_INITIAL_FREEZE_MS");
+	if (buf)
+		b->initial_freeze_ms = atoi(buf);
 
 	device = zalloc(sizeof *device);
 	if (device == NULL)
