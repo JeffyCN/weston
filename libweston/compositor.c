@@ -1434,6 +1434,13 @@ weston_view_assign_output(struct weston_view *ev)
 	uint32_t new_output_area, area, mask;
 	pixman_box32_t *e;
 
+	/**
+	 * FIXME: For early assign from:
+	 * d611ab24f "libweston: Update view transforms more often"
+	 */
+	if (!get_view_layer(ev))
+		return;
+
 	/* The static views should bind to the specific output */
 	if (weston_compositor_is_static_layer(get_view_layer(ev))) {
 		struct weston_view *view = ev;
