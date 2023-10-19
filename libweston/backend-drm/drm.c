@@ -841,7 +841,12 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 
 	weston_compositor_read_presentation_clock(b->compositor, &now);
 	now_ms = timespec_to_msec(&now);
-	if (now_ms < b->last_resize_ms + b->resize_freeze_ms ||
+
+	if (!b->initial_repaint_ms)
+		b->initial_repaint_ms = now_ms;
+
+	if (now_ms < b->initial_repaint_ms + b->initial_freeze_ms ||
+	    now_ms < b->last_resize_ms + b->resize_freeze_ms ||
 	    now_ms < output->last_resize_ms + b->resize_freeze_ms) {
 		/* Resize fullscreen/maxmium views(not always success) */
 		if (now_ms < b->last_resize_ms + DRM_RESIZE_FREEZE_MS)
@@ -4381,6 +4386,10 @@ drm_backend_create(struct weston_compositor *compositor,
 		b->mirror_mode = true;
 		weston_log("Entering mirror mode.\n");
 	}
+
+	buf = getenv("WESTON_DRM_INITIAL_FREEZE_MS");
+	if (buf)
+		b->initial_freeze_ms = atoi(buf);
 
 	device = zalloc(sizeof *device);
 	if (device == NULL)
