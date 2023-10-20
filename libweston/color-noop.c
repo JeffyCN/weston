@@ -29,7 +29,7 @@
 
 #include "color.h"
 #include "shared/helpers.h"
-#include "shared/string-helpers.h"
+#include "shared/xalloc.h"
 
 struct weston_color_manager_noop {
 	struct weston_color_manager base;
@@ -67,7 +67,7 @@ cmnoop_get_color_profile_from_icc(struct weston_color_manager *cm,
 				  struct weston_color_profile **cprof_out,
 				  char **errmsg)
 {
-	str_printf(errmsg, "ICC profiles are unsupported.");
+	*errmsg = xstrdup("ICC profiles are unsupported.");
 	return false;
 }
 
@@ -107,9 +107,7 @@ cmnoop_create_output_color_outcome(struct weston_color_manager *cm_base,
 	if (!check_output_eotf_mode(output))
 		return NULL;
 
-	co = zalloc(sizeof *co);
-	if (!co)
-		return NULL;
+	co = xzalloc(sizeof *co);
 
 	/* Identity transform on everything */
 	co->from_blend_to_output = NULL;
@@ -142,9 +140,7 @@ weston_color_manager_noop_create(struct weston_compositor *compositor)
 {
 	struct weston_color_manager_noop *cm;
 
-	cm = zalloc(sizeof *cm);
-	if (!cm)
-		return NULL;
+	cm = xzalloc(sizeof *cm);
 
 	cm->base.name = "no-op";
 	cm->base.compositor = compositor;
