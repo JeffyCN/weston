@@ -4679,6 +4679,9 @@ surface_set_buffer_scale(struct wl_client *client,
 	surface->pending.status |= WESTON_SURFACE_DIRTY_SIZE;
 }
 
+static struct weston_subsurface *
+weston_surface_to_subsurface(struct weston_surface *surface);
+
 static void
 surface_offset(struct wl_client *client,
 	       struct wl_resource *resource,
@@ -4686,6 +4689,13 @@ surface_offset(struct wl_client *client,
 	       int32_t sy)
 {
 	struct weston_surface *surface = wl_resource_get_user_data(resource);
+	struct weston_subsurface *subsurface = NULL;
+
+	if ((subsurface = weston_surface_to_subsurface(surface))) {
+		weston_log_paced(&subsurface->subsurface_offset_pacer,
+				 1, 0, "Ignoring client subsurface offset\n");
+		return;
+	}
 
 	surface->pending.status |= WESTON_SURFACE_DIRTY_POS;
 	surface->pending.buf_offset = weston_coord_surface(sx, sy, surface);

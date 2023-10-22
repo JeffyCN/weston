@@ -1978,6 +1978,8 @@ struct weston_subsurface {
 
 	/* Used for constructing the view tree */
 	struct wl_list unused_views;
+
+	struct weston_log_pacer subsurface_offset_pacer;
 };
 
 struct protected_surface {
