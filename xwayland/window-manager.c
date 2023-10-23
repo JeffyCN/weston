@@ -214,6 +214,12 @@ static void
 xserver_map_shell_surface(struct weston_wm_window *window,
 			  struct weston_surface *surface);
 
+static inline bool
+weston_wm_window_is_maximized(struct weston_wm_window *window)
+{
+	return window->maximized_horz && window->maximized_vert;
+}
+
 static bool
 wm_debug_is_enabled(struct weston_wm *wm)
 {
@@ -821,10 +827,16 @@ weston_wm_handle_configure_request(struct weston_wm *wm, xcb_generic_event_t *ev
 		return;
 	}
 
-	if (configure_request->value_mask & XCB_CONFIG_WINDOW_WIDTH)
+	if (configure_request->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
 		window->width = configure_request->width;
-	if (configure_request->value_mask & XCB_CONFIG_WINDOW_HEIGHT)
+		if (!weston_wm_window_is_maximized(window))
+			window->saved_width = window->width;
+	}
+	if (configure_request->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
 		window->height = configure_request->height;
+		if (!weston_wm_window_is_maximized(window))
+			window->saved_height = window->height;
+	}
 
 	if (window->frame) {
 		weston_wm_window_set_allow_commits(window, false);
@@ -1870,12 +1882,6 @@ weston_wm_window_set_toplevel(struct weston_wm_window *window)
 					window->height);
 	}
 	weston_wm_window_configure(window);
-}
-
-static inline bool
-weston_wm_window_is_maximized(struct weston_wm_window *window)
-{
-	return window->maximized_horz && window->maximized_vert;
 }
 
 static void
