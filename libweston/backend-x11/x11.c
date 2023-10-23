@@ -1840,7 +1840,6 @@ x11_shutdown(struct weston_backend *base)
 {
 	struct x11_backend *backend = to_x11_backend(base);
 
-	wl_list_remove(&backend->base.link);
 
 	wl_event_source_remove(backend->xcb_source);
 	x11_input_destroy(backend);
@@ -1852,6 +1851,8 @@ x11_destroy(struct weston_backend *base)
 	struct x11_backend *backend = to_x11_backend(base);
 	struct weston_compositor *ec = backend->compositor;
 	struct weston_head *head, *next;
+
+	wl_list_remove(&backend->base.link);
 
 	wl_list_for_each_safe(head, next, &ec->head_list, compositor_link) {
 		if (to_x11_head(head))
