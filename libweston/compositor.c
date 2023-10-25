@@ -3917,6 +3917,9 @@ weston_output_schedule_repaint(struct weston_output *output)
 	struct weston_compositor *compositor = output->compositor;
 	struct wl_event_loop *loop;
 
+	if (output->destroying)
+		return;
+
 	if (compositor->state == WESTON_COMPOSITOR_SLEEPING ||
 	    compositor->state == WESTON_COMPOSITOR_OFFSCREEN)
 		return;
