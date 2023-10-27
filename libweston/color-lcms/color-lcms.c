@@ -381,8 +381,11 @@ cmlcms_destroy(struct weston_color_manager *cm_base)
 {
 	struct weston_color_manager_lcms *cm = get_cmlcms(cm_base);
 
-	if (cm->sRGB_profile)
-		cmlcms_color_profile_destroy(cm->sRGB_profile);
+	if (cm->sRGB_profile) {
+		assert(cm->sRGB_profile->base.ref_count == 1);
+		unref_cprof(cm->sRGB_profile);
+	}
+
 	assert(wl_list_empty(&cm->color_transform_list));
 	assert(wl_list_empty(&cm->color_profile_list));
 
