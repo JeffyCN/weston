@@ -119,9 +119,18 @@ weston_view_dirty_paint_nodes(struct weston_view *view)
 
 	wl_list_for_each(node, &view->paint_node_list, view_link) {
 		assert(node->surface == view->surface);
+		node->status |= PAINT_NODE_VIEW_DIRTY;
 
-		node->status |= PAINT_NODE_VIEW_DIRTY |
-				PAINT_NODE_VISIBILITY_DIRTY;
+		/* We currently only place single surfaces on non-primary
+		 * planes, and those planes are positioned within the
+		 * scene graph based on geometry.
+		 *
+		 * That means we don't have to propagate damage to the
+		 * plane for visibility changes, so don't set that
+		 * bit here.
+		 */
+		if (node->plane == &node->output->primary_plane)
+			node->status |= PAINT_NODE_VISIBILITY_DIRTY;
 	}
 }
 
