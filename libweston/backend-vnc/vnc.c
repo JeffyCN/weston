@@ -534,13 +534,56 @@ vnc_output_update_cursor(struct vnc_output *output)
 	struct vnc_backend *backend = output->backend;
 	struct weston_pointer *pointer;
 	struct weston_paint_node *pointer_pnode = NULL;
-	struct weston_view *view;
+	bool update_cursor;
+	pixman_region32_t damage;
 	struct weston_buffer *buffer;
+	struct weston_surface *cursor_surface;
 	struct nvnc_fb *fb;
 	int32_t stride;
-	uint32_t format;
 	uint8_t *src, *dst;
 	int i;
+
+	pointer = vnc_output_get_pointer(output, &pointer_pnode);
+
+	pixman_region32_init(&damage);
+	weston_output_flush_damage_for_plane(&output->base, &output->cursor_plane, &damage);
+	update_cursor = pixman_region32_not_empty(&damage);
+	pixman_region32_fini(&damage);
+
+	if (!update_cursor)
+		return;
+
+	cursor_surface = output->cursor_surface;
+	buffer = cursor_surface->buffer_ref.buffer;
+
+	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+
+	fb = nvnc_fb_new(buffer->width, buffer->height, DRM_FORMAT_ARGB8888,
+			 buffer->width);
+	assert(fb);
+
+	src = wl_shm_buffer_get_data(buffer->shm_buffer);
+	dst = nvnc_fb_get_addr(fb);
+
+	wl_shm_buffer_begin_access(buffer->shm_buffer);
+	for (i = 0; i < buffer->height; i++)
+		memcpy(dst + i * 4 * buffer->width, src + i * stride,
+		       4 * buffer->width);
+	wl_shm_buffer_end_access(buffer->shm_buffer);
+
+	nvnc_set_cursor(backend->server, fb, buffer->width, buffer->height,
+			pointer->hotspot.c.x, pointer->hotspot.c.y, true);
+	nvnc_fb_unref(fb);
+}
+
+static void
+vnc_output_assign_cursor_plane(struct vnc_output *output)
+{
+	struct weston_pointer *pointer;
+	struct weston_paint_node *pointer_pnode = NULL;
+	struct weston_view *view;
+	struct weston_buffer *buffer;
+	uint32_t format;
 
 	pointer = vnc_output_get_pointer(output, &pointer_pnode);
 	if (!pointer)
@@ -562,30 +605,7 @@ vnc_output_update_cursor(struct vnc_output *output)
 
 	weston_paint_node_move_to_plane(pointer_pnode, &output->cursor_plane);
 
-	if (view->surface == output->cursor_surface &&
-	    !pixman_region32_not_empty(&view->surface->damage))
-		return;
-
 	output->cursor_surface = view->surface;
-
-	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-
-	fb = nvnc_fb_new(buffer->width, buffer->height, DRM_FORMAT_ARGB8888,
-			 buffer->width);
-	assert(fb);
-
-	src = wl_shm_buffer_get_data(buffer->shm_buffer);
-	dst = nvnc_fb_get_addr(fb);
-
-	wl_shm_buffer_begin_access(buffer->shm_buffer);
-	for (i = 0; i < buffer->height; i++)
-		memcpy(dst + i * 4 * buffer->width, src + i * stride,
-		       4 * buffer->width);
-	wl_shm_buffer_end_access(buffer->shm_buffer);
-
-	nvnc_set_cursor(backend->server, fb, buffer->width, buffer->height,
-			pointer->hotspot.c.x, pointer->hotspot.c.y, true);
-	nvnc_fb_unref(fb);
 }
 
 static void
@@ -994,6 +1014,8 @@ vnc_output_repaint(struct weston_output *base, pixman_region32_t *damage)
 	if (wl_list_empty(&output->peers))
 		weston_output_power_off(base);
 
+	vnc_output_update_cursor(output);
+
 	if (pixman_region32_not_empty(damage)) {
 		vnc_update_buffer(output->display, damage);
 	}
@@ -1036,7 +1058,7 @@ vnc_output_assign_planes(struct weston_output *base)
 
 	/* Update VNC cursor and move cursor view to plane */
 	if (vnc_clients_support_cursor(output))
-		vnc_output_update_cursor(output);
+		vnc_output_assign_cursor_plane(output);
 }
 
 static int

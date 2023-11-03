@@ -322,4 +322,9 @@ void
 notify_tablet_tool_frame(struct weston_tablet_tool *tool,
 			 const struct timespec *time);
 
+bool
+weston_output_flush_damage_for_plane(struct weston_output *output,
+				     struct weston_plane *plane,
+				     pixman_region32_t *damage);
+
 #endif
