@@ -3063,7 +3063,6 @@ paint_node_add_damage(struct weston_paint_node *node)
 					  view->geometry.pos_offset.y);
 	}
 
-	pixman_region32_intersect(&damage, &damage, &node->visible);
 	pixman_region32_union(&node->damage, &node->damage, &damage);
 	pixman_region32_fini(&damage);
 }
