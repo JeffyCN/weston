@@ -601,12 +601,62 @@ err:
 	weston_capture_task_retire_failed(ct, msg);
 }
 
+#ifdef BUILD_DRM_GBM
+/**
+ * Update the image for the current cursor surface
+ *
+ * @param plane_state DRM cursor plane state
+ * @param ev Source view for cursor
+ */
+static void
+cursor_bo_update(struct drm_output *output, struct weston_view *ev)
+{
+	struct drm_device *device = output->device;
+	struct gbm_bo *bo = output->gbm_cursor_fb[output->current_cursor]->bo;
+	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
+	uint32_t buf[device->cursor_width * device->cursor_height];
+	int32_t stride;
+	uint8_t *s;
+	int i;
+
+	assert(buffer && buffer->shm_buffer);
+	assert(buffer->width <= device->cursor_width);
+	assert(buffer->height <= device->cursor_height);
+
+	memset(buf, 0, sizeof buf);
+
+	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+	s = wl_shm_buffer_get_data(buffer->shm_buffer);
+
+	wl_shm_buffer_begin_access(buffer->shm_buffer);
+	for (i = 0; i < buffer->height; i++)
+		memcpy(buf + i * device->cursor_width,
+		       s + i * stride,
+		       buffer->width * 4);
+	wl_shm_buffer_end_access(buffer->shm_buffer);
+
+	if (bo) {
+		if (gbm_bo_write(bo, buf, sizeof buf) < 0)
+			weston_log("failed update cursor: %s\n", strerror(errno));
+	} else {
+		memcpy(output->gbm_cursor_fb[output->current_cursor]->map,
+		       buf, sizeof buf);
+	}
+}
+#else
+static void
+cursor_bo_update(struct drm_output *output, struct weston_view *ev)
+{
+}
+#endif
+
 static int
 drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 {
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_output_state *state = NULL;
 	struct drm_plane_state *scanout_state;
+	struct drm_plane_state *cursor_state;
 	struct drm_pending_state *pending_state;
 	struct drm_device *device;
 
@@ -630,6 +680,32 @@ drm_output_repaint(struct weston_output *output_base, pixman_region32_t *damage)
 						   pending_state,
 						   DRM_OUTPUT_STATE_CLEAR_PLANES);
 	state->dpms = WESTON_DPMS_ON;
+
+	cursor_state = drm_output_state_get_existing_plane(state,
+							   output->cursor_plane);
+	if (cursor_state && cursor_state->fb) {
+		pixman_region32_t damage;
+
+		assert(cursor_state->plane == output->cursor_plane);
+		assert(cursor_state->fb == output->gbm_cursor_fb[0]);
+
+		pixman_region32_init(&damage);
+		weston_output_flush_damage_for_plane(&output->base,
+						     &output->cursor_plane->base,
+						     &damage);
+		if (pixman_region32_not_empty(&damage)) {
+			output->current_cursor++;
+			output->current_cursor =
+				output->current_cursor %
+					ARRAY_LENGTH(output->gbm_cursor_fb);
+			cursor_bo_update(output, output->cursor_view);
+		}
+		pixman_region32_fini(&damage);
+
+		cursor_state->fb = drm_fb_ref(output->gbm_cursor_fb[output->current_cursor]);
+		drm_fb_unref(output->gbm_cursor_fb[0]);
+	}
+
 
 	if (output_base->allow_protection)
 		state->protection = output_base->desired_protection;

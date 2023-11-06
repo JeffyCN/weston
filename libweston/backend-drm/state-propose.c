@@ -155,48 +155,6 @@ out:
 }
 
 #ifdef BUILD_DRM_GBM
-/**
- * Update the image for the current cursor surface
- *
- * @param plane_state DRM cursor plane state
- * @param ev Source view for cursor
- */
-static void
-cursor_bo_update(struct drm_plane_state *plane_state, struct weston_view *ev)
-{
-	struct drm_output *output = plane_state->output;
-	struct drm_device *device = output->device;
-	struct gbm_bo *bo = plane_state->fb->bo;
-	struct weston_buffer *buffer = ev->surface->buffer_ref.buffer;
-	uint32_t buf[device->cursor_width * device->cursor_height];
-	int32_t stride;
-	uint8_t *s;
-	int i;
-
-	assert(buffer && buffer->shm_buffer);
-	assert(buffer->width <= device->cursor_width);
-	assert(buffer->height <= device->cursor_height);
-
-	memset(buf, 0, sizeof buf);
-	stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-	s = wl_shm_buffer_get_data(buffer->shm_buffer);
-
-	wl_shm_buffer_begin_access(buffer->shm_buffer);
-	for (i = 0; i < buffer->height; i++)
-		memcpy(buf + i * device->cursor_width,
-		       s + i * stride,
-		       buffer->width * 4);
-	wl_shm_buffer_end_access(buffer->shm_buffer);
-
-	if (bo) {
-		if (gbm_bo_write(bo, buf, sizeof buf) < 0)
-			weston_log("failed update cursor: %s\n", strerror(errno));
-	} else {
-		memcpy(output->gbm_cursor_fb[output->current_cursor]->map,
-		       buf, sizeof buf);
-	}
-}
-
 static struct drm_plane_state *
 drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 				     struct weston_paint_node *node,
@@ -208,7 +166,6 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	struct drm_plane *plane = output->cursor_plane;
 	struct weston_view *ev = node->view;
 	struct drm_plane_state *plane_state;
-	bool needs_update = false;
 	const char *p_name = drm_output_get_plane_type_name(plane);
 
 	assert(!device->cursors_are_broken);
@@ -242,31 +199,16 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 		goto err;
 	}
 
-	/* Since we're setting plane state up front, we need to work out
-	 * whether or not we need to upload a new cursor. We can't use the
-	 * plane damage, since the planes haven't actually been calculated
-	 * yet: instead try to figure it out directly. KMS cursor planes are
-	 * pretty unique here, in that they lie partway between a Weston plane
-	 * (direct scanout) and a renderer. */
-	if (ev != output->cursor_view ||
-	    pixman_region32_not_empty(&ev->surface->damage)) {
-		output->current_cursor++;
-		output->current_cursor =
-			output->current_cursor %
-				ARRAY_LENGTH(output->gbm_cursor_fb);
-		needs_update = true;
-	}
-
 	drm_output_set_cursor_view(output, ev);
 	plane_state->ev = ev;
-
-	plane_state->fb =
-		drm_fb_ref(output->gbm_cursor_fb[output->current_cursor]);
-
-	if (needs_update) {
-		drm_debug(b, "\t\t\t\t[%s] copying new content to cursor BO\n", p_name);
-		cursor_bo_update(plane_state, ev);
-	}
+	/* We always test with cursor fb 0. There are two potential fbs, and
+	 * they are identically allocated for cursor use specifically, so if
+	 * one works the other almost certainly should as well.
+	 *
+	 * Later when we determine if the cursor needs an update, we'll
+	 * select the correct fb to use.
+	 */
+	plane_state->fb = drm_fb_ref(output->gbm_cursor_fb[0]);
 
 	/* The cursor API is somewhat special: in cursor_bo_update(), we upload
 	 * a buffer which is always cursor_width x cursor_height, even if the
