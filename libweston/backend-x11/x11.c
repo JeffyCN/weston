@@ -1990,6 +1990,7 @@ err_renderer:
 err_xdisplay:
 	XCloseDisplay(b->dpy);
 err_free:
+	wl_list_remove(&b->base.link);
 	free(b->formats);
 	free(b);
 	return NULL;
