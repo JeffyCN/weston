@@ -92,6 +92,9 @@ show_input_panel_surface(struct input_panel_surface *ipsurf)
 	if (!weston_surface_is_mapped(ipsurf->surface))
 		return;
 
+	if (weston_view_is_mapped(ipsurf->view))
+		return;
+
 	wl_list_for_each(seat, &shell->compositor->seat_list, link) {
 		struct weston_keyboard *keyboard =
 			weston_seat_get_keyboard(seat);
@@ -106,10 +109,10 @@ show_input_panel_surface(struct input_panel_surface *ipsurf)
 			continue;
 
 		weston_view_set_position(ipsurf->view, pos);
+		weston_view_move_to_layer(ipsurf->view,
+					  &shell->input_panel_layer.view_list);
+		break;
 	}
-
-	weston_view_move_to_layer(ipsurf->view,
-				  &shell->input_panel_layer.view_list);
 
 	if (ipsurf->anim)
 		weston_view_animation_destroy(ipsurf->anim);
@@ -189,22 +192,17 @@ input_panel_committed(struct weston_surface *surface,
 {
 	struct input_panel_surface *ip_surface = surface->committed_private;
 	struct desktop_shell *shell = ip_surface->shell;
-	struct weston_coord_global pos;
 
 	if (!weston_surface_has_content(surface))
 		return;
 
-	if (calc_input_panel_position(ip_surface, &pos))
+	if (weston_surface_is_mapped(surface))
 		return;
 
-	if (!weston_surface_is_mapped(surface)) {
-		weston_surface_map(surface);
+	weston_surface_map(surface);
 
-		if (shell->showing_input_panels)
-			show_input_panel_surface(ip_surface);
-	}
-
-	weston_view_set_position(ip_surface->view, pos);
+	if (shell->showing_input_panels)
+		show_input_panel_surface(ip_surface);
 }
 
 static void
