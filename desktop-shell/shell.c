@@ -3846,7 +3846,7 @@ shell_fade_create_view(struct desktop_shell *shell)
 	};
 	struct weston_curtain *curtain;
 	bool first = true;
-	int x1, y1, x2, y2;
+	int x1 = 0, y1 = 0, x2 = 0, y2 = 0;
 
 	wl_list_for_each(shell_output, &shell->output_list, link) {
 		struct weston_output *op = shell_output->output;
