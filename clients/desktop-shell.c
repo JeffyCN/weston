@@ -1586,7 +1586,7 @@ int main(int argc, char *argv[])
 	if (desktop.want_panel)
 		weston_desktop_shell_set_panel_position(desktop.shell, desktop.panel_position);
 	wl_list_for_each(output, &desktop.outputs, link)
-		if (!output->panel)
+		if (!output->background)
 			output_init(output, &desktop);
 
 	grab_surface_create(&desktop);
