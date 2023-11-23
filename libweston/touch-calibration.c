@@ -189,6 +189,7 @@ map_calibrator(struct weston_touch_calibrator *calibrator)
 	assert(calibrator->output);
 	assert(calibrator->surface);
 	assert(calibrator->surface->resource);
+	assert(weston_surface_is_mapped(calibrator->surface));
 
 	calibrator->view = weston_view_create(calibrator->surface);
 	if (!calibrator->view) {
@@ -196,17 +197,9 @@ map_calibrator(struct weston_touch_calibrator *calibrator)
 		return;
 	}
 
-	weston_layer_entry_insert(&c->calibrator_layer.view_list,
-				  &calibrator->view->layer_link);
-
 	weston_view_set_position(calibrator->view, calibrator->output->pos);
-	calibrator->view->output = calibrator->surface->output;
-	calibrator->view->is_mapped = true;
-
-	calibrator->surface->output = calibrator->output;
-	weston_surface_map(calibrator->surface);
-
-	weston_output_schedule_repaint(calibrator->output);
+	weston_view_move_to_layer(calibrator->view,
+				  &c->calibrator_layer.view_list);
 
 	device->ops->get_calibration(device, &device->saved_calibration);
 	device->ops->set_calibration(device, &identity);
@@ -260,6 +253,13 @@ touch_calibrator_surface_committed(struct wl_listener *listener, void *data)
 	wl_list_remove(&calibrator->surface_commit_listener.link);
 	wl_list_init(&calibrator->surface_commit_listener.link);
 
+	if (!weston_surface_has_content(surface)) {
+		wl_resource_post_error(calibrator->resource,
+				       WESTON_TOUCH_CALIBRATOR_ERROR_BAD_SIZE,
+				       "calibrator surface size has no content");
+		return;
+	}
+
 	if (surface->width != calibrator->output->width ||
 	    surface->height != calibrator->output->height) {
 		wl_resource_post_error(calibrator->resource,
@@ -267,6 +267,8 @@ touch_calibrator_surface_committed(struct wl_listener *listener, void *data)
 				       "calibrator surface size does not match");
 		return;
 	}
+
+	weston_surface_map(surface);
 
 	weston_compositor_set_touch_mode_calib(calibrator->compositor);
 	/* results in call to touch_calibrator_mode_changed() */
