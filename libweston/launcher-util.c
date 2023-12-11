@@ -37,7 +37,6 @@
 #include <linux/input.h>
 
 static const struct launcher_interface *ifaces[] = {
-	&launcher_libseat_iface,
 	&launcher_direct_iface,
 	NULL,
 };
