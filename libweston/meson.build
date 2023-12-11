@@ -163,15 +163,12 @@ pkgconfig.generate(
 )
 
 if get_option('backend-drm')
-	dep_libseat = dependency('libseat', version: '>= 0.4')
 	srcs_session_helper = [
-		'launcher-libseat.c',
 		'launcher-direct.c',
 		'launcher-util.c',
 	]
 	deps_session_helper = [
 		dep_libdrm,
-		dep_libseat,
 		dep_libweston_private_h,
 	]
 
