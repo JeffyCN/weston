@@ -933,9 +933,9 @@ create_ivisurface(struct wlContextStruct *p_wlCtx,
 static void
 create_ivisurfaceFromFile(struct wlContextStruct *p_wlCtx,
 			  uint32_t id_surface,
-			  const char *imageFile)
+			  const char *imageFile, bool alpha)
 {
-	cairo_surface_t *surface = load_cairo_surface(imageFile);
+	cairo_surface_t *surface = load_cairo_surface(imageFile, alpha);
 
 	if (NULL == surface) {
 		fprintf(stderr, "Failed to load_cairo_surface %s\n", imageFile);
@@ -990,28 +990,28 @@ static void
 create_background(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
 		  const char *imageFile)
 {
-	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
+	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile, false);
 }
 
 static void
 create_panel(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
 	     const char *imageFile)
 {
-	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
+	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile, true);
 }
 
 static void
 create_button(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
 	      const char *imageFile, uint32_t number)
 {
-	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
+	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile, true);
 }
 
 static void
 create_home_button(struct wlContextStruct *p_wlCtx, const uint32_t id_surface,
 		   const char *imageFile)
 {
-	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile);
+	create_ivisurfaceFromFile(p_wlCtx, id_surface, imageFile, true);
 }
 
 static void
@@ -1056,7 +1056,7 @@ create_launchers(struct wlContextCommon *cmm, struct wl_list *launcher_list)
 			p_wlCtx->cmm = cmm;
 			create_ivisurfaceFromFile(p_wlCtx,
 						  launchers[jj]->icon_surface_id,
-						  launchers[jj]->icon);
+						  launchers[jj]->icon, true);
 		}
 
 		start = ii + 1;

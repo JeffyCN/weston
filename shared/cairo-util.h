@@ -26,6 +26,7 @@
 #ifndef _CAIRO_UTIL_H
 #define _CAIRO_UTIL_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <cairo.h>
 #ifdef HAVE_PANGO
@@ -47,7 +48,7 @@ void
 rounded_rect(cairo_t *cr, int x0, int y0, int x1, int y1, int radius);
 
 cairo_surface_t *
-load_cairo_surface(const char *filename);
+load_cairo_surface(const char *filename, bool alpha);
 
 struct weston_image *
 load_cairo_surface_get_user_data(cairo_surface_t *surface);

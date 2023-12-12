@@ -349,9 +349,10 @@ loaded_cairo_surface_destructor(void *data)
 static const cairo_user_data_key_t weston_cairo_util_load_cairo_surface_key;
 
 cairo_surface_t *
-load_cairo_surface(const char *filename)
+load_cairo_surface(const char *filename, bool alpha)
 {
 	cairo_surface_t *surface;
+	cairo_format_t format;
 	cairo_status_t ret;
 	struct weston_image *image;
 	int width, height, stride;
@@ -368,7 +369,9 @@ load_cairo_surface(const char *filename)
 	height = pixman_image_get_height(image->pixman_image);
 	stride = pixman_image_get_stride(image->pixman_image);
 
-	surface = cairo_image_surface_create_for_data(data, CAIRO_FORMAT_ARGB32,
+	format = alpha ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24;
+
+	surface = cairo_image_surface_create_for_data(data, format,
 						      width, height, stride);
 	ret = cairo_surface_status(surface);
 	if (ret != CAIRO_STATUS_SUCCESS)
