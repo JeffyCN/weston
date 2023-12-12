@@ -860,11 +860,11 @@ background_draw(struct widget *widget, void *data)
 		widget_get_allocation(widget, &allocation);
 		image = NULL;
 		if (background->image)
-			image = load_cairo_surface(background->image);
+			image = load_cairo_surface(background->image, false);
 		else if (background->color == 0) {
 			char *name = file_name_with_datadir("pattern.png");
 
-			image = load_cairo_surface(name);
+			image = load_cairo_surface(name, false);
 			free(name);
 		}
 

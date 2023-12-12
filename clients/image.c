@@ -456,7 +456,7 @@ image_create(struct display *display, const char *filename,
 	free(copy);
 
 	image->filename = strdup(filename);
-	image->image = load_cairo_surface(filename);
+	image->image = load_cairo_surface(filename, true);
 
 	if (!image->image) {
 		free(image->filename);
