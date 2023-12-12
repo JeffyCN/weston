@@ -835,7 +835,6 @@ background_draw(struct widget *widget, void *data)
 	struct background *background = data;
 	cairo_surface_t *surface, *image;
 	cairo_pattern_t *pattern;
-	cairo_matrix_t matrix;
 	cairo_t *cr;
 	double im_w, im_h;
 	double sx, sy, s;
@@ -869,26 +868,27 @@ background_draw(struct widget *widget, void *data)
 		sx = im_w / allocation.width;
 		sy = im_h / allocation.height;
 
-		pattern = cairo_pattern_create_for_surface(image);
-
 		switch (background->type) {
 		case BACKGROUND_SCALE:
-			cairo_matrix_init_scale(&matrix, sx, sy);
-			cairo_pattern_set_matrix(pattern, &matrix);
-			cairo_pattern_set_extend(pattern, CAIRO_EXTEND_PAD);
+			cairo_scale(cr, 1 / sx, 1 / sy);
+			cairo_set_source_surface(cr, image, 0, 0);
+			cairo_paint(cr);
 			break;
 		case BACKGROUND_SCALE_CROP:
 			s = (sx < sy) ? sx : sy;
 			/* align center */
 			tx = (im_w - s * allocation.width) * 0.5;
 			ty = (im_h - s * allocation.height) * 0.5;
-			cairo_matrix_init_translate(&matrix, tx, ty);
-			cairo_matrix_scale(&matrix, s, s);
-			cairo_pattern_set_matrix(pattern, &matrix);
-			cairo_pattern_set_extend(pattern, CAIRO_EXTEND_PAD);
+			cairo_scale(cr, 1 / s, 1 / s);
+			cairo_set_source_surface(cr, image, -tx, -ty);
+			cairo_paint(cr);
 			break;
 		case BACKGROUND_TILE:
+			pattern = cairo_pattern_create_for_surface(image);
 			cairo_pattern_set_extend(pattern, CAIRO_EXTEND_REPEAT);
+			cairo_set_source(cr, pattern);
+			cairo_pattern_destroy (pattern);
+			cairo_mask(cr, pattern);
 			break;
 		case BACKGROUND_CENTERED:
 			s = (sx < sy) ? sx : sy;
@@ -899,16 +899,13 @@ background_draw(struct widget *widget, void *data)
 			tx = (im_w - s * allocation.width) * 0.5;
 			ty = (im_h - s * allocation.height) * 0.5;
 
-			cairo_matrix_init_translate(&matrix, tx, ty);
-			cairo_matrix_scale(&matrix, s, s);
-			cairo_pattern_set_matrix(pattern, &matrix);
+			cairo_scale(cr, 1 / s, 1 / s);
+			cairo_set_source_surface(cr, image, -tx, -ty);
+			cairo_paint(cr);
 			break;
 		}
 
-		cairo_set_source(cr, pattern);
-		cairo_pattern_destroy (pattern);
 		cairo_surface_destroy(image);
-		cairo_mask(cr, pattern);
 	}
 
 	cairo_destroy(cr);
