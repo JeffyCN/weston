@@ -3392,6 +3392,9 @@ drm_destroy(struct weston_backend *backend)
 	weston_launcher_close(ec->launcher, device->drm.fd);
 	weston_launcher_destroy(ec->launcher);
 
+	if (device->gem_handle_refcnt)
+		hash_table_destroy(device->gem_handle_refcnt);
+
 	free(device->drm.filename);
 	free(device);
 	free(b);
