@@ -3392,8 +3392,7 @@ drm_destroy(struct weston_backend *backend)
 	weston_launcher_close(ec->launcher, device->drm.fd);
 	weston_launcher_destroy(ec->launcher);
 
-	if (device->gem_handle_refcnt)
-		hash_table_destroy(device->gem_handle_refcnt);
+	hash_table_destroy(device->gem_handle_refcnt);
 
 	free(device->drm.filename);
 	free(device);
@@ -3895,10 +3894,13 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	device = zalloc(sizeof *device);
 	if (device == NULL)
-		return NULL;
+		goto err_backend;
 	device->state_invalid = true;
 	device->drm.fd = -1;
 	device->backend = b;
+	device->gem_handle_refcnt = hash_table_create();
+	if (!device->gem_handle_refcnt)
+		goto err_device;
 
 	b->drm = device;
 	wl_list_init(&b->kms_list);
@@ -4136,6 +4138,10 @@ err_compositor:
 	if (b->gbm)
 		gbm_device_destroy(b->gbm);
 #endif
+	hash_table_destroy(device->gem_handle_refcnt);
+err_device:
+	free(device);
+err_backend:
 	free(b);
 	return NULL;
 }
