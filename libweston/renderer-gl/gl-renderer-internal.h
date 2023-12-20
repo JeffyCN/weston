@@ -62,6 +62,7 @@
 #include <time.h>
 
 #include <wayland-util.h>
+#include <gbm.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
@@ -550,6 +551,9 @@ struct gl_renderer {
 	struct weston_log_scope *shader_scope;
 
 	struct dmabuf_allocator *allocator;
+
+	int drm_fd;
+	struct gbm_device *gbm;
 };
 
 static inline uint32_t

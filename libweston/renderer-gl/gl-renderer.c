@@ -45,6 +45,8 @@
 
 #include <libweston/linalg-4.h>
 
+#include <xf86drm.h>
+
 #include "linux-sync-file.h"
 #include "timeline.h"
 
@@ -5209,6 +5211,11 @@ gl_renderer_destroy(struct weston_compositor *ec)
 	if (gr->debug_mode_binding)
 		weston_binding_destroy(gr->debug_mode_binding);
 
+	if (gr->gbm) {
+		gbm_device_destroy(gr->gbm);
+		close(gr->drm_fd);
+	}
+
 	weston_log_scope_destroy(gr->shader_scope);
 	weston_log_scope_destroy(gr->extensions_scope);
 	weston_log_scope_destroy(gr->paint_node_scope);
@@ -5253,6 +5260,8 @@ gl_renderer_display_create(struct weston_compositor *ec,
 			   const struct gl_renderer_display_options *options)
 {
 	struct gl_renderer *gr;
+	EGLint egl_surface_type = options->egl_surface_type;
+	void *egl_native_display = options->egl_native_display;
 	const struct pixel_format_info *info;
 	int ret, nformats, i, j;
 	bool supported;
@@ -5274,6 +5283,31 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (gl_renderer_setup_egl_client_extensions(gr) < 0)
 		goto fail;
 
+	/* HACK: Create GBM device if using GBM platform and none provided */
+	if (gr->platform == EGL_PLATFORM_GBM_KHR) {
+		/* GBM requires window surface */
+		if (!egl_surface_type)
+			egl_surface_type = EGL_WINDOW_BIT;
+
+		if (!egl_native_display) {
+			gr->drm_fd = drmOpen("rockchip", NULL);
+			if (gr->drm_fd < 0)
+				gr->drm_fd = open("/dev/dri/card0",
+						  O_RDWR | O_CLOEXEC);
+			if (gr->drm_fd < 0)
+				goto fail;
+
+			gr->gbm = gbm_create_device(gr->drm_fd);
+			if (!gr->gbm) {
+				weston_log("Error: Failed to create GBM device\n");
+				close(gr->drm_fd);
+				goto fail;
+			}
+
+			egl_native_display = gr->gbm;
+		}
+	}
+
 	gr->base.repaint_output = gl_renderer_repaint_output;
 	gr->base.resize_output = gl_renderer_resize_output;
 	gr->base.create_renderbuffer = gl_renderer_create_renderbuffer;
@@ -5287,7 +5321,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.output_set_border = gl_renderer_output_set_border;
 	gr->base.type = WESTON_RENDERER_GL;
 
-	if (gl_renderer_setup_egl_display(gr, options->egl_native_display) < 0)
+	if (gl_renderer_setup_egl_display(gr, egl_native_display) < 0)
 		goto fail;
 
 	gr->allocator = gl_renderer_allocator_create(gr, options);
@@ -5317,7 +5351,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	if (!gl_features_has(gr, FEATURE_NO_CONFIG_CONTEXT)) {
 		gr->egl_config =
 			gl_renderer_get_egl_config(gr,
-						   options->egl_surface_type,
+						   egl_surface_type,
 						   options->formats,
 						   options->formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
@@ -5434,6 +5468,11 @@ fail_terminate:
 	weston_drm_format_array_fini(&gr->supported_dmabuf_formats);
 	eglTerminate(gr->egl_display);
 fail:
+	if (gr->gbm) {
+		gbm_device_destroy(gr->gbm);
+		close(gr->drm_fd);
+	}
+
 	weston_log_scope_destroy(gr->shader_scope);
 	weston_log_scope_destroy(gr->extensions_scope);
 	weston_log_scope_destroy(gr->paint_node_scope);
