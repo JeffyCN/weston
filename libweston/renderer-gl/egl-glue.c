@@ -733,6 +733,14 @@ gl_renderer_setup_egl_client_extensions(struct gl_renderer *gr)
 		return -1;
 	}
 
+	/* HACK: Fallback to GBM platform if surfaceless is not supported */
+	if (gr->platform == EGL_PLATFORM_SURFACELESS_MESA) {
+		gr->platform = EGL_PLATFORM_GBM_KHR;
+		weston_log("Warn: EGL does not support %s platform, try GBM\n",
+			   platform);
+		return gl_renderer_setup_egl_client_extensions(gr);
+	}
+
 	/* at this point we definitely have some platform extensions but
 	 * haven't found the supplied platform, so chances are it's
 	 * not supported. */
