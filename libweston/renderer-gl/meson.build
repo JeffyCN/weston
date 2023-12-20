@@ -32,8 +32,9 @@ srcs_renderer_gl = [
 deps_renderer_gl = [
 	dep_libm,
 	dep_pixman,
+	dep_gbm,
+	dep_libdrm,
 	dep_libweston_private,
-	dep_libdrm_headers,
 	dep_vertex_clipping
 ]
 
