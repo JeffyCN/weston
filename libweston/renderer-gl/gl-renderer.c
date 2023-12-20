@@ -796,6 +796,7 @@ gl_renderer_do_read_pixels(struct gl_renderer *gr,
 {
 	void *read_target;
 	pixman_image_t *tmp = NULL;
+	void *tmp_data = NULL;
 
 	assert(fmt->gl_type != 0);
 	assert(fmt->gl_format != 0);
@@ -811,11 +812,17 @@ gl_renderer_do_read_pixels(struct gl_renderer *gr,
 		 * glReadPixels() returns bottom row first. We need to
 		 * read into a temporary buffer and y-flip it.
 		 */
+		tmp_data = malloc(stride * rect->height);
+		if (!tmp_data)
+			return false;
+
 		tmp = pixman_image_create_bits(fmt->pixman_format,
 					       rect->width, rect->height,
-					       NULL, 0);
-		if (!tmp)
+					       tmp_data, stride);
+		if (!tmp) {
+			free(tmp_data);
 			return false;
+		}
 
 		read_target = pixman_image_get_data(tmp);
 	}
@@ -850,6 +857,7 @@ gl_renderer_do_read_pixels(struct gl_renderer *gr,
 
 		pixman_image_unref(image);
 		pixman_image_unref(tmp);
+		free(tmp_data);
 	}
 
 	return true;
