@@ -46,6 +46,7 @@
 #include <time.h>
 
 #include <wayland-util.h>
+#include <gbm.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include "shared/weston-egl-ext.h"  /* for PFN* stuff */
@@ -307,6 +308,9 @@ struct gl_renderer {
 	struct dmabuf_allocator *allocator;
 
 	bool is_mali_egl;
+
+	int drm_fd;
+	struct gbm_device *gbm;
 };
 
 static inline struct gl_renderer *
