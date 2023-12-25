@@ -1130,6 +1130,20 @@ gl_renderer_update_renderbuffers(struct weston_output *output,
 	return gl_renderer_get_renderbuffer_window(output);
 }
 
+/**
+ * gl_renderer_get_display_options - Get GL renderer display options
+ * @compositor: Weston compositor instance
+ * Return: Pointer to gl_renderer_display_options (const)
+ *
+ * Expose the GL renderer's EGL/GBM display options for VNC backend usage
+ */
+static const struct gl_renderer_display_options *
+gl_renderer_get_display_options(struct weston_compositor *ec)
+{
+	struct gl_renderer *gr = get_renderer(ec);
+	return &gr->options;
+}
+
 static bool
 gl_renderer_do_read_pixels(struct gl_renderer *gr,
 			   struct gl_output_state *go,
@@ -5479,8 +5493,6 @@ gl_renderer_display_create(struct weston_compositor *ec,
 			   const struct gl_renderer_display_options *options)
 {
 	struct gl_renderer *gr;
-	EGLint egl_surface_type = options->egl_surface_type;
-	void *egl_native_display = options->egl_native_display;
 	const struct pixel_format_info *info;
 	int ret, nformats, i, j;
 	bool supported;
@@ -5492,6 +5504,9 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->compositor = ec;
 	wl_list_init(&gr->shader_list);
 	gr->platform = options->egl_platform;
+
+	gr->options = *options;
+	options = &gr->options;
 
 	gr->extensions_scope = weston_compositor_add_log_scope(ec, "gl-renderer-ext",
 		"Print GL-renderer extensions\n", NULL, NULL, gr);
@@ -5505,10 +5520,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	/* HACK: Create GBM device if using GBM platform and none provided */
 	if (gr->platform == EGL_PLATFORM_GBM_KHR) {
 		/* GBM requires window surface */
-		if (!egl_surface_type)
-			egl_surface_type = EGL_WINDOW_BIT;
+		if (!options->egl_surface_type)
+			gr->options.egl_surface_type = EGL_WINDOW_BIT;
 
-		if (!egl_native_display) {
+		if (!options->egl_native_display) {
 			gr->drm_fd = drmOpen("rockchip", NULL);
 			if (gr->drm_fd < 0)
 				gr->drm_fd = open("/dev/dri/card0",
@@ -5523,7 +5538,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 				goto fail;
 			}
 
-			egl_native_display = gr->gbm;
+			gr->options.egl_native_display = gr->gbm;
 		}
 	}
 
@@ -5541,7 +5556,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.output_set_border = gl_renderer_output_set_border;
 	gr->base.type = WESTON_RENDERER_GL;
 
-	if (gl_renderer_setup_egl_display(gr, egl_native_display) < 0)
+	if (gl_renderer_setup_egl_display(gr, options->egl_native_display) < 0)
 		goto fail;
 
 	gr->allocator = gl_renderer_allocator_create(gr, options);
@@ -5569,9 +5584,11 @@ gl_renderer_display_create(struct weston_compositor *ec,
 		goto fail_terminate;
 
 	if (!gl_features_has(gr, FEATURE_NO_CONFIG_CONTEXT)) {
+		gr->options.egl_surface_type |= EGL_PBUFFER_BIT;
+
 		gr->egl_config =
 			gl_renderer_get_egl_config(gr,
-						   egl_surface_type,
+						   options->egl_surface_type,
 						   options->formats,
 						   options->formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
@@ -6028,4 +6045,5 @@ WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.output_fbo_create = gl_renderer_output_fbo_create,
 	.output_destroy = gl_renderer_output_destroy,
 	.create_fence_fd = gl_renderer_create_fence_fd,
+	.get_display_options = gl_renderer_get_display_options,
 };
