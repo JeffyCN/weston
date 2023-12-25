@@ -237,4 +237,6 @@ struct gl_renderer_interface {
 						  const struct pixel_format_info *format,
 						  int width, int height,
 						  uint32_t *pixels);
+
+	const struct gl_renderer_display_options *(*get_display_options)(struct weston_compositor *ec);
 };
