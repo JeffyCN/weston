@@ -812,6 +812,13 @@ gl_renderer_create_fbo(struct weston_output *output,
 	return &renderbuffer->base;
 }
 
+static const struct gl_renderer_display_options *
+gl_renderer_get_display_options(struct weston_compositor *ec)
+{
+	struct gl_renderer *gr = get_renderer(ec);
+	return &gr->options;
+}
+
 static bool
 gl_renderer_do_read_pixels(struct gl_renderer *gr,
 			   const struct pixel_format_info *fmt,
@@ -4059,8 +4066,6 @@ gl_renderer_display_create(struct weston_compositor *ec,
 			   const struct gl_renderer_display_options *options)
 {
 	struct gl_renderer *gr;
-	EGLint egl_surface_type = options->egl_surface_type;
-	void *egl_native_display = options->egl_native_display;
 	int ret;
 
 	gr = zalloc(sizeof *gr);
@@ -4070,6 +4075,9 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->compositor = ec;
 	wl_list_init(&gr->shader_list);
 	gr->platform = options->egl_platform;
+
+	gr->options = *options;
+	options = &gr->options;
 
 	gr->renderer_scope = weston_compositor_add_log_scope(ec, "gl-renderer",
 		"GL-renderer verbose messages\n", NULL, NULL, gr);
@@ -4085,10 +4093,10 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	/* HACK: Fixup options for GBM platform */
 	if (gr->platform == EGL_PLATFORM_GBM_KHR) {
-		if (!egl_surface_type)
-			egl_surface_type = EGL_WINDOW_BIT;
+		if (!options->egl_surface_type)
+			gr->options.egl_surface_type = EGL_WINDOW_BIT;
 
-		if (!egl_native_display) {
+		if (!options->egl_native_display) {
 			gr->drm_fd = drmOpen("rockchip", NULL);
 			if (gr->drm_fd < 0)
 				gr->drm_fd = open("/dev/dri/card0",
@@ -4102,7 +4110,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 				goto fail;
 			}
 
-			egl_native_display = gr->gbm;
+			gr->options.egl_native_display = gr->gbm;
 		}
 	}
 
@@ -4116,7 +4124,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	gr->base.fill_buffer_info = gl_renderer_fill_buffer_info;
 	gr->base.type = WESTON_RENDERER_GL;
 
-	if (gl_renderer_setup_egl_display(gr, egl_native_display) < 0)
+	if (gl_renderer_setup_egl_display(gr, options->egl_native_display) < 0)
 		goto fail;
 
 	weston_drm_format_array_init(&gr->supported_formats);
@@ -4133,11 +4141,11 @@ gl_renderer_display_create(struct weston_compositor *ec,
 
 	if (!gr->has_configless_context) {
 		if (!gr->has_surfaceless_context)
-			egl_surface_type |= EGL_PBUFFER_BIT;
+			gr->options.egl_surface_type |= EGL_PBUFFER_BIT;
 
 		gr->egl_config =
 			gl_renderer_get_egl_config(gr,
-						   egl_surface_type,
+						   options->egl_surface_type,
 						   options->formats,
 						   options->formats_count);
 		if (gr->egl_config == EGL_NO_CONFIG_KHR) {
@@ -4502,4 +4510,5 @@ WL_EXPORT struct gl_renderer_interface gl_renderer_interface = {
 	.output_set_border = gl_renderer_output_set_border,
 	.create_fence_fd = gl_renderer_create_fence_fd,
 	.create_fbo = gl_renderer_create_fbo,
+	.get_display_options = gl_renderer_get_display_options,
 };
