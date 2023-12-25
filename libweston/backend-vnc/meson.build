@@ -13,12 +13,19 @@ if not dep_aml.found()
 	error('VNC backend requires libaml which was not found. Or, you can use \'-Dbackend-vnc=false\'.')
 endif
 
+dep_gbm = dependency('gbm', required: false, version: '>= 21.1.1')
+if not dep_gbm.found()
+	error('VNC backend requires gbm which was not found. Or, you can use \'-Dbackend-vnc=false\'.')
+endif
+
 deps_vnc = [
 	dep_libweston_private,
 	dep_neatvnc,
 	dep_aml,
 	dep_libdrm_headers,
+	dep_gbm,
 ]
+
 plugin_vnc = shared_library(
 	'vnc-backend',
 	[ 'vnc.c' ],
