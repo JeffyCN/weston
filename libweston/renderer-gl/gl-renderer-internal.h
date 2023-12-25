@@ -244,6 +244,8 @@ struct gl_renderer {
 
 	int drm_fd;
 	struct gbm_device *gbm;
+
+	struct gl_renderer_display_options options;
 };
 
 static inline struct gl_renderer *
