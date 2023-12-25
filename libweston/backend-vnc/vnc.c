@@ -48,6 +48,11 @@
 #include <neatvnc.h>
 #include <drm_fourcc.h>
 
+#include <gbm.h>
+
+#include <fcntl.h>
+#include <xf86drm.h>
+
 #include "shared/helpers.h"
 #include "shared/xalloc.h"
 #include "shared/timespec-util.h"
@@ -61,6 +66,7 @@
 #include "shared/weston-egl-ext.h"
 
 #define DEFAULT_AXIS_STEP_DISTANCE 10
+#define VNC_MAX_BUFFERS            16
 
 struct vnc_output;
 
@@ -83,6 +89,18 @@ struct vnc_backend {
 
 	const struct pixel_format_info **formats;
 	unsigned int formats_count;
+
+	int drm_fd;
+	struct gbm_device *gbm;
+};
+
+struct vnc_buffer {
+	weston_renderbuffer_t rb;
+	struct nvnc_fb *fb;
+	struct vnc_output *output;
+
+	struct gbm_surface *gbm_surface;
+	struct gbm_bo *bo;
 };
 
 struct vnc_output {
@@ -98,6 +116,16 @@ struct vnc_output {
 	struct wl_list peers;
 
 	bool resizeable;
+
+	/* For GL renderer with GBM backend only */
+
+	struct vnc_buffer buffers[VNC_MAX_BUFFERS];
+	unsigned int num_buffers;
+	int current_buffer;
+
+	/* Two buffers per surface */
+	struct gbm_surface *gbm_surfaces[VNC_MAX_BUFFERS / 2];
+	unsigned int num_surfaces;
 };
 
 struct vnc_peer {
@@ -114,12 +142,6 @@ struct vnc_peer {
 
 struct vnc_head {
 	struct weston_head base;
-};
-
-struct vnc_buffer {
-	weston_renderbuffer_t rb;
-	struct nvnc_fb *fb;
-	struct vnc_output *output;
 };
 
 static void
@@ -755,16 +777,11 @@ vnc_buffer_destroy(struct vnc_buffer *buffer)
 	free(buffer);
 }
 
-static void
-vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
+static struct nvnc_fb *
+vnc_output_render(struct vnc_output *output, struct pixman_region32 *damage)
 {
-	struct nvnc *server = nvnc_display_get_server(display);
-	struct vnc_backend *backend = nvnc_get_userdata(server);
-	struct vnc_output *output = backend->output;
 	struct weston_compositor *ec = output->base.compositor;
 	struct vnc_buffer *buffer;
-	pixman_region32_t local_damage;
-	pixman_region16_t nvnc_damage;
 	struct nvnc_fb *fb;
 
 	fb = nvnc_fb_pool_acquire(output->fb_pool);
@@ -777,9 +794,72 @@ vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
 				  (nvnc_cleanup_fn) vnc_buffer_destroy);
 	}
 
+	ec->renderer->repaint_output(&output->base, damage, buffer->rb);
+
+	return fb;
+}
+
+static void
+vnc_buffer_release_gl(struct vnc_buffer *buffer)
+{
+	gbm_surface_release_buffer(buffer->gbm_surface, buffer->bo);
+}
+
+static struct nvnc_fb *
+vnc_output_render_gl(struct vnc_output *output, struct pixman_region32 *damage)
+{
+	struct weston_compositor *ec = output->base.compositor;
+	struct vnc_buffer *buffer;
+	struct nvnc_fb *fb;
+
+	/* Cycle through GBM surfaces for multi-buffering */
+	buffer = &output->buffers[output->current_buffer];
+
+	/* Cycle through buffers to reduce tearing */
+	output->current_buffer = (output->current_buffer + 1) % output->num_buffers;
+
+	/* HACK: Renderbuffer is only used to pass EGL surface to renderer */
+	ec->renderer->repaint_output(&output->base, damage, buffer->rb);
+
+	buffer->bo = gbm_surface_lock_front_buffer(buffer->gbm_surface);
+	if (!buffer->bo) {
+		weston_log("failed to lock front buffer: %s\n",
+			   strerror(errno));
+		return NULL;
+	}
+
+	fb = nvnc_fb_from_gbm_bo(buffer->bo);
+	if (!fb) {
+		weston_log("failed to import gbm bo\n");
+		return NULL;
+	}
+
+	nvnc_set_userdata(fb, buffer, (nvnc_cleanup_fn)vnc_buffer_release_gl);
+
+	return fb;
+}
+
+static void
+vnc_update_buffer(struct nvnc_display *display, struct pixman_region32 *damage)
+{
+	struct nvnc *server = nvnc_display_get_server(display);
+	struct vnc_backend *backend = nvnc_get_userdata(server);
+	struct vnc_output *output = backend->output;
+	struct weston_compositor *ec = output->base.compositor;
+	pixman_region32_t local_damage;
+	pixman_region16_t nvnc_damage;
+	struct nvnc_fb *fb;
+
 	vnc_log_damage(backend, damage);
 
-	ec->renderer->repaint_output(&output->base, damage, buffer->rb);
+	switch (ec->renderer->type) {
+	case WESTON_RENDERER_GL:
+		fb = vnc_output_render_gl(output, damage);
+		break;
+	default:
+		fb = vnc_output_render(output, damage);
+		break;
+	}
 
 	/* Convert to local coordinates */
 	pixman_region32_init(&local_damage);
@@ -851,6 +931,99 @@ finish_frame_handler(void *data)
 	return 1;
 }
 
+static void
+vnc_output_fini_egl(struct vnc_output *output)
+{
+	struct weston_renderer *renderer = output->base.compositor->renderer;
+	unsigned int i;
+
+	renderer->gl->output_destroy(&output->base);
+
+	for (i = 0; i < output->num_surfaces; i++) {
+		if (output->gbm_surfaces[i])
+			gbm_surface_destroy(output->gbm_surfaces[i]);
+		output->gbm_surfaces[i] = NULL;
+	}
+}
+
+static int
+vnc_output_init_egl(struct vnc_output *output, struct vnc_backend *b)
+{
+	const struct weston_renderer *renderer = b->compositor->renderer;
+	struct weston_mode *mode = output->base.current_mode;
+	const struct gl_renderer_interface *gl = renderer->gl;
+	const struct gl_renderer_display_options *display_options =
+		gl->get_display_options(b->compositor);
+	struct gl_renderer_output_options options;
+	uint32_t i;
+
+	if (display_options->egl_platform != EGL_PLATFORM_GBM_KHR ||
+	    !display_options->egl_native_display)
+		return -1;
+
+	options.formats = &b->formats[0];
+	options.formats_count = b->formats_count;
+	options.area.x = 0;
+	options.area.y = 0;
+	options.area.width = mode->width;
+	options.area.height = mode->height;
+	options.fb_size.width = mode->width;
+	options.fb_size.height = mode->height;
+	options.window_for_legacy = NULL;
+	options.window_for_platform = NULL;
+
+	/* Create multiple GBM surfaces for multi-buffering */
+	for (i = 0; i < output->num_surfaces; i++) {
+		struct gbm_device *gbm = display_options->egl_native_display;
+		output->gbm_surfaces[i] =
+			gbm_surface_create(gbm, mode->width, mode->height,
+					   b->formats[0]->format,
+					   GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING);
+		if (!output->gbm_surfaces[i]) {
+			weston_log("failed to create gbm surface\n");
+			goto err;
+		}
+	}
+
+	if (gl->output_window_create(&output->base, &options) < 0) {
+		weston_log("failed to create gl renderer output state\n");
+		goto err;
+	}
+
+	/* Each GBM surface is associated with two render buffers */
+	for (i = 0; i < output->num_buffers; i += 2) {
+		struct gbm_surface *gbm_surface = output->gbm_surfaces[i / 2];
+		weston_renderbuffer_t rb;
+		options.window_for_legacy =
+			(EGLNativeWindowType) gbm_surface;
+		options.window_for_platform = gbm_surface;
+
+		rb = gl->create_buffer(&output->base, &options);
+		if (!rb) {
+			weston_log("failed to create window surface\n");
+			goto err;
+		}
+
+		output->buffers[i].rb = rb;
+
+		/* There are two buffers per surface, duplicate buffer to
+		 * share EGL surface (no ownership)
+		 */
+		rb = gl->dup_buffer(&output->base, rb);
+		if (!rb) {
+			weston_log("failed to dup window surface\n");
+			goto err;
+		}
+
+		output->buffers[i + 1].rb = rb;
+	}
+
+	return 0;
+err:
+	vnc_output_fini_egl(output);
+	return -1;
+}
+
 static int
 vnc_output_enable(struct weston_output *base)
 {
@@ -880,17 +1053,7 @@ vnc_output_enable(struct weston_output *base)
 		break;
 	}
 	case WESTON_RENDERER_GL: {
-		const struct gl_renderer_fbo_options options = {
-			.area = {
-				.width = output->base.current_mode->width,
-				.height = output->base.current_mode->height,
-			},
-			.fb_size = {
-				.width = output->base.current_mode->width,
-				.height = output->base.current_mode->height,
-			},
-		};
-		if (renderer->gl->output_fbo_create(&output->base, &options) < 0)
+		if (vnc_output_init_egl(output, backend) < 0)
 			return -1;
 		break;
 	}
@@ -953,7 +1116,7 @@ vnc_output_disable(struct weston_output *base)
 		renderer->pixman->output_destroy(&output->base);
 		break;
 	case WESTON_RENDERER_GL:
-		renderer->gl->output_destroy(&output->base);
+		vnc_output_fini_egl(output);
 		break;
 	case WESTON_RENDERER_VULKAN:
 		renderer->vulkan->output_destroy(&output->base);
@@ -989,12 +1152,24 @@ vnc_create_output(struct weston_backend *backend, const char *name)
 {
 	struct vnc_backend *b = container_of(backend, struct vnc_backend, base);
 	struct vnc_output *output;
+	const char *env;
 
 	output = zalloc(sizeof *output);
 	if (output == NULL)
 		return NULL;
 
 	weston_output_init(&output->base, b->compositor, name);
+
+	env = getenv("WESTON_VNC_MIN_BUFFERS");
+	if (env)
+		output->num_buffers = atoi(env);
+
+	/* There are two buffers per surface */
+	output->num_surfaces = (output->num_buffers + 1) / 2;
+	output->num_surfaces = MIN(MAX(output->num_surfaces, 1),
+				   ARRAY_LENGTH(output->gbm_surfaces));
+	output->num_buffers = output->num_surfaces * 2;
+	weston_log("%s using %d buffers\n", name, output->num_buffers);
 
 	output->base.destroy = vnc_output_destroy;
 	output->base.disable = vnc_output_disable;
@@ -1032,6 +1207,11 @@ vnc_destroy(struct weston_backend *base)
 
 	if (backend->debug)
 		weston_log_scope_destroy(backend->debug);
+
+	if (backend->gbm) {
+		gbm_device_destroy(backend->gbm);
+		close(backend->drm_fd);
+	}
 
 	free(backend);
 }
@@ -1161,7 +1341,9 @@ vnc_set_dpms(struct weston_output *base, enum dpms_enum level)
 static int
 vnc_switch_mode(struct weston_output *base, struct weston_mode *target_mode)
 {
+	struct weston_renderer *renderer = base->compositor->renderer;
 	struct vnc_output *output = to_vnc_output(base);
+	struct vnc_backend *backend = output->backend;
 	struct weston_size fb_size;
 
 	assert(output);
@@ -1183,6 +1365,15 @@ vnc_switch_mode(struct weston_output *base, struct weston_mode *target_mode)
 	nvnc_fb_pool_resize(output->fb_pool, target_mode->width,
 			    target_mode->height, DRM_FORMAT_XRGB8888,
 			    target_mode->width);
+
+	if (renderer->type == WESTON_RENDERER_GL) {
+		vnc_output_fini_egl(output);
+		if (vnc_output_init_egl(output, backend) < 0) {
+			weston_log("failed to init output egl state with "
+				   "new mode");
+			return -1;
+		}
+	}
 
 	return 0;
 }
@@ -1303,11 +1494,28 @@ vnc_backend_create(struct weston_compositor *compositor,
 				goto err_compositor;
 			break;
 		case WESTON_RENDERER_GL: {
-			const struct gl_renderer_display_options options = {
-				.egl_platform = EGL_PLATFORM_SURFACELESS_MESA,
+			struct gl_renderer_display_options options = {
+				.egl_platform = EGL_PLATFORM_GBM_KHR,
+				.egl_surface_type = EGL_WINDOW_BIT,
 				.formats = backend->formats,
 				.formats_count = backend->formats_count,
 			};
+
+			backend->drm_fd = drmOpen("rockchip", NULL);
+			if (backend->drm_fd < 0)
+				backend->drm_fd = open("/dev/dri/card0",
+						       O_RDWR | O_CLOEXEC);
+			if (backend->drm_fd < 0)
+				goto err_compositor;
+
+			backend->gbm = gbm_create_device(backend->drm_fd);
+			if (!backend->gbm) {
+				close(backend->drm_fd);
+				goto err_compositor;
+			}
+
+			options.egl_native_display = backend->gbm;
+
 			if (weston_compositor_init_renderer(compositor,
 							    WESTON_RENDERER_GL,
 							    &options.base) < 0)
@@ -1446,6 +1654,11 @@ err_output:
 	wl_list_for_each_safe(base, next, &compositor->head_list, compositor_link)
 		vnc_head_destroy(base);
 err_compositor:
+	if (backend->gbm) {
+		gbm_device_destroy(backend->gbm);
+		close(backend->drm_fd);
+	}
+
 	wl_list_remove(&backend->base.link);
 	free(backend);
 	return NULL;

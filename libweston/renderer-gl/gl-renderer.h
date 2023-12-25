@@ -212,4 +212,13 @@ struct gl_renderer_interface {
 	 * EGL_ANDROID_native_fence_sync extension.
 	 */
 	int (*create_fence_fd)(struct weston_output *output);
+
+	/**
+	 * Get GL renderer display options
+	 * @compositor: Weston compositor instance
+	 * Return: Pointer to gl_renderer_display_options (const)
+	 *
+	 * Expose the GL renderer's EGL/GBM display options for VNC backend usage
+	 */
+	const struct gl_renderer_display_options *(*get_display_options)(struct weston_compositor *ec);
 };
