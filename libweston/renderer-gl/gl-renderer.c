@@ -2027,7 +2027,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	if (rb->pixels) {
 		uint32_t *pixels = rb->pixels;
-		int stride = go->fb_size.width;
+		int width = go->fb_size.width;
+		int stride = width * (compositor->read_format->bpp >> 3);
 		pixman_box32_t *extents = &rb->base.damage.extents;
 		struct weston_geometry rect = {
 			.x = go->area.x,
@@ -2044,13 +2045,14 @@ gl_renderer_repaint_output(struct weston_output *output,
 		}
 
 		if (gr->gl_version >= gr_gl_version(3, 0) && ! gr->fan_debug) {
-			glPixelStorei(GL_PACK_ROW_LENGTH, stride);
+			glPixelStorei(GL_PACK_ROW_LENGTH, width);
 			rect.width = extents->x2 - extents->x1;
 			rect.x += extents->x1 - (int)output->pos.c.x;
 			pixels += extents->x1 - (int)output->pos.c.x;
 		}
 
-		gl_renderer_do_read_pixels(gr, compositor->read_format, pixels, stride, &rect);
+		gl_renderer_do_read_pixels(gr, compositor->read_format, pixels,
+					   stride, &rect);
 
 		if (gr->gl_version >= gr_gl_version(3, 0))
 			glPixelStorei(GL_PACK_ROW_LENGTH, 0);
