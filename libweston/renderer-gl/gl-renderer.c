@@ -2050,7 +2050,8 @@ gl_renderer_repaint_output(struct weston_output *output,
 			pixels += extents->x1 - (int)output->pos.c.x;
 		}
 
-		gl_renderer_do_read_pixels(gr, compositor->read_format, pixels, stride, &rect);
+		gl_renderer_do_read_pixels(gr, compositor->read_format, pixels,
+					   stride * 4, &rect);
 
 		if (gr->gl_version >= gr_gl_version(3, 0))
 			glPixelStorei(GL_PACK_ROW_LENGTH, 0);
