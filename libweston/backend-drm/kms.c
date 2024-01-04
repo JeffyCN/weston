@@ -864,6 +864,12 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	struct timespec now;
 	int ret = 0;
 	bool scaling;
+	bool mode_valid;
+	drmModeCrtc *drm_crtc;
+
+	drm_crtc = drmModeGetCrtc(device->drm.fd, output->crtc->crtc_id);
+	mode_valid = drm_crtc->mode_valid;
+	drmModeFreeCrtc(drm_crtc);
 
 	wl_list_for_each(head, &output->base.head_list, base.output_link) {
 		assert(n_conn < MAX_CLONED_CONNECTORS);
@@ -891,11 +897,20 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 					   strerror(errno));
 		}
 
-		ret = drmModeSetCrtc(device->drm.fd, crtc->crtc_id, 0, 0, 0,
-				     NULL, 0, NULL);
-		if (ret)
-			weston_log("drmModeSetCrtc failed disabling: %s\n",
-				   strerror(errno));
+		if (!output->custom_plane || output->fb_dummy) {
+			ret = drmModeSetCrtc(device->drm.fd, crtc->crtc_id,
+					     0, 0, 0, NULL, 0, NULL);
+			if (ret)
+				weston_log("drmModeSetCrtc failed disabling: %s\n",
+					   strerror(errno));
+		} else {
+			ret = drmModeSetPlane(device->drm.fd,
+					      output->scanout_plane->plane_id,
+					      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+			if (ret)
+				weston_log("drmModeSetPlane failed disabling: %s\n",
+					   strerror(errno));
+		}
 
 		drm_output_assign_state(state, DRM_STATE_APPLY_SYNC);
 		weston_compositor_read_presentation_clock(output->base.compositor, &now);
@@ -916,8 +931,8 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 
 	mode = to_drm_mode(output->base.current_mode);
 
-	if (output->state_invalid ||
-	    !scanout_plane->state_cur->fb) {
+	if ((!output->custom_plane || !mode_valid) &&
+	    (output->state_invalid || !scanout_plane->state_cur->fb)) {
 		int fb_id = scanout_state->fb->fb_id;
 
 		if (scanout_state->dest_x || scanout_state->dest_y ||
@@ -984,6 +999,13 @@ drm_output_apply_state_legacy(struct drm_output_state *state)
 	drm_debug(backend, "\t[CRTC:%u, PLANE:%u] FORMAT: %s\n",
 			   crtc->crtc_id, scanout_state->plane->plane_id,
 			   pinfo ? pinfo->drm_format_name : "UNKNOWN");
+
+	if (output->custom_plane) {
+		drm_output_assign_state(state, DRM_STATE_APPLY_SYNC);
+		output->state_invalid = false;
+		drm_output_update_complete(output, 0, 0, 0);
+		return 0;
+	}
 
 	ret = drmModePageFlip(device->drm.fd, crtc->crtc_id,
 			      scanout_state->fb->fb_id,
