@@ -728,6 +728,7 @@ struct drm_output {
 
 	/* Plane being displayed directly on the CRTC */
 	struct drm_plane *scanout_plane;
+	unsigned int custom_plane;
 
 	/* The last state submitted to the kernel for this CRTC. */
 	struct drm_output_state *state_cur;
