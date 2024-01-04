@@ -454,6 +454,9 @@ drm_output_get_disable_state(struct drm_pending_state *pending_state,
 static int
 drm_output_apply_mode(struct drm_output *output);
 
+static unsigned int
+drm_waitvblank_pipe(struct drm_crtc *crtc);
+
 /**
  * Mark a drm_output_state (the output's last state) as complete. This handles
  * any post-completion actions such as updating the repaint timer, disabling the
@@ -471,13 +474,37 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 	if (output->pageflip_timer)
 		wl_event_source_timer_update(output->pageflip_timer, 0);
 
+	if (!sec && !usec) {
+		drmVBlank vbl = {
+			.request.type = DRM_VBLANK_RELATIVE,
+			.request.sequence = 0,
+			.request.signal = 0,
+		};
+		int ret;
+
+		/* Try to get current msc and timestamp via instant query */
+		vbl.request.type |= drm_waitvblank_pipe(output->crtc);
+		ret = drmWaitVBlank(device->drm.fd, &vbl);
+
+		/* Error ret or zero timestamp means failure to get valid timestamp */
+		if ((ret == 0) &&
+		    (vbl.reply.tval_sec > 0 || vbl.reply.tval_usec > 0)) {
+			ts.tv_sec = vbl.reply.tval_sec;
+			ts.tv_nsec = vbl.reply.tval_usec * 1000;
+			sec = ts.tv_sec;
+			usec = ts.tv_nsec / 1000;
+
+			drm_output_update_msc(output, vbl.reply.sequence);
+		}
+	}
+
 	wl_list_for_each(ps, &output->state_cur->plane_list, link)
 		ps->complete = true;
 
 	drm_output_state_free(output->state_last);
 	output->state_last = NULL;
 
-	if (output->fb_dummy) {
+	if (output->fb_dummy && !output->custom_plane) {
 		drm_fb_unref(output->fb_dummy);
 		output->fb_dummy = NULL;
 	}
@@ -521,7 +548,7 @@ drm_output_update_complete(struct drm_output *output, uint32_t flags,
 	ts.tv_sec = sec;
 	ts.tv_nsec = usec * 1000;
 
-	if (output->state_cur->dpms != WESTON_DPMS_OFF)
+	if (output->state_cur->dpms != WESTON_DPMS_OFF && (sec || usec))
 		weston_output_finish_frame(&output->base, &ts, flags);
 	else
 		weston_output_finish_frame(&output->base, NULL,
@@ -1611,6 +1638,15 @@ retry:
 		struct weston_output *base;
 		bool found_elsewhere = false;
 
+		if (type == WDRM_PLANE_TYPE_PRIMARY && output->custom_plane) {
+			if (output->custom_plane != plane->plane_id)
+				continue;
+
+			/* Pretend to be primary plane */
+			output->crtc->primary_plane_id = output->custom_plane;
+			plane->type = WDRM_PLANE_TYPE_PRIMARY;
+		}
+
 		if (plane->type != type)
 			continue;
 		if (!drm_plane_is_available(plane, output))
@@ -1740,6 +1776,9 @@ create_sprites(struct drm_device *device, drmModeRes *resources)
 			assert(drm_crtc);
 			drm_crtc->cursor_plane_id = drm_plane->plane_id;
 		} else if (drm_plane->type == WDRM_PLANE_TYPE_OVERLAY) {
+			if (device->sprites_are_broken)
+				continue;
+
 			weston_compositor_stack_plane(b->compositor,
 						      &drm_plane->base,
 						      NULL);
@@ -2469,6 +2508,22 @@ drm_output_init_planes(struct drm_output *output)
 {
 	struct drm_backend *b = output->backend;
 	struct drm_device *device = output->device;
+	struct weston_config_section *section;
+	struct weston_head *head;
+
+	wl_list_for_each(head, &output->base.head_list, output_link) {
+		section = head->section;
+		if (section) {
+			weston_config_section_get_uint(section, "plane-id",
+						       &output->custom_plane,
+						       0);
+			break;
+		}
+	}
+
+	if (output->custom_plane)
+		weston_log("Using custom plane: %d for output %s\n",
+			   output->custom_plane, output->base.name);
 
 	output->scanout_plane =
 		drm_output_find_special_plane(device, output,
@@ -2482,6 +2537,13 @@ drm_output_init_planes(struct drm_output *output)
 	weston_compositor_stack_plane(b->compositor,
 				      &output->scanout_plane->base,
 				      &output->base.primary_plane);
+
+	if (output->custom_plane) {
+		device->atomic_modeset = false;
+		device->cursors_are_broken = true;
+		device->sprites_are_broken = true;
+		return 0;
+	}
 
 	/* Failing to find a cursor plane is not fatal, as we'll fall back
 	 * to software cursor. */
@@ -2632,6 +2694,14 @@ drm_output_detach_crtc(struct drm_output *output)
 
 	crtc->output = NULL;
 	output->crtc = NULL;
+
+	if (output->custom_plane && !output->fb_dummy) {
+		if (output->scanout_plane)
+			drmModeSetPlane(crtc->device->drm.fd,
+					output->scanout_plane->plane_id,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+		return;
+	}
 
 	/* HACK: Do it here rather than in the kms.c for drm-master config */
 	drmModeSetCrtc(crtc->device->drm.fd,
