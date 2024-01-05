@@ -176,6 +176,15 @@ simple_clients = [
 		],
 		'dep_objs': [ dep_wayland_client, dep_libshared ]
 	},
+	{
+		'name': 'pointer',
+		'sources': [
+			'simple-pointer.c',
+			xdg_shell_client_protocol_h,
+			xdg_shell_protocol_c,
+		],
+		'dep_objs': [ dep_wayland_client, dep_libshared ]
+	},
 ]
 
 foreach t : simple_clients
