@@ -3194,6 +3194,7 @@ weston_output_repaint(struct weston_output *output)
 	int r;
 	uint32_t frame_time_msec;
 	enum weston_hdcp_protection highest_requested = WESTON_HDCP_DISABLE;
+	bool is_blank = true;
 
 	if (output->destroying)
 		return 0;
@@ -3227,7 +3228,14 @@ weston_output_repaint(struct weston_output *output)
 		 */
 		if (pnode->surface->desired_protection > highest_requested)
 			highest_requested = pnode->surface->desired_protection;
+
+		if (pnode->view->layer_link.layer)
+			is_blank = false;
 	}
+
+	/* Waiting for initializing */
+	if (!timespec_to_msec(&output->frame_time) && is_blank)
+		return -1;
 
 	output->desired_protection = highest_requested;
 
