@@ -870,6 +870,10 @@ drm_output_reset_legacy_gamma(struct drm_output *output)
 	uint32_t i;
 	int ret;
 
+	/* Skip gamma reset by default to preserve current gamma settings */
+	if (!getenv("WESTON_DRM_RESET_GAMMA"))
+		return;
+
 	if (len == 0)
 		return;
 
