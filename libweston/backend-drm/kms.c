@@ -819,6 +819,9 @@ drm_output_reset_legacy_gamma(struct drm_output *output)
 	uint32_t i;
 	int ret;
 
+	if (!getenv("WESTON_DRM_RESET_GAMMA"))
+		return;
+
 	if (len == 0)
 		return;
 
