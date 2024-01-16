@@ -3484,6 +3484,7 @@ weston_output_repaint(struct weston_output *output)
 	int r;
 	uint32_t frame_time_msec;
 	enum weston_hdcp_protection highest_requested = WESTON_HDCP_DISABLE;
+	bool has_background = false;
 
 	if (output->destroying)
 		return 0;
@@ -3501,8 +3502,19 @@ weston_output_repaint(struct weston_output *output)
 
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
 			 z_order_link) {
+	  struct weston_layer *layer = pnode->view->layer_link.layer;
+
+		if (layer && layer->position == WESTON_LAYER_POSITION_BACKGROUND)
+			has_background = true;
+
 		assert(pnode->view->output_mask & (1u << pnode->output->id));
 		assert(pnode->output == output);
+	}
+
+	if (!output->unavailable && !has_background) {
+		timespec_add_nsec(&output->next_repaint, &output->next_repaint,
+				  millihz_to_nsec(output->current_mode->refresh));
+		return 1;
 	}
 
 	/* Find the highest protection desired for an output */
