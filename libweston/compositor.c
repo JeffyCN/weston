@@ -3870,6 +3870,7 @@ weston_output_repaint(struct weston_output *output, struct timespec *now)
 	int r;
 	uint32_t frame_time_msec;
 	enum weston_hdcp_protection highest_requested = WESTON_HDCP_DISABLE;
+	bool is_blank = true;
 
 	TL_POINT(ec, "core_repaint_begin", TLP_OUTPUT(output), TLP_END);
 
@@ -3890,6 +3891,17 @@ weston_output_repaint(struct weston_output *output, struct timespec *now)
 			 z_order_link) {
 		assert(pnode->view->output_mask & (1u << pnode->output->id));
 		assert(pnode->output == output);
+
+		if (pnode->view->layer_link.layer)
+			is_blank = false;
+	}
+
+	/* Waiting for initializing */
+	if (weston_output_valid(output) &&
+	    !timespec_to_msec(&output->frame_time) && is_blank) {
+		timespec_add_nsec(&output->next_repaint, &output->next_repaint,
+				  millihz_to_nsec(output->current_mode->refresh));
+		return 1;
 	}
 
 	/* Find the highest protection desired for an output */
