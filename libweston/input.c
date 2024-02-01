@@ -225,6 +225,7 @@ weston_touch_device_destroy(struct weston_touch_device *device)
 
 	wl_signal_emit(&device->destroy_signal, device);
 	free(device->syspath);
+	free(device->name);
 	free(device);
 }
 

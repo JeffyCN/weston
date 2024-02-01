@@ -3860,6 +3860,58 @@ config_handle_compositor(struct drm_backend *b, const char *key,
 	}
 }
 
+static void
+config_handle_calibration(struct drm_backend *b, const char *name,
+			  const char *config)
+{
+	struct weston_seat *seat;
+	struct weston_touch *touch;
+	struct weston_touch_device *device;
+	struct weston_touch_device_matrix calibration;
+
+	wl_list_for_each(seat, &b->compositor->seat_list, link) {
+		touch = weston_seat_get_touch(seat);
+		if (!touch)
+			continue;
+
+		wl_list_for_each(device, &touch->device_list, link) {
+			if (!weston_touch_device_can_calibrate(device))
+				continue;
+
+			if (!strcmp(strrchr(device->syspath, '/') + 1, name))
+				goto found;
+
+			if (!strcmp(device->name, name))
+				goto found;
+		}
+	}
+
+	/* No such touch device */
+	return;
+
+found:
+	if (!strcmp(config, "restore")) {
+		calibration = device->saved_calibration;
+	} else if (!strcmp(config, "clear")) {
+		calibration.m[0] = 1;
+		calibration.m[1] = 0;
+		calibration.m[2] = 0;
+		calibration.m[3] = 0;
+		calibration.m[4] = 1;
+		calibration.m[5] = 0;
+	} else if (sscanf(config, "%f %f %f %f %f %f",
+			  &calibration.m[0],
+			  &calibration.m[1],
+			  &calibration.m[2],
+			  &calibration.m[3],
+			  &calibration.m[4],
+			  &calibration.m[5]) != 6) {
+		return;
+	}
+
+	device->ops->set_calibration(device, &calibration);
+}
+
 static int
 config_timer_handler(void *data)
 {
@@ -3913,6 +3965,8 @@ config_timer_handler(void *data)
 			config_handle_output(b, key, value);
 		else if (!strcmp(type, "compositor"))
 			config_handle_compositor(b, key, value);
+		else if (!strcmp(type, "calibration"))
+			config_handle_calibration(b, key, value);
 	}
 
 	fclose(conf_fp);
