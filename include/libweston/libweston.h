@@ -926,6 +926,7 @@ typedef void (*weston_touch_device_set_output_func_t)(
 /** Represents a physical touchscreen input device */
 struct weston_touch_device {
 	char *syspath;			/**< unique name */
+	char *name;			/**< device name */
 
 	struct weston_touch *aggregate;	/**< weston_touch this is part of */
 	struct wl_list link;		/**< in weston_touch::device_list */

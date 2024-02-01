@@ -452,6 +452,7 @@ create_touch_device(struct evdev_device *device)
 					udev_device_get_syspath(udev_device),
 					device, ops,
 					touch_set_output);
+	touch_device->name = strdup(libinput_device_get_name(device->device));
 
 	udev_device_unref(udev_device);
 
