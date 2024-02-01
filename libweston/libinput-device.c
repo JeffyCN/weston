@@ -422,6 +422,7 @@ create_touch_device(struct evdev_device *device)
 	touch_device = weston_touch_create_touch_device(device->seat->touch_state,
 					udev_device_get_syspath(udev_device),
 					device, ops);
+	touch_device->name = strdup(libinput_device_get_name(device->device));
 
 	udev_device_unref(udev_device);
 
