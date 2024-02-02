@@ -278,11 +278,10 @@ set_shsurf_size_maximized_or_fullscreen(struct shell_surface *shsurf,
 			width = shsurf->output->width;
 			height = shsurf->output->height;
 		}
-	}
-
-	/* take the panels into considerations */
-	if (max_requested)
+	} else if (max_requested) {
+		/* take the panels into considerations */
 		get_maximized_size(shsurf, &width, &height);
+	}
 
 	/* (0, 0) means we're back from one of the maximized/fullcreen states */
 	weston_desktop_surface_set_size(shsurf->desktop_surface, width, height);
