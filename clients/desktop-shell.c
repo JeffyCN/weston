@@ -706,6 +706,10 @@ panel_create(struct desktop *desktop, struct output *output)
 	panel->owner = output;
 	panel->base.configure = panel_configure;
 	panel->window = window_create_custom(desktop->display);
+
+	/* Set the initial size to 1×1 as the minimum size */
+	window_schedule_resize(panel->window, 1, 1);
+
 	panel->widget = window_add_widget(panel->window, panel);
 	wl_list_init(&panel->launcher_list);
 
@@ -1273,6 +1277,10 @@ background_create(struct desktop *desktop, struct output *output)
 	background->owner = output;
 	background->base.configure = background_configure;
 	background->window = window_create_custom(desktop->display);
+
+	/* Set the initial size to 1×1 as the minimum size */
+	window_schedule_resize(background->window, 1, 1);
+
 	background->widget = window_add_widget(background->window, background);
 	window_set_user_data(background->window, background);
 	widget_set_redraw_handler(background->widget, background_draw);
