@@ -2198,6 +2198,25 @@ gl_renderer_attach_shm(struct weston_surface *es, struct weston_buffer *buffer,
 		}
 		es->is_opaque = true;
 		break;
+	case WL_SHM_FORMAT_NV24:
+		pitch = wl_shm_buffer_get_stride(shm_buffer);
+		gl_pixel_type = GL_UNSIGNED_BYTE;
+		num_planes = 2;
+		gs->offset[1] = gs->offset[0] + (pitch / gs->hsub[0]) *
+				(buffer->height / gs->vsub[0]);
+		gs->hsub[1] = 1;
+		gs->vsub[1] = 1;
+		if (gr->has_gl_texture_rg) {
+			gs->shader_variant = SHADER_VARIANT_Y_UV;
+			gl_format[0] = GL_R8_EXT;
+			gl_format[1] = GL_RG8_EXT;
+		} else {
+			gs->shader_variant = SHADER_VARIANT_Y_XUXV;
+			gl_format[0] = GL_LUMINANCE;
+			gl_format[1] = GL_LUMINANCE_ALPHA;
+		}
+		es->is_opaque = true;
+		break;
 	case WL_SHM_FORMAT_YUYV:
 		gs->shader_variant = SHADER_VARIANT_Y_XUXV;
 		pitch = wl_shm_buffer_get_stride(shm_buffer) / 2;
@@ -2510,6 +2529,22 @@ struct yuv_format_descriptor yuv_formats[] = {
 			.plane_index = 1
 		}}
 	}, {
+		.format = DRM_FORMAT_NV24,
+		.input_planes = 2,
+		.output_planes = 2,
+		.texture_type = EGL_TEXTURE_Y_UV_WL,
+		{{
+			.width_divisor = 1,
+			.height_divisor = 1,
+			.format = DRM_FORMAT_R8,
+			.plane_index = 0
+		}, {
+			.width_divisor = 1,
+			.height_divisor = 1,
+			.format = DRM_FORMAT_GR88,
+			.plane_index = 1
+		}}
+	}, {
 		.format = DRM_FORMAT_YUV420,
 		.input_planes = 3,
 		.output_planes = 3,
@@ -2796,6 +2831,7 @@ gl_renderer_query_dmabuf_formats(struct weston_compositor *wc,
 		DRM_FORMAT_YUYV,
 		DRM_FORMAT_NV12,
 		DRM_FORMAT_NV16,
+		DRM_FORMAT_NV24,
 		DRM_FORMAT_YUV420,
 		DRM_FORMAT_YUV444,
 		DRM_FORMAT_XYUV8888,
@@ -3928,6 +3964,7 @@ gl_renderer_display_create(struct weston_compositor *ec,
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUV420);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV12);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV16);
+	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_NV24);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_YUYV);
 	wl_display_add_shm_format(ec->wl_display, WL_SHM_FORMAT_XYUV8888);
 #if __BYTE_ORDER == __LITTLE_ENDIAN
