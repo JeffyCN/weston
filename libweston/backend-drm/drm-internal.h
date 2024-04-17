@@ -118,6 +118,9 @@
 /* Min duration between drm outputs update requests, to avoid glith */
 #define DRM_MIN_UPDATE_MS	1000
 
+/* Freeze after drm outputs resized, to avoid glith */
+#define DRM_RESIZE_FREEZE_MS    150
+
 #define WESTON_DRM_CONFIG_FILE	"/tmp/.weston_drm.conf"
 #define DRM_CONFIG_UPDATE_MS	100
 
@@ -401,6 +404,8 @@ struct drm_backend {
 	struct wl_event_source *hotplug_timer;
 	bool pending_update;
 	int64_t last_update_ms;
+	int64_t last_resize_ms;
+	int64_t resize_freeze_ms;
 
 	int64_t initial_update_ms;
 	int64_t initial_freeze_ms;
@@ -412,6 +417,7 @@ struct drm_backend {
 	drm_head_match_t *head_matches;
 	struct drm_head *primary_head;
 	struct wl_listener output_create_listener;
+	struct wl_listener output_resized_listener;
 
 	int virtual_width;
 	int virtual_height;
