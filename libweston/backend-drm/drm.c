@@ -113,6 +113,7 @@ static void
 drm_backend_update_outputs(struct drm_backend *b)
 {
 	struct weston_output *base, *primary;
+	struct timespec now;
 
 	if (!b->primary_head)
 		return;
@@ -146,6 +147,8 @@ drm_backend_update_outputs(struct drm_backend *b)
 	weston_compositor_damage_all(b->compositor);
 
 	/* Ensure maximized and fullscreen surfaces resized */
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+	b->last_resize_ms = timespec_to_msec(&now);
 	if (b->compositor->block_output_resizing)
 		primary->resizing = true;
 }
@@ -996,12 +999,16 @@ drm_output_repaint(struct weston_output *output_base)
 
 	weston_compositor_read_presentation_clock(b->compositor, &now);
 	now_ms = timespec_to_msec(&now);
-	if (now_ms < b->initial_update_ms + b->initial_freeze_ms) {
-		int64_t duration =
+	if (now_ms < b->initial_update_ms + b->initial_freeze_ms ||
+	    now_ms < b->last_resize_ms + b->resize_freeze_ms) {
+		int64_t initial_duration =
 			b->initial_update_ms + b->initial_freeze_ms - now_ms;
+		int64_t resize_duration =
+			b->last_resize_ms + b->resize_freeze_ms - now_ms;
 		timespec_add_msec(&output_base->next_repaint,
-				  &output_base->next_repaint, duration);
-		return 1;
+				  &output_base->next_repaint,
+				  MAX(initial_duration, resize_duration));
+		goto skip;
 	}
 
 	/* If planes have been disabled in the core, we might not have
@@ -4449,6 +4456,17 @@ output_create_notify(struct wl_listener *listener, void *data)
 	config_timer_handler(b);
 }
 
+static void
+output_resized_notify(struct wl_listener *listener, void *data)
+{
+	struct drm_backend *b = container_of(listener, struct drm_backend,
+					     output_resized_listener);
+	struct timespec now;
+
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+	b->last_resize_ms = timespec_to_msec(&now);
+}
+
 static const struct weston_drm_output_api api = {
 	drm_output_set_mode,
 	drm_output_set_gbm_format,
@@ -4983,6 +5001,12 @@ drm_backend_create(struct weston_compositor *compositor,
 	if (buf)
 		sscanf(buf, "%dx%d", &b->virtual_width, &b->virtual_height);
 
+	buf = getenv("WESTON_DRM_RESIZE_FREEZE_MS");
+	if (buf)
+		b->resize_freeze_ms = atoi(buf);
+	else
+		b->resize_freeze_ms = DRM_RESIZE_FREEZE_MS;
+
 	buf = getenv("WESTON_DRM_MIRROR");
 	if (buf && buf[0] == '1') {
 		b->mirror_mode = true;
@@ -5169,6 +5193,10 @@ drm_backend_create(struct weston_compositor *compositor,
 	b->output_create_listener.notify = output_create_notify;
 	wl_signal_add(&b->compositor->output_created_signal,
 		      &b->output_create_listener);
+
+	b->output_resized_listener.notify = output_resized_notify;
+	wl_signal_add(&b->compositor->output_resized_signal,
+		      &b->output_resized_listener);
 
 	weston_compositor_add_debug_binding(compositor, KEY_O,
 					    planes_binding, b);
