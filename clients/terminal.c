@@ -868,8 +868,8 @@ resize_handler(struct widget *widget,
 		terminal->pace_pipe = -1;
 	}
 	m = 2 * terminal->margin;
-	columns = (width - m) / (int32_t) terminal->average_width;
-	rows = (height - m) / (int32_t) terminal->extents.height;
+	columns = (int32_t) round((width - m) / terminal->average_width);
+	rows = (int32_t) round((height - m) / terminal->extents.height);
 
 	if (!window_is_fullscreen(terminal->window) &&
 	    !window_is_maximized(terminal->window)) {
