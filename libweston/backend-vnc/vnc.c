@@ -30,6 +30,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,6 +76,9 @@ struct vnc_backend {
 	struct wl_event_source *aml_event;
 	struct nvnc *server;
 	int vnc_monitor_refresh_rate;
+
+	struct wl_event_source *toggle_signal;
+	struct weston_head *head;
 
 	const struct pixel_format_info **formats;
 	unsigned int formats_count;
@@ -443,6 +447,9 @@ vnc_pointer_event(struct nvnc_client *client, uint16_t x, uint16_t y,
 	struct timespec time;
 	enum nvnc_button_mask changed_button_mask;
 	struct weston_pointer_button_event button_event;
+
+	if (!output)
+		return;
 
 	weston_compositor_get_time(&time);
 
@@ -1000,6 +1007,8 @@ vnc_destroy(struct weston_backend *base)
 
 	wl_list_remove(&backend->base.link);
 
+	wl_event_source_remove(backend->toggle_signal);
+
 	wl_event_source_remove(backend->aml_event);
 
 	aml_unref(backend->aml);
@@ -1027,6 +1036,7 @@ vnc_head_create(struct vnc_backend *backend, const char *name)
 	weston_head_set_physical_size(&head->base, 0, 0);
 
 	head->base.backend = &backend->base;
+	backend->head = &head->base;
 
 	weston_head_set_connection_status(&head->base, true);
 	weston_compositor_add_head(backend->compositor, &head->base);
@@ -1203,10 +1213,36 @@ static const struct weston_vnc_output_api api = {
 static int
 vnc_aml_dispatch(int fd, uint32_t mask, void *data)
 {
-	struct aml *aml = data;
+	struct vnc_backend *backend = data;
+	struct aml *aml = backend->aml;
+
+	if (!backend->output || !backend->output->display)
+		return 0;
 
 	aml_poll(aml, 0);
 	aml_dispatch(aml);
+
+	return 0;
+}
+
+static int on_toggle_signal(int signal_number, void *data)
+{
+	struct vnc_backend *backend = data;
+
+	if (backend->head) {
+		struct vnc_peer *peer, *next;
+
+		weston_log("Disabling VNC...\n");
+
+		wl_list_for_each_safe(peer, next, &backend->output->peers, link)
+			nvnc_client_close(peer->client);
+
+		vnc_head_destroy(backend->head);
+		backend->head = NULL;
+	} else {
+		weston_log("Enabling VNC...\n");
+		vnc_head_create(backend, "vnc");
+	}
 
 	return 0;
 }
@@ -1306,7 +1342,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 
 	backend->aml_event = wl_event_loop_add_fd(loop, fd, WL_EVENT_READABLE,
 						  vnc_aml_dispatch,
-						  backend->aml);
+						  backend);
 
 	backend->server = nvnc_new();
 	if (!backend->server)
@@ -1388,6 +1424,10 @@ vnc_backend_create(struct weston_compositor *compositor,
 		weston_log("Failed to register output API.\n");
 		goto err_nvnc;
 	}
+
+	backend->toggle_signal = wl_event_loop_add_signal(loop, SIGUSR1,
+							  on_toggle_signal,
+							  backend);
 
 	return backend;
 
