@@ -30,6 +30,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,6 +73,9 @@ struct vnc_backend {
 	struct wl_event_source *aml_event;
 	struct nvnc *server;
 	int vnc_monitor_refresh_rate;
+
+	struct wl_event_source *toggle_signal;
+	struct weston_head *head;
 };
 
 struct vnc_output {
@@ -362,6 +366,9 @@ vnc_pointer_event(struct nvnc_client *client, uint16_t x, uint16_t y,
 	struct vnc_output *output = peer->backend->output;
 	struct timespec time;
 	enum nvnc_button_mask changed_button_mask;
+
+	if (!output)
+		return;
 
 	weston_compositor_get_time(&time);
 
@@ -659,7 +666,8 @@ vnc_output_disable(struct weston_output *base)
 
 	pixman_renderer_output_destroy(&output->base);
 
-	nvnc_display_unref(output->display);
+	nvnc_remove_display(backend->server, output->display);
+
 	nvnc_fb_pool_unref(output->fb_pool);
 
 	wl_event_source_remove(output->finish_frame_timer);
@@ -713,6 +721,8 @@ vnc_destroy(struct weston_compositor *ec)
 
 	weston_compositor_shutdown(ec);
 
+	wl_event_source_remove(backend->toggle_signal);
+
 	wl_event_source_remove(backend->aml_event);
 
 	aml_unref(backend->aml);
@@ -726,7 +736,7 @@ vnc_destroy(struct weston_compositor *ec)
 }
 
 static int
-vnc_head_create(struct weston_compositor *compositor, const char *name)
+vnc_head_create(struct vnc_backend *backend, const char *name)
 {
 	struct vnc_head *head;
 
@@ -737,9 +747,10 @@ vnc_head_create(struct weston_compositor *compositor, const char *name)
 	weston_head_init(&head->base, name);
 
 	head->base.backend_id = vnc_head_destroy;
+	backend->head = &head->base;
 
 	weston_head_set_connection_status(&head->base, true);
-	weston_compositor_add_head(compositor, &head->base);
+	weston_compositor_add_head(backend->compositor, &head->base);
 
 	return 0;
 }
@@ -940,10 +951,36 @@ static const struct weston_vnc_output_api api = {
 static int
 vnc_aml_dispatch(int fd, uint32_t mask, void *data)
 {
-	struct aml *aml = data;
+	struct vnc_backend *backend = data;
+	struct aml *aml = backend->aml;
+
+	if (!backend->output || !backend->output->display)
+		return 0;
 
 	aml_poll(aml, 0);
 	aml_dispatch(aml);
+
+	return 0;
+}
+
+static int on_toggle_signal(int signal_number, void *data)
+{
+	struct vnc_backend *backend = data;
+
+	if (backend->head) {
+		struct vnc_peer *peer, *next;
+
+		weston_log("Disabling VNC...\n");
+
+		wl_list_for_each_safe(peer, next, &backend->output->peers, link)
+			nvnc_client_close(peer->client);
+
+		vnc_head_destroy(backend->head);
+		backend->head = NULL;
+	} else {
+		weston_log("Enabling VNC...\n");
+		vnc_head_create(backend, "vnc");
+	}
 
 	return 0;
 }
@@ -975,7 +1012,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 	if (pixman_renderer_init(compositor) < 0)
 		goto err_compositor;
 
-	if (vnc_head_create(compositor, "vnc") < 0)
+	if (vnc_head_create(backend, "vnc") < 0)
 		goto err_compositor;
 
 	compositor->capabilities |= WESTON_CAP_ARBITRARY_MODES;
@@ -999,7 +1036,7 @@ vnc_backend_create(struct weston_compositor *compositor,
 
 	backend->aml_event = wl_event_loop_add_fd(loop, fd, WL_EVENT_READABLE,
 						  vnc_aml_dispatch,
-						  backend->aml);
+						  backend);
 
 	backend->server = nvnc_open(config->bind_address, config->port);
 	if (!backend->server)
@@ -1059,6 +1096,10 @@ no_tls:
 			weston_log("Error: initializing dmabuf "
 				   "support failed.\n");
 	}
+
+	backend->toggle_signal = wl_event_loop_add_signal(loop, SIGUSR1,
+							  on_toggle_signal,
+							  backend);
 
 	return backend;
 
