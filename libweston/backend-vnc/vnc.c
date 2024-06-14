@@ -122,6 +122,9 @@ struct vnc_peer {
 
 	enum nvnc_button_mask last_button_mask;
 	struct wl_list link;
+
+	int64_t create_ms;
+	struct wl_event_source *cleanup_timer;
 };
 
 struct vnc_head {
@@ -516,21 +519,43 @@ vnc_handle_auth(const char *username, const char *password, void *userdata)
 	return true;
 }
 
-static void
-vnc_client_cleanup(struct nvnc_client *client)
+static int
+peer_cleanup_handler(void *data)
 {
-	struct vnc_peer *peer = nvnc_get_userdata(client);
-	struct vnc_output *output = peer->backend->output;
+	struct vnc_peer *peer = data;
 
-	wl_list_remove(&peer->link);
+	wl_event_source_remove(peer->cleanup_timer);
+
 	weston_seat_release_keyboard(peer->seat);
 	weston_seat_release_pointer(peer->seat);
 	weston_seat_release(peer->seat);
 	free(peer);
-	weston_log("VNC Client disconnected\n");
+
+	return 1;
+}
+
+static void
+vnc_client_cleanup(struct nvnc_client *client)
+{
+	struct vnc_peer *peer = nvnc_get_userdata(client);
+	struct vnc_backend *backend = peer->backend;
+	struct vnc_output *output = backend->output;
+	struct timespec now;
+
+	wl_list_remove(&peer->link);
 
 	if (wl_list_empty(&output->peers))
 		weston_output_power_off(&output->base);
+
+	weston_log("VNC Client disconnected\n");
+
+	/**
+	 * HACK: Avoid destroying peer too soon, since the client might be about
+	 * to bind the peer's resources.
+	 */
+	weston_compositor_read_presentation_clock(backend->compositor, &now);
+	wl_event_source_timer_update(peer->cleanup_timer,
+				     peer->create_ms + 500 - timespec_to_msec(&now));
 }
 
 static struct weston_pointer *
@@ -849,6 +874,8 @@ vnc_new_client(struct nvnc_client *client)
 	struct vnc_output *output = backend->output;
 	struct vnc_peer *peer;
 	const char *seat_name = "VNC Client";
+	struct wl_event_loop *loop;
+	struct timespec now;
 
 	weston_log("New VNC client connected\n");
 
@@ -868,6 +895,15 @@ vnc_new_client(struct nvnc_client *client)
 
 	nvnc_set_userdata(client, peer, NULL);
 	nvnc_set_client_cleanup_fn(client, vnc_client_cleanup);
+
+	loop = wl_display_get_event_loop(backend->compositor->wl_display);
+	peer->cleanup_timer = wl_event_loop_add_timer(loop,
+						      peer_cleanup_handler,
+						      peer);
+
+	weston_compositor_read_presentation_clock(backend->compositor,
+						  &now);
+	peer->create_ms = timespec_to_msec(&now);
 
 	/*
 	 * Make up for repaints that were skipped when no clients were
