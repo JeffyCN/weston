@@ -106,6 +106,9 @@ struct vnc_peer {
 
 	enum nvnc_button_mask last_button_mask;
 	struct wl_list link;
+
+	int64_t create_ms;
+	struct wl_event_source *cleanup_timer;
 };
 
 struct vnc_head {
@@ -536,21 +539,51 @@ vnc_handle_auth(struct nvnc_auth_creds *creds, void *userdata)
 		nvnc_auth_creds_reject(creds, "Invalid password");
 }
 
-static void
-vnc_client_cleanup(void *userdata)
+static int
+peer_cleanup_handler(void *userdata)
 {
 	struct vnc_peer *peer = userdata;
-	struct vnc_output *output = peer->backend->output;
 
-	wl_list_remove(&peer->link);
+	wl_event_source_remove(peer->cleanup_timer);
+
 	weston_seat_release_keyboard(peer->seat);
 	weston_seat_release_pointer(peer->seat);
 	weston_seat_release(peer->seat);
 	free(peer);
-	weston_log("VNC Client disconnected\n");
 
-	if (output && wl_list_empty(&output->peers))
-		weston_output_power_off(&output->base);
+	return 1;
+}
+
+static void
+vnc_client_cleanup(struct nvnc_client *client)
+{
+	struct vnc_peer *peer = nvnc_get_userdata(client);
+	struct vnc_backend *backend = peer->backend;
+	struct vnc_output *output = backend->output;
+	struct timespec now;
+	int delay_ms;
+
+	/* The output might be destroyed */
+	if (output) {
+		wl_list_remove(&peer->link);
+
+		/* Power off output if no more clients */
+		if (wl_list_empty(&output->peers))
+			weston_output_power_off(&output->base);
+	}
+
+	weston_log("VNC Client disconnected, scheduling cleanup...\n");
+
+	/*
+	 * HACK: Delay peer cleanup to avoid use-after-free when client
+	 * disconnects during Wayland resource binding. The client might
+	 * still have pending bind requests.
+	 */
+	weston_compositor_read_presentation_clock(backend->compositor, &now);
+	delay_ms = peer->create_ms + 500 - timespec_to_msec(&now);
+	wl_event_source_timer_update(peer->cleanup_timer,
+				     delay_ms > 0 ? delay_ms : 1);
+	/* peer will be freed by peer_cleanup_handler */
 }
 
 static struct weston_pointer *
@@ -803,6 +836,8 @@ vnc_new_client(struct nvnc_client *client)
 	struct vnc_output *output = backend->output;
 	struct vnc_peer *peer;
 	const char *seat_name = "VNC Client";
+	struct wl_event_loop *loop;
+	struct timespec now;
 
 	weston_log("New VNC client connected\n");
 
@@ -821,6 +856,15 @@ vnc_new_client(struct nvnc_client *client)
 	wl_list_insert(&output->peers, &peer->link);
 
 	nvnc_client_set_userdata(client, peer, vnc_client_cleanup);
+
+	loop = wl_display_get_event_loop(backend->compositor->wl_display);
+	peer->cleanup_timer = wl_event_loop_add_timer(loop,
+						      peer_cleanup_handler,
+						      peer);
+
+	weston_compositor_read_presentation_clock(backend->compositor,
+						  &now);
+	peer->create_ms = timespec_to_msec(&now);
 
 	/*
 	 * Make up for repaints that were skipped when no clients were
