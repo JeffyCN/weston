@@ -2130,6 +2130,8 @@ drm_output_detach_head(struct weston_output *output_base,
 		       struct weston_head *head_base)
 {
 	struct drm_output *output = to_drm_output(output_base);
+	struct drm_backend *b = output->backend;
+	struct drm_device *device = b->drm;
 	struct drm_head *head = to_drm_head(head_base);
 
 	if (!output_base->enabled)
@@ -2138,6 +2140,20 @@ drm_output_detach_head(struct weston_output *output_base,
 	/* Drop connectors that should no longer be driven on next repaint. */
 	wl_list_remove(&head->disable_head_link);
 	wl_list_insert(&output->disable_head, &head->disable_head_link);
+
+	if (!wl_list_length(&output_base->head_list))
+		return;
+
+	/* XXX: ensure the configuration will work.
+	 * This is actually impossible without major infrastructure
+	 * work. */
+
+	/* Need to go through modeset to add connectors. */
+	/* XXX: Ideally we'd do this per-output, not globally. */
+	/* XXX: Doing it globally, what guarantees another output's update
+	 * will not clear the flag before this output is updated?
+	 */
+	drm_device_recovery_required(device);
 }
 
 static const struct weston_drm_format_array *
