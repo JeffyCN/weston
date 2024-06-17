@@ -2079,6 +2079,8 @@ drm_output_detach_head(struct weston_output *output_base,
 		       struct weston_head *head_base)
 {
 	struct drm_output *output = to_drm_output(output_base);
+	struct drm_backend *b = output->backend;
+	struct drm_device *device = b->drm;
 	struct drm_head *head = to_drm_head(head_base);
 
 	if (!output_base->enabled)
@@ -2087,6 +2089,17 @@ drm_output_detach_head(struct weston_output *output_base,
 	/* Drop connectors that should no longer be driven on next repaint. */
 	wl_list_remove(&head->disable_head_link);
 	wl_list_insert(&output->disable_head, &head->disable_head_link);
+
+	if (!wl_list_length(&output_base->head_list))
+		return;
+
+	/* Need to go through modeset to drop connectors that should no longer
+	 * be driven. */
+	/* XXX: Ideally we'd do this per-output, not globally. */
+	device->state_invalid = true;
+	output->state_invalid = true;
+
+	weston_output_schedule_repaint(output_base);
 }
 
 int
