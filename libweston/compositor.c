@@ -6370,6 +6370,14 @@ bind_output(struct wl_client *client,
 static void
 weston_head_add_global(struct weston_head *head)
 {
+	struct weston_head *tmp_head;
+
+	/* Avoid multiple globals to maintain a single panel and background */
+	wl_list_for_each(tmp_head, &head->output->head_list, output_link) {
+		if (tmp_head->global)
+			return;
+	}
+
 	head->global = wl_global_create(head->compositor->wl_display,
 					&wl_output_interface, 4,
 					head, bind_output);
@@ -6772,6 +6780,10 @@ weston_output_attach_head(struct weston_output *output,
 {
 	char *head_names;
 
+	/* Already attached */
+	if (head->output == output)
+		return 0;
+
 	if (!wl_list_empty(&head->output_link))
 		return -1;
 
@@ -6844,6 +6856,10 @@ weston_head_detach(struct weston_head *head)
 			free(head_names);
 
 			weston_output_emit_heads_changed(output);
+
+			head = weston_output_get_first_head(output);
+			if (head)
+				weston_head_add_global(head);
 		}
 	}
 }
