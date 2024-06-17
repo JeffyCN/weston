@@ -6139,8 +6139,15 @@ bind_output(struct wl_client *client,
 static void
 weston_head_add_global(struct weston_head *head)
 {
+	struct weston_head *tmp_head;
 	int version = 4;
 	const char *buf;
+
+	/* Avoid multiple globals to remain a single panel and background */
+	wl_list_for_each(tmp_head, &head->output->head_list, output_link) {
+		if (tmp_head->global)
+			return;
+	}
 
 	/**
 	 * HACK: Allow lowering wl_output version for old chromium
@@ -6227,6 +6234,7 @@ static void
 weston_head_remove_global(struct weston_head *head)
 {
 	struct wl_resource *resource, *tmp;
+	struct weston_head *tmp_head;
 
 	if (head->global)
 		weston_global_destroy_save(head->compositor, head->global);
@@ -6245,6 +6253,17 @@ weston_head_remove_global(struct weston_head *head)
 		wl_resource_set_destructor(resource, NULL);
 	}
 	wl_list_init(&head->xdg_output_resource_list);
+
+	if (!head->output || !head->output->enabled)
+		return;
+
+	/* Avoid multiple globals to remain a single panel and background */
+	wl_list_for_each(tmp_head, &head->output->head_list, output_link) {
+		if (tmp_head != head && !tmp_head->global) {
+			weston_head_add_global(tmp_head);
+			break;
+		}
+	}
 }
 
 static void
