@@ -2421,7 +2421,7 @@ drm_try_attach(struct weston_output *output,
 	unsigned i;
 
 	/* try to attach remaining heads, this probably succeeds */
-	for (i = 1; i < add->n; i++) {
+	for (i = 0; i < add->n; i++) {
 		if (!add->heads[i])
 			continue;
 
