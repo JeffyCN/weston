@@ -2149,7 +2149,8 @@ WL_EXPORT struct weston_coord_global
 weston_pointer_clamp(struct weston_pointer *pointer, struct weston_coord_global pos)
 {
 	struct weston_compositor *ec = pointer->seat->compositor;
-	struct weston_output *output, *prev = NULL, *fallback = NULL;
+	struct weston_output *output, *prev = NULL;
+	struct weston_output *first = NULL, *last = NULL;
 	int valid = 0;
 
 	wl_list_for_each(output, &ec->output_list, link) {
@@ -2163,14 +2164,48 @@ weston_pointer_clamp(struct weston_pointer *pointer, struct weston_coord_global 
 			valid = 1;
 		if (weston_output_contains_coord(output, pointer->pos))
 			prev = output;
-		if (!fallback)
-			fallback = output;
+		if (!first)
+			first = output;
+		last = output;
+	}
+
+	/* HACK: Wrap pointer positions */
+	if (!valid && prev && first && last &&
+	    getenv("WESTON_WRAP_POINTER")) {
+		int top, bottom, left, right;
+
+		if (ec->output_flow == WESTON_OUTPUT_FLOW_HORIZONTAL) {
+			if (pos.c.x > last->pos.c.x + last->width)
+				prev = first;
+			else if (pos.c.x < first->pos.c.x)
+				prev = last;
+		} else if (ec->output_flow == WESTON_OUTPUT_FLOW_VERTICAL) {
+			if (pos.c.y > last->pos.c.y + last->height)
+				prev = first;
+			else if (pos.c.y < first->pos.c.y)
+				prev = last;
+		}
+
+		/* Wrap around the target output */
+		top = prev->pos.c.y;
+		bottom = top + prev->height;
+		left = prev->pos.c.x;
+		right = left + prev->width;
+
+		if (pos.c.x < left)
+			pos.c.x = right;
+		if (pos.c.x > right)
+			pos.c.x = left;
+		if (pos.c.y < top)
+			pos.c.y = bottom;
+		if (pos.c.y > bottom)
+			pos.c.y = top;
 	}
 
 	if (!prev)
 		prev = pointer->seat->output;
 	if (!prev)
-		prev = fallback;
+		prev = first;
 
 	if (prev && !valid)
 		pos = weston_pointer_clamp_for_output(pointer, prev, pos);
