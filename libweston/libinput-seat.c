@@ -350,7 +350,7 @@ udev_input_enable(struct udev_input *input)
 		process_events(input);
 	}
 
-	wl_list_for_each(seat, &input->compositor->seat_list, base.link) {
+	wl_list_for_each(seat, &input->seat_list, link) {
 		evdev_notify_keyboard_focus(&seat->base, &seat->devices_list);
 
 		if (!wl_list_empty(&seat->devices_list))
@@ -394,6 +394,8 @@ udev_input_init(struct udev_input *input, struct weston_compositor *c,
 	const char *log_priority = NULL;
 
 	memset(input, 0, sizeof *input);
+
+	wl_list_init(&input->seat_list);
 
 	input->compositor = c;
 	input->configure_device = configure_device;
@@ -441,7 +443,7 @@ udev_input_destroy(struct udev_input *input)
 
 	if (input->libinput_source)
 		wl_event_source_remove(input->libinput_source);
-	wl_list_for_each_safe(seat, next, &input->compositor->seat_list, base.link)
+	wl_list_for_each_safe(seat, next, &input->seat_list, link)
 		udev_seat_destroy(seat);
 	libinput_unref(input->libinput);
 }
@@ -519,6 +521,8 @@ udev_seat_create(struct udev_input *input, const char *seat_name)
 
 	wl_list_init(&seat->devices_list);
 
+	wl_list_insert(input->seat_list.prev, &seat->link);
+
 	return seat;
 }
 
@@ -537,6 +541,7 @@ udev_seat_destroy(struct udev_seat *seat)
 	wl_list_remove(&seat->output_destroyed_listener.link);
 	wl_list_remove(&seat->output_moved_listener.link);
 	wl_list_remove(&seat->output_heads_listener.link);
+	wl_list_remove(&seat->link);
 	free(seat);
 }
 
@@ -545,7 +550,7 @@ udev_seat_get_named(struct udev_input *input, const char *seat_name)
 {
 	struct udev_seat *seat;
 
-	wl_list_for_each(seat, &input->compositor->seat_list, base.link) {
+	wl_list_for_each(seat, &input->seat_list, link) {
 		if (strcmp(seat->base.seat_name, seat_name) == 0)
 			return seat;
 	}
