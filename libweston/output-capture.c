@@ -521,6 +521,11 @@ weston_capture_source_v1_capture(struct wl_client *client,
 		return;
 	}
 
+	if (csrc->output->power_state == WESTON_OUTPUT_POWER_FORCED_OFF) {
+		weston_capture_source_v1_send_failed(csrc->resource, "source unavailable");
+		return;
+	}
+
 	/* Is the pixel source not available? */
 	csi = capture_info_get_csi(csrc->output->capture_info,
 				   csrc->pixel_source);

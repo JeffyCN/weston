@@ -209,7 +209,10 @@ capture_source_handle_failed(void *data,
 	struct screenshooter_output *output = data;
 
 	output->app->waitcount--;
-	output->app->failed = true;
+	// output->app->failed = true;
+
+	wl_list_remove(&output->link);
+	wl_list_init(&output->link);
 
 	if (msg)
 		fprintf(stderr, "Output capture error: %s\n", msg);
