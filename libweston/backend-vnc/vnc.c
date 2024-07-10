@@ -543,10 +543,13 @@ vnc_client_cleanup(struct nvnc_client *client)
 	struct timespec now;
 	int delay_ms;
 
-	wl_list_remove(&peer->link);
+	/* The output might be destroyed */
+	if (output) {
+		wl_list_remove(&peer->link);
 
-	if (wl_list_empty(&output->peers))
-		weston_output_power_off(&output->base);
+		if (wl_list_empty(&output->peers))
+			weston_output_power_off(&output->base);
+	}
 
 	weston_log("VNC Client disconnected\n");
 
@@ -1148,6 +1151,11 @@ static void
 vnc_shutdown(struct weston_backend *base)
 {
 	struct vnc_backend *backend = container_of(base, struct vnc_backend, base);
+	struct weston_compositor *ec = backend->compositor;
+	struct weston_head *head, *next;
+
+	wl_list_for_each_safe(head, next, &ec->head_list, compositor_link)
+		vnc_head_destroy(head);
 
 	nvnc_close(backend->server);
 }
@@ -1156,8 +1164,6 @@ static void
 vnc_destroy(struct weston_backend *base)
 {
 	struct vnc_backend *backend = container_of(base, struct vnc_backend, base);
-	struct weston_compositor *ec = backend->compositor;
-	struct weston_head *head, *next;
 
 	wl_list_remove(&backend->base.link);
 
@@ -1166,9 +1172,6 @@ vnc_destroy(struct weston_backend *base)
 	wl_event_source_remove(backend->aml_event);
 
 	aml_unref(backend->aml);
-
-	wl_list_for_each_safe(head, next, &ec->head_list, compositor_link)
-		vnc_head_destroy(head);
 
 	xkb_keymap_unref(backend->xkb_keymap);
 
