@@ -43,6 +43,7 @@ struct udev_seat {
 	struct wl_listener output_destroyed_listener;
 	struct wl_listener output_moved_listener;
 	struct wl_listener output_heads_listener;
+	struct wl_list link;
 };
 
 typedef void (*udev_configure_device_t)(struct weston_compositor *compositor,
@@ -54,6 +55,7 @@ struct udev_input {
 	struct weston_compositor *compositor;
 	int suspended;
 	udev_configure_device_t configure_device;
+	struct wl_list seat_list;
 };
 
 int
