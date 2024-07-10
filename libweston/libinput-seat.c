@@ -50,6 +50,14 @@ udev_seat_create(struct udev_input *input, const char *seat_name);
 static void
 udev_seat_destroy(struct udev_seat *seat);
 
+static void
+udev_seat_led_update(struct weston_seat *seat_base, enum weston_led leds);
+static inline bool
+is_udev_seat(struct weston_seat *seat)
+{
+	return seat->led_update == udev_seat_led_update;
+}
+
 static struct udev_seat *
 get_udev_seat(struct udev_input *input, struct libinput_device *device)
 {
@@ -316,6 +324,7 @@ udev_input_enable(struct udev_input *input)
 	struct wl_event_loop *loop;
 	struct weston_compositor *c = input->compositor;
 	int fd;
+	struct weston_seat *seat_base;
 	struct udev_seat *seat;
 	int devices_found = 0;
 
@@ -342,7 +351,12 @@ udev_input_enable(struct udev_input *input)
 		process_events(input);
 	}
 
-	wl_list_for_each(seat, &input->compositor->seat_list, base.link) {
+	wl_list_for_each(seat_base, &input->compositor->seat_list, link) {
+		if (!is_udev_seat(seat_base))
+			continue;
+
+		seat = (struct udev_seat *)seat_base;
+
 		evdev_notify_keyboard_focus(&seat->base, &seat->devices_list);
 
 		if (!wl_list_empty(&seat->devices_list))
@@ -425,12 +439,14 @@ udev_input_init(struct udev_input *input, struct weston_compositor *c,
 void
 udev_input_destroy(struct udev_input *input)
 {
-	struct udev_seat *seat, *next;
+	struct weston_seat *seat, *next;
 
 	if (input->libinput_source)
 		wl_event_source_remove(input->libinput_source);
-	wl_list_for_each_safe(seat, next, &input->compositor->seat_list, base.link)
-		udev_seat_destroy(seat);
+	wl_list_for_each_safe(seat, next, &input->compositor->seat_list, link) {
+		if (is_udev_seat(seat))
+			udev_seat_destroy((struct udev_seat *)seat);
+	}
 	libinput_unref(input->libinput);
 }
 
@@ -531,11 +547,14 @@ udev_seat_destroy(struct udev_seat *seat)
 struct udev_seat *
 udev_seat_get_named(struct udev_input *input, const char *seat_name)
 {
-	struct udev_seat *seat;
+	struct weston_seat *seat;
 
-	wl_list_for_each(seat, &input->compositor->seat_list, base.link) {
-		if (strcmp(seat->base.seat_name, seat_name) == 0)
-			return seat;
+	wl_list_for_each(seat, &input->compositor->seat_list, link) {
+		if (!is_udev_seat(seat))
+			continue;
+
+		if (strcmp(seat->seat_name, seat_name) == 0)
+			return (struct udev_seat *) seat;
 	}
 
 	return udev_seat_create(input, seat_name);
@@ -545,6 +564,7 @@ void
 weston_input_bind_output(struct weston_compositor *compositor, const char *output_name, const char *match)
 {
 	struct evdev_device *device;
+	struct weston_seat *seat_base;
 	struct udev_seat *seat;
 	const char *sysname, *name;
 	int len = strlen(match);
@@ -554,7 +574,12 @@ weston_input_bind_output(struct weston_compositor *compositor, const char *outpu
 	if (len && match[len - 1] == '*')
 		len--;
 
-	wl_list_for_each(seat, &compositor->seat_list, base.link) {
+	wl_list_for_each(seat_base, &compositor->seat_list, link) {
+		if (!is_udev_seat(seat_base))
+			continue;
+
+		seat = (struct udev_seat *)seat_base;
+
 		wl_list_for_each(device, &seat->devices_list, link) {
 			if (clear) {
 				/* Clear all bounded inputs */
