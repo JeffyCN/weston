@@ -700,7 +700,7 @@ kiosk_shell_output_recreate_background(struct kiosk_shell_output *shoutput)
 	if (shoutput->curtain)
 		weston_shell_utils_curtain_destroy(shoutput->curtain);
 
-	if (!output)
+	if (!output || getenv("WESTON_NO_BACKGROUND"))
 		return;
 
 	if (shell->config)
