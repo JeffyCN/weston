@@ -145,6 +145,8 @@ struct output {
 	struct background *background;
 
 	struct desktop *desktop;
+
+	bool inited;
 };
 
 struct panel_launcher {
@@ -2073,12 +2075,20 @@ output_init(struct output *output, struct desktop *desktop)
 {
 	struct wl_surface *surface;
 
+	if (output->inited)
+		return;
+
+	output->inited = true;
+
 	if (desktop->want_panel) {
 		output->panel = panel_create(desktop, output);
 		surface = window_get_wl_surface(output->panel->window);
 		weston_desktop_shell_set_panel(desktop->shell,
 					       output->output, surface);
 	}
+
+	if (getenv("WESTON_NO_BACKGROUND"))
+		return;
 
 	output->background = background_create(desktop, output);
 	surface = window_get_wl_surface(output->background->window);
