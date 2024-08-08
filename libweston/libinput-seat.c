@@ -112,7 +112,9 @@ device_added(struct udev_input *input, struct libinput_device *libinput_device)
 	device = evdev_device_create(libinput_device, seat);
 	if (device == NULL) {
 		weston_log("Failed to create a device\n");
-		return 1;
+
+		/* Return success to avoid aborting device enumeration */
+		return 0;
 	}
 
 	if (input->configure_device != NULL)
@@ -160,7 +162,9 @@ device_removed(struct udev_input *input, struct libinput_device *libinput_device
 	device = libinput_device_get_user_data(libinput_device);
 	if (!device) {
 		weston_log("Failed to retrieve device\n");
-		return 1;
+
+		/* Return success for non-existent device */
+		return 0;
 	}
 
 	evdev_device_destroy(device);

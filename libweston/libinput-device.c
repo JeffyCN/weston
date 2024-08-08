@@ -1062,6 +1062,13 @@ evdev_device_create(struct libinput_device *libinput_device,
 
 	if (libinput_device_has_capability(libinput_device,
 					   LIBINPUT_DEVICE_CAP_KEYBOARD)) {
+		/* Skip keyboard device creation if WESTON_NO_KEYBOARD is set */
+		if (getenv("WESTON_NO_KEYBOARD")) {
+			weston_log("Keyboard device ignored (disabled)\n");
+			free(device);
+			return NULL;
+		}
+
 		if (weston_seat_init_keyboard(seat, NULL) < 0) {
 			free(device);
 			return NULL;

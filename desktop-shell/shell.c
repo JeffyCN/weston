@@ -4690,8 +4690,11 @@ shell_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&shell->sleep_listener.link);
 	wl_list_remove(&shell->transform_listener.link);
 
-	text_backend_destroy(shell->text_backend);
-	input_panel_destroy(shell);
+	/* Skip keyboard-related cleanup if keyboard is disabled */
+	if (shell->text_backend) {
+		text_backend_destroy(shell->text_backend);
+		input_panel_destroy(shell);
+	}
 
 	if (shell->fade.animation) {
 		weston_view_animation_destroy(shell->fade.animation);
@@ -4900,10 +4903,13 @@ wet_shell_init(struct weston_compositor *ec,
 	weston_layer_init(&shell->minimized_layer, ec);
 	weston_layer_init(&shell->workspace.layer, ec);
 
-	if (input_panel_setup(shell) < 0)
-		return -1;
+	/* Skip keyboard initialization if WESTON_NO_KEYBOARD is set */
+	if (!getenv("WESTON_NO_KEYBOARD")) {
+		if (input_panel_setup(shell) < 0)
+			return -1;
 
-	shell->text_backend = text_backend_init(ec);
+		shell->text_backend = text_backend_init(ec);
+	}
 
 	if (!shell_configuration(shell))
 		return -1;
