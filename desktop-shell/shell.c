@@ -2640,7 +2640,6 @@ background_committed(struct weston_surface *es,
 				 sh_output->output->pos);
 	weston_view_move_to_layer(sh_output->background_view,
 				  &shell->background_layer.view_list);
-	weston_output_set_ready(sh_output->output);
 
 	es->wait_for_resizing = false;
 }
@@ -4525,6 +4524,8 @@ create_shell_output(struct desktop_shell *shell,
 	if (!shell->disallow_output_changed_move && wl_list_length(&shell->output_list) == 1)
 		shell_for_each_layer(shell,
 				     shell_output_changed_move_layer, NULL);
+
+	weston_output_set_ready(output);
 }
 
 static void
