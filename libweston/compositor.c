@@ -3743,6 +3743,9 @@ weston_compositor_build_view_list(struct weston_compositor *compositor)
 			}
 
 			view_list_add(compositor, view);
+
+			/* HACK: Make sure that all views are assigned */
+			weston_view_assign_output(view);
 		}
 	}
 
