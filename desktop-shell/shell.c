@@ -1950,6 +1950,12 @@ shell_set_view_fullscreen(struct shell_surface *shsurf)
 static void
 desktop_shell_destroy_seat(struct shell_seat *shseat)
 {
+	if (shseat->focused_surface) {
+		struct shell_surface *current_focus =
+			get_shell_surface(shseat->focused_surface);
+		assert(current_focus);
+		shell_surface_deactivate(current_focus);
+	}
 
 	wl_list_remove(&shseat->keyboard_focus_listener.link);
 	wl_list_remove(&shseat->caps_changed_listener.link);
