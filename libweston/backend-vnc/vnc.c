@@ -540,10 +540,13 @@ vnc_client_cleanup(struct nvnc_client *client)
 	struct timespec now;
 	int delay_ms;
 
-	wl_list_remove(&peer->link);
+	/* The output might be destroyed */
+	if (output) {
+		wl_list_remove(&peer->link);
 
-	if (output && wl_list_empty(&output->peers))
-		weston_output_power_off(&output->base);
+		if (wl_list_empty(&output->peers))
+			weston_output_power_off(&output->base);
+	}
 
 	weston_log("VNC Client disconnected\n");
 
