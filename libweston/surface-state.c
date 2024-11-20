@@ -273,6 +273,14 @@ weston_surface_attach(struct weston_surface *surface,
 	weston_buffer_reference(&surface->buffer_ref, buffer,
 				BUFFER_MAY_BE_ACCESSED);
 
+	/* Early attach to reduce repaint latency */
+	if (!wl_list_empty(&surface->paint_node_list)) {
+		struct weston_paint_node *pnode =
+			wl_container_of(surface->paint_node_list.next,
+					pnode, surface_link);
+		surface->compositor->renderer->attach(pnode);
+	}
+
 	return status;
 }
 
