@@ -3361,6 +3361,7 @@ weston_surface_attach(struct weston_surface *surface,
 {
 	struct weston_buffer *buffer = state->buffer;
 	struct weston_buffer *old_buffer = surface->buffer_ref.buffer;
+	struct weston_paint_node *pnode;
 
 	if (!buffer) {
 		if (weston_surface_is_mapped(surface)) {
@@ -3418,6 +3419,14 @@ weston_surface_attach(struct weston_surface *surface,
 	old_buffer = NULL;
 	weston_buffer_reference(&surface->buffer_ref, buffer,
 				BUFFER_MAY_BE_ACCESSED);
+
+	// HACK: Attach buffer earlier for better performance
+	wl_list_for_each(pnode, &surface->paint_node_list, surface_link) {
+		assert(pnode->surface == surface);
+
+		surface->compositor->renderer->attach(pnode);
+		break;
+	}
 
 	return status;
 }
