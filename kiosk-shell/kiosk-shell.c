@@ -169,6 +169,7 @@ kiosk_shell_surface_notify_output_destroy(struct wl_listener *listener, void *da
 			     struct kiosk_shell_surface, output_destroy_listener);
 
 	kiosk_shell_surface_set_output(shsurf, NULL);
+	shsurf->appid_output_assigned = false;
 }
 
 static struct kiosk_shell_surface *
@@ -1003,7 +1004,8 @@ desktop_surface_committed(struct weston_desktop_surface *desktop_surface,
 	if (surface->width == 0)
 		return;
 
-	if (!shsurf->appid_output_assigned && app_id) {
+	if (!shsurf->appid_output_assigned && app_id &&
+	    !wl_list_empty(&shsurf->shell->output_list)) {
 		struct kiosk_shell_output *shoutput = NULL;
 
 		/* reset previous output being set in _added() as the output is
