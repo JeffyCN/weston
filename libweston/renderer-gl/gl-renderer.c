@@ -893,6 +893,9 @@ get_renderbuffer_window_age(struct weston_output *output)
 	    go->egl_surface != EGL_NO_SURFACE) {
 		ret = eglQuerySurface(gr->egl_display, go->egl_surface,
 				      EGL_BUFFER_AGE_EXT, &buffer_age);
+		if (ret == EGL_FALSE)
+			ret = eglQuerySurface(gr->egl_display, go->egl_surface,
+					      EGL_BUFFER_AGE_KHR, &buffer_age);
 		if (ret == EGL_FALSE) {
 			weston_log("buffer age query failed.\n");
 			gl_renderer_print_egl_error_state();
