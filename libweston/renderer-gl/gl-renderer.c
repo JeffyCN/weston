@@ -1398,9 +1398,13 @@ output_get_damage(struct weston_output *output,
 	if (gr->has_egl_buffer_age) {
 		ret = eglQuerySurface(gr->egl_display, go->egl_surface,
 				      EGL_BUFFER_AGE_EXT, &buffer_age);
+		if (ret == EGL_FALSE)
+			ret = eglQuerySurface(gr->egl_display, go->egl_surface,
+					      EGL_BUFFER_AGE_KHR, &buffer_age);
 		if (ret == EGL_FALSE) {
 			weston_log("buffer age query failed.\n");
 			gl_renderer_print_egl_error_state();
+			gr->has_egl_buffer_age = false;
 		}
 	} else if (go->swap_behavior_is_preserved) {
 		buffer_age = 1;
