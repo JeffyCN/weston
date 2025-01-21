@@ -675,6 +675,9 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 	if (weston_check_egl_extension(extensions, "EGL_EXT_buffer_age"))
 		gr->has_egl_buffer_age = true;
 
+	/* HACK: The GPU might support EGL_BUFFER_AGE_KHR */
+	gr->has_egl_buffer_age = true;
+
 	if (weston_check_egl_extension(extensions, "EGL_KHR_partial_update")) {
 		assert(gr->set_damage_region);
 		gr->has_egl_partial_update = true;
