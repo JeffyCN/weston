@@ -595,8 +595,8 @@ struct drm_output {
 	bool dpms_off_pending;
 	bool mode_switch_pending;
 
-	uint32_t gbm_cursor_handle[2];
-	struct drm_fb *gbm_cursor_fb[2];
+	uint32_t cursor_handle[2];
+	struct drm_fb *cursor_fb[2];
 	struct drm_plane *cursor_plane;
 	struct weston_view *cursor_view;
 	struct wl_listener cursor_view_destroy_listener;
