@@ -176,7 +176,6 @@ out:
 	return NULL;
 }
 
-#ifdef BUILD_DRM_GBM
 static struct drm_plane_state *
 drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 				     struct weston_paint_node *node,
@@ -194,9 +193,6 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	assert(plane);
 	assert(plane->state_cur->complete);
 	assert(!plane->state_cur->output || plane->state_cur->output == output);
-
-	/* We use GBM to import SHM buffers. */
-	assert(b->gbm);
 
 	plane_state = drm_output_state_get_plane(output_state, plane);
 	assert(!plane_state->fb);
@@ -228,7 +224,7 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	 * Later when we determine if the cursor needs an update, we'll
 	 * select the correct fb to use.
 	 */
-	plane_state->fb = drm_fb_ref(output->gbm_cursor_fb[0]);
+	plane_state->fb = drm_fb_ref(output->cursor_fb[0]);
 
 	if (device->atomic_modeset) {
 		float scale =
@@ -275,15 +271,6 @@ err:
 	drm_plane_state_put_back(plane_state);
 	return NULL;
 }
-#else
-static struct drm_plane_state *
-drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
-				     struct weston_paint_node *node,
-				     uint64_t zpos)
-{
-	return NULL;
-}
-#endif
 
 static void
 drm_output_check_zpos_plane_states(struct drm_output_state *state)
@@ -832,12 +819,6 @@ drm_output_propose_state(struct weston_output *output_base,
 			continue;
 		}
 
-		if (!b->gbm) {
-			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
-			             "(GBM not available)\n", ev);
-			force_renderer = true;
-		}
-
 		if (!weston_view_has_valid_buffer(ev)) {
 			drm_debug(b, "\t\t\t\t[view] not assigning view %p to plane "
 			             "(no buffer available)\n", ev);
@@ -1017,7 +998,7 @@ drm_assign_planes(struct weston_output *output_base)
 	/* Force single plane in mirror mode */
 	if (drm_is_mirroring(b)) {
 		drm_debug(b, "\t[state] no overlay plane in mirror mode\n");
-	} else if (!device->sprites_are_broken && !output->is_virtual && b->gbm) {
+	} else if (!device->sprites_are_broken && !output->is_virtual) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		state = drm_output_propose_state(output_base, pending_state, mode);
 		if (!state) {
