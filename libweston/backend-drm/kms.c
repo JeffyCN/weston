@@ -872,11 +872,11 @@ drm_output_set_cursor(struct drm_output_state *output_state)
 		return;
 	}
 
-	assert(state->fb == output->gbm_cursor_fb[output->current_cursor]);
+	assert(state->fb == output->cursor_fb[output->current_cursor]);
 	assert(!plane->state_cur->handle ||
 	       plane->state_cur->handle->output == output);
 
-	handle = output->gbm_cursor_handle[output->current_cursor];
+	handle = output->cursor_fb[output->current_cursor]->handles[0];
 	if (plane->state_cur->fb != state->fb) {
 		if (drmModeSetCursor(device->kms_device->fd, crtc->crtc_id, handle,
 				     device->cursor_width, device->cursor_height)) {

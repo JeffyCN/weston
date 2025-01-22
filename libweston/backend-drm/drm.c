@@ -867,7 +867,6 @@ err:
 	free(msg);
 }
 
-#ifdef BUILD_DRM_GBM
 /**
  * Update the image for the current cursor surface
  *
@@ -875,10 +874,9 @@ err:
  * @param ev Source view for cursor
  */
 static void
-cursor_bo_update(struct drm_output *output, struct weston_paint_node *pnode)
+cursor_update(struct drm_output *output, struct weston_paint_node *pnode)
 {
 	struct drm_device *device = output->device;
-	struct gbm_bo *bo = output->gbm_cursor_fb[output->current_cursor]->bo;
 	struct weston_buffer *buffer = pnode->surface->buffer_ref.buffer;
 	uint32_t buf[device->cursor_width * device->cursor_height];
 	uint8_t *s;
@@ -899,20 +897,8 @@ cursor_bo_update(struct drm_output *output, struct weston_paint_node *pnode)
 		       buffer->width * 4);
 	wl_shm_buffer_end_access(buffer->shm_buffer);
 
-	if (bo) {
-		if (gbm_bo_write(bo, buf, sizeof buf) < 0)
-			weston_log("failed update cursor: %s\n", strerror(errno));
-	} else {
-		memcpy(output->gbm_cursor_fb[output->current_cursor]->map,
-		       buf, sizeof buf);
-	}
+	memcpy(output->cursor_fb[output->current_cursor]->map, buf, sizeof buf);
 }
-#else
-static void
-cursor_bo_update(struct drm_output *output, struct weston_paint_node *pnode)
-{
-}
-#endif
 
 static void
 drm_output_prepare_repaint(struct weston_output *output_base)
@@ -973,13 +959,13 @@ drm_output_repaint(struct weston_output *output_base)
 			output->current_cursor++;
 			output->current_cursor =
 				output->current_cursor %
-					ARRAY_LENGTH(output->gbm_cursor_fb);
-			cursor_bo_update(output, cursor_node);
+					ARRAY_LENGTH(output->cursor_fb);
+			cursor_update(output, cursor_node);
 		}
 		pixman_region32_fini(&damage);
 
 		cursor_state->fb =
-			drm_fb_ref(output->gbm_cursor_fb[output->current_cursor]);
+			drm_fb_ref(output->cursor_fb[output->current_cursor]);
 		drm_fb_unref(old_fb);
 	}
 
@@ -2943,6 +2929,51 @@ should_wait_drm_events(struct drm_device *device)
 	return false;
 }
 
+static void drm_output_fini_cursor(struct drm_output *output)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_LENGTH(output->cursor_fb); i++) {
+		if (!output->cursor_fb[i])
+			continue;
+
+		output->cursor_fb[i]->type = BUFFER_PIXMAN_DUMB;
+		drm_fb_unref(output->cursor_fb[i]);
+		output->cursor_fb[i] = NULL;
+	}
+}
+
+static int
+drm_output_init_cursor(struct drm_output *output, struct drm_backend *b)
+{
+	struct drm_device *device = output->device;
+	unsigned int i;
+
+	/* No point creating cursors if we don't have a plane for them. */
+	if (!output->cursor_handle)
+		return 0;
+
+	for (i = 0; i < ARRAY_LENGTH(output->cursor_fb); i++) {
+		output->cursor_fb[i] = drm_fb_create_dumb(output->device,
+							  device->cursor_width,
+							  device->cursor_height,
+							  DRM_FORMAT_ARGB8888);
+		if (!output->cursor_fb[i])
+			goto err;
+
+		/* Override buffer type, since we know it is a cursor */
+		output->cursor_fb[i]->type = BUFFER_CURSOR;
+	}
+
+	return 0;
+
+err:
+	weston_log("cursor buffers unavailable, using sw cursors\n");
+	device->cursors_are_broken = true;
+	drm_output_fini_cursor(output);
+	return -1;
+}
+
 static int
 drm_output_enable(struct weston_output *base)
 {
@@ -3007,6 +3038,8 @@ drm_output_enable(struct weston_output *base)
 		goto err_planes;
 	}
 
+	drm_output_init_cursor(output, b);
+
 	drm_output_init_backlight(output);
 
 	output->base.start_repaint_loop = drm_output_start_repaint_loop;
@@ -3064,6 +3097,8 @@ drm_output_deinit(struct weston_output *base)
 		drm_output_fini_vulkan(output);
 	else
 		drm_output_fini_egl(output);
+
+	drm_output_fini_cursor(output);
 
 	drm_output_detach_crtc(output);
 

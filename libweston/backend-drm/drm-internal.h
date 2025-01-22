@@ -645,8 +645,7 @@ struct drm_output {
 	/* True, if underlay planes exist. */
 	bool has_underlay;
 
-	uint32_t gbm_cursor_handle[2];
-	struct drm_fb *gbm_cursor_fb[2];
+	struct drm_fb *cursor_fb[2];
 	struct drm_plane_handle *cursor_handle;
 	int current_cursor;
 
@@ -945,7 +944,6 @@ drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output);
 enum wdrm_colorspace
 wdrm_colorspace_from_output(struct weston_output *output);
 
-#ifdef BUILD_DRM_GBM
 extern struct drm_fb *
 drm_fb_get_from_paint_node(struct drm_output_state *state,
 			   struct weston_paint_node *pnode,
@@ -960,21 +958,6 @@ drm_fb_get_from_dmabuf_attributes(struct dmabuf_attributes *attributes,
 				  struct drm_device *device, bool is_opaque,
 				  bool direct_display, bool is_internal,
 				  uint32_t *try_view_on_plane_failure_reasons);
-#else
-static inline struct drm_fb *
-drm_fb_get_from_paint_node(struct drm_output_state *state,
-			   struct weston_paint_node *pnode,
-			   uint32_t *try_view_on_plane_failure_reasons)
-{
-	return NULL;
-}
-static inline bool
-drm_can_scanout_dmabuf(struct weston_backend *backend,
-		       struct linux_dmabuf_buffer *dmabuf)
-{
-	return false;
-}
-#endif
 
 struct drm_pending_state *
 drm_pending_state_alloc(struct drm_device *device);
