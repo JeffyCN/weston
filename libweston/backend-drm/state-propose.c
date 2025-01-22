@@ -311,7 +311,6 @@ out:
 	return NULL;
 }
 
-#ifdef BUILD_DRM_GBM
 static struct drm_plane_state *
 drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 				     struct weston_paint_node *pnode,
@@ -338,9 +337,6 @@ drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
 	       plane->state_cur->handle->output == output);
 
 	p_name = drm_output_get_handle_type_name(handle);
-
-	/* We use GBM to import SHM buffers. */
-	assert(b->gbm);
 
 	plane_state = drm_output_state_get_plane(output_state, plane);
 	assert(!plane_state->fb);
@@ -407,7 +403,7 @@ out:
 	 * Later when we determine if the cursor needs an update, we'll
 	 * select the correct fb to use.
 	 */
-	plane_state->fb = drm_fb_ref(output->gbm_cursor_fb[0]);
+	plane_state->fb = drm_fb_ref(output->cursor_fb[0]);
 
 	if (!select_plane_blend_mode(plane_state, plane_state->fb, &err_blend_mode)) {
 		const char *err_msg =
@@ -430,15 +426,6 @@ err:
 	drm_plane_state_put_back(plane_state);
 	return NULL;
 }
-#else
-static struct drm_plane_state *
-drm_output_prepare_cursor_paint_node(struct drm_output_state *output_state,
-				     struct weston_paint_node *node,
-				     uint64_t zpos)
-{
-	return NULL;
-}
-#endif
 
 static void
 drm_output_check_zpos_plane_states(struct drm_output_state *state)
@@ -1492,10 +1479,6 @@ drm_output_propose_state(struct weston_output *output_base,
 			  pnode->internal_name, output->base.name,
 			  (unsigned long) output->base.id);
 
-		if (!b->gbm)
-			pnode->try_view_on_plane_failure_reasons |=
-				FAILURE_REASONS_NO_GBM;
-
 		if (!weston_paint_node_has_valid_buffer(pnode))
 			pnode->try_view_on_plane_failure_reasons |=
 				FAILURE_REASONS_NO_BUFFER;
@@ -1695,7 +1678,7 @@ drm_assign_planes(struct weston_output *output_base)
 	}
 
 	if (!state && !device->disable_client_buffer_scanout &&
-	    !output_base->disable_planes && !output->is_virtual && b->gbm &&
+	    !output_base->disable_planes && !output->is_virtual &&
 	    !output_base->mirroring) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		mode = DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY;
