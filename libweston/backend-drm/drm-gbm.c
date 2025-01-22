@@ -117,71 +117,6 @@ init_egl(struct drm_backend *b)
 	return 0;
 }
 
-static void drm_output_fini_cursor_egl(struct drm_output *output)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_LENGTH(output->gbm_cursor_fb); i++) {
-		if (!output->gbm_cursor_fb[i])
-			continue;
-
-		/* This cursor does not have a GBM device */
-		if (!output->gbm_cursor_fb[i]->bo)
-			output->gbm_cursor_fb[i]->type = BUFFER_PIXMAN_DUMB;
-		drm_fb_unref(output->gbm_cursor_fb[i]);
-		output->gbm_cursor_fb[i] = NULL;
-	}
-}
-
-static int
-drm_output_init_cursor_egl(struct drm_output *output, struct drm_backend *b)
-{
-	struct drm_device *device = output->device;
-	unsigned int i;
-
-	/* No point creating cursors if we don't have a plane for them. */
-	if (!output->cursor_plane)
-		return 0;
-
-	for (i = 0; i < ARRAY_LENGTH(output->gbm_cursor_fb); i++) {
-		struct gbm_bo *bo;
-
-		if (gbm_device_get_fd(b->gbm) != output->device->drm.fd) {
-			output->gbm_cursor_fb[i] =
-				drm_fb_create_dumb(output->device,
-						   device->cursor_width,
-						   device->cursor_height,
-						   DRM_FORMAT_ARGB8888);
-			/* Override buffer type, since we know it is a cursor */
-			output->gbm_cursor_fb[i]->type = BUFFER_CURSOR;
-			output->gbm_cursor_handle[i] =
-				output->gbm_cursor_fb[i]->handles[0];
-		} else {
-			bo = gbm_bo_create(b->gbm, device->cursor_width, device->cursor_height,
-					   GBM_FORMAT_ARGB8888,
-					   GBM_BO_USE_CURSOR | GBM_BO_USE_WRITE);
-			if (!bo)
-				goto err;
-
-			output->gbm_cursor_fb[i] =
-				drm_fb_get_from_bo(bo, device, false, BUFFER_CURSOR);
-			if (!output->gbm_cursor_fb[i]) {
-				gbm_bo_destroy(bo);
-				goto err;
-			}
-			output->gbm_cursor_handle[i] = gbm_bo_get_handle(bo).s32;
-		}
-	}
-
-	return 0;
-
-err:
-	weston_log("cursor buffers unavailable, using gl cursors\n");
-	device->cursors_are_broken = true;
-	drm_output_fini_cursor_egl(output);
-	return -1;
-}
-
 static struct gbm_surface *
 create_gbm_surface(struct gbm_device *gbm, struct drm_output *output,
 		   struct weston_drm_format *fmt)
@@ -338,8 +273,6 @@ drm_output_init_egl(struct drm_output *output, struct drm_backend *b)
 		}
 	}
 
-	drm_output_init_cursor_egl(output, b);
-
 	return 0;
 }
 
@@ -370,8 +303,6 @@ drm_output_fini_egl(struct drm_output *output)
 		output->gbm_surfaces[i] = NULL;
 	}
 	output->gbm_surface = NULL;
-
-	drm_output_fini_cursor_egl(output);
 }
 
 struct drm_fb *

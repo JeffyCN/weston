@@ -597,8 +597,8 @@ struct drm_output {
 	bool dpms_off_pending;
 	bool mode_switch_pending;
 
-	uint32_t gbm_cursor_handle[2];
-	struct drm_fb *gbm_cursor_fb[2];
+	uint32_t cursor_handle[2];
+	struct drm_fb *cursor_fb[2];
 	struct drm_plane *cursor_plane;
 	struct weston_view *cursor_view;
 	struct wl_listener cursor_view_destroy_listener;
@@ -875,7 +875,6 @@ drm_output_ensure_hdr_output_metadata_blob(struct drm_output *output);
 enum wdrm_colorspace
 wdrm_colorspace_from_output(struct weston_output *output);
 
-#ifdef BUILD_DRM_GBM
 extern struct drm_fb *
 drm_fb_get_from_paint_node(struct drm_output_state *state,
 			   struct weston_paint_node *pnode);
@@ -883,20 +882,6 @@ drm_fb_get_from_paint_node(struct drm_output_state *state,
 extern bool
 drm_can_scanout_dmabuf(struct weston_backend *backend,
 		       struct linux_dmabuf_buffer *dmabuf);
-#else
-static inline struct drm_fb *
-drm_fb_get_from_paint_node(struct drm_output_state *state,
-			   struct weston_paint_node *pnode)
-{
-	return NULL;
-}
-static inline bool
-drm_can_scanout_dmabuf(struct weston_backend *backend,
-		       struct linux_dmabuf_buffer *dmabuf)
-{
-	return false;
-}
-#endif
 
 struct drm_pending_state *
 drm_pending_state_alloc(struct drm_device *device);
