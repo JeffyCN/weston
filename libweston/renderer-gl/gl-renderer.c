@@ -4931,10 +4931,12 @@ gl_renderer_setup(struct weston_compositor *ec)
 
 	glActiveTexture(GL_TEXTURE0);
 
-	gr->fallback_shader = gl_renderer_create_fallback_shader(gr);
-	if (!gr->fallback_shader) {
-		weston_log("Error: compiling fallback shader failed.\n");
-		return -1;
+	if (getenv("WESTON_GL_FALLBACK_SHADER")) {
+		gr->fallback_shader = gl_renderer_create_fallback_shader(gr);
+		if (!gr->fallback_shader) {
+			weston_log("Error: compiling fallback shader failed.\n");
+			return -1;
+		}
 	}
 
 	gr->debug_mode_binding =
