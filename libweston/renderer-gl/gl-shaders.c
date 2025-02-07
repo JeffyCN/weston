@@ -1056,6 +1056,15 @@ gl_renderer_use_program(struct gl_renderer *gr, struct weston_paint_node *pnode,
 		weston_log("Error: failed to generate shader program.\n");
 		gr->current_shader = NULL;
 
+		if (!gr->fallback_shader) {
+			gr->fallback_shader =
+				gl_renderer_create_fallback_shader(gr);
+			if (!gr->fallback_shader) {
+				weston_log("Error: compiling fallback shader failed.\n");
+				return false;
+			}
+		}
+
 		/*
 		 * We only have one fallback shader, so it cannot do correct
 		 * color on color managed outputs. Hence, what is painted
