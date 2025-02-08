@@ -4171,6 +4171,7 @@ weston_view_set_initial_position(struct weston_view *view,
 	struct weston_seat *seat;
 	pixman_rectangle32_t area;
 	struct weston_coord_global pos;
+	const char *buf;
 
 	if (view->has_position) {
 		pos.c = weston_coord(view->geometry.pos_offset.x,
@@ -4241,6 +4242,30 @@ weston_view_set_initial_position(struct weston_view *view,
 
 	if (range_y > 0)
 		y += random() % range_y;
+
+	buf = getenv("WESTON_DEFAULT_POSITION");
+	if (buf) {
+		int tmp_x, tmp_y;
+		if (sscanf(buf, "%d,%d", &tmp_x, &tmp_y) == 2) {
+			x = tmp_x;
+			y = tmp_y;
+		} else if (!strcmp(buf, "center")) {
+			x = area.x + range_x / 2;
+			y = area.y + range_y / 2;
+		} else if (!strcmp(buf, "left-top")) {
+			x = area.x;
+			y = area.y;
+		} else if (!strcmp(buf, "left-bottom")) {
+			x = area.x;
+			y = area.y + range_y;
+		} else if (!strcmp(buf, "right-top")) {
+			x = area.x + range_x;
+			y = area.y;
+		} else if (!strcmp(buf, "right-bottom")) {
+			x = area.x + range_x;
+			y = area.y + range_y;
+		}
+	}
 
 	pos.c = weston_coord(x, y);
 	weston_view_set_position(view, pos);
