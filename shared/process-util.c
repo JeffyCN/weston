@@ -176,6 +176,14 @@ custom_env_add_from_exec_string(struct custom_env *env, const char *exec_str)
 {
 	char *dup_path = strdup(exec_str);
 	char *start = dup_path;
+	char *p;
+
+#define BUFFER_SIZE 1024
+	char buffer[BUFFER_SIZE];
+	int buffer_index = 0;
+	bool in_quote = false;
+	bool in_escape = false;
+	char quote_char = 0;
 
 	assert(dup_path);
 
@@ -186,7 +194,6 @@ custom_env_add_from_exec_string(struct custom_env *env, const char *exec_str)
 	 * "meh" should be executed with "argh" as its first argument */
 	while (*start) {
 		char *k = NULL, *v = NULL;
-		char *p;
 
 		/* Leaves us with "foo\0bar  baz=quux meh argh", with k pointing
 		 * to "foo" and v pointing to "bar  baz=quux meh argh" */
@@ -215,22 +222,33 @@ custom_env_add_from_exec_string(struct custom_env *env, const char *exec_str)
 		custom_env_set_env_var(env, k, v);
 	}
 
-	/* Now build the argv array by splitting on spaces */
-	while (*start) {
-		char *p;
-		bool valid = false;
+	/* Now build the argv array with support for quotes and escape */
+	for (const char *p = start; *p != '\0'; p++) {
+		if (in_escape) {
+			buffer[buffer_index++] = *p;
+			in_escape = false;
+		} else if (*p == '\\') {
+			in_escape = true;
+		} else if (!in_quote && (*p == '\'' || *p == '"')) {
+			in_quote = true;
+			quote_char = *p;
+		} else if (in_quote && *p == quote_char) {
+			in_quote = false;
+		} else if (!in_quote && (*p == ' ' || *p == '\t')) {
+			if (buffer_index > 0) {
+				buffer[buffer_index] = '\0';
+				buffer_index = 0;
+				custom_env_add_arg(env, buffer);
+			}
+		} else {
+			assert(buffer_index < BUFFER_SIZE - 1);
+			buffer[buffer_index++] = *p;
+		}
+	}
 
-		for (p = start; *p && !isspace(*p); p++)
-			valid = true;
-
-		if (!valid)
-			break;
-
-		while (*p && isspace(*p))
-			*p++ = '\0';
-
-		custom_env_add_arg(env, start);
-		start = p;
+	if (buffer_index > 0) {
+		buffer[buffer_index] = '\0';
+		custom_env_add_arg(env, buffer);
 	}
 
 	free(dup_path);
