@@ -325,6 +325,10 @@ demo_clients = [
 		'deps': [ 'egl', 'glesv2', 'wayland-egl' ]
 	},
 	{ 'basename': 'transformed' },
+	{
+		'basename': 'player',
+		'deps': [ 'gstreamer-base-1.0', 'gstreamer-video-1.0' ]
+	},
 ]
 
 if get_option('demo-clients')
