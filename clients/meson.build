@@ -356,6 +356,10 @@ demo_clients = [
 		],
 	},
 	{ 'basename': 'transformed' },
+	{
+		'basename': 'player',
+		'deps': [ 'gstreamer-base-1.0', 'gstreamer-video-1.0' ]
+	},
 ]
 
 if get_option('demo-clients')
