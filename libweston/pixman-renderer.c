@@ -1064,7 +1064,9 @@ pixman_renderer_destroy(struct weston_compositor *ec)
 	struct pixman_renderer *pr = get_renderer(ec);
 
 	wl_signal_emit(&pr->destroy_signal, pr);
-	weston_binding_destroy(pr->debug_binding);
+
+	if (pr->debug_binding)
+		weston_binding_destroy(pr->debug_binding);
 
 	weston_drm_format_array_fini(&pr->supported_dmabuf_formats);
 
