@@ -52,6 +52,9 @@ weston_compositor_add_binding(struct weston_compositor *compositor,
 {
 	struct weston_binding *binding;
 
+	if (!getenv("WESTON_MOD_BINDING") && modifier)
+		return NULL;
+
 	binding = malloc(sizeof *binding);
 	if (binding == NULL)
 		return NULL;
@@ -74,6 +77,9 @@ weston_compositor_add_key_binding(struct weston_compositor *compositor,
 				  void *data)
 {
 	struct weston_binding *binding;
+
+	if (!getenv("WESTON_KEY_BINDING"))
+		return NULL;
 
 	binding = weston_compositor_add_binding(compositor, key, 0, 0,
 						modifier, handler, data);
@@ -186,8 +192,13 @@ weston_compositor_add_debug_binding(struct weston_compositor *compositor,
 {
 	struct weston_binding *binding;
 
+	if (!getenv("WESTON_DEBUG_BINDING"))
+		return NULL;
+
 	binding = weston_compositor_add_binding(compositor, key, 0, 0, 0,
 						handler, data);
+	if (binding == NULL)
+		return NULL;
 
 	wl_list_insert(compositor->debug_binding_list.prev, &binding->link);
 
