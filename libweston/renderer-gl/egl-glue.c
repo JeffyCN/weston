@@ -735,6 +735,10 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 			   "to missing EGL_KHR_wait_sync extension\n");
 	}
 
+	/* HACK: Disable buffer age and partial update for old GPU */
+	if (!gr->has_native_fence_sync)
+		gr->has_egl_buffer_age = gr->has_egl_partial_update = false;
+
 	weston_log("EGL features:\n");
 	weston_log_continue(STAMP_SPACE "EGL Wayland extension: %s\n",
 			    yesno(gr->has_bind_display));
