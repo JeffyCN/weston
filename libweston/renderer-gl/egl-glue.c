@@ -742,5 +742,9 @@ gl_renderer_setup_egl_extensions(struct weston_compositor *ec)
 			   "to missing EGL_KHR_wait_sync extension\n");
 	}
 
+	/* HACK: Disable buffer age and partial update for old GPU */
+	if (!gr->has_native_fence_sync)
+		gr->has_egl_buffer_age = gr->has_egl_partial_update = false;
+
 	return 0;
 }
