@@ -1248,10 +1248,6 @@ background_create(struct desktop *desktop, struct output *output)
 	weston_config_section_get_color(s, "background-color",
 					&background->color, 0x00000000);
 
-	/* Backgrounds must be fully opaque. */
-	if (background->color != 0)
-		background->color |= 0xFF000000;
-
 	weston_config_section_get_string(s, "background-type",
 					 &type, "tile");
 	if (type == NULL) {
