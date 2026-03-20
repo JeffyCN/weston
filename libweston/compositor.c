@@ -3709,6 +3709,11 @@ weston_output_flush_damage_for_primary_plane(struct weston_output *output,
 WL_EXPORT void
 weston_output_schedule_repaint_reset(struct weston_output *output)
 {
+	if (output->idle_repaint_source) {
+		wl_event_source_remove(output->idle_repaint_source);
+		output->idle_repaint_source = NULL;
+	}
+
 	weston_output_put_back_feedback_list(output);
 	output->repaint_status = REPAINT_NOT_SCHEDULED;
 	TL_POINT(output->compositor, TLP_CORE_REPAINT_EXIT_LOOP,
