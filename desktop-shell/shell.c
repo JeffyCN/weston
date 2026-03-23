@@ -2650,6 +2650,8 @@ background_committed(struct weston_surface *es,
 	weston_view_move_to_layer(sh_output->background_view,
 				  &shell->background_layer.view_list);
 	weston_output_set_ready(sh_output->output);
+
+	es->wait_for_resizing = false;
 }
 
 static void
@@ -2700,6 +2702,7 @@ desktop_shell_set_background(struct wl_client *client,
 	str_printf(&label, "background for output %s", surface->output->name);
 	weston_surface_set_label(surface, label);
 
+	surface->wait_for_resizing = true;
 	weston_desktop_shell_send_configure(resource, 0,
 					    surface_resource,
 					    surface->output->width,
@@ -2763,6 +2766,8 @@ panel_committed(struct weston_surface *es,
 	assert(sh_output->panel_view);
 	pos = weston_coord_global_add(output->pos, sh_output->panel_offset);
 	weston_view_set_position(sh_output->panel_view, pos);
+
+	es->wait_for_resizing = false;
 }
 
 static void
@@ -2823,6 +2828,7 @@ desktop_shell_set_panel(struct wl_client *client,
 	str_printf(&label, "panel for output %s", surface->output->name);
 	weston_surface_set_label(surface, label);
 
+	surface->wait_for_resizing = true;
 	weston_desktop_shell_send_configure(resource, 0,
 					    surface_resource,
 					    surface->output->width,
@@ -4452,6 +4458,7 @@ shell_resize_surface_to_output(struct desktop_shell *shell,
 	if (!surface)
 		return;
 
+	surface->wait_for_resizing = true;
 	weston_desktop_shell_send_configure(shell->child.desktop_shell, 0,
 					surface->resource,
 					output->width,

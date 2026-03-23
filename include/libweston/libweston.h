@@ -2088,6 +2088,9 @@ struct weston_surface {
 
 	/** commit_timing_v1 */
 	struct weston_commit_timer *commit_timer;
+
+	/** delay output repaint when surface is resizing */
+	bool wait_for_resizing;
 };
 
 struct weston_subsurface {

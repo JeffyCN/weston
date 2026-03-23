@@ -78,6 +78,9 @@ struct weston_desktop_surface {
 		struct wl_list grab_link;
 	};
 	struct wl_list grabbing_seats;
+
+	/** target size */
+	int32_t width, height;
 };
 
 static void
@@ -184,6 +187,28 @@ weston_desktop_surface_destroy(struct weston_desktop_surface *surface)
 	free(surface);
 }
 
+/* Check if a desktop surface is currently resizing and should delay
+ * output repaint. Returns true only for fullscreen/maximized surfaces
+ * whose current size doesn't match the target size. */
+static bool
+weston_desktop_surface_wait_for_resizing(struct weston_desktop_surface *surface)
+{
+	if (!weston_desktop_surface_get_maximized(surface) &&
+	    !weston_desktop_surface_get_pending_maximized(surface) &&
+	    !weston_desktop_surface_get_fullscreen(surface) &&
+	    !weston_desktop_surface_get_pending_fullscreen(surface))
+		return false;
+
+	if (!surface->width && !surface->height)
+		return false;
+
+	if (surface->surface->width != surface->width ||
+	    surface->surface->height != surface->height)
+		return true;
+
+	return false;
+}
+
 static void
 weston_desktop_surface_surface_committed(struct wl_listener *listener,
 					 void *data)
@@ -217,6 +242,9 @@ weston_desktop_surface_surface_committed(struct wl_listener *listener,
 	}
 
 	surface->buffer_move = weston_coord_surface(0, 0, wsurface);
+
+	surface->surface->wait_for_resizing =
+		weston_desktop_surface_wait_for_resizing(surface);
 }
 
 static void
@@ -522,6 +550,12 @@ weston_desktop_surface_set_size(struct weston_desktop_surface *surface, int32_t 
 		surface->implementation->set_size(surface,
 						  surface->implementation_data,
 						  width, height);
+
+	surface->width = width;
+	surface->height = height;
+
+	surface->surface->wait_for_resizing =
+		weston_desktop_surface_wait_for_resizing(surface);
 }
 
 WL_EXPORT void

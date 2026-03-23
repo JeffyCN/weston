@@ -3895,8 +3895,11 @@ weston_output_repaint(struct weston_output *output)
 		 * feedback to the respective lists if pnode/surface is
 		 * occluded
 		 */
-		if (!pixman_region32_not_empty(&pnode->visible))
-			continue;
+		if (!pixman_region32_not_empty(&pnode->visible)) {
+			/* Allow resizing */
+			if (!pnode->surface->wait_for_resizing)
+				continue;
+		}
 
 		wl_list_insert_list(&frame_callback_list,
 				    &pnode->surface->frame_callback_list);
@@ -4248,6 +4251,21 @@ surface_statistics_timer_handler(void *data)
 	return 0;
 }
 
+static bool
+weston_output_should_freeze(struct weston_output *output)
+{
+	struct weston_paint_node *pnode;
+
+	wl_list_for_each(pnode, &output->paint_node_z_order_list,
+			 z_order_link) {
+		/* Freeze output during ongoing surface resize */
+		if (pnode->surface->wait_for_resizing)
+			return true;
+	}
+
+	return false;
+}
+
 static int
 output_repaint_timer_handler(int fd, uint32_t mask, void *data)
 {
@@ -4259,6 +4277,7 @@ output_repaint_timer_handler(int fd, uint32_t mask, void *data)
 	int ret = 0;
 	uint64_t e;
 	ssize_t size;
+	bool should_freeze = false;
 
 	do {
 		size = read(compositor->repaint_timer_fd, &e, sizeof e);
@@ -4315,8 +4334,22 @@ output_repaint_timer_handler(int fd, uint32_t mask, void *data)
 			ret = weston_output_repaint(output);
 			if (ret)
 				break;
+
+			if (!weston_output_should_freeze(output))
+				continue;
+
+			timespec_add_nsec(&output->next_repaint,
+					  &output->next_repaint,
+					  millihz_to_nsec(output->current_mode->refresh));
+
+			output->repainted = false;
+			output->repaint_status = REPAINT_SCHEDULED;
+			weston_output_damage(output);
+
+			should_freeze = true;
 		}
-		if (ret == 0) {
+
+		if (!should_freeze && ret == 0) {
 			if (backend->repaint_flush)
 				backend->repaint_flush(backend);
 		} else {
