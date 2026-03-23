@@ -2187,6 +2187,9 @@ struct weston_surface {
 	/** wp_alpha_modifier_v1 */
 	float alpha_modifier;
 	struct weston_alpha_modifier_surface *ams;
+
+	/** delay output repaint when surface is resizing */
+	bool wait_for_resizing;
 };
 
 struct weston_subsurface {
