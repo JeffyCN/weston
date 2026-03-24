@@ -322,6 +322,8 @@ struct weston_head {
 
 	bool underscan_supported;
 	uint32_t underscan_hborder_max, underscan_vborder_max;
+
+	bool drm_selected;
 };
 
 enum weston_output_power_state {
@@ -2978,6 +2980,9 @@ weston_output_set_underscan(struct weston_output *output,
 
 void
 weston_output_set_ready(struct weston_output *output);
+
+void
+weston_output_set_primary(struct weston_output *output);
 
 struct weston_client *
 weston_compositor_get_client(struct weston_compositor *compositor,
