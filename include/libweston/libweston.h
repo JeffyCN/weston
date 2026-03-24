@@ -1281,6 +1281,9 @@ struct weston_layer {
 	enum weston_layer_position position;
 	pixman_box32_t mask;
 	struct weston_layer_entry view_list;
+
+	/* If true, views should be bound to their current output */
+	bool should_bound_to_output;
 };
 
 struct weston_drm_format_array;
@@ -2094,6 +2097,9 @@ struct weston_surface {
 
 	/** delay output repaint when surface is resizing */
 	bool wait_for_resizing;
+
+	/* If true, surface is bound to its current output */
+	bool bound_to_output;
 };
 
 struct weston_subsurface {

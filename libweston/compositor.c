@@ -58,6 +58,7 @@
 #include "timeline.h"
 #include "weston-trace.h"
 
+#include <libweston/shell-utils.h>
 #include <libweston/libweston.h>
 #include <libweston/weston-log.h>
 #include "linux-dmabuf.h"
@@ -1591,6 +1592,16 @@ weston_surface_assign_output(struct weston_surface *es)
 	new_output = NULL;
 	max = 0;
 	mask = 0;
+
+	/* Skip automatic output assignment for bound surfaces */
+	if (es->bound_to_output) {
+		if (es->output && !es->output->destroying) {
+			new_output = es->output;
+			mask = 1u << es->output->id;
+		}
+		goto out;
+	}
+
 	pixman_region32_init(&region);
 	wl_list_for_each(view, &es->views, surface_link) {
 		/* Only views that are visible on some layer participate in
@@ -1641,6 +1652,7 @@ weston_surface_assign_output(struct weston_surface *es)
 	}
 	pixman_region32_fini(&region);
 
+out:
 	es->output = new_output;
 	weston_surface_update_output_mask(es, mask);
 
@@ -1704,6 +1716,22 @@ weston_view_assign_output(struct weston_view *ev)
 	new_output = NULL;
 	new_output_area = 0;
 	mask = 0;
+
+	/* Only views that are visible on some layer participate in
+	 * output_mask calculations. */
+	if (!get_view_layer(ev))
+		return;
+
+	/* Skip output reassignment for bound surfaces */
+	if (ev->surface->bound_to_output) {
+		output = ev->surface->output;
+		if (output && !output->destroying) {
+			new_output = output;
+			mask = 1u << output->id;
+		}
+		goto out;
+	}
+
 	pixman_region32_init(&region);
 	wl_list_for_each(output, &ec->output_list, link) {
 		if (output->destroying)
@@ -1743,6 +1771,7 @@ weston_view_assign_output(struct weston_view *ev)
 	}
 	pixman_region32_fini(&region);
 
+out:
 	weston_view_set_output_mask(ev, mask);
 	weston_view_set_output(ev, new_output);
 
@@ -4644,6 +4673,9 @@ weston_view_move_to_layer(struct weston_view *view,
 	wl_list_insert(&layer->link, &view->layer_link.link);
 	view->layer_link.layer = layer->layer;
 
+	if (layer->layer->should_bound_to_output)
+		view->surface->bound_to_output = true;
+
 	if (!visible)
 		return;
 
@@ -4718,6 +4750,16 @@ weston_layer_set_position(struct weston_layer *layer,
 			  enum weston_layer_position position)
 {
 	struct weston_layer *below;
+
+	/* Background and panel surfaces should stay on original output */
+	switch (position) {
+	case WESTON_LAYER_POSITION_BACKGROUND:
+	case WESTON_LAYER_POSITION_UI:
+		layer->should_bound_to_output = true;
+		break;
+	default:
+		break;
+	}
 
 	wl_list_remove(&layer->link);
 
