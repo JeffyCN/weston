@@ -4491,6 +4491,11 @@ handle_output_resized(struct wl_listener *listener, void *data)
 
 	shell_resize_surface_to_output(shell, sh_output->background_surface, output);
 	shell_resize_surface_to_output(shell, sh_output->panel_surface, output);
+
+	/* Recenter lock view */
+	if (shell->lock_view &&
+	    output == weston_shell_utils_get_default_output(shell->compositor))
+		weston_shell_utils_center_on_output(shell->lock_view, output);
 }
 
 static void
@@ -4555,12 +4560,18 @@ handle_output_move_layer(struct desktop_shell *shell,
 static void
 handle_output_move(struct wl_listener *listener, void *data)
 {
+	struct weston_output *output = (struct weston_output *)data;
 	struct desktop_shell *shell;
 
 	shell = container_of(listener, struct desktop_shell,
 			     output_move_listener);
 
 	shell_for_each_layer(shell, handle_output_move_layer, data);
+
+	/* Recenter lock view */
+	if (shell->lock_view &&
+	    output == weston_shell_utils_get_default_output(shell->compositor))
+		weston_shell_utils_center_on_output(shell->lock_view, output);
 }
 
 static void
