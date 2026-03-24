@@ -310,6 +310,8 @@ struct weston_head {
 	uint32_t supported_vrr_mode_mask;
 
 	uint32_t supported_color_format_mask;
+
+	bool drm_selected;
 };
 
 enum weston_output_power_state {
@@ -2872,6 +2874,9 @@ weston_output_get_supported_color_formats(struct weston_output *output);
 
 void
 weston_output_set_ready(struct weston_output *output);
+
+void
+weston_output_set_primary(struct weston_output *output);
 
 struct weston_client *
 weston_compositor_get_client(struct weston_compositor *compositor,

@@ -11259,3 +11259,17 @@ weston_backend_clear_deferred(struct weston_backend *backend,
 		weston_output_schedule_repaint(output);
 	}
 }
+
+WL_EXPORT void
+weston_output_set_primary(struct weston_output *output)
+{
+	struct weston_compositor *compositor = output->compositor;
+
+	/* Move the primary output to the front of the list */
+	wl_list_remove(&output->link);
+	wl_list_insert(&compositor->output_list, &output->link);
+
+	weston_log("Output '%s' is primary\n", output->name);
+
+	weston_compositor_reflow_outputs(compositor);
+}

@@ -142,6 +142,14 @@ enum require_outputs {
         REQUIRE_OUTPUTS_NONE,
 };
 
+/* DRM head selection modes */
+enum drm_head_mode {
+	DRM_HEAD_MODE_PRIMARY,
+	DRM_HEAD_MODE_INTERNAL,
+	DRM_HEAD_MODE_EXTERNAL,
+	DRM_HEAD_MODE_EXTERNAL_DUAL,
+};
+
 struct wet_compositor {
 	struct weston_compositor *compositor;
 	struct weston_config *config;
@@ -158,6 +166,11 @@ struct wet_compositor {
 	struct wl_listener screenshot_auth;
 	struct wl_listener output_created_listener;
 	enum require_outputs require_outputs;
+
+	enum drm_head_mode drm_head_mode;
+	bool drm_head_single;
+	bool drm_head_fallback;
+	struct weston_head *drm_primary_head;
 };
 
 static FILE *weston_logfile = NULL;
@@ -3358,7 +3371,7 @@ wet_compositor_find_layoutput(struct wet_compositor *wet, const char *name)
 	return NULL;
 }
 
-static void
+static bool
 wet_compositor_layoutput_add_head(struct wet_compositor *wet,
 				  const char *output_name,
 				  struct weston_config_section *section,
@@ -3370,13 +3383,14 @@ wet_compositor_layoutput_add_head(struct wet_compositor *wet,
 	if (!lo) {
 		lo = wet_compositor_create_layoutput(wet, output_name, section);
 		if (!lo)
-			return;
+			return false;
 	}
 
 	if (lo->add.n + 1 >= ARRAY_LENGTH(lo->add.heads))
-		return;
+		return false;
 
 	lo->add.heads[lo->add.n++] = head;
+	return true;
 }
 
 static void
@@ -3404,7 +3418,7 @@ wet_compositor_destroy_backend_callbacks(struct wet_compositor *wet)
 		wet_backend_destroy(b);
 }
 
-static void
+static bool
 drm_head_prepare_enable(struct wet_compositor *wet,
 			struct weston_head *head)
 {
@@ -3412,6 +3426,7 @@ drm_head_prepare_enable(struct wet_compositor *wet,
 	struct weston_config_section *section;
 	char *output_name = NULL;
 	char *mode = NULL;
+	bool ret;
 
 	section = drm_config_find_controlling_output_section(wet->config, name);
 	if (section) {
@@ -3421,22 +3436,24 @@ drm_head_prepare_enable(struct wet_compositor *wet,
 		weston_config_section_get_string(section, "mode", &mode, NULL);
 		if (mode && strcmp(mode, "off") == 0) {
 			free(mode);
-			return;
+			return false;
 		}
 		if (!mode && weston_head_is_non_desktop(head))
-			return;
+			return false;
 		free(mode);
 
 		weston_config_section_get_string(section, "name",
 						 &output_name, NULL);
 		assert(output_name);
 
-		wet_compositor_layoutput_add_head(wet, output_name,
-						  section, head);
+		ret = wet_compositor_layoutput_add_head(wet, output_name,
+							section, head);
 		free(output_name);
 	} else {
-		wet_compositor_layoutput_add_head(wet, name, NULL, head);
+		ret = wet_compositor_layoutput_add_head(wet, name, NULL, head);
 	}
+
+	return ret;
 }
 
 static bool
@@ -3654,6 +3671,34 @@ drm_head_disable(struct weston_head *head)
 		wet_output_destroy(output);
 }
 
+static bool
+drm_head_match_primary(struct weston_head *head)
+{
+	const char *buf = getenv("WESTON_DRM_PRIMARY");
+	return buf && !strcmp(buf, head->name);
+}
+
+static bool
+drm_head_match_internal(struct weston_head *head)
+{
+	return head->connection_internal;
+}
+
+static bool
+drm_head_match_external(struct weston_head *head)
+{
+	return !head->connection_internal;
+}
+
+static bool
+drm_head_match_fallback(struct weston_head *head)
+{
+	struct wet_compositor *wet = to_wet_compositor(head->compositor);
+	return wet->drm_head_fallback && !wet->drm_primary_head;
+}
+
+typedef bool (*drm_head_match_t) (struct weston_head *);
+
 static void
 drm_heads_changed(struct wl_listener *listener, void *arg)
 {
@@ -3667,18 +3712,84 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 	bool changed;
 	bool forced;
 
+	/* Matching table for each selection mode.
+	 * Each row is a mode, and each column is a matching function.
+	 * The functions are called in order.
+	 */
+	static const drm_head_match_t drm_head_matches[][5] = {
+		[DRM_HEAD_MODE_PRIMARY] = {
+			drm_head_match_primary,
+			drm_head_match_fallback,
+			NULL,
+		},
+		[DRM_HEAD_MODE_INTERNAL] = {
+			drm_head_match_primary,
+			drm_head_match_internal,
+			drm_head_match_fallback,
+			NULL,
+		},
+		[DRM_HEAD_MODE_EXTERNAL] = {
+			drm_head_match_primary,
+			drm_head_match_external,
+			drm_head_match_fallback,
+			NULL,
+		},
+		[DRM_HEAD_MODE_EXTERNAL_DUAL] = {
+			drm_head_match_primary,
+			drm_head_match_external,
+			drm_head_match_internal,
+			drm_head_match_fallback,
+			NULL,
+		},
+	};
+
+	const drm_head_match_t *match = drm_head_matches[wet->drm_head_mode];
+
+	wet->drm_primary_head = NULL;
+	while ((head = wet_backend_iterate_heads(wet, wb, head)))
+		head->drm_selected = false;
+
 	/* We need to collect all cloned heads into outputs before enabling the
 	 * output.
 	 */
-	while ((head = wet_backend_iterate_heads(wet, wb, head))) {
+	while (true) {
+		/* Iterate through heads and select matching ones */
+		head = wet_backend_iterate_heads(wet, wb, head);
+		if (!head) {
+			match ++;
+			if (!*match)
+				break;
+
+			/* Try next matching function */
+			continue;
+		}
+
 		connected = weston_head_is_connected(head);
 		enabled = weston_head_is_enabled(head);
-		changed = weston_head_is_device_changed(head);
 		forced = drm_head_should_force_enable(wet, head);
 
-		if ((connected || forced) && !enabled) {
-			drm_head_prepare_enable(wet, head);
-		} else if (!(connected || forced) && enabled) {
+		if (!connected && !forced)
+			continue;
+
+		/* Check if head matches current selection mode */
+		if (!(*match)(head))
+			continue;
+
+		if (!enabled && !drm_head_prepare_enable(wet, head))
+			continue;
+
+		head->drm_selected = true;
+
+		if (!wet->drm_primary_head)
+			wet->drm_primary_head = head;
+	}
+
+	/* Disable unselected heads */
+	while ((head = wet_backend_iterate_heads(wet, wb, head))) {
+		enabled = weston_head_is_enabled(head);
+		changed = weston_head_is_device_changed(head);
+
+		if (!head->drm_selected && enabled) {
 			drm_head_disable(head);
 		} else if (enabled && changed) {
 			weston_log("Detected a monitor change on head '%s', "
@@ -3690,6 +3801,14 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 
 	if (drm_process_layoutputs(wet) < 0)
 		wet->init_failed = true;
+
+	/* Move the primary output to the front of the list */
+	if (wet->drm_primary_head) {
+		struct weston_output *output;
+		output = weston_head_get_output(wet->drm_primary_head);
+		if (output)
+			weston_output_set_primary(output);
+	}
 }
 
 static int
@@ -4040,6 +4159,7 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	bool without_input = false;
 	bool force_pixman = false;
 	bool offload_blend_to_output = false;
+	char *buf;
 
 	wet->drm_use_current_mode = false;
 
@@ -4091,6 +4211,38 @@ load_drm_backend(struct weston_compositor *c, int *argc, char **argv,
 	config.configure_device = configure_input_device;
 
 	warn_possible_tty();
+
+	wet->drm_head_mode = DRM_HEAD_MODE_EXTERNAL_DUAL;
+
+	buf = getenv("WESTON_DRM_SINGLE_HEAD");
+	if (buf && buf[0] == '1')
+		wet->drm_head_single = true;
+
+	buf = getenv("WESTON_DRM_HEAD_FALLBACK");
+	if (buf && buf[0] == '1')
+		wet->drm_head_fallback = true;
+
+	buf = getenv("WESTON_DRM_PREFER_EXTERNAL");
+	if (buf && buf[0] == '1') {
+		wet->drm_head_mode = DRM_HEAD_MODE_EXTERNAL;
+		wet->drm_head_fallback = true;
+	}
+
+	buf = getenv("WESTON_DRM_PREFER_EXTERNAL_DUAL");
+	if (buf && buf[0] == '1')
+		wet->drm_head_mode = DRM_HEAD_MODE_EXTERNAL_DUAL;
+
+	buf = getenv("WESTON_DRM_HEAD_MODE");
+	if (buf) {
+		if (!strcmp(buf, "primary"))
+			wet->drm_head_mode = DRM_HEAD_MODE_PRIMARY;
+		else if (!strcmp(buf, "internal"))
+			wet->drm_head_mode = DRM_HEAD_MODE_INTERNAL;
+		else if (!strcmp(buf, "external"))
+			wet->drm_head_mode = DRM_HEAD_MODE_EXTERNAL;
+		else if (!strcmp(buf, "external-dual"))
+			wet->drm_head_mode = DRM_HEAD_MODE_EXTERNAL_DUAL;
+	}
 
 	wb = wet_compositor_load_backend(c, WESTON_BACKEND_DRM, &config.base,
 					 drm_heads_changed, NULL);
