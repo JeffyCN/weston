@@ -129,6 +129,8 @@
 
 #define MAX_CLONED_CONNECTORS 4
 
+/* Minimum interval between hotplug update requests (ms) to avoid glitches */
+#define DRM_HOTPLUG_DEBOUNCE_MS	1000
 
 /**
  * Represents the values of an enum-type KMS property
@@ -287,6 +289,13 @@ struct drm_backend {
 
 	/* True if we need a workaround for some very old kernels */
 	bool stale_timestamp_workaround;
+
+	/* Timer for debouncing hotplug events */
+	struct wl_event_source *hotplug_update_timer;
+	/* Flag for pending debounced update */
+	bool pending_hotplug_update;
+	/* Timestamp of last processed update */
+	int64_t last_hotplug_update_ms;
 };
 
 struct drm_mode {
