@@ -3407,9 +3407,16 @@ drm_head_create(struct drm_device *device, drmModeConnector *conn,
 		head->backlight = NULL;
 	}
 
-	if (conn->connector_type == DRM_MODE_CONNECTOR_LVDS ||
-	    conn->connector_type == DRM_MODE_CONNECTOR_eDP)
+	switch(conn->connector_type) {
+	case DRM_MODE_CONNECTOR_LVDS:
+	case DRM_MODE_CONNECTOR_eDP:
+	case DRM_MODE_CONNECTOR_DSI:
+	case DRM_MODE_CONNECTOR_DPI:
 		weston_head_set_internal(&head->base);
+		break;
+	default:
+		break;
+	}
 
 	if (drm_head_read_current_setup(head, device) < 0) {
 		weston_log("Failed to retrieve current mode from connector %d.\n",
