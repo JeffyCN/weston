@@ -4029,13 +4029,19 @@ drm_backend_update_connectors_post_destroy(struct drm_device *device,
 }
 
 static void
-drm_backend_update_connectors(struct drm_device *device,
-			      struct udev_device *drm_device,
-			      drmModeRes *resources)
+drm_backend_update_connectors(struct drm_device *device)
 {
+	struct udev_device *drm_device;
+	drmModeRes *resources;
 	int i;
 
-	assert(resources);
+	drm_device = device->kms_device->udev_device;
+
+	resources = drmModeGetResources(device->kms_device->fd);
+	if (!resources) {
+		weston_log("drmModeGetResources failed\n");
+		return;
+	}
 
 	for (i = 0; i < resources->count_connectors; i++) {
 		uint32_t connector_id = resources->connectors[i];
@@ -4043,69 +4049,15 @@ drm_backend_update_connectors(struct drm_device *device,
 	}
 
 	drm_backend_update_connectors_post_destroy(device, resources);
-}
-
-static enum wdrm_connector_property
-drm_connector_find_property_by_id(struct drm_connector *connector,
-				  uint32_t property_id)
-{
-	int i;
-	enum wdrm_connector_property prop = WDRM_CONNECTOR__COUNT;
-
-	if (!connector || !property_id)
-		return WDRM_CONNECTOR__COUNT;
-
-	for (i = 0; i < WDRM_CONNECTOR__COUNT; i++)
-		if (connector->props[i].prop_id == property_id) {
-			prop = (enum wdrm_connector_property) i;
-			break;
-		}
-	return prop;
-}
-
-static void
-drm_backend_update_conn_props(struct drm_backend *b,
-			      struct drm_device *device,
-			      uint32_t	connector_id,
-			      uint32_t property_id)
-{
-	struct drm_head *head;
-	enum wdrm_connector_property conn_prop;
-
-	head = drm_head_find_by_connector(b, device, connector_id);
-	if (!head) {
-		weston_log("DRM: failed to find head for connector id: %d.\n",
-			   connector_id);
-		return;
-	}
-
-	conn_prop = drm_connector_find_property_by_id(&head->connector, property_id);
-	if (conn_prop >= WDRM_CONNECTOR__COUNT)
-		return;
-
-	if (drm_connector_update_properties(&head->connector) < 0)
-		return;
-
-	if (conn_prop == WDRM_CONNECTOR_CONTENT_PROTECTION) {
-		weston_head_set_content_protection_status(&head->base,
-					     drm_head_get_current_protection(head));
-	}
+	drmModeFreeResources(resources);
 }
 
 static int
-udev_event_is_hotplug(struct drm_device *device, struct udev_device *udev_device)
+udev_event_is_hotplug(struct drm_backend *b, struct udev_device *udev_device)
 {
-	const char *sysnum;
 	const char *val;
 
-	if (!device->kms_device)
-		return 0;
-
-	drm_debug(device->backend, "[udev] HOTPLUG event\n");
-
-	sysnum = udev_device_get_sysnum(udev_device);
-	if (!sysnum || atoi(sysnum) != device->kms_device->id)
-		return 0;
+	drm_debug(b, "[udev] HOTPLUG event\n");
 
 	val = udev_device_get_property_value(udev_device, "HOTPLUG");
 	if (!val)
@@ -4114,31 +4066,49 @@ udev_event_is_hotplug(struct drm_device *device, struct udev_device *udev_device
 	return strcmp(val, "1") == 0;
 }
 
-static int
-udev_event_is_conn_prop_change(struct drm_backend *b,
-			       struct udev_device *udev_device,
-			       uint32_t *connector_id,
-			       uint32_t *property_id)
-
+/**
+ * Process debounced hotplug update
+ * @param b DRM backend instance
+ *
+ * Checks if sufficient time has passed since last update.
+ * If yes: processes immediately; if no: schedules timer.
+ */
+static void
+drm_hotplug_update(struct drm_backend *b)
 {
-	const char *val;
-	int id;
-	*connector_id = 0;
-	*property_id = 0;
+	struct timespec now;
+	int64_t now_ms, next_ms;
 
-	val = udev_device_get_property_value(udev_device, "CONNECTOR");
-	if (!val || !safe_strtoint(val, &id))
-		return 0;
-	else
-		*connector_id = id;
+	/* Skip if update already scheduled */
+	if (b->pending_hotplug_update)
+		return;
 
-	val = udev_device_get_property_value(udev_device, "PROPERTY");
-	if (!val || !safe_strtoint(val, &id))
-		return 0;
-	else
-		*property_id = id;
+	next_ms = b->last_hotplug_update_ms + DRM_HOTPLUG_DEBOUNCE_MS;
 
-	return 1;
+	weston_compositor_read_presentation_clock(b->compositor, &now);
+	now_ms = timespec_to_msec(&now);
+
+	if (next_ms <= now_ms) {
+		/* Time window passed: process immediately */
+		struct drm_device *device_iter;
+		wl_list_for_each(device_iter, &b->kms_list, link)
+			drm_backend_update_connectors(device_iter);
+		b->last_hotplug_update_ms = now_ms;
+	} else {
+		/* Too soon: schedule delayed processing */
+		b->pending_hotplug_update = true;
+		wl_event_source_timer_update(b->hotplug_update_timer,
+					     next_ms - now_ms);
+	}
+}
+
+static int
+hotplug_update_handler(void *data)
+{
+	struct drm_backend *b = data;
+	b->pending_hotplug_update = false;
+	drm_hotplug_update(b);
+	return 0;
 }
 
 static int
@@ -4146,37 +4116,12 @@ udev_drm_event(int fd, uint32_t mask, void *data)
 {
 	struct drm_backend *b = data;
 	struct udev_device *event;
-	uint32_t conn_id, prop_id;
-	struct drm_device *device_iter;
-	drmModeRes *resources = NULL;
 
 	event = udev_monitor_receive_device(b->udev_monitor);
-
-	wl_list_for_each(device_iter, &b->kms_list, link) {
-		if (!udev_event_is_hotplug(device_iter, event))
-			continue;
-
-		resources = drmModeGetResources(device_iter->kms_device->fd);
-		if (!resources) {
-			weston_log("drmModeGetResources failed\n");
-			break;
-		}
-
-		udev_event_is_conn_prop_change(b, event, &conn_id, &prop_id);
-
-		if (conn_id && prop_id > 0) {
-			drm_backend_update_conn_props(b, device_iter, conn_id, prop_id);
-		} else if (conn_id > 0) {
-			drm_backend_update_connector(device_iter, event, conn_id);
-			drm_backend_update_connectors_post_destroy(device_iter, resources);
-		} else {
-			drm_backend_update_connectors(device_iter, event, resources);
-		}
-		drmModeFreeResources(resources);
-	}
+	if (udev_event_is_hotplug(b, event))
+		drm_hotplug_update(b);
 
 	udev_device_unref(event);
-
 	return 1;
 }
 
@@ -4190,6 +4135,7 @@ drm_shutdown(struct weston_backend *backend)
 
 	udev_input_destroy(&b->input);
 
+	wl_event_source_remove(b->hotplug_update_timer);
 	wl_event_source_remove(b->udev_drm_source);
 	wl_event_source_remove(b->perf_page_flips_stats.pageflip_timer_counter);
 
@@ -4894,6 +4840,9 @@ drm_backend_create(struct weston_compositor *compositor,
 
 	if (weston_log_scope_is_enabled(b->debug))
 		drm_backend_pageflip_counter_timer_arm(b);
+
+	b->hotplug_update_timer =
+		wl_event_loop_add_timer(loop, hotplug_update_handler, b);
 
 	return b;
 
