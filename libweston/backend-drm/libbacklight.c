@@ -251,12 +251,18 @@ struct backlight *backlight_init(struct udev_device *drm_device,
 		else
 			goto out;
 
-		if (connector_type != DRM_MODE_CONNECTOR_LVDS &&
-		    connector_type != DRM_MODE_CONNECTOR_eDP) {
+		switch(connector_type) {
+		case DRM_MODE_CONNECTOR_LVDS:
+		case DRM_MODE_CONNECTOR_eDP:
+		case DRM_MODE_CONNECTOR_DSI:
+		case DRM_MODE_CONNECTOR_DPI:
+			break;
+		default:
 			/* External displays are assumed to require
 			   gpu control at the moment */
 			if (entry_type != BACKLIGHT_RAW)
 				goto out;
+			break;
 		}
 
 		free (path);
