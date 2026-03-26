@@ -888,6 +888,10 @@ get_renderbuffer_window_age(struct weston_output *output)
 	EGLint buffer_age = 0;
 	EGLBoolean ret;
 
+	/* HACK: Disable buffer age and partial update for old GPUs */
+	if (!gl_features_has(gr, FEATURE_EXPLICIT_SYNC))
+		return buffer_age;
+
 	if ((egl_display_has(gr, EXTENSION_EXT_BUFFER_AGE) ||
 	     egl_display_has(gr, EXTENSION_KHR_PARTIAL_UPDATE)) &&
 	    go->egl_surface != EGL_NO_SURFACE) {
