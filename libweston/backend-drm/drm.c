@@ -1460,6 +1460,11 @@ drm_plane_create(struct drm_device *device, const drmModePlane *kplane)
 				       props,
 				       WDRM_PLANE_TYPE__COUNT);
 
+	plane->can_scale =
+		drm_property_has_feature(&plane->props[WDRM_PLANE_FEATURE],
+					 props,
+					 WDRM_PLANE_FEATURE_SCALE);
+
 	zpos_range_values =
 		drm_property_get_range_values(&plane->props[WDRM_PLANE_ZPOS],
 					      props);

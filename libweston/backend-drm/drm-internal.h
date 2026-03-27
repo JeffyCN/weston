@@ -486,6 +486,8 @@ struct drm_plane {
 	struct wl_list link;
 
 	struct weston_drm_format_array formats;
+
+	bool can_scale;
 };
 
 struct drm_plane_handle {
@@ -865,6 +867,10 @@ drm_property_get_value(struct drm_property_info *info,
 uint64_t *
 drm_property_get_range_values(struct drm_property_info *info,
 			      const drmModeObjectProperties *props);
+bool
+drm_property_has_feature(struct drm_property_info *infos,
+			 const drmModeObjectProperties *props,
+			 enum wdrm_plane_feature feature);
 int
 drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const drmModeObjectProperties *props,
