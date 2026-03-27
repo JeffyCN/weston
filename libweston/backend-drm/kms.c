@@ -121,6 +121,12 @@ struct drm_property_enum_info plane_blend_enums[] = {
 	},
 };
 
+struct drm_property_enum_info plane_feature_enums[] = {
+	[WDRM_PLANE_FEATURE_SCALE] = {
+		.name = "scale",
+	},
+};
+
 const struct drm_property_info plane_props[] = {
 	[WDRM_PLANE_TYPE] = {
 		.name = "type",
@@ -166,6 +172,11 @@ const struct drm_property_info plane_props[] = {
 		.name = "COLOR_RANGE",
 		.enum_values = plane_color_range_enums,
 		.num_enum_values = WDRM_PLANE_COLOR_RANGE__COUNT,
+	},
+	[WDRM_PLANE_FEATURE] = {
+		.name = "FEATURE",
+		.enum_values = plane_feature_enums,
+		.num_enum_values = WDRM_PLANE_FEATURE__COUNT,
 	},
 };
 
@@ -489,6 +500,34 @@ drm_property_get_range_values(const struct drm_property_info *info,
 	}
 
 	return NULL;
+}
+
+/**
+ * Check if a DRM plane property (of type bitmask) has a specific feature enabled.
+ * Returns true if the property exists and the corresponding feature bit is set.
+ */
+bool
+drm_property_has_feature(struct drm_property_info *info,
+			 const drmModeObjectProperties *props,
+			 enum wdrm_plane_feature feature)
+{
+	unsigned int i;
+
+	if (info->prop_id == 0 ||
+	    feature >= info->num_enum_values ||
+	    !info->enum_values[feature].valid)
+		return false;
+
+	for (i = 0; i < props->count_props; i++) {
+		if (props->props[i] != info->prop_id)
+			continue;
+
+		if (props->prop_values[i] &
+		    (1LL << info->enum_values[feature].value))
+			return true;
+	}
+
+	return false;
 }
 
 /* We use the fact that 0 is not a valid rotation here - if we return 0,

@@ -60,7 +60,16 @@ enum wdrm_plane_property {
 	WDRM_PLANE_COLOR_ENCODING,
 	WDRM_PLANE_COLOR_PIPELINE,
 	WDRM_PLANE_COLOR_RANGE,
+	WDRM_PLANE_FEATURE,
 	WDRM_PLANE__COUNT
+};
+
+/**
+ * Possible values for the WDRM_PLANE_FEATURE property.
+ */
+enum wdrm_plane_feature {
+	WDRM_PLANE_FEATURE_SCALE = 0,
+	WDRM_PLANE_FEATURE__COUNT
 };
 
 /**

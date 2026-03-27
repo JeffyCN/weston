@@ -529,6 +529,8 @@ struct drm_plane {
 
 	uint32_t num_color_pipelines;
 	struct drm_color_pipeline *pipelines;
+
+	bool can_scale;
 };
 
 struct drm_plane_handle {
@@ -897,6 +899,10 @@ drm_property_get_value(const struct drm_property_info *info,
 const uint64_t *
 drm_property_get_range_values(const struct drm_property_info *info,
 			      const drmModeObjectProperties *props);
+bool
+drm_property_has_feature(struct drm_property_info *infos,
+			 const drmModeObjectProperties *props,
+			 enum wdrm_plane_feature feature);
 int
 drm_plane_populate_formats(struct drm_plane *plane, const drmModePlane *kplane,
 			   const drmModeObjectProperties *props,
