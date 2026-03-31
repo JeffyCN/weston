@@ -630,6 +630,12 @@ struct weston_output {
 
 	/* Display freeze deadline */
 	struct timespec freeze_until;
+
+	/* True if this output is mirroring the primary */
+	bool mirroring;
+
+	/* Needs full buffer clear */
+	bool full_clear_needed;
 };
 
 enum weston_pointer_motion_mask {
@@ -1478,6 +1484,13 @@ enum weston_output_flow {
 	WESTON_OUTPUT_FLOW_SAME_AS,
 };
 
+/* Mirroring modes: none, fit, stretch */
+enum weston_output_mirror {
+	WESTON_OUTPUT_MIRROR_NONE,
+	WESTON_OUTPUT_MIRROR_FIT,
+	WESTON_OUTPUT_MIRROR_STRETCH,
+};
+
 /** Main object, container-like structure which aggregates all other objects.
  *
  * \ingroup compositor
@@ -1673,6 +1686,13 @@ struct weston_compositor {
 	uint64_t internal_id_counter;
 
 	enum weston_output_flow output_flow;
+
+	/* Current mirror mode */
+	enum weston_output_mirror output_mirror;
+
+	/* Primary output dimensions for mirrors */
+	int32_t mirror_width;
+	int32_t mirror_height;
 };
 
 struct weston_solid_buffer_values {
@@ -3027,6 +3047,9 @@ weston_touch_device_bind_output(struct weston_touch_device *touch_device,
 
 void
 weston_compositor_reflow_outputs(struct weston_compositor *compositor);
+
+void
+weston_output_set_primary(struct weston_output *output);
 
 #ifdef  __cplusplus
 }

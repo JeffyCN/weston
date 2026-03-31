@@ -4487,6 +4487,11 @@ handle_output_resized(struct wl_listener *listener, void *data)
 	struct weston_output *output = (struct weston_output *)data;
 	struct shell_output *sh_output = weston_output_get_shell_private(output);
 
+	/* Reposition views when output changes to keep them visible */
+	if (!shell->disallow_output_changed_move) {
+		shell_for_each_layer(shell, shell_output_changed_move_layer, NULL);
+	}
+
 	handle_output_resized_shsurfs(shell);
 
 	shell_resize_surface_to_output(shell, sh_output->background_surface, output);

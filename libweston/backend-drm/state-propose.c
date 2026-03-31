@@ -1662,7 +1662,8 @@ drm_assign_planes(struct weston_output *output_base)
 	}
 
 	if (!state && !device->disable_client_buffer_scanout &&
-	    !output_base->disable_planes && !output->is_virtual && b->gbm) {
+	    !output_base->disable_planes && !output->is_virtual && b->gbm &&
+	    !output_base->mirroring) {
 		drm_debug(b, "\t[repaint] trying planes-only build state\n");
 		mode = DRM_OUTPUT_PROPOSE_STATE_PLANES_ONLY;
 		state = drm_output_propose_state(output_base, pending_state, mode);

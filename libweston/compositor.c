@@ -7629,6 +7629,9 @@ weston_compositor_reflow_outputs(struct weston_compositor *compositor)
 		pos.c = weston_coord(next_x, next_y);
 		weston_output_set_position(output, pos);
 
+		if (compositor->output_mirror)
+			continue;
+
 		if (compositor->output_flow == WESTON_OUTPUT_FLOW_HORIZONTAL)
 			next_x += output->width;
 		else if (compositor->output_flow == WESTON_OUTPUT_FLOW_VERTICAL)
@@ -7668,6 +7671,79 @@ weston_region_global_to_output(pixman_region32_t *dst,
 	weston_matrix_transform_region(dst, &output->matrix, src);
 }
 
+static bool
+weston_output_is_primary(struct weston_output *output)
+{
+	if (wl_list_empty(&output->compositor->output_list))
+		return true;
+
+	return output == container_of(output->compositor->output_list.next,
+				      struct weston_output, link);
+}
+
+static void
+weston_output_init_matrix(struct weston_output *output)
+{
+	struct weston_compositor *compositor = output->compositor;
+	uint32_t x, y, src_w, src_h, dst_w, dst_h;
+	float scale_x, scale_y;
+
+	if (!compositor->output_mirror ||
+	    weston_output_is_primary(output)) {
+		weston_matrix_init_transform(&output->matrix, output->transform,
+					     output->pos.c.x, output->pos.c.y,
+					     output->width, output->height,
+					     output->current_scale);
+		return;
+	}
+
+	assert(output->pos.c.x == 0);
+	assert(output->pos.c.y == 0);
+
+	weston_matrix_init_transform(&output->matrix, output->transform,
+				     output->pos.c.x, output->pos.c.y,
+				     output->width, output->height, 1);
+
+	/* Mirror output: calculate scaling based on mode (fit/stretch) */
+
+	switch (output->transform) {
+	case WL_OUTPUT_TRANSFORM_90:
+	case WL_OUTPUT_TRANSFORM_270:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+	case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+		src_w = output->height;
+		src_h = output->width;
+		break;
+	default:
+		src_w = output->width;
+		src_h = output->height;
+		break;
+	}
+
+	x = y = 0;
+	dst_w = output->current_mode->width;
+	dst_h = output->current_mode->height;
+
+	if (compositor->output_mirror == WESTON_OUTPUT_MIRROR_FIT) {
+		float src_ratio = (float) src_w / src_h;
+		float dst_ratio = (float) dst_w / dst_h;
+
+		if (src_ratio > dst_ratio) {
+			y = (dst_h - dst_w / src_ratio) / 2;
+			dst_h -= y * 2;
+		} else {
+			x = (dst_w - dst_h * src_ratio) / 2;
+			dst_w -= x * 2;
+		}
+	}
+
+	scale_x = (float)dst_w / src_w;
+	scale_y = (float)dst_h / src_h;
+
+	weston_matrix_scale(&output->matrix, scale_x, scale_y, 1);
+	weston_matrix_translate(&output->matrix, x, y, 0);
+}
+
 WESTON_EXPORT_FOR_TESTS void
 weston_output_update_matrix(struct weston_output *output)
 {
@@ -7675,17 +7751,47 @@ weston_output_update_matrix(struct weston_output *output)
 
 	weston_output_dirty_paint_nodes(output);
 
-	weston_matrix_init_transform(&output->matrix, output->transform,
-				     output->pos.c.x, output->pos.c.y,
-				     output->width, output->height,
-				     output->current_scale);
+	weston_output_init_matrix(output);
 
 	weston_matrix_invert(&output->inverse_matrix, &output->matrix);
 }
 
 static void
+weston_compositor_update_mirrors(struct weston_compositor *compositor,
+				 struct weston_output *primary)
+{
+	struct weston_output *output;
+
+	if (!compositor->output_mirror)
+		return;
+
+	assert(primary);
+
+	if (compositor->mirror_width == primary->width &&
+	    compositor->mirror_height == primary->height)
+		return;
+
+	/* Primary updates global dimensions and triggers mirror updates */
+	compositor->mirror_width = primary->width;
+	compositor->mirror_height = primary->height;
+
+	weston_log("Primary output '%s' changed to %dx%d\n",
+		   primary->name, primary->width, primary->height);
+
+	/* Update all outputs when primary changes */
+	wl_list_for_each(output, &compositor->output_list, link) {
+		if (output->destroying || output->mirror_of ||
+		    output == primary)
+			continue;
+
+		weston_mode_switch_finish(output, true, false);
+	}
+}
+
+static void
 weston_output_transform_scale_init(struct weston_output *output, uint32_t transform, uint32_t scale)
 {
+	struct weston_compositor *compositor = output->compositor;
 	int32_t old_width = output->width;
 	int32_t old_height = output->height;
 
@@ -7697,6 +7803,29 @@ weston_output_transform_scale_init(struct weston_output *output, uint32_t transf
 					output->current_mode->width,
 					output->current_mode->height,
 					transform, scale);
+
+	if (compositor->output_mirror) {
+		if (weston_output_is_primary(output)) {
+			weston_compositor_update_mirrors(compositor, output);
+		} else {
+			output->mirroring = true;
+
+			/* Mirror outputs use primary's dimensions */
+			if (output->width != compositor->mirror_width ||
+			    output->height != compositor->mirror_height) {
+				output->width = compositor->mirror_width;
+				output->height = compositor->mirror_height;
+				output->full_clear_needed = true;
+
+				weston_log("Mirror output '%s' changed to %dx%d\n",
+					   output->name, output->width,
+					   output->height);
+			}
+
+			assert(output->width);
+			assert(output->height);
+		}
+	}
 
 	/* Notify resized signal when effective output size changes */
 	if (output->enabled &&
@@ -7729,6 +7858,13 @@ weston_output_set_position(struct weston_output *output,
 	struct weston_head *head;
 	struct wl_resource *resource;
 	int ver;
+
+	if (output->compositor->output_mirror &&
+	    (pos.c.x != 0 || pos.c.y != 0)) {
+		weston_log("Output %s reset to (0,0) for mirror mode\n",
+			   output->name);
+		pos.c.x = pos.c.y = 0;
+	}
 
 	output->pos.c.x = (int)output->pos.c.x;
 	output->pos.c.y = (int)output->pos.c.y;
@@ -11691,6 +11827,12 @@ weston_output_set_primary(struct weston_output *output)
 	wl_list_insert(&compositor->output_list, &output->link);
 
 	weston_log("Output '%s' is primary\n", output->name);
+
+	if (output->mirroring) {
+		output->mirroring = false;
+		weston_mode_switch_finish(output, true, false);
+		wl_signal_emit(&compositor->output_resized_signal, output);
+	}
 
 	weston_compositor_reflow_outputs(compositor);
 }
