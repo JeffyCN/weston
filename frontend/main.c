@@ -2626,12 +2626,17 @@ wet_head_tracker_create(struct wet_compositor *compositor,
 static void
 weston_output_lazy_align(struct weston_output *output)
 {
-	struct weston_compositor *c;
+	struct weston_compositor *c = output->compositor;
 	struct weston_output *peer;
 	int next_x = 0;
 
+	/* Disable layout arrangement in mirror mode */
+	if (c->output_mirror) {
+		output->pos.c = weston_coord(0, 0);
+		return;
+	}
+
 	/* Put this output to the right of the most recently enabled output */
-	c = output->compositor;
 	if (!wl_list_empty(&c->output_list)) {
 		peer = container_of(c->output_list.prev,
 				    struct weston_output, link);
@@ -3802,7 +3807,6 @@ drm_heads_changed(struct wl_listener *listener, void *arg)
 	if (drm_process_layoutputs(wet) < 0)
 		wet->init_failed = true;
 
-	/* Move the primary output to the front of the list */
 	if (wet->drm_primary_head) {
 		struct weston_output *output;
 		output = weston_head_get_output(wet->drm_primary_head);
@@ -5508,6 +5512,26 @@ wet_main(int argc, char *argv[], const struct weston_testsuite_data *test_data)
 			wet.compositor->output_flow = WESTON_OUTPUT_FLOW_VERTICAL;
 		else if (!strcmp(buf, "same-as"))
 			wet.compositor->output_flow = WESTON_OUTPUT_FLOW_SAME_AS;
+	}
+
+	wet.compositor->output_mirror = WESTON_OUTPUT_MIRROR_NONE;
+
+	/* TODO: Drop this legacy env */
+	if (getenv("WESTON_DRM_MIRROR")) {
+		if (getenv("WESTON_DRM_KEEP_RATIO"))
+			wet.compositor->output_mirror = WESTON_OUTPUT_MIRROR_FIT;
+		else
+			wet.compositor->output_mirror =
+				WESTON_OUTPUT_MIRROR_STRETCH;
+	}
+
+	buf = getenv("WESTON_OUTPUT_MIRROR");
+	if (buf) {
+		if (!strcmp(buf, "fit"))
+			wet.compositor->output_mirror = WESTON_OUTPUT_MIRROR_FIT;
+		else if (!strcmp(buf, "stretch"))
+			wet.compositor->output_mirror =
+				WESTON_OUTPUT_MIRROR_STRETCH;
 	}
 
 	protocol_scope =

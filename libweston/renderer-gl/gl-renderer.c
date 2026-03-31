@@ -154,6 +154,9 @@ struct gl_renderbuffer {
 	weston_renderbuffer_discarded_func discarded_cb;
 	void *user_data;
 	struct wl_list link;
+
+	/* Needs full buffer clear */
+	bool full_clear_needed;
 };
 
 struct gl_output_state {
@@ -3106,6 +3109,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 	struct weston_paint_node *pnode;
 	int32_t area_y;
 	struct gl_renderbuffer *rb;
+	bool disable_partial_update = false;
 
 	assert(go);
 	assert(!renderbuffer ||
@@ -3121,6 +3125,12 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	if (use_output(output) < 0)
 		return;
+
+	if (output->full_clear_needed) {
+		wl_list_for_each(rb, &go->renderbuffer_list, link)
+			rb->full_clear_needed = true;
+		output->full_clear_needed = false;
+	}
 
 	rb = gl_renderer_update_renderbuffers(output, output_damage,
 					      renderbuffer);
@@ -3167,6 +3177,18 @@ gl_renderer_repaint_output(struct weston_output *output,
 			   go->area.width, go->area.height);
 	}
 
+	if (rb->full_clear_needed) {
+		set_blend_state(gr, false);
+
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		rb->full_clear_needed = false;
+		pixman_region32_copy(output_damage, &output->region);
+
+		disable_partial_update = true;
+	}
+
 	/* Update dirty textures. */
 	if (gr->wireframe_dirty)
 		update_wireframe_tex(gr, &go->area);
@@ -3193,7 +3215,7 @@ gl_renderer_repaint_output(struct weston_output *output,
 
 	if (egl_display_has(gr, EXTENSION_KHR_PARTIAL_UPDATE) &&
 	    go->egl_surface != EGL_NO_SURFACE &&
-	    !gr->debug_clear) {
+	    !gr->debug_clear && !disable_partial_update) {
 		int n_egl_rects;
 		EGLint *egl_rects;
 

@@ -73,6 +73,9 @@ struct pixman_renderbuffer {
 	weston_renderbuffer_discarded_func discarded_cb;
 	void *user_data;
 	struct wl_list link;
+
+	/* Needs full buffer clear */
+	bool full_clear_needed;
 };
 
 struct pixman_renderer {
@@ -609,6 +612,12 @@ pixman_renderer_repaint_output(struct weston_output *output,
 	assert(po);
 	assert(((struct pixman_renderbuffer *) renderbuffer)->output == output);
 
+	if (output->full_clear_needed) {
+		wl_list_for_each(rb, &po->renderbuffer_list, link)
+			rb->full_clear_needed = true;
+		output->full_clear_needed = false;
+	}
+
 	/* Accumulate damage in all renderbuffers */
 	wl_list_for_each(rb, &po->renderbuffer_list, link) {
 		pixman_region32_union(&rb->damage, &rb->damage, output_damage);
@@ -623,6 +632,22 @@ pixman_renderer_repaint_output(struct weston_output *output,
 
 	if (!po->hw_buffer)
  		return;
+
+	if (rb->full_clear_needed) {
+		pixman_color_t color = {0};
+		pixman_box32_t box = {
+			.x1 = 0,
+			.y1 = 0,
+			.x2 = pixman_image_get_width(rb->image),
+			.y2 = pixman_image_get_height(rb->image),
+		};
+
+		pixman_image_fill_boxes(PIXMAN_OP_SRC, rb->image,
+					&color, 1, &box);
+
+		rb->full_clear_needed = false;
+		pixman_region32_copy(output_damage, &output->region);
+	}
 
 	if (po->shadow_image) {
 		repaint_surfaces(output, output_damage);
