@@ -1555,6 +1555,12 @@ shell_surface_set_output(struct shell_surface *shsurf,
 		shsurf->output_destroy_listener.notify = NULL;
 	}
 
+	/* Update fullscreen_output based on current surface state */
+	if (weston_desktop_surface_get_fullscreen(shsurf->desktop_surface))
+		shsurf->fullscreen_output = shsurf->output;
+	else
+		shsurf->fullscreen_output = NULL;
+
 	if (!shsurf->output)
 		return;
 
@@ -2283,7 +2289,6 @@ set_fullscreen(struct shell_surface *shsurf, bool fullscreen,
 		}
 
 		shell_surface_set_output(shsurf, output);
-		shsurf->fullscreen_output = shsurf->output;
 
 		weston_desktop_surface_set_orientation(shsurf->desktop_surface,
 							WESTON_TOP_LEVEL_TILED_ORIENTATION_NONE);
