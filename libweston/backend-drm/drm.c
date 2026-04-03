@@ -2037,8 +2037,12 @@ drm_output_fini_pixman(struct drm_output *output)
 	unsigned int i;
 
 	/* Destroying the Pixman surface will destroy all our buffers,
-	 * regardless of refcount. */
-	weston_assert_ptr_null(b->compositor, output->scanout_handle);
+	 * regardless of refcount. Ensure we destroy them here. */
+	if (!b->compositor->shutting_down && output->scanout_handle &&
+	    output->scanout_handle->plane->state_cur->fb &&
+	    output->scanout_handle->plane->state_cur->fb->type == BUFFER_PIXMAN_DUMB) {
+		drm_plane_reset_state(output->scanout_handle->plane);
+	}
 
 	for (i = 0; i < ARRAY_LENGTH(output->dumb); i++) {
 		renderer->destroy_renderbuffer(output->renderbuffer[i]);
