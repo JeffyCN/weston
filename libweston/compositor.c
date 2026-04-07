@@ -6553,14 +6553,43 @@ weston_output_emit_heads_changed(struct weston_output *output)
 		       output);
 }
 
+static int
+weston_compositor_heads_changed_timer_handler(void *data)
+{
+	struct weston_compositor *compositor = data;
+	weston_compositor_flush_heads_changed(compositor);
+	return 0;
+}
+
 /** Idle task for emitting heads_changed_signal */
 static void
 weston_compositor_call_heads_changed(void *data)
 {
 	struct weston_compositor *compositor = data;
+	struct weston_output *output;
 	struct weston_head *head;
 
 	compositor->heads_changed_source = NULL;
+
+	/* Check if any output is being destroyed, delay signal if so */
+	wl_list_for_each(output, &compositor->output_list, link) {
+		struct wl_event_loop *loop;
+		int delay_nsec;
+
+		if (!output->destroying)
+			continue;
+
+		weston_log("Delaying heads changed signal...\n");
+
+		delay_nsec = millihz_to_nsec(output->current_mode->refresh);
+		loop = wl_display_get_event_loop(compositor->wl_display);
+		compositor->heads_changed_source = wl_event_loop_add_timer(loop,
+				weston_compositor_heads_changed_timer_handler,
+				compositor);
+		wl_event_source_timer_update(compositor->heads_changed_source,
+					     delay_nsec / 1000000);
+		return;
+	}
 
 	wl_signal_emit(&compositor->heads_changed_signal, compositor);
 
