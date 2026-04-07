@@ -7686,6 +7686,9 @@ weston_output_update_matrix(struct weston_output *output)
 static void
 weston_output_transform_scale_init(struct weston_output *output, uint32_t transform, uint32_t scale)
 {
+	int32_t old_width = output->width;
+	int32_t old_height = output->height;
+
 	output->transform = transform;
 	output->native_scale = scale;
 	assert(output->current_scale > 0);
@@ -7694,6 +7697,11 @@ weston_output_transform_scale_init(struct weston_output *output, uint32_t transf
 					output->current_mode->width,
 					output->current_mode->height,
 					transform, scale);
+
+	/* Notify resized signal when effective output size changes */
+	if (output->enabled &&
+	    (output->width != old_width || output->height != old_height))
+		wl_signal_emit(&output->compositor->output_resized_signal, output);
 }
 
 static void
