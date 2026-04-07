@@ -1530,6 +1530,8 @@ shell_surface_set_output(struct shell_surface *shsurf,
 	struct weston_surface *es =
 		weston_desktop_surface_get_surface(shsurf->desktop_surface);
 	struct shell_output *shoutput = NULL;
+	bool is_maximized;
+	bool is_fullscreen;
 
 	if (output)
 		shoutput = weston_output_get_shell_private(output);
@@ -1567,6 +1569,16 @@ shell_surface_set_output(struct shell_surface *shsurf,
 	shsurf->output_destroy_listener.notify = notify_output_destroy;
 	wl_signal_add(&shsurf->output->output->destroy_signal,
 		      &shsurf->output_destroy_listener);
+
+	/* Update window size if maximized or fullscreen when output changes */
+	is_maximized =
+		weston_desktop_surface_get_maximized(shsurf->desktop_surface);
+	is_fullscreen =
+		weston_desktop_surface_get_fullscreen(shsurf->desktop_surface);
+	if (is_maximized || is_fullscreen)
+		set_shsurf_size_maximized_or_fullscreen(shsurf,
+							is_maximized,
+							is_fullscreen);
 }
 
 static void
