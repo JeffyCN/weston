@@ -4362,10 +4362,9 @@ shell_reposition_view_on_output_change(struct weston_view *view)
 	 * otherwise, move it to the first output. */
 	visible = 0;
 	wl_list_for_each(output, &ec->output_list, link) {
-		struct weston_coord_global pos;
-
-		pos = weston_view_get_pos_offset_global(view);
-		if (weston_output_contains_coord(output, pos)) {
+		pixman_box32_t box = view->transform.boundingbox.extents;
+		if (pixman_region32_contains_rectangle(&output->region, &box) !=
+		    PIXMAN_REGION_OUT) {
 			visible = 1;
 			break;
 		}
