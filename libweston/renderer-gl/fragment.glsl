@@ -557,6 +557,10 @@ fragment_input_color_premult()
 		color = color * vec4(1.0 - src.a) + src;
 	}
 
+	/* Zero RGB for fully transparent fragments to prevent color artifacts */
+	if (color.a == 0.0)
+		color.rgb = vec3(0, 0, 0);
+
 	return color;
 }
 
