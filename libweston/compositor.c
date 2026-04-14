@@ -4255,13 +4255,22 @@ static bool
 weston_output_should_freeze(struct weston_output *output)
 {
 	struct weston_paint_node *pnode;
+	struct timespec now;
+
+	weston_compositor_read_presentation_clock(output->compositor, &now);
 
 	wl_list_for_each(pnode, &output->paint_node_z_order_list,
 			 z_order_link) {
 		/* Freeze output during ongoing surface resize */
-		if (pnode->surface->wait_for_resizing)
+		if (pnode->surface->wait_for_resizing) {
+			/* Freeze output for 50ms after last surface resize */
+			timespec_add_msec(&output->freeze_until, &now, 50);
 			return true;
+		}
 	}
+
+	if (timespec_sub_to_msec(&output->freeze_until, &now) > 0)
+		return true;
 
 	return false;
 }
