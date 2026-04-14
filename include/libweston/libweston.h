@@ -625,6 +625,9 @@ struct weston_output {
 
 	/** fifo_v1 - list of surfaces to clear next repaint */
 	struct wl_list fifo_barrier_surfaces;
+
+	/* Display freeze deadline */
+	struct timespec freeze_until;
 };
 
 enum weston_pointer_motion_mask {
