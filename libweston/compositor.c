@@ -4525,7 +4525,7 @@ output_repaint_timer_handler(int fd, uint32_t mask, void *data)
 
 	do {
 		size = read(compositor->repaint_timer_fd, &e, sizeof e);
-	} while (size < 0 && errno == EINTR);
+	} while (size < 0 && (errno == EINTR || errno == EAGAIN));
 
 	if (size < 0)
 		weston_log("repaint timer read failed: %s\n", strerror(errno));
@@ -4764,15 +4764,8 @@ weston_output_finish_frame(struct weston_output *output,
 	timespec_add_nsec(&output->next_present, stamp, refresh_nsec);
 	msec_rel = timespec_sub_to_msec(&output->next_present, &now);
 
-	if (msec_rel < -1000 || msec_rel > 1000) {
-		weston_log_paced(&output->repaint_delay_pacer,
-				 5, 60 * 60 * 1000,
-				 "Warning: time until next presentation for output "
-				 "[%s] is abnormal: %lld msec\n",
-				 output->name, (long long) msec_rel);
-
+	if (msec_rel < -1000 || msec_rel > 1000)
 		output->next_present = now;
-	}
 
 	/* We're just starting the repaint loop, but we're too close to the
 	 * next possible presentation time to allow a full repaint-window
