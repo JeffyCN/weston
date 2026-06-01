@@ -1503,6 +1503,9 @@ static bool
 blit_rb_to_dmabuf(struct gl_renderbuffer *rb, EGLImageKHR image,
 		  const struct weston_geometry *rect, bool invert_y)
 {
+#ifndef HAVE_GLES3
+		return false;
+#else
 	struct gl_renderer *gr = get_renderer(rb->output->compositor);
 	GLuint fbo_dst, rb_dst;
 	int32_t src_x0, src_y0, src_x1, src_y1;
@@ -1541,6 +1544,7 @@ blit_rb_to_dmabuf(struct gl_renderbuffer *rb, EGLImageKHR image,
 	gl_fbo_fini(&fbo_dst, &rb_dst);
 
 	return true;
+#endif
 }
 
 static void
