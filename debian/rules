@@ -1,0 +1,43 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+ifneq (,$(filter sparc64,$(DEB_HOST_ARCH)))
+BACKEND_VNC=false
+else
+BACKEND_VNC=true
+endif
+
+BACKEND_VNC=false
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+	        -Dbackend-rdp=true \
+	        -Dbackend-vnc=$(BACKEND_VNC) \
+	        -Dbackend-vnc=false \
+	        -Dscreenshare=true \
+	        -Dxwayland=true \
+			-Dsystemd=true --wipe
+
+override_dh_auto_test:
+	mkdir -p $(CURDIR)/debian/tmp/tmp/xdgruntimedir
+	mkdir -p /tmp/.X11-unix
+# Only make tests fatal for a subset of architectures
+# https://gitlab.freedesktop.org/wayland/weston/-/issues/739
+ifneq (,$(filter $(DEB_HOST_ARCH), amd64 arm64 armel armhf i386 ppc64el riscv64))
+	XDG_RUNTIME_DIR=$(CURDIR)/debian/tmp/tmp/xdgruntimedir dh_auto_test
+else
+	XDG_RUNTIME_DIR=$(CURDIR)/debian/tmp/tmp/xdgruntimedir dh_auto_test || true
+endif
+
+override_dh_missing:
+	dh_missing --fail-missing -X.la
+
+override_dh_makeshlibs:
+	dh_makeshlibs -Xlibweston-14/ -- -c4 -ldebian/weston/usr/lib/$(DEB_TARGET_MULTIARCH)/weston/
+
+override_dh_shlibdeps:
+	dh_shlibdeps -O--buildsystem=meson -- -ldebian/weston/usr/lib/$(DEB_TARGET_MULTIARCH)/weston/
+
+%:
+	dh $@ --buildsystem=meson

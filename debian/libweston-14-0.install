@@ -1,0 +1,14 @@
+#! /usr/bin/dh-exec
+usr/lib/*/libweston-14.so.*
+usr/lib/*/libweston-14/color-lcms.so
+usr/lib/*/libweston-14/drm-backend.so
+usr/lib/*/libweston-14/gl-renderer.so
+usr/lib/*/libweston-14/headless-backend.so
+usr/lib/*/libweston-14/pipewire-backend.so
+usr/lib/*/libweston-14/pipewire-plugin.so
+usr/lib/*/libweston-14/rdp-backend.so
+usr/lib/*/libweston-14/remoting-plugin.so
+#[!sparc64] usr/lib/*/libweston-14/vnc-backend.so
+usr/lib/*/libweston-14/wayland-backend.so
+usr/lib/*/libweston-14/x11-backend.so
+usr/lib/*/libweston-14/xwayland.so
