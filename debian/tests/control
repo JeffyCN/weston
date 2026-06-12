@@ -1,0 +1,14 @@
+# Upstream testsuite is not yet installable, see
+# https://gitlab.freedesktop.org/wayland/weston/-/issues/368
+Test-Command: dh_auto_configure; dh_auto_build; dh_auto_test
+Depends: @builddeps@
+Restrictions: allow-stderr
+Architecture: amd64 arm64 armel armhf i386 ppc64el riscv64
+
+# Tests fail on some Architectures, see:
+# https://gitlab.freedesktop.org/wayland/weston/-/issues/739
+# but run them as flaky for now.
+Test-Command: dh_auto_configure; dh_auto_build; dh_auto_test
+Depends: @builddeps@
+Restrictions: allow-stderr, flaky
+Architecture: !amd64 !arm64 !armel !armhf !i386 !ppc64el !riscv64

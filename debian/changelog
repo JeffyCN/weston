@@ -1,0 +1,701 @@
+weston (14.0.2-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Add some references in debian/upstream/metadata.
+  * Use dh_installman to install manpages.
+  * debian/watch: rely on gitlab releases instead of releases.html
+      which tends to be outdated.
+  * Drop patch included in upstream release.
+  * Add debian/salsa-ci.yml.
+  * Standards-Version: 4.7.2 (no changes required)
+
+ -- Dylan Aïssi <daissi@debian.org>  Fri, 25 Apr 2025 17:28:58 +0200
+
+weston (14.0.1-3) unstable; urgency=medium
+
+  * Cherry pick upstream patch allowing to build against neatvnc 0.9.0
+
+ -- Dylan Aïssi <daissi@debian.org>  Sat, 23 Nov 2024 10:04:10 +0100
+
+weston (14.0.1-2) unstable; urgency=medium
+
+  [ Carlos Henrique Lima Melara ]
+  * d/control: Recommends xwayland so it works out-of-the-box
+
+  [ Dylan Aïssi ]
+  * Run autopkgtest on failing architectures but marked as flaky
+  * Add xwayland in Build-Deps to ensure that HAVE_XWAYLAND_LISTENFD
+      is properly defined
+  * Re-enable xwayland test
+  * Enable tests (build time and autopkgtest) on riscv64 since they are
+      now successful
+
+ -- Dylan Aïssi <daissi@debian.org>  Fri, 08 Nov 2024 15:49:46 +0100
+
+weston (14.0.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update Homepage in debian/control.
+  * Drop libweston-noop-renderer-Check-shm_buffer-for-NULL.patch,
+      included in upstream release.
+
+ -- Dylan Aïssi <daissi@debian.org>  Tue, 22 Oct 2024 17:50:04 +0200
+
+weston (14.0.0-3) experimental; urgency=medium
+
+  * Enable tests (build time and autopkgtest) on armhf since
+      they are now successful.
+  * Bump minimum version of libdisplay-info-dev to 0.2.0,
+      it's required to get a better color management like HDR support.
+  * Move weston headers for plugin development into their
+      own package weston-dev. (Closes: #952530)
+  * cme fix dpkg-control
+
+ -- Dylan Aïssi <daissi@debian.org>  Thu, 17 Oct 2024 22:15:06 +0200
+
+weston (14.0.0-2) unstable; urgency=medium
+
+  [ Simon McVittie ]
+  * d/p/libweston-noop-renderer-Check-shm_buffer-for-NULL.patch:
+    Add proposed patch fixing a crash while running the gtk4 test suite.
+    Thanks to Jan Alexander Steffens (heftig) (Closes: #1081515)
+
+ -- Dylan Aïssi <daissi@debian.org>  Sun, 15 Sep 2024 14:20:35 +0200
+
+weston (14.0.0-1) unstable; urgency=medium
+
+  * Upload to unstable
+
+ -- Dylan Aïssi <daissi@debian.org>  Wed, 11 Sep 2024 11:30:18 +0200
+
+weston (14.0.0-1~exp2) experimental; urgency=medium
+
+  * Switch to freerdp3-dev from freerdp2-dev in Build-Deps
+
+ -- Dylan Aïssi <daissi@debian.org>  Mon, 09 Sep 2024 17:17:54 +0200
+
+weston (14.0.0-1~exp1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop Remove_upper_limit_of_required_neatvnc_version.patch,
+      no longer required.
+  * Add new Build-Deps: libdisplay-info-dev
+  * Bump SONAME to libweston-14-0
+  * Update symbols file
+  * Drop gentarball target in rules since we use upstream signed tarballs
+  * Drop packaging tweaks for architecture ia64
+  * Update minimum version of Build-Deps
+      - wayland-protocols >= 1.33
+
+ -- Dylan Aïssi <daissi@debian.org>  Wed, 04 Sep 2024 17:17:11 +0200
+
+weston (13.0.3-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Dylan Aïssi <daissi@debian.org>  Wed, 05 Jun 2024 17:25:19 +0200
+
+weston (13.0.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update symbols file
+  * Standards-Version: 4.7.0 (no changes required)
+  * Don't install rdp-backend on ia64 (disabled)
+
+ -- Dylan Aïssi <daissi@debian.org>  Tue, 23 Apr 2024 21:47:40 +0200
+
+weston (13.0.0-5) unstable; urgency=medium
+
+  * Don't install disabled features on ia64 and sparc64
+  * Do not check the upper limit for neatvnc version (Closes: #1065816)
+
+ -- Dylan Aïssi <daissi@debian.org>  Mon, 11 Mar 2024 12:01:23 +0100
+
+weston (13.0.0-4) unstable; urgency=medium
+
+  * Fix syntax of non fatal tests
+
+ -- Dylan Aïssi <daissi@debian.org>  Tue, 27 Feb 2024 09:24:06 +0100
+
+weston (13.0.0-3) unstable; urgency=medium
+
+  * Retrict architectures where tests are run
+  * Disable backend-rdp for ia64 and backend-vnc for ia64 and sparc64,
+      because of Build-Deps not available.
+  * Mark Skip_xwayland_test.patch as 'Forwarded: not-needed'
+  * Switch from pkg-config to pkgconf
+
+ -- Dylan Aïssi <daissi@debian.org>  Mon, 26 Feb 2024 18:02:10 +0100
+
+weston (13.0.0-2) unstable; urgency=medium
+
+  * Mark libweston-13-dev as 'Multi-Arch: same'
+  * Install all manpages through weston.install
+  * Enable all hardening flags
+  * Add Build-Depends-Package field in symbols file
+  * Add debian/upstream/metadata
+  * Apply wrap-and-sort -a
+  * Skip xwayland test since it fails at build time and on the
+      autopkgtest infrastructure
+  * Use build time tests as autopkgtest until upstream tests can be installed
+
+ -- Dylan Aïssi <daissi@debian.org>  Thu, 22 Feb 2024 17:45:02 +0100
+
+weston (13.0.0-1) unstable; urgency=medium
+
+  * Upload to unstable
+
+ -- Dylan Aïssi <daissi@debian.org>  Mon, 22 Jan 2024 10:00:54 +0100
+
+weston (13.0.0-1~exp2) experimental; urgency=medium
+
+  * Drop outdated references to quilt
+  * Fix short description of libweston-13-dev
+  * Standards-Version: 4.6.2 (no changes required)
+  * Update debian/copyright
+  * Remove trailing whitespace in debian/changelog
+  * Update minimum version of Build-Deps
+      - libdrm-dev >= 2.4.108
+      - libinput-dev >= 1.2.0
+      - libwayland-dev >= 1.22.0
+      - meson >= 0.63.0
+      - wayland-protocols >= 1.31
+      - libneatvnc-dev >= 0.7.0
+  * Add debian/gbp.conf
+  * Use secure URI for homepage
+  * Switch to debhelper-compat 13
+  * Install some binaries in usr/libexec/ instead of usr/lib/*/
+  * Drop useless debian/tmp/ prefix
+  * weston suggests wayland-utils (Closes: #980995)
+  * Mark libweston-13-0 as 'Multi-Arch: same'
+  * Remove all references to weston-launch which was dropped
+      upstream with weston 11
+  * Drop dependency on adduser, no longer required since
+      weston.postinst was dropped
+  * Restrict Build-Deps on libneatvnc-dev for supported architectures
+
+ -- Dylan Aïssi <daissi@debian.org>  Fri, 19 Jan 2024 09:47:00 +0100
+
+weston (13.0.0-1~exp1) experimental; urgency=medium
+
+  [ Dylan Aïssi ]
+  * New upstream release. (Closes: #1054695)
+  * Bump SONAME to libweston-13-0
+  * Update symbols file
+  * Use format: 3.0 (quilt)
+  * Import Marius Vlad's key
+  * Add myself in Uploaders
+
+  [ Timo Aaltonen ]
+  * rules: Drop the workaround to drop includedir from
+      libweston-NN-protocols.pc. (LP: #1887301)
+
+ -- Dylan Aïssi <daissi@debian.org>  Wed, 17 Jan 2024 20:56:05 +0100
+
+weston (12.0.1-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 03 Aug 2023 13:57:10 +0200
+
+weston (12.0.0-1~exp1) experimental; urgency=medium
+
+  * New upstream release.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 01 Aug 2023 17:04:32 +0200
+
+weston (11.0.0-2) experimental; urgency=medium
+
+  * Add signing-key by emersion.
+
+ -- Timo Aaltonen <tjaalton@debian.org>  Tue, 17 Jan 2023 20:10:49 +0200
+
+weston (11.0.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 14 Oct 2022 18:26:54 +0200
+
+weston (10.0.1-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 08 Jul 2022 18:17:57 +0200
+
+weston (10.0.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Adjust files for version 10
+  * debian/control: adjust versioned build dependencies
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 07 Feb 2022 13:02:27 +0100
+
+weston (9.0.0-4) unstable; urgency=high
+
+  * debian/rules: make tests non fatal
+    - Xwayland test needs a proper environment to run.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 04 Mar 2021 22:12:48 +0100
+
+weston (9.0.0-3) unstable; urgency=high
+
+  * re-enable pipewire support with new ABI (0.3)
+  * set XDG_RUNTIME_DIR for testsuite at build daemons
+    - failing tests are fatal for build.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 04 Mar 2021 20:01:52 +0100
+
+weston (9.0.0-2) unstable; urgency=medium
+
+  * debian/libweston-9-dev.install: drop libexec_weston (Closes: #970134)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 20 Sep 2020 10:36:42 +0200
+
+weston (9.0.0-1) unstable; urgency=medium
+
+  * Release to unstable.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 11 Sep 2020 12:57:05 +0200
+
+weston (9.0.0-1~exp1) experimental; urgency=medium
+
+  * New upstream release
+  * debian/libweston-9-0.install: disable pipewire plugin, waiting for
+    pipewire-0.3 transition
+  * debian/libweston-9-0.symbols: update
+  * weston: install kiosk shell
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 04 Sep 2020 14:19:31 +0200
+
+weston (8.0.0-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/libweston-8-0.symbols: update
+  * libexec_weston.so*,weston-direct-display.xml: new files
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 10 Feb 2020 12:23:53 +0100
+
+weston (7.0.0-1~exp1) experimental; urgency=medium
+
+  * New upstream release
+  * debian/control: bump wayland dependency version
+  * debian/control: add new dependencies
+  * bump libweston-desktop ABI to 7
+  * install weston-debug.xml in ABI versioned path
+  * debian/weston.manpages: add weston-bindings manpage
+  * debian/libweston-7-0.install: install pipewire plugin
+  * debian/libweston-7-0.symbols: update
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 03 Sep 2019 14:02:59 +0200
+
+weston (6.0.1-2) unstable; urgency=medium
+
+  * debian/control: bump standards version
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 02 Sep 2019 15:05:36 +0200
+
+weston (6.0.1-1) unstable; urgency=medium
+
+  [ Rohan Garg ]
+  * New upstream release
+  * Workaround having a libdir and includedir in weston-protocols.pc
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Fri, 23 Aug 2019 15:05:17 +0200
+
+weston (5.0.0-3) unstable; urgency=medium
+
+  * debian/control: add libdbus-1-dev to Build-Depends
+    - Fixes "won't start despite having an active logind session"
+    (Closes: #799325)
+    Thanks Paul Menzel for analysis.
+  * debian/patches/reproducible-build-899358.patch: new patch
+    - Make the build reproducible
+    (Closes: #899358)
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 28 Mar 2019 14:11:26 +0100
+
+weston (5.0.0-2) unstable; urgency=medium
+
+  [ Emilio Pozuelo Monfort ]
+  * Update copyright holder years.
+
+  [ Sven Joachim ]
+  * Add liblcms2-dev to Build-Depends (Closes: #921763).
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Mon, 11 Feb 2019 10:12:16 +0100
+
+weston (5.0.0-1) unstable; urgency=medium
+
+  * Update build dependencies.
+  * Update the watch file for the new upstream website layout.
+  * New upstream release.
+  * Bump libdrm-dev and libgbm-dev build dependencies.
+  * Rename packages for soname bump.
+  * Update symbols file.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Tue, 18 Sep 2018 12:16:49 +0200
+
+weston (4.0.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Rename packages for soname bump.
+  * Update symbols.
+  * Update Vcs-* for salsa.
+  * Make libweston-4-dev priority optional.
+  * Update copyright.
+  * Enable systemd notify support. Closes: #886919.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Sat, 19 May 2018 13:47:15 +0200
+
+weston (3.0.0-1) unstable; urgency=medium
+
+  [ Timo Aaltonen ]
+  * New upstream release.
+  * control, libweston*.{install,symbols, rules: Bump soversion.
+
+  [ Emilio Pozuelo Monfort ]
+  * debian/copyright: add missing copyright holders.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Thu, 14 Sep 2017 16:42:50 +0200
+
+weston (1.12.0-3) unstable; urgency=medium
+
+  * Remove useless dependency on libegl1-mesa-drivers.
+  * Disable the freerdp backend for stretch. freerdp2 doesn't build
+    everywhere and is not in testing, and the backend fails to build
+    against our snapshot of freerdp 1.
+  * Drop obsolete --enable-libinput-backend configure switch.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Sun, 05 Feb 2017 10:57:54 +0100
+
+weston (1.12.0-2) unstable; urgency=medium
+
+  * Enable RDP compositor and screen sharing. Closes: #775855, #850658.
+  * Fix build with freerdp2. Patch based on one from John Moser in #850658.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Mon, 16 Jan 2017 23:46:48 +0100
+
+weston (1.12.0-1) unstable; urgency=medium
+
+  * New upstream release. Closes: #841735.
+  * Ship the shared libraries in libweston-1-0 and libweston-1-dev.
+  * Bump debhelper compat to 10.
+    + debhelper now calls dh-autoreconf automatically.
+  * No need to pass --destdir=debian/tmp to dh_auto_install now that we
+    have multiple binary packages.
+  * Update copyright.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Wed, 07 Dec 2016 19:17:42 +0100
+
+weston (1.11.94-1) experimental; urgency=medium
+
+  * New upstream release.
+  * debian/weston.install: use wildcards for libweston{,-desktop}.so.*.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Wed, 14 Sep 2016 12:49:23 +0200
+
+weston (1.11.91-1) experimental; urgency=medium
+
+  * New upstream pre-release.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 18 Aug 2016 16:36:44 +0200
+
+weston (1.11.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Thu, 02 Jun 2016 13:31:22 +0200
+
+weston (1.10.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Wed, 01 Jun 2016 13:35:05 +0200
+
+weston (1.9.92-2) experimental; urgency=medium
+
+  * d/control: tighten build depend libwayland-dev versioning.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Tue, 09 Feb 2016 00:00:10 +0100
+
+weston (1.9.92-1) experimental; urgency=medium
+
+  * New upstream release
+  * d/control: build depend on wayland-protocols
+  * d/watch: update https url
+  * d/p/0001-Add-suport-for-new-libsystemd.patch: drop
+    - merged upstream.
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 07 Feb 2016 21:22:32 +0100
+
+weston (1.9.0-3) unstable; urgency=medium
+
+  * debian/patches/0001-Add-suport-for-new-libsystemd.patch:
+    + Consistently check for libsystem.pc rather than libsystemd-login.pc
+      to get session support for weston-launch.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Sun, 01 Nov 2015 17:32:38 +0100
+
+weston (1.9.0-2) unstable; urgency=medium
+
+  * d/control: tighten versioned build depends
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 27 Sep 2015 12:26:29 +0200
+
+weston (1.9.0-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Héctor Orón Martínez <zumbi@debian.org>  Sun, 27 Sep 2015 00:18:22 +0200
+
+weston (1.8.0-3) unstable; urgency=medium
+
+  * Add support for new libsystemd.
+    (Closes: #779754)
+
+ -- Hector Oron <zumbi@debian.org>  Tue, 01 Sep 2015 13:32:59 +0200
+
+weston (1.8.0-2) unstable; urgency=medium
+
+  * d/control: bump wayland versioned build dependency
+
+ -- Hector Oron <zumbi@debian.org>  Sat, 13 Jun 2015 02:49:22 +0200
+
+weston (1.8.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Hector Oron <zumbi@debian.org>  Sat, 13 Jun 2015 02:10:31 +0200
+
+weston (1.7.0-1) unstable; urgency=medium
+
+  [ Timo Aaltonen ]
+  * New upstream release.
+  * control: Bump libinput and libwayland-dev build-deps.
+  * install: Add new files.
+
+  [ Emilio Pozuelo Monfort ]
+  * Remove Cyril from Uploaders. Thanks for your past work!
+  * Upload to unstable.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Wed, 27 May 2015 01:07:50 +0200
+
+weston (1.6.1-1) experimental; urgency=medium
+
+  * New upstream bugfix release:
+    - compositor fixes
+    - input fixes
+    - shell fixes
+  * d/control: bump standards version, no changes needed.
+
+ -- Hector Oron <zumbi@debian.org>  Sat, 24 Jan 2015 10:20:02 +0100
+
+weston (1.6.0-2) unstable; urgency=medium
+
+  * Switch back to use upstream tarball.
+
+ -- Hector Oron <zumbi@debian.org>  Tue, 23 Sep 2014 17:49:21 +0200
+
+weston (1.6.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Fix "weston-terminal: exits under load"
+    - Thanks Rémi Denis-Courmont for report.
+    (Closes: #760043)
+
+ -- Hector Oron <zumbi@debian.org>  Fri, 19 Sep 2014 16:38:47 +0200
+
+weston (1.5.93-2) unstable; urgency=medium
+
+  [ Hector Oron ]
+  * d/control:
+    + allow third party graphic stacks
+    + update EGL wayland driver library
+
+  [ Emilio Pozuelo Monfort ]
+  * Upload to unstable.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Tue, 16 Sep 2014 22:43:37 +0200
+
+weston (1.5.93-1) experimental; urgency=medium
+
+  * New upstream development release.
+  * d/patches/*: drop them.
+  * d/control:
+    + bump wayland version requirement for build.
+    + bump build depend on libinput-dev.
+  * Upload to experimental.
+
+ -- Hector Oron <zumbi@debian.org>  Fri, 12 Sep 2014 18:28:31 +0200
+
+weston (1.5.0-3) unstable; urgency=medium
+
+  * d/p/0001-libinput-Use-floating-point-instead-of-fixed-point-n.patch,
+    d/p/0001-Require-libinput-0.4.0.patch,
+    debian/control:
+    + Build against libinput 0.5.0.
+  * debian/weston.install,
+    debian/rules:
+    + Disable cairo-gl support. It causes trouble in some embedded platforms
+      so we're disabling its support, at least for now.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Fri, 05 Sep 2014 02:14:06 +0200
+
+weston (1.5.0-2) unstable; urgency=medium
+
+  * debian/control,
+    debian/rules:
+    + Enable libinput backend.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Sun, 01 Jun 2014 17:25:06 +0200
+
+weston (1.5.0-1) unstable; urgency=medium
+
+  * Add myself to Uploaders.
+  * New upstream release.
+  * Switch back to source format 1.0 for now.
+  * debian/control:
+    + Drop librsvg2-bin build dependency, no longer needed.
+  * debian/clean:
+    + Dropped, no longer needed.
+  * debian/weston.install:
+    + Fix path for demo clients.
+    + Install the fullscreen shell.
+  * debian/patches/0001-animation-fix-move-scale-animation.patch:
+    + Patch from Jonny Lamb, taken from wayland-devel@, that fixes
+      move animations, as triggered e.g. by exposay.
+  * d/p/0001-exposay-fix-crash-when-navigating-with-the-keyboard.patch:
+    + New patch, fix a crash in exposay.
+
+ -- Emilio Pozuelo Monfort <pochu@debian.org>  Sat, 24 May 2014 02:53:44 +0200
+
+weston (1.4.0-1) unstable; urgency=medium
+
+  * New upstream release 1.4.0:
+    - Window buttons for xwayland windows and proper decorations for the
+      nested compositor (wayland backend)
+    - Make the gl-renderer a loadable module and make it possible to
+      switch from pixman to gl renderer at runtime.  This lets the
+      compositor start up faster, since we can load the gl-renderer and
+      initialize EGL+GLES2 later in the startup
+    - Support framebuffer formats other than XRGB8888 (gbm-format config
+      value under [core] section).
+    - Use logind for privileged access.  logind can now do the this that
+      weston-launch used to do: drm drop/set master and opening input
+      devices.  With this, weston can run on KMS without the
+      weston-launch setuid helper.
+    - struct weston_surface split into struct weston_surface and struct
+      weston_view.  This is a weston-internal feature, that makes it
+      possible to display a surface in multiple places in the compositor.
+    - Better output unplug handling.  We used to crash and in general not
+      handle output (monitor) unplug at all.  We now clean up properly
+      and move windows back into the visible region when their output is
+      unplugged.
+    - Keyboard focus animation and exposay (exposé-like window picker)
+    - More touch screen support, including touch-to-move and
+      touch-to-activate for surfaces, touch screen drag-and-drop
+    - Started work on xdg-shell protocol.  The xdg-shell is a more format
+      attempt at developing a protocol for the interaction between
+      applications and a desktop environmet.  The wl_shell protocol
+      currently in wayland was always only a place-holder to help
+      boot-strap toolkit support.  Now that GNOME Shell is moving to
+      Wayland, we have a full-featured desktop to drive the work and we
+      can start the effort in earnest
+    - Nested compositor buffer pass-through.  We specified a new EGL
+      extension to allow a nested compositor to pass buffers through to
+      the underlying compositor.  This lets the nested compositor skip
+      rendering and instead present the contents using a subsurface or
+      such in the underlying compositor
+    - Crop and scale protocol.  This protocol, which we're initially
+      staging in weston, lets a client specify that a only sub-rectangle
+      of it's surface should be presented, and potentially scaled up.
+    - weston-terminal gained scrollback history, use Ctrl+Shift UP/DOWN
+      to scroll.  Added a context menu for easy access to copy/paste/new
+      terminal (which have always been available as Ctrl-Shift-C/V/N)
+  * d/control: update
+    + bump standards version
+    + build depend on librsvg2-bin for PNG file generation.
+    + add build dependency against libxcb-composite0-dev for build
+    + add build-dependency against libxcb-xkb-dev (Closes: #733229)
+    + add build-dependency against libpango1.0-dev for the editor
+  * d/weston.install: update
+    + drop weston-tablet-shell
+    + add gl-renderer
+    + add clients
+
+ -- Hector Oron <zumbi@debian.org>  Thu, 30 Jan 2014 23:06:00 +0100
+
+weston (1.3.0-1) unstable; urgency=low
+
+  [ Sven Joachim ]
+  * Bump libwayland-dev build-depends to (>= 1.2.0).
+
+  [ Laurent Bigonville ]
+  * debian/rules:
+    - Install weston-launch with setuid bit set (LP: #1102597)
+    - Set libexec path to /usr/lib/weston
+  * debian/weston.lintian-overrides: Add override for the mode of weston-launch
+    executable
+  * debian/weston.examples: Install weston.ini as an example file
+  * debian/weston.postinst: Create weston-launch group on installation
+    (LP: #1203017)
+  * debian/control, debian/weston.install: Enable colord support
+  * debian/README.Debian: Fix directions on how to run weston under KMS
+    (Closes: #714379)
+  * debian/control: Add a dependency against adduser
+  * debian/control: Use canonical URL's for Vcs field
+
+  [ Timo Aaltonen ]
+  * rules: Explicitly enable cairo-gl so that weston-screensaver gets
+    built.
+
+  [ Hector Oron ]
+  * New upstream release (1.3.0) (Closes: #719144).
+  * Add myself to Uploaders.
+  * Switch Debian source format to 3.0 quilt
+
+ -- Hector Oron <zumbi@debian.org>  Fri, 11 Oct 2013 13:03:04 +0200
+
+weston (1.1.1-1) experimental; urgency=low
+
+  [ Timo Aaltonen ]
+  * New upstream release (Closes: #675138, #699045).
+  * Add a watch file.
+  * control: Add missing build-depends: libmtdev-dev, libxcursor-dev,
+    libpam0g-dev, libvpx-dev.
+  * Use source format 1.0.
+  * control: Bump the build-depends on libxkbcommon-dev to (>= 0.1.0~2).
+  * rules: Make the test run failure non-fatal, since it doesn't work
+    properly in headless-mode.
+  * weston.install: Add new files.
+  * control: Bump build-depends on mesa derived components to 9.0~.
+  * control, compat: Switch to debhelper 9.
+  * control: Bump policy to 3.9.4, no changes.
+  * control: Added homepage (Closes: #687571).
+  * Add README.source.
+  * patches/series: Add a placeholder file.
+
+  [ Sven Joachim ]
+  * Configure with --disable-libunwind until libunwind starts shipping
+    pkg-config files (see #711854).
+  * Add build-dependencies on libsystemd-login-dev and libglu1-mesa-dev.
+
+  [ Mike Gabriel ]
+  * control: add libgl1-mesa-dri to Recommends: field. (Closes: #714351).
+  * control: add myself to Uploaders: field.
+
+ -- Mike Gabriel <sunweaver@debian.org>  Fri, 28 Jun 2013 14:31:18 +0200
+
+weston (0.85.0-1) experimental; urgency=low
+
+  * Initial release (Closes: #630809).
+  * Build without setuid for weston; it's very young and experimental, so
+    let's be cautious.
+  * Document weston's setuid bit (or lack thereof) in README.Debian.
+  * Tiny/toy clients will be shipped in a later upload.
+  * Restrict to linux-any since wayland isn't as portable as X.
+  * Make sure the following packages are at least at 8.0-2 in the
+    generated dependencies: libegl1-mesa, libegl1-mesa-drivers, and
+    libgles2-mesa.
+
+ -- Cyril Brulebois <kibi@debian.org>  Tue, 21 Feb 2012 23:58:19 +0100

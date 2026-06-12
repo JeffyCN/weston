@@ -1,0 +1,21 @@
+Bug-Database: https://gitlab.freedesktop.org/wayland/weston/-/issues
+Bug-Submit: https://gitlab.freedesktop.org/wayland/weston/-/issues/new
+Repository: https://gitlab.freedesktop.org/wayland/weston.git
+Repository-Browse: https://gitlab.freedesktop.org/wayland/weston
+Reference:
+  - Title: "Weston 14.0: DRM-backend, color management, and output mirroring"
+    Author: Marius Vlad
+    Year: 2024
+    URL: https://www.collabora.com/news-and-blog/news-and-events/weston-14-release-new-drm-backend.html
+  - Title: "Weston 13.0 release: Backends consolidation"
+    Author: Marius Vlad
+    Year: 2023
+    URL: https://www.collabora.com/news-and-blog/news-and-events/weston-13-release-backends-consolidation.html
+  - Title: "Weston 12.0: Highlights and changes for Wayland's reference compositor"
+    Author: Marius Vlad
+    Year: 2023
+    URL: https://www.collabora.com/news-and-blog/news-and-events/weston-12-highlights-and-changes.html
+  - Title: "Weston 11.0: what's new, what's next"
+    Author: Marius Vlad
+    Year: 2022
+    URL: https://www.collabora.com/news-and-blog/news-and-events/weston-11-whats-new-whats-next.html
