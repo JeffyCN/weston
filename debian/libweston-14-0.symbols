@@ -523,3 +523,4 @@ libweston-14.so.0 libweston-14-0 #MINVER#
  weston_zoom_run@Base 12.0.0
  wl_data_device_manager_init@Base 12.0.0
  wl_data_device_set_keyboard_focus@Base 12.0.0
+ weston_compositor_reflow_outputs@Base 14.0.2-1
